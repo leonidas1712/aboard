@@ -837,6 +837,29 @@ Runbook, written so an agent can follow it:
 5. Run `aboard invite` for each teammate and send them the link.
 6. Back up the data directory (the SQLite file and the files folder) on a schedule.
 
+### Upgrades
+
+People will install a new `aboard` while sessions, a daemon and a server from the old
+one are running, and team servers will be upgraded at a different time from the
+machines that use them. Nothing should break when that happens:
+
+- **One install upgrades everything on a machine.** Hooks call the installed `aboard`
+  by its path, so a new binary is used by the next hook. A running delivery daemon or
+  local server from an older build is replaced automatically when a command or hook
+  from the newer build reaches it; their state (the journal, the database) is durable,
+  so nothing is lost. Until that lands, `aboard down` does it by hand.
+- **Installed files carry a version.** The skill and the hook entries `aboard init`
+  writes are marked with the version that wrote them. `aboard doctor` reports any that
+  are out of date, and `aboard init --yes` updates them in place without touching
+  anything else.
+- **Stored data only migrates forward.** The server database and the delivery journal
+  apply numbered migrations at start. A binary older than the data it finds refuses to
+  run and says to upgrade, rather than misreading it.
+- **What crosses a boundary only grows.** API v1, event types, `--json` output and the
+  board file only get additions; a breaking change is a new version served alongside
+  the old one. The control socket and the server's info endpoint carry versions, so a
+  client can tell a too-old peer apart from a broken one and name the fix.
+
 ### Auth
 
 - **Humans** log in to a server: invite links in v0.1; later an adapter that accepts
