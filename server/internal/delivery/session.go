@@ -60,6 +60,9 @@ type session struct {
 	proc *Process
 	// busyAt is when the session last showed it was in a turn: a prompt or a tool call.
 	busyAt time.Time
+	// inTurn is true while a queueing harness runs a turn, as its prompt and stop hooks
+	// report. Urgent messages then wait for a tool hook instead of the queue.
+	inTurn bool
 	waiter *waiter
 	agents map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
@@ -146,6 +149,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	s.noteProcess(ctx, req)
 	switch req.Op {
 	case OpRegister:
+		s.inTurn = false
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
 		} else {
@@ -155,6 +159,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		ok.Boot = s.boot
 	case OpPrompt:
 		s.busyAt = s.now()
+		s.inTurn = !s.adapter.WaitsForIdle()
 		if !req.Wake {
 			s.event(ctx, req.Boot)
 		}
@@ -166,7 +171,13 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.busyAt = s.now()
 		s.event(ctx, req.Boot)
 		ok.Bundle = s.handUrgent(ctx)
+	case OpTurnEnd:
+		s.inTurn = false
+		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
+			s.gatherUntil = s.now()
+		}
 	case OpEnd:
+		s.inTurn = false
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil
@@ -426,7 +437,7 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 		}
 	}
 	slices.SortFunc(a.unread, func(x, y Message) int { return cmp.Compare(x.Seq, y.Seq) })
-	if !s.adapter.WaitsForIdle() && s.gatherUntil.IsZero() && len(s.offers(false)) > 0 {
+	if !s.adapter.WaitsForIdle() && s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
 		s.gatherUntil = s.now().Add(QueueGather)
 	}
 	s.maybeAck(a)
@@ -465,12 +476,41 @@ func taken(a *agentState) map[int]State {
 	return t
 }
 
+// filter picks which new messages a bundle may carry.
+type filter int
+
+const (
+	allMessages filter = iota
+	urgentOnly
+	notUrgent
+)
+
+func (f filter) allows(m Message) bool {
+	switch f {
+	case urgentOnly:
+		return m.Urgent
+	case notUrgent:
+		return !m.Urgent
+	case allMessages:
+	}
+	return true
+}
+
+// queueFilter is what may go into a queueing harness's queue now: during a turn, urgent
+// messages wait for a tool hook, since the queue would hold them until the turn ends.
+func (s *session) queueFilter() filter {
+	if s.inTurn {
+		return notUrgent
+	}
+	return allMessages
+}
+
 // newMessages returns unread messages that are in no delivery yet.
-func (s *session) newMessages(a *agentState, urgentOnly bool) []Message {
+func (s *session) newMessages(a *agentState, f filter) []Message {
 	t := taken(a)
 	var out []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || (urgentOnly && !m.Urgent) {
+		if _, in := t[m.Seq]; in || !f.allows(m) {
 			continue
 		}
 		out = append(out, m)
@@ -530,9 +570,9 @@ func (s *session) onAck(ctx context.Context, r ackResult) {
 }
 
 // offers returns, per agent, what the next bundle should carry: a delivery to hand
-// again, or new messages. An agent with a delivery waiting for a retry or for attention
-// gets nothing, so its messages stay in order.
-func (s *session) offers(urgentOnly bool) []offer {
+// again, or new messages that pass f. An agent with a delivery waiting for a retry or for
+// attention gets nothing, so its messages stay in order.
+func (s *session) offers(f filter) []offer {
 	now := s.now()
 	var out []offer
 	for _, ref := range s.agentRefs() {
@@ -564,7 +604,7 @@ func (s *session) offers(urgentOnly bool) []offer {
 			continue
 		}
 		if again != nil {
-			if urgentOnly {
+			if f == urgentOnly {
 				continue
 			}
 			msgs := s.messagesFor(a, again.Seqs)
@@ -575,7 +615,7 @@ func (s *session) offers(urgentOnly bool) []offer {
 			out = append(out, offer{agent: ref, redeliver: again.ID, msgs: msgs})
 			continue
 		}
-		if msgs := s.newMessages(a, urgentOnly); len(msgs) > 0 {
+		if msgs := s.newMessages(a, f); len(msgs) > 0 {
 			orderForBundle(msgs)
 			out = append(out, offer{agent: ref, msgs: msgs})
 		}
@@ -620,7 +660,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 		return
 	}
 	s.gatherUntil = time.Time{}
-	c := compose(s.offers(false), BundleLimit)
+	c := compose(s.offers(s.queueFilter()), BundleLimit)
 	s.skip(ctx, c.tooLarge)
 	if len(c.parts) == 0 {
 		s.scheduleRetry()
@@ -651,7 +691,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 	for _, a := range s.agents {
 		s.maybeAck(a)
 	}
-	if !s.adapter.WaitsForIdle() && len(s.offers(false)) > 0 {
+	if !s.adapter.WaitsForIdle() && len(s.offers(s.queueFilter())) > 0 {
 		s.gatherUntil = s.now()
 	}
 	s.scheduleRetry()
@@ -765,7 +805,7 @@ func (s *session) handUrgent(ctx context.Context) string {
 	if !s.open {
 		return ""
 	}
-	c := compose(s.offers(true), BundleLimit)
+	c := compose(s.offers(urgentOnly), BundleLimit)
 	s.skip(ctx, c.tooLarge)
 	if len(c.parts) == 0 {
 		return ""

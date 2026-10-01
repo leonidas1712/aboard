@@ -82,6 +82,10 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		_, hookErr = h.call(ctx, delivery.OpEnd)
 	case harness == delivery.HarnessCodex && event == "session-start":
 		_, hookErr = h.call(ctx, delivery.OpRegister)
+	case harness == delivery.HarnessCodex && event == "prompt":
+		_, hookErr = h.call(ctx, delivery.OpPrompt)
+	case harness == delivery.HarnessCodex && event == "stop":
+		_, hookErr = h.call(ctx, delivery.OpTurnEnd)
 	case harness == delivery.HarnessCodex && event == "end":
 		_, hookErr = h.call(ctx, delivery.OpEnd)
 	case (harness == delivery.HarnessClaudeCode || harness == delivery.HarnessCodex) && event == "tool":

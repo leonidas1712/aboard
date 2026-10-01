@@ -168,7 +168,8 @@ urgent messages and adds them to the turn's context. Ordinary messages wait for 
 
 **Idle.** Codex has a native queue for an existing thread: `codex queue --thread <id>
 --message <text>` adds a message that Codex starts once the thread's current turn ends.
-The queue handles busy sessions, so the daemon doesn't track Codex idleness.
+The queue handles busy sessions, so the daemon doesn't need Codex's idleness to deliver.
+It does track whether a turn runs, from the prompt and stop hooks, for urgent messages.
 
 **Delivery.** Messages arriving within 2 seconds of the first one are bundled, then handed
 to `codex queue` as an argument vector, never through a shell.
@@ -179,8 +180,12 @@ it. Codex then owns starting the turn.
 **Urgent.** Codex's post-tool hook can return extra context to the model, like Claude
 Code's. After each tool call in a busy turn, the hook asks the daemon for urgent messages
 and returns them. The hook's context limit (`additionalContextLimit`) is set to the
-bundle limit. Urgent messages a tool call doesn't take go in the next queued bundle,
-first.
+bundle limit. The queue holds anything put in it until the turn ends, so while a turn
+runs (after the prompt hook, until the stop hook) urgent messages are kept out of the
+queue and wait for the next tool call; ordinary messages still go to the queue. Urgent
+messages no tool call took go into the queue when the turn ends. Without the prompt and
+stop hooks (hooks not trusted in Codex), the daemon never sees a turn, and urgent
+messages go into the queue like any other, arriving when the turn ends.
 
 ### Anything else
 
@@ -285,6 +290,8 @@ harness's hook input as JSON on standard input and never print tokens.
 | `aboard hook claude-code tool` | PostToolUse | If urgent messages wait for this session, prints `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"<bundle>"}}`. Exit 0. |
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
 | `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread. Exit 0. |
+| `aboard hook codex prompt` | UserPromptSubmit | Marks a turn running. Exit 0. |
+| `aboard hook codex stop` | Stop | Marks the turn ended; urgent messages no tool call took go into the queue. Exit 0. |
 | `aboard hook codex tool` | PostToolUse | Same output as for Claude Code, with `hookEventName` `PostToolUse`. Exit 0. |
 | `aboard hook codex end` | SessionEnd | Marks the session closed. Exit 0 (Codex allows 3 seconds). |
 

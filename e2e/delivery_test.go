@@ -198,6 +198,41 @@ func TestCodexSessionReceivesMessagesThroughItsQueue(t *testing.T) {
 	eventually(t, 5*time.Second, "acknowledgement after codex accepted", func() bool { return codex.unread() == 0 })
 }
 
+// During a Codex turn, an urgent message goes to the next tool call instead of Codex's
+// queue, where it would wait for the turn to end; ordinary messages still go to the queue.
+func TestUrgentMessageReachesBusyCodexSessionAtNextToolCall(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer := e.claudeSession("s-writer")
+	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	codex := e.codexSession("019a0000-0000-7000-8000-000000000003")
+	codex.run("join", line)
+	if r := codex.hook("prompt", `"prompt":"long task"`); r.code != 0 {
+		t.Fatalf("codex prompt hook failed\n%s", r)
+	}
+
+	writer.run("say", "--to", "@reviewer", "ordinary note")
+	writer.run("say", "--to", "@reviewer", "--urgent", "stop: the build is broken")
+	var context string
+	eventually(t, 5*time.Second, "the tool hook to return the urgent message", func() bool {
+		r := codex.hook("tool", `"tool_name":"Bash"`)
+		context = r.stdout
+		return strings.Contains(r.stdout, "the build is broken")
+	})
+	if strings.Contains(context, "ordinary note") {
+		t.Fatalf("an ordinary message was delivered mid-turn:\n%s", context)
+	}
+	eventually(t, 5*time.Second, "the ordinary message in the queue", func() bool { return len(e.fakeCodexCalls()) > 0 })
+	for _, c := range e.fakeCodexCalls() {
+		if strings.Contains(c["message"], "the build is broken") {
+			t.Fatalf("the urgent message also went into the queue:\n%s", c["message"])
+		}
+	}
+	if r := codex.hook("stop", ""); r.code != 0 {
+		t.Fatalf("codex stop hook failed\n%s", r)
+	}
+}
+
 // A Codex sub-agent thread can't join: messages must go to the root conversation.
 func TestCodexSubAgentThreadCannotJoin(t *testing.T) {
 	t.Parallel()

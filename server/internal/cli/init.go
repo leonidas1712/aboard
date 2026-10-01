@@ -61,6 +61,10 @@ func codexHooks(exe string) []hookSpec {
 	cmd := func(arg string) string { return shellWord(exe) + " hook codex " + arg }
 	return []hookSpec{
 		{"SessionStart", "session-start", hookHandler{Type: "command", Command: cmd("session-start"), Timeout: 30}},
+		// The prompt and stop hooks mark when a turn runs, so urgent messages go to the
+		// next tool call rather than the queue, which holds them until the turn ends.
+		{"UserPromptSubmit", "prompt", hookHandler{Type: "command", Command: cmd("prompt"), Timeout: 10}},
+		{"Stop", "stop", hookHandler{Type: "command", Command: cmd("stop"), Timeout: 10}},
 		{"PostToolUse", "tool", hookHandler{Type: "command", Command: cmd("tool"), Timeout: 30, AdditionalContextLimit: codexContextLimit}},
 		// Codex caps SessionEnd hooks at 3 seconds; closing a session is one socket call.
 		{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 3}},

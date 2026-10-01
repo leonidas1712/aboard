@@ -356,6 +356,54 @@ func TestQueueingHarnessGathersMessagesAndConfirmsOnAcceptance(t *testing.T) {
 	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == second })
 }
 
+// While a Codex turn runs (between its prompt and stop hooks), urgent messages are kept
+// out of Codex's queue, where they would wait for the turn to end, and go to the next
+// tool hook instead. Ordinary messages still go to the queue.
+func TestUrgentMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
+	r := newRig(t)
+	codexReq := func(op string) delivery.Request {
+		return delivery.Request{Op: op, Harness: delivery.HarnessCodex, Session: "t1"}
+	}
+	r.ok(codexReq(delivery.OpRegister))
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.ok(codexReq(delivery.OpPrompt))
+
+	r.post(reviewer, "ordinary note", false)
+	r.post(reviewer, "stop: the build is broken", true)
+	r.eventually("the ordinary message in the queue", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
+	r.clock.Advance(time.Second)
+	for _, b := range r.codex.Handed("t1") {
+		if strings.Contains(b, "the build is broken") {
+			t.Fatalf("an urgent message went into the queue during a turn:\n%s", b)
+		}
+	}
+	if b := r.ok(codexReq(delivery.OpUrgent)).Bundle; !strings.Contains(b, "the build is broken") {
+		t.Fatalf("the tool hook should get the urgent message, got %q", b)
+	}
+}
+
+// An urgent message held for a tool call that never came goes into the queue when the
+// turn ends.
+func TestHeldUrgentMessageIsQueuedWhenTheCodexTurnEnds(t *testing.T) {
+	r := newRig(t)
+	codexReq := func(op string) delivery.Request {
+		return delivery.Request{Op: op, Harness: delivery.HarnessCodex, Session: "t1"}
+	}
+	r.ok(codexReq(delivery.OpRegister))
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.ok(codexReq(delivery.OpPrompt))
+	r.post(reviewer, "urgent but late", true)
+	r.clock.Advance(5 * time.Second)
+	if n := len(r.codex.Handed("t1")); n != 0 {
+		t.Fatalf("queued during the turn: %q", r.codex.Handed("t1"))
+	}
+	r.ok(codexReq(delivery.OpTurnEnd))
+	r.eventually("the urgent message in the queue", 500*time.Millisecond, func() bool {
+		h := r.codex.Handed("t1")
+		return len(h) == 1 && strings.Contains(h[0], "urgent but late")
+	})
+}
+
 func TestBusyIsNeverAFailedAttempt(t *testing.T) {
 	r := newRig(t)
 	r.bind(delivery.HarnessCodex, "t1", reviewer)

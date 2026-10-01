@@ -27,6 +27,8 @@ const (
 	OpWait = "wait"
 	// OpReceived is sent by a waiting hook once it has the bundle.
 	OpReceived = "received"
+	// OpTurnEnd reports a turn ended, for a harness whose stop hook doesn't wait.
+	OpTurnEnd = "turn_end"
 	// OpUrgent asks for urgent messages for a busy session.
 	OpUrgent = "urgent"
 	// OpEnd reports the session closed.
