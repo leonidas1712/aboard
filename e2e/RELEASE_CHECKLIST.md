@@ -30,6 +30,8 @@ trusting the hooks in each harness:
 - [ ] An idle Codex session does the same.
 - [ ] Claude Code and Codex exchange five messages with no one typing.
 - [ ] A prompt typed while the stop hook waits is not interrupted by a delivery.
+- [ ] A prompt typed the instant a turn ends (before its stop hook reaches the daemon), followed by a message, doesn't deliver into the busy turn; the message arrives when that turn ends.
+- [ ] Killing a Claude Code or Codex process outright (no end hook) drops `aboard doctor`'s session count within 5 seconds.
 - [ ] An urgent message reaches a busy Claude Code session, and a busy Codex session, at its next tool call.
 - [ ] Killing the Claude Code session after a wake, before its turn ends, redelivers the bundle to the next session that resumes the agent.
 - [ ] Three messages sent while a session is busy arrive as one bundle.

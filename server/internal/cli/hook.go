@@ -55,6 +55,7 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	harness, event := pos[0], pos[1]
+	started := time.Now()
 	var in hookInput
 	data, err := io.ReadAll(io.LimitReader(a.env.Stdin, hookInputLimit))
 	if err == nil {
@@ -64,7 +65,7 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		a.hookNote("the hook input has no usable session_id")
 		return hookExit(0)
 	}
-	h := hookCall{a: a, harness: harness, in: in, boot: a.env.Getenv("ABOARD_BOOT")}
+	h := hookCall{a: a, harness: harness, in: in, boot: a.env.Getenv("ABOARD_BOOT"), started: started}
 	var hookErr error
 	switch {
 	case harness == delivery.HarnessClaudeCode && event == "session-start":
@@ -104,6 +105,7 @@ type hookCall struct {
 	harness string
 	in      hookInput
 	boot    string
+	started time.Time
 }
 
 func (h hookCall) request(op string) delivery.Request {
@@ -214,7 +216,7 @@ func (h hookCall) stop(ctx context.Context) error {
 			continue
 		}
 		req := withHarnessProcess(h.request(delivery.OpWait))
-		req.V, req.Resumed = delivery.ProtocolVersion, resumed
+		req.V, req.Resumed, req.Started = delivery.ProtocolVersion, resumed, h.started
 		code, done := h.waitOn(conn, req)
 		_ = conn.Close()
 		if done {

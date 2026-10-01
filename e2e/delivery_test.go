@@ -381,3 +381,36 @@ func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 	_ = harness.Wait()
 	eventually(t, 15*time.Second, "the dead session to close", func() bool { return e.openSessions() == "1 session" })
 }
+
+// The race between a turn's stop hook and the next prompt: the user types while the
+// previous turn's stop hook is still starting, so the prompt reaches the daemon first and
+// the stop hook's wait arrives late. That late wait must not count as idle, or a bundle
+// would go to a session that is busy.
+func TestLateStopHookAfterAPromptGetsNoBundle(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer, reviewer := pairedClaudeSessions(t, e)
+
+	late, connect := reviewer.startHookHeld("stop")
+	// Make sure the hook process has started before the prompt is submitted, as it has
+	// in Claude Code, where the stop hook starts when the turn ends.
+	if !late.running(200 * time.Millisecond) {
+		t.Fatalf("held stop hook exited\n%s", late.wait(time.Second))
+	}
+	if r := reviewer.hook("prompt", `"prompt":"next task"`); r.code != 0 {
+		t.Fatalf("prompt hook failed\n%s", r)
+	}
+	connect()
+	if r := late.wait(5 * time.Second); r.code != 0 {
+		t.Fatalf("a stop hook that started before the prompt should be released\n%s", r)
+	}
+
+	writer.run("say", "--to", "@reviewer", "for the next idle moment")
+	if n := reviewer.unread(); n != 1 {
+		t.Fatalf("the message was handed to a busy session: %d unread", n)
+	}
+	woke := reviewer.startHook("stop").wait(5 * time.Second)
+	if woke.code != 2 || !strings.Contains(woke.stderr, "for the next idle moment") {
+		t.Fatalf("the turn's own stop hook should get the message\n%s", woke)
+	}
+}

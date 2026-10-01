@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 )
 
 // ProtocolVersion is the version every control socket message carries.
@@ -63,8 +64,11 @@ type Request struct {
 	Resumed bool `json:"resumed,omitempty"`
 	// Wake marks a prompt that is the bundle a stop hook just woke the session with, not
 	// a later event; it doesn't confirm that bundle.
-	Wake  bool      `json:"wake,omitempty"`
-	Agent *AgentRef `json:"agent,omitempty"`
+	Wake bool `json:"wake,omitempty"`
+	// Started is when the hook process started. A wait from a stop hook that started
+	// before the session's latest prompt belongs to an earlier turn, and is released.
+	Started time.Time `json:"started,omitzero"`
+	Agent   *AgentRef `json:"agent,omitempty"`
 	// Process is the harness process the request came from, when the caller found it.
 	Process *Process `json:"process,omitempty"`
 }

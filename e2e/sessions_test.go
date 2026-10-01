@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -157,6 +158,32 @@ func (s *session) startHook(event string) *proc {
 	go func() { p.done <- cmd.Wait() }()
 	s.e.t.Cleanup(func() { _ = cmd.Process.Kill() })
 	return p
+}
+
+// startHookHeld starts a hook command but holds back its input, so the process is
+// running but hasn't reached the daemon yet. Calling the returned function sends the
+// input.
+func (s *session) startHookHeld(event string) (*proc, func()) {
+	s.e.t.Helper()
+	cmd := exec.Command(binary, "hook", s.harness, event)
+	cmd.Dir = s.e.dir
+	cmd.Env = append(append([]string{}, s.e.vars...), s.vars...)
+	in, err := cmd.StdinPipe()
+	if err != nil {
+		s.e.t.Fatal(err)
+	}
+	p := &proc{t: s.e.t, cmd: cmd, out: &bytes.Buffer{}, errb: &bytes.Buffer{}, done: make(chan error, 1)}
+	cmd.Stdout, cmd.Stderr = p.out, p.errb
+	if err := cmd.Start(); err != nil {
+		s.e.t.Fatal(err)
+	}
+	go func() { p.done <- cmd.Wait() }()
+	s.e.t.Cleanup(func() { _ = cmd.Process.Kill() })
+	release := func() {
+		_, _ = io.WriteString(in, hookInput(s.id, hookEvents[event], ""))
+		_ = in.Close()
+	}
+	return p, release
 }
 
 // wait waits for the process to exit and returns its result.

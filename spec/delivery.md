@@ -370,11 +370,16 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | Crash after confirming, before acknowledging | Acknowledged on restart, not handed over again | Nothing |
 | Socket permissions wrong | The daemon refuses to start | `socket_unsafe` |
 
-## Known race
+## The stop-hook race
 
-If a prompt reaches the daemon before the stop hook from the previous turn has started
-waiting, that late wait counts as idle and a bundle can be handed to a busy session. The
-manual proof checks whether this happens in practice with Claude Code.
+A turn's stop hook starts when the turn ends, so it always starts before the next prompt
+is submitted. But if the user types quickly, the prompt can reach the daemon before that
+stop hook does; the hook's late wait would then look like an idle session and a bundle
+could go to a busy one. To prevent it, every wait carries the time its hook started, and
+the session remembers when it last showed it was in a turn (a prompt or a tool call). A
+wait that started before that is from an earlier turn: the daemon releases it at once,
+and the turn's own stop hook takes the next bundle. A test forces this ordering with a
+fake harness; the release checklist also checks it in real Claude Code.
 
 ## Design rules
 
@@ -418,6 +423,9 @@ The release checklist gets these manual checks, each on a fresh machine:
    bundle to the next session for that agent.
 7. Three messages sent while a session is busy arrive as one bundle.
 8. Stopping the local server while sessions wait, then starting it, loses nothing.
+9. A prompt typed the instant a turn ends, followed by a message, doesn't deliver into
+   the busy turn.
+10. Killing a harness outright closes its session within 5 seconds.
 
 Automated tests cover the rest with a fake harness: an adapter that records bundles and
 can be told to fail, be busy, or crash between steps.

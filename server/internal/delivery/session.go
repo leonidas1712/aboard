@@ -57,7 +57,9 @@ type session struct {
 	boot string
 	open bool
 	// proc is the harness process the session runs in, or nil if it isn't known.
-	proc   *Process
+	proc *Process
+	// busyAt is when the session last showed it was in a turn: a prompt or a tool call.
+	busyAt time.Time
 	waiter *waiter
 	agents map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
@@ -152,6 +154,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.setOpen(ctx, true)
 		ok.Boot = s.boot
 	case OpPrompt:
+		s.busyAt = s.now()
 		if !req.Wake {
 			s.event(ctx, req.Boot)
 		}
@@ -160,6 +163,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			s.waiter = nil
 		}
 	case OpUrgent:
+		s.busyAt = s.now()
 		s.event(ctx, req.Boot)
 		ok.Bundle = s.handUrgent(ctx)
 	case OpEnd:
@@ -283,6 +287,13 @@ func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
 
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	s.noteProcess(ctx, req)
+	if !req.Started.IsZero() && req.Started.Before(s.busyAt) {
+		// The stop hook of a turn that ended before the latest prompt, reaching the daemon
+		// late. The session is busy, so the hook is released at once.
+		w.accepted()
+		w.Release()
+		return
+	}
 	switch {
 	case !req.Resumed:
 		s.event(ctx, req.Boot)

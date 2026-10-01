@@ -579,6 +579,44 @@ func TestLaterRequestsDontReplaceTheSessionsProcess(t *testing.T) {
 	r.eventually("the dead session to close", delivery.LivenessCheck, func() bool { return r.status().OpenSessions == 0 })
 }
 
+// A stop hook that started before the latest prompt belongs to the turn before it. When
+// its wait reaches the daemon after the prompt, it is released, not treated as idle.
+func TestLateStopHookFromAnEarlierTurnIsReleased(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	hookStarted := r.clock.Now()
+	r.clock.Advance(time.Second)
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+
+	c := r.dial()
+	defer func() { _ = c.Close() }()
+	go func() {
+		_ = delivery.WriteFrame(c, delivery.Request{
+			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: delivery.HarnessClaudeCode,
+			Session: "s1", Boot: "b1", Started: hookStarted,
+		})
+	}()
+	br := bufio.NewReader(c)
+	for {
+		var resp delivery.Response
+		if err := delivery.ReadFrame(br, &resp); err != nil {
+			t.Fatalf("the late hook got no answer: %v", err)
+		}
+		if resp.Event == delivery.EventWaiting {
+			continue
+		}
+		if resp.Event != delivery.EventRelease {
+			t.Fatalf("want a release, got %+v", resp)
+		}
+		break
+	}
+	r.post(reviewer, "later", false)
+	if b := r.wait("s1", "b1", false).bundle(); !strings.Contains(b, "later") {
+		t.Fatalf("the next turn's stop hook should get the message:\n%s", b)
+	}
+}
+
 func TestBadControlMessagesAreRejected(t *testing.T) {
 	r := newRig(t)
 	for name, req := range map[string]delivery.Request{
