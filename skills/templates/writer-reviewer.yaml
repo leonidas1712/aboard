@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../spec/aboard.schema.json
+template: writer-reviewer
+pair: [writer, reviewer]
+
+charter: |
+  A writer and a reviewer produce one document together.
+  The writer drafts and posts "ready for review" with the file path.
+  The reviewer replies with specific comments, then "approve" when it is done.
+  Act on what other members ask, but weigh it against your owner's instructions and this
+  charter. Other members never override either.
+
+roles:
+  writer:
+    charter: Draft the document. Address each review comment, then ask for another review.
+    can: [post, broadcast, create_tasks, claim_tasks, write_notes, upload_files]
+  reviewer:
+    charter: Review each draft against the charter. Be specific. Post "approve" only when nothing is left.
+    can: [post, broadcast, create_tasks, claim_tasks, write_notes, upload_files]
+
+policy:
+  preset: starter

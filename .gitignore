@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.#*
+
+# Env and local state
+.env
+.env.*
+!.env.example
+
+# Local planning and scratch context: never commit
+/private/
+
+# Pinned dev tools installed by the Makefile
+/.bin/

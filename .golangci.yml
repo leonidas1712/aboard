@@ -1,0 +1,82 @@
+# golangci-lint v2 configuration. Checked against golangci-lint 2.14.0.
+# Run through `make check`. Every exclusion needs a comment saying why.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - contextcheck
+    - errcheck
+    - errorlint
+    - exhaustive
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - noctx
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unparam
+    - unused
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    exhaustive:
+      # A `default:` case doesn't count: adding an enum value must force a decision
+      # at every switch on it.
+      default-signifies-exhaustive: false
+    gocritic:
+      enabled-tags: [diagnostic, performance, style]
+    govet:
+      enable-all: true
+      disable:
+        # Reordering struct fields for padding makes structs harder to read for a
+        # saving we don't need.
+        - fieldalignment
+        # Shadowing `err` in a nested scope is idiomatic Go and this check flags it.
+        - shadow
+    misspell:
+      locale: US
+    revive:
+      rules:
+        # Exported identifiers and every package must have doc comments.
+        - name: exported
+        - name: package-comments
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+
+  exclusions:
+    # Code generated from spec/openapi.yaml is checked by regenerating it, not by lint.
+    generated: strict
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true

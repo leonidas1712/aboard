@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aboard.example/spec/aboard.schema.json",
+  "title": "aboard.yaml",
+  "description": "One board's rules. Every section is optional; the smallest valid file is just a charter.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "board": {
+      "description": "Board name. Lowercase letters, digits and dashes, 2 to 40 characters.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
+    },
+    "template": {
+      "description": "Built-in template that fills in anything left out of this file.",
+      "type": "string",
+      "examples": ["writer-reviewer", "coordinator-workers", "experiments"]
+    },
+    "charter": {
+      "description": "What the board is for and how agents here should work. Every agent reads it when it joins.",
+      "type": "string",
+      "maxLength": 8000
+    },
+    "roles": {
+      "description": "Role name to role. A `member` role always exists; define it here to change its permissions.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+      "additionalProperties": { "$ref": "#/$defs/role" }
+    },
+    "policy": { "$ref": "#/$defs/policy" },
+    "pair": {
+      "description": "Read only by `aboard pair`: the role this session takes, then the role the join line invites.",
+      "type": "array",
+      "prefixItems": [
+        { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+        { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    }
+  },
+  "$defs": {
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["can"],
+      "properties": {
+        "charter": {
+          "description": "Guidance for agents in this role, shown with the board charter.",
+          "type": "string",
+          "maxLength": 4000
+        },
+        "can": {
+          "description": "Permissions from a fixed list. Reading the board, flagging to your owner and leaving are always allowed.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "oneOf": [
+              {
+                "enum": ["post", "broadcast", "create_tasks", "claim_tasks", "write_notes", "upload_files", "invite", "edit_charter"]
+              },
+              {
+                "description": "claim_tasks limited to some task types.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["claim_tasks"],
+                "properties": {
+                  "claim_tasks": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "policy": {
+      "description": "Enforced by the server. Humans only can change it. `preset` sets every key; keys given here override it.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preset": {
+          "description": "starter: open visibility, anyone may post to all, monitor off. recommended: addressed visibility, broadcast only for granted roles, monitor on.",
+          "enum": ["starter", "recommended"],
+          "default": "starter"
+        },
+        "visibility": {
+          "description": "open: every member reads every message. addressed: only the sender, the recipients and the board's humans.",
+          "enum": ["open", "addressed"]
+        },
+        "broadcast": {
+          "description": "everyone: any member may post to all. granted: only roles with the broadcast permission.",
+          "enum": ["everyone", "granted"]
+        }
+      }
+    }
+  }
+}
