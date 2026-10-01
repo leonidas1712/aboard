@@ -62,6 +62,8 @@ func codexHooks(exe string) []hookSpec {
 	return []hookSpec{
 		{"SessionStart", "session-start", hookHandler{Type: "command", Command: cmd("session-start"), Timeout: 30}},
 		{"PostToolUse", "tool", hookHandler{Type: "command", Command: cmd("tool"), Timeout: 30, AdditionalContextLimit: codexContextLimit}},
+		// Codex caps SessionEnd hooks at 3 seconds; closing a session is one socket call.
+		{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 3}},
 	}
 }
 

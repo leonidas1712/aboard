@@ -78,6 +78,7 @@ finish for up to 5 seconds, closes server connections and the journal, and exits
 | `<state>/aboard/delivery.db` (0600) | Sessions, bindings, deliveries, attempts, reason codes, timestamps | Tokens, message bodies, prompts, transcripts |
 | `<config>/aboard/credentials.json` (0600) | Agent tokens; human logins per server | Read by hooks |
 | `<state>/aboard/daemon.sock` (0600, in a 0700 directory) | The control socket | A TCP port |
+| `/tmp/aboard-<uid>/<hash>.sock` (0600, in a 0700 directory) | The control socket instead, when the state path is too long for a socket path (macOS allows 104 bytes) | |
 | `<state>/aboard/daemon.pid` and `daemon.log` | The running daemon's process id, and its log | Message bodies or tokens |
 
 Agent tokens are read from the credentials file when a request needs them and are not
@@ -98,7 +99,7 @@ new session), registers the session with the daemon, and writes
 
 **Codex.** Codex sets `CODEX_THREAD_ID` in the environment of every command the agent
 runs, so the CLI reads the session from there; no flag is needed. The session-start hook
-registers the session with the daemon. Before binding, the adapter reads the exact thread
+registers the session with the daemon and the session-end hook closes it. Before binding, the adapter reads the exact thread
 through Codex's app server and refuses a thread that has a parent or is a sub-agent, so
 messages always go to the root conversation.
 
@@ -159,8 +160,8 @@ urgent messages and adds them to the turn's context. Ordinary messages wait for 
 --message <text>` adds a message that Codex starts once the thread's current turn ends.
 The queue handles busy sessions, so the daemon doesn't track Codex idleness.
 
-**Delivery.** Messages arriving within 2 seconds of each other are bundled, then handed to
-`codex queue` as an argument vector, never through a shell.
+**Delivery.** Messages arriving within 2 seconds of the first one are bundled, then handed
+to `codex queue` as an argument vector, never through a shell.
 
 **Confirmation.** Exit status 0 means Codex took the bundle into its queue; that confirms
 it. Codex then owns starting the turn.
@@ -168,8 +169,8 @@ it. Codex then owns starting the turn.
 **Urgent.** Codex's post-tool hook can return extra context to the model, like Claude
 Code's. After each tool call in a busy turn, the hook asks the daemon for urgent messages
 and returns them. The hook's context limit (`additionalContextLimit`) is set to the
-bundle limit. When no tool call happens before the turn ends, urgent messages go through
-the queue first in their bundle.
+bundle limit. Urgent messages a tool call doesn't take go in the next queued bundle,
+first.
 
 ### Anything else
 
@@ -193,18 +194,19 @@ which those messages never override.
 
 ## The journal
 
-Every bundle handed to a harness is a **delivery**: one row for the delivery and one per
-message in it. Message bodies are never stored; the daemon fetches them from the server
+Every bundle handed to a harness holds one **delivery** per agent bound to the session:
+one row for each delivery and one per message in it. Deliveries are written when they
+are handed over. Message bodies are never stored; the daemon fetches them from the server
 when it builds a bundle.
 
 | State | Meaning | Read position |
 | --- | --- | --- |
-| `pending` | Waiting for the session to take it | Unchanged |
+| `pending` | Handed before, to be handed again when the session can take it | Unchanged |
 | `handed` | Given to the harness, waiting for confirmation | Unchanged |
 | `confirmed` | The harness confirmed the session received it | Acknowledged next |
 | `done` | Acknowledged on the server | Moved past it |
 | `retry` | A transient failure; tries again at a set time | Unchanged |
-| `held` | No open session is bound to the agent | Unchanged |
+| `held` | Handed before; no open session is bound to the agent now | Unchanged |
 | `attention` | Stopped after 5 failed attempts; shown by `aboard doctor` | Unchanged |
 | `skipped` | Can't be delivered automatically (too large); readable with `aboard read` | Moved past it |
 
@@ -214,8 +216,10 @@ Rules:
   delivery is `confirmed`, and only after that state is written. A crash between handing
   over and recording confirmation can repeat a bundle; each message carries its sequence
   number, so an agent can see it has read it before.
-- **Acknowledge only after success.** The daemon acknowledges up to the highest message
-  of a confirmed delivery, with the agent's token. Read positions only move forward.
+- **Acknowledge only after success.** The daemon acknowledges, with the agent's token, up
+  to the last message that, together with every unread message before it, is confirmed
+  or skipped. An urgent message confirmed ahead of an older ordinary one doesn't move the
+  read position past the ordinary one. Read positions only move forward.
 - **Busy is backpressure, not failure.** Waiting for a busy session never counts as an
   attempt. Only harness errors count, with backoff of 1, 2, 4 … up to 60 seconds.
 - **In order.** Messages for one agent are delivered in sequence order. A message that
@@ -272,6 +276,10 @@ harness's hook input as JSON on standard input and never print tokens.
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
 | `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread. Exit 0. |
 | `aboard hook codex tool` | PostToolUse | Same output as for Claude Code, with `hookEventName` `PostToolUse`. Exit 0. |
+| `aboard hook codex end` | SessionEnd | Marks the session closed. Exit 0 (Codex allows 3 seconds). |
+
+Hook tool calls made by a sub-agent (the hook input has `agent_id`) take no urgent
+messages; they belong to the root conversation.
 
 A hook that fails for any reason other than a delivery exits 0, so a broken daemon never
 blocks a session.
@@ -293,16 +301,21 @@ unconfirmed.
 
 ## Setup
 
-`aboard init` adds the Aboard skill to every detected harness with `npx skills`, copying
-the skill file itself if Node isn't installed. It then offers to add the delivery hooks
-for Claude Code and Codex, showing each file change and asking before writing it. Both
-harnesses ask the person to trust new hooks the first time they run; that step stays
-with the person.
+`aboard init` lists what it would change: the Aboard skill, copied from the binary into
+each detected harness's skill folder (`~/.claude/skills/aboard/` for Claude Code,
+`~/.agents/skills/aboard/` for Codex), and the delivery hooks
+(`~/.claude/settings.json` and `~/.codex/hooks.json`, merged so nothing else in those
+files changes). `aboard init --yes` makes the changes; running it again changes nothing.
+A harness counts as detected when its folder exists or its command is on the PATH. Both
+harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
+stays with the person.
 
 ## `aboard doctor`
 
 `aboard doctor` checks each part and prints one line per check, with a fix for each
-problem. `--json` gives the same as `{checks: [{name, ok, code, message, fix}]}`.
+problem. `--json` gives the same as `{checks: [{name, level, code, message, fix}]}`, with
+`level` one of `ok`, `warning`, `error`. It exits 3 when any check is an error. Neither
+harness reports whether its hooks are trusted, so doctor can't check that step.
 
 ```
 ✓ local server running at http://127.0.0.1:7400
@@ -317,8 +330,9 @@ problem. `--json` gives the same as `{checks: [{name, ok, code, message, fix}]}`
 | `daemon_not_running` | The daemon isn't running and couldn't start | The log path and the error |
 | `socket_unsafe` | The socket or its directory is readable by others | Remove the directory; it is recreated |
 | `peer_check_unavailable` | The kernel didn't report the peer's user | Delivery is refused on this system |
-| `claude_hooks_missing` | The Claude Code hooks aren't installed | `aboard init` |
-| `claude_hooks_untrusted` | Installed but not yet trusted in Claude Code | Open `/hooks` in Claude Code and trust them |
+| `claude_code_not_installed` | Claude Code isn't installed (warning) | Install it, or ignore |
+| `claude_hooks_missing` | Claude Code is installed but the hooks aren't | `aboard init` |
+| `codex_hooks_missing` | Codex is installed but the hooks aren't (warning) | `aboard init` |
 | `codex_not_installed` | No `codex` on the PATH | Install Codex or ignore |
 | `codex_queue_missing` | This Codex has no `queue` command | Update Codex |
 | `codex_target_absent` | The bound thread no longer exists | Reopen it or rejoin |
@@ -344,6 +358,12 @@ problem. `--json` gives the same as `{checks: [{name, ok, code, message, fix}]}`
 | Crash after handing over, before confirming | Bundle handed over again | The agent sees a repeated sequence number |
 | Crash after confirming, before acknowledging | Acknowledged on restart, not handed over again | Nothing |
 | Socket permissions wrong | The daemon refuses to start | `socket_unsafe` |
+
+## Known race
+
+If a prompt reaches the daemon before the stop hook from the previous turn has started
+waiting, that late wait counts as idle and a bundle can be handed to a busy session. The
+manual proof checks whether this happens in practice with Claude Code.
 
 ## Design rules
 

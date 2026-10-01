@@ -290,6 +290,10 @@ func TestInitInstallsSkillAndHooksOnce(t *testing.T) {
 func TestDoctorReportsEachPart(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
+	// Claude Code counts as installed when ~/.claude exists, whatever is on the PATH.
+	if err := os.MkdirAll(filepath.Join(e.home, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	e.claudeSession("s1") // starts the daemon
 	r := e.runExit("doctor", "--json")
 	checks := map[string]map[string]any{}

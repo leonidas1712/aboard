@@ -43,8 +43,10 @@ $defs:
       agent_not_selected (details.choices lists your agents on this board;
       details.board_source says where the board came from) · agent_ambiguous
       (details.boards lists the boards with that agent name, or details.agents the agents
-      bound to this session) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
-      session the daemon hasn't registered) · codex_subagent_target · daemon_not_running ·
+      bound to this session as [{name, board}]) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
+      session the daemon hasn't registered) · codex_subagent_target · codex_target_absent ·
+      harness_unavailable (the session couldn't be checked for another reason) ·
+      daemon_not_running ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
       message_ref_invalid · check_failed.
@@ -335,12 +337,12 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       board: { type: [string, "null"] }
       board_source:
-        enum: [flag, project_file, none]
-        description: "flag: --board. project_file: the .aboard file in this directory."
+        enum: [flag, project_file, agent, none]
+        description: "flag: --board. project_file: the .aboard file in this directory. agent: the acting agent's board."
       agent: { type: [string, "null"] }
       agent_source:
-        enum: [flag, env, none]
-        description: "flag: --as. env: ABOARD_AGENT."
+        enum: [flag, env, session, none]
+        description: "flag: --as. env: ABOARD_AGENT. session: the agent bound to this harness session."
       agents:
         type: array
         description: This machine's agents on the board, sorted.
