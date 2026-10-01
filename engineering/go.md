@@ -114,7 +114,8 @@ One command runs everything CI runs, in this order:
 7. `govulncheck ./...`
 
 Tools are pinned in the Makefile and installed into `.bin/` on first use; nothing global
-is needed beyond Go.
+is needed beyond Go. CI (`.github/workflows/check.yml`) runs `make check` on Linux and
+macOS, because some code, such as the socket peer check, differs per system.
 
 A change isn't done until `make check` passes locally. Don't add lint exclusions to get
 there; fix the code. If an exclusion is truly needed, add it to `.golangci.yml` with a
