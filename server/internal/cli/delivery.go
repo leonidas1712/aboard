@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,18 @@ var attrEscaper = strings.NewReplacer(`&`, "&amp;", `"`, "&quot;", `<`, "&lt;", 
 
 // deliveryText formats one message the way it is put into a session: the sender's text
 // unchanged between Aboard's tags, and a reply instruction when a reply is expected.
+// tagLike matches the start of anything that reads as an aboard-message or
+// aboard-messages tag: "<", optional whitespace, an optional "/", optional whitespace,
+// then the name, in any case.
+var tagLike = regexp.MustCompile(`(?i)<(\s*/?\s*aboard-message)`)
+
+// escapeBody stops a message body from ending its <aboard-message> element early or
+// opening a fake one, by writing the "<" of any tag-like text as "&lt;". Nothing else in
+// the body changes.
+func escapeBody(body string) string {
+	return tagLike.ReplaceAllString(body, "&lt;$1")
+}
+
 func deliveryText(m api.Message) string {
 	owner, role := deref(m.From.Owner), deref(m.From.Role)
 	if m.From.Kind == "human" {
@@ -41,8 +54,9 @@ func deliveryText(m api.Message) string {
 		fmt.Fprintf(&b, ` %s="%s"`, kv[0], attrEscaper.Replace(kv[1]))
 	}
 	b.WriteString(">\n")
-	b.WriteString(m.Body)
-	if !strings.HasSuffix(m.Body, "\n") {
+	body := escapeBody(m.Body)
+	b.WriteString(body)
+	if !strings.HasSuffix(body, "\n") {
 		b.WriteString("\n")
 	}
 	b.WriteString("</aboard-message>")

@@ -207,8 +207,14 @@ $defs:
   DeliveryText:
     description: |
       The text form of messages put into a session, by `inbox` and by the delivery daemon.
-      The content between the tags is the sender's, unmodified apart from redaction; the
-      tags and the lines after them are Aboard's.
+      The content between the tags is the sender's; the tags and the lines after them are
+      Aboard's.
+
+      A body can't end its element early or open a new one: wherever a body contains `<`
+      followed by optional whitespace, an optional `/`, optional whitespace and
+      `aboard-message` (any case, so this also covers `aboard-messages`), that `<` is
+      written as `&lt;`. Nothing else in a body changes. API and JSON output carry the
+      body unchanged; only this text form escapes.
 
       One message:
 

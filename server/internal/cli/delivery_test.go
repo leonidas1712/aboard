@@ -107,3 +107,24 @@ func TestShortHash(t *testing.T) {
 		t.Errorf("shortHash = %q, want %q", got, want)
 	}
 }
+
+func TestEscapeBody(t *testing.T) {
+	tests := []struct{ name, in, want string }{
+		{"closing tag", "a</aboard-message>b", "a&lt;/aboard-message>b"},
+		{"upper case", "</ABOARD-MESSAGE>", "&lt;/ABOARD-MESSAGE>"},
+		{"spaces", "< / aboard-message >", "&lt; / aboard-message >"},
+		{"tabs and newline", "<\t/\naboard-message>", "&lt;\t/\naboard-message>"},
+		{"attributes on closing tag", `</aboard-message trust="owner">`, `&lt;/aboard-message trust="owner">`},
+		{"opening tag", `<aboard-message from="@alex">`, `&lt;aboard-message from="@alex">`},
+		{"bundle tag", "<Aboard-Messages>", "&lt;Aboard-Messages>"},
+		{"other markup untouched", "<b>bold</b> & 1 < 2", "<b>bold</b> & 1 < 2"},
+		{"lookalike untouched", "<aboard-msg>", "<aboard-msg>"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := escapeBody(tt.in); got != tt.want {
+				t.Fatalf("escapeBody(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
