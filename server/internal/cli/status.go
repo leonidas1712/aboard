@@ -35,8 +35,37 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Policy      *api.Policy `json:"policy"`
 	}{Server: a.localServer(), BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 
-	t, err := a.selectBoard(*boardFlag)
+	creds, err := a.readCredentials()
 	if err != nil {
+		return err
+	}
+	name, source := *as, agentFromFlag
+	if name == "" {
+		name, source = a.env.Getenv("ABOARD_AGENT"), agentFromEnv
+	}
+	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
+
+	// The agent decides the board: when one is selected, its board is the one agent
+	// commands use, even if this directory names another.
+	var agentBoard *target
+	switch {
+	case name != "":
+		if t, _, err := a.agentByName(creds, name, *boardFlag); err == nil {
+			agentBoard = &t
+		}
+	default:
+		if key, ok := a.sessionKey(); ok {
+			if t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag); err == nil && found {
+				agentBoard, name, source = &t, cred.Name, agentFromSession
+			}
+		}
+	}
+
+	t, err := a.selectBoard(*boardFlag)
+	switch {
+	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):
+		t = *agentBoard
+	case err != nil:
 		if asError(err).Code != "board_not_selected" {
 			return err
 		}
@@ -44,17 +73,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		return nil
 	}
 	out.Server, out.Board, out.BoardSource = t.server, &t.board, t.source
-
-	creds, err := a.readCredentials()
-	if err != nil {
-		return err
-	}
 	out.Agents = creds.names(t.server.URL, t.board)
-	name, source := *as, agentFromFlag
-	if name == "" {
-		name, source = a.env.Getenv("ABOARD_AGENT"), agentFromEnv
-	}
-	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
 
 	var text strings.Builder
 	fmt.Fprintf(&text, "Board:  %s on %s (%s)\n", t.board, t.server.URL, sourceText(t.source))
@@ -65,10 +84,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		fmt.Fprintf(&text, "Agent:  %s is not one of your agents here (yours here: %s)\n", name, namesText(out.Agents))
 	default:
 		out.Agent, out.AgentSource = &name, source
-		label := "--as"
-		if source == agentFromEnv {
-			label = "ABOARD_AGENT"
-		}
+		label := map[string]string{agentFromFlag: "--as", agentFromEnv: "ABOARD_AGENT", agentFromSession: "this session"}[source]
 		fmt.Fprintf(&text, "Agent:  %s (from %s)\n", name, label)
 	}
 

@@ -67,8 +67,11 @@ const (
 
 // sourceText says in words where a board came from.
 func sourceText(source string) string {
-	if source == boardFromFlag {
+	switch source {
+	case boardFromFlag:
 		return "from --board"
+	case boardFromAgent:
+		return "from the agent"
 	}
 	return "from ./" + projectFileName
 }

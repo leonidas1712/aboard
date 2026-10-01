@@ -154,8 +154,8 @@ func notFound(err error) error {
 	return err
 }
 
-// Meta returns a server setting, and false if it isn't set.
-func (s *Store) Meta(ctx context.Context, key string) (value string, ok bool, err error) {
+// Setting returns a server setting, and false if it isn't set.
+func (s *Store) Setting(ctx context.Context, key string) (value string, ok bool, err error) {
 	var v string
 	err = s.read(ctx, func(t *tx) error {
 		return t.queryRow("SELECT value FROM meta WHERE key = ?", key).Scan(&v)
@@ -169,8 +169,8 @@ func (s *Store) Meta(ctx context.Context, key string) (value string, ok bool, er
 	return v, true, nil
 }
 
-// SetMeta stores a server setting, replacing any earlier value.
-func (s *Store) SetMeta(ctx context.Context, key, value string) error {
+// SetSetting stores a server setting, replacing any earlier value.
+func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 	err := s.write(ctx, func(t *tx) error {
 		return t.exec("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", key, value)
 	})

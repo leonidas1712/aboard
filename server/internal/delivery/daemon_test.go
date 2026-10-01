@@ -1,0 +1,559 @@
+package delivery_test
+
+import (
+	"bufio"
+	"context"
+	"errors"
+	"io"
+	"log/slog"
+	"net"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/clock"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/delivery/deliverytest"
+	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
+)
+
+const serverURL = "http://127.0.0.1:7400"
+
+var (
+	reviewer = delivery.AgentRef{Server: serverURL, Board: "docs", Name: "reviewer"}
+	planner  = delivery.AgentRef{Server: serverURL, Board: "plans", Name: "planner"}
+)
+
+// within bounds every wait in these tests; nothing should come close to it.
+const within = 10 * time.Second
+
+// rig runs a daemon with fake harnesses, a fake server and a fake clock, and a journal
+// on disk that survives restarts.
+type rig struct {
+	t       *testing.T
+	clock   *clock.Fake
+	claude  *deliverytest.FakeAdapter
+	codex   *deliverytest.FakeAdapter
+	server  *deliverytest.FakeServer
+	path    string
+	ctl     *deliverytest.PipeControl
+	journal *sqlitejournal.Journal
+	cancel  context.CancelFunc
+	done    chan error
+}
+
+func newRig(t *testing.T) *rig {
+	t.Helper()
+	r := &rig{
+		t: t, clock: clock.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
+		claude: deliverytest.NewFakeAdapter(delivery.HarnessClaudeCode, true),
+		codex:  deliverytest.NewFakeAdapter(delivery.HarnessCodex, false),
+		server: deliverytest.NewFakeServer(),
+		path:   filepath.Join(t.TempDir(), "delivery.db"),
+	}
+	r.start()
+	t.Cleanup(r.stop)
+	return r
+}
+
+func (r *rig) start() {
+	r.t.Helper()
+	j, err := sqlitejournal.Open(context.Background(), r.path)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	r.journal, r.ctl = j, deliverytest.NewPipeControl()
+	ctx, cancel := context.WithCancel(context.Background())
+	r.cancel, r.done = cancel, make(chan error, 1)
+	cfg := delivery.Config{
+		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex},
+		Connect: func(string) delivery.Server { return r.server },
+		Control: r.ctl, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
+	}
+	go func() { r.done <- delivery.Run(ctx, cfg) }()
+}
+
+// stop stops the daemon, as a crash would: nothing is flushed beyond what was written.
+func (r *rig) stop() {
+	if r.cancel == nil {
+		return
+	}
+	r.cancel()
+	select {
+	case err := <-r.done:
+		if err != nil {
+			r.t.Errorf("daemon: %v", err)
+		}
+	case <-time.After(within):
+		r.t.Error("the daemon didn't stop")
+	}
+	_ = r.journal.Close()
+	r.cancel = nil
+}
+
+func (r *rig) restart() {
+	r.stop()
+	r.start()
+}
+
+func (r *rig) dial() net.Conn {
+	r.t.Helper()
+	c, err := r.ctl.Dial()
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return c
+}
+
+// call sends one request and returns the answer.
+func (r *rig) call(req delivery.Request) delivery.Response {
+	r.t.Helper()
+	c := r.dial()
+	defer func() { _ = c.Close() }()
+	req.V = delivery.ProtocolVersion
+	go func() { _ = delivery.WriteFrame(c, req) }()
+	var resp delivery.Response
+	if err := delivery.ReadFrame(bufio.NewReader(c), &resp); err != nil {
+		r.t.Fatalf("%s: %v", req.Op, err)
+	}
+	return resp
+}
+
+func (r *rig) ok(req delivery.Request) delivery.Response {
+	r.t.Helper()
+	resp := r.call(req)
+	if resp.Error != nil {
+		r.t.Fatalf("%s: %+v", req.Op, resp.Error)
+	}
+	return resp
+}
+
+// register starts a Claude Code session, as its session-start hook does.
+func (r *rig) register(id, boot string) {
+	r.t.Helper()
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: id, Boot: boot})
+}
+
+func (r *rig) bind(harness, id string, agent delivery.AgentRef) {
+	r.t.Helper()
+	r.ok(delivery.Request{Op: delivery.OpBind, Harness: harness, Session: id, Agent: &agent})
+}
+
+func (r *rig) status() *delivery.Status {
+	r.t.Helper()
+	return r.ok(delivery.Request{Op: delivery.OpStatus}).Status
+}
+
+// hook is a waiting stop hook.
+type hook struct {
+	t      *testing.T
+	conn   net.Conn
+	events chan delivery.Response
+}
+
+// wait connects a stop hook for a Claude Code session.
+func (r *rig) wait(id, boot string, resumed bool) *hook {
+	r.t.Helper()
+	c := r.dial()
+	h := &hook{t: r.t, conn: c, events: make(chan delivery.Response, 4)}
+	registered := make(chan struct{})
+	r.t.Cleanup(func() { _ = c.Close() })
+	go func() {
+		_ = delivery.WriteFrame(c, delivery.Request{
+			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: delivery.HarnessClaudeCode,
+			Session: id, Boot: boot, Resumed: resumed,
+		})
+	}()
+	go func() {
+		defer close(h.events)
+		br := bufio.NewReader(c)
+		for {
+			var resp delivery.Response
+			if err := delivery.ReadFrame(br, &resp); err != nil {
+				return
+			}
+			if resp.Event == delivery.EventWaiting {
+				close(registered)
+				continue
+			}
+			if resp.Event == delivery.EventDeliver {
+				_ = delivery.WriteFrame(c, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived})
+			}
+			h.events <- resp
+			if resp.Event != "" || resp.Error != nil {
+				return
+			}
+		}
+	}()
+	select {
+	case <-registered:
+	case resp := <-h.events:
+		r.t.Fatalf("wait refused: %+v", resp)
+	case <-time.After(within):
+		r.t.Fatal("the wait wasn't registered")
+	}
+	return h
+}
+
+// next returns what the hook got: a bundle or a release.
+func (h *hook) next() delivery.Response {
+	h.t.Helper()
+	select {
+	case resp, ok := <-h.events:
+		if !ok {
+			h.t.Fatal("the hook's connection closed without an event")
+		}
+		return resp
+	case <-time.After(within):
+		h.t.Fatal("the hook got nothing")
+	}
+	return delivery.Response{}
+}
+
+func (h *hook) bundle() string {
+	h.t.Helper()
+	resp := h.next()
+	if resp.Event != delivery.EventDeliver {
+		h.t.Fatalf("want a bundle, got %+v", resp)
+	}
+	return resp.Bundle
+}
+
+// eventually polls cond until it holds, moving the fake clock forward by step each time.
+func (r *rig) eventually(what string, step time.Duration, cond func() bool) {
+	r.t.Helper()
+	deadline := time.Now().Add(within)
+	for !cond() {
+		if time.Now().After(deadline) {
+			r.t.Fatalf("timed out waiting for %s", what)
+		}
+		if step > 0 {
+			r.clock.Advance(step)
+		}
+		<-time.After(2 * time.Millisecond) // a poll interval, not a wait for the daemon
+	}
+}
+
+func (r *rig) post(to delivery.AgentRef, body string, urgent bool) int {
+	return r.server.Post(to, delivery.Message{Body: body, Urgent: urgent})
+}
+
+func TestIdleSessionGetsOneBundleAndAcksOnlyAfterConfirmation(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.post(reviewer, "one", false)
+	two := r.post(reviewer, "two", false)
+
+	b := r.wait("s1", "b1", false).bundle()
+	if !strings.Contains(b, `count="2"`) || strings.Index(b, "one") > strings.Index(b, "two") {
+		t.Fatalf("want one bundle of two, oldest first:\n%s", b)
+	}
+	if got := r.server.Cursor(reviewer); got != 0 {
+		t.Fatalf("acknowledged up to %d before the session confirmed", got)
+	}
+	// The woken turn ends and the stop hook connects again: that confirms.
+	r.wait("s1", "b1", false)
+	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == two })
+}
+
+func TestPromptReleasesTheWaitingHookWithoutADelivery(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	h := r.wait("s1", "b1", false)
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+	if resp := h.next(); resp.Event != delivery.EventRelease {
+		t.Fatalf("want a release, got %+v", resp)
+	}
+}
+
+func TestUrgentMessageGoesToTheToolHookAndOrdinaryOnesWaitForIdle(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+	ordinary := r.post(reviewer, "ordinary", false)
+	urgent := r.post(reviewer, "build broken", true)
+
+	var got string
+	r.eventually("the urgent message", 0, func() bool {
+		got = r.ok(delivery.Request{Op: delivery.OpUrgent, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"}).Bundle
+		return got != ""
+	})
+	if !strings.Contains(got, "build broken") || strings.Contains(got, "ordinary") {
+		t.Fatalf("tool hook bundle:\n%s", got)
+	}
+	b := r.wait("s1", "b1", false).bundle()
+	if !strings.Contains(b, "ordinary") || strings.Contains(b, "build broken") {
+		t.Fatalf("idle bundle:\n%s", b)
+	}
+	r.wait("s1", "b1", false)
+	r.eventually("both acknowledged", 0, func() bool { return r.server.Cursor(reviewer) == urgent })
+	if acks := r.server.Acks(); len(acks) == 0 || acks[0] < ordinary {
+		t.Fatalf("acks %v moved past the ordinary message before it was confirmed", acks)
+	}
+}
+
+func TestBundlesStayWithinTheLimitAndGroupByBoard(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind(delivery.HarnessClaudeCode, "s1", planner)
+	big := strings.Repeat("x", 12<<10)
+	r.post(reviewer, "a"+big, false)
+	r.post(reviewer, "b"+big, false)
+	r.post(reviewer, "c"+big, false)
+	r.post(planner, "plan", false)
+
+	first := r.wait("s1", "b1", false).bundle()
+	if len(first) > delivery.BundleLimit || !strings.Contains(first, `count="2"`) {
+		t.Fatalf("first bundle: %d bytes, want two messages under %d", len(first), delivery.BundleLimit)
+	}
+	second := r.wait("s1", "b1", false).bundle()
+	for _, want := range []string{`<aboard-messages board="docs" count="1">`, `<aboard-messages board="plans" count="1">`, "plan"} {
+		if !strings.Contains(second, want) {
+			t.Fatalf("second bundle lacks %q:\n%.300s", want, second)
+		}
+	}
+	if strings.Index(second, `board="docs"`) > strings.Index(second, `board="plans"`) {
+		t.Fatal("boards are not in order")
+	}
+}
+
+func TestMessageTooLargeIsSkippedAndDoesNotBlockLaterOnes(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	huge := r.post(reviewer, strings.Repeat("y", 40<<10), false)
+	small := r.post(reviewer, "small", false)
+
+	b := r.wait("s1", "b1", false).bundle()
+	if !strings.Contains(b, "small") || strings.Contains(b, "yyyy") {
+		t.Fatalf("bundle:\n%.200s", b)
+	}
+	r.wait("s1", "b1", false)
+	r.eventually("the read position to move past both", 0, func() bool { return r.server.Cursor(reviewer) == small })
+	st := r.status()
+	if len(st.Skipped) != 1 || st.Skipped[0].Seqs[0] != huge || st.Skipped[0].Reason != delivery.ReasonTooLarge {
+		t.Fatalf("skipped %+v", st.Skipped)
+	}
+}
+
+func TestQueueingHarnessGathersMessagesAndConfirmsOnAcceptance(t *testing.T) {
+	r := newRig(t)
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.post(reviewer, "first", false)
+	second := r.post(reviewer, "second", false)
+	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
+	got := r.codex.Handed("t1")
+	if len(got) != 1 || !strings.Contains(got[0], "first") || !strings.Contains(got[0], "second") {
+		t.Fatalf("want both messages in one bundle, got %q", got)
+	}
+	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == second })
+}
+
+func TestBusyIsNeverAFailedAttempt(t *testing.T) {
+	r := newRig(t)
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.codex.SetBusy(true)
+	r.post(reviewer, "hello", false)
+	r.eventually("several busy answers", time.Second, func() bool { return r.codex.Attempts() >= 8 })
+	if st := r.status(); len(st.Attention) != 0 {
+		t.Fatalf("busy turned into attention: %+v", st.Attention)
+	}
+	r.codex.SetBusy(false)
+	r.eventually("the delivery once not busy", time.Second, func() bool { return len(r.codex.Handed("t1")) == 1 })
+}
+
+func TestFailuresBackOffAndStopForAttentionAfterFiveAttempts(t *testing.T) {
+	r := newRig(t)
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.codex.FailWith(errors.New("codex queue: thread is locked"))
+	r.post(reviewer, "hello", false)
+
+	start := r.clock.Now()
+	r.eventually("five attempts", 500*time.Millisecond, func() bool { return len(r.status().Attention) == 1 })
+	if n := r.codex.Attempts(); n != delivery.MaxAttempts {
+		t.Fatalf("%d attempts, want %d", n, delivery.MaxAttempts)
+	}
+	// 2 s gathering, then waits of 1, 2, 4 and 8 seconds.
+	if took := r.clock.Now().Sub(start); took < 17*time.Second {
+		t.Fatalf("five attempts took %s of clock time; the waits between them didn't back off", took)
+	}
+	r.clock.Advance(10 * time.Minute)
+	if n := r.codex.Attempts(); n != delivery.MaxAttempts {
+		t.Fatalf("attempts went on after attention: %d", n)
+	}
+	att := r.status().Attention[0]
+	if att.Reason != delivery.ReasonHarnessError || att.Agent != reviewer {
+		t.Fatalf("attention %+v", att)
+	}
+	if got := r.server.Cursor(reviewer); got != 0 {
+		t.Fatalf("read position moved to %d without a delivery", got)
+	}
+}
+
+func TestGoneCodexThreadNeedsAttentionWithItsReason(t *testing.T) {
+	r := newRig(t)
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.codex.MarkAbsent("t1")
+	r.post(reviewer, "hello", false)
+	r.eventually("attention", time.Second, func() bool { return len(r.status().Attention) == 1 })
+	if reason := r.status().Attention[0].Reason; reason != delivery.ReasonTargetAbsent {
+		t.Fatalf("reason %q", reason)
+	}
+}
+
+func TestSubAgentSessionCannotBeBound(t *testing.T) {
+	r := newRig(t)
+	r.codex.MarkSubAgent("t-sub")
+	resp := r.call(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessCodex, Session: "t-sub", Agent: &reviewer})
+	if resp.Error == nil || resp.Error.Code != delivery.ReasonSubAgent {
+		t.Fatalf("bind of a sub-agent: %+v", resp)
+	}
+}
+
+func TestCrashAfterHandingOverHandsTheBundleOverAgain(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	seq := r.post(reviewer, "please review", false)
+	r.wait("s1", "b1", false).bundle()
+
+	r.restart()
+	b := r.wait("s1", "b1", true).bundle()
+	if !strings.Contains(b, "please review") {
+		t.Fatalf("after a crash the bundle wasn't handed over again:\n%s", b)
+	}
+	r.wait("s1", "b1", false)
+	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == seq })
+}
+
+func TestCrashAfterConfirmingAcknowledgesWithoutHandingOverAgain(t *testing.T) {
+	r := newRig(t)
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.server.FailAcks(true)
+	seq := r.post(reviewer, "hello", false)
+	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) == 1 })
+
+	r.restart()
+	r.server.FailAcks(false)
+	r.eventually("the acknowledgement after restart", 500*time.Millisecond, func() bool { return r.server.Cursor(reviewer) == seq })
+	if n := len(r.codex.Handed("t1")); n != 1 {
+		t.Fatalf("handed over %d times; a confirmed bundle must not be handed over again", n)
+	}
+}
+
+func TestUnconfirmedBundleGoesToTheNextSessionForTheAgent(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.post(reviewer, "please review", false)
+	r.wait("s1", "b1", false).bundle()
+	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: delivery.HarnessClaudeCode, Session: "s1"})
+
+	r.register("s2", "c1")
+	r.bind(delivery.HarnessClaudeCode, "s2", reviewer)
+	if b := r.wait("s2", "c1", false).bundle(); !strings.Contains(b, "please review") {
+		t.Fatalf("next session got:\n%s", b)
+	}
+}
+
+func TestNewBootHandsUnconfirmedBundlesOverAgain(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.post(reviewer, "please review", false)
+	r.wait("s1", "b1", false).bundle()
+	// The session's process was replaced (a resume) before its turn ended.
+	r.register("s1", "b2")
+	if b := r.wait("s1", "b2", false).bundle(); !strings.Contains(b, "please review") {
+		t.Fatalf("after a new boot:\n%s", b)
+	}
+	if got := r.server.Cursor(reviewer); got != 0 {
+		t.Fatalf("the new boot's event confirmed the old boot's bundle: cursor %d", got)
+	}
+}
+
+func TestRevokedTokenStopsOnlyThatAgent(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind(delivery.HarnessClaudeCode, "s1", planner)
+	r.server.Revoke(reviewer)
+	r.post(reviewer, "for the revoked agent", false)
+	r.post(planner, "for the planner", false)
+	b := r.wait("s1", "b1", false).bundle()
+	if !strings.Contains(b, "for the planner") || strings.Contains(b, "revoked") {
+		t.Fatalf("bundle:\n%s", b)
+	}
+	st := r.status()
+	if len(st.Agents) != 1 || st.Agents[0].Agent != reviewer || st.Agents[0].Reason != delivery.ReasonUnauthorized {
+		t.Fatalf("agent problems %+v", st.Agents)
+	}
+}
+
+func TestAgentsListsWhatIsBoundToTheSession(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", planner)
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "s1"}).Agents
+	if len(got) != 2 || got[0] != reviewer || got[1] != planner {
+		t.Fatalf("agents %+v", got)
+	}
+	unknown := r.call(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "nope"})
+	if unknown.Error == nil || unknown.Error.Code != "session_unknown" {
+		t.Fatalf("unknown session: %+v", unknown)
+	}
+}
+
+func TestDaemonStopsAfterTenMinutesWithoutAnOpenSession(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.clock.Advance(time.Hour)
+	if st := r.status(); st.OpenSessions != 1 {
+		t.Fatalf("open sessions %d", st.OpenSessions)
+	}
+	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: delivery.HarnessClaudeCode, Session: "s1"})
+	r.eventually("the daemon to stop", time.Minute, func() bool {
+		select {
+		case err := <-r.done:
+			if err != nil {
+				t.Fatalf("daemon: %v", err)
+			}
+			r.done <- nil
+			return true
+		default:
+			return false
+		}
+	})
+}
+
+func TestBadControlMessagesAreRejected(t *testing.T) {
+	r := newRig(t)
+	for name, req := range map[string]delivery.Request{
+		"unknown operation": {V: delivery.ProtocolVersion, Op: "delete-everything"},
+		"other version":     {V: 99, Op: delivery.OpStatus},
+		"unknown harness":   {V: delivery.ProtocolVersion, Op: delivery.OpRegister, Harness: "nope", Session: "s"},
+	} {
+		c := r.dial()
+		go func() { _ = delivery.WriteFrame(c, req) }()
+		var resp delivery.Response
+		if err := delivery.ReadFrame(bufio.NewReader(c), &resp); err != nil || resp.Error == nil {
+			t.Errorf("%s: %+v %v", name, resp, err)
+		}
+		_ = c.Close()
+	}
+	c := r.dial()
+	defer func() { _ = c.Close() }()
+	go func() {
+		_, _ = c.Write([]byte(`{"v":1,"op":"status","session":"` + strings.Repeat("x", delivery.MaxFrame) + "\"}\n"))
+	}()
+	var resp delivery.Response
+	if err := delivery.ReadFrame(bufio.NewReader(c), &resp); err != nil || resp.Error == nil {
+		t.Fatalf("oversized frame: %+v %v", resp, err)
+	}
+}

@@ -82,11 +82,13 @@ type Tx interface {
 	InsertMessage(m Message) error
 }
 
-// Notifier wakes readers waiting on a board. It only signals; readers re-read the store.
+// Notifier wakes readers waiting on a board, or on a human's list of boards. It only
+// signals; readers re-read the store. Keys are board ids, or keys the board package makes
+// for other things readers wait on; a Notifier treats them all alike.
 type Notifier interface {
-	// Watch returns a channel closed at the board's next change. Call it before reading,
+	// Watch returns a channel closed at the key's next change. Call it before reading,
 	// so a change between the read and the wait isn't missed.
-	Watch(boardID string) <-chan struct{}
-	// Changed wakes everyone watching the board.
-	Changed(boardID string)
+	Watch(key string) <-chan struct{}
+	// Changed wakes everyone watching the key.
+	Changed(key string)
 }

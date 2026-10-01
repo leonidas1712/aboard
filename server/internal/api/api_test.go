@@ -33,10 +33,13 @@ import (
 type testServer struct {
 	t     *testing.T
 	url   string
+	srv   *httptest.Server
 	clock *clock.Fake
 	st    *sqlite.Store
 	key   []byte
 	owner string // the first human's token
+	// shutdown tells the handler the server is shutting down, which ends event streams.
+	shutdown context.CancelFunc
 }
 
 func newTestServer(t *testing.T) *testServer {
@@ -55,13 +58,15 @@ func newTestServer(t *testing.T) *testServer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := api.NewHandler(api.Options{Service: svc, Responses: st, Clock: clk, Log: log, Version: "test", JoinsPerMinute: 5})
+	shutdown, startShutdown := context.WithCancel(ctx)
+	t.Cleanup(startShutdown)
+	h, err := api.NewHandler(api.Options{Service: svc, Responses: st, Clock: clk, Log: log, Version: "test", JoinsPerMinute: 5, Shutdown: shutdown})
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	return &testServer{t: t, url: srv.URL, clock: clk, st: st, key: key, owner: owner}
+	return &testServer{t: t, url: srv.URL, srv: srv, clock: clk, st: st, key: key, owner: owner, shutdown: startShutdown}
 }
 
 // addHuman creates another person with a login on the server and returns their token.
@@ -81,17 +86,8 @@ func (s *testServer) addHuman(name string) string {
 // spec, so each test is also a conformance test.
 func (s *testServer) client(token string) *api.ClientWithResponses {
 	s.t.Helper()
-	spec, err := api.GetSwagger()
-	if err != nil {
-		s.t.Fatal(err)
-	}
-	spec.Servers = nil
-	router, err := gorillamux.NewRouter(spec)
-	if err != nil {
-		s.t.Fatal(err)
-	}
 	c, err := api.NewClientWithResponses(s.url,
-		api.WithHTTPClient(&http.Client{Transport: conformance{t: s.t, router: router}}),
+		api.WithHTTPClient(s.httpClient()),
 		api.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
 			if token != "" {
 				r.Header.Set("Authorization", "Bearer "+token)
@@ -104,6 +100,21 @@ func (s *testServer) client(token string) *api.ClientWithResponses {
 	return c
 }
 
+// httpClient returns an HTTP client whose every response is checked against the spec.
+func (s *testServer) httpClient() *http.Client {
+	s.t.Helper()
+	spec, err := api.GetSwagger()
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	spec.Servers = nil
+	router, err := gorillamux.NewRouter(spec)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return &http.Client{Transport: conformance{t: s.t, router: router}}
+}
+
 type conformance struct {
 	t      *testing.T
 	router routers.Router
@@ -113,6 +124,12 @@ func (c conformance) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
 		return nil, err
+	}
+	if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+		// An event stream doesn't end, so its body is left for the test to read; the
+		// status and content type are still checked against the spec.
+		c.checkStream(req, resp)
+		return resp, nil
 	}
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
@@ -137,6 +154,31 @@ func (c conformance) RoundTrip(req *http.Request) (*http.Response, error) {
 		c.t.Errorf("conformance: %s %s → %d does not match the spec: %v\nbody: %s", req.Method, req.URL.Path, resp.StatusCode, err, body)
 	}
 	return resp, nil
+}
+
+// checkStream checks an event stream's status and content type against the spec.
+func (c conformance) checkStream(req *http.Request, resp *http.Response) {
+	route, params, err := c.router.FindRoute(req)
+	if err != nil {
+		c.t.Errorf("conformance: %s %s is not in the spec: %v", req.Method, req.URL.Path, err)
+		return
+	}
+	in := &openapi3filter.RequestValidationInput{
+		Request: req, PathParams: params, Route: route,
+		Options: &openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
+	}
+	out := &openapi3filter.ResponseValidationInput{
+		RequestValidationInput: in, Status: resp.StatusCode, Header: resp.Header,
+		Options: &openapi3filter.Options{IncludeResponseStatus: true, ExcludeResponseBody: true},
+	}
+	if err := openapi3filter.ValidateResponse(req.Context(), out); err != nil {
+		c.t.Errorf("conformance: %s %s → %d does not match the spec: %v", req.Method, req.URL.Path, resp.StatusCode, err)
+		return
+	}
+	ct := resp.Header.Get("Content-Type")
+	if r := route.Operation.Responses.Status(resp.StatusCode); r == nil || r.Value.Content.Get(ct) == nil {
+		c.t.Errorf("conformance: %s %s → %d: the spec has no %q response", req.Method, req.URL.Path, resp.StatusCode, ct)
+	}
 }
 
 // pair creates a board from writer-reviewer on preset and joins a writer and a reviewer.

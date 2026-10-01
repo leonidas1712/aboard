@@ -2,79 +2,26 @@ package cli
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery/apiserver"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
-// attrEscaper escapes text for an attribute value in delivery text.
-var attrEscaper = strings.NewReplacer(`&`, "&amp;", `"`, "&quot;", `<`, "&lt;", `>`, "&gt;")
+// textMessage turns an API message into what the delivery text shows of it.
+func textMessage(m api.Message) deliverytext.Message { return apiserver.TextMessage(m) }
 
-// deliveryText formats one message the way it is put into a session: the sender's text
-// unchanged between Aboard's tags, and a reply instruction when a reply is expected.
-// tagLike matches the start of anything that reads as an aboard-message or
-// aboard-messages tag: "<", optional whitespace, an optional "/", optional whitespace,
-// then the name, in any case.
-var tagLike = regexp.MustCompile(`(?i)<(\s*/?\s*aboard-message)`)
+// deliveryText formats one message the way it is put into a session.
+func deliveryText(m api.Message) string { return deliverytext.Format(textMessage(m)) }
 
-// escapeBody stops a message body from ending its <aboard-message> element early or
-// opening a fake one, by writing the "<" of any tag-like text as "&lt;". Nothing else in
-// the body changes.
-func escapeBody(body string) string {
-	return tagLike.ReplaceAllString(body, "&lt;$1")
-}
-
-func deliveryText(m api.Message) string {
-	owner, role := deref(m.From.Owner), deref(m.From.Role)
-	if m.From.Kind == "human" {
-		owner, role = "", ""
-	}
-	attrs := [][2]string{
-		{"board", m.Board},
-		{"from", "@" + m.From.Name},
-		{"owner", owner},
-		{"role", role},
-		{"trust", string(m.Trust)},
-		{"seq", strconv.Itoa(m.Seq)},
-	}
-	if m.Urgent {
-		attrs = append(attrs, [2]string{"urgent", "true"})
-	}
-	if m.ExpectsReply {
-		attrs = append(attrs, [2]string{"expects-reply", "true"})
-	}
-	if m.ReplyToSeq != nil {
-		attrs = append(attrs, [2]string{"reply-to", strconv.Itoa(*m.ReplyToSeq)})
-	}
-	var b strings.Builder
-	b.WriteString("<aboard-message")
-	for _, kv := range attrs {
-		fmt.Fprintf(&b, ` %s="%s"`, kv[0], attrEscaper.Replace(kv[1]))
-	}
-	b.WriteString(">\n")
-	body := escapeBody(m.Body)
-	b.WriteString(body)
-	if !strings.HasSuffix(body, "\n") {
-		b.WriteString("\n")
-	}
-	b.WriteString("</aboard-message>")
-	if m.ExpectsReply {
-		fmt.Fprintf(&b, "\nReply requested. Reply with: aboard say --reply %d \"…\"", m.Seq)
-	}
-	return b.String()
-}
-
-// bundleText formats several messages delivered together, oldest first.
+// bundleText formats several messages of one board delivered together, oldest first.
 func bundleText(board string, ms []api.Message) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "<aboard-messages board=\"%s\" count=\"%d\">\n", attrEscaper.Replace(board), len(ms))
+	tms := make([]deliverytext.Message, 0, len(ms))
 	for _, m := range ms {
-		b.WriteString(deliveryText(m) + "\n")
+		tms = append(tms, textMessage(m))
 	}
-	b.WriteString("</aboard-messages>")
-	return b.String()
+	return deliverytext.Bundle(board, tms)
 }
 
 // timelineText formats messages for reading the board: a header line per message and

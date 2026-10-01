@@ -5,6 +5,7 @@ import (
 	"net"
 	"path/filepath"
 
+	"github.com/leonidas1712/aboard/server/internal/delivery/control"
 	"github.com/leonidas1712/aboard/server/internal/server"
 )
 
@@ -14,7 +15,8 @@ type paths struct {
 	config string
 	// data holds the local server's database, pid file and log.
 	data string
-	// state holds the audit heads this machine has verified.
+	// state holds the audit heads this machine has verified and the delivery daemon's
+	// lock, pid, log, journal and socket.
 	state string
 }
 
@@ -23,6 +25,13 @@ func (p paths) credentials() string { return filepath.Join(p.config, "credential
 func (p paths) heads() string       { return filepath.Join(p.state, "heads.json") }
 func (p paths) pidFile() string     { return filepath.Join(p.data, "server.pid") }
 func (p paths) serverLog() string   { return filepath.Join(p.data, "server.log") }
+
+// The delivery daemon's files live in the state directory.
+func (p paths) daemonLock() string { return filepath.Join(p.state, "daemon.lock") }
+func (p paths) daemonPID() string  { return filepath.Join(p.state, "daemon.pid") }
+func (p paths) daemonLog() string  { return filepath.Join(p.state, "daemon.log") }
+func (p paths) deliveryDB() string { return filepath.Join(p.state, "delivery.db") }
+func (p paths) socket() string     { return control.Path(p.state) }
 
 // resolvePaths follows the XDG base directory variables, falling back to the usual
 // directories under $HOME.

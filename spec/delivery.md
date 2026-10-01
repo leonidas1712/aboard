@@ -78,6 +78,7 @@ finish for up to 5 seconds, closes server connections and the journal, and exits
 | `<state>/aboard/delivery.db` (0600) | Sessions, bindings, deliveries, attempts, reason codes, timestamps | Tokens, message bodies, prompts, transcripts |
 | `<config>/aboard/credentials.json` (0600) | Agent tokens; human logins per server | Read by hooks |
 | `<state>/aboard/daemon.sock` (0600, in a 0700 directory) | The control socket | A TCP port |
+| `<state>/aboard/daemon.pid` and `daemon.log` | The running daemon's process id, and its log | Message bodies or tokens |
 
 Agent tokens are read from the credentials file when a request needs them and are not
 copied anywhere. Hook processes never hold a token and never make network requests.
@@ -256,6 +257,28 @@ connections stay open through proxies.
   owns the session or delivery concerned, in a transaction.
 - **Supervision.** The daemon starts these goroutines in an errgroup. Stopping cancels
   one context; every goroutine returns, and the daemon waits for all of them.
+
+## Hook commands
+
+Harness hooks call the `aboard` binary; each hook is one command. They read the
+harness's hook input as JSON on standard input and never print tokens.
+
+| Command | Harness event | Behaviour |
+| --- | --- | --- |
+| `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`. Exit 0. |
+| `aboard hook claude-code prompt` | UserPromptSubmit | Marks the session busy and releases its waiting stop hook. Exit 0. |
+| `aboard hook claude-code stop` | Stop, with `asyncRewake: true` | Confirms any bundle handed to this session, then waits. On a delivery: writes the bundle to standard error and exits 2. When released: exits 0. If the daemon goes away, starts it again and keeps waiting. |
+| `aboard hook claude-code tool` | PostToolUse | If urgent messages wait for this session, prints `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"<bundle>"}}`. Exit 0. |
+| `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
+| `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread. Exit 0. |
+| `aboard hook codex tool` | PostToolUse | Same output as for Claude Code, with `hookEventName` `PostToolUse`. Exit 0. |
+
+A hook that fails for any reason other than a delivery exits 0, so a broken daemon never
+blocks a session.
+
+`aboard resume <agent>` binds the current session to an existing agent on this machine,
+so a new session can pick up an identity, its unread messages and anything left
+unconfirmed.
 
 ## The control socket
 

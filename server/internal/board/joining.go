@@ -153,7 +153,9 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		return Joined{}, err
 	}
 	var out Joined
+	var ownerJoined bool
 	err := s.st.Write(ctx, func(tx Tx) error {
+		ownerJoined = false
 		now := s.clk.Now()
 		var b Board
 		var role string
@@ -204,6 +206,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 			if err := s.addMember(tx, &b, owner, actorOf(owner), nil, now); err != nil {
 				return err
 			}
+			ownerJoined = true
 		} else if err != nil {
 			return err
 		}
@@ -248,5 +251,8 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		return Joined{}, err
 	}
 	s.notify.Changed(out.View.Board.ID)
+	if ownerJoined {
+		s.notify.Changed(boardsOfKey(p.Human.ID))
+	}
 	return out, nil
 }

@@ -137,6 +137,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		return View{}, err
 	}
 	s.notify.Changed(view.Board.ID)
+	s.notify.Changed(boardsOfKey(p.Human.ID))
 	return view, nil
 }
 

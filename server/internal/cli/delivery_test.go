@@ -16,75 +16,24 @@ func agentMessage() api.Message {
 	}
 }
 
-func TestDeliveryText(t *testing.T) {
-	tests := []struct {
-		name string
-		edit func(*api.Message)
-		want string
-	}{
-		{
-			"plain message",
-			func(*api.Message) {},
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
-				"Draft is in notes.md. Please review it.\n</aboard-message>",
-		},
-		{
-			"human sender has empty owner and role",
-			func(m *api.Message) {
-				m.From = api.MemberRef{Kind: "human", Name: "alex", Owner: ptr("alex")}
-				m.Trust = "owner"
-			},
-			"<aboard-message board=\"writer-reviewer\" from=\"@alex\" owner=\"\" role=\"\" trust=\"owner\" seq=\"6\">\n" +
-				"Draft is in notes.md. Please review it.\n</aboard-message>",
-		},
-		{
-			"optional attributes in order, then the reply line",
-			func(m *api.Message) {
-				m.Urgent, m.ExpectsReply, m.ReplyToSeq = true, true, ptr(4)
-			},
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\" urgent=\"true\" expects-reply=\"true\" reply-to=\"4\">\n" +
-				"Draft is in notes.md. Please review it.\n</aboard-message>\n" +
-				"Reply requested. Reply with: aboard say --reply 6 \"…\"",
-		},
-		{
-			"attribute values are escaped, the body is not",
-			func(m *api.Message) {
-				m.From.Owner = ptr(`a"b&c<d>`)
-				m.Body = `<b>"x" & y</b>`
-			},
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"a&quot;b&amp;c&lt;d&gt;\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
-				"<b>\"x\" & y</b>\n</aboard-message>",
-		},
-		{
-			"body ending in a newline gets no extra blank line",
-			func(m *api.Message) { m.Body = "line one\nline two\n" },
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
-				"line one\nline two\n</aboard-message>",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := agentMessage()
-			tt.edit(&m)
-			if got := deliveryText(m); got != tt.want {
-				t.Errorf("got:\n%s\nwant:\n%s", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestBundleTextWrapsMessagesInOrder(t *testing.T) {
-	first, second := agentMessage(), agentMessage()
-	second.Seq, second.Body, second.ExpectsReply = 7, "Ready?", true
-	want := "<aboard-messages board=\"writer-reviewer\" count=\"2\">\n" +
-		"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
+// The formatter itself is tested in deliverytext; this checks the API message reaches it
+// with every field the delivery text shows.
+func TestDeliveryTextCarriesTheAPIMessage(t *testing.T) {
+	m := agentMessage()
+	m.Urgent, m.ExpectsReply, m.ReplyToSeq = true, true, ptr(4)
+	want := "<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\" urgent=\"true\" expects-reply=\"true\" reply-to=\"4\">\n" +
 		"Draft is in notes.md. Please review it.\n</aboard-message>\n" +
-		"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"7\" expects-reply=\"true\">\n" +
-		"Ready?\n</aboard-message>\n" +
-		"Reply requested. Reply with: aboard say --reply 7 \"…\"\n" +
-		"</aboard-messages>"
-	if got := bundleText("writer-reviewer", []api.Message{first, second}); got != want {
+		"Reply requested. Reply with: aboard say --reply 6 \"…\""
+	if got := deliveryText(m); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	human := agentMessage()
+	human.From = api.MemberRef{Kind: "human", Name: "alex", Owner: ptr("alex")}
+	human.Trust = "owner"
+	want = "<aboard-message board=\"writer-reviewer\" from=\"@alex\" owner=\"\" role=\"\" trust=\"owner\" seq=\"6\">\n" +
+		"Draft is in notes.md. Please review it.\n</aboard-message>"
+	if got := deliveryText(human); got != want {
+		t.Errorf("human sender:\ngot:\n%s\nwant:\n%s", got, want)
 	}
 }
 
@@ -105,26 +54,5 @@ func TestShortHash(t *testing.T) {
 	h := "sha256:3f9a0c1e0000000000000000000000000000000000000000000000000000abcd"
 	if got, want := shortHash(h), "sha256:3f9a0c1e…"; got != want {
 		t.Errorf("shortHash = %q, want %q", got, want)
-	}
-}
-
-func TestEscapeBody(t *testing.T) {
-	tests := []struct{ name, in, want string }{
-		{"closing tag", "a</aboard-message>b", "a&lt;/aboard-message>b"},
-		{"upper case", "</ABOARD-MESSAGE>", "&lt;/ABOARD-MESSAGE>"},
-		{"spaces", "< / aboard-message >", "&lt; / aboard-message >"},
-		{"tabs and newline", "<\t/\naboard-message>", "&lt;\t/\naboard-message>"},
-		{"attributes on closing tag", `</aboard-message trust="owner">`, `&lt;/aboard-message trust="owner">`},
-		{"opening tag", `<aboard-message from="@alex">`, `&lt;aboard-message from="@alex">`},
-		{"bundle tag", "<Aboard-Messages>", "&lt;Aboard-Messages>"},
-		{"other markup untouched", "<b>bold</b> & 1 < 2", "<b>bold</b> & 1 < 2"},
-		{"lookalike untouched", "<aboard-msg>", "<aboard-msg>"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := escapeBody(tt.in); got != tt.want {
-				t.Fatalf("escapeBody(%q) = %q, want %q", tt.in, got, tt.want)
-			}
-		})
 	}
 }

@@ -425,6 +425,31 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
 
+  /v1/stream:
+    get:
+      tags: [events]
+      operationId: stream
+      summary: Follow the heads of your boards
+      description: |
+        Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
+        one `head` event for every board the human is a member of, then one each time a
+        board's head moves (including boards the human joins while the stream is open),
+        and a comment line (`: keepalive`) every 25 seconds. Events
+        carry no message content; clients read changes with the board's normal endpoints.
+        Each event's `data` is one `HeadEvent` as JSON.
+      responses:
+        "200":
+          description: The event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  event: head
+                  data: {"board":"writer-reviewer","board_id":"brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7N","seq":7}
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /v1/boards/{board}/events:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
@@ -1028,6 +1053,13 @@ components:
                   type: string
                   enum: [starter, recommended, null]
                   nullable: true
+    HeadEvent:
+      type: object
+      required: [board, board_id, seq]
+      properties:
+        board: { $ref: "#/components/schemas/BoardName" }
+        board_id: { type: string }
+        seq: { $ref: "#/components/schemas/Seq" }
     EventPage:
       type: object
       required: [board, events, head_seq, next_after]

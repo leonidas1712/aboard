@@ -23,6 +23,9 @@ import (
 // binary is the aboard executable built once for all tests.
 var binary string
 
+// fakeBin holds the fake codex binary, first on every test's PATH.
+var fakeBin string
+
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "aboard-e2e-bin-")
 	if err != nil {
@@ -37,6 +40,14 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "build aboard:", err)
 		os.Exit(1)
 	}
+	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")
+	fake.Dir = ".."
+	fake.Stdout, fake.Stderr = os.Stderr, os.Stderr
+	if err := fake.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build fake codex:", err)
+		os.Exit(1)
+	}
+	fakeBin = filepath.Join(dir, "fakebin")
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)
@@ -62,7 +73,9 @@ func newEnv(t *testing.T) *env {
 	e.vars = []string{
 		"HOME=" + home,
 		"USER=alex",
-		"PATH=" + os.Getenv("PATH"),
+		"PATH=" + fakeBin + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
+		"FAKE_CODEX_THREADS=" + filepath.Join(home, "fake-codex-threads.json"),
 		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"),
 		"XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
 		"XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
@@ -82,17 +95,20 @@ func (e *env) dataDir() string {
 	return filepath.Join(e.home, ".local", "share", "aboard")
 }
 
-// stopServer stops the background server this env started, if any.
+// stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
-	raw, err := os.ReadFile(filepath.Join(e.dataDir(), "server.pid"))
-	if err != nil {
-		return
+	for _, pidFile := range []string{
+		filepath.Join(e.dataDir(), "server.pid"),
+		filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid"),
+	} {
+		raw, err := os.ReadFile(pidFile)
+		if err != nil {
+			continue
+		}
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil {
+			_ = syscall.Kill(pid, syscall.SIGTERM)
+		}
 	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
-	if err != nil {
-		return
-	}
-	_ = syscall.Kill(pid, syscall.SIGTERM)
 }
 
 // result is one finished command.
@@ -122,9 +138,16 @@ func (e *env) run(args ...string) result {
 // runExit runs aboard with args and returns whatever happened.
 func (e *env) runExit(args ...string) result {
 	e.t.Helper()
+	return e.exec(nil, "", args...)
+}
+
+// exec runs aboard with extra environment variables and standard input.
+func (e *env) exec(extra []string, stdin string, args ...string) result {
+	e.t.Helper()
 	cmd := exec.Command(binary, args...)
 	cmd.Dir = e.dir
-	cmd.Env = e.vars
+	cmd.Env = append(append([]string{}, e.vars...), extra...)
+	cmd.Stdin = strings.NewReader(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()

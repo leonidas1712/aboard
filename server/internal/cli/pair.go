@@ -9,6 +9,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/boardfile"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/ids"
 	"github.com/leonidas1712/aboard/server/internal/joinline"
 )
@@ -50,6 +51,10 @@ func runPair(ctx context.Context, a *app, args []string) error {
 			"Use a template made for pairing, such as "+defaultTemplate+".")
 	}
 
+	session, inSession, err := a.checkSession(ctx)
+	if err != nil {
+		return err
+	}
 	started, err := a.ensureLocal(ctx)
 	if err != nil {
 		return err
@@ -76,12 +81,19 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	board := created.JSON201.Name
 
-	joined, err := c.join(ctx, api.JoinRequest{Board: &board, Role: &f.Pair[0], Name: optional(*agentName)})
+	joined, err := c.join(ctx, api.JoinRequest{Board: &board, Role: &f.Pair[0], Name: optional(*agentName), Harness: harnessOf(session, inSession, "")})
 	if err != nil {
 		return err
 	}
 	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board, Name: joined.Agent.Name, Token: joined.Token}); err != nil {
 		return err
+	}
+	useAs := useFor(joined.Agent.Name)
+	if inSession {
+		if err := a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}); err != nil {
+			return err
+		}
+		useAs.BoundSession = optional(session.String())
 	}
 
 	code, err := c.api.CreateJoinCodeWithResponse(ctx, board, &api.CreateJoinCodeParams{}, api.CreateJoinCodeRequest{Role: f.Pair[1]})
@@ -126,7 +138,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		PolicyNotice  *policyNotice `json:"policy_notice"`
 		PreviousBoard *string       `json:"previous_board"`
 	}{
-		srv, started, joined.Board, joined.Agent, useFor(joined.Agent.Name),
+		srv, started, joined.Board, joined.Agent, useAs,
 		pairJoin{Code: deref(jc.Code), Line: line, Role: jc.Role, ExpiresAt: jc.ExpiresAt},
 		notice, optional(previous),
 	}, text.String())
@@ -153,6 +165,14 @@ func (c *client) join(ctx context.Context, req api.JoinRequest) (*api.JoinResult
 	return r.JSON201, nil
 }
 
+// harnessOf is the harness recorded for a new agent: the flag, else the session's.
+func harnessOf(session delivery.SessionKey, inSession bool, flag string) *string {
+	if flag == "" && inSession {
+		flag = session.Harness
+	}
+	return optional(flag)
+}
+
 func optional(s string) *string {
 	if s == "" {
 		return nil
@@ -174,6 +194,10 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	session, inSession, err := a.checkSession(ctx)
+	if err != nil {
+		return err
+	}
 	if srv.URL == a.localServer().URL {
 		if _, err := a.ensureLocal(ctx); err != nil {
 			return err
@@ -189,13 +213,20 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	joined, err := c.join(ctx, api.JoinRequest{Code: &code, Name: optional(*agentName), Harness: optional(*harness)})
+	joined, err := c.join(ctx, api.JoinRequest{Code: &code, Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness)})
 	if err != nil {
 		return err
 	}
 	board, agent := joined.Board, joined.Agent
 	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board.Name, Name: agent.Name, Token: joined.Token}); err != nil {
 		return err
+	}
+	useAs := useFor(agent.Name)
+	if inSession {
+		if err := a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}); err != nil {
+			return err
+		}
+		useAs.BoundSession = optional(session.String())
 	}
 	previous, err := a.linkProject(projectFile{Server: srv, Board: board.Name})
 	if err != nil {
@@ -205,8 +236,12 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if role, ok := board.Roles[deref(agent.Role)]; ok {
 		roleCharter = deref(role.Charter)
 	}
-	text := fmt.Sprintf("Joined board %s as %s (owner %s)\nAct as this agent with --as %s, or set ABOARD_AGENT=%s.\n",
-		board.Name, agent.Name, deref(agent.Owner), agent.Name, agent.Name) + relinkedText(board.Name, previous)
+	how := fmt.Sprintf("Act as this agent with --as %s, or set ABOARD_AGENT=%s.\n", agent.Name, agent.Name)
+	if inSession {
+		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
+	}
+	text := fmt.Sprintf("Joined board %s as %s (owner %s)\n", board.Name, agent.Name, deref(agent.Owner)) + how +
+		relinkedText(board.Name, previous)
 	a.emit(struct {
 		Server        serverRef     `json:"server"`
 		Board         api.Board     `json:"board"`
@@ -216,7 +251,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		RoleCharter   string        `json:"role_charter"`
 		PolicyNotice  *policyNotice `json:"policy_notice"`
 		PreviousBoard *string       `json:"previous_board"`
-	}{srv, board, agent, useFor(agent.Name), board.Charter, roleCharter, noticeFor(board.Policy), optional(previous)}, text)
+	}{srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous)}, text)
 	return nil
 }
 

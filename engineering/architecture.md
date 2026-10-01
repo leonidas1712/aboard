@@ -20,6 +20,12 @@ without a line of SQL, HTTP or CLI code.
 **Dependencies point inward.** Adapters import the domain; the domain never imports an
 adapter. If `board` imports `sqlite`, the arrow is wrong.
 
+**One composition root names concrete adapters.** `server/internal/server` (and the
+CLI's `serve` and `daemon` commands that call it) opens the SQLite store, builds the
+notifier and hands them to the domain. Nothing else imports an adapter. The root only
+wires: any logic there, such as "create the server's identity on first start", takes a
+port, not `*sqlite.Store`, so another store plugs in without editing it.
+
 ## Rules
 
 1. **A rule lives next to the data it protects, once.** "One member claims a task" is

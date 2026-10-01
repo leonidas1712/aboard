@@ -9,19 +9,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
-// agentTarget resolves the board and the agent for an agent command.
-func (a *app) agentTarget(boardFlag, asFlag string) (target, agentCredential, error) {
-	t, err := a.selectBoard(boardFlag)
-	if err != nil {
-		return target{}, agentCredential{}, err
-	}
-	cred, err := a.agentFor(asFlag, t)
-	if err != nil {
-		return target{}, agentCredential{}, err
-	}
-	return t, cred, nil
-}
-
 // runSay posts a message as an agent.
 func runSay(ctx context.Context, a *app, args []string) error {
 	const use = `aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]`
@@ -47,7 +34,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	t, cred, err := a.agentTarget(*boardFlag, *as)
+	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 	if err != nil {
 		return err
 	}
@@ -105,7 +92,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	if *wait < 0 || *limit < 0 {
 		return usageError("--wait and --limit can't be negative.", use)
 	}
-	t, cred, err := a.agentTarget(*boardFlag, *as)
+	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 	if err != nil {
 		return err
 	}
@@ -188,7 +175,7 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if *after < 0 || *limit < 0 {
 		return usageError("--after and --limit can't be negative.", use)
 	}
-	t, cred, err := a.agentTarget(*boardFlag, *as)
+	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 	if err != nil {
 		return err
 	}

@@ -19,6 +19,7 @@ const version = "0.1.0"
 
 // Env is everything a command reads from or writes to the outside world.
 type Env struct {
+	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 	// Getenv reads an environment variable.
@@ -38,7 +39,7 @@ func OSEnv() Env {
 	if err != nil {
 		dir = "."
 	}
-	return Env{Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir, Executable: os.Executable, Rand: rand.Reader}
+	return Env{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir, Executable: os.Executable, Rand: rand.Reader}
 }
 
 // app is one invocation of the aboard command.
@@ -64,8 +65,13 @@ func commands() []command {
 		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
 		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},
 		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
+		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},
+		{"init", "aboard init [--yes] [--json]", runInit},
+		{"doctor", "aboard doctor [--json]", runDoctor},
 		{"version", "aboard version [--json]", runVersion},
 		{"serve", "aboard serve", runServe},
+		{"daemon", "aboard daemon", runDaemon},
+		{"hook", "aboard hook <claude-code|codex> <event>", runHook},
 	}
 }
 
@@ -74,7 +80,7 @@ func usage() string {
 	var b strings.Builder
 	b.WriteString("Usage: aboard <command> [flags]\n\nCommands:\n")
 	for _, c := range commands() {
-		if c.name == "serve" {
+		if c.name == "serve" || c.name == "daemon" || c.name == "hook" {
 			continue
 		}
 		b.WriteString("  " + c.usage + "\n")
@@ -131,6 +137,10 @@ func (a *app) report(err error) int {
 	}
 	if errors.Is(err, errHelpShown) {
 		return exitOK
+	}
+	var hook hookExit
+	if errors.As(err, &hook) {
+		return int(hook)
 	}
 	e := asError(err)
 	if a.json {

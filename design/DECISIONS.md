@@ -161,3 +161,6 @@ Why: verified for Claude Code by a live run (the context reached the model in th
 
 **D51. Codex sessions bind through `CODEX_THREAD_ID`, which Codex sets in the environment of every command the agent runs. Claude Code sessions bind through `ABOARD_SESSION`, written to the session's environment file by the session-start hook. No harness needs `--as` on every command.**
 Why: verified with a live Codex run and in Codex's source; Claude Code documents the environment file for exactly this.
+
+**D52. The Aboard skill ships inside the binary, and `aboard init` copies it into each detected harness's skill folder. Once the repository is public, `npx skills add` works for anyone who wants only the skill.**
+Why: `npx skills` installs from a published repository, and the skill must match the binary's commands exactly.

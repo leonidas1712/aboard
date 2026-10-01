@@ -94,7 +94,14 @@ func Run(ctx context.Context, o Options) error {
 			return fmt.Errorf("save owner token: %w", err)
 		}
 	}
-	handler, err := api.NewHandler(api.Options{Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, JoinsPerMinute: 30})
+	// shutdown ends open event streams when the server shuts down: http.Server.Shutdown
+	// waits for active requests, and a stream never finishes on its own.
+	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
+	defer startShutdown()
+	handler, err := api.NewHandler(api.Options{
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, JoinsPerMinute: 30,
+		Shutdown: shutdown,
+	})
 	if err != nil {
 		return err
 	}
@@ -113,10 +120,12 @@ func Run(ctx context.Context, o Options) error {
 	srv := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
-		// Long enough for the longest inbox wait (600 s) plus a margin.
+		// Long enough for the longest inbox wait (600 s) plus a margin. The event stream
+		// on GET /v1/stream moves its own write deadline forward as it writes.
 		WriteTimeout: 11 * time.Minute,
 		IdleTimeout:  2 * time.Minute,
 	}
+	srv.RegisterOnShutdown(startShutdown)
 	o.Log.Info("serving", "addr", ln.Addr().String(), "server_id", serverID)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
@@ -135,7 +144,13 @@ func Run(ctx context.Context, o Options) error {
 }
 
 // identity returns the server's id and digest key, creating them on first start.
-func identity(ctx context.Context, st *sqlite.Store, o Options) (serverID string, key []byte, err error) {
+// settings stores the server's own configuration, such as its id and digest key.
+type settings interface {
+	Setting(ctx context.Context, key string) (value string, ok bool, err error)
+	SetSetting(ctx context.Context, key, value string) error
+}
+
+func identity(ctx context.Context, st settings, o Options) (serverID string, key []byte, err error) {
 	serverID, err = setting(ctx, st, "server_id", func() (string, error) {
 		return ids.New(o.Rand).ID("srv", o.Clock.Now())
 	})
@@ -161,15 +176,15 @@ func identity(ctx context.Context, st *sqlite.Store, o Options) (serverID string
 
 // setting returns a stored server setting, first storing the value from create if
 // there is none.
-func setting(ctx context.Context, st *sqlite.Store, key string, create func() (string, error)) (string, error) {
-	v, ok, err := st.Meta(ctx, key)
+func setting(ctx context.Context, st settings, key string, create func() (string, error)) (string, error) {
+	v, ok, err := st.Setting(ctx, key)
 	if err != nil || ok {
 		return v, err
 	}
 	if v, err = create(); err != nil {
 		return "", err
 	}
-	return v, st.SetMeta(ctx, key, v)
+	return v, st.SetSetting(ctx, key, v)
 }
 
 // writePrivate writes a file only its owner can read.

@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/board"
+	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/rules"
 )
@@ -15,6 +17,10 @@ import (
 type handlers struct {
 	svc     *board.Service
 	version string
+	clk     clock.Clock
+	log     *slog.Logger
+	// shutdown is done when the server starts shutting down; event streams end then.
+	shutdown context.Context
 }
 
 var _ StrictServerInterface = (*handlers)(nil)
