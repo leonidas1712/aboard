@@ -10,6 +10,22 @@ Real agent turns cost money. A full run is roughly 30 short turns.
 
 ## Setup
 
+**Standing rule.** Every run uses an isolated `HOME` or Aboard state directory, never the
+real one. Before a run that touches harness config (`~/.claude`, `~/.codex` and the
+like), record a checksum of the real files; afterwards, confirm they are unchanged and
+that no `~/.local/state/aboard`, `~/.local/share/aboard` or `~/.config/aboard` appeared.
+Nothing is written to the real config or state without asking first. The only allowed
+exception is trusting hooks in Codex for proof 5, when asked, and removing the entries
+afterwards.
+
+```bash
+# $S is the scratch directory from step 1.
+shasum ~/.claude/settings.json ~/.codex/config.toml ~/.codex/hooks.json 2>/dev/null > $S/before.sha
+# … the run …
+shasum ~/.claude/settings.json ~/.codex/config.toml ~/.codex/hooks.json 2>/dev/null | diff $S/before.sha - && echo unchanged
+ls -d ~/.local/state/aboard ~/.local/share/aboard ~/.config/aboard 2>/dev/null
+```
+
 Everything runs in a scratch directory, so the machine's own Aboard state and harness
 settings are never touched. Only the harness logins come from the real home directory.
 

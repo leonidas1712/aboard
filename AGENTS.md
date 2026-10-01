@@ -37,7 +37,7 @@ present, the launch-scope table in `private/ABOARD_OSS_VISION.md`, which wins) i
 ONLY allowed scope for v0.1.
 
 - Anything in the "Later" column, or not in the table at all, needs the maintainer's
-  approval first. **Ask, don't build.** This includes "small" extras: MCP server,
+  approval first. **Ask, don't build.** This includes "small" extras:
   Postgres, S3 backend, OIDC, hold-for-review, approval gates, whole-board monitor,
   work/inbox/map views, extra launchers, automatic adapters beyond Claude Code and Codex.
 - The data model may leave room for later features (sub-boards, links, Postgres), but
@@ -85,6 +85,14 @@ ONLY allowed scope for v0.1.
     file that contains a credential.
 12. **The starter policy is never hidden.** `pair` and `board new` print the notice,
     `status` and the board view show the badge. Don't remove these to tidy output.
+13. **Tests and live proofs never touch the maintainer's real config or state.** They
+    always run with an isolated `HOME` and Aboard state directory. Before any run that
+    touches harness config (`~/.claude`, `~/.codex` and the like), record a checksum of
+    the real files, and afterwards confirm they are unchanged. Never write to the
+    maintainer's real config or state without asking first.
+14. **The target examples follow the code.** As a feature lands, make the CLI match
+    [design/TARGET-EXAMPLES.md](design/TARGET-EXAMPLES.md) or update the example, and
+    note any deliberate difference there.
 
 ## Repository layout
 
