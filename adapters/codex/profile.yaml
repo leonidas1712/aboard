@@ -10,6 +10,8 @@ checks:
   logged_in:
     run: [codex, login, status]
 
+sandbox_env: [CODEX_SANDBOX, CODEX_SANDBOX_NETWORK_DISABLED]
+
 skills_dir: .agents/skills
 
 interactive:
@@ -60,5 +62,5 @@ notes:
   - Before binding, the daemon reads the exact thread through codex app-server (thread/read) and refuses sub-agent threads.
   - Hooks run only once trusted in Codex's /hooks; without them, delivery still works through the queue but urgent messages wait for the end of the turn.
   - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
-  - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server.
+  - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so a sandboxed command never starts one.
   - "Verified live with Codex 0.159.3: idle wake through the queue, urgent at the next tool call, sub-agent refusal."

@@ -70,7 +70,7 @@ func commands() []command {
 		{"doctor", "aboard doctor [--json]", runDoctor},
 		{"version", "aboard version [--json]", runVersion},
 		{"serve", "aboard serve", runServe},
-		{"daemon", "aboard daemon", runDaemon},
+		{"daemon", "aboard daemon [start] [--json]", runDaemon},
 		{"hook", "aboard hook <claude-code|codex> <event>", runHook},
 	}
 }
@@ -80,7 +80,7 @@ func usage() string {
 	var b strings.Builder
 	b.WriteString("Usage: aboard <command> [flags]\n\nCommands:\n")
 	for _, c := range commands() {
-		if c.name == "serve" || c.name == "daemon" || c.name == "hook" {
+		if c.name == "serve" || c.name == "hook" {
 			continue
 		}
 		b.WriteString("  " + c.usage + "\n")

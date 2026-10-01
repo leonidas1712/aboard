@@ -37,6 +37,11 @@
         "logged_in": { "$ref": "#/$defs/check" }
       }
     },
+    "sandbox_env": {
+      "description": "Variables the harness sets for commands it runs in its sandbox. A command that sees one doesn't start the delivery daemon, which would inherit the sandbox.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "skills_dir": {
       "description": "Where aboard init puts the Aboard skill, under the home directory.",
       "type": "string"

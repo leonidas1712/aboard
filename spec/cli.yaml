@@ -46,7 +46,8 @@ $defs:
       bound to this session as [{name, board}]) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
       session the daemon hasn't registered) · codex_subagent_target · codex_target_absent ·
       harness_unavailable (the session couldn't be checked for another reason) ·
-      daemon_not_running ·
+      daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
+      inside a harness's sandbox, where it won't start one) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
       message_ref_invalid · check_failed.
@@ -320,6 +321,20 @@ $defs:
             code: { type: [string, "null"], description: "Null when ok; otherwise a code from spec/delivery.md." }
             message: { type: string }
             fix: { type: [string, "null"] }
+
+  # ---------- aboard daemon start ----------
+  DaemonStartOutput:
+    description: |
+      Starts the delivery daemon in the background, or reports it already runs. Refuses
+      with daemon_in_sandbox inside a harness's sandbox. Text output:
+        Started the delivery daemon (pid 4182).
+        The delivery daemon is already running (pid 4182).
+      Plain "aboard daemon" runs it in the foreground, for debugging.
+    type: object
+    required: [pid, started]
+    properties:
+      pid: { type: integer }
+      started: { type: boolean, description: "False when it was already running." }
 
   # ---------- aboard status [--as AGENT] [--board NAME] ----------
   StatusOutput:

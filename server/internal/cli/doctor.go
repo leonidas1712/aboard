@@ -113,6 +113,11 @@ func (a *app) checkDaemon(ctx context.Context, p paths) (*delivery.Status, []doc
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpStatus})
+	if err != nil {
+		if e := asError(err); e.Code == "daemon_in_sandbox" {
+			return nil, []doctorCheck{problem("daemon", levelError, e.Code, strings.TrimSuffix(e.Message, "."), e.Hint)}
+		}
+	}
 	if err != nil || resp.Status == nil {
 		msg := "delivery daemon not running"
 		if err != nil {

@@ -34,11 +34,20 @@ const daemonStartTimeout = 5 * time.Second
 const daemonCallTimeout = 60 * time.Second
 
 // runDaemon runs the delivery daemon in the foreground until interrupted, or until no
-// session has been open for ten minutes. A second daemon exits at once.
+// session has been open for ten minutes. A second daemon exits at once. "aboard daemon
+// start" starts it in the background instead.
 func runDaemon(ctx context.Context, a *app, args []string) error {
+	const use = "aboard daemon [start] [--json]"
 	fs := a.flags("daemon")
-	if _, err := a.parse(fs, args, "aboard daemon", 0, 0); err != nil {
+	pos, err := a.parse(fs, args, use, 0, 1)
+	if err != nil {
 		return err
+	}
+	if len(pos) == 1 {
+		if pos[0] != "start" {
+			return usageError(fmt.Sprintf("%q is not a daemon command.", pos[0]), use)
+		}
+		return a.daemonStart(ctx)
 	}
 	p, err := a.paths()
 	if err != nil {
@@ -108,6 +117,39 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 	return nil
 }
 
+// daemonStart starts the delivery daemon in the background, unless it runs already.
+func (a *app) daemonStart(ctx context.Context) error {
+	p, err := a.paths()
+	if err != nil {
+		return err
+	}
+	already := false
+	if c, err := control.Dial(ctx, p.socket()); err == nil {
+		_ = c.Close()
+		already = true
+	}
+	if !already {
+		if harness, fix, ok := a.sandboxed(); ok {
+			return daemonInSandbox(harness, fix)
+		}
+	}
+	c, err := a.dialDaemon(ctx)
+	if err != nil {
+		return err
+	}
+	_ = c.Close()
+	pid := readPID(p.daemonPID())
+	text := fmt.Sprintf("Started the delivery daemon (pid %d).\n", pid)
+	if already {
+		text = fmt.Sprintf("The delivery daemon is already running (pid %d).\n", pid)
+	}
+	a.emit(struct {
+		PID     int  `json:"pid"`
+		Started bool `json:"started"`
+	}{pid, !already}, text)
+	return nil
+}
+
 func errText(err error) string {
 	if err == nil {
 		return ""
@@ -174,6 +216,9 @@ func (a *app) dialDaemon(ctx context.Context) (net.Conn, error) {
 	}
 	if c, err := control.Dial(ctx, p.socket()); err == nil {
 		return c, nil
+	}
+	if harness, fix, ok := a.sandboxed(); ok {
+		return nil, daemonInSandbox(harness, fix)
 	}
 	if err := a.startDaemon(p); err != nil {
 		return nil, err

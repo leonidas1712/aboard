@@ -58,8 +58,10 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 			}
 
 			var p struct {
-				Harness  string `yaml:"harness"`
-				Delivery struct {
+				Harness    string   `yaml:"harness"`
+				Name       string   `yaml:"name"`
+				SandboxEnv []string `yaml:"sandbox_env"`
+				Delivery   struct {
 					Hooks []struct {
 						Event string `yaml:"event"`
 						Run   string `yaml:"run"`
@@ -83,6 +85,16 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 			slices.Sort(want)
 			if !slices.Equal(listed, want) {
 				t.Fatalf("profile hooks %v, aboard init installs %v", listed, want)
+			}
+
+			var markers []string
+			for _, m := range sandboxMarkers {
+				if m.harness == p.Name {
+					markers = append(markers, m.env)
+				}
+			}
+			if !slices.Equal(markers, p.SandboxEnv) {
+				t.Fatalf("profile sandbox_env %v, the CLI checks %v", p.SandboxEnv, markers)
 			}
 		})
 	}

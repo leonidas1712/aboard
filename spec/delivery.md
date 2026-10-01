@@ -61,8 +61,19 @@ exits without doing anything.
 
 **Started on demand, no service install.** Every hook and every CLI command that needs
 the daemon starts it in the background if it isn't running, the same way `aboard pair`
-starts the local server. The foreground form, for tests and debugging, is
-`aboard daemon`. No launch agent or system service is installed.
+starts the local server. `aboard daemon start` starts it explicitly; the foreground
+form, for tests and debugging, is `aboard daemon`. No launch agent or system service is
+installed.
+
+**Never started inside a harness's sandbox.** A daemon started by a command that runs
+inside a harness's sandbox inherits the sandbox and can't reach the harness (Codex's
+sandbox stops it running `codex app-server`). A command sees it is sandboxed from the
+variables the harness sets for sandboxed commands (`CODEX_SANDBOX`,
+`CODEX_SANDBOX_NETWORK_DISABLED`, Claude Code's `SANDBOX_RUNTIME`). If no daemon is
+running there, it doesn't start one: it fails with `daemon_in_sandbox`, saying to trust
+Aboard's hooks in the harness (its session-start hook runs outside the sandbox and
+starts the daemon) or to run `aboard daemon start` in a normal terminal. `aboard doctor`
+reports the same.
 
 **Stops when idle.** With no open session for 10 minutes, the daemon exits. Messages for
 agents whose sessions are closed simply wait on their server; the next session start
@@ -345,6 +356,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | Code | Meaning | Fix shown |
 | --- | --- | --- |
 | `daemon_not_running` | The daemon isn't running and couldn't start | The log path and the error |
+| `daemon_in_sandbox` | The daemon isn't running and doctor runs inside a harness's sandbox | Trust Aboard's hooks in the harness, or run `aboard daemon start` in a normal terminal |
 | `socket_unsafe` | The socket or its directory is readable by others | Remove the directory; it is recreated |
 | `peer_check_unavailable` | The kernel didn't report the peer's user | Delivery is refused on this system |
 | `claude_code_not_installed` | Claude Code isn't installed (warning) | Install it, or ignore |

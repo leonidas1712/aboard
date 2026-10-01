@@ -449,3 +449,63 @@ func TestLateStopHookAfterAPromptGetsNoBundle(t *testing.T) {
 		t.Fatalf("the turn's own stop hook should get the message\n%s", woke)
 	}
 }
+
+// daemonRunning reports whether this env's delivery daemon is running.
+func (e *env) daemonRunning() bool {
+	raw, err := os.ReadFile(filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid"))
+	if err != nil {
+		return false
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	return err == nil && syscall.Kill(pid, 0) == nil
+}
+
+// Inside a harness's sandbox, a command that needs the delivery daemon doesn't start
+// one there, where it couldn't reach the harness; it says how to fix it instead.
+func TestCommandInsideASandboxDoesNotStartTheDaemon(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	if e.daemonRunning() {
+		t.Fatal("pair outside any session started the daemon")
+	}
+	sandboxed := &session{
+		e: e, harness: "codex", id: "019a0000-0000-7000-8000-000000000004",
+		vars: []string{"CODEX_THREAD_ID=019a0000-0000-7000-8000-000000000004", "CODEX_SANDBOX=seatbelt"},
+	}
+
+	r := sandboxed.runExit("join", line, "--json")
+	if r.code == 0 || field(t, r.json(t), "error.code") != "daemon_in_sandbox" {
+		t.Fatalf("join inside a sandbox should fail with daemon_in_sandbox\n%s", r)
+	}
+	hint := field(t, r.json(t), "error.hint").(string)
+	for _, want := range []string{"aboard daemon start", "hooks"} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("hint should mention %q: %s", want, hint)
+		}
+	}
+	if e.daemonRunning() {
+		t.Fatal("a daemon was started inside the sandbox")
+	}
+
+	checks := map[string]map[string]any{}
+	for _, c := range field(t, sandboxed.runExit("doctor", "--json").json(t), "checks").([]any) {
+		m := c.(map[string]any)
+		checks[m["name"].(string)] = m
+	}
+	if d := checks["daemon"]; d["code"] != "daemon_in_sandbox" || !strings.Contains(d["fix"].(string), "aboard daemon start") {
+		t.Fatalf("doctor's daemon check inside a sandbox: %v", d)
+	}
+	if e.daemonRunning() {
+		t.Fatal("doctor started a daemon inside the sandbox")
+	}
+
+	if r := sandboxed.runExit("daemon", "start"); r.code == 0 {
+		t.Fatalf("daemon start inside a sandbox should refuse\n%s", r)
+	}
+	e.run("daemon", "start")
+	if !e.daemonRunning() {
+		t.Fatal("aboard daemon start in a normal terminal didn't start the daemon")
+	}
+	sandboxed.run("join", line)
+}

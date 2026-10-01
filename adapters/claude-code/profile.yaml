@@ -11,6 +11,8 @@ checks:
     run: [claude, auth, status]
     json_true: loggedIn
 
+sandbox_env: [SANDBOX_RUNTIME]
+
 skills_dir: .claude/skills
 
 interactive:
