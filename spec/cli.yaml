@@ -32,7 +32,9 @@ $defs:
       server_not_running · server_unreachable · server_unknown (join line names a server
       this machine hasn't accepted) · login_required (team mode: run aboard connect) ·
       agent_not_selected (details.choices lists your agents on this board) ·
-      board_not_selected · join_line_invalid · message_ref_invalid · check_failed.
+      board_not_selected · board_already_linked (pair in a directory already linked to a
+      board; details.board, details.server, details.agents) · join_line_invalid ·
+      message_ref_invalid · check_failed.
   ServerRef:
     type: object
     required: [name, url]
@@ -60,6 +62,12 @@ $defs:
         type: string
         examples: ["Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended"]
       tighten_command: { const: aboard board policy recommended }
+  PreviousBoard:
+    description: |
+      The board this directory was linked to before the command re-linked it, or null if
+      it wasn't linked or stays on the same board. Text output then prints
+      "Linked this directory to board <board> (it was linked to <previous>)."
+    type: [string, "null"]
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -83,7 +91,9 @@ $defs:
       data_dir: { type: string, examples: ["~/.local/share/aboard"] }
       version: { type: string }
 
-  # ---------- aboard pair [template] [--board NAME] [--name NAME] ----------
+  # ---------- aboard pair [template] [--new] [--board NAME] [--name NAME] ----------
+  # In a directory already linked to a board, pair fails with board_already_linked
+  # unless --new is given.
   PairOutput:
     type: object
     required: [server, server_started, board, agent, use, join, policy_notice]
@@ -103,6 +113,7 @@ $defs:
           role: { type: string, examples: [reviewer] }
           expires_at: { type: string, format: date-time }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
+      previous_board: { $ref: "#/$defs/PreviousBoard" }
 
   # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
   JoinOutput:
@@ -116,6 +127,7 @@ $defs:
       charter: { type: string, description: The board charter, for the agent to read first. }
       role_charter: { type: string, description: This agent's role charter. }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
+      previous_board: { $ref: "#/$defs/PreviousBoard" }
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]

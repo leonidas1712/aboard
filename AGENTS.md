@@ -77,7 +77,8 @@ ONLY allowed scope for v0.1.
    added to, never renamed or removed.
 10. **Identity is per session.** The acting agent comes from `--as`, then `ABOARD_AGENT`,
     then the harness session id, else an error listing your agents. `.aboard` holds
-    only server and board. Agent commands never fall back to the human login.
+    only server and board. Agent commands never fall back to the human login. A human
+    login is only ever sent to the server that issued it.
 11. **Never change uploaded file bytes.** Redact messages and notes only; reject a text
     file that contains a credential.
 12. **The starter policy is never hidden.** `pair` and `board new` print the notice,

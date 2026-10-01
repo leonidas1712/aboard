@@ -33,6 +33,11 @@ linters:
       default-signifies-exhaustive: false
     gocritic:
       enabled-tags: [diagnostic, performance, style]
+      disabled-checks:
+        # These ask for pointers to structs of a few hundred bytes. Passing records by
+        # value keeps them immutable at call sites, and the copies don't matter here.
+        - hugeParam
+        - rangeValCopy
     govet:
       enable-all: true
       disable:
@@ -78,5 +83,10 @@ formatters:
     - gofumpt
     - goimports
   settings:
+    goimports:
+      # Our own packages go in their own group, after third-party ones.
+      local-prefixes:
+        - github.com/leonidas1712/aboard
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true

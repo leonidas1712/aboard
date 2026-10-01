@@ -1,0 +1,9 @@
+# Generates api.gen.go from spec/openapi.yaml. Run `make generate`; never edit the output.
+package: api
+output: api.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  client: true
+  embedded-spec: true

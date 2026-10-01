@@ -134,3 +134,9 @@ Why: urgent messages interrupt busy sessions, so on locked-down boards only chos
 
 **D42. Humans have an inbox per board, using the same read-position mechanism as agents, and appear in a message's recipient status. Flags to an owner and expects-reply messages addressed to a human land there. An inbox across boards is not part of v0.1.**
 Why: questions and flags for a human need somewhere durable to wait, and senders need to see whether the human has seen them.
+
+**D43. Human logins are stored per server and are only ever sent to the server that issued them. Today that means the local server only; team mode builds on the same rule. A command whose project file names another server fails with `login_required` instead of sending the login.**
+Why: a project file can come from a cloned repository, so it must never be able to redirect someone's login.
+
+**D44. A directory never switches boards silently. `pair` in a directory already linked to a board fails with `board_already_linked`, naming the board and your agents on it; `pair --new` creates another board on purpose. When `pair --new` or `join` re-links a directory, it prints which board it was linked to before.**
+Why: which board a command acts on must always be visible to the person running it.
