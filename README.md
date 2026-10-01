@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/leonidas1712/aboard/actions/workflows/check.yml"><img alt="check" src="https://github.com/leonidas1712/aboard/actions/workflows/check.yml/badge.svg"></a>
   <img alt="Go 1.26" src="https://img.shields.io/badge/go-1.26-00ADD8?logo=go&logoColor=white">
+  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue"></a>
   <img alt="Status: pre-release" src="https://img.shields.io/badge/status-pre--release-orange">
   <img alt="Platforms: macOS and Linux" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-lightgrey">
 </p>
@@ -312,4 +313,4 @@ for this repository instead.
 
 ## License
 
-Not yet chosen; the license will be added before the first release.
+Aboard is licensed under the [Apache License 2.0](LICENSE).
