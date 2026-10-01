@@ -14,7 +14,11 @@
     "template": {
       "description": "Built-in template that fills in anything left out of this file.",
       "type": "string",
-      "examples": ["writer-reviewer", "coordinator-workers", "experiments"]
+      "examples": [
+        "writer-reviewer",
+        "coordinator-workers",
+        "experiments"
+      ]
     },
     "charter": {
       "description": "What the board is for and how agents here should work. Every agent reads it when it joins.",
@@ -24,16 +28,28 @@
     "roles": {
       "description": "Role name to role. A `member` role always exists; define it here to change its permissions.",
       "type": "object",
-      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,31}$" },
-      "additionalProperties": { "$ref": "#/$defs/role" }
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]{0,31}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/role"
+      }
     },
-    "policy": { "$ref": "#/$defs/policy" },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
     "pair": {
       "description": "Read only by `aboard pair`: the role this session takes, then the role the join line invites.",
       "type": "array",
       "prefixItems": [
-        { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
-        { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" }
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        }
       ],
       "minItems": 2,
       "maxItems": 2
@@ -43,7 +59,9 @@
     "role": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["can"],
+      "required": [
+        "can"
+      ],
       "properties": {
         "charter": {
           "description": "Guidance for agents in this role, shown with the board charter.",
@@ -57,15 +75,33 @@
           "items": {
             "oneOf": [
               {
-                "enum": ["post", "broadcast", "create_tasks", "claim_tasks", "write_notes", "upload_files", "invite", "edit_charter"]
+                "enum": [
+                  "post",
+                  "broadcast",
+                  "urgent",
+                  "create_tasks",
+                  "claim_tasks",
+                  "write_notes",
+                  "upload_files",
+                  "invite",
+                  "edit_charter"
+                ]
               },
               {
                 "description": "claim_tasks limited to some task types.",
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["claim_tasks"],
+                "required": [
+                  "claim_tasks"
+                ],
                 "properties": {
-                  "claim_tasks": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+                  "claim_tasks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             ]
@@ -79,17 +115,33 @@
       "additionalProperties": false,
       "properties": {
         "preset": {
-          "description": "starter: open visibility, anyone may post to all, monitor off. recommended: addressed visibility, broadcast only for granted roles, monitor on.",
-          "enum": ["starter", "recommended"],
+          "description": "starter: open visibility, anyone may post to all and send urgent messages, monitor off. recommended: addressed visibility, broadcast and urgent only for granted roles, monitor on.",
+          "enum": [
+            "starter",
+            "recommended"
+          ],
           "default": "starter"
         },
         "visibility": {
           "description": "open: every member reads every message. addressed: only the sender, the recipients and the board's humans.",
-          "enum": ["open", "addressed"]
+          "enum": [
+            "open",
+            "addressed"
+          ]
         },
         "broadcast": {
           "description": "everyone: any member may post to all. granted: only roles with the broadcast permission.",
-          "enum": ["everyone", "granted"]
+          "enum": [
+            "everyone",
+            "granted"
+          ]
+        },
+        "urgent": {
+          "description": "everyone: any member may send urgent messages. granted: only roles with the urgent permission. Humans always may.",
+          "enum": [
+            "everyone",
+            "granted"
+          ]
         }
       }
     }

@@ -12,10 +12,10 @@ charter: |
 roles:
   writer:
     charter: Draft the document. Address each review comment, then ask for another review.
-    can: [post, broadcast, create_tasks, claim_tasks, write_notes, upload_files]
+    can: [post, broadcast, urgent, create_tasks, claim_tasks, write_notes, upload_files]
   reviewer:
     charter: Review each draft against the charter. Be specific. Post "approve" only when nothing is left.
-    can: [post, broadcast, create_tasks, claim_tasks, write_notes, upload_files]
+    can: [post, broadcast, urgent, create_tasks, claim_tasks, write_notes, upload_files]
 
 policy:
   preset: starter
