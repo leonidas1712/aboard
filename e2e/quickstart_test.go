@@ -54,21 +54,23 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 
 	// Terminal 1: the writer asks for a review.
 	expectLines(t, e.run("say", "--as", "writer", "--to", "@reviewer", "Draft is in notes.md. Please review it."),
-		"Sent #6 to @reviewer",
+		"Sent #6 to @reviewer on writer-reviewer",
 	)
 
 	// Terminal 2: the reviewer reads its inbox and replies to everyone.
 	expectLines(t, e.run("inbox", "--as", "reviewer"),
+		"writer-reviewer · 1 new",
 		`<aboard-message board="writer-reviewer" from="@writer" owner="alex" role="writer" trust="peer" seq="6">`,
 		"Draft is in notes.md. Please review it.",
 		"</aboard-message>",
 	)
 	expectLines(t, e.run("say", "--as", "reviewer", "Reviewed. Approved."),
-		"Sent #7 to all",
+		"Sent #7 to all on writer-reviewer",
 	)
 
 	// Terminal 1: read the board.
 	expectLines(t, e.run("read", "--as", "writer"),
+		"writer-reviewer · 2 messages",
 		"#6  @writer (writer, alex) → @reviewer",
 		"    Draft is in notes.md. Please review it.",
 		"#7  @reviewer (reviewer, alex) → all",
@@ -105,7 +107,7 @@ func TestInboxIsEmptyAfterReading(t *testing.T) {
 	if n := len(field(t, first, "messages").([]any)); n != 1 {
 		t.Fatalf("first read returned %d messages, want 1", n)
 	}
-	expectLines(t, e.run("inbox", "--as", "reviewer"), "No new messages.")
+	expectLines(t, e.run("inbox", "--as", "reviewer"), "writer-reviewer · no new messages")
 }
 
 // TestInboxWaitReturnsWhenAMessageArrives starts a blocking inbox read, then posts.
@@ -276,4 +278,33 @@ func TestJoinIntoAnotherBoardSaysSo(t *testing.T) {
 		"Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.",
 		"Linked this directory to board writer-reviewer (it was linked to writer-reviewer-2).",
 	)
+}
+
+// TestStatusShowsWhereSelectionsCameFrom checks that plain aboard status says which board
+// and agent a command would use, and why, and that selection errors say it too.
+func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	url := "http://" + e.addr
+	e.run("pair")
+
+	expectLines(t, e.run("status"),
+		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
+		"Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: writer)",
+		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
+	)
+	expectLines(t, e.run("status", "--as", "writer"),
+		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
+		"Agent:  writer (from --as)",
+		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
+	)
+	v := e.run("status", "--json").json(t)
+	if src := field(t, v, "board_source"); src != "project_file" {
+		t.Fatalf("board_source %v", src)
+	}
+
+	r := e.runExit("say", "hi", "--json")
+	if src := field(t, r.json(t), "error.details.board_source"); src != "project_file" {
+		t.Fatalf("agent_not_selected doesn't say where the board came from\n%s", r)
+	}
 }

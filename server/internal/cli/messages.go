@@ -86,7 +86,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	m := r.JSON201
 	a.emit(struct {
 		Message *api.Message `json:"message"`
-	}{m}, fmt.Sprintf("Sent #%d to %s\n", m.Seq, targetsText(m.To)))
+	}{m}, fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board))
 	return nil
 }
 
@@ -156,11 +156,11 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		wrapped = append(wrapped, deliveryText(m))
 	}
 	var bundle *string
-	text := "No new messages.\n"
+	text := in.Board + " · no new messages\n"
 	if len(msgs) > 0 {
 		b := bundleText(in.Board, msgs)
 		bundle = &b
-		text = strings.Join(wrapped, "\n\n") + "\n"
+		text = fmt.Sprintf("%s · %d new\n", in.Board, len(msgs)) + strings.Join(wrapped, "\n\n") + "\n"
 	}
 	a.emit(struct {
 		Board     string        `json:"board"`
@@ -210,9 +210,9 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if msgs == nil {
 		msgs = []api.Message{}
 	}
-	text := "No messages yet.\n"
+	text := page.Board + " · no messages yet\n"
 	if len(msgs) > 0 {
-		text = timelineText(msgs)
+		text = fmt.Sprintf("%s · %d %s\n", page.Board, len(msgs), plural(len(msgs), "message", "messages")) + timelineText(msgs)
 	}
 	a.emit(struct {
 		Board      string        `json:"board"`
@@ -221,4 +221,11 @@ func runRead(ctx context.Context, a *app, args []string) error {
 		NextAfter  *int          `json:"next_after"`
 	}{page.Board, string(b.Policy.Visibility), msgs, page.NextAfter}, text)
 	return nil
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }

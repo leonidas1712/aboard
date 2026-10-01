@@ -56,11 +56,12 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"up", "aboard up [--json]", runUp},
-		{"pair", "aboard pair [template] [--board NAME] [--name NAME] [--json]", runPair},
+		{"pair", "aboard pair [template] [--new] [--board NAME] [--name NAME] [--json]", runPair},
 		{"join", "aboard join <join-line|code> [--name NAME] [--harness H] [--json]", runJoin},
 		{"say", "aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]", runSay},
 		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
 		{"read", "aboard read [--after SEQ] [--limit N] [--as AGENT] [--board NAME] [--json]", runRead},
+		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
 		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},
 		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
 		{"version", "aboard version [--json]", runVersion},

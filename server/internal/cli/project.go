@@ -56,6 +56,21 @@ func relinkedText(board, previous string) string {
 type target struct {
 	server serverRef
 	board  string
+	source string // where the board came from: boardFromFlag or boardFromProject
+}
+
+// Where a command's board came from.
+const (
+	boardFromFlag    = "flag"
+	boardFromProject = "project_file"
+)
+
+// sourceText says in words where a board came from.
+func sourceText(source string) string {
+	if source == boardFromFlag {
+		return "from --board"
+	}
+	return "from ./" + projectFileName
 }
 
 // selectBoard picks the board from --board, then .aboard. The server comes from .aboard
@@ -65,12 +80,12 @@ func (a *app) selectBoard(boardFlag string) (target, error) {
 	if err != nil {
 		return target{}, err
 	}
-	t := target{server: a.localServer(), board: boardFlag}
+	t := target{server: a.localServer(), board: boardFlag, source: boardFromFlag}
 	if ok && p.Server.URL != "" {
 		t.server = p.Server
 	}
 	if t.board == "" && ok {
-		t.board = p.Board
+		t.board, t.source = p.Board, boardFromProject
 	}
 	if t.board == "" {
 		return target{}, newError("board_not_selected",

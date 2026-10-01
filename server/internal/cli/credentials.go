@@ -117,9 +117,9 @@ func resolveAgent(asFlag, envAgent string, creds credentials, t target) (agentCr
 	choices := creds.names(t.server.URL, t.board)
 	if name == "" {
 		e := newError("agent_not_selected",
-			"This command acts as an agent, and no agent on board "+t.board+" was selected.",
+			"This command acts as an agent, and no agent on board "+t.board+" ("+sourceText(t.source)+") was selected.",
 			"Pass --as <agent> or set ABOARD_AGENT=<agent>.")
-		e.Details = map[string]any{"choices": choices}
+		e.Details = map[string]any{"choices": choices, "board_source": t.source}
 		return agentCredential{}, e
 	}
 	cred, ok := creds.find(t.server.URL, t.board, name)
@@ -129,8 +129,8 @@ func resolveAgent(asFlag, envAgent string, creds credentials, t target) (agentCr
 			hint = "This machine has no agents on board " + t.board + ". Join it with aboard join and a join line."
 		}
 		e := newError("agent_not_selected",
-			"This machine has no agent named "+name+" on board "+t.board+".", hint)
-		e.Details = map[string]any{"choices": choices}
+			"This machine has no agent named "+name+" on board "+t.board+" ("+sourceText(t.source)+").", hint)
+		e.Details = map[string]any{"choices": choices, "board_source": t.source}
 		return agentCredential{}, e
 	}
 	return cred, nil

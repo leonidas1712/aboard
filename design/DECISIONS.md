@@ -140,3 +140,9 @@ Why: a project file can come from a cloned repository, so it must never be able 
 
 **D44. A directory never switches boards silently. `pair` in a directory already linked to a board fails with `board_already_linked`, naming the board and your agents on it; `pair --new` creates another board on purpose. When `pair --new` or `join` re-links a directory, it prints which board it was linked to before.**
 Why: which board a command acts on must always be visible to the person running it.
+
+**D45. The acting agent determines the board. Each agent identity belongs to exactly one board, so `--as`, `ABOARD_AGENT` or a hook-bound session picks the board on its own. `.aboard` only supplies the default board for human commands and new pairs in that directory. A name this machine has on two boards is an error listing both. Built together with the session-binding hooks.**
+Why: choosing who you are should be enough; a directory file silently deciding where an agent posts is hidden state.
+
+**D46. Every agent command names its board in one short line: `say` prints "Sent #6 to @reviewer on writer-reviewer"; `inbox` and `read` start with a header such as "writer-reviewer · 2 new". Where the board and agent were selected from appears only in plain `aboard status` and in selection errors.**
+Why: the board is always visible without cluttering normal output.

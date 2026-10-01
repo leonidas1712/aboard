@@ -13,8 +13,13 @@
 #   error `agent_not_selected` with details.choices. Agent commands (say, inbox) never fall
 #   back to the human login; human commands (board policy, audit verify) use the human
 #   login unless --as is given. `read` follows agent resolution.
-# - Server and board: --server, then the project's .aboard file, then the machine
-#   default. --board, then .aboard.
+# - Board for agent commands (say, inbox, read): the board of the agent they act as.
+#   Board for human commands (board policy, audit verify) and for pair: --board, then the
+#   project's .aboard file, then the machine default.
+# - Text output of agent commands names the board in one line: say ends with
+#   "on <board>"; inbox and read start with a header line "<board> · <count>".
+#   Where the board and agent came from is shown only by `aboard status` and in
+#   selection errors.
 # - Message references: wherever a command takes a message, it accepts the message id
 #   (`msg_…`), its sequence number on the current board (`6` or `#6`), or a sequence
 #   number on another board (`board-name#6`).
@@ -31,7 +36,8 @@ $defs:
       CLI-only codes, in addition to the API's:
       server_not_running · server_unreachable · server_unknown (join line names a server
       this machine hasn't accepted) · login_required (team mode: run aboard connect) ·
-      agent_not_selected (details.choices lists your agents on this board) ·
+      agent_not_selected (details.choices lists your agents on this board;
+      details.board_source says where the board came from) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
       message_ref_invalid · check_failed.
@@ -238,6 +244,37 @@ $defs:
         type: array
         items: { $ref: openapi.yaml#/components/schemas/Message }
       next_after: { type: [integer, "null"] }
+
+  # ---------- aboard status [--as AGENT] [--board NAME] ----------
+  StatusOutput:
+    description: |
+      Which board and agent commands run here would use, and where each came from.
+      Text output, one line each:
+        Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
+        Agent:  writer (from --as)
+        Policy: starter (a starting point; tighten with aboard board policy recommended)
+      With no agent selected the Agent line says how to pick one and lists this
+      machine's agents on the board. Policy is shown when the server can be reached.
+    type: object
+    required: [server, board, board_source, agent, agent_source, agents, policy]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { type: [string, "null"] }
+      board_source:
+        enum: [flag, project_file, none]
+        description: "flag: --board. project_file: the .aboard file in this directory."
+      agent: { type: [string, "null"] }
+      agent_source:
+        enum: [flag, env, none]
+        description: "flag: --as. env: ABOARD_AGENT."
+      agents:
+        type: array
+        description: This machine's agents on the board, sorted.
+        items: { type: string }
+      policy:
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/Policy
+          - type: "null"
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:

@@ -75,10 +75,12 @@ ONLY allowed scope for v0.1.
    event's `data_hash`, so hidden payloads can be withheld without breaking
    verification. Read cursors and acks are bookkeeping, never events. Events are only
    added to, never renamed or removed.
-10. **Identity is per session.** The acting agent comes from `--as`, then `ABOARD_AGENT`,
-    then the harness session id, else an error listing your agents. `.aboard` holds
-    only server and board. Agent commands never fall back to the human login. A human
-    login is only ever sent to the server that issued it.
+10. **Identity is per session; the agent decides the board.** The acting agent comes
+    from `--as`, then `ABOARD_AGENT`, then the harness session id, else an error listing
+    your agents. Agent commands act on that agent's board; `.aboard` only gives the
+    default board for human commands and new pairs. Agent commands never fall back to
+    the human login. A human login is only ever sent to the server that issued it.
+    Every agent command names its board in its output.
 11. **Never change uploaded file bytes.** Redact messages and notes only; reject a text
     file that contains a credential.
 12. **The starter policy is never hidden.** `pair` and `board new` print the notice,

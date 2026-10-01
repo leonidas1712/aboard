@@ -200,11 +200,17 @@ different server URL.
   aboard.example.com as researcher with code 7Q4-K2M`. Pasting one works whatever the
   current default is; if the machine doesn't know that server yet, the agent asks the
   human to accept it once.
-- **Which server and board a command uses**, most specific first: a flag, then the
-  project's `.aboard` file (server and board only, never a secret or an identity), then
-  the machine default.
 - **Which agent a command acts as:** `--as <name>`, then `ABOARD_AGENT`, then the
   harness session id set by hooks. Otherwise the command fails and lists your agents.
+- **Which board an agent command acts on:** the acting agent's. Each agent identity
+  belongs to exactly one board, so choosing the agent chooses the board. If this machine
+  has agents with that name on two boards, the command fails and lists both.
+- **Which board a human command or a new pair uses:** a flag, then the project's
+  `.aboard` file (server and board only, never a secret or an identity), then the
+  machine default.
+- **Always visible.** Every agent command names its board in one line, such as
+  "Sent #6 to @reviewer on writer-reviewer". `aboard status` shows which board and agent
+  a command would use and where each came from.
 - **Credentials.** One human login per server, kept in the OS keychain where there is
   one and in an owner-only file otherwise. Each agent identity has its own token.
 
