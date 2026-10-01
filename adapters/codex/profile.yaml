@@ -1,0 +1,64 @@
+# How Aboard works with Codex. Schema: spec/harness-profile.schema.json.
+harness: codex
+name: Codex
+drives: real
+command: codex
+
+checks:
+  installed:
+    run: [codex, --version]
+  logged_in:
+    run: [codex, login, status]
+
+skills_dir: .agents/skills
+
+interactive:
+  start: [codex, "{prompt}"]
+
+# Headless turns go through codex-acp, which starts Codex's own app server, so it runs
+# the real Codex with the user's config, hooks and skills.
+headless:
+  via: acp
+
+acp:
+  command: [codex-acp]
+  package: npm @agentclientprotocol/codex-acp
+  env:
+    CODEX_PATH: "{command_path}"
+  drives: real
+
+identity:
+  session: Codex sets CODEX_THREAD_ID in the environment of every command the agent runs.
+  launched: >-
+    ABOARD_AGENT in the environment of the commands the agent runs. Codex's hooks don't
+    see the environment Codex was started with, so hooks never rely on it.
+
+delivery:
+  method: queue
+  queue: [codex, queue, --thread, "{session}", --message, "{bundle}"]
+  hooks_file: .codex/hooks.json
+  hooks:
+    - event: SessionStart
+      run: session-start
+      why: registers the thread
+    - event: UserPromptSubmit
+      run: prompt
+      why: marks a turn running, so urgent messages wait for a tool call instead of the queue
+    - event: Stop
+      run: stop
+      why: marks the turn ended; urgent messages no tool call took go into the queue
+    - event: PostToolUse
+      run: tool
+      why: returns urgent messages as additionalContext
+    - event: SessionEnd
+      run: end
+      why: closes the session (Codex allows 3 seconds)
+  urgent: post-tool-hook
+
+notes:
+  - The queue holds a bundle until the thread's current turn ends, so busy sessions need no tracking for ordinary messages.
+  - Before binding, the daemon reads the exact thread through codex app-server (thread/read) and refuses sub-agent threads.
+  - Hooks run only once trusted in Codex's /hooks; without them, delivery still works through the queue but urgent messages wait for the end of the turn.
+  - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
+  - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server.
+  - "Verified live with Codex 0.159.3: idle wake through the queue, urgent at the next tool call, sub-agent refusal."

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aboard.example/spec/harness-profile.schema.json",
+  "title": "Harness profile",
+  "description": "How Aboard works with one harness: how to check it, start it, run it headless, resume it, give it an identity and deliver messages into its sessions. One file per harness, at adapters/<harness>/profile.yaml. aboard init, the delivery daemon, aboard doctor and the launchers read it. Command lines are argument vectors, never shell strings; {prompt}, {session}, {dir} and {bundle} are filled in when they run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["harness", "name", "drives", "command", "checks", "interactive", "headless", "identity", "delivery"],
+  "properties": {
+    "harness": {
+      "description": "The harness's name in Aboard: in ABOARD_SESSION, hook commands and the board file.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "name": {
+      "description": "The name people know the harness by.",
+      "type": "string"
+    },
+    "drives": {
+      "description": "real: this profile runs the tool itself. reimplementation: it runs something that imitates the tool (with its own settings, plugins, hooks or auth), which is a separate harness entry, never presented as the tool.",
+      "enum": ["real", "reimplementation"]
+    },
+    "reimplements": {
+      "description": "For a reimplementation, the harness it imitates.",
+      "type": "string"
+    },
+    "command": {
+      "description": "The program on the PATH.",
+      "type": "string"
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installed", "logged_in"],
+      "properties": {
+        "installed": { "$ref": "#/$defs/check" },
+        "logged_in": { "$ref": "#/$defs/check" }
+      }
+    },
+    "skills_dir": {
+      "description": "Where aboard init puts the Aboard skill, under the home directory.",
+      "type": "string"
+    },
+    "interactive": {
+      "description": "Starting an interactive session, for a terminal launcher such as tmux.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start"],
+      "properties": {
+        "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt." }
+      }
+    },
+    "headless": {
+      "description": "Running one turn without a terminal, for the headless runner. Each turn carries the agent's new messages as its prompt.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["via"],
+      "properties": {
+        "via": {
+          "description": "native: the harness's own non-interactive mode, with the commands below. acp: an Agent Client Protocol agent, started with acp.command.",
+          "enum": ["native", "acp", "none"]
+        },
+        "run": { "$ref": "#/$defs/argv", "description": "Runs one turn and prints machine-readable output." },
+        "resume": { "$ref": "#/$defs/argv", "description": "Runs one turn in an earlier session." },
+        "session_from": { "type": "string", "description": "Where the session id to resume is found in the run's output." }
+      }
+    },
+    "acp": {
+      "description": "The harness's Agent Client Protocol agent, if it has one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "drives"],
+      "properties": {
+        "command": { "$ref": "#/$defs/argv" },
+        "package": { "type": "string", "description": "Where to get the ACP agent." },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Environment for the ACP agent; {command_path} is the harness's own program."
+        },
+        "drives": {
+          "description": "Whether the ACP agent runs the real tool or reimplements it.",
+          "enum": ["real", "reimplementation"]
+        }
+      }
+    },
+    "identity": {
+      "description": "How a session knows which Aboard agent it is.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "launched"],
+      "properties": {
+        "session": { "type": "string", "description": "How the CLI finds the session it runs in." },
+        "launched": { "type": "string", "description": "How a launcher passes the agent's identity to a session it starts, so no join line is pasted." }
+      }
+    },
+    "delivery": {
+      "description": "How the delivery daemon puts messages into a session that is already open.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "urgent"],
+      "properties": {
+        "method": {
+          "description": "stop-hook: a hook waits while the session is idle and wakes it. queue: the harness's own queue takes the bundle. none: the agent runs aboard inbox --wait itself.",
+          "enum": ["stop-hook", "queue", "none"]
+        },
+        "queue": { "$ref": "#/$defs/argv", "description": "For queue delivery, the command that queues a bundle." },
+        "hooks_file": { "type": "string", "description": "Where aboard init installs the hooks, under the home directory." },
+        "hooks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["event", "run"],
+            "properties": {
+              "event": { "type": "string", "description": "The harness's name for the hook event." },
+              "run": { "type": "string", "description": "The argument to aboard hook <harness>." },
+              "why": { "type": "string" }
+            }
+          }
+        },
+        "urgent": {
+          "description": "post-tool-hook: urgent messages reach a busy session after its next tool call. idle: they wait for the next idle, first in their bundle.",
+          "enum": ["post-tool-hook", "idle"]
+        }
+      }
+    },
+    "notes": {
+      "description": "What was learned about the harness that the fields don't say.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run"],
+      "properties": {
+        "run": { "$ref": "#/$defs/argv" },
+        "json_true": { "type": "string", "description": "A field of the JSON output that must be true; otherwise exit status 0 is enough." }
+      }
+    }
+  }
+}

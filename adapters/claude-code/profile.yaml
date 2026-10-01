@@ -1,0 +1,59 @@
+# How Aboard works with Claude Code. Schema: spec/harness-profile.schema.json.
+harness: claude-code
+name: Claude Code
+drives: real
+command: claude
+
+checks:
+  installed:
+    run: [claude, --version]
+  logged_in:
+    run: [claude, auth, status]
+    json_true: loggedIn
+
+skills_dir: .claude/skills
+
+interactive:
+  start: [claude, "{prompt}"]
+
+# Claude Code's own non-interactive mode. Its ACP adapter runs the Claude Agent SDK, a
+# different program with its own settings, plugins, hooks and auth; that is the separate
+# harness claude-agent-sdk, never this one.
+headless:
+  via: native
+  run: [claude, --print, --output-format, json, "{prompt}"]
+  resume: [claude, --print, --output-format, json, --resume, "{session}", "{prompt}"]
+  session_from: session_id in the JSON result
+
+identity:
+  session: >-
+    The session-start hook writes ABOARD_SESSION=claude-code:<session id> and
+    ABOARD_BOOT to CLAUDE_ENV_FILE, so every command the agent runs carries them.
+  launched: ABOARD_AGENT in the session's environment, which its hooks also see.
+
+delivery:
+  method: stop-hook
+  hooks_file: .claude/settings.json
+  hooks:
+    - event: SessionStart
+      run: session-start
+      why: registers the session and writes its environment file
+    - event: UserPromptSubmit
+      run: prompt
+      why: marks the session busy and releases a waiting stop hook
+    - event: Stop
+      run: stop
+      why: "asyncRewake: waits while idle; exit 2 wakes the session with the bundle"
+    - event: PostToolUse
+      run: tool
+      why: returns urgent messages as additionalContext
+    - event: SessionEnd
+      run: end
+      why: closes the session
+  urgent: post-tool-hook
+
+notes:
+  - The wake's bundle comes back as the next UserPromptSubmit; that prompt is not a later event and doesn't confirm the bundle.
+  - Hooks run with the environment Claude Code was started with.
+  - A stop hook can reach the daemon after the next prompt if the user types quickly; waits carry their start time so a late one is released.
+  - "Verified live with Claude Code 2.1.286: idle wake, urgent at the next tool call, bundling, redelivery after a killed session."
