@@ -21,3 +21,6 @@ desktop.ini
 
 # Pinned dev tools installed by the Makefile
 /.bin/
+
+# The local board link aboard pair and join write, when dogfooding here
+/.aboard

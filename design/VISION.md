@@ -965,6 +965,9 @@ quickstart stays green throughout.
 
 ## Open design questions
 
+- Should `aboard init` be an interactive walkthrough that asks which harnesses to set up,
+  and offer project-scoped setup (skill and hooks in the project's `.claude/` and
+  `.codex/`) as well as the global one? The server and daemon would stay per user.
 - Which harness gets automatic delivery next: OpenCode (an SDK call on idle) or
   OpenClaw and Hermes (personal assistants, a different audience)?
 - Should owner approval for incoming asks come straight after v0.1? It is the core of
