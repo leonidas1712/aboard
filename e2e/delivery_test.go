@@ -311,3 +311,38 @@ func TestDoctorReportsEachPart(t *testing.T) {
 		t.Fatalf("doctor with an error check should exit 3\n%s", r)
 	}
 }
+
+// When a stop hook wakes Claude Code, Claude Code submits the hook's output as the next
+// prompt, so the prompt hook fires with the bundle as its text. That prompt is the wake
+// itself, not a later event: if the session dies before doing anything else, the bundle
+// must still go to the next session.
+func TestWakePromptDoesNotConfirmTheBundle(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer, reviewer := pairedClaudeSessions(t, e)
+
+	stop := reviewer.startHook("stop")
+	writer.run("say", "--to", "@reviewer", "please review section 2")
+	woke := stop.wait(5 * time.Second)
+	if woke.code != 2 {
+		t.Fatalf("no wake\n%s", woke)
+	}
+	prompt, err := json.Marshal(woke.stderr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := reviewer.hook("prompt", `"prompt":`+string(prompt)); r.code != 0 {
+		t.Fatalf("prompt hook failed\n%s", r)
+	}
+	if n := reviewer.unread(); n != 1 {
+		t.Fatalf("the wake prompt confirmed the bundle: %d unread", n)
+	}
+	reviewer.hook("end", `"reason":"other"`)
+
+	next := e.claudeSession("s-reviewer-2")
+	next.run("resume", "reviewer")
+	again := next.startHook("stop").wait(5 * time.Second)
+	if again.code != 2 || !strings.Contains(again.stderr, "please review section 2") {
+		t.Fatalf("the bundle should be delivered again\n%s", again)
+	}
+}

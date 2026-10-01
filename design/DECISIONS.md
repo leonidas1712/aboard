@@ -153,7 +153,7 @@ Why: swapping SQLite for Postgres, or adding a notifier that works across server
 **D48. `/v1/stream` is a server-sent event stream. The delivery daemon and the web UI both read it; every write stays on REST.**
 Why: the stream only carries notifications, one-way is enough, and the standard library handles it on both sides.
 
-**D49. Delivery confirmation is implicit: a bundle counts as received when the same session (same session id and boot id) next reports an event after being woken. It guarantees the session woke and ran a turn with the bundle in its context; it does not guarantee the agent acted on it.**
+**D49. Delivery confirmation is implicit: a bundle counts as received when the same session (same session id and boot id) next reports an event after the woken turn has started. The wake's own prompt (Claude Code submits the bundle as the woken turn's prompt) doesn't count. It guarantees the session woke and ran a turn with the bundle in its context; it does not guarantee the agent acted on it.**
 Why: an explicit accept step is one more thing agents forget, which loops redeliveries.
 
 **D50. Urgent messages reach a busy session at its next tool call, through the harness's post-tool hook returning extra context: Claude Code and Codex both support this. Otherwise, and for other harnesses, urgent messages are delivered at the next idle, first in their bundle.**

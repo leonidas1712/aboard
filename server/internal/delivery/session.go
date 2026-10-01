@@ -144,7 +144,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.setOpen(ctx, true)
 		ok.Boot = s.boot
 	case OpPrompt:
-		s.event(ctx, req.Boot)
+		if !req.Wake {
+			s.event(ctx, req.Boot)
+		}
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil

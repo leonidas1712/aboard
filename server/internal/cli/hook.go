@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -35,6 +36,8 @@ type hookInput struct {
 	Source    string `json:"source"`
 	// AgentID is set by Codex when a sub-agent thread fires the hook.
 	AgentID string `json:"agent_id"`
+	// Prompt is the prompt text, on Claude Code's UserPromptSubmit.
+	Prompt string `json:"prompt"`
 }
 
 // sessionIDPattern is what a session id may contain. It is written into a file the
@@ -67,7 +70,11 @@ func runHook(ctx context.Context, a *app, args []string) error {
 	case harness == delivery.HarnessClaudeCode && event == "session-start":
 		hookErr = h.claudeSessionStart(ctx)
 	case harness == delivery.HarnessClaudeCode && event == "prompt":
-		_, hookErr = h.call(ctx, delivery.OpPrompt)
+		req := h.request(delivery.OpPrompt)
+		// Claude Code submits a stop hook's wake text as the next prompt. That prompt is the
+		// wake itself, so it must not count as the session's next event.
+		req.Wake = strings.Contains(h.in.Prompt, "<aboard-messages")
+		_, hookErr = h.a.callDaemon(ctx, req)
 	case harness == delivery.HarnessClaudeCode && event == "stop":
 		return h.stop(ctx)
 	case harness == delivery.HarnessClaudeCode && event == "end":

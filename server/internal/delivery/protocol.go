@@ -60,8 +60,11 @@ type Request struct {
 	Source string `json:"source,omitempty"`
 	// Resumed marks a wait that reconnects after the daemon went away, so it doesn't
 	// count as the session's next event.
-	Resumed bool      `json:"resumed,omitempty"`
-	Agent   *AgentRef `json:"agent,omitempty"`
+	Resumed bool `json:"resumed,omitempty"`
+	// Wake marks a prompt that is the bundle a stop hook just woke the session with, not
+	// a later event; it doesn't confirm that bundle.
+	Wake  bool      `json:"wake,omitempty"`
+	Agent *AgentRef `json:"agent,omitempty"`
 }
 
 // Key returns the session the request is about.

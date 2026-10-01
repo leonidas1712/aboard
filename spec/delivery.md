@@ -141,9 +141,11 @@ hook writes it to standard error and exits with code 2. Claude Code wakes the sa
 session with that text. The bundle is the full delivery text, so the agent reads the
 messages directly; it doesn't run a command to fetch them.
 
-**Confirmation.** The next event from the same session and boot id (the stop hook
-connecting again after the woken turn, or a prompt) confirms the bundle was received. The
-agent doesn't acknowledge anything itself. If the session ends or its boot id changes
+**Confirmation.** Claude Code submits the stop hook's output as the woken turn's prompt,
+so the prompt hook fires with the bundle as its text; that is the wake itself and
+confirms nothing. The session's next event after it, from the same session and boot id
+(a tool call in the woken turn, the stop hook waiting again, or a new prompt), confirms
+the bundle was received. The agent doesn't acknowledge anything itself. If the session ends or its boot id changes
 before confirmation, the bundle is delivered again to the next session that binds the
 agent.
 
