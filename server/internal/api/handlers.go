@@ -9,7 +9,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/rules"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // handlers implements StrictServerInterface on top of the board service.
@@ -173,7 +172,7 @@ func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject
 		return nil, err
 	}
 	// The sender is the reader of its own new message.
-	out := messageOf(m, req.Board, store.Member{ID: m.SenderID})
+	out := messageOf(m, req.Board, board.Member{ID: m.SenderID})
 	return convert[PostMessage201JSONResponse](out)
 }
 

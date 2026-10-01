@@ -23,8 +23,9 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/ids"
+	"github.com/leonidas1712/aboard/server/internal/notify"
 	"github.com/leonidas1712/aboard/server/internal/rules"
-	"github.com/leonidas1712/aboard/server/internal/store"
+	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
 // DefaultLocalAddr is where the local server listens unless told otherwise.
@@ -69,7 +70,7 @@ func Run(ctx context.Context, o Options) error {
 	if err := os.MkdirAll(o.DataDir, 0o700); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
 	}
-	st, err := store.Open(ctx, filepath.Join(o.DataDir, "aboard.db"))
+	st, err := sqlite.Open(ctx, filepath.Join(o.DataDir, "aboard.db"), o.Clock)
 	if err != nil {
 		return err
 	}
@@ -83,7 +84,7 @@ func Run(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	svc := board.New(st, o.Clock, ids.New(o.Rand), key, board.Config{ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}, o.Log)
+	svc := board.New(st, notify.NewInProcess(), o.Clock, ids.New(o.Rand), key, board.Config{ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}, o.Log)
 	token, err := svc.BootstrapOwner(ctx, rules.NormalizeName(o.OwnerName))
 	if err != nil {
 		return err
@@ -93,7 +94,7 @@ func Run(ctx context.Context, o Options) error {
 			return fmt.Errorf("save owner token: %w", err)
 		}
 	}
-	handler, err := api.NewHandler(api.Options{Service: svc, Store: st, Clock: o.Clock, Log: o.Log, Version: o.Version, JoinsPerMinute: 30})
+	handler, err := api.NewHandler(api.Options{Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, JoinsPerMinute: 30})
 	if err != nil {
 		return err
 	}
@@ -134,29 +135,19 @@ func Run(ctx context.Context, o Options) error {
 }
 
 // identity returns the server's id and digest key, creating them on first start.
-func identity(ctx context.Context, st *store.Store, o Options) (serverID string, key []byte, err error) {
-	var keyHex string
-	err = st.Tx(ctx, func(tx *store.Tx) error {
-		var err error
-		if serverID, err = tx.Meta("server_id"); errors.Is(err, store.ErrNotFound) {
-			if serverID, err = ids.New(o.Rand).ID("srv", o.Clock.Now()); err != nil {
-				return err
-			}
-			if err := tx.SetMeta("server_id", serverID); err != nil {
-				return err
-			}
-		} else if err != nil {
-			return err
+func identity(ctx context.Context, st *sqlite.Store, o Options) (serverID string, key []byte, err error) {
+	serverID, err = setting(ctx, st, "server_id", func() (string, error) {
+		return ids.New(o.Rand).ID("srv", o.Clock.Now())
+	})
+	if err != nil {
+		return "", nil, fmt.Errorf("load server identity: %w", err)
+	}
+	keyHex, err := setting(ctx, st, "digest_key", func() (string, error) {
+		b := make([]byte, 32)
+		if _, err := io.ReadFull(o.Rand, b); err != nil {
+			return "", fmt.Errorf("read randomness: %w", err)
 		}
-		if keyHex, err = tx.Meta("digest_key"); errors.Is(err, store.ErrNotFound) {
-			b := make([]byte, 32)
-			if _, err := io.ReadFull(o.Rand, b); err != nil {
-				return fmt.Errorf("read randomness: %w", err)
-			}
-			keyHex = hex.EncodeToString(b)
-			return tx.SetMeta("digest_key", keyHex)
-		}
-		return err
+		return hex.EncodeToString(b), nil
 	})
 	if err != nil {
 		return "", nil, fmt.Errorf("load server identity: %w", err)
@@ -166,6 +157,19 @@ func identity(ctx context.Context, st *store.Store, o Options) (serverID string,
 		return "", nil, fmt.Errorf("server digest key: %w", err)
 	}
 	return serverID, key, nil
+}
+
+// setting returns a stored server setting, first storing the value from create if
+// there is none.
+func setting(ctx context.Context, st *sqlite.Store, key string, create func() (string, error)) (string, error) {
+	v, ok, err := st.Meta(ctx, key)
+	if err != nil || ok {
+		return v, err
+	}
+	if v, err = create(); err != nil {
+		return "", err
+	}
+	return v, st.SetMeta(ctx, key, v)
 }
 
 // writePrivate writes a file only its owner can read.

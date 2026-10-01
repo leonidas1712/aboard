@@ -11,13 +11,12 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/boardfile"
 	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/rules"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // View is a board with the member who created it.
 type View struct {
-	Board   store.Board
-	Creator store.Member
+	Board   Board
+	Creator Member
 }
 
 // NewBoard is a request to create a board.
@@ -71,7 +70,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	}
 
 	var view View
-	err = s.st.Tx(ctx, func(tx *store.Tx) error {
+	err = s.st.Write(ctx, func(tx Tx) error {
 		name := in.Name
 		if name != "" {
 			taken, err := tx.BoardNameTaken(name)
@@ -112,14 +111,14 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		if in.Template != "" {
 			template = ptr(in.Template)
 		}
-		b := store.Board{
+		b := Board{
 			ID: boardID, Name: name, Template: template, Charter: charter, Roles: roles, Policy: policy,
 			HeadHash: events.GenesisHash, CreatedAt: stamp(now), CreatedBy: memberID,
 		}
 		if err := tx.InsertBoard(b); err != nil {
 			return fmt.Errorf("insert board: %w", err)
 		}
-		creator := store.Member{
+		creator := Member{
 			ID: memberID, BoardID: boardID, Name: p.Human.Name, Kind: "human", HumanID: p.Human.ID,
 			Status: "active", JoinedAt: stamp(now),
 		}
@@ -137,12 +136,12 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	if err != nil {
 		return View{}, err
 	}
-	s.notify.changed(view.Board.ID)
+	s.notify.Changed(view.Board.ID)
 	return view, nil
 }
 
 // addMember stores a member and appends its member.joined event.
-func (s *Service) addMember(tx *store.Tx, b *store.Board, m store.Member, actor events.Actor, joinCodeID *string, at time.Time) error {
+func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinCodeID *string, at time.Time) error {
 	if err := tx.InsertMember(m); err != nil {
 		return fmt.Errorf("insert member: %w", err)
 	}
@@ -156,14 +155,14 @@ func (s *Service) addMember(tx *store.Tx, b *store.Board, m store.Member, actor 
 // ListBoards returns the boards the caller is a member of.
 func (s *Service) ListBoards(ctx context.Context, p Principal) ([]View, error) {
 	var out []View
-	err := s.st.Read(ctx, func(tx *store.Tx) error {
-		var boards []store.Board
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		var boards []Board
 		if p.Agent != nil {
 			b, err := tx.BoardByID(p.Agent.BoardID)
 			if err != nil {
 				return err
 			}
-			boards = []store.Board{b}
+			boards = []Board{b}
 		} else {
 			var err error
 			if boards, err = tx.BoardsOfHuman(p.Human.ID); err != nil {
@@ -182,7 +181,7 @@ func (s *Service) ListBoards(ctx context.Context, p Principal) ([]View, error) {
 	return out, err
 }
 
-func viewOf(tx *store.Tx, b store.Board) (View, error) {
+func viewOf(tx ReadTx, b Board) (View, error) {
 	members, err := tx.Members(b.ID)
 	if err != nil {
 		return View{}, err
@@ -198,7 +197,7 @@ func viewOf(tx *store.Tx, b store.Board) (View, error) {
 // GetBoard returns one board the caller is a member of.
 func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View, error) {
 	var v View
-	err := s.st.Read(ctx, func(tx *store.Tx) error {
+	err := s.st.Read(ctx, func(tx ReadTx) error {
 		b, _, err := access(tx, p, name)
 		if err != nil {
 			return err
@@ -210,9 +209,9 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 }
 
 // Members lists a board's members.
-func (s *Service) Members(ctx context.Context, p Principal, name string) ([]store.Member, error) {
-	var out []store.Member
-	err := s.st.Read(ctx, func(tx *store.Tx) error {
+func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Member, error) {
+	var out []Member
+	err := s.st.Read(ctx, func(tx ReadTx) error {
 		b, _, err := access(tx, p, name)
 		if err != nil {
 			return err
@@ -229,7 +228,7 @@ func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, ch
 		return View{}, err
 	}
 	var v View
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+	err := s.st.Write(ctx, func(tx Tx) error {
 		b, me, err := access(tx, p, name)
 		if err != nil {
 			return err
@@ -258,6 +257,6 @@ func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, ch
 	if err != nil {
 		return View{}, err
 	}
-	s.notify.changed(v.Board.ID)
+	s.notify.Changed(v.Board.ID)
 	return v, nil
 }

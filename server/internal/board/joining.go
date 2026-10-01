@@ -12,7 +12,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/ids"
 	"github.com/leonidas1712/aboard/server/internal/joinline"
 	"github.com/leonidas1712/aboard/server/internal/rules"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // DefaultJoinCodeTTL is how long a join code works when no lifetime is given.
@@ -20,9 +19,9 @@ const DefaultJoinCodeTTL = 24 * time.Hour
 
 // NewJoinCode is a created join code. Code and Line are only available at creation.
 type NewJoinCode struct {
-	JoinCode store.JoinCode
+	JoinCode JoinCode
 	Board    string
-	Creator  store.Member
+	Creator  Member
 	Code     string
 	Line     string
 }
@@ -43,7 +42,7 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 		ttl = DefaultJoinCodeTTL
 	}
 	var out NewJoinCode
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+	err := s.st.Write(ctx, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -64,7 +63,7 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 		if err != nil {
 			return err
 		}
-		jc := store.JoinCode{
+		jc := JoinCode{
 			ID: id, BoardID: b.ID, CodeDigest: ids.Digest(s.key, code), Role: role,
 			ExpiresAt: stamp(now.Add(ttl)), CreatedAt: stamp(now), CreatedBy: me.ID,
 		}
@@ -86,16 +85,16 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 }
 
 // RevokeJoinCode stops a join code from working. Agents that already joined stay.
-func (s *Service) RevokeJoinCode(ctx context.Context, p Principal, boardName, id string) (store.JoinCode, store.Member, error) {
-	var jc store.JoinCode
-	var creator store.Member
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+func (s *Service) RevokeJoinCode(ctx context.Context, p Principal, boardName, id string) (JoinCode, Member, error) {
+	var jc JoinCode
+	var creator Member
+	err := s.st.Write(ctx, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
 		jc, err = tx.JoinCodeByID(id)
-		if errors.Is(err, store.ErrNotFound) || (err == nil && jc.BoardID != b.ID) {
+		if errors.Is(err, ErrNotFound) || (err == nil && jc.BoardID != b.ID) {
 			return apierr.New(http.StatusNotFound, "join_code_not_found", "There is no such join code on this board.",
 				"Check the join code id.")
 		}
@@ -142,7 +141,7 @@ type JoinInput struct {
 
 // Joined is a new agent with its token, which is only available here.
 type Joined struct {
-	Agent store.Member
+	Agent Member
 	Token string
 	View  View
 }
@@ -154,9 +153,9 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		return Joined{}, err
 	}
 	var out Joined
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+	err := s.st.Write(ctx, func(tx Tx) error {
 		now := s.clk.Now()
-		var b store.Board
+		var b Board
 		var role string
 		var codeID *string
 		switch {
@@ -166,7 +165,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 				return joinCodeInvalid()
 			}
 			jc, err := tx.JoinCodeByDigest(ids.Digest(s.key, code))
-			if errors.Is(err, store.ErrNotFound) {
+			if errors.Is(err, ErrNotFound) {
 				return joinCodeInvalid()
 			}
 			if err != nil {
@@ -194,8 +193,8 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 
 		taken := func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }
 		owner, err := tx.HumanMember(b.ID, p.Human.ID)
-		if errors.Is(err, store.ErrNotFound) {
-			owner = store.Member{
+		if errors.Is(err, ErrNotFound) {
+			owner = Member{
 				BoardID: b.ID, Name: rules.AllocateName(p.Human.Name, taken), Kind: "human", HumanID: p.Human.ID,
 				Status: "active", JoinedAt: stamp(now),
 			}
@@ -222,7 +221,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		if err != nil {
 			return err
 		}
-		agent := store.Member{
+		agent := Member{
 			BoardID: b.ID, Name: name, Kind: "agent", Role: ptr(role), HumanID: p.Human.ID, Owner: ptr(p.Human.Name),
 			TokenDigest: ptr(ids.Digest(s.key, token)), Status: "active", JoinedAt: stamp(now),
 			// A new agent starts reading at the board's head: earlier messages are in the
@@ -248,6 +247,6 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 	if err != nil {
 		return Joined{}, err
 	}
-	s.notify.changed(out.View.Board.ID)
+	s.notify.Changed(out.View.Board.ID)
 	return out, nil
 }

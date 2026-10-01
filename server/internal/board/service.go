@@ -1,7 +1,9 @@
 // Package board is Aboard's domain logic: creating boards, joining them, posting and
 // reading messages, and serving the event log. Every write follows the same path:
 // authenticate, check membership and permissions, then in one transaction append the
-// hash-chained event and update the read models, then wake anyone waiting.
+// hash-chained event and update the read models, then wake anyone waiting. Storage and
+// waking are ports (Store, Notifier) that adapters implement; this package never
+// imports them.
 package board
 
 import (
@@ -17,7 +19,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/ids"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // Config describes the server a Service runs in.
@@ -29,18 +30,19 @@ type Config struct {
 
 // Service implements every board operation.
 type Service struct {
-	st     *store.Store
+	st     Store
+	notify Notifier
 	clk    clock.Clock
 	gen    *ids.Generator
 	key    []byte // keys the digests of tokens and join codes
 	cfg    Config
 	log    *slog.Logger
-	notify *notifier
 }
 
-// New returns a Service. key must be the server's secret digest key.
-func New(st *store.Store, clk clock.Clock, gen *ids.Generator, key []byte, cfg Config, log *slog.Logger) *Service {
-	return &Service{st: st, clk: clk, gen: gen, key: key, cfg: cfg, log: log, notify: newNotifier()}
+// New returns a Service that keeps its data in st and wakes waiting readers through
+// notify. key must be the server's secret digest key.
+func New(st Store, notify Notifier, clk clock.Clock, gen *ids.Generator, key []byte, cfg Config, log *slog.Logger) *Service {
+	return &Service{st: st, notify: notify, clk: clk, gen: gen, key: key, cfg: cfg, log: log}
 }
 
 // Config returns the server description the Service was created with.
@@ -48,15 +50,15 @@ func (s *Service) Config() Config { return s.cfg }
 
 // Principal is the authenticated caller: exactly one of Human and Agent is set.
 type Principal struct {
-	Human *store.Human
-	Agent *store.Member
+	Human *Human
+	Agent *Member
 }
 
 // Authenticate resolves a bearer token to a human or an agent.
 func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
 	digest := ids.Digest(s.key, token)
 	var p Principal
-	err := s.st.Read(ctx, func(tx *store.Tx) error {
+	err := s.st.Read(ctx, func(tx ReadTx) error {
 		switch {
 		case strings.HasPrefix(token, "abh_"):
 			h, err := tx.HumanByTokenDigest(digest)
@@ -71,11 +73,11 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 			}
 			p.Agent = &m
 		default:
-			return store.ErrNotFound
+			return ErrNotFound
 		}
 		return nil
 	})
-	if errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, ErrNotFound) {
 		return Principal{}, apierr.Unauthorized()
 	}
 	if err != nil {
@@ -88,7 +90,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 // the new token, or "" if a human already existed.
 func (s *Service) BootstrapOwner(ctx context.Context, name string) (string, error) {
 	var token string
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+	err := s.st.Write(ctx, func(tx Tx) error {
 		n, err := tx.HumanCount()
 		if err != nil || n > 0 {
 			return err
@@ -101,7 +103,7 @@ func (s *Service) BootstrapOwner(ctx context.Context, name string) (string, erro
 		if token, err = s.gen.Token("abh"); err != nil {
 			return err
 		}
-		return tx.InsertHuman(store.Human{ID: id, Name: name, TokenDigest: ids.Digest(s.key, token), CreatedAt: stamp(now)})
+		return tx.InsertHuman(Human{ID: id, Name: name, TokenDigest: ids.Digest(s.key, token), CreatedAt: stamp(now)})
 	})
 	if err != nil {
 		return "", fmt.Errorf("create local owner: %w", err)
@@ -114,12 +116,12 @@ func stamp(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:05.000Z
 
 func ptr[T any](v T) *T { return &v }
 
-func actorOf(m store.Member) events.Actor {
+func actorOf(m Member) events.Actor {
 	return events.Actor{Kind: m.Kind, MemberID: ptr(m.ID), Name: ptr(m.Name), Owner: m.Owner}
 }
 
 // append seals and stores the next event on b, and advances b's head.
-func (s *Service) append(tx *store.Tx, b *store.Board, typ string, actor events.Actor, at time.Time, data any) (events.Event, error) {
+func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at time.Time, data any) (events.Event, error) {
 	id, err := s.gen.ID("evt", at)
 	if err != nil {
 		return events.Event{}, err
@@ -137,28 +139,28 @@ func (s *Service) append(tx *store.Tx, b *store.Board, typ string, actor events.
 
 // access returns the board named name and the caller's membership of it. A board the
 // caller can't see is reported as not found, so names don't leak.
-func access(tx *store.Tx, p Principal, name string) (store.Board, store.Member, error) {
+func access(tx ReadTx, p Principal, name string) (Board, Member, error) {
 	if p.Agent != nil {
 		b, err := tx.BoardByID(p.Agent.BoardID)
 		if err != nil {
-			return store.Board{}, store.Member{}, err
+			return Board{}, Member{}, err
 		}
 		if b.Name != name {
-			return store.Board{}, store.Member{}, apierr.BoardNotFound(name)
+			return Board{}, Member{}, apierr.BoardNotFound(name)
 		}
 		me, err := tx.MemberByName(b.ID, p.Agent.Name)
 		return b, me, err
 	}
 	b, err := tx.BoardByName(name)
-	if errors.Is(err, store.ErrNotFound) {
-		return store.Board{}, store.Member{}, apierr.BoardNotFound(name)
+	if errors.Is(err, ErrNotFound) {
+		return Board{}, Member{}, apierr.BoardNotFound(name)
 	}
 	if err != nil {
-		return store.Board{}, store.Member{}, err
+		return Board{}, Member{}, err
 	}
 	me, err := tx.HumanMember(b.ID, p.Human.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		return store.Board{}, store.Member{}, apierr.BoardNotFound(name)
+	if errors.Is(err, ErrNotFound) {
+		return Board{}, Member{}, apierr.BoardNotFound(name)
 	}
 	return b, me, err
 }

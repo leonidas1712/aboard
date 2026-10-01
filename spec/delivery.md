@@ -90,17 +90,16 @@ session's process changes (a new start or a resume), so a message is never hande
 stale process that happens to reuse a session id.
 
 **Claude Code.** The session-start hook receives the session id from Claude Code. It
-creates a boot id (keeping the old one when the session was only compacted), registers
-the session with the daemon, and writes `ABOARD_SESSION=claude-code:<session-id>` to the
-session's environment file, so every command the agent runs in that session carries it.
+creates a boot id (keeping the old one when the session was only compacted; a fork is a
+new session), registers the session with the daemon, and writes
+`ABOARD_SESSION=claude-code:<session-id>` to the session's environment file
+(`CLAUDE_ENV_FILE`), so every command the agent runs in that session carries it.
 
-**Codex.** The session-start hook receives the thread id and registers the session. It
-adds one line to the session's context saying the session's Aboard name. If the Codex
-version exposes the thread id to the commands the agent runs, the CLI reads it from there;
-otherwise the skill tells the agent to pass `--session codex:<thread-id>`, which the hook's
-context line gives it. Before binding, the adapter reads the exact thread through Codex's
-app server and refuses a thread that has a parent or is a sub-agent, so messages always
-go to the root conversation.
+**Codex.** Codex sets `CODEX_THREAD_ID` in the environment of every command the agent
+runs, so the CLI reads the session from there; no flag is needed. The session-start hook
+registers the session with the daemon. Before binding, the adapter reads the exact thread
+through Codex's app server and refuses a thread that has a parent or is a sub-agent, so
+messages always go to the root conversation.
 
 **Binding.** When `aboard pair` or `aboard join` runs in a session, the CLI binds the new
 agent to that session in the daemon. A session can hold agents on several boards; each
@@ -165,9 +164,11 @@ The queue handles busy sessions, so the daemon doesn't track Codex idleness.
 **Confirmation.** Exit status 0 means Codex took the bundle into its queue; that confirms
 it. Codex then owns starting the turn.
 
-**Urgent.** Codex has no way to add text to a running turn, so urgent messages go through
-the queue like others, first in their bundle, marked `urgent="true"`. `aboard doctor`
-reports this.
+**Urgent.** Codex's post-tool hook can return extra context to the model, like Claude
+Code's. After each tool call in a busy turn, the hook asks the daemon for urgent messages
+and returns them. The hook's context limit (`additionalContextLimit`) is set to the
+bundle limit. When no tool call happens before the turn ends, urgent messages go through
+the queue first in their bundle.
 
 ### Anything else
 
@@ -285,7 +286,6 @@ problem. `--json` gives the same as `{checks: [{name, ok, code, message, fix}]}`
 ✓ delivery daemon running (pid 4182), 2 sessions
 ✗ claude-code: hooks not installed. Fix: run aboard init
 ✓ codex 0.160.0: queue available
-! codex: urgent messages wait for the current turn to end
 ✗ 1 delivery needs attention: #14 on docs-review for reviewer (codex_target_absent). Fix: open that Codex thread again, or rejoin with aboard join
 ```
 
@@ -304,7 +304,6 @@ problem. `--json` gives the same as `{checks: [{name, ok, code, message, fix}]}`
 | `login_missing` | No human login for a server with bound agents | `aboard connect` |
 | `delivery_attention` | Deliveries stopped after repeated failures | Per delivery, from its reason |
 | `delivery_skipped` | Messages too large for automatic delivery | Read them with `aboard read` |
-| `urgent_waits_for_turn` | This harness can't add to a running turn | Information only |
 
 ## Failures and what the person sees
 
@@ -359,7 +358,8 @@ The release checklist gets these manual checks, each on a fresh machine:
 2. A Codex session does the same.
 3. Claude Code and Codex exchange five messages with no one typing.
 4. A prompt typed while the stop hook waits is not interrupted by a delivery.
-5. An urgent message reaches a busy Claude Code session at its next tool call.
+5. An urgent message reaches a busy Claude Code session, and a busy Codex session, at
+   its next tool call.
 6. Killing the Claude Code session after a wake, before its turn ends, redelivers the
    bundle to the next session for that agent.
 7. Three messages sent while a session is busy arrive as one bundle.

@@ -22,16 +22,15 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/clock"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // Options configures the HTTP API.
 type Options struct {
-	Service *board.Service
-	Store   *store.Store
-	Clock   clock.Clock
-	Log     *slog.Logger
-	Version string
+	Service   *board.Service
+	Responses Responses // keeps answers to writes sent with an Idempotency-Key
+	Clock     clock.Clock
+	Log       *slog.Logger
+	Version   string
 	// JoinsPerMinute limits POST /v1/join per client address.
 	JoinsPerMinute int
 }

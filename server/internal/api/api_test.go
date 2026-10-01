@@ -25,7 +25,8 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/ids"
-	"github.com/leonidas1712/aboard/server/internal/store"
+	"github.com/leonidas1712/aboard/server/internal/notify"
+	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
 // testServer is a real server in-process: real SQLite, fake clock.
@@ -33,7 +34,7 @@ type testServer struct {
 	t     *testing.T
 	url   string
 	clock *clock.Fake
-	st    *store.Store
+	st    *sqlite.Store
 	key   []byte
 	owner string // the first human's token
 }
@@ -41,20 +42,20 @@ type testServer struct {
 func newTestServer(t *testing.T) *testServer {
 	t.Helper()
 	ctx := context.Background()
-	st, err := store.Open(ctx, filepath.Join(t.TempDir(), "aboard.db"))
+	clk := clock.NewFake(time.Date(2026, 10, 1, 16, 0, 0, 0, time.UTC))
+	st, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "aboard.db"), clk)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	clk := clock.NewFake(time.Date(2026, 10, 1, 16, 0, 0, 0, time.UTC))
 	key := []byte("test digest key")
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := board.New(st, clk, ids.New(rand.Reader), key, board.Config{ServerID: "srv_TEST", Mode: "local", JoinHost: "localhost"}, log)
+	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{ServerID: "srv_TEST", Mode: "local", JoinHost: "localhost"}, log)
 	owner, err := svc.BootstrapOwner(ctx, "alex")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := api.NewHandler(api.Options{Service: svc, Store: st, Clock: clk, Log: log, Version: "test", JoinsPerMinute: 5})
+	h, err := api.NewHandler(api.Options{Service: svc, Responses: st, Clock: clk, Log: log, Version: "test", JoinsPerMinute: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,8 +68,8 @@ func newTestServer(t *testing.T) *testServer {
 func (s *testServer) addHuman(name string) string {
 	s.t.Helper()
 	token := "abh_" + strings.Repeat(name[:1], 43)
-	err := s.st.Tx(context.Background(), func(tx *store.Tx) error {
-		return tx.InsertHuman(store.Human{ID: "hum_" + name, Name: name, TokenDigest: ids.Digest(s.key, token), CreatedAt: "2026-10-01T16:00:00.000Z"})
+	err := s.st.Write(context.Background(), func(tx board.Tx) error {
+		return tx.InsertHuman(board.Human{ID: "hum_" + name, Name: name, TokenDigest: ids.Digest(s.key, token), CreatedAt: "2026-10-01T16:00:00.000Z"})
 	})
 	if err != nil {
 		s.t.Fatal(err)

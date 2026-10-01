@@ -6,7 +6,6 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/rules"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // The wire* types have exactly the JSON shape spec/openapi.yaml gives each object. They
@@ -57,7 +56,7 @@ type wireMessage struct {
 	Urgent       bool              `json:"urgent"`
 	ExpectsReply bool              `json:"expects_reply"`
 	Trust        string            `json:"trust"`
-	Redactions   []store.Redaction `json:"redactions"`
+	Redactions   []board.Redaction `json:"redactions"`
 }
 
 type wireJoinCode struct {
@@ -85,11 +84,11 @@ func convert[T any](v any) (T, error) {
 	return out, nil
 }
 
-func refOf(m store.Member) wireMemberRef {
+func refOf(m board.Member) wireMemberRef {
 	return wireMemberRef{Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner}
 }
 
-func memberOf(m store.Member, boardName string) wireMember {
+func memberOf(m board.Member, boardName string) wireMember {
 	return wireMember{
 		ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
 		Harness: m.Harness, Status: m.Status, JoinedAt: m.JoinedAt,
@@ -106,7 +105,7 @@ func boardOf(v board.View) wireBoard {
 
 // trust says how a message's sender relates to its reader: the reader itself, the
 // reader's own human, another human, or an agent.
-func trust(m store.Message, reader store.Member) string {
+func trust(m board.Message, reader board.Member) string {
 	switch {
 	case m.SenderID == reader.ID:
 		return "self"
@@ -119,7 +118,7 @@ func trust(m store.Message, reader store.Member) string {
 	}
 }
 
-func messageOf(m store.Message, boardName string, reader store.Member) wireMessage {
+func messageOf(m board.Message, boardName string, reader board.Member) wireMessage {
 	return wireMessage{
 		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner},

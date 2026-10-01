@@ -11,7 +11,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/rules"
-	"github.com/leonidas1712/aboard/server/internal/store"
 )
 
 // NewMessage is a message to post.
@@ -25,13 +24,13 @@ type NewMessage struct {
 
 // PostMessage stores a message on the board and wakes anyone waiting for it. It returns
 // as soon as the message is stored.
-func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string, in NewMessage) (store.Message, error) {
+func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string, in NewMessage) (Message, error) {
 	to := in.To
 	if len(to) == 0 {
 		to = []string{rules.TargetAll}
 	}
-	var msg store.Message
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+	var msg Message
+	err := s.st.Write(ctx, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -42,7 +41,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		var replyToSeq *int64
 		if in.ReplyTo != nil {
 			orig, err := tx.MessageByID(*in.ReplyTo)
-			if errors.Is(err, store.ErrNotFound) || (err == nil && orig.BoardID != b.ID) {
+			if errors.Is(err, ErrNotFound) || (err == nil && orig.BoardID != b.ID) {
 				return apierr.New(http.StatusNotFound, "message_not_found", "The message you are replying to isn't on this board.",
 					"Check the message id or sequence number with aboard read.")
 			}
@@ -73,27 +72,27 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		}
 		e, err := s.append(tx, &b, events.MessagePosted, actorOf(me), now, map[string]any{
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
-			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []store.Redaction{},
+			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{},
 		})
 		if err != nil {
 			return err
 		}
-		msg = store.Message{
+		msg = Message{
 			ID: id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
-			ReplyToSeq: replyToSeq, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []store.Redaction{},
+			ReplyToSeq: replyToSeq, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
 			SenderName: me.Name, SenderKind: me.Kind, SenderRole: me.Role, SenderOwner: me.Owner, SenderHuman: me.HumanID,
 		}
 		return tx.InsertMessage(msg)
 	})
 	if err != nil {
-		return store.Message{}, err
+		return Message{}, err
 	}
-	s.notify.changed(msg.BoardID)
+	s.notify.Changed(msg.BoardID)
 	return msg, nil
 }
 
 // checkTargets validates a `to` list and removes duplicates.
-func checkTargets(tx *store.Tx, b store.Board, to []string) ([]string, error) {
+func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 	var out []string
 	for _, t := range to {
 		kind, v, ok := rules.ParseTarget(t)
@@ -105,7 +104,7 @@ func checkTargets(tx *store.Tx, b store.Board, to []string) ([]string, error) {
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
 				"all already includes everyone, so it can't be combined with other targets.", "Use --to all on its own.")
 		case kind == rules.TargetName:
-			if _, err := tx.MemberByName(b.ID, v); errors.Is(err, store.ErrNotFound) {
+			if _, err := tx.MemberByName(b.ID, v); errors.Is(err, ErrNotFound) {
 				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient",
 					fmt.Sprintf("No one on this board is called %q.", v), "Run aboard read to see who is posting here.")
 			} else if err != nil {
@@ -125,16 +124,16 @@ func checkTargets(tx *store.Tx, b store.Board, to []string) ([]string, error) {
 
 // Reading is a page of messages for one reader.
 type Reading struct {
-	Board     store.Board
-	Reader    store.Member
-	Messages  []store.Message
+	Board     Board
+	Reader    Member
+	Messages  []Message
 	NextAfter *int64
 }
 
 // Timeline returns the messages the caller may see after seq. It never moves a cursor.
 func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, after int64, limit int) (Reading, error) {
 	var r Reading
-	err := s.st.Read(ctx, func(tx *store.Tx) error {
+	err := s.st.Read(ctx, func(tx ReadTx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -161,10 +160,10 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, li
 	}
 	deadline := s.clk.After(wait)
 	for {
-		changed := s.notify.watch(p.Agent.BoardID)
+		changed := s.notify.Watch(p.Agent.BoardID)
 		var r Reading
 		var more bool
-		err := s.st.Read(ctx, func(tx *store.Tx) error {
+		err := s.st.Read(ctx, func(tx ReadTx) error {
 			b, err := tx.BoardByID(p.Agent.BoardID)
 			if err != nil {
 				return err
@@ -202,7 +201,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 		return 0, apierr.AgentRequired()
 	}
 	var cursor int64
-	err := s.st.Tx(ctx, func(tx *store.Tx) error {
+	err := s.st.Write(ctx, func(tx Tx) error {
 		b, err := tx.BoardByID(p.Agent.BoardID)
 		if err != nil {
 			return err
@@ -224,7 +223,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 
 // Log is a page of a board's event log.
 type Log struct {
-	Board     store.Board
+	Board     Board
 	Events    []events.Event
 	NextAfter *int64
 }
@@ -233,7 +232,7 @@ type Log struct {
 // read are withheld; their hashes are always included, so the chain still verifies.
 func (s *Service) Events(ctx context.Context, p Principal, boardName string, after int64, limit int) (Log, error) {
 	var out Log
-	err := s.st.Read(ctx, func(tx *store.Tx) error {
+	err := s.st.Read(ctx, func(tx ReadTx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
