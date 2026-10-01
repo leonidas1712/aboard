@@ -486,7 +486,12 @@ func TestCrashAfterConfirmingAcknowledgesWithoutHandingOverAgain(t *testing.T) {
 	r.bind(delivery.HarnessCodex, "t1", reviewer)
 	r.server.FailAcks(true)
 	seq := r.post(reviewer, "hello", false)
-	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) == 1 })
+	// The harness has the bundle as soon as Hand is called, but it is confirmed only once
+	// the journal says so; crash after that point, not before.
+	r.eventually("the confirmed delivery", 500*time.Millisecond, func() bool {
+		ds, err := r.journal.Deliveries(context.Background(), delivery.StateConfirmed)
+		return err == nil && len(ds) == 1
+	})
 
 	r.restart()
 	r.server.FailAcks(false)
