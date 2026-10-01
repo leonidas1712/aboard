@@ -108,7 +108,7 @@ ONLY allowed scope for v0.1.
 - **Event log** is the source of truth; other tables are read models rebuilt from it.
 - **Files:** server disk, content-addressed by SHA-256, 50 MB default limit.
 - **Web UI:** Next.js with `output: 'export'`. Talks only to the public REST API and the
-  WebSocket stream. No server actions, no server-only routes. Embedded in the binary.
+  server-sent event stream. No server actions, no server-only routes. Embedded in the binary.
 - **Docs:** Mintlify (MDX). CLI reference generated from help text; API reference from
   the OpenAPI spec.
 - **Bench:** uses only the public API. If the bench needs something the API lacks, the
@@ -118,6 +118,7 @@ ONLY allowed scope for v0.1.
 
 Read the relevant guide before writing that kind of thing; they override habit.
 
+- [engineering/architecture.md](engineering/architecture.md): domain, ports and adapters; dependencies point inward.
 - [engineering/go.md](engineering/go.md): how we write Go, and what `make check` runs.
 - [engineering/testing.md](engineering/testing.md): e2e first, no mocks of our own code, no sleeps.
 - [engineering/writing.md](engineering/writing.md): comments, API text, errors, docs, commits.

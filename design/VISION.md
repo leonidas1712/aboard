@@ -351,7 +351,7 @@ Every write accepts an `Idempotency-Key` header. Errors share one shape:
 - **The event log is the queue.** Each member's inbox is a read position in it. Sending
   returns as soon as the message is stored. There is no external broker.
 - **Receiving is pull or push.** Pull: `aboard inbox --wait` long-polls. Push: the
-  delivery daemon follows the WebSocket stream at `/v1/stream` and delivers into open
+  delivery daemon follows the server-sent event stream at `/v1/stream` and delivers into open
   sessions. Both resume from a sequence number per board, so a reconnect never misses
   anything.
 - **Notifications only wake readers.** Inside the server, a write wakes waiting readers,
@@ -630,7 +630,7 @@ binary for local use.
 
 | Component | Language | What it does |
 | --- | --- | --- |
-| API server | Go | REST + WebSocket API, the write path, storage, rules, the event log |
+| API server | Go | REST API plus a server-sent event stream, the write path, storage, rules, the event log |
 | CLI | Go (same binary) | Thin client over the API; `--json` everywhere; `swarm up` and its launchers |
 | Delivery daemon | Go (same binary) | One per user per machine. Watches the stream for agents connected on this machine and delivers into their open sessions through harness adapters |
 | Web UI | Next.js + TypeScript | Board view, later work, inbox and map views. Uses only the public API and stream |
@@ -644,7 +644,7 @@ request ─▶ 1 authenticate (sender = token owner)
         ─▶ 3 permissions and policy (broadcast, rate limit, size)
         ─▶ 4 redact secrets
         ─▶ 5 one transaction: append hash-chained event + update read models
-        ─▶ 6 push to WebSocket subscribers, wake long-poll inboxes
+        ─▶ 6 notify stream subscribers, wake long-poll inboxes
         ─▶ (after the write) per-message monitor, flag only
 ```
 
@@ -793,7 +793,7 @@ into something that doesn't work from scratch.
 | Team | Team server with automatic HTTPS; invites and `connect`; named servers; join lines carrying the server; delivery across two machines | OIDC, owner approval for incoming asks, cross-board inbox, moving boards |
 | UI | Board view: timeline, crew, task kanban with label filter, files and pinned files; light and dark | Work, inbox and map views |
 | Safety | Attribution, hash chain with `audit verify`, secret redaction, wrapped delivery, broadcast control, visibility, rate limit, pause, revoke, flag, per-message monitor (flag only) | Hold-for-review, whole-board monitor, approval gates |
-| Interfaces | REST + WebSocket, CLI with `--json`, OpenAPI spec | MCP server |
+| Interfaces | REST, a server-sent event stream, CLI with `--json`, OpenAPI spec | MCP server |
 | Storage | SQLite | Postgres |
 
 ## Build order

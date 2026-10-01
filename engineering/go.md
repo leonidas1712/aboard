@@ -16,24 +16,14 @@ a DI container, a "utils" module.
 
 ## Packages
 
-Organise by what a package does (`store`, `events`, `rules`, `redact`, `delivery`,
-`api`, `cli`), not by layer (`models`, `services`, `helpers`).
+Shape follows [architecture.md](architecture.md): the domain in `board`, `rules` and
+`events`; adapters around it; dependencies pointing inward. In Go terms:
 
+- Organise by what a package does (`board`, `sqlite`, `delivery`), not by layer
+  (`models`, `services`, `helpers`).
 - Define an interface in the package that **uses** it, with only the methods it calls.
 - Constructors take every dependency as an argument. No package-level mutable state,
   no `init()` side effects, no globals for config, clock or logger.
-
-```go
-// Do: the consumer declares what it needs.
-package delivery
-
-type inbox interface {
-	Unread(ctx context.Context, agent string, limit int) ([]Message, error)
-	Ack(ctx context.Context, agent string, upTo int64) error
-}
-
-func NewWorker(in inbox, adapters map[string]Adapter, clk clock.Clock, log *slog.Logger) *Worker
-```
 
 ```go
 // Don't: a global the tests can't replace.

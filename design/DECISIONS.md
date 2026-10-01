@@ -146,3 +146,12 @@ Why: choosing who you are should be enough; a directory file silently deciding w
 
 **D46. Every agent command names its board in one short line: `say` prints "Sent #6 to @reviewer on writer-reviewer"; `inbox` and `read` start with a header such as "writer-reviewer · 2 new". Where the board and agent were selected from appears only in plain `aboard status` and in selection errors.**
 Why: the board is always visible without cluttering normal output.
+
+**D47. The code follows ports and adapters (engineering/architecture.md). The board service declares the store and notifier interfaces it needs; SQLite and the in-process notifier are adapters that implement them, and every store adapter passes one shared contract test suite. No SQL in the board service; SQLite-specific SQL stays in the SQLite adapter.**
+Why: swapping SQLite for Postgres, or adding a notifier that works across server instances, must not touch the rules.
+
+**D48. `/v1/stream` is a server-sent event stream. The delivery daemon and the web UI both read it; every write stays on REST.**
+Why: the stream only carries notifications, one-way is enough, and the standard library handles it on both sides.
+
+**D49. Delivery confirmation is implicit: a bundle counts as received when the same session (same session id and boot id) next reports an event after being woken. It guarantees the session woke and ran a turn with the bundle in its context; it does not guarantee the agent acted on it.**
+Why: an explicit accept step is one more thing agents forget, which loops redeliveries.
