@@ -289,11 +289,15 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 	e.run("pair")
 
 	expectLines(t, e.run("status"),
+		"Server: "+url+" running",
+		"Daemon: not running; it starts when a session or command needs it",
 		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
 		"Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: writer)",
 		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
 	)
 	expectLines(t, e.run("status", "--as", "writer"),
+		"Server: "+url+" running",
+		"Daemon: not running; it starts when a session or command needs it",
 		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
 		"Agent:  writer (from --as)",
 		"Policy: starter (a starting point; tighten with aboard board policy recommended)",

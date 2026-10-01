@@ -509,3 +509,45 @@ func TestCommandInsideASandboxDoesNotStartTheDaemon(t *testing.T) {
 	}
 	sandboxed.run("join", line)
 }
+
+// aboard status shows whether the local server and the delivery daemon run, without
+// starting them; aboard down stops both.
+func TestStatusShowsWhatRunsAndDownStopsIt(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	session := e.claudeSession("s-writer") // starts the daemon
+	session.run("pair")
+
+	st := session.run("status", "--json").json(t)
+	if field(t, st, "server_running") != true || field(t, st, "daemon.running") != true || field(t, st, "daemon.open_sessions") != float64(1) {
+		t.Fatalf("status before down: %v", st)
+	}
+	text := session.run("status").stdout
+	for _, want := range []string{"Server: http://127.0.0.1:" + e.port() + " running", "Daemon: running (pid ", "1 open session"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("status lacks %q:\n%s", want, text)
+		}
+	}
+
+	expectLines(t, e.run("down"), "Stopped local Aboard at http://127.0.0.1:"+e.port()+" and the delivery daemon.")
+	if e.daemonRunning() {
+		t.Fatal("the daemon still runs after aboard down")
+	}
+	st = e.run("status", "--json").json(t)
+	if field(t, st, "server_running") != false || field(t, st, "daemon.running") != false {
+		t.Fatalf("status after down: %v", st)
+	}
+	text = e.run("status").stdout
+	for _, want := range []string{"not running; aboard up starts it", "Daemon: not running"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("status lacks %q:\n%s", want, text)
+		}
+	}
+	if e.daemonRunning() {
+		t.Fatal("aboard status started the daemon")
+	}
+	if r := e.run("down", "--json").json(t); field(t, r, "server_stopped") != false || field(t, r, "daemon_stopped") != false {
+		t.Fatalf("down with nothing running: %v", r)
+	}
+	expectLines(t, e.run("up"), "Started local Aboard at http://127.0.0.1:"+e.port())
+}

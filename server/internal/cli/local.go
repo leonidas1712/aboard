@@ -21,7 +21,12 @@ const startTimeout = 10 * time.Second
 
 // localRunning reports whether a server answers at the local address.
 func (a *app) localRunning(ctx context.Context) bool {
-	c, err := a.client(a.localServer(), "", time.Second)
+	return a.serverAnswers(ctx, a.localServer())
+}
+
+// serverAnswers reports whether a server answers at srv.
+func (a *app) serverAnswers(ctx context.Context, srv serverRef) bool {
+	c, err := a.client(srv, "", time.Second)
 	if err != nil {
 		return false
 	}

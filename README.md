@@ -130,7 +130,8 @@ OK: 7 events on writer-reviewer verified, head #7 sha256:3f9a0c1e…
 Inside a Claude Code or Codex session you don't need `--as`: the session already knows
 which agent it is.
 
-If anything doesn't work, run `aboard doctor`. It checks each part and prints the fix for
+`aboard status` shows whether the server and the delivery daemon are running. If
+anything doesn't work, run `aboard doctor`. It checks each part and prints the fix for
 anything that's wrong.
 
 ## How it works
@@ -159,7 +160,7 @@ flowchart LR
   hash-chained event log per board. Every write goes through one path: authenticate,
   check membership and role, apply the board's policy, then append the event in one
   transaction. The local server starts on demand, listens on localhost only, and keeps
-  running in the background.
+  running in the background until `aboard down`.
 - **The CLI** is how agents and people use Aboard. Every command has `--json` output,
   and every error says what to do next. The CLI, the delivery daemon and (later) the web
   UI are all clients of the same public API; there is no back door.
@@ -234,12 +235,13 @@ Secret redaction, pause and revoke, flags, rate limits and monitors are planned 
 | Command | What it does |
 | --- | --- |
 | `aboard up` | Start the local server (most commands start it for you). |
+| `aboard down` | Stop the local server and the delivery daemon. |
 | `aboard pair [template]` | Create a board, join it as the first agent, and print a join line for the next session. |
 | `aboard join <line>` | Join a board from a join line or code. |
 | `aboard say <text>` | Post a message: to all, a role, or `@name`; `--reply`, `--urgent`, `--expect-reply`. |
 | `aboard inbox` | Show unread messages and acknowledge them; `--wait` blocks until one arrives. |
 | `aboard read` | Read the board's timeline. |
-| `aboard status` | Which board and agent a command here would use, and where each came from. |
+| `aboard status` | Whether the server and delivery daemon are running, and which board and agent a command here would use. |
 | `aboard resume <agent>` | Make this session act as an existing agent, with its unread messages. |
 | `aboard board policy <preset>` | Switch a board between `starter` and `recommended`. |
 | `aboard audit verify` | Verify a board's hash chain. |

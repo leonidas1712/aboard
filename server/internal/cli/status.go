@@ -26,13 +26,15 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	out := struct {
-		Server      serverRef   `json:"server"`
-		Board       *string     `json:"board"`
-		BoardSource string      `json:"board_source"`
-		Agent       *string     `json:"agent"`
-		AgentSource string      `json:"agent_source"`
-		Agents      []string    `json:"agents"`
-		Policy      *api.Policy `json:"policy"`
+		Server        serverRef    `json:"server"`
+		ServerRunning bool         `json:"server_running"`
+		Daemon        daemonReport `json:"daemon"`
+		Board         *string      `json:"board"`
+		BoardSource   string       `json:"board_source"`
+		Agent         *string      `json:"agent"`
+		AgentSource   string       `json:"agent_source"`
+		Agents        []string     `json:"agents"`
+		Policy        *api.Policy  `json:"policy"`
 	}{Server: a.localServer(), BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 
 	creds, err := a.readCredentials()
@@ -69,13 +71,17 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		if asError(err).Code != "board_not_selected" {
 			return err
 		}
-		a.emit(out, "Board:  none; run aboard pair or aboard join here, or pass --board\n")
+		var text strings.Builder
+		a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, out.Server)
+		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
+		a.emit(out, text.String())
 		return nil
 	}
 	out.Server, out.Board, out.BoardSource = t.server, &t.board, t.source
 	out.Agents = creds.names(t.server.URL, t.board)
 
 	var text strings.Builder
+	a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, t.server)
 	fmt.Fprintf(&text, "Board:  %s on %s (%s)\n", t.board, t.server.URL, sourceText(t.source))
 	switch _, known := creds.find(t.server.URL, t.board, name); {
 	case name == "":
@@ -109,4 +115,36 @@ func namesText(names []string) string {
 		return "none"
 	}
 	return strings.Join(names, ", ")
+}
+
+// daemonReport is the delivery daemon's part of aboard status.
+type daemonReport struct {
+	Running      bool `json:"running"`
+	PID          *int `json:"pid"`
+	OpenSessions int  `json:"open_sessions"`
+}
+
+// runningLines writes the Server and Daemon lines of aboard status. It checks both
+// without starting either.
+func (a *app) runningLines(ctx context.Context, text *strings.Builder, running *bool, d *daemonReport, srv serverRef) {
+	*running = a.serverAnswers(ctx, srv)
+	local := srv.URL == a.localServer().URL
+	switch {
+	case *running && local:
+		fmt.Fprintf(text, "Server: %s running\n", srv.URL)
+	case *running:
+		fmt.Fprintf(text, "Server: %s reachable\n", srv.URL)
+	case local:
+		fmt.Fprintf(text, "Server: %s not running; aboard up starts it\n", srv.URL)
+	default:
+		fmt.Fprintf(text, "Server: %s unreachable\n", srv.URL)
+	}
+	st, _ := a.daemonStatus(ctx)
+	if st == nil {
+		text.WriteString("Daemon: not running; it starts when a session or command needs it\n")
+		return
+	}
+	pid := st.PID
+	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions}
+	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s\n", pid, st.OpenSessions, plural(st.OpenSessions, "session", "sessions"))
 }

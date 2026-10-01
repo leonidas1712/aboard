@@ -57,6 +57,7 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"up", "aboard up [--json]", runUp},
+		{"down", "aboard down [--json]", runDown},
 		{"pair", "aboard pair [template] [--new] [--board NAME] [--name NAME] [--json]", runPair},
 		{"join", "aboard join <join-line|code> [--name NAME] [--harness H] [--json]", runJoin},
 		{"say", "aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]", runSay},

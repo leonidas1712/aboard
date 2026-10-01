@@ -78,3 +78,13 @@ func Harness() (p delivery.Process, ok bool) {
 func baseName(name string) string {
 	return strings.TrimPrefix(filepath.Base(name), "-")
 }
+
+// Name returns the program name of a running process, or ok false when there is no
+// such process or it can't be read.
+func Name(pid int) (name string, ok bool) {
+	in, err := lookup(pid)
+	if err != nil || in.exited {
+		return "", false
+	}
+	return baseName(in.name), true
+}

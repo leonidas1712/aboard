@@ -93,6 +93,21 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       board: { type: string }
 
+  # ---------- aboard down ----------
+  DownOutput:
+    description: |
+      Stops the local server and this user's delivery daemon, and waits until they have
+      stopped. Only a process that answers as Aboard is signalled. Sessions still open
+      start the daemon again on their next hook. Text output:
+        Stopped local Aboard at http://127.0.0.1:7400 and the delivery daemon.
+        Local Aboard and the delivery daemon weren't running.
+    type: object
+    required: [server, server_stopped, daemon_stopped]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      server_stopped: { type: boolean, description: "False when it wasn't running." }
+      daemon_stopped: { type: boolean, description: "False when it wasn't running." }
+
   # ---------- aboard up ----------
   UpOutput:
     type: object
@@ -339,17 +354,33 @@ $defs:
   # ---------- aboard status [--as AGENT] [--board NAME] ----------
   StatusOutput:
     description: |
-      Which board and agent commands run here would use, and where each came from.
+      Which board and agent commands run here would use, and where each came from, and
+      whether the server and the delivery daemon are running. It never starts either.
       Text output, one line each:
+        Server: http://127.0.0.1:7400 running
+        Daemon: running (pid 4182), 2 open sessions
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as)
         Policy: starter (a starting point; tighten with aboard board policy recommended)
-      With no agent selected the Agent line says how to pick one and lists this
-      machine's agents on the board. Policy is shown when the server can be reached.
+      When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
+      starts it" and "Daemon: not running; it starts when a session or command needs it".
+      A remote server is "reachable" or "unreachable". With no agent selected the Agent
+      line says how to pick one and lists this machine's agents on the board. Policy is
+      shown when the server can be reached.
     type: object
-    required: [server, board, board_source, agent, agent_source, agents, policy]
+    required: [server, server_running, daemon, board, board_source, agent, agent_source, agents, policy]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      server_running:
+        type: boolean
+        description: Whether the server answers.
+      daemon:
+        type: object
+        required: [running, pid, open_sessions]
+        properties:
+          running: { type: boolean }
+          pid: { type: [integer, "null"] }
+          open_sessions: { type: integer }
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]
