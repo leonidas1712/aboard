@@ -142,13 +142,18 @@ func parseTime(s string) (time.Time, error) {
 	return t, nil
 }
 
-// SaveSession records a session's boot id and whether it is open.
+// SaveSession records a session's boot id, its harness process and whether it is open.
 func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) error {
+	var p delivery.Process
+	if s.Process != nil {
+		p = *s.Process
+	}
 	return j.write(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO sessions (harness, session_id, boot, open, updated_at) VALUES (?, ?, ?, ?, ?)
-			ON CONFLICT (harness, session_id) DO UPDATE SET boot = excluded.boot, open = excluded.open, updated_at = excluded.updated_at`,
-			s.Key.Harness, s.Key.ID, s.Boot, s.Open, formatTime(s.UpdatedAt))
+			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (harness, session_id) DO UPDATE SET boot = excluded.boot, open = excluded.open,
+				pid = excluded.pid, pid_start = excluded.pid_start, updated_at = excluded.updated_at`,
+			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, formatTime(s.UpdatedAt))
 		if err != nil {
 			return fmt.Errorf("save session %s: %w", s.Key, err)
 		}
@@ -158,7 +163,7 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 
 // Sessions returns every recorded session.
 func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error) {
-	rows, err := j.db.QueryContext(ctx, `SELECT harness, session_id, boot, open, updated_at FROM sessions ORDER BY harness, session_id`)
+	rows, err := j.db.QueryContext(ctx, `SELECT harness, session_id, boot, open, pid, pid_start, updated_at FROM sessions ORDER BY harness, session_id`)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
@@ -166,9 +171,13 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 	var out []delivery.SessionRecord
 	for rows.Next() {
 		var s delivery.SessionRecord
+		var p delivery.Process
 		var updated string
-		if err := rows.Scan(&s.Key.Harness, &s.Key.ID, &s.Boot, &s.Open, &updated); err != nil {
+		if err := rows.Scan(&s.Key.Harness, &s.Key.ID, &s.Boot, &s.Open, &p.PID, &p.Start, &updated); err != nil {
 			return nil, fmt.Errorf("read session: %w", err)
+		}
+		if p.PID != 0 {
+			s.Process = &p
 		}
 		if s.UpdatedAt, err = parseTime(updated); err != nil {
 			return nil, err

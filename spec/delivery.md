@@ -68,6 +68,14 @@ starts the local server. The foreground form, for tests and debugging, is
 agents whose sessions are closed simply wait on their server; the next session start
 brings the daemon back, and it picks up where the read positions are.
 
+**Closes sessions whose harness died.** A harness that is killed never runs its end
+hook. Every hook and command that talks to the daemon about a session sends the harness
+process it runs under: its nearest ancestor that isn't a shell or a wrapper, with the
+process's start time so a reused process id isn't mistaken for it. A session-start hook
+sets the session's process; later requests only fill it in when it is unknown. Every 5
+seconds, and when it starts, the daemon closes each open session whose process has gone,
+as the end hook would have. A process the daemon can't read counts as alive.
+
 **Shutdown.** On SIGINT or SIGTERM it stops taking new work, lets in-flight harness calls
 finish for up to 5 seconds, closes server connections and the journal, and exits.
 
@@ -75,7 +83,7 @@ finish for up to 5 seconds, closes server connections and the journal, and exits
 
 | Where | What | Never |
 | --- | --- | --- |
-| `<state>/aboard/delivery.db` (0600) | Sessions, bindings, deliveries, attempts, reason codes, timestamps | Tokens, message bodies, prompts, transcripts |
+| `<state>/aboard/delivery.db` (0600) | Sessions with their harness process, bindings, deliveries, attempts, reason codes, timestamps | Tokens, message bodies, prompts, transcripts |
 | `<config>/aboard/credentials.json` (0600) | Agent tokens; human logins per server | Read by hooks |
 | `<state>/aboard/daemon.sock` (0600, in a 0700 directory) | The control socket | A TCP port |
 | `/tmp/aboard-<uid>/<hash>.sock` (0600, in a 0700 directory) | The control socket instead, when the state path is too long for a socket path (macOS allows 104 bytes) | |
@@ -354,6 +362,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | Agent token rejected (revoked) | That agent's deliveries stop; others continue | `delivery_attention` with `unauthorized` |
 | Session busy | Delivery waits; no attempt counted | Nothing |
 | Session ends before confirming | Bundle delivered again to the next session for that agent | Nothing |
+| Harness killed without its end hook | Session closed within 5 seconds; messages held for the next session | Nothing |
 | Codex thread gone | 5 attempts, then `attention` | `codex_target_absent` |
 | Codex temporarily locked | Retried with backoff | Nothing, unless it reaches 5 |
 | Message larger than the bundle limit | `skipped`; read position moves past it | `delivery_skipped` |

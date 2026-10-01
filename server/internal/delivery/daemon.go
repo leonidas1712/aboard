@@ -25,8 +25,11 @@ type Config struct {
 	// when the first agent on that server is bound.
 	Connect func(serverURL string) Server
 	Control Control
-	Clock   clock.Clock
-	Log     *slog.Logger
+	// Processes checks that each open session's harness still runs. Nil means sessions
+	// close only when their end hook says so.
+	Processes Processes
+	Clock     clock.Clock
+	Log       *slog.Logger
 	// PID is reported by the status operation.
 	PID int
 	// IdleExit overrides how long the daemon runs with no open session; zero means
@@ -88,6 +91,9 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	g.Go(func() error { return d.acceptLoop(gctx) })
 	g.Go(func() error { return d.idleLoop(gctx) })
+	if cfg.Processes != nil {
+		g.Go(func() error { return d.livenessLoop(gctx) })
+	}
 	g.Go(func() error {
 		<-gctx.Done()
 		return cfg.Control.Close()
@@ -120,7 +126,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 		if s == nil {
 			continue
 		}
-		s.boot, s.open = r.Boot, r.Open
+		s.boot, s.open, s.proc = r.Boot, r.Open, r.Process
 		d.open[r.Key] = r.Open
 	}
 	for _, b := range bindings {
@@ -280,6 +286,22 @@ func (d *Daemon) idleLoop(ctx context.Context) error {
 				return errIdle
 			}
 		}
+	}
+}
+
+// livenessLoop asks every session to check its harness process every LivenessCheck.
+func (d *Daemon) livenessLoop(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-d.cfg.Clock.After(LivenessCheck):
+		}
+		d.mu.Lock()
+		for _, s := range d.sessions {
+			s.mail.put(sessionMsg{checkAlive: true})
+		}
+		d.mu.Unlock()
 	}
 }
 

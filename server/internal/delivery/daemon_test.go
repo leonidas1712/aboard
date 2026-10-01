@@ -36,6 +36,7 @@ type rig struct {
 	claude  *deliverytest.FakeAdapter
 	codex   *deliverytest.FakeAdapter
 	server  *deliverytest.FakeServer
+	procs   *deliverytest.FakeProcesses
 	path    string
 	ctl     *deliverytest.PipeControl
 	journal *sqlitejournal.Journal
@@ -50,6 +51,7 @@ func newRig(t *testing.T) *rig {
 		claude: deliverytest.NewFakeAdapter(delivery.HarnessClaudeCode, true),
 		codex:  deliverytest.NewFakeAdapter(delivery.HarnessCodex, false),
 		server: deliverytest.NewFakeServer(),
+		procs:  deliverytest.NewFakeProcesses(),
 		path:   filepath.Join(t.TempDir(), "delivery.db"),
 	}
 	r.start()
@@ -69,7 +71,7 @@ func (r *rig) start() {
 	cfg := delivery.Config{
 		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex},
 		Connect: func(string) delivery.Server { return r.server },
-		Control: r.ctl, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
+		Control: r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
 	}
 	go func() { r.done <- delivery.Run(ctx, cfg) }()
 }
@@ -518,18 +520,63 @@ func TestDaemonStopsAfterTenMinutesWithoutAnOpenSession(t *testing.T) {
 		t.Fatalf("open sessions %d", st.OpenSessions)
 	}
 	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: delivery.HarnessClaudeCode, Session: "s1"})
-	r.eventually("the daemon to stop", time.Minute, func() bool {
-		select {
-		case err := <-r.done:
-			if err != nil {
-				t.Fatalf("daemon: %v", err)
-			}
-			r.done <- nil
-			return true
-		default:
-			return false
+	r.eventually("the daemon to stop", time.Minute, r.stopped)
+}
+
+// stopped reports whether the daemon has stopped on its own.
+func (r *rig) stopped() bool {
+	select {
+	case err := <-r.done:
+		if err != nil {
+			r.t.Fatalf("daemon: %v", err)
 		}
-	})
+		r.done <- nil
+		return true
+	default:
+		return false
+	}
+}
+
+// A session whose harness died without its end hook is closed: its messages are held,
+// and with nothing else open the daemon stops.
+func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
+	r := newRig(t)
+	harness := delivery.Process{PID: 7101, Start: 1759320000}
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.clock.Advance(time.Hour)
+	if st := r.status(); st.OpenSessions != 1 {
+		t.Fatalf("a live session should stay open: %d open", st.OpenSessions)
+	}
+
+	r.procs.Kill(harness)
+	r.eventually("the dead session to close", delivery.LivenessCheck, func() bool { return r.status().OpenSessions == 0 })
+	r.post(reviewer, "anyone there?", false)
+	r.eventually("the daemon to stop", time.Minute, r.stopped)
+}
+
+// A session restored from the journal whose harness died while the daemon was down is
+// closed as soon as the daemon starts.
+func TestRestoredSessionWhoseHarnessDiedIsClosed(t *testing.T) {
+	r := newRig(t)
+	harness := delivery.Process{PID: 7102, Start: 1759320000}
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
+	r.stop()
+	r.procs.Kill(harness)
+	r.start()
+	r.eventually("the dead session to close", 0, func() bool { return r.status().OpenSessions == 0 })
+}
+
+// Only a register sets the session's process; a later command run by the agent keeps
+// it, so a command run from another process can't keep a dead session open.
+func TestLaterRequestsDontReplaceTheSessionsProcess(t *testing.T) {
+	r := newRig(t)
+	harness := delivery.Process{PID: 7103, Start: 1759320000}
+	other := delivery.Process{PID: 7104, Start: 1759320001}
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
+	r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &reviewer, Process: &other})
+	r.procs.Kill(harness)
+	r.eventually("the dead session to close", delivery.LivenessCheck, func() bool { return r.status().OpenSessions == 0 })
 }
 
 func TestBadControlMessagesAreRejected(t *testing.T) {

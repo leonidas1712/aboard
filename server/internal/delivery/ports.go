@@ -77,3 +77,9 @@ type Control interface {
 	Accept() (net.Conn, error)
 	Close() error
 }
+
+// Processes reports whether a harness process still runs, so a session whose harness
+// died without running its end hook is closed.
+type Processes interface {
+	Alive(p Process) bool
+}

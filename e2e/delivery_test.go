@@ -346,3 +346,38 @@ func TestWakePromptDoesNotConfirmTheBundle(t *testing.T) {
 		t.Fatalf("the bundle should be delivered again\n%s", again)
 	}
 }
+
+// openSessions is how many sessions the delivery daemon has open, as aboard doctor
+// reports it.
+func (e *env) openSessions() string {
+	e.t.Helper()
+	for _, c := range field(e.t, e.runExit("doctor", "--json").json(e.t), "checks").([]any) {
+		m := c.(map[string]any)
+		if m["name"] == "daemon" {
+			msg := m["message"].(string)
+			return msg[strings.LastIndex(msg, ", ")+2:]
+		}
+	}
+	e.t.Fatal("doctor has no daemon check")
+	return ""
+}
+
+// A session whose harness was killed, so its end hook never ran, is closed once the
+// daemon sees the process gone; that lets the daemon stop when nothing else is open.
+func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer := e.claudeSession("s-writer")
+	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	reviewer, harness := e.claudeSessionIn("s-reviewer")
+	reviewer.run("join", line)
+	if got := e.openSessions(); got != "2 sessions" {
+		t.Fatalf("before the crash: %s", got)
+	}
+
+	if err := harness.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = harness.Wait()
+	eventually(t, 15*time.Second, "the dead session to close", func() bool { return e.openSessions() == "1 session" })
+}

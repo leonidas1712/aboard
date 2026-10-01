@@ -213,7 +213,7 @@ func (h hookCall) stop(ctx context.Context) error {
 			}
 			continue
 		}
-		req := h.request(delivery.OpWait)
+		req := withHarnessProcess(h.request(delivery.OpWait))
 		req.V, req.Resumed = delivery.ProtocolVersion, resumed
 		code, done := h.waitOn(conn, req)
 		_ = conn.Close()

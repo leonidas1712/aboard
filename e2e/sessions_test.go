@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -47,6 +48,43 @@ func (e *env) claudeSession(id string) *session {
 		e.t.Fatalf("environment file doesn't name the session:\n%s", raw)
 	}
 	return s
+}
+
+// claudeSessionIn starts a Claude Code session whose session-start hook runs under a
+// harness process of its own, and returns the session with that process, which the test
+// can kill as a crash would.
+func (e *env) claudeSessionIn(id string) (*session, *exec.Cmd) {
+	e.t.Helper()
+	envFile := filepath.Join(e.home, "claude-env-"+id)
+	cmd := exec.Command(fakeHarness, binary, "hook", "claude-code", "session-start")
+	cmd.Dir = e.dir
+	cmd.Env = append(append([]string{}, e.vars...), "CLAUDE_ENV_FILE="+envFile)
+	cmd.Stdin = strings.NewReader(hookInput(id, "SessionStart", `"source":"startup"`))
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		e.t.Fatal(err)
+	}
+	e.t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	line, err := bufio.NewReader(out).ReadString('\n')
+	if err != nil || strings.TrimSpace(line) != "exit 0" {
+		e.t.Fatalf("session-start hook under the harness: %q %v\n%s", line, err, stderr.String())
+	}
+	s := &session{e: e, harness: "claude-code", id: id}
+	raw, err := os.ReadFile(envFile)
+	if err != nil {
+		e.t.Fatalf("session-start hook wrote no environment file: %v", err)
+	}
+	for _, l := range strings.Split(string(raw), "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(l), "export "); ok {
+			s.vars = append(s.vars, strings.Trim(v, `'"`))
+		}
+	}
+	return s, cmd
 }
 
 // codexSession starts a Codex session: Codex sets CODEX_THREAD_ID for every command the

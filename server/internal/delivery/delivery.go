@@ -97,10 +97,19 @@ type Delivery struct {
 
 // SessionRecord is what the journal keeps of a session.
 type SessionRecord struct {
-	Key       SessionKey
-	Boot      string
-	Open      bool
+	Key  SessionKey
+	Boot string
+	Open bool
+	// Process is the harness process the session runs in, or nil if it isn't known.
+	Process   *Process
 	UpdatedAt time.Time
+}
+
+// Process is one running process. Start is when it started, in the system's own units,
+// so a process id the system has since reused isn't mistaken for it.
+type Process struct {
+	PID   int   `json:"pid"`
+	Start int64 `json:"start"`
 }
 
 // Binding says which session an agent's messages go to.
@@ -141,6 +150,9 @@ const (
 	MaxAttempts = 5
 	// IdleExit is how long the daemon runs with no open session.
 	IdleExit = 10 * time.Minute
+	// LivenessCheck is how often the daemon checks that each open session's harness
+	// process still runs.
+	LivenessCheck = 5 * time.Second
 	// QueueGather is how long the daemon waits for more messages before handing a
 	// bundle to a harness that queues, so messages close together arrive together.
 	QueueGather = 2 * time.Second

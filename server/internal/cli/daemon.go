@@ -22,6 +22,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/delivery/claude"
 	"github.com/leonidas1712/aboard/server/internal/delivery/codex"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
+	"github.com/leonidas1712/aboard/server/internal/delivery/proctable"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
 )
 
@@ -94,10 +95,11 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 		Connect: func(url string) delivery.Server {
 			return apiserver.New(url, daemonTokens{a: a}, a.env.Rand)
 		},
-		Control: listener,
-		Clock:   clock.Real{},
-		Log:     log,
-		PID:     pid,
+		Control:   listener,
+		Processes: proctable.Table{},
+		Clock:     clock.Real{},
+		Log:       log,
+		PID:       pid,
 	})
 	log.Info("delivery daemon stopped", "error", errText(err))
 	if err != nil {
@@ -250,6 +252,7 @@ func (a *app) callDaemon(ctx context.Context, req delivery.Request) (delivery.Re
 	stop := context.AfterFunc(ctx, func() { _ = c.Close() })
 	defer stop()
 	req.V = delivery.ProtocolVersion
+	req = withHarnessProcess(req)
 	if err := delivery.WriteFrame(c, req); err != nil {
 		return delivery.Response{}, daemonGone(err)
 	}
@@ -261,6 +264,19 @@ func (a *app) callDaemon(ctx context.Context, req delivery.Request) (delivery.Re
 		return resp, &Error{Code: resp.Error.Code, Message: resp.Error.Message, Hint: resp.Error.Hint}
 	}
 	return resp, nil
+}
+
+// withHarnessProcess adds the harness process this command runs under to a request
+// about a session, so the daemon can close the session if that process dies without
+// running its end hook.
+func withHarnessProcess(req delivery.Request) delivery.Request {
+	if req.Session == "" || req.Process != nil {
+		return req
+	}
+	if p, ok := proctable.Harness(); ok {
+		req.Process = &p
+	}
+	return req
 }
 
 func daemonGone(err error) *Error {

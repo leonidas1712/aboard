@@ -26,6 +26,9 @@ var binary string
 // fakeBin holds the fake codex binary, first on every test's PATH.
 var fakeBin string
 
+// fakeHarness is a stand-in harness process that runs one hook and then stays up.
+var fakeHarness string
+
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "aboard-e2e-bin-")
 	if err != nil {
@@ -47,6 +50,14 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "build fake codex:", err)
 		os.Exit(1)
 	}
+	harness := exec.Command("go", "build", "-o", filepath.Join(dir, "fakeharness"), "./e2e/fakeharness")
+	harness.Dir = ".."
+	harness.Stdout, harness.Stderr = os.Stderr, os.Stderr
+	if err := harness.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build fake harness:", err)
+		os.Exit(1)
+	}
+	fakeHarness = filepath.Join(dir, "fakeharness")
 	fakeBin = filepath.Join(dir, "fakebin")
 	code := m.Run()
 	_ = os.RemoveAll(dir)

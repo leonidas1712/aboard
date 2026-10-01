@@ -341,3 +341,30 @@ func (p *PipeControl) Dial() (net.Conn, error) {
 		return nil, net.ErrClosed
 	}
 }
+
+// FakeProcesses is a process table for tests: every process is alive until killed.
+type FakeProcesses struct {
+	mu   sync.Mutex
+	dead map[delivery.Process]bool
+}
+
+var _ delivery.Processes = (*FakeProcesses)(nil)
+
+// NewFakeProcesses returns a process table where everything runs.
+func NewFakeProcesses() *FakeProcesses {
+	return &FakeProcesses{dead: map[delivery.Process]bool{}}
+}
+
+// Alive reports whether p was not killed.
+func (f *FakeProcesses) Alive(p delivery.Process) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return !f.dead[p]
+}
+
+// Kill makes p dead.
+func (f *FakeProcesses) Kill(p delivery.Process) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.dead[p] = true
+}

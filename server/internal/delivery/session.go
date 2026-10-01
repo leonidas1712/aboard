@@ -27,6 +27,8 @@ type sessionMsg struct {
 	adopter *session
 	// adopt says the previous owner has given the agent up.
 	adopt *AgentRef
+	// checkAlive asks the session to close if its harness process has gone.
+	checkAlive bool
 }
 
 type inboxResult struct {
@@ -52,8 +54,10 @@ type session struct {
 	adapter Adapter
 	mail    *mailbox[sessionMsg]
 
-	boot   string
-	open   bool
+	boot string
+	open bool
+	// proc is the harness process the session runs in, or nil if it isn't known.
+	proc   *Process
 	waiter *waiter
 	agents map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
@@ -90,6 +94,7 @@ func (s *session) now() time.Time { return s.d.cfg.Clock.Now() }
 func (s *session) run(ctx context.Context) error {
 	if s.restored {
 		s.d.setOpen(s.key, s.open)
+		s.checkAlive(ctx)
 		s.refreshAll(false)
 	}
 	for {
@@ -127,6 +132,8 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onRelease(ctx, *m.release, m.adopter)
 	case m.adopt != nil:
 		s.onAdopt(ctx, *m.adopt)
+	case m.checkAlive:
+		s.checkAlive(ctx)
 	default:
 		m.reply <- s.onRequest(ctx, m.req)
 	}
@@ -134,6 +141,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
+	s.noteProcess(ctx, req)
 	switch req.Op {
 	case OpRegister:
 		if req.Boot != "" && req.Boot != s.boot {
@@ -169,6 +177,32 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 	}
 	return ok
+}
+
+// noteProcess records the harness process a request came from. A register is a harness
+// starting, so it replaces the process; anything else only fills it in when it is
+// unknown, so a command run from elsewhere can't keep a dead session open.
+func (s *session) noteProcess(ctx context.Context, req Request) {
+	if req.Process == nil || (s.proc != nil && (req.Op != OpRegister || *s.proc == *req.Process)) {
+		return
+	}
+	p := *req.Process
+	s.proc = &p
+	s.saveSession(ctx)
+}
+
+// checkAlive closes an open session whose harness process has gone, as its end hook
+// would have. A harness killed outright never runs that hook.
+func (s *session) checkAlive(ctx context.Context) {
+	if !s.open || s.proc == nil || s.d.cfg.Processes == nil || s.d.cfg.Processes.Alive(*s.proc) {
+		return
+	}
+	s.d.log.Info("closing session: its harness process has gone", "session", s.key.String(), "pid", s.proc.PID)
+	if s.waiter != nil {
+		s.waiter.Release()
+		s.waiter = nil
+	}
+	s.setOpen(ctx, false)
 }
 
 func (s *session) agentRefs() []AgentRef {
@@ -221,7 +255,7 @@ func (s *session) setOpen(ctx context.Context, open bool) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -248,6 +282,7 @@ func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
 }
 
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
+	s.noteProcess(ctx, req)
 	switch {
 	case !req.Resumed:
 		s.event(ctx, req.Boot)

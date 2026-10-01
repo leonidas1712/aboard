@@ -65,6 +65,8 @@ type Request struct {
 	// a later event; it doesn't confirm that bundle.
 	Wake  bool      `json:"wake,omitempty"`
 	Agent *AgentRef `json:"agent,omitempty"`
+	// Process is the harness process the request came from, when the caller found it.
+	Process *Process `json:"process,omitempty"`
 }
 
 // Key returns the session the request is about.
