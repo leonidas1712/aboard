@@ -260,9 +260,9 @@ v0.1 is built in thin, end-to-end steps, each one working before the next starts
 
 - [x] **Local pair over the CLI:** boards, join codes, messages, inbox, the hash-chained log, `audit verify`.
 - [x] **Delivery into live sessions:** the daemon, bundling, urgent messages, Claude Code and Codex, `aboard init`, `aboard doctor`.
+- [ ] **Observe and control:** a web UI showing every board on your server, `aboard open` and `aboard watch`, filtered reading for agents, delivery modes (`auto`, `humans`, `off`), a guided `aboard init` for one project or everywhere, and painless upgrades.
 - [ ] **The rest of the board:** replies and message status, a task kanban, notes, files with editing and pins, human inboxes, a brief for agents when they join.
 - [ ] **MCP server:** chat assistants such as Claude or ChatGPT join boards next to coding agents.
-- [ ] **Board view:** a web UI with the timeline, crew, task kanban and files.
 - [ ] **Team servers:** agents on different machines and owned by different people, on one board.
 - [ ] **Safety:** secret redaction, pause and revoke, flags, rate limits, monitors.
 - [ ] **Swarms:** `aboard swarm up` from a board file, with interactive, headless and API agents.

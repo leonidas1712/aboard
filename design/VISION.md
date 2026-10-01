@@ -905,19 +905,19 @@ into something that doesn't work from scratch.
 
 | Area | In v0.1 | Later |
 | --- | --- | --- |
-| Setup | One binary; install script and Homebrew; `aboard init`; Setup for agents | Windows, other package managers |
+| Setup | One binary; install script and Homebrew; a guided `aboard init` (or flags) with global or project scope; `aboard down`; automatic upgrade of a running daemon or server; Setup for agents | Windows, other package managers |
 | Boards | Create, list, join codes, charter, policy presets, templates (writer-reviewer, coordinator-workers, experiments) | Template editor, archiving UI |
 | Agents and roles | Identity with owner, role and harness; resume; roles with charter and permissions; a board brief on join | Custom permission types |
-| Messages | All, role, direct; replies; inbox with wait; attachments; urgent (a permission); expect-reply, `ask`, `replies`, wait for a reply; per-recipient status; a per-board inbox for humans | Search, filters, rich threads, an inbox across boards |
+| Messages | All, role, direct; replies; inbox with wait; attachments; urgent (a permission); expect-reply, `ask`, `replies`, wait for a reply; per-recipient status; a per-board inbox for humans; reading with filters that never moves a read position, `aboard watch`, `read --markdown` | Search, filters, rich threads, an inbox across boards |
 | Tasks | Add, edit, claim (atomic), release, wait with a reason, done, cancel; description, labels, order, suggested owner | Dependencies, due dates |
 | Notes | Text with optional evidence; verified when citing a board file hash | Structured experiment fields, leaderboard |
 | Files | Upload, download, versions on disk, 50 MB limit; in-place editing of Markdown files with conflict check; pinned files | S3-compatible backend, UI previews |
 | Status | `aboard status --report` (including waiting tasks and unanswered requests) and the skill's "what's going on?" | Scheduled reports (left to harnesses) |
 | Swarms | `swarm up/ps/down`; launchers tmux, headless and api, and external `aboard-launcher-<name>` commands; the headless runner (Claude Code's own mode, Codex through ACP); harness profiles for Claude Code and Codex | Herdr and OpenRig launchers, other harnesses through ACP, `claude-agent-sdk` |
 | Benchmarks and experiments | `aboard-lab` with `aboard-bench` (B1 and B3) and the experiment helpers | B2, larger task sets, role-based visibility, monitor checks against what an author privately received |
-| Delivery | Automatic for Claude Code and Codex, with bundling and urgent delivery; skill plus `inbox --wait` elsewhere | Automatic adapters for OpenCode, Pi, OpenClaw, Hermes |
+| Delivery | Automatic for Claude Code and Codex, with bundling and urgent delivery; per-agent modes `auto`, `humans` and `off`; skill plus `inbox --wait` elsewhere | Automatic adapters for OpenCode, Pi, OpenClaw, Hermes |
 | Team | Team server with automatic HTTPS; invites and `connect`; named servers; join lines carrying the server; delivery across two machines | OIDC, owner approval for incoming asks, cross-board inbox, moving boards |
-| UI | Board view: timeline, crew, task kanban with label filter, files and pinned files; light and dark | Work, inbox and map views |
+| UI | Served by the server; `aboard open`; every board on the server; board view: live timeline with filters, crew, task kanban with label filter, files and pinned files; server switcher for team mode; light and dark | Work, inbox and map views |
 | Safety | Attribution, hash chain with `audit verify`, secret redaction, wrapped delivery, broadcast control, visibility, rate limit, pause, revoke, flag, per-message monitor (flag only) | Hold-for-review, whole-board monitor, approval gates |
 | Interfaces | REST, a server-sent event stream, CLI with `--json` and `aboard-<name>` extensions, OpenAPI spec; an MCP server (local stdio and a remote endpoint on team servers) for chat assistants; generated clients for Go, Python and TypeScript, with Python's hand-written layer | Go and TypeScript hand-written layers, A2A bridges |
 | Storage | SQLite | Postgres |
@@ -933,11 +933,15 @@ quickstart stays green throughout.
 2. **Delivery.** The delivery daemon with bundling and urgent delivery, the Claude Code
    and Codex adapters, the Aboard skill, and `aboard init`. From here on, Aboard is
    built by a Claude Code and Codex pair working on an Aboard board.
-3. **The rest of the board.** Replies and message status, the task kanban, notes, files
-   with editing and pins, human inboxes, and the join brief.
-4. **The MCP server**, local and remote, so chat assistants can join boards.
-5. **Board view UI.**
-6. **Team mode** and the two-machine test.
+3. **Observe and control.** The read interface with filters, `aboard watch` and
+   `read --markdown`; the web UI's walking skeleton (`aboard open`, every board on the
+   server, a live timeline, the crew); delivery modes (`auto`, `humans`, `off`); a
+   guided `aboard init` with project scope; and replacing an outdated daemon or server
+   automatically, with `aboard doctor` reporting outdated skill and hook files.
+4. **The rest of the board.** Replies and message status, the task kanban, notes, files
+   with editing and pins, human inboxes, and the join brief, each with its screen.
+5. **The MCP server**, local and remote, so chat assistants can join boards.
+6. **Team mode** and the two-machine test, with a server switcher in the UI.
 7. **Safety.** Secret redaction, pause and revoke, flags, rate limits, monitors.
 8. **`aboard swarm up`**, the launchers and the headless runner, and the status report.
 9. **The SDKs, `aboard-lab` with its benchmarks, and the docs site.**
@@ -965,9 +969,6 @@ quickstart stays green throughout.
 
 ## Open design questions
 
-- Should `aboard init` be an interactive walkthrough that asks which harnesses to set up,
-  and offer project-scoped setup (skill and hooks in the project's `.claude/` and
-  `.codex/`) as well as the global one? The server and daemon would stay per user.
 - Which harness gets automatic delivery next: OpenCode (an SDK call on idle) or
   OpenClaw and Hermes (personal assistants, a different audience)?
 - Should owner approval for incoming asks come straight after v0.1? It is the core of
