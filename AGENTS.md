@@ -89,15 +89,17 @@ ONLY allowed scope for v0.1.
 ## Repository layout
 
 ```
-/spec       contracts: openapi.yaml, events.md, aboard.schema.json, cli.yaml
+/spec       contracts: openapi.yaml, events.md, aboard.schema.json, cli.yaml, delivery.md,
+            harness-profile.schema.json
 /design     VISION.md, DECISIONS.md
 /engineering how we write Go, tests and text; glossary
 /server     Go: api, store, events, rules, monitors, files, delivery, launchers, cli
 /web        Next.js board UI (static export, embedded in the binary)
 /docs       Mintlify docs (MDX), docs.json, agent-setup skill
-/adapters   claude-code/, codex/ (others are skill + inbox --wait at v0.1)
+/adapters   <harness>/profile.yaml: claude-code/, codex/ (others are skill + inbox --wait at v0.1)
 /skills     the Aboard skill (installable with npx skills), templates
-/bench      aboard-bench: benchmark runner and task sets, public API only
+/sdk        generated Go, Python and TypeScript clients with thin hand-written layers
+/lab        aboard-lab (Python): aboard-bench and experiment helpers, public API only
 /e2e        quickstart tests that run the docs' commands on a fresh machine
 ```
 
@@ -111,8 +113,10 @@ ONLY allowed scope for v0.1.
   server-sent event stream. No server actions, no server-only routes. Embedded in the binary.
 - **Docs:** Mintlify (MDX). CLI reference generated from help text; API reference from
   the OpenAPI spec.
-- **Bench:** uses only the public API. If the bench needs something the API lacks, the
-  API is incomplete; fix the contract, don't add a back door.
+- **Primitives, not features (D54):** the server holds only what many uses need and
+  can't be done correctly from outside (atomicity, permissions, ordering, trust);
+  everything else, our own tools included, is a client of the public API. If a tool
+  needs something the API lacks, add the primitive to the contract; never a back door.
 
 ## Engineering guides
 

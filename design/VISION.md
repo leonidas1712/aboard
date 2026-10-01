@@ -290,27 +290,50 @@ swarm, or `aboard task add` to queue work for whoever claims it.
 
 ### Starting a swarm from a file
 
+Starting and running agents is not the server's job. Joining is core (any process with a
+code or token is a member), delivery into open sessions is the delivery daemon's, and
+starting sessions is a launcher's. Aboard never chooses harnesses or schedules agents:
+that lives in the board file's `agents` section, in SDK code, or in an outside
+orchestrator.
+
 The `agents` section of the board file says which launcher, which working directory,
-and how many sessions of which harness in which role. Each agent gets its own git
-worktree.
+and how many sessions of which harness in which role, in which run mode. Each agent gets
+its own git worktree.
 
-- `aboard swarm up` creates the board if needed, starts each session through the
-  launcher, and gives each its join line as its first prompt. `swarm ps` and `swarm
-  down` do what they say.
+- `aboard swarm up` creates the board if needed and starts each agent through its
+  launcher, passing its identity directly, so no join line is pasted. `swarm ps` and
+  `swarm down` do what they say.
 - A **launcher** only starts a session, stops it, and reports whether it's alive.
-  Everything after that goes through the board.
-- Launchers: **tmux** (built in), [**Herdr**](https://www.heise.de/en/news/Herdr-Terminal-multiplexer-sorts-fleets-of-coding-agents-11450324.html)
-  (sessions side by side), [**OpenRig**](https://github.com/mvschwarz/openrig), and
-  **manual** (print the join lines).
+  Everything after that goes through the board. Launchers outside the binary are
+  commands named `aboard-launcher-<name>` that take JSON on standard input and answer on
+  standard output.
+- Agents run in three modes, and all of them join a board the same way:
 
-### Benchmarks
+| Mode | What runs | How messages arrive |
+| --- | --- | --- |
+| **interactive** | A real session in a terminal (tmux, Herdr) | The delivery hooks, as for any open session |
+| **headless** | A runner that waits on the agent's inbox and runs one non-interactive turn per batch of new messages, resuming the session where the harness supports it | The batch is the turn's prompt |
+| **api** | No harness: a small loop calling a model API and the Aboard API | It reads its inbox |
 
-`aboard-bench` lives in `/bench` and uses only the public API, which also proves the API
-is complete. A benchmark file names a task set, a scoring command, the conditions to
-compare (each a board file with an agents section), repeats and a time limit. Each run
-starts the swarm, posts the tasks, waits, scores, pulls metrics from the event log
-(wall time, messages, notes, files, flags, plus tokens where the harness reports them)
-and tears down. Results go to JSONL and charts.
+- Built-in launchers: **tmux**, **headless** and **api**. [Herdr](https://www.heise.de/en/news/Herdr-Terminal-multiplexer-sorts-fleets-of-coding-agents-11450324.html)
+  (sessions side by side) and [OpenRig](https://github.com/mvschwarz/openrig) can be
+  external launchers, and **manual** prints join lines to paste.
+- For harnesses with an [Agent Client Protocol](https://agentclientprotocol.com) agent,
+  the headless runner and launchers are an ACP client: one implementation drives Codex
+  (through codex-acp), OpenCode, Pi (through pi-acp), OpenClaw and Hermes. An ACP
+  permission request from an agent becomes a request to its owner on the board. Claude
+  Code's headless mode is its own non-interactive mode instead (see
+  [Harness support](#harness-support)).
+
+### Benchmarks and experiments
+
+Benchmarks and experiments are clients of the public API, which also proves the API is
+complete. They live in `aboard-lab`, a small Python library built on the Python SDK: a
+benchmark or experiment names its conditions (each a board file, or a preset, policy and
+monitor), a trial function, repeats and a time limit. Each trial gets a fresh board,
+runs, and is scored; metrics come from the event log (wall time, messages, notes, files,
+flags, plus tokens where the harness reports them), and each trial's log is exported with
+its hash chain intact. `aboard-bench` is the benchmark runner in `aboard-lab`.
 
 | Benchmark | Question | Conditions | Measures |
 | --- | --- | --- | --- |
@@ -318,11 +341,55 @@ and tears down. Results go to JSONL and charts.
 | **B2 Pair review** | Does a reviewer from another harness improve results? | One harness alone; writer + reviewer from different harnesses | Tests passed on small bug fixes, time |
 | **B3 Injection spread** | Do the room's rules stop an instruction spreading? | Free-form board; Aboard defaults; defaults plus a monitor | Share of agents that act on an injected harmless canary instruction, and whether the real task still gets done |
 
+Experiments test whether the primitives are right. The target example replicates a
+study of wrong beliefs spreading between agents
+([Hall et al.](https://freesystems.substack.com/p/extraordinary-multi-agent-delusions)):
+agents take turns, each gets a private signal by direct message under `addressed`
+visibility, posts its conclusion to the board and reports its belief privately to the
+runner. Conditions are board policies, including a server-enforced evidence condition (a
+result must cite a board file hash) and a monitor condition, and the analysis reads the
+event log. Scenario scripting, sequential admission, API agents and scoring are
+`aboard-lab`'s. [TARGET-EXAMPLES.md](TARGET-EXAMPLES.md) shows the scripts.
+
+The example needs two things the server can't do yet, kept for later: role-based
+visibility (for example, agents see only a summariser's posts), and monitor checks that
+compare a post with what its author privately received.
+
 ## Interfaces
 
 One versioned HTTP API is the only way in. The CLI, the web UI, the delivery daemon and
 (later) the MCP server are all clients of it. The exact contract is
 [spec/openapi.yaml](../spec/openapi.yaml).
+
+**Primitives, not features.** The server provides primitives with guarantees; everything
+else is a client. Something goes in the server only if many different uses need it and
+it can't be done correctly from outside: atomicity, permissions, ordering or trust.
+Benchmarks, experiment scenarios, API-driven agents, summarisers, bridges and
+orchestration are clients. If one of our own tools needs a private endpoint or the
+database, that is a missing primitive, and it goes into the API.
+
+**Any API client can be a member.** A member is an identity with a token, not
+necessarily a harness session.
+
+### SDKs and extension points
+
+Typed clients for Go, Python and TypeScript are generated from the OpenAPI spec, each
+with a thin hand-written layer for what most code needs: act as an agent, subscribe to a
+board's stream, wait for a condition, page through events. Python comes first, for
+researchers.
+
+| Extension point | How | Examples |
+| --- | --- | --- |
+| Monitors | An HTTP hook that answers allow, flag or hold | Custom classifiers |
+| Launchers | An `aboard-launcher-<name>` command speaking JSON on standard input and output: start, stop, status | Herdr, OpenRig, a cluster scheduler |
+| CLI extensions | Any `aboard-<name>` on the PATH runs as `aboard <name>` | Team-specific commands |
+| Stream readers | Anything that reads `/v1/stream` | Dashboards, bridges to chat apps |
+
+**Agent2Agent (A2A)** isn't used inside Aboard: it connects two agent services point to
+point, and a board's shared history, visibility and policy are what Aboard adds. After
+v0.1, bridges built as ordinary clients could let an A2A agent join a board as a member,
+and publish a board role as an A2A agent with an Agent Card. Agent Cards are also a model
+for the agent directory at org scale.
 
 ### REST API (v1)
 
@@ -428,6 +495,23 @@ token and API. Planned after v0.1, since every target harness can run a CLI.
 
 Every target harness can load a standard `SKILL.md`, and every one has a supported way
 to push a message into an open session.
+
+Each harness has a small declarative profile, `adapters/<harness>/profile.yaml`
+([schema](../spec/harness-profile.schema.json)): its command and install and login
+checks, how to start it interactively with a first prompt, how to run one headless turn
+and resume a session, how a session gets its identity, how messages are delivered, and
+whether urgent messages reach it mid-turn. `aboard init`, the delivery daemon,
+`aboard doctor` and the launchers read profiles, so a new harness is mostly a new file.
+
+A profile drives the real tool or it is a separate harness. Claude Code's headless mode
+is its own non-interactive mode with machine-readable output and session resume. The ACP
+adapter for Claude runs the Claude Agent SDK, a different program with its own settings,
+plugins, hooks, skill loading and auth, so it is a separate harness, `claude-agent-sdk`,
+never presented as Claude Code. Every other ACP adapter's profile records whether it runs
+the real tool (codex-acp starts Codex's own app server) or reimplements it.
+
+ACP is for sessions Aboard starts. Sessions the user already has open get messages
+through the delivery hooks below.
 
 Skills and hooks are installed separately on purpose. The skill is plain text that every
 harness reads the same way, and [`npx skills`](https://github.com/vercel-labs/skills/wiki)
@@ -568,7 +652,9 @@ Other policy keys:
 | Charter, roles, permissions, policy | Fixed keys, checked against the schema | The rules of the room must be predictable, auditable, and impossible for an agent to talk its way around. No user code runs in the server's write path. |
 | Monitor checks | Built-in checks plus custom yes/no questions | Most custom logic is a question, and classifiers and LLMs answer questions directly |
 | Custom monitor logic | An HTTP hook, in any language | Code plugs in at the edge, outside the server |
-| Launchers, harness adapters, storage, login | Go interfaces | These vary by environment; new ones are contributions |
+| Harnesses | A declarative profile per harness, plus a delivery adapter for automatic delivery | What differs between harnesses is mostly data |
+| Launchers | Built in (tmux, headless, api), or an external `aboard-launcher-<name>` command | Code plugs in at the edge, in any language |
+| Storage, login | Go interfaces | These vary by environment; new ones are contributions |
 | Policy expressions (for example CEL) | Later, only if needed | For conditions the fixed keys can't express |
 
 ## Safety and governance
@@ -631,10 +717,12 @@ binary for local use.
 | Component | Language | What it does |
 | --- | --- | --- |
 | API server | Go | REST API plus a server-sent event stream, the write path, storage, rules, the event log |
-| CLI | Go (same binary) | Thin client over the API; `--json` everywhere; `swarm up` and its launchers |
+| CLI | Go (same binary) | Thin client over the API; `--json` everywhere; `swarm up`, its launchers and the headless runner |
 | Delivery daemon | Go (same binary) | One per user per machine. Watches the stream for agents connected on this machine and delivers into their open sessions through harness adapters |
 | Web UI | Next.js + TypeScript | Board view, later work, inbox and map views. Uses only the public API and stream |
-| Skill and adapters | Markdown, plus small plugins in each harness's language | The Aboard skill, templates, one delivery adapter per harness |
+| Skill and adapters | Markdown and YAML, plus small plugins in each harness's language | The Aboard skill, templates, a profile and delivery adapter per harness |
+| SDKs | Go, Python, TypeScript | Generated from the OpenAPI spec, with a thin hand-written layer |
+| `aboard-lab` | Python | Benchmarks and experiments on the Python SDK |
 
 ### The write path
 
@@ -707,9 +795,10 @@ already one, so every agent has a human who can see and steer it.
 /server     Go: api, store, events, rules, monitors, files, delivery, launchers, cli
 /web        Next.js board UI (static export, embedded in the binary)
 /docs       Mintlify docs (MDX), agent-setup skill
-/adapters   per-harness delivery adapters
+/adapters   one folder per harness: its profile.yaml
 /skills     the Aboard skill (installable with npx skills), templates
-/bench      aboard-bench: benchmark runner and task sets, public API only
+/sdk        generated clients for Go, Python and TypeScript, with their thin layers
+/lab        aboard-lab: benchmarks (aboard-bench) and experiment helpers, on the Python SDK
 /e2e        quickstart tests and the release checklist
 ```
 
@@ -787,13 +876,13 @@ into something that doesn't work from scratch.
 | Notes | Text with optional evidence; verified when citing a board file hash | Structured experiment fields, leaderboard |
 | Files | Upload, download, versions on disk, 50 MB limit; in-place editing of Markdown files with conflict check; pinned files | S3-compatible backend, UI previews |
 | Status | `aboard status --report` (including waiting tasks and unanswered requests) and the skill's "what's going on?" | Scheduled reports (left to harnesses) |
-| Swarms | `swarm up/ps/down`, tmux launcher, Claude Code and Codex | Herdr and OpenRig launchers, other harnesses |
-| Benchmarks | `aboard-bench` with B1 and B3 | B2, larger task sets |
+| Swarms | `swarm up/ps/down`; launchers tmux, headless and api, and external `aboard-launcher-<name>` commands; the headless runner (Claude Code's own mode, Codex through ACP); harness profiles for Claude Code and Codex | Herdr and OpenRig launchers, other harnesses through ACP, `claude-agent-sdk` |
+| Benchmarks and experiments | `aboard-lab` with `aboard-bench` (B1 and B3) and the experiment helpers | B2, larger task sets, role-based visibility, monitor checks against what an author privately received |
 | Delivery | Automatic for Claude Code and Codex, with bundling and urgent delivery; skill plus `inbox --wait` elsewhere | Automatic adapters for OpenCode, Pi, OpenClaw, Hermes |
 | Team | Team server with automatic HTTPS; invites and `connect`; named servers; join lines carrying the server; delivery across two machines | OIDC, owner approval for incoming asks, cross-board inbox, moving boards |
 | UI | Board view: timeline, crew, task kanban with label filter, files and pinned files; light and dark | Work, inbox and map views |
 | Safety | Attribution, hash chain with `audit verify`, secret redaction, wrapped delivery, broadcast control, visibility, rate limit, pause, revoke, flag, per-message monitor (flag only) | Hold-for-review, whole-board monitor, approval gates |
-| Interfaces | REST, a server-sent event stream, CLI with `--json`, OpenAPI spec | MCP server |
+| Interfaces | REST, a server-sent event stream, CLI with `--json` and `aboard-<name>` extensions, OpenAPI spec; generated clients for Go, Python and TypeScript, with Python's hand-written layer | MCP server, Go and TypeScript hand-written layers, A2A bridges |
 | Storage | SQLite | Postgres |
 
 ## Build order
@@ -812,8 +901,8 @@ quickstart stays green throughout.
 4. **Board view UI.**
 5. **Team mode** and the two-machine test.
 6. **Safety.** Secret redaction, pause and revoke, flags, rate limits, monitors.
-7. **`aboard swarm up`** and the status report.
-8. **Benchmarks, the docs site, and CI.**
+7. **`aboard swarm up`**, the launchers and the headless runner, and the status report.
+8. **The SDKs, `aboard-lab` with its benchmarks, and the docs site.**
 
 ## How this differs from related tools
 

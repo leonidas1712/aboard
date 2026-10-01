@@ -164,3 +164,42 @@ Why: verified with a live Codex run and in Codex's source; Claude Code documents
 
 **D52. The Aboard skill ships inside the binary, and `aboard init` copies it into each detected harness's skill folder. Once the repository is public, `npx skills add` works for anyone who wants only the skill.**
 Why: `npx skills` installs from a published repository, and the skill must match the binary's commands exactly.
+
+**D53. While a Codex turn runs, urgent messages are kept out of Codex's queue and go to the next tool call; Codex's prompt and stop hooks mark when a turn runs. Urgent messages no tool call took go into the queue when the turn ends. Without those hooks trusted, urgent messages arrive at the end of the turn. Refines D50.**
+Why: a live run showed Codex's queue holds everything until the turn ends, so an urgent message queued at once never reached the tool hook.
+
+**D54. The server provides primitives with guarantees; everything else is a client of the public API. Something goes in the server only if many different uses need it and it can't be done correctly from outside (atomicity, permissions, ordering, trust). Benchmarks, experiment scenarios, API-driven agents, summarisers, bridges and orchestration are clients. If one of our own tools needs a private endpoint or the database, that is a missing primitive, added to the API.**
+Why: a small server with strong guarantees stays trustworthy and lets others build what we didn't think of; our own tools using only the API keep it complete.
+
+**D55. Typed clients for Go, Python and TypeScript are generated from spec/openapi.yaml, each with a thin hand-written layer for common needs: act as an agent, subscribe to a board's stream, wait for a condition, page events. Python gets the hand-written layer first.**
+Why: researchers work in Python; generating from the one spec keeps every client in step with the server.
+
+**D56. Any API client can be a member. A member is an identity with a token, not necessarily a harness session.**
+Why: API-driven agents, bridges and experiment runners join and act exactly as coding agents do, under the same rules.
+
+**D57. Extension points sit outside the server: monitors through an HTTP hook; launchers as external `aboard-launcher-<name>` commands speaking JSON on standard input and output (start, stop, status); CLI extensions as any `aboard-<name>` on the PATH; and anything that reads the stream, such as dashboards and bridges.**
+Why: plugging in code in any language at the edge keeps user code out of the write path.
+
+**D58. aboard-bench and the experiment helpers live in a small client library, `aboard-lab`, built on the Python SDK, not in the server.**
+Why: experiments are clients (D54), and one library serves both benchmarks and research scenarios.
+
+**D59. Harnesses have three jobs with three owners. Joining is core: any process with a code or token is a member. Delivery into sessions that are already open is the delivery daemon's. Starting and running sessions is not core: launchers do it. Aboard never chooses harnesses or schedules agents; that lives in the board file's `agents` section, SDK code or an outside orchestrator. Aboard only checks that a harness is installed and logged in.**
+Why: keeps the server and daemon small, and leaves orchestration to whoever owns the workload.
+
+**D60. Each harness has one small declarative profile at `adapters/<harness>/profile.yaml` (schema: spec/harness-profile.schema.json): its command and install and login checks; interactive start with a first prompt; a headless single turn; session resume where supported; how identity is passed in; the delivery method and hooks; whether urgent messages reach it mid-turn. `aboard init`, the delivery daemon, `aboard doctor` and the launchers read profiles. Claude Code and Codex have profiles now; a test keeps their hook lists equal to what `aboard init` installs.**
+Why: what we learn about a harness belongs in one place that code and contributors share, so a new harness is mostly a new file.
+
+**D61. Agents run in three modes, all joining a board the same way: interactive (a terminal session in tmux or Herdr, with hook delivery), headless turns (a runner waits on the inbox, runs one headless turn with the new messages, and resumes the session where the harness supports it), and API agents (no harness, only model API calls). The built-in launchers are tmux, headless and api. When Aboard launches an agent it passes the identity directly, so no join line is pasted. Launchers and the headless runner are built with `swarm up`.**
+Why: experiments and CI need agents without terminals, and people watching need real sessions; one join path keeps all three under the same rules.
+
+**D62. For harnesses with an Agent Client Protocol agent, the headless runner and launchers are an ACP client, so one implementation covers them all and their profiles mainly name the ACP command. An ACP permission request from an agent becomes a request to its owner on the board. ACP does not replace hook delivery into sessions the user already has open.**
+Why: ACP already covers Codex (through codex-acp), OpenCode, Pi (through pi-acp), OpenClaw and Hermes; one client is less to maintain than one runner per harness.
+
+**D63. Claude Code keeps its own profile, and its headless mode is Claude Code's own non-interactive mode with machine-readable output and session resume. The ACP Claude adapter runs the Claude Agent SDK, which is a different program (its own settings, plugins, hooks, skills loading and auth); it is a separate harness, `claude-agent-sdk`, never presented as Claude Code. Every other ACP adapter's profile records whether it drives the real tool or reimplements it, and a reimplementation is a separate harness entry. codex-acp starts Codex's own app server, so it drives the real Codex.**
+Why: results and behaviour must be attributed to the tool that actually ran.
+
+**D64. Aboard doesn't use Agent2Agent (A2A) internally: A2A is point-to-point between agent services, and a board's shared history, visibility and policy are what Aboard adds. After launch, bridges are worth considering: an A2A agent joining a board as a member, and a board role published as an A2A agent with an Agent Card. Agent Cards are a model for the agent directory at org scale.**
+Why: bridges reach A2A systems without giving up the board's record and rules.
+
+**D65. Experiments test the primitives. The target example is a replication of a study of wrong beliefs spreading between agents, on Aboard with aboard-lab: agents take turns, each gets a private signal by direct message under `addressed` visibility, posts its conclusion to the board and reports its belief privately to the runner; conditions are board policies, including a server-enforced evidence condition (a result must cite a board file hash) and a Jev monitor condition; analysis reads the event log. Scenario scripting, sequential admission, API agents and scoring belong in aboard-lab. It exposed two primitives the server would need, recorded for later: role-based visibility (for example, agents see only the summariser's posts), and monitor checks that compare a post with what its author privately received.**
+Why: building a real experiment on the public API is the test of whether the primitives are right; what it can't do from outside shows what is missing.
