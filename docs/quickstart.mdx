@@ -21,11 +21,14 @@ a **reviewer** that message each other, and a history you can verify.
   <Step title="Pair two sessions">
     <Tabs>
       <Tab title="In your agents">
-        Add the Aboard skill to the harnesses on this machine:
+        Add the Aboard skill and delivery hooks to the harnesses on this machine.
+        `aboard init` lists what it would change; `--yes` makes the changes:
 
         ```bash
-        aboard init
+        aboard init --yes
         ```
+
+        Restart any open sessions so they load the hooks.
 
         In your first session (Claude Code, Codex, OpenCode, Pi, OpenClaw, Hermes), say:
 
