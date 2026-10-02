@@ -48,7 +48,7 @@ Code 2.1.287 with its default model.
 | `TestClaudeExchangesFiveMessages` | One prompt starts the skill's wiring check to PING 3: six messages go back and forth between two sessions, taking turns, and the exchange stops. | 9 |
 | `TestUrgentReachesBusyClaude` | While a turn runs a 25-second task, an urgent message reaches it at the next tool call and is acted on in that turn; three ordinary messages sent at the same time wait for the turn to end and arrive as one bundle. | 3 |
 | `TestHumansModeWakesOnlyForPeople` | With `aboard delivery humans`, a peer's message wakes nothing for 10 seconds and stays unread; the owner's message (posted with the owner login on the API) wakes the session within 2 seconds, and the agent reports both sequence numbers from that one bundle. | 2 |
-| `TestUpgradeWithSessionOpen` | A session set up with an older aboard keeps working when the new binary is installed over it at the same path: two messages are answered, the daemon and local server are replaced, doctor reports nothing outdated, the hooks file is byte for byte the same, and `aboard init` again changes nothing. | 4 |
+| `TestUpgradeWithSessionOpen` | A session set up with an older aboard keeps working when the new binary is installed over it at the same path: two messages are answered, the daemon and local server are replaced, each message is handed once, doctor reports nothing outdated, the hooks file is byte for byte the same, and `aboard init` again changes nothing. | 3 |
 | `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
 | `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. | 4 |
 | `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
@@ -129,11 +129,14 @@ Claude Code 2.1.287:
   else" made the agent refuse to run a script a message asked for. The current first
   prompt says to do what a message asks, including any command it names.
 - After an upgrade, the woken turn's own prompt hook runs the new binary, which replaces
-  the old daemon before the bundle can be confirmed, so the new daemon hands the same
-  message again: the agent gets a second wake with a sequence number it has already
-  answered.
-- In the plain-words pairing, the joining agent once ran `aboard join` twice, which made
-  a second agent (`reviewer-2`); each join with a valid code makes a new agent.
+  the old daemon before the bundle can be confirmed. The new daemon used to put the
+  bundle back to pending and hand it again, a second wake for a message already
+  answered; it now keeps it handed, and the turn's next event confirms it.
+  `TestUpgradeWithSessionOpen` checks each message is handed once.
+- In the plain-words pairing, the joining agent once ran `aboard join` a second time to
+  read the charter, which made a second agent (`reviewer-2`): the text output has no
+  charter, and each join with a valid code makes a new agent. The skill now says to join
+  once with `--json` and never run join again.
 
 Codex 0.159.3, from the earlier proofs run by hand:
 
@@ -192,7 +195,7 @@ on the helpers in `live_test.go` and `harness_test.go`:
 | `TestClaudeExchangesFiveMessages` | Pass | six messages, PING 1 to PONG 3, then quiet |
 | `TestUrgentReachesBusyClaude` | Pass | urgent acted on mid-turn; the three ordinary in one bundle after it |
 | `TestHumansModeWakesOnlyForPeople` | Pass | peer: no wake; owner: handed 9 ms after posting, both seqs reported |
-| `TestUpgradeWithSessionOpen` | Pass | answers 4.1 s and 2.2 s after posting; the first message handed twice |
+| `TestUpgradeWithSessionOpen` | Pass | answers 4.1 s and 2.2 s after posting; the first message handed twice (since fixed: rerun handed each once, answers 2.7 s and 1.4 s) |
 | `TestProjectScopeInit` | Pass | |
 | `TestKilledSessionRedelivers` | Pass | session closed 3.0 s after the kill; redelivered to the next session |
 | `TestRestartsLoseNothing` | Pass | answers 2.6 s after the daemon restart, 2.9 s after the server restart |
