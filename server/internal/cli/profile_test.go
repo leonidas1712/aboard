@@ -13,8 +13,8 @@ import (
 	"github.com/leonidas1712/aboard/adapters"
 )
 
-// Each harness profile matches the schema, and lists exactly the hooks aboard init
-// installs for that harness.
+// Each harness profile matches the schema, lists exactly the hooks aboard init installs
+// for that harness, and lists the variables the CLI checks for its sandbox and sessions.
 func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 	raw, err := os.ReadFile("../../../spec/harness-profile.schema.json")
 	if err != nil {
@@ -61,6 +61,7 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 				Harness    string   `yaml:"harness"`
 				Name       string   `yaml:"name"`
 				SandboxEnv []string `yaml:"sandbox_env"`
+				SessionEnv []string `yaml:"session_env"`
 				Delivery   struct {
 					Hooks []struct {
 						Event string `yaml:"event"`
@@ -95,6 +96,15 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 			}
 			if !slices.Equal(markers, p.SandboxEnv) {
 				t.Fatalf("profile sandbox_env %v, the CLI checks %v", p.SandboxEnv, markers)
+			}
+			markers = nil
+			for _, m := range sessionMarkers {
+				if m.harness == p.Name {
+					markers = append(markers, m.env)
+				}
+			}
+			if !slices.Equal(markers, p.SessionEnv) {
+				t.Fatalf("profile session_env %v, the CLI checks %v", p.SessionEnv, markers)
 			}
 		})
 	}

@@ -47,7 +47,10 @@ $defs:
       session the daemon hasn't registered) · codex_subagent_target · codex_target_absent ·
       harness_unavailable (the session couldn't be checked for another reason) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
-      inside a harness's sandbox, where it won't start one) ·
+      inside a harness's sandbox, where it won't start one) · daemon_outdated (the running
+      daemon is from an older aboard and lacks the operation; run aboard down, then the
+      command again) · delivery_change_in_session (aboard delivery was asked to change the
+      mode from inside a harness session; a person runs it in a terminal) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
       message_ref_invalid · check_failed.
@@ -395,6 +398,32 @@ $defs:
       pid: { type: integer }
       started: { type: boolean, description: "False when it was already running." }
 
+  # ---------- aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] ----------
+  DeliveryOutput:
+    description: |
+      Shows or changes the acting agent's delivery mode on this machine. The mode is kept
+      by the delivery daemon, per agent; an agent nobody set is auto.
+        auto    wakes the agent's session for every message
+        humans  wakes it only for a message from a person (its owner or another human); that
+                bundle carries every unread message, peer ones too. Peer messages alone,
+                urgent ones included, never wake or interrupt it.
+        off     delivers nothing; the agent reads its inbox itself
+      With no argument it shows the mode, anywhere, without starting the daemon. With a
+      mode it changes it: a human action, so it refuses with delivery_change_in_session
+      when run inside a harness session (any of the variables in a harness profile's
+      session_env or sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …).
+      A running daemon from an older aboard fails it with daemon_outdated. Text output:
+        reviewer on writer-reviewer: delivery humans (wakes only for messages from people)
+        reviewer on writer-reviewer: delivery now off (delivers nothing; the agent reads its inbox itself)
+      "now" marks a change. auto reads "(wakes for every message)".
+    type: object
+    required: [board, agent, mode, changed]
+    properties:
+      board: { type: string }
+      agent: { type: string }
+      mode: { enum: [auto, humans, off] }
+      changed: { type: boolean, description: "True when this command changed the mode." }
+
   # ---------- aboard status [--as AGENT] [--board NAME] ----------
   StatusOutput:
     description: |
@@ -404,7 +433,7 @@ $defs:
         Server: http://127.0.0.1:7400 running
         Daemon: running (pid 4182), 2 open sessions
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
-        Agent:  writer (from --as)
+        Agent:  writer (from --as); delivery auto
         Policy: starter (a starting point; tighten with aboard board policy recommended)
       When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
       starts it" and "Daemon: not running; it starts when a session or command needs it".
@@ -412,7 +441,7 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, board, board_source, agent, agent_source, agents, policy]
+    required: [server, server_running, daemon, board, board_source, agent, agent_source, delivery, agents, policy]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       server_running:
@@ -433,6 +462,9 @@ $defs:
       agent_source:
         enum: [flag, env, session, none]
         description: "flag: --as. env: ABOARD_AGENT. session: the agent bound to this harness session."
+      delivery:
+        enum: [auto, humans, off, null]
+        description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
       agents:
         type: array
         description: This machine's agents on the board, sorted.

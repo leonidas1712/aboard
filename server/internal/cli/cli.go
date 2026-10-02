@@ -64,6 +64,7 @@ func commands() []command {
 		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
 		{"read", "aboard read [--after SEQ] [--limit N] [--as AGENT] [--board NAME] [--json]", runRead},
 		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
+		{"delivery", "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]", runDelivery},
 		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},
 		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
 		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},

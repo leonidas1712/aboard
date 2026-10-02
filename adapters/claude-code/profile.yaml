@@ -12,6 +12,7 @@ checks:
     json_true: loggedIn
 
 sandbox_env: [SANDBOX_RUNTIME]
+session_env: [ABOARD_SESSION, CLAUDECODE]
 
 skills_dir: .claude/skills
 

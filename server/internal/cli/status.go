@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // Where the acting agent came from.
@@ -33,6 +34,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		BoardSource   string       `json:"board_source"`
 		Agent         *string      `json:"agent"`
 		AgentSource   string       `json:"agent_source"`
+		Delivery      *string      `json:"delivery"`
 		Agents        []string     `json:"agents"`
 		Policy        *api.Policy  `json:"policy"`
 	}{Server: a.localServer(), BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
@@ -91,7 +93,13 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	default:
 		out.Agent, out.AgentSource = &name, source
 		label := map[string]string{agentFromFlag: "--as", agentFromEnv: "ABOARD_AGENT", agentFromSession: "this session"}[source]
-		fmt.Fprintf(&text, "Agent:  %s (from %s)\n", name, label)
+		mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name})
+		if err != nil {
+			return err
+		}
+		m := string(mode)
+		out.Delivery = &m
+		fmt.Fprintf(&text, "Agent:  %s (from %s); delivery %s\n", name, label, m)
 	}
 
 	if c, err := a.humanClient(t); err == nil {

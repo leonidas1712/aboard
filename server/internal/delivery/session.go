@@ -29,6 +29,8 @@ type sessionMsg struct {
 	adopt *AgentRef
 	// checkAlive asks the session to close if its harness process has gone.
 	checkAlive bool
+	// modeChanged says an agent's delivery mode changed, so what may be delivered did.
+	modeChanged bool
 }
 
 type inboxResult struct {
@@ -139,6 +141,8 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onAdopt(ctx, *m.adopt)
 	case m.checkAlive:
 		s.checkAlive(ctx)
+	case m.modeChanged:
+		s.refreshAll(false)
 	default:
 		m.reply <- s.onRequest(ctx, m.req)
 	}
@@ -570,14 +574,16 @@ func (s *session) onAck(ctx context.Context, r ackResult) {
 }
 
 // offers returns, per agent, what the next bundle should carry: a delivery to hand
-// again, or new messages that pass f. An agent with a delivery waiting for a retry or for
-// attention gets nothing, so its messages stay in order.
+// again, or new messages that pass f and the agent's delivery mode. An agent with a
+// delivery waiting for a retry or for attention gets nothing, so its messages stay in
+// order.
 func (s *session) offers(f filter) []offer {
 	now := s.now()
 	var out []offer
 	for _, ref := range s.agentRefs() {
 		a := s.agents[ref]
-		if a.adopting || !a.fetched || a.problem != "" {
+		mode := s.d.mode(ref)
+		if a.adopting || !a.fetched || a.problem != "" || mode == ModeOff {
 			continue
 		}
 		var again *Delivery
@@ -615,12 +621,30 @@ func (s *session) offers(f filter) []offer {
 			out = append(out, offer{agent: ref, redeliver: again.ID, msgs: msgs})
 			continue
 		}
-		if msgs := s.newMessages(a, f); len(msgs) > 0 {
+		msgs := s.newMessages(a, f)
+		if mode == ModeHumans {
+			msgs = forHumansMode(msgs, f)
+		}
+		if len(msgs) > 0 {
 			orderForBundle(msgs)
 			out = append(out, offer{agent: ref, msgs: msgs})
 		}
 	}
 	return out
+}
+
+// forHumansMode narrows new messages for an agent that wakes only for people: nothing
+// unless a person sent one of them. A bundle at idle then carries them all, peer ones too;
+// urgent messages mid-turn are only the people's.
+func forHumansMode(msgs []Message, f filter) []Message {
+	fromHuman := func(m Message) bool { return m.FromHuman }
+	if f == urgentOnly {
+		return slices.DeleteFunc(msgs, func(m Message) bool { return !fromHuman(m) })
+	}
+	if !slices.ContainsFunc(msgs, fromHuman) {
+		return nil
+	}
+	return msgs
 }
 
 // messagesFor returns the unread messages with the given sequence numbers.
