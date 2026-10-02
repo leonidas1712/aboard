@@ -198,7 +198,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		if errors.Is(err, ErrNotFound) {
 			owner = Member{
 				BoardID: b.ID, Name: rules.AllocateName(p.Human.Name, taken), Kind: "human", HumanID: p.Human.ID,
-				Status: "active", JoinedAt: stamp(now),
+				Access: rules.AccessMember, Status: "active", JoinedAt: stamp(now),
 			}
 			if owner.ID, err = s.gen.ID("mem", now); err != nil {
 				return err

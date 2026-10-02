@@ -178,6 +178,27 @@ func requireHuman(p Principal) error {
 	return nil
 }
 
+// requireAdmin refuses unless me is an admin of b. The hint names the board's admins, so
+// the person knows whom to ask; what says what they tried to do.
+func requireAdmin(tx ReadTx, b Board, me Member, what string) error {
+	if me.Rules().IsAdmin() {
+		return nil
+	}
+	members, err := tx.Members(b.ID)
+	if err != nil {
+		return err
+	}
+	var admins []string
+	for _, m := range members {
+		if m.Rules().IsAdmin() {
+			admins = append(admins, m.Name)
+		}
+	}
+	return apierr.New(http.StatusForbidden, "admin_required",
+		fmt.Sprintf("Only an admin of board %s can %s.", b.Name, what),
+		fmt.Sprintf("Ask an admin to do it: %s.", strings.Join(admins, ", ")))
+}
+
 func invalid(message, hint string) *apierr.Error {
 	return apierr.New(http.StatusUnprocessableEntity, "invalid_request", message, hint)
 }

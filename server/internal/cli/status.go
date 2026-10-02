@@ -38,6 +38,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Delivery      *string      `json:"delivery"`
 		Agents        []string     `json:"agents"`
 		Policy        *api.Policy  `json:"policy"`
+		People        []person     `json:"people"`
 	}{Server: a.localServer(), BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -118,9 +119,43 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 			fmt.Fprintf(&text, "Policy: %s\n", line)
 		}
+		if r, err := c.api.ListMembersWithResponse(ctx, t.board); err == nil && r.JSON200 != nil {
+			if out.People = peopleOf(r.JSON200.Members); out.People != nil {
+				fmt.Fprintf(&text, "People: %s\n", peopleText(out.People))
+			}
+		}
 	}
 	a.emit(out, text.String())
 	return nil
+}
+
+// person is one person on a board in aboard status, with what they may change there.
+type person struct {
+	Name   string `json:"name"`
+	Access string `json:"access"`
+}
+
+// peopleOf returns the people among a board's members, or nil when there is only one:
+// someone alone on their board never needs to hear about access levels.
+func peopleOf(members []api.Member) []person {
+	var people []person
+	for _, m := range members {
+		if m.Kind == api.MemberKindHuman && m.Access != nil {
+			people = append(people, person{Name: m.Name, Access: string(*m.Access)})
+		}
+	}
+	if len(people) < 2 {
+		return nil
+	}
+	return people
+}
+
+func peopleText(people []person) string {
+	parts := make([]string, len(people))
+	for i, p := range people {
+		parts[i] = p.Name + " (" + p.Access + ")"
+	}
+	return strings.Join(parts, ", ")
 }
 
 func namesText(names []string) string {

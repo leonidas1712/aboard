@@ -98,7 +98,10 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	if err := tx.InsertBoard(b); err != nil {
 		return board.Board{}, board.Member{}, err
 	}
-	m := board.Member{ID: "mem_" + name, BoardID: b.ID, Name: humanID, Kind: "human", HumanID: humanID, Status: "active", JoinedAt: at}
+	m := board.Member{
+		ID: "mem_" + name, BoardID: b.ID, Name: humanID, Kind: "human", HumanID: humanID,
+		Access: rules.AccessAdmin, Status: "active", JoinedAt: at,
+	}
 	if err := tx.InsertMember(m); err != nil {
 		return board.Board{}, board.Member{}, err
 	}
@@ -546,6 +549,18 @@ func membersInJoinOrder(t *testing.T, st board.Store) {
 			}
 			want = append(want, m)
 		}
+		// A second person, who is a member rather than an admin.
+		if err := tx.InsertHuman(human("hum_blair")); err != nil {
+			return err
+		}
+		blair := board.Member{
+			ID: "mem_docs_blair", BoardID: b.ID, Name: "blair", Kind: "human", HumanID: "hum_blair",
+			Access: rules.AccessMember, Status: "active", JoinedAt: at,
+		}
+		if err := tx.InsertMember(blair); err != nil {
+			return err
+		}
+		want = append(want, blair)
 		return nil
 	})
 	read(t, st, func(tx board.ReadTx) error {
