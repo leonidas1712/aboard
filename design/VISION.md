@@ -207,6 +207,9 @@ never override either.
 | Approve, pause, revoke | Human (agent can propose) | The inbox and the board view; agents can only request these |
 
 An agent can set everything up, but stopping or overruling agents stays with humans.
+For those steps the agent still does the work up to the last keystroke: it knows the
+exact command, fills in the board and names, and hands it to its human to run in a
+terminal.
 
 ### Servers: local and remote work the same way
 

@@ -43,7 +43,7 @@ func runWatch(ctx context.Context, a *app, args []string) error {
 	if *limit < 1 {
 		return usageError("--limit must be at least 1.", watchUsage)
 	}
-	if err := a.refuseInSession("Watching a board as yourself", "aboard watch"+boardArg(*boardFlag)); err != nil {
+	if err := a.refuseInSession("Watching a board as yourself", "aboard watch"+boardArg(a.namedBoard(*boardFlag))); err != nil {
 		return err
 	}
 	t, err := a.selectBoard(*boardFlag)

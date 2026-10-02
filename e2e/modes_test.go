@@ -197,13 +197,21 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 
 	codex := &session{e: e, harness: "codex", id: "019a", vars: []string{"CODEX_THREAD_ID=019a"}}
 	for _, s := range []*session{writer, codex} {
-		for _, args := range [][]string{{"board", "policy", "recommended", "--json"}, {"watch", "--json"}} {
-			r := s.runExit(args...)
+		// The hint is the exact command for the agent to hand to its person, naming the
+		// board even when the agent didn't.
+		for _, c := range []struct {
+			args    []string
+			command string
+		}{
+			{[]string{"board", "policy", "recommended", "--json"}, "aboard board policy recommended --board writer-reviewer"},
+			{[]string{"watch", "--json"}, "aboard watch --board writer-reviewer"},
+		} {
+			r := s.runExit(c.args...)
 			if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
-				t.Fatalf("%s %v should refuse inside a session\n%s", s.harness, args, r)
+				t.Fatalf("%s %v should refuse inside a session\n%s", s.harness, c.args, r)
 			}
-			if hint := field(t, r.json(t), "error.hint").(string); !strings.Contains(hint, "terminal") {
-				t.Fatalf("hint should say to use a terminal: %s", hint)
+			if hint := field(t, r.json(t), "error.hint").(string); !strings.Contains(hint, "terminal") || !strings.HasSuffix(hint, ": "+c.command) {
+				t.Fatalf("hint should hand over %q for a terminal: %s", c.command, hint)
 			}
 		}
 	}

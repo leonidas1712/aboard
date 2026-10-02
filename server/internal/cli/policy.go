@@ -24,6 +24,16 @@ func boardArg(board string) string {
 	return " --board " + shellWord(board)
 }
 
+// namedBoard returns the board a human command would use, for naming it in a command
+// to hand to a person: boardFlag, else the board selected the usual way. It returns
+// boardFlag unchanged when no board can be selected.
+func (a *app) namedBoard(boardFlag string) string {
+	if t, err := a.selectBoard(boardFlag); err == nil {
+		return t.board
+	}
+	return boardFlag
+}
+
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset.
 // It uses the human login, so it refuses inside a harness session.
 func runBoard(ctx context.Context, a *app, args []string) error {
@@ -41,7 +51,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	if preset != "starter" && preset != "recommended" {
 		return usageError(fmt.Sprintf("%q is not a policy preset; use starter or recommended.", pos[1]), use)
 	}
-	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(*boardFlag)); err != nil {
+	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(a.namedBoard(*boardFlag))); err != nil {
 		return err
 	}
 	t, err := a.selectBoard(*boardFlag)

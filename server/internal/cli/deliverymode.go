@@ -41,7 +41,7 @@ func (a *app) refuseInSession(what, command string) error {
 	}
 	return newError("human_command_in_session",
 		what+" is up to a person, and this command runs inside a "+harness+" session.",
-		"Run "+command+" in a terminal outside any agent session.")
+		"Give your human this command to run in their own terminal, outside any agent session: "+command)
 }
 
 // modeText explains what each delivery mode does, for text output.
