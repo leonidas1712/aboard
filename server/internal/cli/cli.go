@@ -14,9 +14,6 @@ import (
 	"strings"
 )
 
-// version is the CLI and local server version.
-const version = "0.1.0"
-
 // Env is everything a command reads from or writes to the outside world.
 type Env struct {
 	Stdin  io.Reader
@@ -31,6 +28,12 @@ type Env struct {
 	Executable func() (string, error)
 	// Rand is the source of randomness for idempotency keys.
 	Rand io.Reader
+	// Terminal is true when standard input and output are a terminal, so a command may
+	// ask questions.
+	Terminal bool
+	// OpenBrowser opens a URL in the person's browser, failing when no browser could be
+	// started.
+	OpenBrowser func(ctx context.Context, url string) error
 }
 
 // OSEnv returns the environment of the running process.
@@ -39,13 +42,27 @@ func OSEnv() Env {
 	if err != nil {
 		dir = "."
 	}
-	return Env{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir, Executable: os.Executable, Rand: rand.Reader}
+	return Env{
+		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir,
+		Executable: os.Executable, Rand: rand.Reader, Terminal: isTerminal(os.Stdin) && isTerminal(os.Stdout),
+		OpenBrowser: openBrowser,
+	}
+}
+
+// isTerminal reports whether f is a character device, such as a terminal.
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 // app is one invocation of the aboard command.
 type app struct {
 	env  Env
 	json bool
+	// daemonChecked and localChecked are set once this command has checked the running
+	// delivery daemon and local server for an older build, so it checks each only once.
+	daemonChecked bool
+	localChecked  bool
 }
 
 type command struct {
@@ -62,12 +79,15 @@ func commands() []command {
 		{"join", "aboard join <join-line|code> [--name NAME] [--harness H] [--json]", runJoin},
 		{"say", "aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]", runSay},
 		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
-		{"read", "aboard read [--after SEQ] [--limit N] [--as AGENT] [--board NAME] [--json]", runRead},
+		{"read", readUsage, runRead},
+		{"watch", watchUsage, runWatch},
+		{"open", openUsage, runOpen},
 		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
+		{"delivery", "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]", runDelivery},
 		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},
 		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
 		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},
-		{"init", "aboard init [--yes] [--json]", runInit},
+		{"init", "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]", runInit},
 		{"doctor", "aboard doctor [--json]", runDoctor},
 		{"version", "aboard version [--json]", runVersion},
 		{"serve", "aboard serve", runServe},
@@ -180,6 +200,6 @@ func runVersion(_ context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, "aboard version [--json]", 0, 0); err != nil {
 		return err
 	}
-	a.emit(map[string]string{"version": version}, "aboard "+version+"\n")
+	a.emit(currentBuild(), "aboard "+version+"\n")
 	return nil
 }

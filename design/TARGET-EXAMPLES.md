@@ -152,7 +152,8 @@ brew install aboard            # or the install script
 pip install aboard-lab
 aboard up                      # local server
 export ANTHROPIC_API_KEY=...   # for API-model agents
-export JEV_API_KEY=...         # only if a condition uses the Jev monitor
+export JEV_API_KEY=...         # only if a condition uses the Jev monitor extension
+aboard-monitor-jev --listen 127.0.0.1:7411 &   # a monitor on the HTTP hook
 ```
 
 ### The experiment script
@@ -171,8 +172,7 @@ conditions = [
     Condition("enforced-evidence", preset="recommended",
               policy={"notes": {"require_evidence_for": ["result"]}}),
     Condition("jev-monitor", preset="recommended",
-              monitor={"classifier": "jev",
-                       "checks": [{"ask": "Does this post contradict the author's own signal?"}]}),
+              monitor={"hook": "http://127.0.0.1:7411/check?ask=Does+this+post+contradict+the+author%27s+own+signal%3F"}),
 ]
 
 @lab.trial(conditions=conditions, repeats=30)
@@ -266,9 +266,11 @@ over the event log.
 
 | Layer | Contains | Examples |
 | --- | --- | --- |
-| Server (Go) | Primitives that need atomicity, permissions, ordering or trust | Boards, identities, visibility, task claims, the event log, monitors in the write path |
+| Server (Go) | Primitives that need atomicity, permissions, ordering or trust | Boards, identities, visibility, task claims, the event log, rules checks and the monitor hook |
 | CLI and daemon (Go) | Clients for people and harness sessions | `aboard say`, `inbox`, delivery hooks |
 | SDKs (generated) | Typed access to the API in Go, Python, TypeScript | `Server.local()`, `board.messages()`, `wait_for` |
+| Extensions | Code at an extension point, outside the server | `aboard-monitor-jev`, an `aboard-launcher-herdr` |
+| Examples (`/examples`) | Short, tested programs on the CLI or the SDKs | The hello-world pair, a summariser bot, benchmark scenarios |
 | `aboard-lab` (Python) | Experiment helpers built on the SDK | `Lab`, `Condition`, API agents, run folders, `load_runs` |
 | Your code | The question you're asking | Scenarios, signals, scoring, analysis |
 

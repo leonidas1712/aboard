@@ -17,8 +17,11 @@ import (
 type handlers struct {
 	svc     *board.Service
 	version string
-	clk     clock.Clock
-	log     *slog.Logger
+	// commit and commitTime are the server's build, reported by GET /v1/info.
+	commit     string
+	commitTime time.Time
+	clk        clock.Clock
+	log        *slog.Logger
 	// shutdown is done when the server starts shutting down; event streams end then.
 	shutdown context.Context
 }
@@ -43,7 +46,14 @@ func afterOr(a *int) int64 {
 
 func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoResponseObject, error) {
 	cfg := h.svc.Config()
-	return GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}, nil
+	info := GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}
+	if h.commit != "" {
+		info.Commit = &h.commit
+	}
+	if !h.commitTime.IsZero() {
+		info.CommitTime = &h.commitTime
+	}
+	return info, nil
 }
 
 func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject) (CreateBoardResponseObject, error) {
@@ -183,15 +193,33 @@ func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject
 }
 
 func (h *handlers) ListMessages(ctx context.Context, req ListMessagesRequestObject) (ListMessagesResponseObject, error) {
-	r, err := h.svc.Timeline(ctx, principal(ctx), req.Board, afterOr(req.Params.After), limitOr(req.Params.Limit))
+	q := req.Params
+	f := board.TimelineFilter{After: afterOr(q.After), Limit: limitOr(q.Limit)}
+	if q.Before != nil {
+		f.Before = int64(*q.Before)
+	}
+	if q.Newest != nil {
+		f.Newest = *q.Newest
+	}
+	if q.From != nil {
+		f.From = *q.From
+	}
+	if q.Role != nil {
+		f.Role = *q.Role
+	}
+	if q.ToMe != nil {
+		f.ToMe = *q.ToMe
+	}
+	r, err := h.svc.Timeline(ctx, principal(ctx), req.Board, f)
 	if err != nil {
 		return nil, err
 	}
 	return convert[ListMessages200JSONResponse](struct {
-		Board     string        `json:"board"`
-		Messages  []wireMessage `json:"messages"`
-		NextAfter *int64        `json:"next_after"`
-	}{r.Board.Name, messagesOf(r), r.NextAfter})
+		Board      string        `json:"board"`
+		Messages   []wireMessage `json:"messages"`
+		NextAfter  *int64        `json:"next_after"`
+		PrevBefore *int64        `json:"prev_before"`
+	}{r.Board.Name, messagesOf(r), r.NextAfter, r.PrevBefore})
 }
 
 func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (GetInboxResponseObject, error) {

@@ -11,10 +11,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
@@ -31,11 +33,20 @@ type Options struct {
 	Clock     clock.Clock
 	Log       *slog.Logger
 	Version   string
+	// Commit and CommitTime name the Git commit the server was built from; empty and
+	// zero when unknown. GET /v1/info reports them with Version.
+	Commit     string
+	CommitTime time.Time
 	// JoinsPerMinute limits POST /v1/join per client address.
 	JoinsPerMinute int
 	// Shutdown is done when the server starts shutting down. Open event streams on
 	// GET /v1/stream end then; without it they end only when their clients disconnect.
 	Shutdown context.Context
+	// Hosts are the Host headers the server answers; empty allows every host.
+	Hosts []string
+	// UI holds the web UI's built files, served at /. Nil serves a page saying the UI
+	// wasn't built.
+	UI fs.FS
 }
 
 // NewHandler returns the API's http.Handler.
@@ -46,7 +57,7 @@ func NewHandler(o Options) (http.Handler, error) {
 	}
 	spec.Servers = nil // validate paths only; the API is served at any host
 
-	strict := NewStrictHandlerWithOptions(&handlers{svc: o.Service, version: o.Version, clk: o.Clock, log: o.Log, shutdown: o.Shutdown}, nil, StrictHTTPServerOptions{
+	strict := NewStrictHandlerWithOptions(&handlers{svc: o.Service, version: o.Version, commit: o.Commit, commitTime: o.CommitTime, clk: o.Clock, log: o.Log, shutdown: o.Shutdown}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body is not valid JSON: "+err.Error(),
 				"Send a JSON body as described in the API reference."))
@@ -75,7 +86,11 @@ func NewHandler(o Options) (http.Handler, error) {
 		},
 	})
 	limiter := newRateLimiter(o.Clock, o.JoinsPerMinute)
-	return recoverPanics(o.Log, validate(authenticate(o, limiter, idempotent(o, routes)))), nil
+	apiChain := validate(authenticate(o, limiter, idempotent(o, routes)))
+	outer := http.NewServeMux()
+	outer.Handle("/v1/", apiChain)
+	outer.Handle("/", serveUI(o.UI))
+	return recoverPanics(o.Log, checkHost(o.Log, o.Hosts, outer)), nil
 }
 
 func notFound(r *http.Request) *apierr.Error {
@@ -116,11 +131,12 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// authenticate resolves the bearer token for every route except GET /v1/info, and rate
-// limits join attempts by client address.
+// authenticate resolves the bearer token for every route except GET /v1/info and
+// POST /v1/browser-tokens, refuses every request but GET made with a browser token,
+// and rate limits join attempts by client address.
 func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/info" {
+		if r.URL.Path == "/v1/info" || r.URL.Path == "/v1/browser-tokens" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -141,6 +157,10 @@ func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handl
 		p, err := o.Service.Authenticate(r.Context(), token)
 		if err != nil {
 			writeError(w, o.Log, err)
+			return
+		}
+		if p.ReadOnly && r.Method != http.MethodGet {
+			writeError(w, o.Log, browserReadOnly())
 			return
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)

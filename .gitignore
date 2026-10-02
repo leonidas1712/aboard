@@ -24,3 +24,11 @@ desktop.ini
 
 # The local board link aboard pair and join write, when dogfooding here
 /.aboard
+
+# The web UI's dependencies and build output: release builds and make install rebuild them
+/web/node_modules/
+/web/.next/
+/web/out/
+/web/next-env.d.ts
+/web/test-results/
+/web/playwright-report/

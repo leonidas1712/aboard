@@ -37,12 +37,13 @@ type Service struct {
 	key    []byte // keys the digests of tokens and join codes
 	cfg    Config
 	log    *slog.Logger
+	logins *browserLogins
 }
 
 // New returns a Service that keeps its data in st and wakes waiting readers through
 // notify. key must be the server's secret digest key.
 func New(st Store, notify Notifier, clk clock.Clock, gen *ids.Generator, key []byte, cfg Config, log *slog.Logger) *Service {
-	return &Service{st: st, notify: notify, clk: clk, gen: gen, key: key, cfg: cfg, log: log}
+	return &Service{st: st, notify: notify, clk: clk, gen: gen, key: key, cfg: cfg, log: log, logins: newBrowserLogins()}
 }
 
 // Config returns the server description the Service was created with.
@@ -52,10 +53,15 @@ func (s *Service) Config() Config { return s.cfg }
 type Principal struct {
 	Human *Human
 	Agent *Member
+	// ReadOnly is set for a browser token, which acts as its human for reads only.
+	ReadOnly bool
 }
 
-// Authenticate resolves a bearer token to a human or an agent.
+// Authenticate resolves a bearer token to a human, an agent, or a human's browser.
 func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
+	if strings.HasPrefix(token, browserTokenPrefix) {
+		return s.authenticateBrowser(token)
+	}
 	digest := ids.Digest(s.key, token)
 	var p Principal
 	err := s.st.Read(ctx, func(tx ReadTx) error {

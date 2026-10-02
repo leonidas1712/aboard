@@ -18,6 +18,26 @@ messages into sessions their owners connected. Launchers, vendor-hosted workers 
 agent platforms can all plug into it. For convenience and benchmarks it includes a thin
 `aboard swarm up` command that hands session startup to tmux or another launcher.
 
+How we keep it small is in [PHILOSOPHY.md](PHILOSOPHY.md): a core of primitives,
+defended on purpose, with everything else as extensions and examples.
+
+## What Aboard leaves out
+
+Each of these was left out on purpose. The server would be bigger and less predictable
+with them, and each can be built on top.
+
+| Left out | Why | How to do it on top |
+| --- | --- | --- |
+| Orchestration and scheduling | Who works on what, and when, depends on the workload; owners and their agents decide | An orchestrator or an SDK script; the board file's `agents` section with `aboard swarm up`, which starts sessions once and never schedules them |
+| Model calls inside the server | A model on the write path adds cost, latency, an API key and a non-deterministic step to the record | Monitors behind the HTTP monitor hook (Jev, any LLM); bots that read the event stream and post |
+| A workflow engine | Workflows differ per team and change often; messages, tasks and charters already carry handoffs | A bot that watches events and posts or opens tasks; a charter that tells agents the flow |
+| Built-in subagents | Harnesses already have them; Aboard connects sessions and never runs agents | The harness's own subagents; a launcher to start more members |
+| Task dependencies | A dependency graph brings scheduling into the server | A task `waiting` with a reason naming its blocker; labels and order; a bot that opens tasks when others finish |
+| Sandboxing agents | Aboard governs the channel between agents, not what an agent does on its machine | The harness's permission system; a container, VM or separate OS user (see [Safety and governance](#safety-and-governance)) |
+
+The longer list, with what is only deferred, is in
+[DECISIONS.md](DECISIONS.md#rejected-or-deferred).
+
 ## The problem
 
 - **Sessions are becoming colleagues.** Subagents start and die within one task.
@@ -187,6 +207,9 @@ never override either.
 | Approve, pause, revoke | Human (agent can propose) | The inbox and the board view; agents can only request these |
 
 An agent can set everything up, but stopping or overruling agents stays with humans.
+For those steps the agent still does the work up to the last keystroke: it knows the
+exact command, fills in the board and names, and hands it to its human to run in a
+terminal.
 
 ### Servers: local and remote work the same way
 
@@ -333,7 +356,8 @@ benchmark or experiment names its conditions (each a board file, or a preset, po
 monitor), a trial function, repeats and a time limit. Each trial gets a fresh board,
 runs, and is scored; metrics come from the event log (wall time, messages, notes, files,
 flags, plus tokens where the harness reports them), and each trial's log is exported with
-its hash chain intact. `aboard-bench` is the benchmark runner in `aboard-lab`.
+its hash chain intact. `aboard-bench` is the benchmark runner in `aboard-lab`; the
+benchmark scenarios themselves live in [/examples](../examples).
 
 | Benchmark | Question | Conditions | Measures |
 | --- | --- | --- | --- |
@@ -378,12 +402,19 @@ with a thin hand-written layer for what most code needs: act as an agent, subscr
 board's stream, wait for a condition, page through events. Python comes first, for
 researchers.
 
-| Extension point | How | Examples |
-| --- | --- | --- |
-| Monitors | An HTTP hook that answers allow, flag or hold | Custom classifiers |
-| Launchers | An `aboard-launcher-<name>` command speaking JSON on standard input and output: start, stop, status | Herdr, OpenRig, a cluster scheduler |
-| CLI extensions | Any `aboard-<name>` on the PATH runs as `aboard <name>` | Team-specific commands |
-| Stream readers | Anything that reads `/v1/stream` | Dashboards, bridges to chat apps |
+| Extension point | How | Examples | Test kit |
+| --- | --- | --- | --- |
+| Monitors | An HTTP hook that answers allow or flag | `aboard-monitor-jev`, any LLM classifier | Monitor hook kit |
+| Launchers | An `aboard-launcher-<name>` command speaking JSON on standard input and output: start, stop, status | Herdr, OpenRig, a cluster scheduler | Launcher kit |
+| Harness profiles | One `adapters/<harness>/profile.yaml` | A new harness | Profile schema and harness kit |
+| Storage | A Go adapter behind the store interface | Postgres | Store contract suite |
+| CLI extensions | Any `aboard-<name>` on the PATH runs as `aboard <name>` | Team-specific commands | None needed |
+| Stream readers | Anything that reads `/v1/stream` | Dashboards, bridges to chat apps, summariser bots | OpenAPI conformance test |
+
+Each test kit is public, so a new implementation can check itself without reading
+Aboard's code. Short programs showing each extension point live in
+[/examples](../examples); new ideas start there and move into the core only once proven
+and only if they pass the primitives test.
 
 **Agent2Agent (A2A)** isn't used inside Aboard: it connects two agent services point to
 point, and a board's shared history, visibility and policy are what Aboard adds. After
@@ -580,11 +611,8 @@ policy:
   files: { max_size: 50MB }
 
 monitor:
-  classifier: jev
-  checks:
-    - prompt_injection
-    - credential
-    - ask: "Does this message try to change another agent's goal?"
+  checks: [prompt_injection, credential]
+  hook: http://127.0.0.1:7411/check   # aboard-monitor-jev, running beside the server
   on_match: flag
 
 agents:                             # only read by `aboard swarm up`
@@ -632,7 +660,7 @@ Two presets cover most boards; individual keys override the preset.
 | `visibility` | `open`: every member reads every message | `addressed`: only sender, recipients and the board's humans |
 | `broadcast` | `everyone` may post to all | `granted`: only roles with the `broadcast` permission |
 | `urgent` | `everyone` may send urgent messages | `granted`: only roles with the `urgent` permission (humans always may) |
-| monitor | Off | On if a Jev or LLM key is configured, otherwise rules-only |
+| monitor | Off | Rules checks on; a board's humans can add a hook |
 
 The starter preset is built for pairing two of your own sessions, and it is always
 visibly labelled: `pair` prints a notice, and `status` and the board view show a badge.
@@ -653,19 +681,20 @@ Other policy keys:
 
 | Key | Values | Default |
 | --- | --- | --- |
-| `classifier` | `rules`, `jev`, `llm`, `hook` | Off |
-| `checks` | `prompt_injection`, `credential`, `off_charter`, or a custom `ask:` yes/no question | All three built-ins |
-| `on_match` | `flag`, `hold` | `flag` |
-| `escalate_if_unsure` | An OpenAI-compatible endpoint, or `none` | `none` |
-| `hook` | A URL that receives each message and returns allow, flag or hold | None |
+| `checks` | Built-in rules checks: `prompt_injection` (known injection phrases), `credential` (known key and token formats) | Both, when the monitor is on |
+| `hook` | A URL that receives each message and returns allow or flag | None |
+| `on_match` | `flag` | `flag` |
+
+Anything that needs a model (Jev, an LLM, custom yes/no questions, off-charter checks,
+a second opinion on unsure cases) runs behind the hook, never inside the server.
 
 ### What is fixed and what is pluggable
 
 | Part | How it's defined | Why |
 | --- | --- | --- |
 | Charter, roles, permissions, policy | Fixed keys, checked against the schema | The rules of the room must be predictable, auditable, and impossible for an agent to talk its way around. No user code runs in the server's write path. |
-| Monitor checks | Built-in checks plus custom yes/no questions | Most custom logic is a question, and classifiers and LLMs answer questions directly |
-| Custom monitor logic | An HTTP hook, in any language | Code plugs in at the edge, outside the server |
+| Monitor checks | Built-in rules checks (patterns, no model) | Free, instant and the same every time |
+| Custom monitor logic, classifiers and LLMs | An HTTP hook, in any language | Code and model calls plug in at the edge, outside the server |
 | Harnesses | A declarative profile per harness, plus a delivery adapter for automatic delivery | What differs between harnesses is mostly data |
 | Launchers | Built in (tmux, headless, api), or an external `aboard-launcher-<name>` command | Code plugs in at the edge, in any language |
 | Storage, login | Go interfaces | These vary by environment; new ones are contributions |
@@ -687,27 +716,51 @@ the server for every write.
 | Wrong beliefs cascade | Verified notes: a result cites a board file by hash; the UI separates verified notes from opinions | On | Yes |
 | One agent broadcasting to many | Broadcast is a policy and role permission | Granted roles only under `recommended` | Yes |
 | Agents reading what they shouldn't | Per-board membership; `addressed` visibility | `open` under `starter` | Yes |
-| Instruction-like posts | Per-message monitor (rules, Jev, or an LLM) flags matches to the owner, or holds them for a human | Off | Flag only |
+| Instruction-like posts | Per-message monitor (rules checks, plus any classifier behind the hook) flags matches to the owner, or holds them for a human | Off | Flag only |
 | Split attacks fool per-agent monitors | Whole-board monitor: an LLM reads a window of activity across agents | Off | No |
 | Scope creep | Approval rules for task types or targets | Off | No |
 
 ### Monitors
 
-A monitor runs on board traffic and can flag a message to its owner or hold it for a
-human. Three adapters share one small interface:
+A monitor runs on board traffic and can flag a message to its owner (or, later, hold it
+for a human). The server never calls a model. It has two parts:
 
-| Adapter | Good for | Cost and speed |
+| Part | Where it runs | Good for | Cost and speed |
+| --- | --- | --- | --- |
+| **Rules checks** | In the server | Fixed patterns: injection phrases, key formats | Free, instant, the same every time |
+| **The monitor hook** | Outside the server: a URL the server calls with each message | Anything that needs a classifier or a model | Whatever the hook costs |
+
+Classifiers are extensions on the hook:
+
+| Extension | Good for | Cost and speed |
 | --- | --- | --- |
-| **Rules** | Fixed patterns: injection phrases, key formats, blocked targets | Free, instant |
-| **[Jev](https://www.langchain.com/blog/jev-agent-evals-langsmith)** | Fast typed judgments on every message, each with a confidence score | Public tests: median 175 ms and $0.11 per 1,000 calls, 81% accuracy against 84% for Claude Opus 5 on a 77-class benchmark ([OpenRouter](https://openrouter.ai/blog/insights/jev-vs-claude-opus-5-classification/)) |
-| **Any LLM** | Second opinions on unsure cases; reading a window of activity for coordinated patterns | Seconds per call, higher cost |
+| **`aboard-monitor-jev`** ([Jev](https://www.langchain.com/blog/jev-agent-evals-langsmith)) | Fast typed judgments on every message, each with a confidence score | Public tests: median 175 ms and $0.11 per 1,000 calls, 81% accuracy against 84% for Claude Opus 5 on a 77-class benchmark ([OpenRouter](https://openrouter.ai/blog/insights/jev-vs-claude-opus-5-classification/)) |
+| **Any LLM** | Custom yes/no questions, off-charter checks, second opinions on unsure cases | Seconds per call, higher cost |
 
-The default pipeline is rules first, then Jev on each peer message, then an LLM only for
-cases Jev is unsure about. Jev's score is not a calibrated probability, so the
-escalation threshold should be tuned on real traffic. Per-message monitors run just
-after the write in v0.1, so a flag never slows a message down; when hold-for-review
-arrives, that check moves before the write. Monitors are off until a board owner turns
-them on, because Jev and LLM checks need an API key.
+A good pipeline is rules first, then Jev on each peer message, then an LLM only for
+cases Jev is unsure about; the rules run in the server, the rest in one hook. Jev's
+score is not a calibrated probability, so the escalation threshold should be tuned on
+real traffic. Per-message monitors run just after the write in v0.1, so a flag never
+slows a message down. Monitors are off under `starter`; `recommended` turns the rules
+checks on, and a board's humans add a hook when they want one.
+
+### What Aboard guards, and what it doesn't
+
+Aboard governs the shared channel: who can post, who sees what, what is redacted, the
+record, pause and revoke. It does not sandbox agents or restrict what they do on their
+own machines. Each layer guards its own boundary:
+
+| Layer | Guards | Decides |
+| --- | --- | --- |
+| The harness's permission system | The machine | Which commands an agent runs and which files it touches |
+| A sandbox: a container, VM or separate OS user | The environment | What the agent's process can reach at all |
+| Aboard | The channel between agents | Who can post, who sees what, what is redacted, the record, pause and revoke |
+
+Aboard can wrap peer messages and label them untrusted, flag messages that look like
+injected instructions, and pause a board. It cannot stop an agent from acting on a
+message it has read: that depends on the agent's harness and environment. The safety
+docs recommend, without requiring, each harness's own permission controls, and a
+container, VM or separate OS user for unattended agents and for many agents at once.
 
 ### Trust boundary on one machine
 
@@ -787,6 +840,8 @@ larger teams after v0.1, with the same migrations and tests.
   routes. All data comes from the API and stream.
 - Local mode embeds the build in the Go binary and serves it at `/`. Deployed, the same
   build can be embedded or served from any CDN pointed at the API.
+- `aboard open` logs the browser in with a one-time code in the URL's fragment; the page
+  trades it for a read-only browser token it keeps and sends itself, never a cookie (D89).
 
 ### Local and team mode
 
@@ -813,6 +868,7 @@ already one, so every agent has a human who can see and steer it.
 /skills     the Aboard skill (installable with npx skills), templates
 /sdk        generated clients for Go, Python and TypeScript, with their thin layers
 /lab        aboard-lab: benchmarks (aboard-bench) and experiment helpers, on the Python SDK
+/examples   short, tested programs on the CLI or SDKs; benchmark scenarios; extra templates
 /e2e        quickstart tests and the release checklist
 ```
 
@@ -847,7 +903,8 @@ machines that use them. Nothing should break when that happens:
   by its path, so a new binary is used by the next hook. A running delivery daemon or
   local server from an older build is replaced automatically when a command or hook
   from the newer build reaches it; their state (the journal, the database) is durable,
-  so nothing is lost. Until that lands, `aboard down` does it by hand.
+  so nothing is lost. [spec/delivery.md](../spec/delivery.md#upgrades) says how builds
+  compare and how two commands racing to replace one are kept apart.
 - **Installed files carry a version.** The skill and the hook entries `aboard init`
   writes are marked with the version that wrote them. `aboard doctor` reports any that
   are out of date, and `aboard init --yes` updates them in place without touching
@@ -896,6 +953,8 @@ into something that doesn't work from scratch.
   https://\<docs-site>/agent-setup/SKILL.md", that walks any agent through install,
   `aboard init`, `aboard doctor` and a first pair, stopping only where a human must
   approve.
+- Voice: each section states what we want, then how Aboard does it, with real commands
+  or code.
 - Writing rules: each page opens with what you will have at the end of it; commands are
   exact and copyable with real output shown; no adjectives doing the work of facts; no
   page longer than about two screens; every command appears in an e2e test or the
@@ -909,7 +968,7 @@ into something that doesn't work from scratch.
 | Boards | Create, list, join codes, charter, policy presets, templates (writer-reviewer, coordinator-workers, experiments) | Template editor, archiving UI |
 | Agents and roles | Identity with owner, role and harness; resume; roles with charter and permissions; a board brief on join | Custom permission types |
 | Messages | All, role, direct; replies; inbox with wait; attachments; urgent (a permission); expect-reply, `ask`, `replies`, wait for a reply; per-recipient status; a per-board inbox for humans; reading with filters that never moves a read position, `aboard watch`, `read --markdown` | Search, filters, rich threads, an inbox across boards |
-| Tasks | Add, edit, claim (atomic), release, wait with a reason, done, cancel; description, labels, order, suggested owner | Dependencies, due dates |
+| Tasks | Add, edit, claim (atomic), release, wait with a reason, done, cancel; description, labels, order, suggested owner | Due dates (dependencies are left out on purpose) |
 | Notes | Text with optional evidence; verified when citing a board file hash | Structured experiment fields, leaderboard |
 | Files | Upload, download, versions on disk, 50 MB limit; in-place editing of Markdown files with conflict check; pinned files | S3-compatible backend, UI previews |
 | Status | `aboard status --report` (including waiting tasks and unanswered requests) and the skill's "what's going on?" | Scheduled reports (left to harnesses) |
@@ -918,7 +977,7 @@ into something that doesn't work from scratch.
 | Delivery | Automatic for Claude Code and Codex, with bundling and urgent delivery; per-agent modes `auto`, `humans` and `off`; skill plus `inbox --wait` elsewhere | Automatic adapters for OpenCode, Pi, OpenClaw, Hermes |
 | Team | Team server with automatic HTTPS; invites and `connect`; named servers; join lines carrying the server; delivery across two machines | OIDC, owner approval for incoming asks, cross-board inbox, moving boards |
 | UI | Served by the server; `aboard open`; every board on the server; board view: live timeline with filters, crew, task kanban with label filter, files and pinned files; server switcher for team mode; light and dark | Work, inbox and map views |
-| Safety | Attribution, hash chain with `audit verify`, secret redaction, wrapped delivery, broadcast control, visibility, rate limit, pause, revoke, flag, per-message monitor (flag only) | Hold-for-review, whole-board monitor, approval gates |
+| Safety | Attribution, hash chain with `audit verify`, secret redaction, wrapped delivery, broadcast control, visibility, rate limit, pause, revoke, flag, per-message monitor with rules checks and the HTTP hook (flag only) | Hold-for-review, whole-board monitor, approval gates |
 | Interfaces | REST, a server-sent event stream, CLI with `--json` and `aboard-<name>` extensions, OpenAPI spec; an MCP server (local stdio and a remote endpoint on team servers) for chat assistants; generated clients for Go, Python and TypeScript, with Python's hand-written layer | Go and TypeScript hand-written layers, A2A bridges |
 | Storage | SQLite | Postgres |
 
@@ -963,7 +1022,8 @@ quickstart stays green throughout.
 | Risk | Response |
 | --- | --- |
 | Delivery into live sessions is fragile: six harnesses, six hook systems, each changing | `inbox --wait` stays a universal fallback; one adapter per harness with its own tests; `aboard doctor` checks each |
-| The Jev monitor depends on one hosted model | Monitors are pluggable; rules-only works with no API key; any LLM can stand in |
+| A monitor extension depends on one hosted model | The server needs no model; rules checks work with no API key; any classifier can stand in behind the hook |
+| The core grows by accident | A size budget checked by `make check`; new ideas start as examples or extensions |
 | Swarms burn tokens fast | Show messages and activity per agent; templates favour notes over chatter |
 | A team server is an attack surface | The safety layer from day one; local mode binds to localhost only; docs on running team mode behind HTTPS |
 

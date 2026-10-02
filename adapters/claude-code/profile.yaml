@@ -12,8 +12,19 @@ checks:
     json_true: loggedIn
 
 sandbox_env: [SANDBOX_RUNTIME]
+session_env: [ABOARD_SESSION, CLAUDECODE]
 
 skills_dir: .claude/skills
+
+# settings.local.json is the project file meant for one person's machine; the hooks name
+# this machine's aboard binary.
+project:
+  skills_dir: .claude/skills
+  hooks_file: .claude/settings.local.json
+
+# Goes in permissions.allow of the settings file that holds the hooks.
+allow_commands:
+  rule: Bash(aboard *)
 
 interactive:
   start: [claude, "{prompt}"]

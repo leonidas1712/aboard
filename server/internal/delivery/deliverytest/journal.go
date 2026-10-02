@@ -61,6 +61,23 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 		}
 	})
 
+	t.Run("ModesAreSavedAndReplaced", func(t *testing.T) {
+		j := open(t)
+		got, err := j.Modes(ctx)
+		must(t, err)
+		if len(got) != 0 {
+			t.Fatalf("a new journal has modes: %v", got)
+		}
+		must(t, j.SetMode(ctx, review, delivery.ModeHumans))
+		must(t, j.SetMode(ctx, writer, delivery.ModeOff))
+		must(t, j.SetMode(ctx, review, delivery.ModeAuto))
+		got, err = j.Modes(ctx)
+		must(t, err)
+		if len(got) != 2 || got[review] != delivery.ModeAuto || got[writer] != delivery.ModeOff {
+			t.Fatalf("modes: %v", got)
+		}
+	})
+
 	t.Run("DeliveriesKeepTheirMessagesInOrder", func(t *testing.T) {
 		j := open(t)
 		d := delivery.Delivery{Agent: review, Session: claudeA, Boot: "b1", State: delivery.StateHanded, Seqs: []int{9, 6, 7}, CreatedAt: t0, UpdatedAt: t0}

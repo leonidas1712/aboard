@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
 // messageRef is a reference to a message given on the command line.
@@ -67,11 +69,12 @@ func (a *app) resolveMessageRef(ctx context.Context, ref messageRef, t target, c
 		board = ref.Board
 		cred, _ = creds.find(t.server.URL, board, names[0])
 	}
-	c, err := a.client(t.server, cred.Token, requestTimeout)
+	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return "", err
 	}
-	page, err := c.messages(ctx, board, ref.Seq-1, 1)
+	after, one := ref.Seq-1, 1
+	page, err := c.messages(ctx, board, api.ListMessagesParams{After: &after, Limit: &one})
 	if err != nil {
 		return "", err
 	}

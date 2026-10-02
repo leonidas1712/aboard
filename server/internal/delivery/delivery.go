@@ -119,6 +119,29 @@ type Binding struct {
 	BoundAt time.Time
 }
 
+// Mode is how an agent's messages reach its session. A person chooses it per agent.
+type Mode string
+
+// Delivery modes.
+const (
+	// ModeAuto wakes the session for every message.
+	ModeAuto Mode = "auto"
+	// ModeHumans wakes the session only for a message from a person; that bundle carries
+	// every unread message, peer ones too.
+	ModeHumans Mode = "humans"
+	// ModeOff delivers nothing; the agent reads its inbox itself.
+	ModeOff Mode = "off"
+)
+
+// ParseMode reads a mode's name.
+func ParseMode(s string) (Mode, bool) {
+	switch m := Mode(s); m {
+	case ModeAuto, ModeHumans, ModeOff:
+		return m, true
+	}
+	return "", false
+}
+
 // Reason codes recorded on failed or skipped deliveries and reported by aboard doctor.
 const (
 	ReasonTargetAbsent = "codex_target_absent"

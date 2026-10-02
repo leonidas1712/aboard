@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // Where the acting agent came from.
@@ -29,13 +30,17 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Server        serverRef    `json:"server"`
 		ServerRunning bool         `json:"server_running"`
 		Daemon        daemonReport `json:"daemon"`
+		Setup         setupReport  `json:"setup"`
 		Board         *string      `json:"board"`
 		BoardSource   string       `json:"board_source"`
 		Agent         *string      `json:"agent"`
 		AgentSource   string       `json:"agent_source"`
+		Delivery      *string      `json:"delivery"`
 		Agents        []string     `json:"agents"`
 		Policy        *api.Policy  `json:"policy"`
 	}{Server: a.localServer(), BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
+	var setupLine string
+	out.Setup, setupLine = a.setupStatus()
 
 	creds, err := a.readCredentials()
 	if err != nil {
@@ -73,6 +78,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		}
 		var text strings.Builder
 		a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, out.Server)
+		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
 		a.emit(out, text.String())
 		return nil
@@ -82,6 +88,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 
 	var text strings.Builder
 	a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, t.server)
+	text.WriteString(setupLine)
 	fmt.Fprintf(&text, "Board:  %s on %s (%s)\n", t.board, t.server.URL, sourceText(t.source))
 	switch _, known := creds.find(t.server.URL, t.board, name); {
 	case name == "":
@@ -91,10 +98,16 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	default:
 		out.Agent, out.AgentSource = &name, source
 		label := map[string]string{agentFromFlag: "--as", agentFromEnv: "ABOARD_AGENT", agentFromSession: "this session"}[source]
-		fmt.Fprintf(&text, "Agent:  %s (from %s)\n", name, label)
+		mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name})
+		if err != nil {
+			return err
+		}
+		m := string(mode)
+		out.Delivery = &m
+		fmt.Fprintf(&text, "Agent:  %s (from %s); delivery %s\n", name, label, m)
 	}
 
-	if c, err := a.humanClient(t); err == nil {
+	if c, err := a.humanClient(ctx, t); err == nil {
 		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
 		if b, err := c.board(ctx, t.board); err == nil {
@@ -115,6 +128,43 @@ func namesText(names []string) string {
 		return "none"
 	}
 	return strings.Join(names, ", ")
+}
+
+// setupReport lists the harnesses whose Aboard hooks are installed, in each scope.
+type setupReport struct {
+	Global  []string `json:"global"`
+	Project []string `json:"project"`
+}
+
+// setupStatus reports where aboard init installed the hooks, and the Setup line of
+// aboard status. A hook file it can't read counts as not installed; aboard doctor
+// reports why.
+func (a *app) setupStatus() (r setupReport, line string) {
+	r = setupReport{Global: []string{}, Project: []string{}}
+	var parts []string
+	for _, h := range []struct {
+		name  string
+		specs []hookSpec
+	}{{"claude-code", claudeHooks("aboard")}, {"codex", codexHooks("aboard")}} {
+		scopes, _, err := a.installedScopes(h.name, h.specs)
+		if err != nil || len(scopes) == 0 {
+			continue
+		}
+		var where []string
+		for _, s := range scopes {
+			if s == scopeGlobal {
+				r.Global = append(r.Global, h.name)
+			} else {
+				r.Project = append(r.Project, h.name)
+			}
+			where = append(where, scopeText(s))
+		}
+		parts = append(parts, h.name+" "+strings.Join(where, " and "))
+	}
+	if len(parts) == 0 {
+		return r, "Setup:  none; aboard init adds the skill and hooks\n"
+	}
+	return r, "Setup:  " + strings.Join(parts, ", ") + "\n"
 }
 
 // daemonReport is the delivery daemon's part of aboard status.

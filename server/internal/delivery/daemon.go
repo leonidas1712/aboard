@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"slices"
 	"strings"
@@ -30,8 +31,9 @@ type Config struct {
 	Processes Processes
 	Clock     clock.Clock
 	Log       *slog.Logger
-	// PID is reported by the status operation.
-	PID int
+	// PID and Build are reported by the status operation.
+	PID   int
+	Build Build
 	// IdleExit overrides how long the daemon runs with no open session; zero means
 	// the default.
 	IdleExit time.Duration
@@ -60,6 +62,8 @@ type Daemon struct {
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
 	problems map[AgentRef]string
+	// modes holds each agent's delivery mode; an agent not in it is auto.
+	modes map[AgentRef]Mode
 	// openChanged fires when a session opens or closes.
 	openChanged chan struct{}
 }
@@ -73,7 +77,7 @@ func Run(ctx context.Context, cfg Config) error {
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		sessions: map[SessionKey]*session{}, owners: map[AgentRef]*session{},
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, problems: map[AgentRef]string{},
-		openChanged: make(chan struct{}, 1),
+		modes: map[AgentRef]Mode{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -119,8 +123,13 @@ func (d *Daemon) restore(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load deliveries: %w", err)
 	}
+	modes, err := d.cfg.Journal.Modes(ctx)
+	if err != nil {
+		return fmt.Errorf("load delivery modes: %w", err)
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	maps.Copy(d.modes, modes)
 	for _, r := range records {
 		s := d.newSessionLocked(r.Key)
 		if s == nil {
@@ -265,6 +274,54 @@ func (d *Daemon) setProblem(agent AgentRef, reason string) {
 	d.problems[agent] = reason
 }
 
+// mode returns the agent's delivery mode: its own, else the machine's default (kept
+// under the empty AgentRef), else auto.
+func (d *Daemon) mode(agent AgentRef) Mode {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if m, ok := d.modes[agent]; ok {
+		return m
+	}
+	if m, ok := d.modes[AgentRef{}]; ok {
+		return m
+	}
+	return ModeAuto
+}
+
+// setMode answers OpMode: it shows the agent's delivery mode, or saves a new one and has
+// the agent's session apply it at once. The empty AgentRef names the default for agents
+// without a mode of their own.
+func (d *Daemon) setMode(ctx context.Context, req Request) Response {
+	if req.Agent == nil {
+		return errorResponse("invalid_request", "A mode request needs an agent.", "Send the agent's server, board and name.")
+	}
+	agent := *req.Agent
+	prev := d.mode(agent)
+	if req.Mode == "" || req.Mode == prev {
+		return Response{V: ProtocolVersion, Mode: prev}
+	}
+	if _, ok := ParseMode(string(req.Mode)); !ok {
+		return errorResponse("invalid_request", fmt.Sprintf("%q is not a delivery mode.", req.Mode), "Use auto, humans or off.")
+	}
+	if err := d.cfg.Journal.SetMode(ctx, agent, req.Mode); err != nil {
+		return errorResponse("internal", "Couldn't save the delivery mode: "+err.Error(), "Look at the daemon log.")
+	}
+	d.mu.Lock()
+	d.modes[agent] = req.Mode
+	var owners []*session
+	for a, s := range d.owners {
+		if _, own := d.modes[a]; a == agent || (agent == AgentRef{} && !own) {
+			owners = append(owners, s)
+		}
+	}
+	d.mu.Unlock()
+	for _, s := range owners {
+		s.mail.put(sessionMsg{modeChanged: true})
+	}
+	d.log.Info("delivery mode changed", "agent", agent.Name, "board", agent.Board, "mode", req.Mode)
+	return Response{V: ProtocolVersion, Mode: req.Mode, Changed: true}
+}
+
 // idleLoop stops the daemon once no session has been open for IdleExit.
 func (d *Daemon) idleLoop(ctx context.Context) error {
 	for {
@@ -339,14 +396,16 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		return
 	}
 	if req.V != ProtocolVersion {
-		_ = WriteFrame(conn, errorResponse("invalid_request",
-			fmt.Sprintf("The delivery daemon speaks protocol version %d, not %d.", ProtocolVersion, req.V),
-			"Use the same aboard binary for hooks and the daemon, or stop the running daemon so the current one starts."))
+		_ = WriteFrame(conn, errorResponse("daemon_protocol_mismatch",
+			fmt.Sprintf("The running delivery daemon (aboard %s) speaks control protocol %d; this aboard speaks %d.", d.cfg.Build.Version, ProtocolVersion, req.V),
+			"Install the same aboard as the running daemon, or run aboard down so this one starts its own."))
 		return
 	}
 	switch req.Op {
 	case OpStatus:
 		_ = WriteFrame(conn, d.status(ctx))
+	case OpMode:
+		_ = WriteFrame(conn, d.setMode(ctx, req))
 	case OpWait:
 		d.serveWait(ctx, conn, r, req)
 	case OpRegister, OpPrompt, OpTurnEnd, OpUrgent, OpEnd, OpBind, OpAgents:
@@ -505,7 +564,7 @@ func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: Eve
 // status reports the daemon's state for aboard doctor.
 func (d *Daemon) status(ctx context.Context) Response {
 	st := &Status{
-		PID: d.cfg.PID, OpenSessions: d.openCount(), Servers: []ServerStatus{},
+		PID: d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
 		Attention: []StatusItem{}, Skipped: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
 	}
 	d.mu.Lock()

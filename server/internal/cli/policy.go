@@ -8,15 +8,34 @@ import (
 )
 
 // humanClient returns a client for the board's server with the local owner's login.
-func (a *app) humanClient(t target) (*client, error) {
+func (a *app) humanClient(ctx context.Context, t target) (*client, error) {
 	token, err := a.readOwnerToken(t.server)
 	if err != nil {
 		return nil, err
 	}
-	return a.client(t.server, token, requestTimeout)
+	return a.client(ctx, t.server, token, requestTimeout)
+}
+
+// boardArg returns the --board flag to repeat in a suggested command, if one was given.
+func boardArg(board string) string {
+	if board == "" {
+		return ""
+	}
+	return " --board " + shellWord(board)
+}
+
+// namedBoard returns the board a human command would use, for naming it in a command
+// to hand to a person: boardFlag, else the board selected the usual way. It returns
+// boardFlag unchanged when no board can be selected.
+func (a *app) namedBoard(boardFlag string) string {
+	if t, err := a.selectBoard(boardFlag); err == nil {
+		return t.board
+	}
+	return boardFlag
 }
 
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset.
+// It uses the human login, so it refuses inside a harness session.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	const use = "aboard board policy <starter|recommended> [--board NAME] [--json]"
 	fs := a.flags("board")
@@ -32,11 +51,14 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	if preset != "starter" && preset != "recommended" {
 		return usageError(fmt.Sprintf("%q is not a policy preset; use starter or recommended.", pos[1]), use)
 	}
+	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(a.namedBoard(*boardFlag))); err != nil {
+		return err
+	}
 	t, err := a.selectBoard(*boardFlag)
 	if err != nil {
 		return err
 	}
-	c, err := a.humanClient(t)
+	c, err := a.humanClient(ctx, t)
 	if err != nil {
 		return err
 	}

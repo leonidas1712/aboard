@@ -24,16 +24,51 @@ func bundleText(board string, ms []api.Message) string {
 	return deliverytext.Bundle(board, tms)
 }
 
+// transcriptText formats messages as a Markdown transcript to paste into a session.
+// Each body is a blockquote, so text in a message can't pass for another message's
+// heading.
+func transcriptText(board string, ms []api.Message) string {
+	var b strings.Builder
+	switch len(ms) {
+	case 0:
+		return "# " + board + " · no messages\n"
+	case 1:
+		fmt.Fprintf(&b, "# %s · #%d\n", board, ms[0].Seq)
+	default:
+		fmt.Fprintf(&b, "# %s · #%d–#%d\n", board, ms[0].Seq, ms[len(ms)-1].Seq)
+	}
+	for _, m := range ms {
+		fmt.Fprintf(&b, "\n**#%d @%s** %s → %s", m.Seq, m.From.Name, senderText(m), targetsText(m.To))
+		if m.ReplyToSeq != nil {
+			fmt.Fprintf(&b, " · reply to #%d", *m.ReplyToSeq)
+		}
+		b.WriteString("\n\n")
+		for _, line := range strings.Split(strings.TrimSuffix(m.Body, "\n"), "\n") {
+			if line == "" {
+				b.WriteString(">\n")
+			} else {
+				b.WriteString("> " + line + "\n")
+			}
+		}
+	}
+	return b.String()
+}
+
+// senderText describes a message's sender after its name: "(human)", or the agent's
+// role and owner.
+func senderText(m api.Message) string {
+	if m.From.Kind == "human" {
+		return "(human)"
+	}
+	return fmt.Sprintf("(%s, %s)", deref(m.From.Role), deref(m.From.Owner))
+}
+
 // timelineText formats messages for reading the board: a header line per message and
 // its body indented below it.
 func timelineText(ms []api.Message) string {
 	var b strings.Builder
 	for _, m := range ms {
-		who := "(human)"
-		if m.From.Kind != "human" {
-			who = fmt.Sprintf("(%s, %s)", deref(m.From.Role), deref(m.From.Owner))
-		}
-		fmt.Fprintf(&b, "#%d  @%s %s → %s\n", m.Seq, m.From.Name, who, targetsText(m.To))
+		fmt.Fprintf(&b, "#%d  @%s %s → %s\n", m.Seq, m.From.Name, senderText(m), targetsText(m.To))
 		for _, line := range strings.Split(strings.TrimSuffix(m.Body, "\n"), "\n") {
 			b.WriteString("    " + line + "\n")
 		}

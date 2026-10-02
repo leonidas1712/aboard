@@ -125,6 +125,9 @@ func (c conformance) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cookies := resp.Header.Values("Set-Cookie"); len(cookies) > 0 {
+		c.t.Errorf("%s %s set a cookie: %q; the server never sets one", req.Method, req.URL.Path, cookies)
+	}
 	if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
 		// An event stream doesn't end, so its body is left for the test to read; the
 		// status and content type are still checked against the spec.
@@ -359,6 +362,57 @@ func TestAddressedVisibilityHidesOtherAgentsMessages(t *testing.T) {
 	}
 	if v.Withheld != 1 {
 		t.Fatalf("withheld %d events, want 1", v.Withheld)
+	}
+}
+
+func TestTimelineFiltersPageBothWays(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	boardName, writer, reviewer := s.pair("starter")
+	post := func(token string, to []string, body string) int {
+		r := say(s, token, boardName, to, body)
+		mustStatus(t, r, nil, 201)
+		return r.JSON201.Seq
+	}
+	a := post(writer, []string{"@reviewer"}, "a")
+	b := post(reviewer, nil, "b")
+	c := post(writer, nil, "c")
+	d := post(writer, nil, "d")
+
+	type want struct {
+		seqs             []int
+		prevBefore, next *int
+	}
+	page := func(token string, p api.ListMessagesParams, w want) {
+		t.Helper()
+		r, err := s.client(token).ListMessagesWithResponse(ctx, boardName, &p)
+		mustStatus(t, r, err, 200)
+		got := []int{}
+		for _, m := range r.JSON200.Messages {
+			got = append(got, m.Seq)
+		}
+		if !reflect.DeepEqual(got, w.seqs) || !reflect.DeepEqual(r.JSON200.PrevBefore, w.prevBefore) || !reflect.DeepEqual(r.JSON200.NextAfter, w.next) {
+			t.Errorf("seqs %v prev_before %v next_after %v, want %v %v %v", got, r.JSON200.PrevBefore, r.JSON200.NextAfter, w.seqs, w.prevBefore, w.next)
+		}
+	}
+	yes, two, from := true, 2, "writer"
+	one, beforeC, afterA, afterD := 1, c, a, d
+	page(reviewer, api.ListMessagesParams{From: &from, Newest: &yes, Limit: &two}, want{[]int{c, d}, &c, nil})
+	page(reviewer, api.ListMessagesParams{From: &from, Newest: &yes, Limit: &two, Before: &beforeC}, want{[]int{a}, nil, &a})
+	page(reviewer, api.ListMessagesParams{From: &from, After: &afterA, Limit: &one}, want{[]int{c}, &c, &c})
+	page(reviewer, api.ListMessagesParams{From: &from, After: &afterD}, want{[]int{}, nil, nil})
+	role := "reviewer"
+	page(writer, api.ListMessagesParams{Role: &role}, want{[]int{b}, nil, nil})
+	page(reviewer, api.ListMessagesParams{ToMe: &yes}, want{[]int{a, c, d}, nil, nil})
+
+	nobody := "nobody"
+	r, err := s.client(reviewer).ListMessagesWithResponse(ctx, boardName, &api.ListMessagesParams{From: &nobody})
+	if code := errorCode(t, r, err, 404); code != "member_not_found" {
+		t.Fatalf("unknown from: code %s", code)
+	}
+	r, err = s.client(reviewer).ListMessagesWithResponse(ctx, boardName, &api.ListMessagesParams{Role: &nobody})
+	if code := errorCode(t, r, err, 404); code != "role_not_found" {
+		t.Fatalf("unknown role: code %s", code)
 	}
 }
 

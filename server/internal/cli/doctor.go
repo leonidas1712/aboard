@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/codex"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
@@ -55,8 +56,14 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	}
 	var checks []doctorCheck
 	srv := a.localServer()
-	if a.localRunning(ctx) {
-		checks = append(checks, okCheck("local_server", "local server running at "+srv.URL))
+	if info, err := a.localInfo(ctx); err == nil {
+		if b := infoBuild(info); info.Mode == api.Local && compareBuilds(b, currentBuild()) < 0 {
+			checks = append(checks, problem("local_server", levelWarning, "server_outdated",
+				"local server at "+srv.URL+" runs aboard "+b.Version+", older than this aboard "+version,
+				"run any command that uses it, which replaces it, or aboard down"))
+		} else {
+			checks = append(checks, okCheck("local_server", "local server running at "+srv.URL))
+		}
 	} else {
 		checks = append(checks, problem("local_server", levelWarning, "server_unreachable",
 			"local server not running at "+srv.URL, "run aboard up, or any command that needs it starts it"))
@@ -65,6 +72,8 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	checks = append(checks, daemonCheck...)
 	checks = append(checks, a.checkClaudeHooks())
 	checks = append(checks, a.checkCodex(ctx)...)
+	checks = append(checks, a.checkSkill("claude_skill", "claude-code")...)
+	checks = append(checks, a.checkSkill("codex_skill", "codex")...)
 	if status != nil {
 		checks = append(checks, statusChecks(status)...)
 	}
@@ -127,6 +136,11 @@ func (a *app) checkDaemon(ctx context.Context, p paths) (*delivery.Status, []doc
 			"look at the daemon log at "+p.daemonLog())}
 	}
 	st := resp.Status
+	if compareBuilds(st.Build, currentBuild()) < 0 {
+		return st, []doctorCheck{problem("daemon", levelWarning, "daemon_outdated",
+			fmt.Sprintf("delivery daemon running (pid %d) is from aboard %q, older than this aboard %s, and couldn't be replaced", st.PID, st.Build.Version, version),
+			"run aboard down; the next command starts the current daemon")}
+	}
 	return st, []doctorCheck{okCheck("daemon",
 		fmt.Sprintf("delivery daemon running (pid %d), %d %s", st.PID, st.OpenSessions, plural(st.OpenSessions, "session", "sessions")))}
 }
@@ -171,16 +185,28 @@ func (a *app) checkClaudeHooks() doctorCheck {
 		return problem("claude_hooks", levelWarning, "claude_code_not_installed",
 			"claude-code: not installed", "install Claude Code, or ignore this if you don't use it")
 	}
-	path := filepath.Join(dir, "settings.json")
-	missing, err := hooksMissing(path, "claude-code", claudeHooks("aboard"))
+	scopes, files, err := a.installedScopes("claude-code", claudeHooks("aboard"))
+	if err == nil && len(scopes) > 0 {
+		return a.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(a.hookExe()),
+			okCheck("claude_hooks", "claude-code: "+installedText(scopes, files)))
+	}
+	missing, err2 := hooksMissing(a.setupFiles("claude-code", scopeGlobal).hooks, "claude-code", claudeHooks("aboard"))
 	switch {
-	case err != nil:
-		return problem("claude_hooks", levelError, "claude_hooks_missing", "claude-code: "+err.Error(), "fix the file, then run aboard init")
-	case len(missing) > 0:
+	case err != nil || err2 != nil:
+		return problem("claude_hooks", levelError, "claude_hooks_missing", "claude-code: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init")
+	default:
 		return problem("claude_hooks", levelError, "claude_hooks_missing",
 			"claude-code: hooks not installed ("+strings.Join(missing, ", ")+")", "run aboard init")
 	}
-	return okCheck("claude_hooks", "claude-code: hooks installed in "+path)
+}
+
+// installedText says where a harness's hooks are installed.
+func installedText(scopes, files []string) string {
+	parts := make([]string, len(scopes))
+	for i := range scopes {
+		parts[i] = scopeText(scopes[i]) + " (" + files[i] + ")"
+	}
+	return "hooks installed " + strings.Join(parts, " and ")
 }
 
 func (a *app) checkCodex(ctx context.Context) []doctorCheck {
@@ -201,21 +227,19 @@ func (a *app) checkCodex(ctx context.Context) []doctorCheck {
 			ver+": no queue command, so messages can't be delivered to Codex", "update Codex")}
 	}
 	checks := []doctorCheck{okCheck("codex", ver+": queue available")}
-	codexHome := a.env.Getenv("CODEX_HOME")
-	if !filepath.IsAbs(codexHome) {
-		codexHome = filepath.Join(a.env.Getenv("HOME"), ".codex")
+	scopes, files, err := a.installedScopes("codex", codexHooks("aboard"))
+	if err == nil && len(scopes) > 0 {
+		return append(checks, a.checkHooksCurrent("codex_hooks", "codex", scopes, codexHooks(a.hookExe()),
+			okCheck("codex_hooks", "codex: "+installedText(scopes, files))))
 	}
-	path := filepath.Join(codexHome, "hooks.json")
-	missing, err := hooksMissing(path, "codex", codexHooks("aboard"))
+	missing, err2 := hooksMissing(a.setupFiles("codex", scopeGlobal).hooks, "codex", codexHooks("aboard"))
 	switch {
-	case err != nil:
-		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing", "codex: "+err.Error(), "fix the file, then run aboard init"))
-	case len(missing) > 0:
+	case err != nil || err2 != nil:
+		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing", "codex: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
+	default:
 		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing",
 			"codex: hooks not installed ("+strings.Join(missing, ", ")+"), so urgent messages wait for the end of a turn",
 			"run aboard init"))
-	default:
-		checks = append(checks, okCheck("codex_hooks", "codex: hooks installed in "+path))
 	}
 	return checks
 }

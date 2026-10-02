@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -59,7 +60,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		}
 		req.ReplyTo = &id
 	}
-	c, err := a.client(t.server, cred.Token, requestTimeout)
+	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
 	}
@@ -97,7 +98,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	timeout := time.Duration(*wait)*time.Second + requestTimeout
-	c, err := a.client(t.server, cred.Token, timeout)
+	c, err := a.client(ctx, t.server, cred.Token, timeout)
 	if err != nil {
 		return err
 	}
@@ -161,25 +162,69 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	return nil
 }
 
+// readUsage is the usage line of aboard read.
+const readUsage = "aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] [--as AGENT] [--board NAME] [--json]"
+
+// defaultReadLimit is how many messages aboard read shows without --limit.
+const defaultReadLimit = 50
+
+// readFilter is what aboard read and aboard watch pass to the timeline API besides the
+// window: which messages match, and how many to show.
+type readFilter struct {
+	from, role string
+	toMe       bool
+	limit      int
+}
+
+// params returns the API parameters for the filter; the caller adds the window.
+func (f readFilter) params() api.ListMessagesParams {
+	var p api.ListMessagesParams
+	if f.from != "" {
+		p.From = &f.from
+	}
+	if f.role != "" {
+		p.Role = &f.role
+	}
+	if f.toMe {
+		p.ToMe = &f.toMe
+	}
+	if f.limit > 0 {
+		p.Limit = &f.limit
+	}
+	return p
+}
+
 // runRead prints the board's timeline as the agent sees it, without acknowledging.
 func runRead(ctx context.Context, a *app, args []string) error {
-	const use = "aboard read [--after SEQ] [--limit N] [--as AGENT] [--board NAME] [--json]"
 	fs := a.flags("read")
-	after := fs.Int("after", 0, "show messages after this sequence number")
-	limit := fs.Int("limit", 0, "the most messages to show")
+	after := fs.Int("after", 0, "show the oldest messages after this sequence number")
+	before := fs.Int("before", 0, "show the newest messages before this sequence number")
+	around := fs.Int("around", 0, "show messages around this sequence number")
+	from := fs.String("from", "", "only messages from this member (@name)")
+	role := fs.String("role", "", "only messages from members with this role")
+	toMe := fs.Bool("to-me", false, "only messages addressed to you that you didn't send")
+	limit := fs.Int("limit", 0, "the most messages to show (default 50)")
+	markdown := fs.Bool("markdown", false, "print a Markdown transcript to paste into a session")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board")
-	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
+	if _, err := a.parse(fs, args, readUsage, 0, 0); err != nil {
 		return err
 	}
-	if *after < 0 || *limit < 0 {
-		return usageError("--after and --limit can't be negative.", use)
+	if *after < 0 || *before < 0 || *around < 0 || *limit < 0 {
+		return usageError("--after, --before, --around and --limit can't be negative.", readUsage)
 	}
+	if windows := btoi(*after > 0) + btoi(*before > 0) + btoi(*around > 0); windows > 1 {
+		return usageError("Use only one of --after, --before and --around.", readUsage)
+	}
+	if *markdown && a.json {
+		return usageError("--markdown and --json can't be combined.", readUsage)
+	}
+	f := readFilter{from: strings.TrimPrefix(*from, "@"), role: *role, toMe: *toMe, limit: *limit}
 	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 	if err != nil {
 		return err
 	}
-	c, err := a.client(t.server, cred.Token, requestTimeout)
+	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
 	}
@@ -189,7 +234,7 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	page, err := c.messages(ctx, t.board, *after, *limit)
+	page, err := readPage(ctx, c, t.board, f, *after, *before, *around)
 	if err != nil {
 		return err
 	}
@@ -197,17 +242,117 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if msgs == nil {
 		msgs = []api.Message{}
 	}
+	if *markdown {
+		_, err := io.WriteString(a.env.Stdout, transcriptText(page.Board, msgs))
+		return err
+	}
+
+	filtered := f.from != "" || f.role != "" || f.toMe || *after > 0 || *before > 0 || *around > 0
 	text := page.Board + " · no messages yet\n"
+	if filtered {
+		text = page.Board + " · no messages\n"
+	}
 	if len(msgs) > 0 {
 		text = fmt.Sprintf("%s · %d %s\n", page.Board, len(msgs), plural(len(msgs), "message", "messages")) + timelineText(msgs)
+	}
+	rest := readHintArgs(f, *as, *boardFlag)
+	if page.PrevBefore != nil {
+		text += fmt.Sprintf("Earlier: aboard read --before %d%s\n", *page.PrevBefore, rest)
+	}
+	if page.NextAfter != nil {
+		text += fmt.Sprintf("Later: aboard read --after %d%s\n", *page.NextAfter, rest)
 	}
 	a.emit(struct {
 		Board      string        `json:"board"`
 		Visibility string        `json:"visibility"`
 		Messages   []api.Message `json:"messages"`
 		NextAfter  *int          `json:"next_after"`
-	}{page.Board, string(b.Policy.Visibility), msgs, page.NextAfter}, text)
+		PrevBefore *int          `json:"prev_before"`
+	}{page.Board, string(b.Policy.Visibility), msgs, page.NextAfter, page.PrevBefore}, text)
 	return nil
+}
+
+// readPage reads the page aboard read shows: the newest matching messages by default,
+// the oldest after --after, the newest before --before, or for --around half the limit
+// before the message and the rest from it on.
+func readPage(ctx context.Context, c *client, board string, f readFilter, after, before, around int) (*api.MessagePage, error) {
+	newest := true
+	switch {
+	case after > 0:
+		p := f.params()
+		p.After = &after
+		return c.messages(ctx, board, p)
+	case before > 0:
+		p := f.params()
+		p.Before, p.Newest = &before, &newest
+		return c.messages(ctx, board, p)
+	case around == 0:
+		p := f.params()
+		p.Newest = &newest
+		return c.messages(ctx, board, p)
+	}
+	limit := f.limit
+	if limit == 0 {
+		limit = defaultReadLimit
+	}
+	earlier := &api.MessagePage{Board: board}
+	if half := limit / 2; half > 0 {
+		p := f.params()
+		p.Before, p.Newest, p.Limit = &around, &newest, &half
+		var err error
+		if earlier, err = c.messages(ctx, board, p); err != nil {
+			return nil, err
+		}
+	}
+	p := f.params()
+	from, rest := around-1, limit-limit/2
+	p.After, p.Limit = &from, &rest
+	later, err := c.messages(ctx, board, p)
+	if err != nil {
+		return nil, err
+	}
+	out := &api.MessagePage{Board: later.Board, Messages: append(earlier.Messages, later.Messages...)}
+	out.PrevBefore, out.NextAfter = later.PrevBefore, later.NextAfter
+	if len(earlier.Messages) > 0 {
+		out.PrevBefore = earlier.PrevBefore
+	}
+	if len(later.Messages) == 0 {
+		out.NextAfter = earlier.NextAfter
+	}
+	return out, nil
+}
+
+// readHintArgs returns the flags that repeat a read's filters in an Earlier or Later
+// hint, with a leading space. --as and --board are kept when they were given, so the
+// hint runs as shown.
+func readHintArgs(f readFilter, as, board string) string {
+	var b strings.Builder
+	if f.from != "" {
+		b.WriteString(" --from @" + f.from)
+	}
+	if f.role != "" {
+		b.WriteString(" --role " + f.role)
+	}
+	if f.toMe {
+		b.WriteString(" --to-me")
+	}
+	if f.limit > 0 {
+		fmt.Fprintf(&b, " --limit %d", f.limit)
+	}
+	if as != "" {
+		b.WriteString(" --as " + as)
+	}
+	if board != "" {
+		b.WriteString(" --board " + board)
+	}
+	return b.String()
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func plural(n int, one, many string) string {

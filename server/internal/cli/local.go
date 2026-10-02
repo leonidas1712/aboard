@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/server"
+	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
 // startTimeout is how long a background local server may take to answer.
@@ -26,7 +28,7 @@ func (a *app) localRunning(ctx context.Context) bool {
 
 // serverAnswers reports whether a server answers at srv.
 func (a *app) serverAnswers(ctx context.Context, srv serverRef) bool {
-	c, err := a.client(srv, "", time.Second)
+	c, err := a.newClient(srv, "", time.Second)
 	if err != nil {
 		return false
 	}
@@ -39,32 +41,41 @@ func (a *app) serverAnswers(ctx context.Context, srv serverRef) bool {
 // ensureLocal starts the local server in the background unless it is already running.
 // It reports whether it started it.
 func (a *app) ensureLocal(ctx context.Context) (bool, error) {
+	if err := a.replaceOutdatedLocal(ctx); err != nil {
+		return false, err
+	}
 	if a.localRunning(ctx) {
 		return false, nil
 	}
+	return true, a.startLocalAndWait(ctx)
+}
+
+// startLocalAndWait starts the local server in the background and waits until it
+// answers.
+func (a *app) startLocalAndWait(ctx context.Context) error {
 	p, err := a.paths()
 	if err != nil {
-		return false, err
+		return err
 	}
 	if err := a.startLocal(p); err != nil {
-		return false, err
+		return err
 	}
 	deadline := time.Now().Add(startTimeout)
 	tick := time.NewTicker(50 * time.Millisecond)
 	defer tick.Stop()
 	for !a.localRunning(ctx) {
 		if time.Now().After(deadline) {
-			return false, newError("server_not_running",
+			return newError("server_not_running",
 				fmt.Sprintf("The local server didn't start within %s.", startTimeout),
 				"Look at the server log at "+p.serverLog()+" for the reason.")
 		}
 		select {
 		case <-ctx.Done():
-			return false, fmt.Errorf("wait for the local server: %w", ctx.Err())
+			return fmt.Errorf("wait for the local server: %w", ctx.Err())
 		case <-tick.C:
 		}
 	}
-	return true, nil
+	return nil
 }
 
 // startLocal runs "aboard serve" as a detached process that outlives this command,
@@ -132,14 +143,20 @@ func runServe(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	b := currentBuild()
 	err = server.Run(ctx, server.Options{
 		Addr:           a.localAddr(),
 		DataDir:        p.data,
 		OwnerName:      owner,
 		OwnerTokenPath: p.ownerToken(),
-		Version:        version,
+		Version:        b.Version,
+		Commit:         b.Commit,
+		CommitTime:     b.CommitTime,
 		Log:            slog.New(slog.NewJSONHandler(a.env.Stderr, nil)),
 	})
+	if errors.Is(err, sqlite.ErrNewerSchema) {
+		return dataNewer(p.data, err)
+	}
 	if err != nil {
 		return &Error{
 			Code: "server_not_running", Message: "The local server stopped: " + err.Error(),

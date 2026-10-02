@@ -42,9 +42,34 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "session_env": {
+      "description": "Variables set in the environment of every command the agent runs in a session, by the harness or by Aboard's hooks. A command that sees one runs inside a session, so it refuses human actions such as changing the delivery mode.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "skills_dir": {
       "description": "Where aboard init puts the Aboard skill, under the home directory.",
       "type": "string"
+    },
+    "project": {
+      "description": "Where aboard init --scope project puts the skill and hooks, under the project directory. Hooks still run the installed aboard binary by absolute path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skills_dir", "hooks_file"],
+      "properties": {
+        "skills_dir": { "type": "string" },
+        "hooks_file": { "type": "string" }
+      }
+    },
+    "allow_commands": {
+      "description": "How aboard init --allow-commands lets the agent run aboard commands without a permission prompt, in the harness's own permission format.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule"],
+      "properties": {
+        "rule": { "type": "string", "description": "The allow rule, exactly as written." },
+        "file": { "type": "string", "description": "The file that holds only this rule, relative to the harness's folder in each scope. Without it, the rule goes in the hooks file." }
+      }
     },
     "interactive": {
       "description": "Starting an interactive session, for a terminal launcher such as tmux.",

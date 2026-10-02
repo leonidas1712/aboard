@@ -124,28 +124,82 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 
 // Reading is a page of messages for one reader.
 type Reading struct {
-	Board     Board
-	Reader    Member
-	Messages  []Message
-	NextAfter *int64
+	Board    Board
+	Reader   Member
+	Messages []Message
+	// NextAfter and PrevBefore are set when more matching messages come after or before
+	// the page; Inbox leaves PrevBefore unset.
+	NextAfter  *int64
+	PrevBefore *int64
 }
 
-// Timeline returns the messages the caller may see after seq. It never moves a cursor.
-func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, after int64, limit int) (Reading, error) {
+// TimelineFilter narrows a timeline read. Zero values don't filter.
+type TimelineFilter struct {
+	// After and Before bound the seq window, exclusive at both ends.
+	After, Before int64
+	// Newest fills the page from the newest matching messages instead of the oldest.
+	Newest bool
+	Limit  int
+	// From is the sender's member name, without @.
+	From string
+	// Role is the sender's role.
+	Role string
+	// ToMe keeps messages addressed to the caller that it didn't send.
+	ToMe bool
+}
+
+// Timeline returns a page of the messages the caller may see that match f, oldest
+// first. It never moves a read position.
+func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f TimelineFilter) (Reading, error) {
 	var r Reading
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
+		q := TimelineQuery{After: f.After, Before: f.Before, Newest: f.Newest, Limit: f.Limit, SenderRole: f.Role, ToMe: f.ToMe}
+		if f.From != "" {
+			sender, err := tx.MemberByName(b.ID, f.From)
+			if errors.Is(err, ErrNotFound) {
+				return apierr.New(http.StatusNotFound, "member_not_found", fmt.Sprintf("No one on this board is called %q.", f.From),
+					"Check the name; aboard read shows who is posting here.")
+			}
+			if err != nil {
+				return err
+			}
+			q.FromID = sender.ID
+		}
+		if _, ok := b.Roles[f.Role]; f.Role != "" && !ok {
+			// A filter naming a missing role asks for something that isn't there, so
+			// it is not found rather than a bad request body.
+			e := roleNotFound(f.Role)
+			e.Status = http.StatusNotFound
+			return e
+		}
 		readAll := b.Policy.Visibility == rules.VisibilityOpen || me.Kind == "human"
-		msgs, err := tx.Timeline(b.ID, me, readAll, after, limit)
+		msgs, err := tx.Timeline(b.ID, me, readAll, q)
 		if err != nil {
 			return err
 		}
 		r = Reading{Board: b, Reader: me, Messages: msgs}
-		if len(msgs) == limit {
-			r.NextAfter = ptr(msgs[len(msgs)-1].Seq)
+		if len(msgs) == 0 {
+			return nil
+		}
+		// More messages are looked for outside the requested window, so a reader
+		// can always page on from either end.
+		first, last := msgs[0].Seq, msgs[len(msgs)-1].Seq
+		probe := q
+		probe.After, probe.Before, probe.Newest, probe.Limit = last, 0, false, 1
+		if more, err := tx.Timeline(b.ID, me, readAll, probe); err != nil {
+			return err
+		} else if len(more) > 0 {
+			r.NextAfter = ptr(last)
+		}
+		probe.After, probe.Before = 0, first
+		if more, err := tx.Timeline(b.ID, me, readAll, probe); err != nil {
+			return err
+		} else if len(more) > 0 {
+			r.PrevBefore = ptr(first)
 		}
 		return nil
 	})

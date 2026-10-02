@@ -103,7 +103,9 @@ const (
 	BoardNameTaken      ErrorErrorCode = "board_name_taken"
 	BoardNotFound       ErrorErrorCode = "board_not_found"
 	BroadcastNotAllowed ErrorErrorCode = "broadcast_not_allowed"
+	BrowserReadOnly     ErrorErrorCode = "browser_read_only"
 	Forbidden           ErrorErrorCode = "forbidden"
+	HostNotAllowed      ErrorErrorCode = "host_not_allowed"
 	HumanTokenRequired  ErrorErrorCode = "human_token_required"
 	IdempotencyConflict ErrorErrorCode = "idempotency_conflict"
 	Internal            ErrorErrorCode = "internal"
@@ -111,6 +113,7 @@ const (
 	InvalidTarget       ErrorErrorCode = "invalid_target"
 	JoinCodeInvalid     ErrorErrorCode = "join_code_invalid"
 	JoinCodeNotFound    ErrorErrorCode = "join_code_not_found"
+	LoginCodeInvalid    ErrorErrorCode = "login_code_invalid"
 	MemberNotFound      ErrorErrorCode = "member_not_found"
 	MessageNotFound     ErrorErrorCode = "message_not_found"
 	MessageTooLarge     ErrorErrorCode = "message_too_large"
@@ -138,7 +141,11 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case BroadcastNotAllowed:
 		return true
+	case BrowserReadOnly:
+		return true
 	case Forbidden:
+		return true
+	case HostNotAllowed:
 		return true
 	case HumanTokenRequired:
 		return true
@@ -153,6 +160,8 @@ func (e ErrorErrorCode) Valid() bool {
 	case JoinCodeInvalid:
 		return true
 	case JoinCodeNotFound:
+		return true
+	case LoginCodeInvalid:
 		return true
 	case MemberNotFound:
 		return true
@@ -671,6 +680,22 @@ type BoardPolicyChangedEventDataPresetApplied string
 // BoardPolicyChangedEventType defines model for BoardPolicyChangedEvent.Type.
 type BoardPolicyChangedEventType string
 
+// BrowserToken defines model for BrowserToken.
+type BrowserToken struct {
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// Token A read-only bearer token. Send it as `Authorization: Bearer <token>`.
+	//
+	// Example: abb_r4Kd8Wq2Zx7Lm1Np5Tv9Bc3Hf6Jy0Gs2Ae8Uo4Ri7Xw
+	Token string `json:"token"`
+}
+
+// BrowserTokenRequest defines model for BrowserTokenRequest.
+type BrowserTokenRequest struct {
+	// Code A one-time code from `POST /v1/login-codes`.
+	Code string `json:"code"`
+}
+
 // CreateBoardRequest defines model for CreateBoardRequest.
 type CreateBoardRequest struct {
 	// Charter Overrides the template's charter.
@@ -882,6 +907,15 @@ type JoinResult struct {
 	Token string `json:"token"`
 }
 
+// LoginCode defines model for LoginCode.
+type LoginCode struct {
+	// Code Exchange it once at `POST /v1/browser-tokens` before it expires.
+	//
+	// Example: abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl
+	Code      string    `json:"code"`
+	ExpiresAt Timestamp `json:"expires_at"`
+}
+
 // Member defines model for Member.
 type Member struct {
 	// Board Example: writer-reviewer
@@ -1001,8 +1035,13 @@ type MessagePage struct {
 	Board    BoardName `json:"board"`
 	Messages []Message `json:"messages"`
 
-	// NextAfter Pass as `after` for the next page; null when at the head.
+	// NextAfter Pass as `after`, with the same filters, to read the matching messages after this
+	// page. Null when no matching message comes after it.
 	NextAfter *int `json:"next_after"`
+
+	// PrevBefore Pass as `before` with `newest=true`, and the same filters, to read the matching
+	// messages before this page. Null when no matching message comes before it.
+	PrevBefore *int `json:"prev_before"`
 }
 
 // MessagePostedEvent defines model for MessagePostedEvent.
@@ -1160,11 +1199,21 @@ type Seq = int
 
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {
-	Mode     ServerInfoMode `json:"mode"`
-	Name     ServerInfoName `json:"name"`
-	ServerId string         `json:"server_id"`
+	// Commit The Git commit the server was built from, when known.
+	//
+	// Example: 881a92f4c3d1e0b2a7f6e5d4c3b2a1f0e9d8c7b6
+	Commit *string `json:"commit,omitempty"`
 
-	// Version Example: 0.1.0
+	// CommitTime When that commit was made, when known. Between two builds with the same
+	// `version`, the one with the later `commit_time` is newer.
+	CommitTime *time.Time     `json:"commit_time,omitempty"`
+	Mode       ServerInfoMode `json:"mode"`
+	Name       ServerInfoName `json:"name"`
+	ServerId   string         `json:"server_id"`
+
+	// Version The server's release version, compared as a semantic version.
+	//
+	// Example: 0.1.0
 	Version string `json:"version"`
 }
 
@@ -1190,8 +1239,14 @@ type UpdateBoardRequest struct {
 // After defines model for After.
 type After = int
 
+// Before defines model for Before.
+type Before = int
+
 // BoardParam Example: writer-reviewer
 type BoardParam = BoardName
+
+// From defines model for From.
+type From = string
 
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
@@ -1201,6 +1256,15 @@ type Limit = int
 
 // MessageParam defines model for MessageParam.
 type MessageParam = string
+
+// Newest defines model for Newest.
+type Newest = bool
+
+// SenderRole defines model for SenderRole.
+type SenderRole = string
+
+// ToMe defines model for ToMe.
+type ToMe = bool
 
 // CreateBoardParams defines parameters for CreateBoard.
 type CreateBoardParams struct {
@@ -1233,6 +1297,21 @@ type RevokeJoinCodeParams struct {
 type ListMessagesParams struct {
 	// After Return items with `seq` greater than this.
 	After *After `form:"after,omitempty" json:"after,omitempty"`
+
+	// Before Return items with `seq` less than this.
+	Before *Before `form:"before,omitempty" json:"before,omitempty"`
+
+	// Newest Fill the page from the newest matching items instead of the oldest. Items are still listed oldest first.
+	Newest *Newest `form:"newest,omitempty" json:"newest,omitempty"`
+
+	// From Only messages sent by the member with this name (without `@`).
+	From *From `form:"from,omitempty" json:"from,omitempty"`
+
+	// Role Only messages sent by members with this role.
+	Role *SenderRole `form:"role,omitempty" json:"role,omitempty"`
+
+	// ToMe Only messages addressed to the caller (to all, to its role, or to it by name) that it didn't send.
+	ToMe  *ToMe  `form:"to_me,omitempty" json:"to_me,omitempty"`
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
@@ -1243,6 +1322,11 @@ type PostMessageParams struct {
 
 // JoinParams defines parameters for Join.
 type JoinParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CreateLoginCodeParams defines parameters for CreateLoginCode.
+type CreateLoginCodeParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -1285,6 +1369,9 @@ type CreateJoinCodeJSONRequestBody = CreateJoinCodeRequest
 
 // PostMessageJSONRequestBody defines body for PostMessage for application/json ContentType.
 type PostMessageJSONRequestBody = PostMessageRequest
+
+// CreateBrowserTokenJSONRequestBody defines body for CreateBrowserToken for application/json ContentType.
+type CreateBrowserTokenJSONRequestBody = BrowserTokenRequest
 
 // JoinJSONRequestBody defines body for Join for application/json ContentType.
 type JoinJSONRequestBody = JoinRequest
@@ -1767,7 +1854,18 @@ type ClientInterface interface {
 
 	// ListMessages Read the board timeline
 	//
-	// Messages the caller may see under the board's visibility, oldest first. Never moves a read cursor.
+	// Messages the caller may see under the board's visibility, listed oldest first.
+	// Reading never moves a read position; only acknowledging the inbox does.
+	//
+	// Filters narrow the messages that match: `from` (the sender's name), `role` (the
+	// sender's role), `to_me` (addressed to the caller: to all, to its role or to it by
+	// name, and not sent by it), and a window of sequence numbers (`after`, `before`).
+	// By default the page holds the oldest `limit` matching messages; with
+	// `newest=true` it holds the newest, still listed oldest first. Page forward with
+	// `next_after` and back with `prev_before`.
+	//
+	// An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
+	// `role_not_found`.
 	//
 	// Corresponds with GET /v1/boards/{board}/messages (the `ListMessages` operationId).
 	ListMessages(ctx context.Context, board BoardParam, params *ListMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1808,7 +1906,52 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
 	PostMessage(ctx context.Context, board BoardParam, params *PostMessageParams, body PostMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateBrowserTokenWithBody Exchange a one-time code for a browser token
+	//
+	// No token needed: the code is the proof. Exchanges a code from
+	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+	// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+	// browsers never send to a server, calls this, and keeps the token in its own
+	// storage, which browsers keep separate per origin, port included.
+	//
+	// A browser token starts with `abb_` and is read-only: it works on every GET,
+	// including `GET /v1/stream`, and any other method sent with it gets 403
+	// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+	// whichever comes first; the server keeps only its digest, in memory. A code that is
+	// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+	// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a token.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	CreateBrowserTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBrowserToken Exchange a one-time code for a browser token
+	//
+	// No token needed: the code is the proof. Exchanges a code from
+	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+	// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+	// browsers never send to a server, calls this, and keeps the token in its own
+	// storage, which browsers keep separate per origin, port included.
+	//
+	// A browser token starts with `abb_` and is read-only: it works on every GET,
+	// including `GET /v1/stream`, and any other method sent with it gets 403
+	// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+	// whichever comes first; the server keeps only its digest, in memory. A code that is
+	// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+	// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a token.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	CreateBrowserToken(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetInfo Identify the server
+	//
+	// Returns the server's name, build and identity. A client uses the build to tell a
+	// server from an older aboard apart from a broken one.
 	//
 	// Corresponds with GET /v1/info (the `GetInfo` operationId).
 	GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1844,6 +1987,19 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/join (the `Join` operationId).
 	Join(ctx context.Context, params *JoinParams, body JoinJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLoginCode Get a one-time code that logs a browser in
+	//
+	// Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
+	// exchanges for a browser token. The code works once, for 60 seconds. The server
+	// keeps only a digest of it, in memory, and never writes it to the event log or keeps
+	// the response for `Idempotency-Key` repeats: each call makes a new code. `aboard open`
+	// uses this to open the web UI already logged in, without putting the human's token
+	// in a URL. An agent token gets 403 `human_token_required`, a browser token 403
+	// `browser_read_only`.
+	//
+	// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
+	CreateLoginCode(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetInbox Unread messages addressed to this agent
 	//
@@ -2118,7 +2274,18 @@ func (c *Client) ListMembers(ctx context.Context, board BoardParam, reqEditors .
 
 // ListMessages Read the board timeline
 //
-// Messages the caller may see under the board's visibility, oldest first. Never moves a read cursor.
+// Messages the caller may see under the board's visibility, listed oldest first.
+// Reading never moves a read position; only acknowledging the inbox does.
+//
+// Filters narrow the messages that match: `from` (the sender's name), `role` (the
+// sender's role), `to_me` (addressed to the caller: to all, to its role or to it by
+// name, and not sent by it), and a window of sequence numbers (`after`, `before`).
+// By default the page holds the oldest `limit` matching messages; with
+// `newest=true` it holds the newest, still listed oldest first. Page forward with
+// `next_after` and back with `prev_before`.
+//
+// An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
+// `role_not_found`.
 //
 // Corresponds with GET /v1/boards/{board}/messages (the `ListMessages` operationId).
 func (c *Client) ListMessages(ctx context.Context, board BoardParam, params *ListMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2189,7 +2356,72 @@ func (c *Client) PostMessage(ctx context.Context, board BoardParam, params *Post
 	return c.Client.Do(req)
 }
 
+// CreateBrowserTokenWithBody Exchange a one-time code for a browser token
+//
+// No token needed: the code is the proof. Exchanges a code from
+// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+// browsers never send to a server, calls this, and keeps the token in its own
+// storage, which browsers keep separate per origin, port included.
+//
+// A browser token starts with `abb_` and is read-only: it works on every GET,
+// including `GET /v1/stream`, and any other method sent with it gets 403
+// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+// whichever comes first; the server keeps only its digest, in memory. A code that is
+// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a token.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+func (c *Client) CreateBrowserTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBrowserTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateBrowserToken Exchange a one-time code for a browser token
+//
+// No token needed: the code is the proof. Exchanges a code from
+// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+// browsers never send to a server, calls this, and keeps the token in its own
+// storage, which browsers keep separate per origin, port included.
+//
+// A browser token starts with `abb_` and is read-only: it works on every GET,
+// including `GET /v1/stream`, and any other method sent with it gets 403
+// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+// whichever comes first; the server keeps only its digest, in memory. A code that is
+// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a token.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+func (c *Client) CreateBrowserToken(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBrowserTokenRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetInfo Identify the server
+//
+// Returns the server's name, build and identity. A client uses the build to tell a
+// server from an older aboard apart from a broken one.
 //
 // Corresponds with GET /v1/info (the `GetInfo` operationId).
 func (c *Client) GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2246,6 +2478,29 @@ func (c *Client) JoinWithBody(ctx context.Context, params *JoinParams, contentTy
 // Corresponds with POST /v1/join (the `Join` operationId).
 func (c *Client) Join(ctx context.Context, params *JoinParams, body JoinJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewJoinRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateLoginCode Get a one-time code that logs a browser in
+//
+// Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
+// exchanges for a browser token. The code works once, for 60 seconds. The server
+// keeps only a digest of it, in memory, and never writes it to the event log or keeps
+// the response for `Idempotency-Key` repeats: each call makes a new code. `aboard open`
+// uses this to open the web UI already logged in, without putting the human's token
+// in a URL. An agent token gets 403 `human_token_required`, a browser token 403
+// `browser_read_only`.
+//
+// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
+func (c *Client) CreateLoginCode(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLoginCodeRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2834,6 +3089,66 @@ func NewListMessagesRequest(server string, board BoardParam, params *ListMessage
 
 		}
 
+		if params.Before != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "before", *params.Before, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Newest != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "newest", *params.Newest, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.From != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", *params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Role != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "role", *params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ToMe != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to_me", *params.ToMe, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -2922,6 +3237,46 @@ func NewPostMessageRequestWithBody(server string, board BoardParam, params *Post
 	return req, nil
 }
 
+// NewCreateBrowserTokenRequest calls the generic CreateBrowserToken builder with application/json body
+func NewCreateBrowserTokenRequest(server string, body CreateBrowserTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBrowserTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateBrowserTokenRequestWithBody constructs an http.Request for the CreateBrowserToken method, with any body, and a specified content type
+func NewCreateBrowserTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser-tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetInfoRequest constructs an http.Request for the GetInfo method
 func NewGetInfoRequest(server string) (*http.Request, error) {
 	var err error
@@ -2985,6 +3340,48 @@ func NewJoinRequestWithBody(server string, params *JoinParams, contentType strin
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCreateLoginCodeRequest constructs an http.Request for the CreateLoginCode method
+func NewCreateLoginCodeRequest(server string, params *CreateLoginCodeParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/login-codes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -3419,7 +3816,18 @@ type ClientWithResponsesInterface interface {
 
 	// ListMessagesWithResponse Read the board timeline
 	//
-	// Messages the caller may see under the board's visibility, oldest first. Never moves a read cursor.
+	// Messages the caller may see under the board's visibility, listed oldest first.
+	// Reading never moves a read position; only acknowledging the inbox does.
+	//
+	// Filters narrow the messages that match: `from` (the sender's name), `role` (the
+	// sender's role), `to_me` (addressed to the caller: to all, to its role or to it by
+	// name, and not sent by it), and a window of sequence numbers (`after`, `before`).
+	// By default the page holds the oldest `limit` matching messages; with
+	// `newest=true` it holds the newest, still listed oldest first. Page forward with
+	// `next_after` and back with `prev_before`.
+	//
+	// An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
+	// `role_not_found`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3462,7 +3870,52 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
 	PostMessageWithResponse(ctx context.Context, board BoardParam, params *PostMessageParams, body PostMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMessageResponse, error)
 
+	// CreateBrowserTokenWithBodyWithResponse Exchange a one-time code for a browser token
+	//
+	// No token needed: the code is the proof. Exchanges a code from
+	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+	// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+	// browsers never send to a server, calls this, and keeps the token in its own
+	// storage, which browsers keep separate per origin, port included.
+	//
+	// A browser token starts with `abb_` and is read-only: it works on every GET,
+	// including `GET /v1/stream`, and any other method sent with it gets 403
+	// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+	// whichever comes first; the server keeps only its digest, in memory. A code that is
+	// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+	// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a token.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	CreateBrowserTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error)
+
+	// CreateBrowserTokenWithResponse Exchange a one-time code for a browser token
+	//
+	// No token needed: the code is the proof. Exchanges a code from
+	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+	// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+	// browsers never send to a server, calls this, and keeps the token in its own
+	// storage, which browsers keep separate per origin, port included.
+	//
+	// A browser token starts with `abb_` and is read-only: it works on every GET,
+	// including `GET /v1/stream`, and any other method sent with it gets 403
+	// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+	// whichever comes first; the server keeps only its digest, in memory. A code that is
+	// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+	// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a token.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	CreateBrowserTokenWithResponse(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error)
+
 	// GetInfoWithResponse Identify the server
+	//
+	// Returns the server's name, build and identity. A client uses the build to tell a
+	// server from an older aboard apart from a broken one.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3500,6 +3953,21 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/join (the `Join` operationId).
 	JoinWithResponse(ctx context.Context, params *JoinParams, body JoinJSONRequestBody, reqEditors ...RequestEditorFn) (*JoinResponse, error)
+
+	// CreateLoginCodeWithResponse Get a one-time code that logs a browser in
+	//
+	// Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
+	// exchanges for a browser token. The code works once, for 60 seconds. The server
+	// keeps only a digest of it, in memory, and never writes it to the event log or keeps
+	// the response for `Idempotency-Key` repeats: each call makes a new code. `aboard open`
+	// uses this to open the web UI already logged in, without putting the human's token
+	// in a URL. An agent token gets 403 `human_token_required`, a browser token 403
+	// `browser_read_only`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
+	CreateLoginCodeWithResponse(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*CreateLoginCodeResponse, error)
 
 	// GetInboxWithResponse Unread messages addressed to this agent
 	//
@@ -4213,6 +4681,61 @@ func (r PostMessageResponse) ContentType() string {
 	return ""
 }
 
+type CreateBrowserTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BrowserToken
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateBrowserTokenResponse) GetJSON201() *BrowserToken {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateBrowserTokenResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateBrowserTokenResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateBrowserTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBrowserTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBrowserTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateBrowserTokenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4338,6 +4861,61 @@ func (r JoinResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r JoinResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateLoginCodeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *LoginCode
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateLoginCodeResponse) GetJSON201() *LoginCode {
+	return r.JSON201
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CreateLoginCodeResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateLoginCodeResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateLoginCodeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLoginCodeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLoginCodeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateLoginCodeResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4809,7 +5387,18 @@ func (c *ClientWithResponses) ListMembersWithResponse(ctx context.Context, board
 
 // ListMessagesWithResponse Read the board timeline
 //
-// Messages the caller may see under the board's visibility, oldest first. Never moves a read cursor.
+// Messages the caller may see under the board's visibility, listed oldest first.
+// Reading never moves a read position; only acknowledging the inbox does.
+//
+// Filters narrow the messages that match: `from` (the sender's name), `role` (the
+// sender's role), `to_me` (addressed to the caller: to all, to its role or to it by
+// name, and not sent by it), and a window of sequence numbers (`after`, `before`).
+// By default the page holds the oldest `limit` matching messages; with
+// `newest=true` it holds the newest, still listed oldest first. Page forward with
+// `next_after` and back with `prev_before`.
+//
+// An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
+// `role_not_found`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -4870,7 +5459,64 @@ func (c *ClientWithResponses) PostMessageWithResponse(ctx context.Context, board
 	return ParsePostMessageResponse(rsp)
 }
 
+// CreateBrowserTokenWithBodyWithResponse Exchange a one-time code for a browser token
+//
+// No token needed: the code is the proof. Exchanges a code from
+// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+// browsers never send to a server, calls this, and keeps the token in its own
+// storage, which browsers keep separate per origin, port included.
+//
+// A browser token starts with `abb_` and is read-only: it works on every GET,
+// including `GET /v1/stream`, and any other method sent with it gets 403
+// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+// whichever comes first; the server keeps only its digest, in memory. A code that is
+// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a token.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+func (c *ClientWithResponses) CreateBrowserTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error) {
+	rsp, err := c.CreateBrowserTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBrowserTokenResponse(rsp)
+}
+
+// CreateBrowserTokenWithResponse Exchange a one-time code for a browser token
+//
+// No token needed: the code is the proof. Exchanges a code from
+// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+// code. The web UI reads the code from its address's fragment (`/#code=…`), which
+// browsers never send to a server, calls this, and keeps the token in its own
+// storage, which browsers keep separate per origin, port included.
+//
+// A browser token starts with `abb_` and is read-only: it works on every GET,
+// including `GET /v1/stream`, and any other method sent with it gets 403
+// `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+// whichever comes first; the server keeps only its digest, in memory. A code that is
+// wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+// once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a token.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+func (c *ClientWithResponses) CreateBrowserTokenWithResponse(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error) {
+	rsp, err := c.CreateBrowserToken(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBrowserTokenResponse(rsp)
+}
+
 // GetInfoWithResponse Identify the server
+//
+// Returns the server's name, build and identity. A client uses the build to tell a
+// server from an older aboard apart from a broken one.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -4925,6 +5571,27 @@ func (c *ClientWithResponses) JoinWithResponse(ctx context.Context, params *Join
 		return nil, err
 	}
 	return ParseJoinResponse(rsp)
+}
+
+// CreateLoginCodeWithResponse Get a one-time code that logs a browser in
+//
+// Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
+// exchanges for a browser token. The code works once, for 60 seconds. The server
+// keeps only a digest of it, in memory, and never writes it to the event log or keeps
+// the response for `Idempotency-Key` repeats: each call makes a new code. `aboard open`
+// uses this to open the web UI already logged in, without putting the human's token
+// in a URL. An agent token gets 403 `human_token_required`, a browser token 403
+// `browser_read_only`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
+func (c *ClientWithResponses) CreateLoginCodeWithResponse(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*CreateLoginCodeResponse, error) {
+	rsp, err := c.CreateLoginCode(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLoginCodeResponse(rsp)
 }
 
 // GetInboxWithResponse Unread messages addressed to this agent
@@ -5520,6 +6187,46 @@ func ParsePostMessageResponse(rsp *http.Response) (*PostMessageResponse, error) 
 	return response, nil
 }
 
+// ParseCreateBrowserTokenResponse parses an HTTP response from a CreateBrowserTokenWithResponse call
+func ParseCreateBrowserTokenResponse(rsp *http.Response) (*CreateBrowserTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBrowserTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BrowserToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetInfoResponse parses an HTTP response from a GetInfoWithResponse call
 func ParseGetInfoResponse(rsp *http.Response) (*GetInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5622,6 +6329,46 @@ func ParseJoinResponse(rsp *http.Response) (*JoinResponse, error) {
 			headers.RetryAfter = &value
 		}
 		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCreateLoginCodeResponse parses an HTTP response from a CreateLoginCodeWithResponse call
+func ParseCreateLoginCodeResponse(rsp *http.Response) (*CreateLoginCodeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLoginCodeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest LoginCode
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -5876,12 +6623,18 @@ type ServerInterface interface {
 	// PostMessage Post a message
 	// (POST /v1/boards/{board}/messages)
 	PostMessage(w http.ResponseWriter, r *http.Request, board BoardParam, params PostMessageParams)
+	// CreateBrowserToken Exchange a one-time code for a browser token
+	// (POST /v1/browser-tokens)
+	CreateBrowserToken(w http.ResponseWriter, r *http.Request)
 	// GetInfo Identify the server
 	// (GET /v1/info)
 	GetInfo(w http.ResponseWriter, r *http.Request)
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(w http.ResponseWriter, r *http.Request, params JoinParams)
+	// CreateLoginCode Get a one-time code that logs a browser in
+	// (POST /v1/login-codes)
+	CreateLoginCode(w http.ResponseWriter, r *http.Request, params CreateLoginCodeParams)
 	// GetInbox Unread messages addressed to this agent
 	// (GET /v1/me/inbox)
 	GetInbox(w http.ResponseWriter, r *http.Request, params GetInboxParams)
@@ -6260,6 +7013,71 @@ func (siw *ServerInterfaceWrapper) ListMessages(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "newest" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "newest", r.URL.Query(), &params.Newest, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "newest"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "newest", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role", r.URL.Query(), &params.Role, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to_me" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to_me", r.URL.Query(), &params.ToMe, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to_me"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to_me", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -6334,6 +7152,20 @@ func (siw *ServerInterfaceWrapper) PostMessage(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// CreateBrowserToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateBrowserToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBrowserToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetInfo(w http.ResponseWriter, r *http.Request) {
 
@@ -6380,6 +7212,47 @@ func (siw *ServerInterfaceWrapper) Join(w http.ResponseWriter, r *http.Request) 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Join(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateLoginCode operation middleware
+func (siw *ServerInterfaceWrapper) CreateLoginCode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateLoginCodeParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateLoginCode(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6705,6 +7578,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/info", wrapper.GetInfo)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/login-codes", wrapper.CreateLoginCode)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/browser-tokens", wrapper.CreateBrowserToken)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards", wrapper.ListBoards)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards", wrapper.CreateBoard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}", wrapper.GetBoard)
@@ -7395,6 +8270,56 @@ func (response PostMessage429JSONResponse) VisitPostMessageResponse(w http.Respo
 	return err
 }
 
+type CreateBrowserTokenRequestObject struct {
+	Body *CreateBrowserTokenJSONRequestBody
+}
+
+type CreateBrowserTokenResponseObject interface {
+	VisitCreateBrowserTokenResponse(w http.ResponseWriter) error
+}
+
+type CreateBrowserToken201JSONResponse BrowserToken
+
+func (response CreateBrowserToken201JSONResponse) VisitCreateBrowserTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrowserToken400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateBrowserToken400JSONResponse) VisitCreateBrowserTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrowserToken404JSONResponse Error
+
+func (response CreateBrowserToken404JSONResponse) VisitCreateBrowserTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetInfoRequestObject struct {
 }
 
@@ -7529,6 +8454,56 @@ func (response Join429JSONResponse) VisitJoinResponse(w http.ResponseWriter) err
 		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
 	}
 	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLoginCodeRequestObject struct {
+	Params CreateLoginCodeParams
+}
+
+type CreateLoginCodeResponseObject interface {
+	VisitCreateLoginCodeResponse(w http.ResponseWriter) error
+}
+
+type CreateLoginCode201JSONResponse LoginCode
+
+func (response CreateLoginCode201JSONResponse) VisitCreateLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLoginCode401JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateLoginCode401JSONResponse) VisitCreateLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLoginCode403JSONResponse Error
+
+func (response CreateLoginCode403JSONResponse) VisitCreateLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7890,12 +8865,18 @@ type StrictServerInterface interface {
 	// PostMessage Post a message
 	// (POST /v1/boards/{board}/messages)
 	PostMessage(ctx context.Context, request PostMessageRequestObject) (PostMessageResponseObject, error)
+	// CreateBrowserToken Exchange a one-time code for a browser token
+	// (POST /v1/browser-tokens)
+	CreateBrowserToken(ctx context.Context, request CreateBrowserTokenRequestObject) (CreateBrowserTokenResponseObject, error)
 	// GetInfo Identify the server
 	// (GET /v1/info)
 	GetInfo(ctx context.Context, request GetInfoRequestObject) (GetInfoResponseObject, error)
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(ctx context.Context, request JoinRequestObject) (JoinResponseObject, error)
+	// CreateLoginCode Get a one-time code that logs a browser in
+	// (POST /v1/login-codes)
+	CreateLoginCode(ctx context.Context, request CreateLoginCodeRequestObject) (CreateLoginCodeResponseObject, error)
 	// GetInbox Unread messages addressed to this agent
 	// (GET /v1/me/inbox)
 	GetInbox(ctx context.Context, request GetInboxRequestObject) (GetInboxResponseObject, error)
@@ -8245,6 +9226,37 @@ func (sh *strictHandler) PostMessage(w http.ResponseWriter, r *http.Request, boa
 	}
 }
 
+// CreateBrowserToken operation middleware
+func (sh *strictHandler) CreateBrowserToken(w http.ResponseWriter, r *http.Request) {
+	var request CreateBrowserTokenRequestObject
+
+	var body CreateBrowserTokenJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBrowserToken(ctx, request.(CreateBrowserTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBrowserToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateBrowserTokenResponseObject); ok {
+		if err := validResponse.VisitCreateBrowserTokenResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetInfo operation middleware
 func (sh *strictHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	var request GetInfoRequestObject
@@ -8295,6 +9307,32 @@ func (sh *strictHandler) Join(w http.ResponseWriter, r *http.Request, params Joi
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(JoinResponseObject); ok {
 		if err := validResponse.VisitJoinResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateLoginCode operation middleware
+func (sh *strictHandler) CreateLoginCode(w http.ResponseWriter, r *http.Request, params CreateLoginCodeParams) {
+	var request CreateLoginCodeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateLoginCode(ctx, request.(CreateLoginCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateLoginCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateLoginCodeResponseObject); ok {
+		if err := validResponse.VisitCreateLoginCodeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8443,127 +9481,159 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"AP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

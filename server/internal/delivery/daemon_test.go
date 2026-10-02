@@ -356,6 +356,64 @@ func TestQueueingHarnessGathersMessagesAndConfirmsOnAcceptance(t *testing.T) {
 	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == second })
 }
 
+func (r *rig) setMode(agent delivery.AgentRef, mode delivery.Mode) delivery.Response {
+	r.t.Helper()
+	return r.ok(delivery.Request{Op: delivery.OpMode, Agent: &agent, Mode: mode})
+}
+
+// A delivery mode is kept across restarts, and an agent nobody set is auto.
+func TestDeliveryModeIsKeptAcrossRestarts(t *testing.T) {
+	r := newRig(t)
+	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeAuto || got.Changed {
+		t.Fatalf("default mode: %+v", got)
+	}
+	if got := r.setMode(reviewer, delivery.ModeHumans); got.Mode != delivery.ModeHumans || !got.Changed {
+		t.Fatalf("set humans: %+v", got)
+	}
+	r.restart()
+	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeHumans {
+		t.Fatalf("after a restart: %+v", got)
+	}
+	if got := r.setMode(planner, ""); got.Mode != delivery.ModeAuto {
+		t.Fatalf("another agent: %+v", got)
+	}
+	if resp := r.call(delivery.Request{Op: delivery.OpMode, Agent: &reviewer, Mode: "sometimes"}); resp.Error == nil {
+		t.Fatal("an unknown mode was accepted")
+	}
+}
+
+// The default mode, set on the empty AgentRef, applies to every agent without its own.
+func TestDefaultDeliveryModeAppliesToAgentsWithoutTheirOwn(t *testing.T) {
+	r := newRig(t)
+	r.setMode(reviewer, delivery.ModeHumans)
+	if got := r.setMode(delivery.AgentRef{}, delivery.ModeOff); got.Mode != delivery.ModeOff || !got.Changed {
+		t.Fatalf("set the default: %+v", got)
+	}
+	r.restart()
+	if got := r.setMode(planner, ""); got.Mode != delivery.ModeOff {
+		t.Fatalf("an agent without its own mode: %+v", got)
+	}
+	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeHumans {
+		t.Fatalf("an agent with its own mode: %+v", got)
+	}
+}
+
+// In humans mode a queueing harness gets a bundle only once a person writes, and that
+// bundle carries the peer message that waited.
+func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
+	r := newRig(t)
+	r.setMode(reviewer, delivery.ModeHumans)
+	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.post(reviewer, "peer note", false)
+	person := r.server.Post(reviewer, delivery.Message{Body: "from alex", FromName: "alex", FromHuman: true, Trust: "owner"})
+	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
+	got := r.codex.Handed("t1")
+	if len(got) != 1 || !strings.Contains(got[0], `count="2"`) || strings.Index(got[0], "peer note") > strings.Index(got[0], "from alex") {
+		t.Fatalf("want one bundle with both messages, oldest first, got %q", got)
+	}
+	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == person })
+}
+
 // While a Codex turn runs (between its prompt and stop hooks), urgent messages are kept
 // out of Codex's queue, where they would wait for the turn to end, and go to the next
 // tool hook instead. Ordinary messages still go to the queue.

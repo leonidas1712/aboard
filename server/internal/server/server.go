@@ -3,6 +3,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -26,6 +27,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/notify"
 	"github.com/leonidas1712/aboard/server/internal/rules"
 	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
+	"github.com/leonidas1712/aboard/web"
 )
 
 // DefaultLocalAddr is where the local server listens unless told otherwise.
@@ -43,9 +45,12 @@ type Options struct {
 	// time it starts.
 	OwnerTokenPath string
 	Version        string
-	Log            *slog.Logger
-	Clock          clock.Clock
-	Rand           io.Reader
+	// Commit and CommitTime name the Git commit the server was built from, when known.
+	Commit     string
+	CommitTime time.Time
+	Log        *slog.Logger
+	Clock      clock.Clock
+	Rand       io.Reader
 }
 
 // JoinHost is how join lines name a local server at addr: "localhost", with the port
@@ -98,24 +103,31 @@ func Run(ctx context.Context, o Options) error {
 	// waits for active requests, and a stream never finishes on its own.
 	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
 	defer startShutdown()
-	handler, err := api.NewHandler(api.Options{
-		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, JoinsPerMinute: 30,
-		Shutdown: shutdown,
-	})
-	if err != nil {
-		return err
-	}
-
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", o.Addr, err)
 	}
+	handler, err := api.NewHandler(api.Options{
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30,
+		Shutdown: shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
+	})
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
 	pidFile := filepath.Join(o.DataDir, "server.pid")
-	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
+	pid := []byte(strconv.Itoa(os.Getpid()) + "\n")
+	if err := os.WriteFile(pidFile, pid, 0o600); err != nil {
 		_ = ln.Close()
 		return fmt.Errorf("write pid file: %w", err)
 	}
-	defer func() { _ = os.Remove(pidFile) }() // best effort; a stale pid file is harmless
+	// Best effort; a stale pid file is harmless. Only our own: once the listener closes,
+	// aboard up may start a new server, which writes its pid before this one exits.
+	defer func() {
+		if b, err := os.ReadFile(pidFile); err == nil && bytes.Equal(b, pid) { //nolint:gosec // our own data directory
+			_ = os.Remove(pidFile)
+		}
+	}()
 
 	srv := &http.Server{
 		Handler:           handler,

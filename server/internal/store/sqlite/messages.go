@@ -3,6 +3,7 @@ package sqlite
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
@@ -66,12 +67,36 @@ func targetsOf(reader board.Member) (name, role string) {
 	return name, role
 }
 
-// Timeline returns messages after seq that reader may see, oldest first. When readAll is
-// true (open visibility, or a human reader) that is every message.
-func (t *tx) Timeline(boardID string, reader board.Member, readAll bool, after int64, limit int) ([]board.Message, error) {
+// Timeline returns messages that reader may see and that match q, oldest first. When
+// readAll is true (open visibility, or a human reader) reader may see every message.
+func (t *tx) Timeline(boardID string, reader board.Member, readAll bool, q board.TimelineQuery) ([]board.Message, error) {
 	name, role := targetsOf(reader)
-	return t.queryMessages("m.board_id = ? AND m.seq > ? AND (? OR m.sender_id = ? OR "+addressedTo+") ORDER BY m.seq LIMIT ?",
-		boardID, after, readAll, reader.ID, name, role, limit)
+	where := []string{"m.board_id = ?", "m.seq > ?"}
+	args := []any{boardID, q.After}
+	if q.Before > 0 {
+		where, args = append(where, "m.seq < ?"), append(args, q.Before)
+	}
+	if !readAll {
+		where, args = append(where, "(m.sender_id = ? OR "+addressedTo+")"), append(args, reader.ID, name, role)
+	}
+	if q.FromID != "" {
+		where, args = append(where, "m.sender_id = ?"), append(args, q.FromID)
+	}
+	if q.SenderRole != "" {
+		where, args = append(where, "s.role = ?"), append(args, q.SenderRole)
+	}
+	if q.ToMe {
+		where, args = append(where, "m.sender_id <> ? AND "+addressedTo), append(args, reader.ID, name, role)
+	}
+	order := "m.seq"
+	if q.Newest {
+		order = "m.seq DESC"
+	}
+	ms, err := t.queryMessages(strings.Join(where, " AND ")+" ORDER BY "+order+" LIMIT ?", append(args, q.Limit)...)
+	if q.Newest {
+		slices.Reverse(ms)
+	}
+	return ms, err
 }
 
 // Inbox returns messages after the reader's cursor that are addressed to it and that it
