@@ -286,6 +286,9 @@ Why: memory-only logins need no new table and end with the server; the port limi
 Why: a cookie goes to every port on the host and is attached by the browser on its own; a token the page sends itself reaches only Aboard, which removes the port leak and any need for a CSRF defence when the UI gains writes.
 Settled while building it: the exchange is `POST /v1/browser-tokens` with `{code}` and no token; browser tokens start with `abb_`; a wrong, expired or used code is 404 `login_code_invalid`. The link is `/#code=…&board=NAME`, and the page moves to `/?board=NAME`. `POST /v1/login-codes` and `POST /v1/browser-tokens` ignore `Idempotency-Key`: a saved response would put the code or token on disk, against keeping them in memory only.
 
+**D90. The live proofs are an automated suite, `make live`, that an agent or a person runs with one command. It is a Go test package (`e2e/live`, build tag `live`) that drives real Claude Code and Codex in tmux: each proof is one test, set up through `aboard init --scope project` in a scratch project with isolated Aboard state, with checksums proving the real harness config is unchanged. Tests decide pass or fail from the board (messages, delivery state, `aboard doctor`), never from parsing a model's prose; the tmux panes are saved for diagnosis. A harness that isn't installed or logged in is skipped, not failed. It spends real model turns, so it is not part of `make check`; it runs before each release, after any change to delivery, setup or upgrades, and on demand. New live checks are new test functions on shared helpers. `e2e/live/PROOFS.md` becomes the index of what the suite proves and how to run it.**
+Why: checking delivery against real harnesses by hand doesn't scale and depends on one person; a suite that Claude Code itself can run turns every release check into a command.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,
