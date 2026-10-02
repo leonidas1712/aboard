@@ -41,6 +41,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"RevokeJoinCodeKeepsFirstTime", revokeJoinCodeKeepsFirstTime},
 		{"TimelineReadAllReturnsEveryMessage", timelineReadAllReturnsEveryMessage},
 		{"TimelineAddressedReturnsOnlyVisibleMessages", timelineAddressedReturnsOnlyVisibleMessages},
+		{"TimelineFiltersAndWindows", timelineFiltersAndWindows},
 		{"InboxSkipsOwnAndAlreadyReadMessages", inboxSkipsOwnAndAlreadyReadMessages},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},
@@ -744,14 +745,14 @@ func messageSeqs(ms []board.Message) []int64 {
 func timelineReadAllReturnsEveryMessage(t *testing.T, st board.Store) {
 	c := newConversation(t, st)
 	read(t, st, func(tx board.ReadTx) error {
-		got, err := tx.Timeline("brd_docs", c.reviewer, true, 0, 10)
+		got, err := tx.Timeline("brd_docs", c.reviewer, true, board.TimelineQuery{Limit: 10})
 		if err != nil {
 			return err
 		}
 		if !reflect.DeepEqual(got, c.messages) {
 			t.Errorf("Timeline(readAll) = %+v,\nwant %+v", got, c.messages)
 		}
-		page, err := tx.Timeline("brd_docs", c.reviewer, true, 1, 2)
+		page, err := tx.Timeline("brd_docs", c.reviewer, true, board.TimelineQuery{After: 1, Limit: 2})
 		if err != nil {
 			return err
 		}
@@ -776,12 +777,51 @@ func timelineAddressedReturnsOnlyVisibleMessages(t *testing.T, st board.Store) {
 	}
 	read(t, st, func(tx board.ReadTx) error {
 		for _, tt := range tests {
-			got, err := tx.Timeline("brd_docs", tt.reader, false, 0, 10)
+			got, err := tx.Timeline("brd_docs", tt.reader, false, board.TimelineQuery{Limit: 10})
 			if err != nil {
 				return err
 			}
 			if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, tt.want) {
 				t.Errorf("Timeline for %s seqs = %v, want %v", tt.reader.Name, seqs, tt.want)
+			}
+		}
+		return nil
+	})
+}
+
+func timelineFiltersAndWindows(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	tests := []struct {
+		name    string
+		reader  board.Member
+		readAll bool
+		q       board.TimelineQuery
+		want    []int64
+	}{
+		{"before", c.reviewer, true, board.TimelineQuery{Before: 4, Limit: 10}, []int64{1, 2, 3}},
+		{"after and before", c.reviewer, true, board.TimelineQuery{After: 1, Before: 5, Limit: 10}, []int64{2, 3, 4}},
+		{"oldest first by default", c.reviewer, true, board.TimelineQuery{Limit: 2}, []int64{1, 2}},
+		{"newest, still oldest first", c.reviewer, true, board.TimelineQuery{Newest: true, Limit: 2}, []int64{4, 5}},
+		{"newest before", c.reviewer, true, board.TimelineQuery{Newest: true, Before: 5, Limit: 2}, []int64{3, 4}},
+		{"from a member", c.reviewer, true, board.TimelineQuery{FromID: c.alex.ID, Limit: 10}, []int64{1, 4}},
+		{"from a role", c.reviewer, true, board.TimelineQuery{SenderRole: "reviewer", Limit: 10}, []int64{5}},
+		// to all, to @reviewer, to role:reviewer; not its own message.
+		{"to me", c.reviewer, true, board.TimelineQuery{ToMe: true, Limit: 10}, []int64{1, 2, 4}},
+		{"to me, another reader", c.writer, true, board.TimelineQuery{ToMe: true, Limit: 10}, []int64{1, 3}},
+		{"to me under addressed visibility", c.other, false, board.TimelineQuery{ToMe: true, Limit: 10}, []int64{1, 5}},
+		// Filters never widen what the reader may see: writer's message 2 is to @reviewer.
+		{"from, visible", c.reviewer, false, board.TimelineQuery{FromID: c.writer.ID, Limit: 10}, []int64{2}},
+		{"from, hidden", c.other, false, board.TimelineQuery{FromID: c.writer.ID, Limit: 10}, []int64{}},
+		{"filters combine", c.reviewer, true, board.TimelineQuery{FromID: c.alex.ID, After: 1, Limit: 10}, []int64{4}},
+	}
+	read(t, st, func(tx board.ReadTx) error {
+		for _, tt := range tests {
+			got, err := tx.Timeline("brd_docs", tt.reader, tt.readAll, tt.q)
+			if err != nil {
+				return err
+			}
+			if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, tt.want) {
+				t.Errorf("%s: Timeline for %s seqs = %v, want %v", tt.name, tt.reader.Name, seqs, tt.want)
 			}
 		}
 		return nil

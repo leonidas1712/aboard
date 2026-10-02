@@ -183,15 +183,33 @@ func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject
 }
 
 func (h *handlers) ListMessages(ctx context.Context, req ListMessagesRequestObject) (ListMessagesResponseObject, error) {
-	r, err := h.svc.Timeline(ctx, principal(ctx), req.Board, afterOr(req.Params.After), limitOr(req.Params.Limit))
+	q := req.Params
+	f := board.TimelineFilter{After: afterOr(q.After), Limit: limitOr(q.Limit)}
+	if q.Before != nil {
+		f.Before = int64(*q.Before)
+	}
+	if q.Newest != nil {
+		f.Newest = *q.Newest
+	}
+	if q.From != nil {
+		f.From = *q.From
+	}
+	if q.Role != nil {
+		f.Role = *q.Role
+	}
+	if q.ToMe != nil {
+		f.ToMe = *q.ToMe
+	}
+	r, err := h.svc.Timeline(ctx, principal(ctx), req.Board, f)
 	if err != nil {
 		return nil, err
 	}
 	return convert[ListMessages200JSONResponse](struct {
-		Board     string        `json:"board"`
-		Messages  []wireMessage `json:"messages"`
-		NextAfter *int64        `json:"next_after"`
-	}{r.Board.Name, messagesOf(r), r.NextAfter})
+		Board      string        `json:"board"`
+		Messages   []wireMessage `json:"messages"`
+		NextAfter  *int64        `json:"next_after"`
+		PrevBefore *int64        `json:"prev_before"`
+	}{r.Board.Name, messagesOf(r), r.NextAfter, r.PrevBefore})
 }
 
 func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (GetInboxResponseObject, error) {

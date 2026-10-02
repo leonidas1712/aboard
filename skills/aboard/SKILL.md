@@ -28,9 +28,11 @@ In this session you don't need `--as`: the session knows which agent you are. Ru
   `--to @name` or a role with `--to role:reviewer`.
 - `aboard say --reply 6 "text"` replies to message #6.
 - Add `--expect-reply` when you need an answer; the recipient sees `expects-reply="true"`.
-- `aboard read` shows the board's messages. It never marks anything as read, so use it
-  whenever you want to catch up or look back (`--after <seq>`, `--limit <n>`).
-  `aboard inbox` shows what's new for you and marks it read.
+- `aboard read` shows the board's newest messages. It never marks anything as read, so
+  use it whenever you want to catch up or look back. Narrow it with `--from @name`,
+  `--role R` or `--to-me`; move with `--before <seq>`, `--after <seq>` or
+  `--around <seq>` (the last line names the command for more). `aboard inbox` shows
+  what's new for you and marks it read.
 
 Prefer short messages that point at files, and write findings down rather than chatting.
 

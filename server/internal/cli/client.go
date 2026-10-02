@@ -89,15 +89,8 @@ func (c *client) board(ctx context.Context, name string) (*api.Board, error) {
 }
 
 // messages returns a page of a board's timeline.
-func (c *client) messages(ctx context.Context, board string, after, limit int) (*api.MessagePage, error) {
-	params := &api.ListMessagesParams{}
-	if after > 0 {
-		params.After = &after
-	}
-	if limit > 0 {
-		params.Limit = &limit
-	}
-	r, err := c.api.ListMessagesWithResponse(ctx, board, params)
+func (c *client) messages(ctx context.Context, board string, params api.ListMessagesParams) (*api.MessagePage, error) {
+	r, err := c.api.ListMessagesWithResponse(ctx, board, &params)
 	if err != nil {
 		return nil, c.unreachable(err)
 	}

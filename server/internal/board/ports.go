@@ -45,10 +45,10 @@ type ReadTx interface {
 	JoinCodeByID(id string) (JoinCode, error)
 	// Events returns up to limit of a board's events after seq, oldest first.
 	Events(boardID string, after int64, limit int) ([]events.Event, error)
-	// Timeline returns up to limit messages after seq that reader may see, oldest first:
-	// every message when readAll is true, otherwise those it sent or that are addressed
-	// to all, to it by name or to its role.
-	Timeline(boardID string, reader Member, readAll bool, after int64, limit int) ([]Message, error)
+	// Timeline returns up to q.Limit of the board's messages that reader may see and that
+	// match q, oldest first. Reader may see every message when readAll is true, otherwise
+	// those it sent or that are addressed to all, to it by name or to its role.
+	Timeline(boardID string, reader Member, readAll bool, q TimelineQuery) ([]Message, error)
 	// Inbox returns up to limit messages after the reader's cursor that are addressed to
 	// it and that it didn't send, oldest first.
 	Inbox(reader Member, limit int) ([]Message, error)
@@ -56,6 +56,22 @@ type ReadTx interface {
 	MessageByID(id string) (Message, error)
 	// MessagesBySeq returns the board's messages among seqs, keyed by seq.
 	MessagesBySeq(boardID string, seqs []int64) (map[int64]Message, error)
+}
+
+// TimelineQuery says which messages Timeline returns. Zero values don't filter.
+type TimelineQuery struct {
+	// After and Before bound the seq window, exclusive at both ends.
+	After, Before int64
+	// Newest fills the page from the newest matching messages instead of the oldest.
+	Newest bool
+	Limit  int
+	// FromID keeps messages sent by this member.
+	FromID string
+	// SenderRole keeps messages sent by members with this role.
+	SenderRole string
+	// ToMe keeps messages addressed to the reader (all, its role or @its name) that it
+	// didn't send.
+	ToMe bool
 }
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.

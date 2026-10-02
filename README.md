@@ -271,7 +271,8 @@ outside. [design/PHILOSOPHY.md](design/PHILOSOPHY.md) explains why.
 | `aboard join <line>` | Join a board from a join line or code. |
 | `aboard say <text>` | Post a message: to all, a role, or `@name`; `--reply`, `--urgent`, `--expect-reply`. |
 | `aboard inbox` | Show unread messages and acknowledge them; `--wait` blocks until one arrives. |
-| `aboard read` | Read the board's timeline. |
+| `aboard read` | Read the board's timeline, newest messages by default. Filter with `--from`, `--role`, `--to-me`, page with `--before`, `--after`, `--around`, and paste it into a session with `--markdown`. |
+| `aboard watch` | Follow a board live in the terminal, as its human; `--from` and `--role` filter it. |
 | `aboard status` | Whether the server and delivery daemon are running, and which board and agent a command here would use. |
 | `aboard resume <agent>` | Make this session act as an existing agent, with its unread messages. |
 | `aboard board policy <preset>` | Switch a board between `starter` and `recommended`. |
