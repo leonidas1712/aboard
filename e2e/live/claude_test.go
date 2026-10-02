@@ -115,11 +115,13 @@ func TestUrgentReachesBusyClaude(t *testing.T) {
 	t.Parallel()
 	l := newLab(t)
 	l.pairCLI()
-	writer := l.startClaude("writer", l.project("project", "claude-code"))
+	proj := l.project("project", "claude-code")
+	writeSlowTask(t, proj, 25)
+	writer := l.startClaude("writer", proj)
 	writer.bind("writer")
 
-	writer.submit("Run the shell command `sleep 25` in the foreground, not as a background task. Then run `sleep 1`. Then reply DONE.")
-	l.waitFor(2*time.Minute, "the writer session to run sleep 25", func() bool { return pgrep("sleep 25") })
+	writer.submit("Run `./" + slowTask + "` in the foreground, not as a background task, and wait for it. Then reply DONE.")
+	l.waitFor(2*time.Minute, "the writer session to run the slow task", func() bool { return pgrep("sleep 25") })
 	sent := time.Now()
 	l.say("reviewer", "--to", "@writer", "--urgent", `URGENT: run aboard say "URGENT-ACK" right away, then carry on with your task.`)
 	l.say("reviewer", "--to", "@writer", "ORD 1 of 3: no action needed.")
@@ -332,19 +334,22 @@ func TestKilledSessionRedelivers(t *testing.T) {
 	l := newLab(t)
 	l.pairCLI()
 	proj := l.project("project", "claude-code")
+	writeSlowTask(t, proj, 23)
 	first := l.startClaude("first", proj)
 	first.bind("writer")
 	open := l.openSessions()
 
 	job := l.say("reviewer", "--to", "@writer",
-		"Run the shell command `sleep 23` in the foreground, not as a background task, then run: aboard say \"KILLTEST-DONE\".")
-	l.waitFor(2*time.Minute, "the woken session to run sleep 23", func() bool { return pgrep("sleep 23") })
+		"Run `./"+slowTask+"` in the foreground, not as a background task, and wait for it. Then run: aboard say \"KILLTEST-DONE\".")
+	l.waitFor(2*time.Minute, "the woken session to run the slow task", func() bool { return pgrep("sleep 23") })
 	if err := syscall.Kill(first.pid(), syscall.SIGKILL); err != nil {
 		t.Fatal(err)
 	}
 	killed := time.Now()
 	l.waitFor(15*time.Second, "the daemon to close the killed session", func() bool { return l.openSessions() == open-1 })
 	t.Logf("measured: the daemon closed the killed session %s after the kill", time.Since(killed))
+	// The daemon looks for gone harness processes every 5 seconds; the extra second is
+	// this poll and the status command.
 	if d := time.Since(killed); d > 6*time.Second {
 		t.Errorf("the daemon closed the killed session after %s; want within 5 seconds", d)
 	}
@@ -381,7 +386,8 @@ func TestRestartsLoseNothing(t *testing.T) {
 		return pid != 0 && pid != oldDaemon && syscall.Kill(pid, 0) == nil
 	})
 	ping := l.say("reviewer", "--to", "@writer", "--expect-reply", "Reply to this message with exactly PONG-1.")
-	l.waitMessage("writer", ping.At, "PONG-1", 3*time.Minute)
+	reply := l.waitMessage("writer", ping.At, "PONG-1", 3*time.Minute)
+	t.Logf("measured: after the daemon restart, answered %s after posting", reply.At.Sub(ping.At))
 	writer.waitIdle(2 * time.Minute)
 
 	server := l.serverPID()
@@ -391,5 +397,6 @@ func TestRestartsLoseNothing(t *testing.T) {
 	l.waitFor(15*time.Second, "the local server to stop", func() bool { return syscall.Kill(server, 0) != nil })
 	l.run("up")
 	ping = l.say("reviewer", "--to", "@writer", "--expect-reply", "Reply to this message with exactly PONG-2.")
-	l.waitMessage("writer", ping.At, "PONG-2", 3*time.Minute)
+	reply = l.waitMessage("writer", ping.At, "PONG-2", 3*time.Minute)
+	t.Logf("measured: after the server restart, answered %s after posting", reply.At.Sub(ping.At))
 }

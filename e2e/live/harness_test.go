@@ -103,8 +103,8 @@ func (l *lab) startClaude(name, dir string) *pane {
 		l.trustInClaude(dir)
 		env = append(env, "CLAUDE_CONFIG_DIR="+l.claudeConfig)
 	}
-	// sleep is how tests keep a turn busy; aboard itself is allowed by aboard init.
-	argv := []string{"claude", "--allowedTools", "Bash(sleep *)"}
+	// The slow task is how tests keep a turn busy; aboard itself is allowed by aboard init.
+	argv := []string{"claude", "--allowedTools", "Bash(./" + slowTask + ")"}
 	if model := os.Getenv("LIVE_CLAUDE_MODEL"); model != "" {
 		argv = append(argv, "--model", model)
 	}
@@ -277,14 +277,28 @@ func (p *pane) waitIdle(timeout time.Duration) {
 // bindPrompt is every harness session's first prompt: it takes over an agent made in
 // the person's terminal and says how to treat messages, so each test message can ask
 // for one checkable action.
-const bindPrompt = "Run `aboard resume %s`. After that, whenever an Aboard message arrives, do exactly what it asks " +
-	"with the aboard command and nothing else, then stop. Now reply only OK."
+const bindPrompt = "Run `aboard resume %s`. After that, whenever an Aboard message arrives, do exactly what it asks, " +
+	"including any command it names, and nothing more, then stop. Now reply only OK."
 
 // bind makes the session act as agent, and waits for that turn to end.
 func (p *pane) bind(agent string) {
 	p.l.t.Helper()
 	p.submit(fmt.Sprintf(bindPrompt, agent))
 	p.waitIdle(3 * time.Minute)
+}
+
+// slowTask is a script tests put in a project to keep a turn busy. Claude Code refuses
+// a long sleep run on its own in the foreground, so the sleep is in a script.
+const slowTask = "slow-task.sh"
+
+// writeSlowTask puts a slow task that takes seconds into dir. While it runs, a process
+// "sleep <seconds>" shows it.
+func writeSlowTask(t *testing.T, dir string, seconds int) {
+	t.Helper()
+	script := fmt.Sprintf("#!/bin/sh\nsleep %d\necho finished\n", seconds)
+	if err := os.WriteFile(filepath.Join(dir, slowTask), []byte(script), 0o700); err != nil { //nolint:gosec // the task must be executable
+		t.Fatal(err)
+	}
 }
 
 // joinLine matches the line aboard pair prints for the other session.
