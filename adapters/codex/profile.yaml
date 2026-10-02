@@ -15,6 +15,18 @@ session_env: [CODEX_THREAD_ID]
 
 skills_dir: .agents/skills
 
+# Codex finds skills in the project's .agents/skills, and reads the project's .codex
+# folder (hooks.json, rules/) only once the person trusts the project.
+project:
+  skills_dir: .agents/skills
+  hooks_file: .codex/hooks.json
+
+# A rules file in the rules folder next to each config layer, $CODEX_HOME or the
+# project's .codex. Codex runs a command every rule allows outside its sandbox.
+allow_commands:
+  rule: prefix_rule(pattern=["aboard"], decision="allow")
+  file: rules/aboard.rules
+
 interactive:
   start: [codex, "{prompt}"]
 

@@ -31,6 +31,9 @@ type Env struct {
 	Executable func() (string, error)
 	// Rand is the source of randomness for idempotency keys.
 	Rand io.Reader
+	// Terminal is true when standard input and output are a terminal, so a command may
+	// ask questions.
+	Terminal bool
 }
 
 // OSEnv returns the environment of the running process.
@@ -39,7 +42,16 @@ func OSEnv() Env {
 	if err != nil {
 		dir = "."
 	}
-	return Env{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir, Executable: os.Executable, Rand: rand.Reader}
+	return Env{
+		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir,
+		Executable: os.Executable, Rand: rand.Reader, Terminal: isTerminal(os.Stdin) && isTerminal(os.Stdout),
+	}
+}
+
+// isTerminal reports whether f is a character device, such as a terminal.
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 // app is one invocation of the aboard command.
@@ -69,7 +81,7 @@ func commands() []command {
 		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},
 		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
 		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},
-		{"init", "aboard init [--yes] [--json]", runInit},
+		{"init", "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]", runInit},
 		{"doctor", "aboard doctor [--json]", runDoctor},
 		{"version", "aboard version [--json]", runVersion},
 		{"serve", "aboard serve", runServe},

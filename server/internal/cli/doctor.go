@@ -171,16 +171,27 @@ func (a *app) checkClaudeHooks() doctorCheck {
 		return problem("claude_hooks", levelWarning, "claude_code_not_installed",
 			"claude-code: not installed", "install Claude Code, or ignore this if you don't use it")
 	}
-	path := filepath.Join(dir, "settings.json")
-	missing, err := hooksMissing(path, "claude-code", claudeHooks("aboard"))
+	scopes, files, err := a.installedScopes("claude-code", claudeHooks("aboard"))
+	if err == nil && len(scopes) > 0 {
+		return okCheck("claude_hooks", "claude-code: "+installedText(scopes, files))
+	}
+	missing, err2 := hooksMissing(a.setupFiles("claude-code", scopeGlobal).hooks, "claude-code", claudeHooks("aboard"))
 	switch {
-	case err != nil:
-		return problem("claude_hooks", levelError, "claude_hooks_missing", "claude-code: "+err.Error(), "fix the file, then run aboard init")
-	case len(missing) > 0:
+	case err != nil || err2 != nil:
+		return problem("claude_hooks", levelError, "claude_hooks_missing", "claude-code: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init")
+	default:
 		return problem("claude_hooks", levelError, "claude_hooks_missing",
 			"claude-code: hooks not installed ("+strings.Join(missing, ", ")+")", "run aboard init")
 	}
-	return okCheck("claude_hooks", "claude-code: hooks installed in "+path)
+}
+
+// installedText says where a harness's hooks are installed.
+func installedText(scopes, files []string) string {
+	parts := make([]string, len(scopes))
+	for i := range scopes {
+		parts[i] = scopeText(scopes[i]) + " (" + files[i] + ")"
+	}
+	return "hooks installed " + strings.Join(parts, " and ")
 }
 
 func (a *app) checkCodex(ctx context.Context) []doctorCheck {
@@ -201,21 +212,18 @@ func (a *app) checkCodex(ctx context.Context) []doctorCheck {
 			ver+": no queue command, so messages can't be delivered to Codex", "update Codex")}
 	}
 	checks := []doctorCheck{okCheck("codex", ver+": queue available")}
-	codexHome := a.env.Getenv("CODEX_HOME")
-	if !filepath.IsAbs(codexHome) {
-		codexHome = filepath.Join(a.env.Getenv("HOME"), ".codex")
+	scopes, files, err := a.installedScopes("codex", codexHooks("aboard"))
+	if err == nil && len(scopes) > 0 {
+		return append(checks, okCheck("codex_hooks", "codex: "+installedText(scopes, files)))
 	}
-	path := filepath.Join(codexHome, "hooks.json")
-	missing, err := hooksMissing(path, "codex", codexHooks("aboard"))
+	missing, err2 := hooksMissing(a.setupFiles("codex", scopeGlobal).hooks, "codex", codexHooks("aboard"))
 	switch {
-	case err != nil:
-		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing", "codex: "+err.Error(), "fix the file, then run aboard init"))
-	case len(missing) > 0:
+	case err != nil || err2 != nil:
+		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing", "codex: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
+	default:
 		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing",
 			"codex: hooks not installed ("+strings.Join(missing, ", ")+"), so urgent messages wait for the end of a turn",
 			"run aboard init"))
-	default:
-		checks = append(checks, okCheck("codex_hooks", "codex: hooks installed in "+path))
 	}
 	return checks
 }

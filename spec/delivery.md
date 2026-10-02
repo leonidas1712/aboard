@@ -205,7 +205,9 @@ answers its owner shouldn't be pulled into every exchange between peers, and som
 sessions shouldn't be woken at all.
 
 How Aboard does it: each agent has a delivery mode, kept by the daemon in its journal, per
-agent. An agent nobody set is `auto`.
+agent. An agent nobody set has the machine's default mode, kept in the journal under an
+empty agent (empty server, board and name) and set with `aboard init --delivery`; with no
+default set, it is `auto`.
 
 | Mode | What wakes the session | Urgent messages mid-turn |
 | --- | --- | --- |
@@ -369,6 +371,27 @@ files changes). `aboard init --yes` makes the changes; running it again changes 
 A harness counts as detected when its folder exists or its command is on the PATH. Both
 harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
 stays with the person.
+
+In a terminal, `aboard init` asks which harnesses, the scope, the delivery mode for agents
+without their own, and whether to allow `aboard` commands without a permission prompt,
+then shows the changes and asks before making them. Flags answer the same questions
+without asking (`--harness`, `--scope`, `--delivery`, `--allow-commands`, `--yes`).
+
+`--scope project` writes only under the working directory: `.claude/skills/aboard/` and
+`.claude/settings.local.json` (the project settings file meant for one machine) for
+Claude Code, and `.agents/skills/aboard/` and `.codex/hooks.json` for Codex. Codex reads a
+project's `.codex/` only once the person trusts the project. The hooks run the installed
+binary by absolute path in both scopes, and the server and daemon stay per user. Codex
+runs every hook it finds, so with the hooks in both scopes it runs each one twice;
+`aboard init` says so when the other scope already holds them.
+
+`--allow-commands` adds `Bash(aboard *)` to `permissions.allow` in the Claude Code
+settings file that holds the hooks, and writes `rules/aboard.rules` with
+`prefix_rule(pattern=["aboard"], decision="allow")` in `$CODEX_HOME` or the project's
+`.codex/`. Codex runs a command its rules allow outside its sandbox.
+
+`aboard status` shows where the hooks are installed on its Setup line, and `aboard doctor`
+accepts hooks in either scope and names the file.
 
 ## `aboard doctor`
 

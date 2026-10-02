@@ -1,7 +1,12 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -89,5 +94,106 @@ func TestShellWordQuotesOnlyWhenNeeded(t *testing.T) {
 	}
 	if !isAboardHook("'/Users/a b/bin/aboard' hook claude-code stop", "claude-code", "stop") {
 		t.Fatal("a quoted path isn't recognized as Aboard's hook")
+	}
+}
+
+// initEnv is a terminal in a fresh home directory with Claude Code and Codex installed,
+// in a project directory inside it, answering the questions with answers.
+func initEnv(t *testing.T, home, answers string) (Env, *strings.Builder, string) {
+	t.Helper()
+	project := filepath.Join(home, "project")
+	for _, d := range []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex"), project} {
+		if err := os.MkdirAll(d, 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := &strings.Builder{}
+	return Env{
+		Stdin: strings.NewReader(answers), Stdout: out, Stderr: out, Dir: project, Terminal: true,
+		Getenv:     func(k string) string { return map[string]string{"HOME": home}[k] },
+		Executable: func() (string, error) { return exe, nil },
+	}, out, project
+}
+
+// files lists every file under dir, relative to it.
+func files(t *testing.T, dir string) []string {
+	t.Helper()
+	var got []string
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			rel, _ := filepath.Rel(dir, p)
+			got = append(got, rel)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(got)
+	return got
+}
+
+// In a terminal, aboard init asks its questions, shows the changes and writes them only
+// once the person agrees; a project setup writes only under the project.
+func TestInitAsksThenWritesTheProjectSetup(t *testing.T) {
+	home := t.TempDir()
+	// Every harness, this project, the current delivery mode, allow commands, confirm.
+	env, out, project := initEnv(t, home, "\nproject\n\ny\ny\n")
+	if code := Run(context.Background(), []string{"init"}, env); code != exitOK {
+		t.Fatalf("exit %d\n%s", code, out)
+	}
+	for _, want := range []string{
+		"Set up which harnesses? claude-code, codex [all] ",
+		"Install everywhere, or only in this project (" + project + ")?",
+		"Let agents run aboard commands without a permission prompt? [y/N] ",
+		"create    ~/project/.claude/settings.local.json (hooks)",
+		"allow: Bash(aboard *)",
+		"create    ~/project/.codex/rules/aboard.rules (permissions)",
+		"Make these changes? [y/N] ",
+		"Done. ",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("output lacks %q:\n%s", want, out)
+		}
+	}
+	want := []string{
+		".agents/skills/aboard/SKILL.md", ".claude/settings.local.json", ".claude/skills/aboard/SKILL.md",
+		".codex/hooks.json", ".codex/rules/aboard.rules",
+	}
+	if got := files(t, project); !slices.Equal(got, want) {
+		t.Fatalf("project files %v, want %v", got, want)
+	}
+	if got := files(t, home); len(got) != len(want) {
+		t.Fatalf("files outside the project: %v", got)
+	}
+	settings, err := os.ReadFile(filepath.Clean(filepath.Join(project, ".claude", "settings.local.json")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{exe + " hook claude-code stop", `"Bash(aboard *)"`} {
+		if !strings.Contains(string(settings), want) {
+			t.Fatalf("settings lack %s:\n%s", want, settings)
+		}
+	}
+
+	// Given the same answers again, there is nothing to do.
+	env, out, _ = initEnv(t, home, "\nproject\n\ny\n")
+	if code := Run(context.Background(), []string{"init"}, env); code != exitOK || !strings.HasSuffix(out.String(), "Nothing to change.\n") {
+		t.Fatalf("exit %d\n%s", code, out)
+	}
+}
+
+// Declining the confirmation writes nothing.
+func TestInitWritesNothingWhenDeclined(t *testing.T) {
+	home := t.TempDir()
+	env, out, _ := initEnv(t, home, "\n\n\n\nn\n")
+	if code := Run(context.Background(), []string{"init"}, env); code != exitOK {
+		t.Fatalf("exit %d\n%s", code, out)
+	}
+	if !strings.Contains(out.String(), "create    ~/.claude/settings.json (hooks)") || !strings.HasSuffix(out.String(), "Nothing changed.\n") {
+		t.Fatalf("output:\n%s", out)
+	}
+	if got := files(t, home); len(got) != 0 {
+		t.Fatalf("declining wrote %v", got)
 	}
 }

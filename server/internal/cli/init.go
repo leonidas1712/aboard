@@ -1,19 +1,24 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 	skill "github.com/leonidas1712/aboard/skills/aboard"
 )
 
@@ -91,6 +96,8 @@ type harnessSetup struct {
 	Name     string       `json:"name"`
 	Detected bool         `json:"detected"`
 	Changes  []fileChange `json:"changes"`
+	// otherScope is set when the other scope already holds the harness's hooks.
+	otherScope bool
 }
 
 // fileChange is one file aboard init writes.
@@ -98,8 +105,10 @@ type fileChange struct {
 	Path   string `json:"path"`
 	Kind   string `json:"kind"`
 	Action string `json:"action"`
-	data   []byte
-	perm   os.FileMode
+	// Allow lists the allow rules for aboard the file holds, when they were asked for.
+	Allow []string `json:"allow,omitempty"`
+	data  []byte
+	perm  os.FileMode
 	// commands are the hook commands the file runs, shown in text output.
 	commands []string
 }
@@ -111,13 +120,25 @@ const (
 	actionUnchanged = "unchanged"
 )
 
-// runInit adds the Aboard skill and the delivery hooks to Claude Code and Codex. Without
-// --yes it only lists the changes.
-func runInit(_ context.Context, a *app, args []string) error {
-	const use = "aboard init [--yes] [--json]"
+// runInit adds the Aboard skill and the delivery hooks to Claude Code and Codex, for
+// every project or for this one. In a terminal it asks what to set up and confirms
+// before writing; otherwise it writes only with --yes and else lists the changes.
+func runInit(ctx context.Context, a *app, args []string) error {
+	const use = "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]"
 	flags := a.flags("init")
-	yes := flags.Bool("yes", false, "make the changes instead of listing them")
+	yes := flags.Bool("yes", false, "make the changes without asking")
+	scope := flags.String("scope", scopeGlobal, "global: every project (under your home directory); project: only this directory")
+	var harnesses listFlag
+	flags.Var(&harnesses, "harness", "the harnesses to set up, comma separated (default: every one found)")
+	mode := flags.String("delivery", "", "the delivery mode for agents on this machine without their own: auto, humans or off")
+	allow := flags.Bool("allow-commands", false, "let agents run aboard commands without a permission prompt")
 	if _, err := a.parse(flags, args, use, 0, 0); err != nil {
+		return err
+	}
+	set := map[string]bool{}
+	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	c := initChoices{scope: *scope, harnesses: harnesses, delivery: delivery.Mode(*mode), allow: *allow}
+	if err := a.checkInitChoices(c, use); err != nil {
 		return err
 	}
 	home := a.env.Getenv("HOME")
@@ -131,57 +152,169 @@ func runInit(_ context.Context, a *app, args []string) error {
 	if abs, err := filepath.Abs(exe); err == nil {
 		exe = abs
 	}
-	codexHome := a.env.Getenv("CODEX_HOME")
-	if !filepath.IsAbs(codexHome) {
-		codexHome = filepath.Join(home, ".codex")
+	known := []harnessSetup{
+		{Name: "claude-code", Detected: detected(filepath.Join(home, ".claude"), "claude")},
+		{Name: "codex", Detected: detected(a.codexHome(), "codex")},
 	}
-	claudeDir := filepath.Join(home, ".claude")
-	setups := []harnessSetup{
-		{Name: "claude-code", Detected: detected(claudeDir, "claude")},
-		{Name: "codex", Detected: detected(codexHome, "codex")},
-	}
-	plans := []struct {
-		skill string
-		hooks string
-		specs []hookSpec
-	}{
-		{filepath.Join(claudeDir, "skills", "aboard", "SKILL.md"), filepath.Join(claudeDir, "settings.json"), claudeHooks(exe)},
-		{filepath.Join(home, ".agents", "skills", "aboard", "SKILL.md"), filepath.Join(codexHome, "hooks.json"), codexHooks(exe)},
-	}
-	for i := range setups {
-		setups[i].Changes = []fileChange{}
-		if !setups[i].Detected {
-			continue
-		}
-		sk, err := skillChange(plans[i].skill)
-		if err != nil {
+	interactive := a.env.Terminal && !*yes && !a.json
+	current := delivery.ModeAuto
+	if interactive || c.delivery != "" {
+		// The empty AgentRef holds the mode of agents without their own.
+		if current, err = a.deliveryMode(ctx, delivery.AgentRef{}); err != nil {
 			return err
 		}
-		hk, err := hooksChange(plans[i].hooks, setups[i].Name, plans[i].specs)
-		if err != nil {
-			return err
-		}
-		setups[i].Changes = append(setups[i].Changes, sk, hk)
 	}
-	if *yes {
-		for _, s := range setups {
-			for _, c := range s.Changes {
-				if c.Action == actionUnchanged {
-					continue
-				}
-				if err := os.MkdirAll(filepath.Dir(c.Path), 0o750); err != nil {
-					return fmt.Errorf("create %s: %w", filepath.Dir(c.Path), err)
-				}
-				if err := writeFileAtomic(c.Path, c.data, c.perm); err != nil {
-					return err
-				}
+	p := &prompter{in: bufio.NewReader(a.env.Stdin), out: a.env.Stdout}
+	if interactive {
+		var found []string
+		for _, h := range known {
+			if h.Detected {
+				found = append(found, h.Name)
 			}
+		}
+		a.askInit(p, &c, found, set, current)
+		if err := a.checkInitChoices(c, use); err != nil {
+			return err
+		}
+	}
+
+	setups, err := a.planInit(c, known, exe)
+	if err != nil {
+		return err
+	}
+	var modeChange *initDelivery
+	if c.delivery != "" {
+		modeChange = &initDelivery{Mode: c.delivery, Action: actionUnchanged}
+		if c.delivery != current {
+			modeChange.Action = actionUpdate
+		}
+	}
+	apply := *yes
+	list, pending := initList(setups, modeChange, c, home)
+	if interactive {
+		_, _ = io.WriteString(a.env.Stdout, "\n"+list)
+		if pending == 0 {
+			_, _ = io.WriteString(a.env.Stdout, initEnding(c, 0, false))
+			return nil
+		}
+		if apply = p.yes("Make these changes?"); !apply {
+			_, _ = io.WriteString(a.env.Stdout, "Nothing changed.\n")
+			return nil
+		}
+		// The changes are already on screen; say only how it ended.
+		list = ""
+	}
+	if apply {
+		if err := a.applyInit(ctx, setups, modeChange); err != nil {
+			return err
 		}
 	}
 	a.emit(struct {
-		Applied   bool           `json:"applied"`
-		Harnesses []harnessSetup `json:"harnesses"`
-	}{*yes, setups}, initText(setups, *yes, home))
+		Applied       bool           `json:"applied"`
+		Scope         string         `json:"scope"`
+		Delivery      *initDelivery  `json:"delivery"`
+		AllowCommands bool           `json:"allow_commands"`
+		Harnesses     []harnessSetup `json:"harnesses"`
+	}{apply, c.scope, modeChange, c.allow, setups}, list+initEnding(c, pending, apply))
+	return nil
+}
+
+// initDelivery is the delivery mode aboard init sets for agents without their own.
+type initDelivery struct {
+	Mode   delivery.Mode `json:"mode"`
+	Action string        `json:"action"`
+}
+
+// checkInitChoices rejects choices aboard init can't act on.
+func (a *app) checkInitChoices(c initChoices, use string) error {
+	if c.scope != scopeGlobal && c.scope != scopeProject {
+		return usageError(fmt.Sprintf("%q is not a scope; use global or project.", c.scope), use)
+	}
+	if c.scope == scopeProject && a.env.Dir == a.env.Getenv("HOME") {
+		return newError("invalid_request", "This directory is your home directory, so a project setup would be the same as setting up everywhere.",
+			"Run aboard init in the project's directory, or use --scope global.")
+	}
+	for _, h := range c.harnesses {
+		if h != "claude-code" && h != "codex" {
+			return usageError(fmt.Sprintf("%q is not a harness aboard init sets up; use claude-code or codex.", h), use)
+		}
+	}
+	if c.delivery == "" {
+		return nil
+	}
+	if _, ok := delivery.ParseMode(string(c.delivery)); !ok {
+		return usageError(fmt.Sprintf("%q is not a delivery mode; use auto, humans or off.", c.delivery), use)
+	}
+	if harness, in := a.inSession(); in {
+		return newError("delivery_change_in_session",
+			"Changing the delivery mode is up to a person, and this command runs inside a "+harness+" session.",
+			"Run aboard init --delivery "+string(c.delivery)+" in a terminal outside any agent session.")
+	}
+	return nil
+}
+
+// planInit works out every file change for the chosen harnesses, without writing.
+func (a *app) planInit(c initChoices, known []harnessSetup, exe string) ([]harnessSetup, error) {
+	specs := map[string][]hookSpec{"claude-code": claudeHooks(exe), "codex": codexHooks(exe)}
+	setups := slices.Clone(known)
+	for i := range setups {
+		s := &setups[i]
+		s.Changes = []fileChange{}
+		if !s.Detected || (c.harnesses != nil && !slices.Contains(c.harnesses, s.Name)) {
+			continue
+		}
+		files := a.setupFiles(s.Name, c.scope)
+		sk, err := skillChange(files.skill)
+		if err != nil {
+			return nil, err
+		}
+		hk, err := hooksChange(files.hooks, s.Name, specs[s.Name])
+		if err != nil {
+			return nil, err
+		}
+		s.Changes = append(s.Changes, sk, hk)
+		if scopes, _, err := a.installedScopes(s.Name, specs[s.Name]); err == nil {
+			s.otherScope = slices.ContainsFunc(scopes, func(sc string) bool { return sc != c.scope })
+		}
+		if !c.allow {
+			continue
+		}
+		if s.Name == "claude-code" {
+			if err := allowSettings(&s.Changes[1]); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		rc, err := rulesChange(files.allow)
+		if err != nil {
+			return nil, err
+		}
+		s.Changes = append(s.Changes, rc)
+	}
+	return setups, nil
+}
+
+// applyInit writes the planned files and sets the delivery mode.
+func (a *app) applyInit(ctx context.Context, setups []harnessSetup, mode *initDelivery) error {
+	for _, s := range setups {
+		for _, c := range s.Changes {
+			if c.Action == actionUnchanged {
+				continue
+			}
+			if err := os.MkdirAll(filepath.Dir(c.Path), 0o750); err != nil {
+				return fmt.Errorf("create %s: %w", filepath.Dir(c.Path), err)
+			}
+			if err := writeFileAtomic(c.Path, c.data, c.perm); err != nil {
+				return err
+			}
+		}
+	}
+	if mode == nil || mode.Action == actionUnchanged {
+		return nil
+	}
+	if _, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpMode, Agent: &delivery.AgentRef{}, Mode: mode.Mode}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -335,7 +468,8 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 	return out, true, err
 }
 
-func initText(setups []harnessSetup, applied bool, home string) string {
+// initList lists the changes, one file per line, and returns how many are pending.
+func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home string) (list string, pending int) {
 	var b strings.Builder
 	short := func(p string) string {
 		if rel, err := filepath.Rel(home, p); err == nil && !strings.HasPrefix(rel, "..") {
@@ -343,31 +477,76 @@ func initText(setups []harnessSetup, applied bool, home string) string {
 		}
 		return p
 	}
-	pending := 0
 	for _, s := range setups {
 		if !s.Detected {
 			fmt.Fprintf(&b, "%s: not found on this machine\n", s.Name)
 			continue
 		}
-		fmt.Fprintf(&b, "%s:\n", s.Name)
-		for _, c := range s.Changes {
-			fmt.Fprintf(&b, "  %-9s %s (%s)\n", c.Action, short(c.Path), c.Kind)
-			if c.Action == actionUnchanged {
+		if len(s.Changes) == 0 {
+			fmt.Fprintf(&b, "%s: not chosen\n", s.Name)
+			continue
+		}
+		fmt.Fprintf(&b, "%s, %s:\n", s.Name, scopeText(c.scope))
+		if s.otherScope {
+			other := scopeGlobal
+			if c.scope == scopeGlobal {
+				other = scopeProject
+			}
+			fmt.Fprintf(&b, "  (its hooks are also set up %s; with both, it may run each hook twice)\n", scopeText(other))
+		}
+		for _, ch := range s.Changes {
+			fmt.Fprintf(&b, "  %-9s %s (%s)\n", ch.Action, short(ch.Path), ch.Kind)
+			if ch.Action == actionUnchanged {
 				continue
 			}
 			pending++
-			for _, cmd := range c.commands {
+			for _, cmd := range ch.commands {
 				fmt.Fprintf(&b, "            %s\n", cmd)
+			}
+			if ch.Kind == "permissions" {
+				b.WriteString("            (Codex runs the commands it allows outside its sandbox.)\n")
 			}
 		}
 	}
+	if mode != nil {
+		fmt.Fprintf(&b, "delivery for agents without their own mode: %s (%s)\n", mode.Mode, mode.Action)
+		if mode.Action != actionUnchanged {
+			pending++
+		}
+	}
+	return b.String(), pending
+}
+
+// initEnding says what happened, or what to run to make the changes.
+func initEnding(c initChoices, pending int, applied bool) string {
 	switch {
 	case pending == 0:
-		b.WriteString("Nothing to change.\n")
+		return "Nothing to change.\n"
 	case !applied:
-		b.WriteString("Run aboard init --yes to make these changes.\n")
-	default:
-		b.WriteString("Done. Claude Code and Codex ask you to trust new hooks before they run: review them in /hooks in each.\n")
+		return "Run " + initCommand(c) + " to make these changes.\n"
 	}
-	return b.String()
+	end := "Done. Claude Code and Codex ask you to trust new hooks before they run: review them in /hooks in each.\n"
+	if c.scope == scopeProject {
+		end += "Codex reads a project's .codex folder only once you trust the project.\n" +
+			"The hook files name this machine's aboard binary; keep them out of version control.\n"
+	}
+	return end
+}
+
+// initCommand is the aboard init command that makes the changes c describes.
+func initCommand(c initChoices) string {
+	cmd := "aboard init --yes"
+	if c.scope != scopeGlobal {
+		cmd += " --scope " + c.scope
+	}
+	if c.harnesses != nil {
+		cmd += " --harness " + strings.Join(c.harnesses, ",")
+	}
+	if c.delivery != "" {
+		cmd += " --delivery " + string(c.delivery)
+	}
+	if c.allow {
+		cmd += " --allow-commands"
+	}
+	return cmd
 }

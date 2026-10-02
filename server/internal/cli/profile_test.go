@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 )
 
 // Each harness profile matches the schema, lists exactly the hooks aboard init installs
-// for that harness, and lists the variables the CLI checks for its sandbox and sessions.
+// for that harness and the files it writes in each scope, and lists the variables the CLI checks for its sandbox and sessions.
 func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 	raw, err := os.ReadFile("../../../spec/harness-profile.schema.json")
 	if err != nil {
@@ -62,8 +63,18 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 				Name       string   `yaml:"name"`
 				SandboxEnv []string `yaml:"sandbox_env"`
 				SessionEnv []string `yaml:"session_env"`
-				Delivery   struct {
-					Hooks []struct {
+				SkillsDir  string   `yaml:"skills_dir"`
+				Project    struct {
+					SkillsDir string `yaml:"skills_dir"`
+					HooksFile string `yaml:"hooks_file"`
+				} `yaml:"project"`
+				AllowCommands struct {
+					Rule string `yaml:"rule"`
+					File string `yaml:"file"`
+				} `yaml:"allow_commands"`
+				Delivery struct {
+					HooksFile string `yaml:"hooks_file"`
+					Hooks     []struct {
 						Event string `yaml:"event"`
 						Run   string `yaml:"run"`
 					} `yaml:"hooks"`
@@ -86,6 +97,23 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 			slices.Sort(want)
 			if !slices.Equal(listed, want) {
 				t.Fatalf("profile hooks %v, aboard init installs %v", listed, want)
+			}
+
+			home, dir := filepath.FromSlash("/h"), filepath.FromSlash("/p")
+			a := &app{env: Env{Dir: dir, Getenv: func(k string) string { return map[string]string{"HOME": home}[k] }}}
+			global, project := a.setupFiles(harness, scopeGlobal), a.setupFiles(harness, scopeProject)
+			allow, rule := global.hooks, claudeAllowRule
+			if harness == "codex" {
+				allow, rule = filepath.Join(home, ".codex", p.AllowCommands.File), codexAllowRule
+			}
+			got := []string{global.skill, global.hooks, project.skill, project.hooks, global.allow, rule}
+			want = []string{
+				filepath.Join(home, p.SkillsDir, "aboard", "SKILL.md"), filepath.Join(home, p.Delivery.HooksFile),
+				filepath.Join(dir, p.Project.SkillsDir, "aboard", "SKILL.md"), filepath.Join(dir, p.Project.HooksFile),
+				allow, p.AllowCommands.Rule,
+			}
+			if !slices.Equal(got, want) {
+				t.Fatalf("aboard init writes %v, the profile says %v", got, want)
 			}
 
 			var markers []string

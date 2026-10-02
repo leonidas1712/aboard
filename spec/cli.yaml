@@ -336,16 +336,49 @@ $defs:
       board: { type: string }
       session: { type: string, examples: ["claude-code:5f1c…", "codex:01a0f6f6…"] }
 
-  # ---------- aboard init [--yes] ----------
+  # ---------- aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery MODE] [--allow-commands] ----------
   InitOutput:
     description: |
       Adds the Aboard skill to every detected harness, and the delivery hooks to Claude
       Code and Codex. Without --yes it only lists the changes it would make and exits 0
       with applied false; with --yes it makes them. Running it again changes nothing.
+
+      Run in a terminal (stdin and stdout are terminals) without --yes or --json, it asks
+      which harnesses, the scope, the delivery mode and whether to allow aboard commands,
+      skipping any question a flag answers; then it shows the changes and asks before
+      making them. Declining changes nothing and exits 0 with applied false.
+
+      --scope global (the default) writes under the home directory: ~/.claude/ for Claude
+      Code; ~/.agents/skills/ and $CODEX_HOME (~/.codex/) for Codex. --scope project
+      writes only under the working directory: .claude/skills/ and
+      .claude/settings.local.json for Claude Code; .agents/skills/ and .codex/ for Codex,
+      which reads a project's .codex/ only once the person trusts the project. Hooks
+      always run this machine's aboard binary by absolute path. The server and the
+      delivery daemon stay per user in both scopes.
+
+      --allow-commands adds an allow rule for the aboard command only: "Bash(aboard *)" in
+      permissions.allow of the Claude Code settings file that holds the hooks, and the
+      file rules/aboard.rules (prefix_rule(pattern=["aboard"], decision="allow")) in the
+      Codex folder of the scope. Codex runs allowed commands outside its sandbox.
+
+      --delivery sets the delivery mode of every agent on this machine that has none of
+      its own (see DeliveryOutput); it goes through the delivery daemon. Like aboard
+      delivery, it is refused with delivery_change_in_session inside a harness session.
+      Without --delivery (or an answer to the question) the mode is left alone.
     type: object
-    required: [applied, harnesses]
+    required: [applied, scope, delivery, allow_commands, harnesses]
     properties:
       applied: { type: boolean }
+      scope:
+        enum: [global, project]
+      delivery:
+        type: [object, "null"]
+        description: The delivery mode for agents without their own; null when not asked to set it.
+        required: [mode, action]
+        properties:
+          mode: { enum: [auto, humans, off] }
+          action: { enum: [update, unchanged] }
+      allow_commands: { type: boolean }
       harnesses:
         type: array
         items:
@@ -356,13 +389,20 @@ $defs:
             detected: { type: boolean }
             changes:
               type: array
+              description: One entry per file; empty for a harness not detected or not chosen.
               items:
                 type: object
                 required: [path, kind, action]
                 properties:
                   path: { type: string }
-                  kind: { enum: [skill, hooks] }
+                  kind:
+                    enum: [skill, hooks, permissions]
+                    description: "permissions: a file that holds only the allow rule (Codex)."
                   action: { enum: [create, update, unchanged] }
+                  allow:
+                    type: array
+                    items: { type: string }
+                    description: The allow rules the file holds for aboard, when --allow-commands was given.
 
   # ---------- aboard doctor ----------
   DoctorOutput:
@@ -432,18 +472,27 @@ $defs:
       Text output, one line each:
         Server: http://127.0.0.1:7400 running
         Daemon: running (pid 4182), 2 open sessions
+        Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as); delivery auto
         Policy: starter (a starting point; tighten with aboard board policy recommended)
       When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
       starts it" and "Daemon: not running; it starts when a session or command needs it".
-      A remote server is "reachable" or "unreachable". With no agent selected the Agent
+      With no hooks installed the Setup line is "Setup:  none; aboard init adds the skill
+      and hooks". A remote server is "reachable" or "unreachable". With no agent selected the Agent
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, board, board_source, agent, agent_source, delivery, agents, policy]
+    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      setup:
+        type: object
+        description: The harnesses whose Aboard hooks are all installed, in each scope (see InitOutput).
+        required: [global, project]
+        properties:
+          global: { type: array, items: { enum: [claude-code, codex] } }
+          project: { type: array, items: { enum: [claude-code, codex] } }
       server_running:
         type: boolean
         description: Whether the server answers.

@@ -382,6 +382,22 @@ func TestDeliveryModeIsKeptAcrossRestarts(t *testing.T) {
 	}
 }
 
+// The default mode, set on the empty AgentRef, applies to every agent without its own.
+func TestDefaultDeliveryModeAppliesToAgentsWithoutTheirOwn(t *testing.T) {
+	r := newRig(t)
+	r.setMode(reviewer, delivery.ModeHumans)
+	if got := r.setMode(delivery.AgentRef{}, delivery.ModeOff); got.Mode != delivery.ModeOff || !got.Changed {
+		t.Fatalf("set the default: %+v", got)
+	}
+	r.restart()
+	if got := r.setMode(planner, ""); got.Mode != delivery.ModeOff {
+		t.Fatalf("an agent without its own mode: %+v", got)
+	}
+	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeHumans {
+		t.Fatalf("an agent with its own mode: %+v", got)
+	}
+}
+
 // In humans mode a queueing harness gets a bundle only once a person writes, and that
 // bundle carries the peer message that waited.
 func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {

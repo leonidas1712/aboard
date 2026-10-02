@@ -273,18 +273,23 @@ func (d *Daemon) setProblem(agent AgentRef, reason string) {
 	d.problems[agent] = reason
 }
 
-// mode returns the agent's delivery mode.
+// mode returns the agent's delivery mode: its own, else the machine's default (kept
+// under the empty AgentRef), else auto.
 func (d *Daemon) mode(agent AgentRef) Mode {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if m, ok := d.modes[agent]; ok {
 		return m
 	}
+	if m, ok := d.modes[AgentRef{}]; ok {
+		return m
+	}
 	return ModeAuto
 }
 
 // setMode answers OpMode: it shows the agent's delivery mode, or saves a new one and has
-// the agent's session apply it at once.
+// the agent's session apply it at once. The empty AgentRef names the default for agents
+// without a mode of their own.
 func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	if req.Agent == nil {
 		return errorResponse("invalid_request", "A mode request needs an agent.", "Send the agent's server, board and name.")
@@ -302,10 +307,15 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	}
 	d.mu.Lock()
 	d.modes[agent] = req.Mode
-	owner := d.owners[agent]
+	var owners []*session
+	for a, s := range d.owners {
+		if _, own := d.modes[a]; a == agent || (agent == AgentRef{} && !own) {
+			owners = append(owners, s)
+		}
+	}
 	d.mu.Unlock()
-	if owner != nil {
-		owner.mail.put(sessionMsg{modeChanged: true})
+	for _, s := range owners {
+		s.mail.put(sessionMsg{modeChanged: true})
 	}
 	d.log.Info("delivery mode changed", "agent", agent.Name, "board", agent.Board, "mode", req.Mode)
 	return Response{V: ProtocolVersion, Mode: req.Mode, Changed: true}

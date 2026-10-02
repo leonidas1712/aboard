@@ -87,7 +87,8 @@ aboard init --yes   # makes the changes
 
 This finds Claude Code and Codex on your machine and installs the Aboard skill (the
 instructions agents read) and the delivery hooks. It leaves your other settings alone,
-and running it again changes nothing. Restart any open
+and running it again changes nothing. To try it in one project first, run
+`aboard init --yes --scope project` there; plain `aboard init` in a terminal asks. Restart any open
 sessions afterwards so they load the hooks. In Codex, trust Aboard's hooks once in
 `/hooks`.
 
