@@ -39,14 +39,27 @@ type harnessFiles struct {
 	skill, hooks, allow string
 }
 
-func (a *app) codexHome() string {
-	if dir := a.env.Getenv("CODEX_HOME"); filepath.IsAbs(dir) {
-		return dir
-	}
-	return filepath.Join(a.env.Getenv("HOME"), ".codex")
+// configDirs are where each harness keeps its global config: the variable that names the
+// folder, and the folder under the home directory when the variable isn't set. Each
+// harness profile's config_dir says the same.
+var configDirs = map[string]struct{ env, home string }{
+	"claude-code": {"CLAUDE_CONFIG_DIR", ".claude"},
+	"codex":       {"CODEX_HOME", ".codex"},
 }
 
-// setupFiles returns where aboard init writes for a harness in a scope. In a project,
+// configDir returns the folder a harness reads its global config from: the folder its
+// variable names when that is an absolute path, else the default under HOME.
+func (a *app) configDir(harness string) string {
+	d := configDirs[harness]
+	if dir := a.env.Getenv(d.env); filepath.IsAbs(dir) {
+		return dir
+	}
+	return filepath.Join(a.env.Getenv("HOME"), d.home)
+}
+
+// setupFiles returns where aboard init writes for a harness in a scope. Global setup goes
+// in the harness's config folder, except Codex's skill, which Codex reads from
+// ~/.agents/skills wherever CODEX_HOME points. In a project,
 // Claude Code's hooks go in settings.local.json, the file meant for one person's machine,
 // since they name this machine's aboard binary.
 func (a *app) setupFiles(harness, scope string) harnessFiles {
@@ -57,8 +70,8 @@ func (a *app) setupFiles(harness, scope string) harnessFiles {
 		settings := filepath.Join(dir, ".claude", "settings.local.json")
 		return harnessFiles{filepath.Join(dir, ".claude", skill), settings, settings}
 	case harness == "claude-code":
-		settings := filepath.Join(home, ".claude", "settings.json")
-		return harnessFiles{filepath.Join(home, ".claude", skill), settings, settings}
+		settings := filepath.Join(a.configDir(harness), "settings.json")
+		return harnessFiles{filepath.Join(a.configDir(harness), skill), settings, settings}
 	case scope == scopeProject:
 		return harnessFiles{
 			filepath.Join(dir, ".agents", skill), filepath.Join(dir, ".codex", "hooks.json"),
@@ -66,8 +79,8 @@ func (a *app) setupFiles(harness, scope string) harnessFiles {
 		}
 	default:
 		return harnessFiles{
-			filepath.Join(home, ".agents", skill), filepath.Join(a.codexHome(), "hooks.json"),
-			filepath.Join(a.codexHome(), "rules", "aboard.rules"),
+			filepath.Join(home, ".agents", skill), filepath.Join(a.configDir(harness), "hooks.json"),
+			filepath.Join(a.configDir(harness), "rules", "aboard.rules"),
 		}
 	}
 }

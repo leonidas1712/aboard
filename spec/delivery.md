@@ -285,8 +285,14 @@ Rules:
 - **In order.** Messages for one agent are delivered in sequence order. A message that
   can't be delivered automatically is marked `skipped` and the read position moves past
   it, so it never blocks the ones after it; `aboard doctor` lists it.
-- **Recovery.** On start, `handed` deliveries without confirmation go back to `pending`.
-  A `confirmed` delivery whose acknowledgement didn't happen is acknowledged again,
+- **Recovery.** On start, a `handed` delivery stays `handed` when it went to a waiting
+  stop hook of a session that is still open: the hook took it and woke the session,
+  which may still be running that turn (after an upgrade, that turn's own hooks replace
+  the daemon), so the session's next event from the same boot confirms it as usual. A
+  stop hook that was still waiting when the daemon went away reconnects with a resumed
+  wait, and any bundle handed to that session goes back to `pending`, since it never
+  arrived. Every other `handed` delivery (Codex's queue call, a closed session) goes back
+  to `pending`. A `confirmed` delivery whose acknowledgement didn't happen is acknowledged again,
   without handing it over again.
 - **One consumer.** `aboard inbox` without `--peek` also acknowledges. Whichever of the
   daemon and the agent acknowledges first wins; nothing is lost. The skill tells agents
@@ -375,7 +381,11 @@ each detected harness's skill folder (`~/.claude/skills/aboard/` for Claude Code
 `~/.agents/skills/aboard/` for Codex), and the delivery hooks
 (`~/.claude/settings.json` and `~/.codex/hooks.json`, merged so nothing else in those
 files changes). `aboard init --yes` makes the changes; running it again changes nothing.
-A harness counts as detected when its folder exists or its command is on the PATH. Both
+Global setup follows each harness's config folder: `$CLAUDE_CONFIG_DIR` in place of
+`~/.claude` and `$CODEX_HOME` in place of `~/.codex` when they are set, for init, doctor
+and status alike. Codex's skill stays in `~/.agents/skills`, which `CODEX_HOME` doesn't
+move. A harness counts as detected when its config folder exists or its command is on
+the PATH. Both
 harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
 stays with the person.
 
@@ -432,8 +442,10 @@ server from an older build, it replaces it, then carries on:
    times.
 4. It releases the lock and runs the command against the new one.
 
-The journal and the database are on disk, so nothing is lost: deliveries handed and not
-confirmed go back to `pending` when the new daemon starts, and are handed again (see
+The journal and the database are on disk, so nothing is lost and nothing is handed
+twice: a bundle the old daemon handed to a Claude Code session is confirmed by that
+session's next event, even when that event comes from the new aboard's hooks; anything
+else not confirmed goes back to `pending` and is handed again (see
 [The journal](#the-journal)). A command inside a harness's sandbox never replaces the
 daemon, because it couldn't start the new one. `aboard down` and `aboard doctor`'s
 reading of the local server never replace anything. If replacing fails, the command uses
@@ -513,7 +525,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | Codex thread gone | 5 attempts, then `attention` | `codex_target_absent` |
 | Codex temporarily locked | Retried with backoff | Nothing, unless it reaches 5 |
 | Message larger than the bundle limit | `skipped`; read position moves past it | `delivery_skipped` |
-| Crash after handing over, before confirming | Bundle handed over again | The agent sees a repeated sequence number |
+| Crash after handing over, before confirming | Confirmed by the session's next event if the stop hook took it; otherwise handed over again | The agent may see a repeated sequence number |
 | Crash after confirming, before acknowledging | Acknowledged on restart, not handed over again | Nothing |
 | Socket permissions wrong | The daemon refuses to start | `socket_unsafe` |
 
@@ -557,7 +569,9 @@ These rules exist because each one prevents a specific failure.
 
 ## Proving it
 
-The release checklist gets these manual checks, each on a fresh machine:
+These checks run against real Claude Code and Codex. The live suite in `e2e/live`
+(`make live`) drives the harnesses in tmux and runs most of them; the release checklist
+names the test for each, and keeps the rest as steps checked by hand:
 
 1. A Claude Code session, idle, receives a message from another session within 2 seconds
    and replies without anyone typing.

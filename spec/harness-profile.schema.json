@@ -47,8 +47,18 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "config_dir": {
+      "description": "The folder the harness reads its global config from: the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in skills_dir and delivery.hooks_file stands for it, so aboard init, doctor and status follow the variable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["env", "default"],
+      "properties": {
+        "env": { "type": "string" },
+        "default": { "type": "string" }
+      }
+    },
     "skills_dir": {
-      "description": "Where aboard init puts the Aboard skill, under the home directory.",
+      "description": "Where aboard init puts the Aboard skill for every project: under the home directory, or under the config folder when it starts with {config_dir}.",
       "type": "string"
     },
     "project": {
@@ -135,7 +145,7 @@
           "enum": ["stop-hook", "queue", "none"]
         },
         "queue": { "$ref": "#/$defs/argv", "description": "For queue delivery, the command that queues a bundle." },
-        "hooks_file": { "type": "string", "description": "Where aboard init installs the hooks, under the home directory." },
+        "hooks_file": { "type": "string", "description": "Where aboard init installs the hooks for every project: under the home directory, or under the config folder when it starts with {config_dir}." },
         "hooks": {
           "type": "array",
           "items": {

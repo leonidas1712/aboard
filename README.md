@@ -368,6 +368,8 @@ project's rules, and it's written for both people and coding agents. The short v
 
   It runs formatting, lint, vet, a generated-code check, `go test -race`, the e2e
   suite and `govulncheck`, with every tool pinned. CI runs the same on Linux and macOS.
+- **Changes to delivery, setup or upgrades also run `make live`,** which drives real
+  Claude Code and Codex sessions in tmux ([e2e/live/PROOFS.md](e2e/live/PROOFS.md)).
 
 The guides in [engineering/](engineering) cover architecture (ports and adapters), Go
 style, testing and writing.

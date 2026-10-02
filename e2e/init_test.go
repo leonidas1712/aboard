@@ -131,3 +131,56 @@ func TestInitSetsTheDefaultDeliveryMode(t *testing.T) {
 		t.Fatalf("second init: %v", got)
 	}
 }
+
+// Claude Code reads its config from CLAUDE_CONFIG_DIR and Codex from CODEX_HOME when they
+// are set, so aboard init writes the global hooks and Claude Code's skill there, and
+// doctor and status look there. Codex's global skill stays in ~/.agents/skills, which
+// CODEX_HOME doesn't move.
+func TestGlobalSetupFollowsTheHarnessConfigVariables(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	elsewhere, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	claudeDir, codexDir := filepath.Join(elsewhere, "claude"), filepath.Join(elsewhere, "codex")
+	for _, d := range []string{claudeDir, codexDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	vars := []string{"CLAUDE_CONFIG_DIR=" + claudeDir, "CODEX_HOME=" + codexDir}
+
+	e.exec(vars, "", "init", "--yes", "--allow-commands")
+	if got, want := filesUnder(t, elsewhere), []string{
+		"claude/settings.json", "claude/skills/aboard/SKILL.md", "codex/hooks.json", "codex/rules/aboard.rules",
+	}; !slices.Equal(got, want) {
+		t.Fatalf("files under the config directories %v, want %v", got, want)
+	}
+	for _, d := range []string{".claude", ".codex"} {
+		if _, err := os.Stat(filepath.Join(e.home, d)); !os.IsNotExist(err) {
+			t.Fatalf("init wrote ~/%s although the harness reads its config elsewhere: %v", d, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(e.home, ".agents", "skills", "aboard", "SKILL.md")); err != nil {
+		t.Fatalf("Codex's skill: %v", err)
+	}
+
+	doctor := e.exec(vars, "", "doctor").stdout
+	for _, want := range []string{
+		"✓ claude-code: hooks installed everywhere (" + filepath.Join(claudeDir, "settings.json") + ")",
+		"✓ codex: hooks installed everywhere (" + filepath.Join(codexDir, "hooks.json") + ")",
+		"✓ claude-code: skill installed in " + filepath.Join(claudeDir, "skills", "aboard", "SKILL.md"),
+	} {
+		if !strings.Contains(doctor, want) {
+			t.Fatalf("doctor lacks %q:\n%s", want, doctor)
+		}
+	}
+	if status := e.exec(vars, "", "status").stdout; !strings.Contains(status, "Setup:  claude-code everywhere, codex everywhere\n") {
+		t.Fatalf("status:\n%s", status)
+	}
+	// Without the variables, the same machine has no global setup in the default places.
+	if status := e.run("status").stdout; !strings.Contains(status, "Setup:  none") {
+		t.Fatalf("status without the variables:\n%s", status)
+	}
+}

@@ -137,27 +137,6 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 		}
 	})
 
-	t.Run("RecoverHandedPutsHandedBackToPending", func(t *testing.T) {
-		j := open(t)
-		handed, err := j.AddDelivery(ctx, delivery.Delivery{Agent: review, Session: claudeA, State: delivery.StateHanded, Seqs: []int{6}, CreatedAt: t0, UpdatedAt: t0})
-		must(t, err)
-		_, err = j.AddDelivery(ctx, delivery.Delivery{Agent: review, Session: claudeA, State: delivery.StateConfirmed, Seqs: []int{5}, CreatedAt: t0, UpdatedAt: t0})
-		must(t, err)
-		n, err := j.RecoverHanded(ctx, t0.Add(time.Hour))
-		must(t, err)
-		if n != 1 {
-			t.Fatalf("recovered %d, want 1", n)
-		}
-		pending, err := j.Deliveries(ctx, delivery.StatePending)
-		must(t, err)
-		if len(pending) != 1 || pending[0].ID != handed || !pending[0].UpdatedAt.Equal(t0.Add(time.Hour)) {
-			t.Fatalf("pending %+v", pending)
-		}
-		if confirmed, _ := j.Deliveries(ctx, delivery.StateConfirmed); len(confirmed) != 1 {
-			t.Fatalf("a confirmed delivery must stay confirmed, got %+v", confirmed)
-		}
-	})
-
 	t.Run("ADeliveryNeedsMessages", func(t *testing.T) {
 		j := open(t)
 		if _, err := j.AddDelivery(ctx, delivery.Delivery{Agent: review, Session: claudeA, State: delivery.StateHanded, CreatedAt: t0, UpdatedAt: t0}); err == nil {

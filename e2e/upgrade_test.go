@@ -89,6 +89,43 @@ func TestOlderDaemonIsReplacedAndAWaitingMessageStillArrives(t *testing.T) {
 	}
 }
 
+// An upgrade that lands while a woken Claude Code turn runs doesn't wake the session a
+// second time with the same message: the new aboard's hooks replace the old daemon, and
+// the turn's next event still confirms the bundle the old daemon handed.
+func TestUpgradeDuringAWakeDoesNotHandTheMessageAgain(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.bin = oldBinary
+	writer, reviewer := pairedClaudeSessions(t, e)
+	stop := reviewer.startHook("stop")
+	if !stop.running(300 * time.Millisecond) {
+		t.Fatalf("stop hook returned without a message\n%s", stop.wait(time.Second))
+	}
+	writer.run("say", "--to", "@reviewer", "sent just before the upgrade")
+	if woke := stop.wait(5 * time.Second); woke.code != 2 {
+		t.Fatalf("the old stop hook should wake the session\n%s", woke)
+	}
+	oldPID := e.daemonPID()
+
+	e.bin = binary // the new aboard is installed; the woken turn's hooks run it
+	if r := reviewer.hook("prompt", `"prompt":"the bundle"`); r.code != 0 {
+		t.Fatalf("prompt hook failed\n%s", r)
+	}
+	if r := reviewer.hook("tool", `"tool_name":"Bash"`); r.code != 0 {
+		t.Fatalf("tool hook failed\n%s", r)
+	}
+	if pid := e.daemonPID(); pid == 0 || pid == oldPID {
+		t.Fatalf("daemon pid %d; the new hooks should have replaced the old daemon (pid %d)", pid, oldPID)
+	}
+	again := reviewer.startHook("stop")
+	if !again.running(time.Second) {
+		t.Fatalf("the turn's stop hook was handed the confirmed message again\n%s", again.wait(time.Second))
+	}
+	eventually(t, 5*time.Second, "the message to be acknowledged", func() bool {
+		return len(field(t, e.run("inbox", "--as", "reviewer", "--peek", "--json").json(t), "messages").([]any)) == 0
+	})
+}
+
 // After installing a new aboard, the first command that uses the local server replaces
 // the one the old aboard started, and every board and message is still there.
 func TestOlderLocalServerIsReplacedAndKeepsItsData(t *testing.T) {

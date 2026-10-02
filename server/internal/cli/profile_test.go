@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -63,8 +64,12 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 				Name       string   `yaml:"name"`
 				SandboxEnv []string `yaml:"sandbox_env"`
 				SessionEnv []string `yaml:"session_env"`
-				SkillsDir  string   `yaml:"skills_dir"`
-				Project    struct {
+				ConfigDir  struct {
+					Env     string `yaml:"env"`
+					Default string `yaml:"default"`
+				} `yaml:"config_dir"`
+				SkillsDir string `yaml:"skills_dir"`
+				Project   struct {
 					SkillsDir string `yaml:"skills_dir"`
 					HooksFile string `yaml:"hooks_file"`
 				} `yaml:"project"`
@@ -99,21 +104,37 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 				t.Fatalf("profile hooks %v, aboard init installs %v", listed, want)
 			}
 
-			home, dir := filepath.FromSlash("/h"), filepath.FromSlash("/p")
-			a := &app{env: Env{Dir: dir, Getenv: func(k string) string { return map[string]string{"HOME": home}[k] }}}
-			global, project := a.setupFiles(harness, scopeGlobal), a.setupFiles(harness, scopeProject)
-			allow, rule := global.hooks, claudeAllowRule
-			if harness == "codex" {
-				allow, rule = filepath.Join(home, ".codex", p.AllowCommands.File), codexAllowRule
-			}
-			got := []string{global.skill, global.hooks, project.skill, project.hooks, global.allow, rule}
-			want = []string{
-				filepath.Join(home, p.SkillsDir, "aboard", "SKILL.md"), filepath.Join(home, p.Delivery.HooksFile),
-				filepath.Join(dir, p.Project.SkillsDir, "aboard", "SKILL.md"), filepath.Join(dir, p.Project.HooksFile),
-				allow, p.AllowCommands.Rule,
-			}
-			if !slices.Equal(got, want) {
-				t.Fatalf("aboard init writes %v, the profile says %v", got, want)
+			// Global setup follows the harness's config variable, and its default without it.
+			home, dir, set := filepath.FromSlash("/h"), filepath.FromSlash("/p"), filepath.FromSlash("/c")
+			for _, vars := range []map[string]string{{"HOME": home}, {"HOME": home, p.ConfigDir.Env: set}} {
+				a := &app{env: Env{Dir: dir, Getenv: func(k string) string { return vars[k] }}}
+				config := filepath.Join(home, p.ConfigDir.Default)
+				if v, ok := vars[p.ConfigDir.Env]; ok {
+					config = v
+				}
+				global := func(path string) string {
+					if rest, ok := strings.CutPrefix(path, "{config_dir}/"); ok {
+						return filepath.Join(config, rest)
+					}
+					return filepath.Join(home, path)
+				}
+				g, project := a.setupFiles(harness, scopeGlobal), a.setupFiles(harness, scopeProject)
+				allow, rule := g.hooks, claudeAllowRule
+				if harness == "codex" {
+					allow, rule = filepath.Join(config, p.AllowCommands.File), codexAllowRule
+				}
+				got := []string{g.skill, g.hooks, project.skill, project.hooks, g.allow, rule}
+				want := []string{
+					global(p.SkillsDir + "/aboard/SKILL.md"), global(p.Delivery.HooksFile),
+					filepath.Join(dir, p.Project.SkillsDir, "aboard", "SKILL.md"), filepath.Join(dir, p.Project.HooksFile),
+					allow, p.AllowCommands.Rule,
+				}
+				if !slices.Equal(got, want) {
+					t.Fatalf("with %v, aboard init writes %v, the profile says %v", vars, got, want)
+				}
+				if d := configDirs[harness]; d.env != p.ConfigDir.Env || d.home != p.ConfigDir.Default {
+					t.Fatalf("profile config_dir %+v, the CLI uses %+v", p.ConfigDir, d)
+				}
 			}
 
 			var markers []string

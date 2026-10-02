@@ -417,18 +417,3 @@ func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]del
 	}
 	return out, nil
 }
-
-// RecoverHanded puts handed deliveries back to pending after a restart.
-func (j *Journal) RecoverHanded(ctx context.Context, now time.Time) (int, error) {
-	var n int64
-	err := j.write(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, updated_at = ? WHERE state = ?`,
-			string(delivery.StatePending), formatTime(now), string(delivery.StateHanded))
-		if err != nil {
-			return fmt.Errorf("recover handed deliveries: %w", err)
-		}
-		n, err = res.RowsAffected()
-		return err
-	})
-	return int(n), err
-}

@@ -149,6 +149,8 @@ A change is done when all of these hold:
 - [ ] `make check` passes (format, lint, vet, generated code, core size,
       `go test -race`, e2e, govulncheck).
 - [ ] E2e tests cover the change; the quickstart still works from scratch.
+- [ ] A change to delivery, setup or upgrades passes `make live` (real harnesses in
+      tmux; see [e2e/live/PROOFS.md](e2e/live/PROOFS.md)) before it merges.
 - [ ] Contracts (OpenAPI, `aboard.yaml` schema, event types, CLI JSON) updated first if
       the change touched them.
 - [ ] Docs updated if user-visible behaviour changed; every new documented command is
