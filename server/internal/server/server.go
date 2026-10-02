@@ -26,6 +26,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/notify"
 	"github.com/leonidas1712/aboard/server/internal/rules"
 	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
+	"github.com/leonidas1712/aboard/web"
 )
 
 // DefaultLocalAddr is where the local server listens unless told otherwise.
@@ -101,17 +102,17 @@ func Run(ctx context.Context, o Options) error {
 	// waits for active requests, and a stream never finishes on its own.
 	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
 	defer startShutdown()
-	handler, err := api.NewHandler(api.Options{
-		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30,
-		Shutdown: shutdown,
-	})
-	if err != nil {
-		return err
-	}
-
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", o.Addr, err)
+	}
+	handler, err := api.NewHandler(api.Options{
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30,
+		Shutdown: shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
+	})
+	if err != nil {
+		_ = ln.Close()
+		return err
 	}
 	pidFile := filepath.Join(o.DataDir, "server.pid")
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
