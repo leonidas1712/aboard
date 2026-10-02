@@ -31,6 +31,9 @@ type Env struct {
 	// Terminal is true when standard input and output are a terminal, so a command may
 	// ask questions.
 	Terminal bool
+	// OpenBrowser opens a URL in the person's browser, failing when no browser could be
+	// started.
+	OpenBrowser func(ctx context.Context, url string) error
 }
 
 // OSEnv returns the environment of the running process.
@@ -42,6 +45,7 @@ func OSEnv() Env {
 	return Env{
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir,
 		Executable: os.Executable, Rand: rand.Reader, Terminal: isTerminal(os.Stdin) && isTerminal(os.Stdout),
+		OpenBrowser: openBrowser,
 	}
 }
 
@@ -77,6 +81,7 @@ func commands() []command {
 		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
 		{"read", readUsage, runRead},
 		{"watch", watchUsage, runWatch},
+		{"open", openUsage, runOpen},
 		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
 		{"delivery", "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]", runDelivery},
 		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},

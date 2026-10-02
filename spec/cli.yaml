@@ -15,17 +15,18 @@
 #   on two boards fails with agent_ambiguous (details.boards) unless --board picks one; a
 #   session bound to agents on two boards fails the same way unless --as picks one. With
 #   no agent: agent_not_selected (details.choices). Agent commands (say, inbox, read)
-#   never fall back to the human login; human commands (board policy, audit verify, watch) use
-#   the human login unless --as is given.
+#   never fall back to the human login; human commands (board policy, audit verify, watch)
+#   use the human login unless --as is given, and open always uses it.
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
 #   run them in a terminal: board policy, watch, and the delivery-mode changes (aboard
-#   delivery MODE, init --delivery). pair and audit verify still run there: pair joins as
-#   an agent, and audit verify prints only counts and hashes.
+#   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
+#   joins as an agent, audit verify prints only counts and hashes, and open never shows
+#   its login link.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
-#   Board for human commands (board policy, audit verify, watch) and for pair: --board, then the
-#   project's .aboard file, then the machine default.
+#   Board for human commands (board policy, audit verify, watch, open) and for pair:
+#   --board, then the project's .aboard file, then the machine default.
 # - Text output of agent commands names the board in one line: say ends with
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
 #   Where the board and agent came from is shown only by `aboard status` and in
@@ -60,7 +61,8 @@ $defs:
       aboard) · data_newer (the database or delivery journal was written by a newer
       aboard; install it) · human_command_in_session (a command that acts or reads with the
       human login, or changes a delivery mode, ran inside a harness session; a person runs
-      it in a terminal) ·
+      it in a terminal) · browser_unavailable (aboard open inside a harness session
+      couldn't start a browser; the person runs it in their own terminal) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
       message_ref_invalid · check_failed.
@@ -348,6 +350,55 @@ $defs:
     properties:
       board: { type: string }
       message: { $ref: openapi.yaml#/components/schemas/Message }
+
+  # ---------- aboard open [--board NAME] ----------
+  OpenOutput:
+    description: |
+      Opens the web UI in the default browser, already logged in as the local owner. It
+      starts the local server if it isn't running, asks it for a one-time login code
+      (POST /v1/login-codes) with the human login, and opens
+      <server>/login?code=…[&board=NAME], which logs the browser in once and shows the
+      board, or the board list when no board is selected. The board is --board, then the
+      project's .aboard file; with neither, the board list opens. A --board the owner
+      isn't on fails with board_not_found.
+
+      The browser is $BROWSER when set (run with the URL as its only argument), else
+      `open` on macOS and `xdg-open` elsewhere.
+
+      In a terminal, the output shows the login link; when no browser could be started,
+      opened is false and the text says to open the link by hand. Text output:
+        Opened http://127.0.0.1:7400/login?code=abl_…&board=writer-reviewer in your browser.
+        Couldn't open a browser. Open this link in one within 60 seconds; it works once:
+          http://127.0.0.1:7400/login?code=abl_…&board=writer-reviewer
+
+      Inside a harness session (an agent running it for its person), the output never
+      shows the login link or code, and url is null: with the code, the agent could log
+      in before the browser and read the board as the person. Text output:
+        Opened writer-reviewer in your browser: http://127.0.0.1:7400/?board=writer-reviewer
+      When no browser can be started there, it fails with browser_unavailable, whose hint
+      gives the command for the person to run in their own terminal.
+
+      Either way the text starts with "Started local Aboard at http://127.0.0.1:7400" when
+      it started the server. The browser stays logged in for 30 days or until the server
+      stops (aboard down).
+    type: object
+    required: [server, server_started, board, ui_url, url, opened, expires_at]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      server_started: { type: boolean }
+      board: { type: [string, "null"], description: "The board shown, or null for the board list." }
+      ui_url:
+        type: string
+        format: uri
+        description: The web UI's address for the board, without a login code.
+        examples: ["http://127.0.0.1:7400/?board=writer-reviewer"]
+      url:
+        type: [string, "null"]
+        format: uri
+        description: The login link, which works once until expires_at. Null inside a harness session.
+        examples: ["http://127.0.0.1:7400/login?code=abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl&board=writer-reviewer"]
+      opened: { type: boolean, description: "False when no browser could be started." }
+      expires_at: { type: string, format: date-time }
 
   # ---------- aboard resume <agent> [--board NAME] ----------
   ResumeOutput:
