@@ -17,7 +17,7 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e vuln tools core-size
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e vuln tools core-size web web-check web-e2e install
 
 ## check: format check, lint, vet, generated code, core size, tests, e2e, vulnerabilities
 check: fmt-check lint vet generate-check core-size test e2e vuln
@@ -77,6 +77,27 @@ e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
 	go test -race -tags e2e -count=1 ./e2e/...
+
+# The web UI needs Node 20 or later; make check doesn't, and a binary built without the
+# ui tag serves a page saying how to get the UI.
+WEB_ENV := NEXT_TELEMETRY_DISABLED=1
+
+## web: build the web UI into web/out
+web:
+	cd web && npm ci && $(WEB_ENV) npm run build
+
+## install: build the web UI, then install aboard with the UI embedded
+install: web
+	go install -tags ui ./server/cmd/aboard
+
+## web-check: build and typecheck the web UI, then run its browser smoke test
+web-check: web
+	cd web && npm run typecheck
+	@$(MAKE) --no-print-directory web-e2e
+
+# Builds aboard with the UI (after make web) and drives a board in Chromium.
+web-e2e:
+	cd web && $(WEB_ENV) npx playwright test
 
 vuln: $(GOVULNCHECK)
 	@$(REQUIRE_GO); $(GOVULNCHECK) ./...

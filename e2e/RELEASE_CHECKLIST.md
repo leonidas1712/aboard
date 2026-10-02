@@ -50,3 +50,15 @@ session paired and idle (their stop hooks waiting):
 - [ ] When the release doesn't change the hooks, `aboard init --yes` reports every file unchanged, and neither Claude Code nor Codex asks to trust the hooks again; new sessions in both still get deliveries.
 - [ ] When the release does change the skill or hooks, `aboard doctor` reports `skill_outdated` or `hooks_outdated` with the fix `aboard init --yes`; after running it, those checks are green, and nothing else in `~/.claude/settings.json` or `~/.codex/hooks.json` changed.
 - [ ] A message sent while the Claude Code session was busy during the upgrade is delivered when its turn ends.
+
+## Web UI ([README.md](../README.md#watch-the-board-in-your-browser))
+
+Run with a binary from `make install` (or a release).
+
+- [ ] On macOS, `aboard open` in a project linked to a board opens the default browser at that board, logged in, with no login page in between. Opening the printed link again shows the page saying to run `aboard open` again.
+- [ ] On Linux with a desktop, `aboard open` does the same through `xdg-open`. Over SSH with no display, it prints the link to open by hand.
+- [ ] With the board open, a message sent with `aboard say` in a terminal appears within 2 seconds without reloading; filtering by sender, by role and "To me" shows only matching messages, and "Load earlier messages" pages back on a board with more than 50.
+- [ ] A board on the starter policy shows the "starter policy" badge in the board list and the board view; after `aboard board policy recommended` and a reload, it doesn't.
+- [ ] With the system set to dark mode, the UI is dark and every text stays readable; back in light mode, it is light.
+- [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
+- [ ] After `aboard down` and `aboard up`, reloading the UI says the browser isn't logged in and to run `aboard open`.
