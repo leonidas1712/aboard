@@ -131,6 +131,14 @@ ONLY allowed scope for v0.1.
   can't be done correctly from outside (atomicity, permissions, ordering, trust);
   everything else, our own tools included, is a client of the public API. If a tool
   needs something the API lacks, add the primitive to the contract; never a back door.
+- **One Aboard, local or hosted (D113):** the local server is a team server with one
+  person. Every feature works the same on both; team mode adds people, never features.
+- **Agent-operable and emergent (D114, D115):** every flow has an agent path through the
+  API, with a short list of person-only exceptions; Aboard gives agents primitives to
+  compose, and keeps them safe through the design of access, redaction and monitors,
+  not by scripting their behaviour.
+- **Easy to understand (D116), swappable parts (D117):** plain concepts and commands;
+  the domain declares ports and adapters implement them.
 - **New ideas start outside (D75):** as an example in `/examples` or an extension, and
   move into the core only once proven and only if they pass the primitives test. The
   server never calls a model (D79). `make core-size` checks the core's size budget (D77).
