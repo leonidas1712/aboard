@@ -14,8 +14,9 @@ hand, on a fresh machine with Claude Code and Codex logged in:
 
 - [ ] Installing via the "In your agents" tab and running `aboard init` adds the Aboard skill to every detected harness, and shows each hook change and asks before writing it.
 - [ ] `aboard init --yes --scope project` in a fresh project: after trusting the project and its hooks, a Claude Code session and a Codex session started there load the skill and run the hooks (`aboard status` in each names its session), and sessions started elsewhere don't. Claude Code: **automated**, `TestProjectScopeInit`. Codex: the hooks running there, **automated**, `TestIdleCodexWakesAndReplies`; the rest by hand.
-- [ ] In a Claude Code session, "Pair with a reviewer on Aboard" makes the agent run `aboard pair` and reply with exactly one join line. **Automated** up to the join line working in a second Claude Code session, `TestIdleClaudeWakesAndReplies`; check "exactly one line" by hand.
-- [ ] Pasting that line into a Codex session joins it as **reviewer**; it reads the charter and says hello.
+- [ ] In a Claude Code session, "Pair with another agent on Aboard" makes the agent run `aboard pair` and reply with exactly one join line. **Automated** up to the join line working in a second Claude Code session, `TestIdleClaudeWakesAndReplies`; check "exactly one line" by hand.
+- [ ] Pasting that line into a Codex session joins it as a second **member** (board `general`); it reads the charter and says hello.
+- [ ] `aboard pair writer-reviewer` joins as **writer** and its join line is for a **reviewer**: covered by e2e, `TestPairWriterReviewer`.
 - [ ] The two agents exchange messages without anyone typing; each delivered message arrives wrapped as `<aboard-message … sender="owner_agent" …>`.
 - [ ] Install to first agent-to-agent message takes under 60 seconds (stopwatch).
 - [ ] `pair` printed the starter-policy notice line.

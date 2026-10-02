@@ -15,7 +15,7 @@ import (
 )
 
 // defaultTemplate is the board template pair uses when none is named.
-const defaultTemplate = "writer-reviewer"
+const defaultTemplate = "general"
 
 // runPair creates a board from a template, joins this session as the template's first
 // role and prints a join line for a second session in the other role.
@@ -48,7 +48,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	if len(f.Pair) != 2 {
 		return newError("invalid_request", fmt.Sprintf("The template %q doesn't name two roles to pair.", tmpl),
-			"Use a template made for pairing, such as "+defaultTemplate+".")
+			"Use a template made for pairing, such as "+defaultTemplate+" or writer-reviewer.")
 	}
 
 	session, inSession, err := a.checkSession(ctx)

@@ -30,10 +30,10 @@ func TestExampleHelloPair(t *testing.T) {
 	}
 
 	// A second run on the same machine works and makes a new board, even though the
-	// machine now has agents called writer and reviewer on another board.
+	// machine now has agents called member and member-2 on another board.
 	second := e.runExample("hello-pair/hello-pair.sh")
-	if !strings.Contains(second.stdout, "Joined board writer-reviewer-2 as reviewer") ||
-		!strings.Contains(second.stdout, "OK: 7 events on writer-reviewer-2 verified") {
+	if !strings.Contains(second.stdout, "Joined board general-2 as member-2") ||
+		!strings.Contains(second.stdout, "OK: 7 events on general-2 verified") {
 		t.Fatalf("second run didn't pair on a new board\n%s", second)
 	}
 

@@ -114,7 +114,7 @@ func TestInitSetsTheDefaultDeliveryMode(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.harnessHome()
-	e.run("pair")
+	e.run("pair", "writer-reviewer")
 
 	r := e.exec([]string{"CLAUDECODE=1"}, "", "init", "--yes", "--delivery", "off", "--json")
 	if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {

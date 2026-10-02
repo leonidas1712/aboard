@@ -23,7 +23,7 @@ func TestAgentsAreNamedAfterTheirHarness(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	first := e.claudeSession("s-first")
-	pair := first.run("pair")
+	pair := first.run("pair", "writer-reviewer")
 	if !strings.Contains(pair.stdout, "Created board writer-reviewer and joined as claude (writer, owner alex)\n") {
 		t.Fatalf("pair doesn't name the agent after Claude Code\n%s", pair)
 	}
@@ -40,7 +40,7 @@ func TestAgentsAreNamedAfterTheirHarness(t *testing.T) {
 func TestHiddenHarnessesGiveNeutralNames(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
 	token, err := os.ReadFile(filepath.Join(e.home, ".config", "aboard", "local-owner-token"))
 	if err != nil {
 		t.Fatal(err)

@@ -37,7 +37,7 @@ func TestIdleClaudeWakesAndReplies(t *testing.T) {
 	writer := l.startClaude("writer", l.project("writer-project", "claude-code"))
 	reviewer := l.startClaude("reviewer", l.project("reviewer-project", "claude-code"))
 
-	writer.submit("Pair with a reviewer on Aboard.")
+	writer.submit("Pair with another agent on Aboard.")
 	var line string
 	l.waitFor(3*time.Minute, "the writer session to give a join line", func() bool {
 		line = joinLine.FindString(writer.screen())

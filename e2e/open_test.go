@@ -87,7 +87,7 @@ func (e *env) exchange(link *url.URL) reply {
 func TestOpenLogsTheBrowserInOnceWithAReadOnlyToken(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
 	e.run("join", line)
 	board := "writer-reviewer"
 	e.sayAs("writer", "--to", "@reviewer", "Draft is in notes.md.")
@@ -203,7 +203,7 @@ func (e *env) recordingBrowser() (browser, saved string) {
 func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("pair")
+	e.run("pair", "writer-reviewer")
 	browser, saved := e.recordingBrowser()
 	for _, session := range []string{"CLAUDECODE=1", "ABOARD_SESSION=claude-code:5f1c"} {
 		r := e.exec([]string{session, "BROWSER=" + browser}, "", "open", "--json")

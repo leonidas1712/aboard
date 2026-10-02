@@ -41,7 +41,7 @@ func (e *env) getAsOwner(path string) map[string]any {
 func TestSoloOwnerIsAdminWithoutBeingTold(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	pair := e.run("pair")
+	pair := e.run("pair", "writer-reviewer")
 	status := e.run("status")
 	policy := e.run("board", "policy", "recommended")
 	for _, r := range []result{pair, status, policy} {
