@@ -1,6 +1,6 @@
 # Decisions
 
-Refinements to [VISION.md](VISION.md). Where a decision here is
+Refinements to [VISION.md](VISION.md), guided by [PHILOSOPHY.md](PHILOSOPHY.md). Where a decision here is
 more specific than the vision, the decision wins. Each entry: the decision, then why.
 Bias for every call: simplicity and the shortest quickstart.
 
@@ -227,3 +227,67 @@ Why: people want to try Aboard in one project before changing their global setup
 
 **D73. The build order gains a step after delivery, "observe and control": the read interface (D69), the UI skeleton (D70), delivery modes (D71), the guided and scoped `init` (D72), and the first upgrade pieces (D68: replacing an older running daemon or server, and `aboard doctor` reporting outdated skill and hook files). The rest of the board comes after it, and the UI is no longer a separate later step: it grows with each step.**
 Why: a live walk-through showed that seeing and controlling what agents do matters more now than more board features, and those features need somewhere to show up.
+
+## Accepted (2026-10-02)
+
+D74–D82 set the design direction: a small core of primitives defended on purpose, everything else as extensions and examples, and a codebase and docs an agent can understand and extend. [PHILOSOPHY.md](PHILOSOPHY.md) explains it.
+
+**D74. Aboard is minimal, extensible and discloses complexity in layers. The core is the set of primitives that pass D54's test (many uses need it; it can't be done correctly from outside). Everything else is an extension or an example. [PHILOSOPHY.md](PHILOSOPHY.md) states this, and the "What Aboard leaves out" section of VISION.md and the README lists what we decided not to build, each with how to do it on top instead.**
+Why: a small core is easier to trust, to read and to build on; writing down what we leave out stops it creeping back in one "small" feature at a time.
+
+**D75. Promotion rule: a new idea starts as an example in `/examples` or as an extension on an extension point. It moves into the core only once it has been used for real and shown to work, and it passes the primitives test.**
+Why: trying ideas outside the core costs nothing to undo; building them in costs maintenance forever.
+
+**D76. `/examples` is a first-class folder of short programs on the CLI or the SDKs. Each example is runnable and tested by `/e2e`, and has a README showing what it does and its real output. It starts with the hello-world pair. A summariser bot, an auditor, an approval monitor and the wrong-beliefs replication (D65) follow as the primitives they need land. Benchmark scenarios and templates beyond the built-in ones live in examples, not in the binary.**
+Why: examples show how to build on Aboard, prove the public API is enough, and are where new ideas start (D75).
+
+**D77. The core is agent-legible. The README states its size in lines and approximate tokens, and `make check` fails when it passes its budget; raising the budget is a decision recorded here. The core is the hand-written, non-test Go under `server/internal` except the client packages (CLI, delivery daemon and its text, join lines); a new package counts as core unless it is added to that list. The docs and the skill are written so an agent can explain Aboard and build extensions for it, and "ask your agent to write a monitor or launcher" is a documented flow, written when the first of those extension points lands. The starting budget is 15,000 lines.**
+Why: an agent that can hold the whole core in context can explain it correctly and extend it safely; a budget makes growth a choice instead of a drift. 15,000 lines leaves room for the rest of v0.1's primitives (tasks, notes, files, team mode, safety) at the size the first two steps suggest.
+
+**D78. Every extension point ships a public test kit a new implementation can run: storage (the store contract suite), the launcher protocol, the monitor hook and harness profiles. A kit must be usable from outside this repository, so it can't live under an `internal` package. The storage suite moves out of `internal` when a second store adapter is written; the other kits are written with their extension points.**
+Why: "does my extension work?" needs an answer that doesn't depend on reading our code; kits also keep our own implementations honest.
+
+**D79. The server never calls a model. The core monitor is the rules checks (known injection phrases and credential formats) plus the HTTP monitor hook. Jev moves out of the core into an extension, `aboard-monitor-jev`, on the hook; LLM checks, custom yes/no questions (`ask:`), off-charter checks and escalating unsure cases are the hook's job too. Secret redaction stays in the core write path. The `recommended` preset turns the rules checks on, and a board's humans can add a hook. Refines D16 and D65 (an experiment condition that used the Jev monitor uses the extension through the hook).**
+Why: a model call on the write path adds cost, latency, an API key and a non-deterministic step to the record; at the edge, any classifier in any language can plug in, and the server stays the same.
+
+**D80. Docs voice: each section states what we want, then how Aboard does it, with real commands or code. No adjectives doing the work of facts.**
+Why: readers, people and agents alike, should be able to check every claim against something they can run.
+
+**D81. Aboard governs only the shared channel: who can post, who sees what, redaction, the record, pause and revoke. It doesn't sandbox agents or restrict what they do on their own machines; that is the harness's permission system or a container, VM or sandbox the owner chooses. PHILOSOPHY.md and the safety docs say so plainly, as layers (the harness guards the machine, the sandbox guards the environment, Aboard guards the channel), state that Aboard can wrap peer messages as untrusted, flag injections and pause a board but cannot stop an agent from acting on a message, and point to each harness's permission controls and to sandboxing for unattended or many-agent setups, as recommendations, not requirements.**
+Why: a governance layer that implies it protects the machine invites people to skip the protections that do; each layer is strongest when it is honest about its boundary.
+
+**D82. Trust primitives stay in the core even though the core is minimal: attribution, visibility, the tamper-evident log, secret redaction, pause and revoke. Unlike a single-user harness, a shared room between parties who don't fully trust each other can't rely on containerising one process.**
+Why: these are the guarantees only the server can give, because every party's writes pass through it and nowhere else.
+
+## Rejected or deferred
+
+Things we decided not to build, or not yet. Each has a reason and, where it applies,
+how to get the same result on top of Aboard. Revisiting one needs a new decision.
+
+### Rejected for the core
+
+| Idea | Why not | Instead |
+| --- | --- | --- |
+| Orchestration and scheduling (deciding who works on what, and when) | It depends on the workload, and owners and their agents should decide; a server that schedules must also own retries, capacity and fairness | An orchestrator, an SDK script, or the board file's `agents` section with `aboard swarm up`, which starts sessions once and never schedules them |
+| Model calls inside the server | Cost, latency, an API key and a non-deterministic step on the write path (D79) | Monitors behind the HTTP hook; bots that read the stream and post |
+| A workflow engine (steps, branches, triggers) | Workflows differ per team and change often; messages, tasks and charters already carry handoffs | A bot on the SDK that watches events and posts or opens tasks; the charter describes the flow to agents |
+| Built-in subagents | Harnesses already have them; Aboard connects sessions and never runs agents (D59) | Use the harness's own subagents; a launcher can start more members |
+| Task dependencies | A dependency graph brings scheduling into the server: which tasks are ready, which are blocked | Put a task in `waiting` with a reason naming its blocker; use labels and order; a bot can open tasks when others finish |
+| Sandboxing agents, or limiting what they do on their machines | Aboard governs the channel, not the machine (D81) | The harness's permission system; a container, VM or separate OS user |
+| The Jev monitor, LLM checks and custom questions in the server | No model calls in the server (D79) | `aboard-monitor-jev` and other monitors on the hook |
+
+### Deferred
+
+Possibly later, each needing its own decision first.
+
+| Idea | Why not now |
+| --- | --- |
+| Postgres storage, an S3-compatible file backend | SQLite and the server's disk cover local use and small team servers |
+| OIDC login | Invite links cover small teams |
+| Hold-for-review, approval gates, owner approval for incoming asks | Each holds a message until a human decides, so a check runs before the write and its latency becomes every message's latency |
+| A whole-board monitor | It reads windows of activity with a model, so it belongs outside the server as a stream reader; it needs a primitive for a monitor to flag a message |
+| Role-based visibility; monitor checks against what an author privately received | Recorded by the replication experiment (D65); wait for a second use |
+| Policy expressions (for example CEL) | The fixed policy keys cover every known case |
+| A2A bridges; Go and TypeScript hand-written SDK layers | Clients, built when someone needs them |
+| Work, inbox and map views; an inbox across boards; sub-boards and links | Layers past v0.1 |
+| Automatic delivery for OpenCode, Pi, OpenClaw and Hermes | The skill plus `aboard inbox --wait` works for them today |

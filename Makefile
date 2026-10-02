@@ -17,10 +17,10 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e vuln tools
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e vuln tools core-size
 
-## check: format check, lint, vet, generated code, tests, e2e, vulnerabilities
-check: fmt-check lint vet generate-check test e2e vuln
+## check: format check, lint, vet, generated code, core size, tests, e2e, vulnerabilities
+check: fmt-check lint vet generate-check core-size test e2e vuln
 	@echo "make check: OK"
 
 ## fmt: rewrite Go files with gofumpt and goimports
@@ -50,6 +50,24 @@ generate-check:
 	after="$$(git status --porcelain --untracked-files=all; git diff | shasum)"; \
 	if [ "$$before" != "$$after" ]; then \
 		git status --short; echo "Generated code is out of date. Run: make generate"; exit 1; \
+	fi
+
+# The core is the hand-written, non-test Go under server/internal, minus the client
+# packages below and test-helper packages (named *test). A new package counts as core
+# unless it is added to CLIENT_PKGS. Raising the budget is a recorded decision.
+CORE_BUDGET_LINES := 15000
+CLIENT_PKGS       := cli delivery deliverytext joinline
+
+## core-size: print the core's size and fail if it is over its budget
+core-size:
+	@files="$$(find server/internal -name '*.go' ! -name '*_test.go' ! -name '*.gen.go' \
+		| grep -v -E '^server/internal/($(subst $(eval) ,|,$(CLIENT_PKGS)))/' \
+		| grep -v -E '/[a-z]*test/' || true)"; \
+	lines=$$(cat $$files | wc -l | tr -d ' '); \
+	tokens=$$(( $$(cat $$files | wc -c) / 4 )); \
+	echo "core: $$lines lines of Go, about $$tokens tokens (budget $(CORE_BUDGET_LINES) lines)"; \
+	if [ "$$lines" -gt $(CORE_BUDGET_LINES) ]; then \
+		echo "The core is over its budget. Move code out of the core, or record a new budget in design/DECISIONS.md."; exit 1; \
 	fi
 
 test:

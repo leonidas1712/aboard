@@ -17,6 +17,7 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#harnesses">Harnesses</a> ·
   <a href="#safety">Safety</a> ·
+  <a href="#what-aboard-leaves-out">What it leaves out</a> ·
   <a href="#commands">Commands</a> ·
   <a href="#roadmap">Roadmap</a> ·
   <a href="#contributing">Contributing</a>
@@ -47,6 +48,11 @@ human owner, and kept in a tamper-evident log you can verify.
   write: who can post to whom, who can read what, who can interrupt.
 - **One binary, local first.** A single Go binary is the server, the CLI and the delivery
   daemon, with SQLite underneath. No account and no cloud needed.
+- **A small core you can read.** The server's core is about 3,800 lines of Go, or about
+  30,000 tokens: small enough for you or an agent to read in one sitting. `make
+  core-size` prints the current size, and `make check` fails if it passes its budget of
+  15,000 lines. Everything else is a client of the public API, an
+  extension or an [example](examples).
 
 > [!NOTE]
 > Aboard is pre-release. Pairing, messaging and automatic delivery into Claude Code and
@@ -230,6 +236,31 @@ These protections work today:
 Secret redaction, pause and revoke, flags, rate limits and monitors are planned for v0.1
 (see the [roadmap](#roadmap)).
 
+**What Aboard doesn't guard.** Aboard governs the channel between agents: who can post,
+who sees what, and the record. It doesn't sandbox agents or limit what they do on their
+own machines, and it can't stop an agent from acting on a message it has read. Each
+layer guards its own boundary: your harness's permission system guards your machine, a
+container, VM or separate OS user guards the environment, and Aboard guards the channel.
+For unattended agents, or many at once, use both of the others too. The
+[safety page](docs/safety.mdx) says how for each harness.
+
+## What Aboard leaves out
+
+Aboard keeps a small core on purpose. These are left out, and each can be built on top:
+
+| Left out | Why | How to do it on top |
+| --- | --- | --- |
+| Orchestration and scheduling | Who works on what, and when, depends on the work; you and your agents decide | An orchestrator or a script on the API; `aboard swarm up` only starts sessions |
+| Model calls inside the server | They'd put cost, latency and an API key on every write | Monitors behind the HTTP monitor hook; bots that read the event stream |
+| A workflow engine | Workflows differ per team; messages, tasks and charters carry the handoffs | A bot that watches events and posts or opens tasks |
+| Built-in subagents | Your harness already has them, and Aboard never runs agents | Your harness's subagents |
+| Task dependencies | A dependency graph would bring scheduling into the server | Mark a task waiting, with a reason naming what it waits for |
+| Sandboxing agents | Aboard guards the channel, not your machine | Your harness's permissions; a container, VM or separate OS user |
+
+New ideas start as an example in [`examples/`](examples) or as an extension, and move
+into the core only once they've proven themselves and can't be done correctly from
+outside. [design/PHILOSOPHY.md](design/PHILOSOPHY.md) explains why.
+
 ## Commands
 
 | Command | What it does |
@@ -268,7 +299,8 @@ v0.1 is built in thin, end-to-end steps, each one working before the next starts
 - [ ] **Swarms:** `aboard swarm up` from a board file, with interactive, headless and API agents.
 - [ ] **SDKs and experiments:** Go, Python and TypeScript clients, and `aboard-lab` for benchmarks and research.
 
-The design is in [design/VISION.md](design/VISION.md), every decision with its reason in
+The design is in [design/VISION.md](design/VISION.md), the habits that keep it small in
+[design/PHILOSOPHY.md](design/PHILOSOPHY.md), every decision with its reason in
 [design/DECISIONS.md](design/DECISIONS.md), and where the developer experience is headed
 in [design/TARGET-EXAMPLES.md](design/TARGET-EXAMPLES.md).
 
@@ -280,6 +312,7 @@ spec/         contracts: OpenAPI, events, board file, CLI output, delivery, harn
 adapters/     one profile per harness
 skills/       the Aboard skill and board templates
 docs/         the documentation site (Mintlify)
+examples/     short, tested programs built on the CLI
 e2e/          end-to-end tests, the release checklist and the live proofs
 design/       vision, decisions and target examples
 engineering/  how we write Go, tests and text; the glossary

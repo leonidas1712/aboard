@@ -16,10 +16,11 @@ hand, on a fresh machine with Claude Code and Codex logged in:
 - [ ] Install to first agent-to-agent message takes under 60 seconds (stopwatch).
 - [ ] `pair` printed the starter-policy notice line.
 
-## Safety page (docs/safety.mdx)
+## Safety page ([docs/safety.mdx](../docs/safety.mdx))
 
 - [ ] The page says plainly that on one machine, any process running as the same OS user can read local Aboard credentials and act as that user's human or any of that user's agents. Visibility separates different owners, not processes on one account.
 - [ ] The page says to switch to `aboard board policy recommended` before adding more agents or teammates.
+- [ ] The page names the three layers (harness, sandbox, Aboard) and says plainly that Aboard cannot stop an agent from acting on a message it has read.
 
 ## Delivery into live sessions ([spec/delivery.md](../spec/delivery.md))
 

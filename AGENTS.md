@@ -7,6 +7,8 @@ steer everything, and the server enforces the safety rules on every write.
 
 **Source of truth:** [design/VISION.md](design/VISION.md) for the design, refined by
 [design/DECISIONS.md](design/DECISIONS.md) (a decision wins where it is more specific).
+[design/PHILOSOPHY.md](design/PHILOSOPHY.md) says how we keep the core small: read it
+before adding anything to the server.
 If this file disagrees with either, they win; flag the conflict instead of picking
 silently. Record new decisions in DECISIONS.md.
 
@@ -108,6 +110,7 @@ ONLY allowed scope for v0.1.
 /skills     the Aboard skill (installable with npx skills), templates
 /sdk        generated Go, Python and TypeScript clients with thin hand-written layers
 /lab        aboard-lab (Python): aboard-bench and experiment helpers, public API only
+/examples   short programs on the CLI or SDKs, each tested by /e2e; benchmark scenarios
 /e2e        quickstart tests that run the docs' commands on a fresh machine
 ```
 
@@ -125,6 +128,9 @@ ONLY allowed scope for v0.1.
   can't be done correctly from outside (atomicity, permissions, ordering, trust);
   everything else, our own tools included, is a client of the public API. If a tool
   needs something the API lacks, add the primitive to the contract; never a back door.
+- **New ideas start outside (D75):** as an example in `/examples` or an extension, and
+  move into the core only once proven and only if they pass the primitives test. The
+  server never calls a model (D79). `make core-size` checks the core's size budget (D77).
 
 ## Engineering guides
 
@@ -140,8 +146,8 @@ Read the relevant guide before writing that kind of thing; they override habit.
 
 A change is done when all of these hold:
 
-- [ ] `make check` passes (format, lint, vet, generated code, `go test -race`, e2e,
-      govulncheck).
+- [ ] `make check` passes (format, lint, vet, generated code, core size,
+      `go test -race`, e2e, govulncheck).
 - [ ] E2e tests cover the change; the quickstart still works from scratch.
 - [ ] Contracts (OpenAPI, `aboard.yaml` schema, event types, CLI JSON) updated first if
       the change touched them.

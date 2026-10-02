@@ -72,6 +72,19 @@ Don't: Error: permission check failed in rules.Check (broadcast=false)
 Start with what the reader will have at the end. Use exact, copyable commands and show
 the real output under each. One page, one task. No page longer than about two screens.
 
+Each section states what we want, then how Aboard does it, with real commands or code.
+The same goes for the design documents and READMEs.
+
+```
+Do:    No agent can post as someone else. The server takes the sender from the token
+       that made the request, never from the request body, so `aboard say --as writer`
+       only works on a machine holding the writer's token.
+Don't: Aboard has robust, enterprise-grade identity controls.
+```
+
+Write so an agent can use the page on its own: an agent reading the docs and the skill,
+and nothing else, should be able to explain Aboard correctly and build an extension.
+
 ## Words
 
 Use the product vocabulary in [glossary.md](glossary.md) consistently, and don't invent
