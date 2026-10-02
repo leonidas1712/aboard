@@ -185,13 +185,20 @@ func newLabWith(t *testing.T, binary string) *lab {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A socket path can't be longer than 104 bytes on macOS, and the test's temp path
+	// often is, so tmux's socket lives in a short directory of its own.
+	sockDir, err := os.MkdirTemp("/tmp", "abl-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
 	l := &lab{
 		t:     t,
 		dir:   dir,
 		bin:   filepath.Join(dir, "bin", "aboard"),
 		human: filepath.Join(dir, "human"),
 		addr:  freeAddr(t),
-		tmux:  filepath.Join(dir, "tmux.sock"),
+		tmux:  filepath.Join(sockDir, "tmux.sock"),
 	}
 	for _, d := range []string{filepath.Dir(l.bin), l.human} {
 		if err := os.MkdirAll(d, 0o750); err != nil {
@@ -287,15 +294,32 @@ func (l *lab) teardown() {
 	if pids := l.aboardPIDs(); len(pids) > 0 {
 		t.Errorf("aboard processes still running after the test: %v", pids)
 	}
+	// Codex starts an app server of its own from the test's CODEX_HOME, which outlives
+	// the session.
+	l.stopProcesses(filepath.Join(l.dir, "codex-home"))
 	if diff := configDiff(realConfig, configSums()); diff != "" {
 		t.Errorf("the real harness config or Aboard state changed:\n%s", diff)
 	}
 	t.Logf("turns: about %d (%d prompts typed, %d bundles delivered)", l.typed+len(l.handed()), l.typed, len(l.handed()))
 }
 
+// stopProcesses stops every process whose command line contains path.
+func (l *lab) stopProcesses(path string) {
+	for _, pid := range pidsOf(path) {
+		_ = syscall.Kill(pid, syscall.SIGTERM)
+	}
+	waitQuietly(5*time.Second, func() bool { return len(pidsOf(path)) == 0 })
+	for _, pid := range pidsOf(path) {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+}
+
 // aboardPIDs lists the processes running this lab's aboard binary.
-func (l *lab) aboardPIDs() []int {
-	out, _ := command(context.Background(), "pgrep", "-f", l.bin).Output()
+func (l *lab) aboardPIDs() []int { return pidsOf(l.bin) }
+
+// pidsOf lists the processes whose command line contains path.
+func pidsOf(path string) []int {
+	out, _ := command(context.Background(), "pgrep", "-f", path).Output()
 	var pids []int
 	for _, f := range strings.Fields(string(out)) {
 		if pid, err := strconv.Atoi(f); err == nil {
@@ -343,6 +367,14 @@ func (l *lab) saveArtifacts() {
 			if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
 				write("transcript-"+filepath.Base(filepath.Dir(path))+"-"+filepath.Base(path), raw)
 			}
+		}
+	}
+	// Codex's config shows which hooks it trusted, and the hook log which ran.
+	hooks, _ := filepath.Glob(filepath.Join(l.dir, "*", ".codex", "hooks.json"))
+	for _, path := range append(hooks, filepath.Join(l.dir, "codex-home", "config.toml"), l.codexHookLog()) {
+		if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
+			rel, _ := filepath.Rel(l.dir, path)
+			write(strings.ReplaceAll(rel, string(filepath.Separator), "-"), raw)
 		}
 	}
 	write("doctor.json", []byte(l.exec(context.Background(), l.human, "doctor", "--json").stdout))

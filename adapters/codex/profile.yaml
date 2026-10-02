@@ -73,7 +73,7 @@ delivery:
 notes:
   - The queue holds a bundle until the thread's current turn ends, so busy sessions need no tracking for ordinary messages.
   - Before binding, the daemon reads the exact thread through codex app-server (thread/read) and refuses sub-agent threads.
-  - Hooks run only once trusted in Codex's /hooks; without them, delivery still works through the queue but urgent messages wait for the end of the turn.
+  - Hooks run only once trusted. Codex asks ("Hooks need review") when the first prompt is sent, or the person trusts them in /hooks; Codex asks again whenever a hook's command changes. Until then no hook runs, session start included; delivery still works through the queue but urgent messages wait for the end of the turn.
   - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
   - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so a sandboxed command never starts one.
   - "Verified live with Codex 0.159.3: idle wake through the queue, urgent at the next tool call, sub-agent refusal."

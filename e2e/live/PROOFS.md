@@ -58,7 +58,7 @@ Code 2.1.287 with its default model.
 | `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
 | `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. | 4 |
 | `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
-| `TestIdleCodexWakesAndReplies` | An idle Codex session is woken through `codex queue` and answers on the board. | 2 |
+| `TestIdleCodexWakesAndReplies` | Codex runs the project's hooks (session start, prompt, tool, stop). An idle Codex session is woken through `codex queue` within 2 seconds plus Codex's 2-second gather, and answers on the board. | 2 |
 | `TestClaudeAndCodexExchange` | Claude Code and Codex run the wiring check to PING 3 with no one typing. | about 9 |
 
 A full run with Claude Code only is about 31 turns.
@@ -67,9 +67,9 @@ A full run with Claude Code only is about 31 turns.
 
 These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
 
-- **Urgent messages in Codex.** They need Codex's hooks trusted, which a person does in
-  Codex's `/hooks`; Codex records it in its config in a form the suite can't write ahead
-  of time. Trust them, then run the urgent check of the old proof 5 by hand (below).
+- **Urgent messages in Codex.** Not automated yet. The suite now trusts Codex's hooks
+  before a session starts (below), so a test like `TestUrgentReachesBusyClaude` for Codex
+  is possible; until then, run the urgent check by hand (below).
 - **The stop-hook race** (a prompt typed the instant a turn ends) needs typing faster
   than a turn's stop hook starts, which tmux can't do reliably. A forced e2e test covers
   the ordering.
@@ -92,7 +92,10 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
   pane. In that mode, tests skip if `~/.claude/settings.json` holds Aboard's hooks, since
   they would run in the test sessions too.
 - **Codex** gets a scratch `CODEX_HOME` with your `auth.json` linked (not copied, so a
-  token Codex refreshes stays yours) and the project marked trusted.
+  token Codex refreshes stays yours), the project marked trusted and the project's hooks
+  trusted. Each hook command carries the scratch variables and writes its event to
+  `codex-hooks.log` in the test's directory, so tests see which hooks ran. Teardown also
+  stops the app server Codex starts from the scratch `CODEX_HOME`.
 - **Checksums.** Before the run, the suite records `~/.claude/settings.json`,
   `~/.codex/config.toml` and `~/.codex/hooks.json`, and whether `~/.local/state/aboard`,
   `~/.local/share/aboard` and `~/.config/aboard` exist. Every test checks them in its
@@ -144,21 +147,42 @@ Claude Code 2.1.287:
   charter, and each join with a valid code makes a new agent. The skill now says to join
   once with `--json` and never run join again.
 
-Codex 0.159.3, from the earlier proofs run by hand:
+Codex 0.159.3 (the earlier proofs by hand, and the suite):
 
 - Don't pass settings with `-c` or use `--dangerously-bypass-hook-trust`: either makes
   Codex run its own embedded app server instead of the shared one, and `codex queue`
   then can't reach the session.
-- Codex runs project hooks only once they are trusted in `/hooks`, which writes one
-  `[hooks.state."<path>:<event>:0:0"]` entry per hook to its `config.toml`. Codex hooks
-  don't see the environment Codex was started with, so for live runs each hook command
-  needs the scratch variables in it (`env XDG_CONFIG_HOME=… XDG_DATA_HOME=…
+- Codex runs hooks only once they are trusted. When the first prompt is sent with
+  untrusted hooks, it shows "Hooks need review" (1. Review hooks, 2. Trust all and
+  continue, 3. Continue without trusting) and runs no hook, session start included, until
+  it is answered; `/hooks` does the same. Trusting writes one
+  `[hooks.state."<hooks.json path>:<event>:<group>:<handler>"]` entry with a
+  `trusted_hash` per hook to `$CODEX_HOME/config.toml`. The hash covers the hook, not the
+  file's path, and changes when its command does, so Codex asks again after a hook
+  command changes. Its app server's `hooks/list` reports each hook's `key` and
+  `currentHash`; the suite writes those entries before Codex starts, so the dialog never
+  shows.
+- Codex hooks don't see the environment Codex was started with, so for live runs each
+  hook command needs the scratch variables in it (`env XDG_CONFIG_HOME=… XDG_DATA_HOME=…
   XDG_STATE_HOME=… ABOARD_LOCAL_ADDR=… PATH=… <aboard> hook codex …`), or a hook starts a
   daemon on the real home's state.
 - Start the daemon outside Codex (`aboard daemon start`) before the first command in
   Codex: a daemon started inside Codex's sandbox inherits the sandbox and can't run
   `codex app-server`. The suite does this with the test's `CODEX_HOME`.
-- Codex shows `Working` while a turn runs and `context left` in its footer.
+- A turn is running while Codex shows `esc to interrupt` (`Working (4s • esc to
+  interrupt)`, or `Starting MCP servers` at the start of the first turn). Idle, its
+  prompt box shows the placeholder `Ask Codex to do anything` and its footer `? for
+  shortcuts`; it no longer shows `context left`.
+- Its start screen shows the prompt box and `? for shortcuts` before Codex takes
+  prompts. A prompt typed then can stay in the box after Enter, so the suite presses Enter
+  again until the box no longer holds it.
+- Codex shows a sent prompt above its prompt box with the same `›` marker, so "the prompt
+  was taken" means the last `›` line no longer holds it.
+- Codex starts a shared app server (`codex app-server --listen unix:// --managed-daemon`)
+  from `$CODEX_HOME/packages`, which keeps running after the session exits.
+- With the first prompt "Run `aboard resume reviewer`. … Now reply only OK.", the model
+  twice replied OK without running the command. The prompt now says "Run the command …
+  now" and "Once the command has run, reply only OK".
 - The project's `.codex/config.toml` allows the network in the sandbox
   (`[sandbox_workspace_write] network_access = true`).
 
@@ -193,7 +217,8 @@ on the helpers in `live_test.go` and `harness_test.go`:
 ## Last run
 
 2026-10-02, Claude Code 2.1.287 (default model), no Codex installed. `make live`: 1 minute
-47 seconds, about 31 turns.
+47 seconds, about 31 turns. The Codex rows are from 2026-10-02 on macOS with Codex 0.159.3
+(GPT-6.1-Sol, its default), `make live RUN=Codex`: 40 seconds, 2 turns.
 
 | Test | Result | Measured |
 | --- | --- | --- |
@@ -205,8 +230,8 @@ on the helpers in `live_test.go` and `harness_test.go`:
 | `TestProjectScopeInit` | Pass | |
 | `TestKilledSessionRedelivers` | Pass | session closed 3.0 s after the kill; redelivered to the next session |
 | `TestRestartsLoseNothing` | Pass | answers 2.6 s after the daemon restart, 2.9 s after the server restart |
-| `TestIdleCodexWakesAndReplies` | Skipped | Codex not installed |
-| `TestClaudeAndCodexExchange` | Skipped | Codex not installed |
+| `TestIdleCodexWakesAndReplies` | Pass | hooks ran; queued 2.1 s after posting (2 s of it Codex's gather), reply 6.2 s |
+| `TestClaudeAndCodexExchange` | Skipped | Claude Code needs `CLAUDE_CODE_OAUTH_TOKEN` on that machine |
 
 The proofs before this suite, run by hand with Claude Code 2.1.286 and Codex 0.159.3,
 passed the same checks for Codex: idle wake through the queue, the exchange with Claude

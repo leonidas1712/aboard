@@ -3,6 +3,7 @@
 package live
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -233,7 +234,7 @@ func claudeReady(screen string) bool { _, ok := inputLine(screen); return ok }
 // claudeBusy reports whether a turn runs: Claude Code shows how to interrupt it.
 func claudeBusy(screen string) bool { return strings.Contains(screen, "esc to interrupt") }
 
-// submit types a prompt into Claude Code and waits until the prompt box has taken it.
+// submit types a prompt into the harness and waits until the prompt box has taken it.
 func (p *pane) submit(text string) {
 	p.l.t.Helper()
 	p.typeInto(text)
@@ -245,17 +246,44 @@ func (p *pane) submit(text string) {
 		in, ok := inputLine(p.screen())
 		return !ok || !strings.Contains(in, prefix)
 	}
-	if !waitQuietly(5*time.Second, taken) {
-		p.keys("Enter") // the first Enter was taken as part of the typed text
-		p.l.waitFor(10*time.Second, p.name+": Claude Code to take the prompt", taken)
+	if p.harness == "codex" {
+		// Codex shows a submitted prompt above its prompt box, with the same marker.
+		taken = func() bool { return !strings.Contains(codexInput(p.screen()), prefix) }
 	}
+	if !waitQuietly(5*time.Second, taken) {
+		// The first Enter was taken as part of the typed text, or Codex was still starting.
+		p.keys("Enter")
+		p.l.waitFor(10*time.Second, p.name+": the harness to take the prompt", taken)
+	}
+}
+
+// codexInput is the text in Codex's prompt box: from its last line starting with › to the
+// status line under it.
+func codexInput(screen string) string {
+	lines := strings.Split(screen, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.HasPrefix(strings.TrimSpace(lines[i]), "›") {
+			return strings.Join(lines[i:], "\n")
+		}
+	}
+	return ""
 }
 
 // idle reports whether the harness shows its prompt with no turn running.
 func (p *pane) idle() bool {
 	s := p.screen()
 	if p.harness == "codex" {
-		return strings.Contains(s, "context left") && !strings.Contains(s, "Working")
+		if strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue") {
+			// Codex can ask again mid-session. Trusting records the hooks in the test's own
+			// CODEX_HOME, never the person's.
+			p.keys("2")
+			p.keys("Enter")
+			return false
+		}
+		// Older Codex shows how much context is left under its prompt; newer shows "? for
+		// shortcuts" there instead.
+		return (strings.Contains(s, "context left") || strings.Contains(s, "? for shortcuts")) &&
+			!strings.Contains(s, "Working") && !strings.Contains(s, "esc to interrupt")
 	}
 	return claudeReady(s) && !claudeBusy(s)
 }
@@ -280,14 +308,21 @@ func (p *pane) waitIdle(timeout time.Duration) {
 // bindPrompt is every harness session's first prompt: it takes over an agent made in
 // the person's terminal and says how to treat messages, so each test message can ask
 // for one checkable action.
-const bindPrompt = "Run `aboard resume %s`. After that, whenever an Aboard message arrives, do exactly what it asks, " +
-	"including any command it names, and nothing more, then stop. Now reply only OK."
+const bindPrompt = "Run the command `aboard resume %s` now. After that, whenever an Aboard message arrives, do exactly " +
+	"what it asks, including any command it names, and nothing more, then stop. Once the command has run, reply only OK."
 
 // bind makes the session act as agent, and waits for that turn to end.
 func (p *pane) bind(agent string) {
 	p.l.t.Helper()
 	p.submit(fmt.Sprintf(bindPrompt, agent))
 	p.waitIdle(3 * time.Minute)
+	if p.harness == "codex" {
+		// Without its hooks, Codex still gets ordinary messages through its queue, but the
+		// daemon never sees its turns; the suite proves the hooks as Codex runs them.
+		p.l.waitFor(10*time.Second, p.name+": Codex to run its session start, prompt and stop hooks", func() bool {
+			return p.l.codexHooksRan("session-start", "prompt", "stop")
+		})
+	}
 }
 
 // slowTask is a script tests put in a project to keep a turn busy. Claude Code refuses
@@ -426,7 +461,9 @@ func (l *lab) startCodex(name, dir string) *pane {
 		[]byte("[sandbox_workspace_write]\nnetwork_access = true\n"), 0o600); err != nil {
 		l.t.Fatal(err)
 	}
-	env := append(slices.Clone(l.vars), "CODEX_HOME="+home)
+	env := slices.Clone(l.vars) // codexHome added CODEX_HOME
+	l.scopeCodexHooks(dir, env)
+	l.trustCodexHooks(dir, home, env)
 	argv := []string{
 		"codex", "-s", "workspace-write",
 		"--add-dir", filepath.Join(l.dir, "state"), "--add-dir", fmt.Sprintf("/tmp/aboard-%d", os.Getuid()),
@@ -434,14 +471,163 @@ func (l *lab) startCodex(name, dir string) *pane {
 	}
 	p := l.start(name, dir, env, argv)
 	p.l.waitFor(90*time.Second, name+": Codex to show its prompt", func() bool {
-		if s := p.screen(); strings.Contains(s, "trust") && strings.Contains(s, "1. Yes") {
+		s := p.screen()
+		switch {
+		case strings.Contains(s, "trust") && strings.Contains(s, "1. Yes"):
 			p.keys("1")
 			p.keys("Enter")
+			return false
+		case strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue"):
+			// trustCodexHooks should have made this unnecessary. Trusting records the hooks in
+			// the test's own CODEX_HOME, never the person's.
+			p.l.t.Logf("%s: Codex asks to trust hooks that trustCodexHooks trusted; trusting them in the pane", name)
+			p.keys("2")
+			p.keys("Enter")
+			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Hooks need review") })
 			return false
 		}
 		return p.idle()
 	})
 	return p
+}
+
+// scopeCodexHooks puts the lab's variables into each hook command in the project's
+// .codex/hooks.json. Codex doesn't pass the environment it was started with to its hooks,
+// so without them a hook would use the person's own Aboard state. Each hook also writes
+// its event to codexHookLog, so tests can see the hooks run.
+func (l *lab) scopeCodexHooks(dir string, env []string) {
+	l.t.Helper()
+	path := filepath.Join(dir, ".codex", "hooks.json")
+	raw, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	words := []string{"env"}
+	for _, kv := range env {
+		for _, name := range []string{"PATH=", "XDG_CONFIG_HOME=", "XDG_DATA_HOME=", "XDG_STATE_HOME=", "ABOARD_LOCAL_ADDR=", "CODEX_HOME="} {
+			if strings.HasPrefix(kv, name) {
+				words = append(words, shellQuote(kv))
+			}
+		}
+	}
+	// "<bin> hook codex <event>" becomes
+	// env <vars> sh -c 'echo "$1" >> <log>; exec "$0" hook codex "$1"' <bin> <event>
+	script := fmt.Sprintf(`echo "$1" >> %s; exec "$0" hook codex "$1"`, l.codexHookLog())
+	words = append(words, "sh", "-c", "'"+script+"'", l.bin)
+	quoted, err := json.Marshal(strings.Join(words, " ") + " ")
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	plain, err := json.Marshal(l.bin + " hook codex ")
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	// Both are JSON strings; drop the quotes to replace inside the command strings.
+	from, to := string(plain[1:len(plain)-1]), string(quoted[1:len(quoted)-1])
+	if !strings.Contains(string(raw), from) {
+		l.t.Fatalf("%s has no hook running %s:\n%s", path, l.bin, raw)
+	}
+	if err := os.WriteFile(path, []byte(strings.ReplaceAll(string(raw), from, to)), 0o600); err != nil { //nolint:gosec // the lab's own project
+		l.t.Fatal(err)
+	}
+}
+
+// codexHookLog is where the lab's Codex hooks write each event they run, one per line.
+func (l *lab) codexHookLog() string { return filepath.Join(l.dir, "codex-hooks.log") }
+
+// codexHooksRan reports whether each event's hook has run at least once.
+func (l *lab) codexHooksRan(events ...string) bool {
+	raw, _ := os.ReadFile(l.codexHookLog())
+	ran := strings.Fields(string(raw))
+	for _, e := range events {
+		if !slices.Contains(ran, e) {
+			return false
+		}
+	}
+	return true
+}
+
+// trustCodexHooks trusts the project's hooks in the test's CODEX_HOME before Codex
+// starts, the way Codex's /hooks does: one [hooks.state."<key>"] entry per hook, with the
+// hash Codex's app server reports for it (hooks/list). Without it, Codex 0.159 shows a
+// "Hooks need review" dialog once the first prompt is typed, and runs no hook until it is
+// answered.
+func (l *lab) trustCodexHooks(dir, home string, env []string) {
+	l.t.Helper()
+	ctx, cancel := context.WithTimeout(l.t.Context(), 60*time.Second)
+	defer cancel()
+	cmd := command(ctx, "codex", "app-server")
+	cmd.Dir, cmd.Env = dir, env
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		l.t.Fatalf("start codex app-server: %v", err)
+	}
+	defer func() {
+		_ = stdin.Close()
+		cancel()
+		_ = cmd.Wait()
+	}()
+	enc := json.NewEncoder(stdin)
+	lines := bufio.NewScanner(stdout)
+	lines.Buffer(make([]byte, 64<<10), 16<<20)
+	call := func(id int, method string, params any) json.RawMessage {
+		if err := enc.Encode(map[string]any{"id": id, "method": method, "params": params}); err != nil {
+			l.t.Fatalf("codex app-server %s: %v", method, err)
+		}
+		for lines.Scan() {
+			var m struct {
+				ID     *int            `json:"id"`
+				Method string          `json:"method"`
+				Result json.RawMessage `json:"result"`
+				Error  json.RawMessage `json:"error"`
+			}
+			if json.Unmarshal(lines.Bytes(), &m) != nil || m.ID == nil || *m.ID != id || m.Method != "" {
+				continue // notifications and requests from the server
+			}
+			if len(m.Error) > 0 {
+				l.t.Fatalf("codex app-server %s: %s", method, m.Error)
+			}
+			return m.Result
+		}
+		l.t.Fatalf("codex app-server ended before answering %s", method)
+		return nil
+	}
+	call(1, "initialize", map[string]any{"clientInfo": map[string]string{"name": "aboard-live", "title": "Aboard live suite", "version": "0"}})
+	if err := enc.Encode(map[string]string{"method": "initialized"}); err != nil {
+		l.t.Fatal(err)
+	}
+	var list struct {
+		Data []struct {
+			Hooks []struct {
+				Key         string `json:"key"`
+				Source      string `json:"source"`
+				CurrentHash string `json:"currentHash"`
+			} `json:"hooks"`
+		} `json:"data"`
+	}
+	raw := call(2, "hooks/list", map[string]any{"cwds": []string{dir}})
+	if err := json.Unmarshal(raw, &list); err != nil {
+		l.t.Fatalf("codex app-server hooks/list: %v\n%s", err, raw)
+	}
+	var cfg strings.Builder
+	for _, d := range list.Data {
+		for _, h := range d.Hooks {
+			if h.Source == "project" && h.CurrentHash != "" {
+				fmt.Fprintf(&cfg, "[hooks.state.%q]\ntrusted_hash = %q\n", h.Key, h.CurrentHash)
+			}
+		}
+	}
+	if cfg.Len() == 0 {
+		l.t.Fatalf("codex app-server lists no project hooks for %s:\n%s", dir, raw)
+	}
+	appendFile(l.t, filepath.Join(home, "config.toml"), cfg.String())
 }
 
 // codexHome is the test's CODEX_HOME, made on first use. The delivery daemon runs codex
