@@ -28,6 +28,7 @@ type wireMember struct {
 	Role     *string `json:"role"`
 	Owner    *string `json:"owner"`
 	Harness  *string `json:"harness"`
+	Access   *string `json:"access"`
 	Status   string  `json:"status"`
 	JoinedAt string  `json:"joined_at"`
 }
@@ -92,10 +93,14 @@ func refOf(m board.Member) wireMemberRef {
 }
 
 func memberOf(m board.Member, boardName string) wireMember {
-	return wireMember{
+	w := wireMember{
 		ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
 		Harness: m.Harness, Status: m.Status, JoinedAt: m.JoinedAt,
 	}
+	if m.Access != "" {
+		w.Access = &m.Access
+	}
+	return w
 }
 
 func boardOf(v board.View) wireBoard {

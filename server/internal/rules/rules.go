@@ -215,16 +215,35 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 	return out, nil
 }
 
+// Access levels of a person on a board. An admin may change the board's charter, roles,
+// policy and monitor settings; a member may act only on their own agents. Agents have
+// no access level.
+const (
+	AccessAdmin  = "admin"
+	AccessMember = "member"
+)
+
 // Member is what the rules need to know about a board member.
 type Member struct {
-	ID   string
-	Name string
-	Kind string // "agent" or "human"
-	Role string // empty for humans
+	ID      string
+	Name    string
+	Kind    string // "agent" or "human"
+	Role    string // empty for humans
+	HumanID string // the person, or the agent's owner
+	Access  string // AccessAdmin or AccessMember for a person, empty for an agent
 }
 
 // IsHuman reports whether the member is a person.
 func (m Member) IsHuman() bool { return m.Kind == "human" }
+
+// IsAdmin reports whether the member is a person who may change the board's rules.
+func (m Member) IsAdmin() bool { return m.IsHuman() && m.Access == AccessAdmin }
+
+// CanManage reports whether person may pause or remove agent: only the agent's owner or
+// an admin of its board may.
+func CanManage(person, agent Member) bool {
+	return person.IsHuman() && (person.IsAdmin() || person.HumanID == agent.HumanID)
+}
 
 // Target kinds in a message's `to` list.
 const (

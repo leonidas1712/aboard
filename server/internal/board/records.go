@@ -42,6 +42,7 @@ type Member struct {
 	Owner       *string
 	Harness     *string
 	TokenDigest *string
+	Access      string // rules.AccessAdmin or rules.AccessMember for a person, empty for an agent
 	Status      string
 	Cursor      int64
 	JoinedAt    string
@@ -49,7 +50,7 @@ type Member struct {
 
 // Rules returns what the rules package needs to know about the member.
 func (m Member) Rules() rules.Member {
-	r := rules.Member{ID: m.ID, Name: m.Name, Kind: m.Kind}
+	r := rules.Member{ID: m.ID, Name: m.Name, Kind: m.Kind, HumanID: m.HumanID, Access: m.Access}
 	if m.Role != nil {
 		r.Role = *m.Role
 	}

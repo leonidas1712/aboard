@@ -576,14 +576,16 @@ $defs:
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as); delivery auto
         Policy: starter (a starting point; tighten with aboard board policy recommended)
-      When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
+        People: alex (admin), sam (member)
+      The People line appears only when more than one person is on the board; with one
+      person, people is null and access isn't mentioned. When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
       starts it" and "Daemon: not running; it starts when a session or command needs it".
       With no hooks installed the Setup line is "Setup:  none; aboard init adds the skill
       and hooks". A remote server is "reachable" or "unreachable". With no agent selected the Agent
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy]
+    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       setup:
@@ -622,12 +624,25 @@ $defs:
         oneOf:
           - $ref: openapi.yaml#/components/schemas/Policy
           - type: "null"
+      people:
+        description: |
+          The people on the board in the order they joined, with what each may change
+          (see Member.access). Null when only one person is on the board, or when the
+          server can't be reached.
+        type: [array, "null"]
+        items:
+          type: object
+          required: [name, access]
+          properties:
+            name: { type: string }
+            access: { enum: [admin, member] }
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:
     description: |
-      A human command with the human login. Inside a harness session it refuses with
-      human_command_in_session.
+      A human command with the human login, for the board's admins. A person who isn't
+      an admin gets admin_required, whose hint names the admins. Inside a harness
+      session it refuses with human_command_in_session.
     type: object
     required: [board, before, after, policy_notice]
     properties:

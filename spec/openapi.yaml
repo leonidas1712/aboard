@@ -133,7 +133,8 @@ paths:
       operationId: createBoard
       summary: Create a board, optionally from a template
       description: |
-        Humans only. Writes `board.created` and a `member.joined` for the calling human.
+        Humans only. Writes `board.created` and a `member.joined` for the calling human,
+        who becomes the board's first admin.
         If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -191,9 +192,11 @@ paths:
       operationId: updateBoard
       summary: Change board policy
       description: |
-        Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-        whole policy with that preset's values; other keys in the same request then
-        override it. Writes `board.policy_changed`.
+        Admins only. An agent gets 403 `human_token_required`; a person on the board who
+        isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+        Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+        with that preset's values; other keys in the same request then override it.
+        Writes `board.policy_changed`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -282,7 +285,7 @@ paths:
         gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
         without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
         for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-        member of the board yet.
+        member of the board yet; an owner who joins this way is a `member`, not an admin.
         Rate-limited per client address; over the limit returns 429 with `Retry-After`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -692,6 +695,7 @@ components:
                 - unauthorized
                 - forbidden
                 - human_token_required
+                - admin_required
                 - agent_token_required
                 - invalid_request
                 - board_not_found
@@ -942,7 +946,7 @@ components:
     # ---------- members ----------
     Member:
       type: object
-      required: [id, board, name, kind, role, owner, harness, status, joined_at]
+      required: [id, board, name, kind, role, owner, harness, access, status, joined_at]
       properties:
         id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
@@ -962,6 +966,14 @@ components:
           maxLength: 40
           nullable: true
           description: "Null when not given, and for an agent reading a board with policy `show_harness: false`."
+        access:
+          type: string
+          enum: [admin, member, null]
+          nullable: true
+          description: |
+            What a person may change on the board. `admin`: the charter, roles, policy and
+            monitor settings. `member`: their own agents only. The person who created the
+            board is its first admin; everyone else is a member. Null for agents.
         status: { type: string, enum: [active] }
         joined_at: { $ref: "#/components/schemas/Timestamp" }
     MemberRef:
@@ -1202,6 +1214,11 @@ components:
                 role: { type: string, nullable: true }
                 owner: { type: string, nullable: true }
                 harness: { type: string, nullable: true }
+                access:
+                  type: string
+                  enum: [admin, member, null]
+                  nullable: true
+                  description: "`admin` or `member` for a person, null for an agent. Absent from events written before people had access levels; read those as `admin` for the board's creator and `member` for anyone else."
                 join_code_id: { type: string, nullable: true }
     JoinCodeCreatedEvent:
       allOf:

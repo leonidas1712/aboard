@@ -107,18 +107,20 @@ func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
 	return out, rows.Err()
 }
 
-const memberColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, status, cursor, joined_at"
+const memberColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
-	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.Status, &m.Cursor, &m.JoinedAt)
+	var access sql.NullString
+	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt)
+	m.Access = access.String
 	return m, notFound(err)
 }
 
 // InsertMember adds a member.
 func (t *tx) InsertMember(m board.Member) error {
-	return t.exec("INSERT INTO members ("+memberColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.Status, m.Cursor, m.JoinedAt)
+	return t.exec("INSERT INTO members ("+memberColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
+		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.Access, m.Status, m.Cursor, m.JoinedAt)
 }
 
 // MemberByTokenDigest finds the agent whose token has this digest.

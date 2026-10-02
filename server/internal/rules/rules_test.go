@@ -198,3 +198,31 @@ func TestNormalizeName(t *testing.T) {
 		}
 	}
 }
+
+func TestCanManage(t *testing.T) {
+	admin := Member{ID: "m1", Kind: "human", HumanID: "alex", Access: AccessAdmin}
+	sam := Member{ID: "m2", Kind: "human", HumanID: "sam", Access: AccessMember}
+	priya := Member{ID: "m3", Kind: "human", HumanID: "priya", Access: AccessMember}
+	samsWriter := Member{ID: "m4", Kind: "agent", HumanID: "sam", Role: "writer"}
+	samsReviewer := Member{ID: "m5", Kind: "agent", HumanID: "sam", Role: "reviewer"}
+	alexsAgent := Member{ID: "m6", Kind: "agent", HumanID: "alex", Role: "writer"}
+	// An access level on an agent, set by mistake, doesn't make it an admin.
+	marked := Member{ID: "m7", Kind: "agent", HumanID: "alex", Access: AccessAdmin}
+	tests := []struct {
+		name          string
+		person, agent Member
+		want          bool
+	}{
+		{"owner", sam, samsWriter, true},
+		{"admin, someone else's agent", admin, samsWriter, true},
+		{"member, someone else's agent", priya, samsWriter, false},
+		{"member, the admin's agent", sam, alexsAgent, false},
+		{"agent of the same owner", samsReviewer, samsWriter, false},
+		{"agent marked admin", marked, samsWriter, false},
+	}
+	for _, tt := range tests {
+		if got := CanManage(tt.person, tt.agent); got != tt.want {
+			t.Errorf("%s: CanManage = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
