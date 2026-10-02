@@ -3,6 +3,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -115,11 +116,18 @@ func Run(ctx context.Context, o Options) error {
 		return err
 	}
 	pidFile := filepath.Join(o.DataDir, "server.pid")
-	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())+"\n"), 0o600); err != nil {
+	pid := []byte(strconv.Itoa(os.Getpid()) + "\n")
+	if err := os.WriteFile(pidFile, pid, 0o600); err != nil {
 		_ = ln.Close()
 		return fmt.Errorf("write pid file: %w", err)
 	}
-	defer func() { _ = os.Remove(pidFile) }() // best effort; a stale pid file is harmless
+	// Best effort; a stale pid file is harmless. Only our own: once the listener closes,
+	// aboard up may start a new server, which writes its pid before this one exits.
+	defer func() {
+		if b, err := os.ReadFile(pidFile); err == nil && bytes.Equal(b, pid) { //nolint:gosec // our own data directory
+			_ = os.Remove(pidFile)
+		}
+	}()
 
 	srv := &http.Server{
 		Handler:           handler,
