@@ -18,7 +18,7 @@ func TestIdleCodexWakesAndReplies(t *testing.T) {
 	reviewer.bind("reviewer")
 
 	ping := l.say("writer", "--to", "@reviewer", "--expect-reply", "Reply to this message with exactly PONG-1.")
-	wake := l.waitHanded(ping.At, 30*time.Second)
+	wake := l.waitHanded(ping.At)
 	reply := l.waitMessage("reviewer", ping.At, "PONG-1", 3*time.Minute)
 	t.Logf("measured: queued %s after posting, reply on the board %s after posting",
 		wake.Time.Sub(ping.At), reply.At.Sub(ping.At))

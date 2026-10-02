@@ -356,11 +356,12 @@ func (l *lab) waitMessage(sender string, since time.Time, text string, timeout t
 	return found
 }
 
-// waitHanded waits for the first bundle the daemon hands over at or after since.
-func (l *lab) waitHanded(since time.Time, timeout time.Duration) handover {
+// waitHanded waits up to 30 seconds for the first bundle the daemon hands over at or
+// after since.
+func (l *lab) waitHanded(since time.Time) handover {
 	l.t.Helper()
 	var h handover
-	l.waitFor(timeout, "the daemon to hand a bundle to a session", func() bool {
+	l.waitFor(30*time.Second, "the daemon to hand a bundle to a session", func() bool {
 		hs := l.handedAfter(since)
 		if len(hs) == 0 {
 			return false
