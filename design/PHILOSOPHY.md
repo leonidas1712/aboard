@@ -46,7 +46,7 @@ nothing else. Someone running a swarm across machines finds every control they n
 
 How Aboard does it: each concept, command and setting belongs to a layer (pair,
 project, team, swarm, org; see [VISION.md](VISION.md#layers)), and stays out of sight
-until an action calls for it: owners beside names, the `peer` label and admins appear
+until an action calls for it: owners beside names, the `other_agent` label and admins appear
 only when a second person joins. Defaults are chosen so a solo user never has to change
 one, and the starter policy is always labelled so an easy default never looks like a
 safe one.

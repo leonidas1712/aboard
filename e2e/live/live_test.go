@@ -433,7 +433,7 @@ func (l *lab) saveArtifacts() {
 		}
 	}
 	write("doctor.json", []byte(l.exec(context.Background(), l.human, "doctor", "--json").stdout))
-	for _, agent := range []string{"writer", "reviewer"} {
+	for _, agent := range []string{"writer", "reviewer", "claude", "claude-2"} {
 		write("board-as-"+agent+".json", []byte(l.exec(context.Background(), l.human, "read", "--as", agent, "--json", "--limit", "200").stdout))
 	}
 	l.t.Logf("artifacts: %s", dir)

@@ -45,12 +45,13 @@ func TestIdleClaudeWakesAndReplies(t *testing.T) {
 	})
 	writer.waitIdle(2 * time.Minute)
 	reviewer.submit(line)
-	l.waitMessage("reviewer", time.Time{}, "", 3*time.Minute) // its hello
-	l.waitQuiet(4*time.Minute, "reviewer", writer, reviewer)
+	// Agents are named after their harness: the writer is claude, the reviewer claude-2.
+	l.waitMessage("claude-2", time.Time{}, "", 3*time.Minute) // its hello
+	l.waitQuiet(4*time.Minute, "claude-2", writer, reviewer)
 
-	ping := l.say("reviewer", "--to", "@writer", "--expect-reply", "Reply to this message with exactly PONG-1.")
+	ping := l.say("claude-2", "--to", "@claude", "--expect-reply", "Reply to this message with exactly PONG-1.")
 	wake := l.waitHanded(ping.At, 30*time.Second)
-	reply := l.waitMessage("writer", ping.At, "PONG-1", 2*time.Minute)
+	reply := l.waitMessage("claude", ping.At, "PONG-1", 2*time.Minute)
 	t.Logf("measured: handed %s after posting, reply on the board %s after posting",
 		wake.Time.Sub(ping.At), reply.At.Sub(ping.At))
 	checkWake(t, ping, wake)
