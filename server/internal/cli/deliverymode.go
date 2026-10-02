@@ -101,7 +101,8 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 }
 
 // deliveryMode reads an agent's delivery mode from the daemon's journal, without
-// starting the daemon.
+// starting the daemon. An agent without its own mode has the machine's default, kept
+// under the empty AgentRef.
 func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delivery.Mode, error) {
 	p, err := a.paths()
 	if err != nil {
@@ -112,6 +113,9 @@ func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delive
 		return "", fmt.Errorf("read delivery modes: %w", err)
 	}
 	if m, ok := modes[agent]; ok {
+		return m, nil
+	}
+	if m, ok := modes[delivery.AgentRef{}]; ok {
 		return m, nil
 	}
 	return delivery.ModeAuto, nil

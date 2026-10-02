@@ -205,7 +205,9 @@ answers its owner shouldn't be pulled into every exchange between peers, and som
 sessions shouldn't be woken at all.
 
 How Aboard does it: each agent has a delivery mode, kept by the daemon in its journal, per
-agent. An agent nobody set is `auto`.
+agent. An agent nobody set has the machine's default mode, kept in the journal under an
+empty agent (empty server, board and name) and set with `aboard init --delivery`; with no
+default set, it is `auto`.
 
 | Mode | What wakes the session | Urgent messages mid-turn |
 | --- | --- | --- |
@@ -377,6 +379,27 @@ A harness counts as detected when its folder exists or its command is on the PAT
 harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
 stays with the person.
 
+In a terminal, `aboard init` asks which harnesses, the scope, the delivery mode for agents
+without their own, and whether to allow `aboard` commands without a permission prompt,
+then shows the changes and asks before making them. Flags answer the same questions
+without asking (`--harness`, `--scope`, `--delivery`, `--allow-commands`, `--yes`).
+
+`--scope project` writes only under the working directory: `.claude/skills/aboard/` and
+`.claude/settings.local.json` (the project settings file meant for one machine) for
+Claude Code, and `.agents/skills/aboard/` and `.codex/hooks.json` for Codex. Codex reads a
+project's `.codex/` only once the person trusts the project. The hooks run the installed
+binary by absolute path in both scopes, and the server and daemon stay per user. Codex
+runs every hook it finds, so with the hooks in both scopes it runs each one twice;
+`aboard init` says so when the other scope already holds them.
+
+`--allow-commands` adds `Bash(aboard *)` to `permissions.allow` in the Claude Code
+settings file that holds the hooks, and writes `rules/aboard.rules` with
+`prefix_rule(pattern=["aboard"], decision="allow")` in `$CODEX_HOME` or the project's
+`.codex/`. Codex runs a command its rules allow outside its sandbox.
+
+`aboard status` shows where the hooks are installed on its Setup line, and `aboard doctor`
+accepts hooks in either scope and names the file.
+
 An installed file is out of date when it differs from what this `aboard init` would write
 now: the skill compared byte for byte, and each Aboard hook entry compared with the entry
 `aboard init` would write (the absolute path of this aboard, then `hook <harness>
@@ -384,9 +407,10 @@ now: the skill compared byte for byte, and each Aboard hook entry compared with 
 installed binary by its path, so after an upgrade at the same path they already run the
 new one, and the entries stay byte for byte the same; the harnesses ask the person to
 trust hooks only when an entry changes, so an upgrade that doesn't change the hooks never
-asks again. `aboard doctor` reports a skill or hook entry that differs, and says to run
-`aboard init --yes`, which rewrites only what differs and only Aboard's own skill file
-and hook entries.
+asks again. `aboard doctor` compares each scope that holds the skill or hooks (global,
+and the working directory's project), reports a skill or hook entry that differs, and says
+to run `aboard init --yes` (with `--scope project` for the project's files), which rewrites
+only what differs and only Aboard's own skill file and hook entries.
 
 ## Upgrades
 
@@ -472,8 +496,8 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `delivery_skipped` | Messages too large for automatic delivery | Read them with `aboard read` |
 | `daemon_outdated` | The running daemon is from an older aboard and couldn't be replaced (warning) | `aboard down` |
 | `server_outdated` | The local server is from an older aboard (warning); the next command that uses it replaces it | Run any command, or `aboard down` |
-| `skill_outdated` | An installed skill differs from the one this aboard installs (warning) | `aboard init --yes` |
-| `hooks_outdated` | Aboard's hook entries differ from the ones this aboard installs (warning) | `aboard init --yes` |
+| `skill_outdated` | An installed skill differs from the one this aboard installs (warning) | `aboard init --yes`, with `--scope project` for a project's skill |
+| `hooks_outdated` | Aboard's hook entries differ from the ones this aboard installs (warning) | `aboard init --yes`, with `--scope project` for a project's hooks |
 
 ## Failures and what the person sees
 

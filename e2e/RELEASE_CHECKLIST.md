@@ -10,6 +10,7 @@ The "In two terminals" tab is covered by an e2e test. Check the "In your agents"
 hand, on a fresh machine with Claude Code and Codex logged in:
 
 - [ ] Installing via the "In your agents" tab and running `aboard init` adds the Aboard skill to every detected harness, and shows each hook change and asks before writing it.
+- [ ] `aboard init --yes --scope project` in a fresh project: after trusting the project and its hooks, a Claude Code session and a Codex session started there load the skill and run the hooks (`aboard status` in each names its session), and sessions started elsewhere don't.
 - [ ] In a Claude Code session, "Pair with a reviewer on Aboard" makes the agent run `aboard pair` and reply with exactly one join line.
 - [ ] Pasting that line into a Codex session joins it as **reviewer**; it reads the charter and says hello.
 - [ ] The two agents exchange messages without anyone typing; each delivered message arrives wrapped as `<aboard-message … trust="peer">`.
