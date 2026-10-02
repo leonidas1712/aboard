@@ -292,6 +292,9 @@ Why: checking delivery against real harnesses by hand doesn't scale and depends 
 **D91. A daemon that starts keeps a `handed` delivery `handed` when it went to a waiting stop hook of a session still open, and the session's next event from the same boot confirms it; a resumed wait (a hook that was still waiting when the daemon went away) puts that session's handed bundles back to `pending`. Everything else handed still goes back to `pending`.**
 Why: the live suite showed every upgrade during a wake handing the same message twice. The woken turn's own prompt hook runs the new binary, which replaces the old daemon before anything can confirm the bundle, and the new daemon put it back to `pending`. A hook that took a bundle exits with it, so only a hook that reconnects can have missed it.
 
+**D92. Global setup follows each harness's config folder: `CLAUDE_CONFIG_DIR` for Claude Code and `CODEX_HOME` for Codex, with `~/.claude` and `~/.codex` only when they aren't set. `aboard init`, `aboard doctor` and `aboard status` all use it, and each harness profile records it as `config_dir`. Codex's global skill stays in `~/.agents/skills`, which `CODEX_HOME` doesn't move.**
+Why: the harness reads its settings, hooks and skills from that folder, so hooks written to `~/.claude` while `CLAUDE_CONFIG_DIR` points elsewhere never run, and doctor checking `~/.claude` reports files the harness ignores. The live suite found it: with scratch config folders, doctor reported the person's own older setup as outdated.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,

@@ -381,7 +381,11 @@ each detected harness's skill folder (`~/.claude/skills/aboard/` for Claude Code
 `~/.agents/skills/aboard/` for Codex), and the delivery hooks
 (`~/.claude/settings.json` and `~/.codex/hooks.json`, merged so nothing else in those
 files changes). `aboard init --yes` makes the changes; running it again changes nothing.
-A harness counts as detected when its folder exists or its command is on the PATH. Both
+Global setup follows each harness's config folder: `$CLAUDE_CONFIG_DIR` in place of
+`~/.claude` and `$CODEX_HOME` in place of `~/.codex` when they are set, for init, doctor
+and status alike. Codex's skill stays in `~/.agents/skills`, which `CODEX_HOME` doesn't
+move. A harness counts as detected when its config folder exists or its command is on
+the PATH. Both
 harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
 stays with the person.
 

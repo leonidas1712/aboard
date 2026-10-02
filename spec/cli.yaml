@@ -429,8 +429,10 @@ $defs:
       skipping any question a flag answers; then it shows the changes and asks before
       making them. Declining changes nothing and exits 0 with applied false.
 
-      --scope global (the default) writes under the home directory: ~/.claude/ for Claude
-      Code; ~/.agents/skills/ and $CODEX_HOME (~/.codex/) for Codex. --scope project
+      --scope global (the default) writes in each harness's config folder:
+      $CLAUDE_CONFIG_DIR (~/.claude/) for Claude Code; $CODEX_HOME (~/.codex/) and
+      ~/.agents/skills/ for Codex, whose skills CODEX_HOME doesn't move. aboard doctor
+      and aboard status look in the same places. --scope project
       writes only under the working directory: .claude/skills/ and
       .claude/settings.local.json for Claude Code; .agents/skills/ and .codex/ for Codex,
       which reads a project's .codex/ only once the person trusts the project. Hooks

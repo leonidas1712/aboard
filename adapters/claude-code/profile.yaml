@@ -14,7 +14,12 @@ checks:
 sandbox_env: [SANDBOX_RUNTIME]
 session_env: [ABOARD_SESSION, CLAUDECODE]
 
-skills_dir: .claude/skills
+# Claude Code reads its global settings and skills from CLAUDE_CONFIG_DIR when it is set.
+config_dir:
+  env: CLAUDE_CONFIG_DIR
+  default: .claude
+
+skills_dir: "{config_dir}/skills"
 
 # settings.local.json is the project file meant for one person's machine; the hooks name
 # this machine's aboard binary.
@@ -46,7 +51,7 @@ identity:
 
 delivery:
   method: stop-hook
-  hooks_file: .claude/settings.json
+  hooks_file: "{config_dir}/settings.json"
   hooks:
     - event: SessionStart
       run: session-start

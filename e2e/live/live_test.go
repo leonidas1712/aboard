@@ -199,8 +199,10 @@ type lab struct {
 	// claudeConfig is Claude Code's config directory for this test, or empty when
 	// Claude Code uses the person's own (see claudeSetup).
 	claudeConfig string
-	tmux         string
-	panes        []*pane
+	// codexReady is true once codexHome has set up the test's CODEX_HOME for Codex.
+	codexReady bool
+	tmux       string
+	panes      []*pane
 	// typed counts the prompts typed into harnesses, for the turn estimate.
 	typed int
 }
@@ -255,7 +257,18 @@ func newLabWith(t *testing.T, binary string) *lab {
 		// link in ~/.local/bin. Updating itself here would install into the scratch
 		// directory and point the person's own launcher at it, so updates are off.
 		"DISABLE_AUTOUPDATER=1",
+		// Aboard's global setup follows these (D92), so every command the lab runs, aboard
+		// doctor and init included, looks in the test's own folders and never the person's.
+		"CODEX_HOME="+filepath.Join(dir, "codex-home"),
 	)
+	if err := os.MkdirAll(filepath.Join(dir, "codex-home"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	claudeOnce.Do(func() { claudeSetUp = detectClaude() })
+	if claudeSetUp.isolated {
+		l.claudeConfig = filepath.Join(dir, "claude-config")
+		l.vars = append(l.vars, "CLAUDE_CONFIG_DIR="+l.claudeConfig)
+	}
 	t.Cleanup(l.teardown)
 	return l
 }

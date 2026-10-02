@@ -234,6 +234,11 @@ func TestUpgradeWithSessionOpen(t *testing.T) {
 		t.Errorf("the local server still reports the old version %q", v)
 	}
 	for _, c := range l.doctor(proj) {
+		// Only Claude Code is set up here. Codex's global skill is in the person's own
+		// ~/.agents/skills, which CODEX_HOME doesn't move, so its checks say nothing here.
+		if strings.HasPrefix(c.Name, "codex") {
+			continue
+		}
 		if c.Code != nil && slices.Contains([]string{"daemon_outdated", "server_outdated", "hooks_outdated", "skill_outdated"}, *c.Code) {
 			t.Errorf("after the upgrade, doctor reports %s: %s", *c.Code, c.Message)
 		}

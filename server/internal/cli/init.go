@@ -153,8 +153,8 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		exe = abs
 	}
 	known := []harnessSetup{
-		{Name: "claude-code", Detected: detected(filepath.Join(home, ".claude"), "claude")},
-		{Name: "codex", Detected: detected(a.codexHome(), "codex")},
+		{Name: "claude-code", Detected: detected(a.configDir("claude-code"), "claude")},
+		{Name: "codex", Detected: detected(a.configDir("codex"), "codex")},
 	}
 	interactive := a.env.Terminal && !*yes && !a.json
 	current := delivery.ModeAuto

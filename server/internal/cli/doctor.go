@@ -180,8 +180,7 @@ func hooksMissing(path, harness string, specs []hookSpec) ([]string, error) {
 }
 
 func (a *app) checkClaudeHooks() doctorCheck {
-	dir := filepath.Join(a.env.Getenv("HOME"), ".claude")
-	if !detected(dir, "claude") {
+	if !detected(a.configDir("claude-code"), "claude") {
 		return problem("claude_hooks", levelWarning, "claude_code_not_installed",
 			"claude-code: not installed", "install Claude Code, or ignore this if you don't use it")
 	}

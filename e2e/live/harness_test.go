@@ -97,13 +97,9 @@ func claudeLoggedIn(env []string) bool {
 func (l *lab) startClaude(name, dir string) *pane {
 	l.t.Helper()
 	setup := requireClaude(l.t)
-	env := slices.Clone(l.vars)
+	env := slices.Clone(l.vars) // newLab added CLAUDE_CONFIG_DIR when isolated
 	if setup.isolated {
-		if l.claudeConfig == "" {
-			l.claudeConfig = filepath.Join(l.dir, "claude-config")
-		}
 		l.trustInClaude(dir)
-		env = append(env, "CLAUDE_CONFIG_DIR="+l.claudeConfig)
 	}
 	// The slow task is how tests keep a turn busy; aboard itself is allowed by aboard init.
 	argv := []string{"claude", "--allowedTools", "Bash(./" + slowTask + ")"}
@@ -461,7 +457,7 @@ func (l *lab) startCodex(name, dir string) *pane {
 		[]byte("[sandbox_workspace_write]\nnetwork_access = true\n"), 0o600); err != nil {
 		l.t.Fatal(err)
 	}
-	env := slices.Clone(l.vars) // codexHome added CODEX_HOME
+	env := slices.Clone(l.vars) // newLab added CODEX_HOME
 	l.scopeCodexHooks(dir, env)
 	l.trustCodexHooks(dir, home, env)
 	argv := []string{
@@ -630,28 +626,25 @@ func (l *lab) trustCodexHooks(dir, home string, env []string) {
 	appendFile(l.t, filepath.Join(home, "config.toml"), cfg.String())
 }
 
-// codexHome is the test's CODEX_HOME, made on first use. The delivery daemon runs codex
-// queue with the same CODEX_HOME, so the lab's commands carry it too.
+// codexHome is the test's CODEX_HOME, which newLab adds to every command the lab runs,
+// set up for Codex on first use. The delivery daemon runs codex queue with it.
 func (l *lab) codexHome(setup codexSetup) string {
 	l.t.Helper()
 	home := filepath.Join(l.dir, "codex-home")
-	if _, err := os.Stat(home); err == nil {
+	if l.codexReady {
 		return home
 	}
+	l.codexReady = true
 	if l.started > 0 {
 		// The first harness's hooks have started the daemon by now, without CODEX_HOME,
 		// and its codex app-server would look for threads in the person's own ~/.codex.
 		l.t.Fatal("set up Codex (l.codexHome) before starting any harness in a test that uses Codex")
-	}
-	if err := os.MkdirAll(home, 0o700); err != nil {
-		l.t.Fatal(err)
 	}
 	if setup.auth != "" {
 		if err := os.Symlink(setup.auth, filepath.Join(home, "auth.json")); err != nil {
 			l.t.Fatal(err)
 		}
 	}
-	l.vars = append(l.vars, "CODEX_HOME="+home)
 	// The daemon runs codex app-server and codex queue, so it must start outside Codex's
 	// sandbox, with this CODEX_HOME.
 	l.run("daemon", "start")
