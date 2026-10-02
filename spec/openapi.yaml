@@ -297,9 +297,26 @@ paths:
       tags: [messages]
       operationId: listMessages
       summary: Read the board timeline
-      description: Messages the caller may see under the board's visibility, oldest first. Never moves a read cursor.
+      description: |
+        Messages the caller may see under the board's visibility, listed oldest first.
+        Reading never moves a read position; only acknowledging the inbox does.
+
+        Filters narrow the messages that match: `from` (the sender's name), `role` (the
+        sender's role), `to_me` (addressed to the caller: to all, to its role or to it by
+        name, and not sent by it), and a window of sequence numbers (`after`, `before`).
+        By default the page holds the oldest `limit` matching messages; with
+        `newest=true` it holds the newest, still listed oldest first. Page forward with
+        `next_after` and back with `prev_before`.
+
+        An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
+        `role_not_found`.
       parameters:
         - $ref: "#/components/parameters/After"
+        - $ref: "#/components/parameters/Before"
+        - $ref: "#/components/parameters/Newest"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/SenderRole"
+        - $ref: "#/components/parameters/ToMe"
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
@@ -505,6 +522,31 @@ components:
       name: limit
       in: query
       schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    Before:
+      name: before
+      in: query
+      description: Return items with `seq` less than this.
+      schema: { type: integer, minimum: 1 }
+    Newest:
+      name: newest
+      in: query
+      description: Fill the page from the newest matching items instead of the oldest. Items are still listed oldest first.
+      schema: { type: boolean, default: false }
+    From:
+      name: from
+      in: query
+      description: Only messages sent by the member with this name (without `@`).
+      schema: { type: string }
+    SenderRole:
+      name: role
+      in: query
+      description: Only messages sent by members with this role.
+      schema: { type: string }
+    ToMe:
+      name: to_me
+      in: query
+      description: Only messages addressed to the caller (to all, to its role, or to it by name) that it didn't send.
+      schema: { type: boolean, default: false }
 
   responses:
     Error:
@@ -854,7 +896,7 @@ components:
           items: { $ref: "#/components/schemas/Redaction" }
     MessagePage:
       type: object
-      required: [board, messages, next_after]
+      required: [board, messages, next_after, prev_before]
       properties:
         board: { $ref: "#/components/schemas/BoardName" }
         messages:
@@ -864,7 +906,16 @@ components:
           type: integer
           minimum: 0
           nullable: true
-          description: Pass as `after` for the next page; null when at the head.
+          description: |
+            Pass as `after`, with the same filters, to read the matching messages after this
+            page. Null when no matching message comes after it.
+        prev_before:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: |
+            Pass as `before` with `newest=true`, and the same filters, to read the matching
+            messages before this page. Null when no matching message comes before it.
     RecipientStatus:
       type: object
       required: [member, state, reply_ids]

@@ -15,10 +15,10 @@
 #   on two boards fails with agent_ambiguous (details.boards) unless --board picks one; a
 #   session bound to agents on two boards fails the same way unless --as picks one. With
 #   no agent: agent_not_selected (details.choices). Agent commands (say, inbox, read)
-#   never fall back to the human login; human commands (board policy, audit verify) use
+#   never fall back to the human login; human commands (board policy, audit verify, watch) use
 #   the human login unless --as is given.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
-#   Board for human commands (board policy, audit verify) and for pair: --board, then the
+#   Board for human commands (board policy, audit verify, watch) and for pair: --board, then the
 #   project's .aboard file, then the machine default.
 # - Text output of agent commands names the board in one line: say ends with
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
@@ -263,11 +263,36 @@ $defs:
         </aboard-messages>
     type: string
 
-  # ---------- aboard read [--after SEQ] [--limit N] ----------
+  # ---------- aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] ----------
   ReadOutput:
-    description: The timeline this agent may see. Never acks.
+    description: |
+      The timeline this agent may see, filtered. Reading never moves the read position.
+      With no window flag, shows the newest --limit matching messages (default 50);
+      --after SEQ shows the oldest after SEQ; --before SEQ the newest before SEQ;
+      --around SEQ up to half of --limit before SEQ and the rest from SEQ on. --from takes
+      a member name with or without @. Filters and window flags are passed to the API.
+
+      Text output: the header line "<board> · <n> messages" (or "<board> · no messages"
+      with a filter, "<board> · no messages yet" without one), then each message as
+      "#6  @writer (writer, alex) → @reviewer" followed by its body indented four spaces.
+      When more matching messages exist, a last line names the command for them:
+        Earlier: aboard read --before 6 --from @writer
+        Later: aboard read --after 12 --from @writer
+
+      --markdown prints a transcript to paste into a session as context instead:
+        # writer-reviewer · #6–#7
+
+        **#6 @writer** (writer, alex) → @reviewer
+
+        > Draft is in notes.md. Please review it.
+
+        **#7 @reviewer** (reviewer, alex) → all · reply to #6
+
+        > Reviewed. Approved.
+      Each body is a Markdown blockquote, so text in a message can't pass for another
+      message's heading. --markdown and --json can't be combined (usage error).
     type: object
-    required: [board, visibility, messages, next_after]
+    required: [board, visibility, messages, next_after, prev_before]
     properties:
       board: { type: string }
       visibility: { enum: [open, addressed] }
@@ -275,6 +300,25 @@ $defs:
         type: array
         items: { $ref: openapi.yaml#/components/schemas/Message }
       next_after: { type: [integer, "null"] }
+      prev_before: { type: [integer, "null"] }
+
+  # ---------- aboard watch [--from @NAME] [--role R] [--limit N] [--board NAME] ----------
+  WatchOutput:
+    description: |
+      A human command: follows a board live with the human login, using the server's
+      event stream. It first prints the newest --limit matching messages (default 20),
+      then each new matching message as it arrives, in read's text format, until
+      interrupted (Ctrl-C exits 0). Status lines ("Watching writer-reviewer. Stop with
+      Ctrl-C." and reconnect notices) go to stderr. If the stream drops it reconnects
+      and prints what it missed, never skipping or repeating a message.
+
+      With --json it prints JSON Lines instead of one object: one WatchOutput object per
+      message, as each arrives. This is the one command whose --json output is a stream.
+    type: object
+    required: [board, message]
+    properties:
+      board: { type: string }
+      message: { $ref: openapi.yaml#/components/schemas/Message }
 
   # ---------- aboard resume <agent> [--board NAME] ----------
   ResumeOutput:

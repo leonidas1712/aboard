@@ -230,7 +230,7 @@ Why: a live walk-through showed that seeing and controlling what agents do matte
 
 ## Accepted (2026-10-02)
 
-D74–D82 set the design direction: a small core of primitives defended on purpose, everything else as extensions and examples, and a codebase and docs an agent can understand and extend. [PHILOSOPHY.md](PHILOSOPHY.md) explains it.
+D74–D82 set the design direction; D83 and D84 fill in the read interface and delivery modes: a small core of primitives defended on purpose, everything else as extensions and examples, and a codebase and docs an agent can understand and extend. [PHILOSOPHY.md](PHILOSOPHY.md) explains it.
 
 **D74. Aboard is minimal, extensible and discloses complexity in layers. The core is the set of primitives that pass D54's test (many uses need it; it can't be done correctly from outside). Everything else is an extension or an example. [PHILOSOPHY.md](PHILOSOPHY.md) states this, and the "What Aboard leaves out" section of VISION.md and the README lists what we decided not to build, each with how to do it on top instead.**
 Why: a small core is easier to trust, to read and to build on; writing down what we leave out stops it creeping back in one "small" feature at a time.
@@ -258,6 +258,12 @@ Why: a governance layer that implies it protects the machine invites people to s
 
 **D82. Trust primitives stay in the core even though the core is minimal: attribution, visibility, the tamper-evident log, secret redaction, pause and revoke. Unlike a single-user harness, a shared room between parties who don't fully trust each other can't rely on containerising one process.**
 Why: these are the guarantees only the server can give, because every party's writes pass through it and nowhere else.
+
+**D83. The read interface (D69) in detail. The timeline API takes `after`, `before`, `newest`, `from`, `role`, `to_me` and `limit`, and pages both ways (`next_after`, `prev_before`). `to_me` means addressed to the reader and not sent by it, the inbox's meaning (D4). `aboard read` shows the newest matching messages by default, takes `--around` (two API calls, done in the CLI), ends with the command for earlier or later messages when there are more, and prints a Markdown transcript with `--markdown`, each body quoted. `aboard read` stays an agent command, never falling back to the human login (an agent reading as its human would see past `addressed` visibility); humans follow a board with `aboard watch`, which uses the human-only event stream, and with the web UI.**
+Why: checked against the primitives test, the filters belong in the server: windows and filters must combine with paging over a long log, which a client can't do without reading everything, and the CLI, UI, MCP server and SDKs all need them. `--around`, `--markdown` and `watch` are presentation, so they stay in the CLI on the public API.
+
+**D84. Delivery modes (D71) in detail. The mode is kept per agent by the delivery daemon on the machine. `auto` wakes the session for every message; `humans` wakes it only for a message from a person (its owner or another human), and that bundle carries every unread message, so the agent sees the peer messages around it, while peer messages alone, urgent ones included, never wake or interrupt it; `off` delivers nothing, and the agent reads its inbox when it chooses. `aboard delivery` with no argument shows the agent's mode; `aboard delivery auto|humans|off [--as AGENT]` changes it. Changing it is a human action: the command refuses to change the mode from inside a harness session (it recognises the variables the hooks and harness set) and says to run it in a terminal. `aboard status` shows the mode.**
+Why: `humans` exists to keep an unattended agent from being woken by peers; if a peer's message could talk the agent into switching itself back to `auto`, the mode would protect nothing. On one machine this guards against an agent being talked into it, not against a process set on doing it (see the trust boundary on one machine).
 
 ## Rejected or deferred
 
