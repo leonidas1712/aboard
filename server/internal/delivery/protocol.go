@@ -92,9 +92,12 @@ type Response struct {
 	Status *Status    `json:"status,omitempty"`
 	// Mode is the agent's delivery mode, in answer to OpMode; Changed says whether the
 	// request changed it.
-	Mode    Mode       `json:"mode,omitempty"`
-	Changed bool       `json:"changed,omitempty"`
-	Error   *WireError `json:"error,omitempty"`
+	Mode    Mode `json:"mode,omitempty"`
+	Changed bool `json:"changed,omitempty"`
+	// Previous is the agent the session was bound to before an OpBind moved it to
+	// another one; nil when the session had no agent or keeps the same one.
+	Previous *AgentRef  `json:"previous,omitempty"`
+	Error    *WireError `json:"error,omitempty"`
 }
 
 // WireError is an error reported over the control socket, in the shape the CLI prints.

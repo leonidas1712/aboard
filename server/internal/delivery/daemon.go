@@ -242,6 +242,16 @@ func (d *Daemon) setOwner(agent AgentRef, s *session) *session {
 	return prev
 }
 
+// dropOwner stops routing an agent's messages to s, unless another session has taken
+// the agent since.
+func (d *Daemon) dropOwner(agent AgentRef, s *session) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.owners[agent] == s {
+		delete(d.owners, agent)
+	}
+}
+
 func (d *Daemon) owner(agent AgentRef) *session {
 	d.mu.Lock()
 	defer d.mu.Unlock()

@@ -203,10 +203,17 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 	return out, nil
 }
 
-// Bind records the session an agent's messages go to, replacing any earlier one.
+// Bind records the session an agent's messages go to, replacing the agent's earlier
+// session and the session's earlier agent: a session is bound to at most one agent.
 func (j *Journal) Bind(ctx context.Context, b delivery.Binding) error {
 	return j.write(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
+			DELETE FROM bindings WHERE harness = ? AND session_id = ? AND NOT (server = ? AND board = ? AND agent = ?)`,
+			b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.Board, b.Agent.Name)
+		if err != nil {
+			return fmt.Errorf("end the earlier binding of session %s: %w", b.Session, err)
+		}
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO bindings (server, board, agent, harness, session_id, bound_at) VALUES (?, ?, ?, ?, ?, ?)
 			ON CONFLICT (server, board, agent) DO UPDATE SET harness = excluded.harness, session_id = excluded.session_id, bound_at = excluded.bound_at`,
 			b.Agent.Server, b.Agent.Board, b.Agent.Name, b.Session.Harness, b.Session.ID, formatTime(b.BoundAt))
