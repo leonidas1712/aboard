@@ -18,8 +18,8 @@ import (
 func pairedClaudeSessions(t *testing.T, e *env) (writer, reviewer *session) {
 	t.Helper()
 	writer, reviewer = e.claudeSession("s-writer"), e.claudeSession("s-reviewer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
-	reviewer.run("join", line)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	reviewer.run("join", line, "--name", "reviewer")
 	return writer, reviewer
 }
 
@@ -41,7 +41,7 @@ func TestIdleClaudeSessionWakesWithMessage(t *testing.T) {
 	if woke.code != 2 {
 		t.Fatalf("stop hook should exit 2 with the bundle\n%s", woke)
 	}
-	for _, want := range []string{`<aboard-messages board="writer-reviewer" count="1">`, `from="@writer"`, `trust="peer"`, "Draft is in notes.md."} {
+	for _, want := range []string{`<aboard-messages board="writer-reviewer" count="1">`, `from="@writer"`, `harness="claude-code" sender="owner_agent"`, "Draft is in notes.md."} {
 		if !strings.Contains(woke.stderr, want) {
 			t.Fatalf("bundle on stderr lacks %q\n%s", want, woke)
 		}
@@ -174,9 +174,9 @@ func TestCodexSessionReceivesMessagesThroughItsQueue(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000001")
-	codex.run("join", line)
+	codex.run("join", line, "--name", "reviewer")
 
 	writer.run("say", "--to", "@reviewer", "first")
 	writer.run("say", "--to", "@reviewer", "second")
@@ -204,9 +204,9 @@ func TestUrgentMessageReachesBusyCodexSessionAtNextToolCall(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000003")
-	codex.run("join", line)
+	codex.run("join", line, "--name", "reviewer")
 	if r := codex.hook("prompt", `"prompt":"long task"`); r.code != 0 {
 		t.Fatalf("codex prompt hook failed\n%s", r)
 	}
@@ -403,9 +403,9 @@ func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
 	reviewer, harness := e.claudeSessionIn("s-reviewer")
-	reviewer.run("join", line)
+	reviewer.run("join", line, "--name", "reviewer")
 	if got := e.openSessions(); got != "2 sessions" {
 		t.Fatalf("before the crash: %s", got)
 	}

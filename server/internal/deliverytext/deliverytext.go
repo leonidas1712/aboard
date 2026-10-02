@@ -16,11 +16,17 @@ type Message struct {
 	Board string
 	// FromName is the sender's member name, without the "@".
 	FromName string
-	// FromHuman is true when a person sent the message; owner and role are then empty.
-	FromHuman    bool
-	Owner        string
-	Role         string
-	Trust        string
+	// FromHuman is true when a person sent the message; owner, role and harness are
+	// then left out.
+	FromHuman bool
+	// Owner is the sending agent's owner, or empty when the board has agents of only one
+	// person, so naming the owner adds nothing.
+	Owner string
+	Role  string
+	// Harness is the sending agent's harness, or empty when unknown or hidden.
+	Harness string
+	// Sender is the sender label: owner, owner_agent, other_person or other_agent.
+	Sender       string
 	Seq          int
 	Urgent       bool
 	ExpectsReply bool
@@ -47,18 +53,17 @@ func EscapeBody(body string) string {
 // Format writes one message: the sender's text unchanged between Aboard's tags, and a
 // reply instruction when a reply is expected.
 func Format(m Message) string {
-	owner, role := m.Owner, m.Role
-	if m.FromHuman {
-		owner, role = "", ""
+	attrs := [][2]string{{"board", m.Board}, {"from", "@" + m.FromName}}
+	if !m.FromHuman {
+		if m.Owner != "" {
+			attrs = append(attrs, [2]string{"owner", m.Owner})
+		}
+		attrs = append(attrs, [2]string{"role", m.Role})
+		if m.Harness != "" {
+			attrs = append(attrs, [2]string{"harness", m.Harness})
+		}
 	}
-	attrs := [][2]string{
-		{"board", m.Board},
-		{"from", "@" + m.FromName},
-		{"owner", owner},
-		{"role", role},
-		{"trust", m.Trust},
-		{"seq", strconv.Itoa(m.Seq)},
-	}
+	attrs = append(attrs, [2]string{"sender", m.Sender}, [2]string{"seq", strconv.Itoa(m.Seq)})
 	if m.Urgent {
 		attrs = append(attrs, [2]string{"urgent", "true"})
 	}

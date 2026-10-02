@@ -117,11 +117,26 @@ const (
 
 // Policy is what the server enforces on a board.
 type Policy struct {
-	Preset     string   `json:"preset"`
-	Visibility string   `json:"visibility"`
-	Broadcast  string   `json:"broadcast"`
-	Urgent     string   `json:"urgent"`
-	Overrides  []string `json:"overrides"`
+	Preset     string `json:"preset"`
+	Visibility string `json:"visibility"`
+	Broadcast  string `json:"broadcast"`
+	Urgent     string `json:"urgent"`
+	// ShowHarness lets agents see which harness other agents run. When false, new
+	// agents without a chosen name get neutral names.
+	ShowHarness bool     `json:"show_harness"`
+	Overrides   []string `json:"overrides"`
+}
+
+// UnmarshalJSON reads a policy, taking a missing show_harness as true: policies stored
+// before the key existed showed harnesses.
+func (p *Policy) UnmarshalJSON(b []byte) error {
+	type plain Policy
+	out := plain{ShowHarness: true}
+	if err := json.Unmarshal(b, &out); err != nil {
+		return err
+	}
+	*p = Policy(out)
+	return nil
 }
 
 // PolicyChange is a request to change a board's policy: an optional preset, then
@@ -131,15 +146,17 @@ type PolicyChange struct {
 	Visibility string `json:"visibility,omitempty" yaml:"visibility"`
 	Broadcast  string `json:"broadcast,omitempty" yaml:"broadcast"`
 	Urgent     string `json:"urgent,omitempty" yaml:"urgent"`
+	// ShowHarness is nil when the change leaves it alone.
+	ShowHarness *bool `json:"show_harness,omitempty" yaml:"show_harness"`
 }
 
 // Preset returns the policy a preset stands for.
 func Preset(name string) (Policy, error) {
 	switch name {
 	case Starter:
-		return Policy{Preset: Starter, Visibility: VisibilityOpen, Broadcast: Everyone, Urgent: Everyone, Overrides: []string{}}, nil
+		return Policy{Preset: Starter, Visibility: VisibilityOpen, Broadcast: Everyone, Urgent: Everyone, ShowHarness: true, Overrides: []string{}}, nil
 	case Recommended:
-		return Policy{Preset: Recommended, Visibility: VisibilityAddressed, Broadcast: Granted, Urgent: Granted, Overrides: []string{}}, nil
+		return Policy{Preset: Recommended, Visibility: VisibilityAddressed, Broadcast: Granted, Urgent: Granted, ShowHarness: true, Overrides: []string{}}, nil
 	}
 	return Policy{}, fmt.Errorf("unknown preset %q; allowed: starter, recommended", name)
 }
@@ -157,7 +174,10 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 		return Policy{}, err
 	}
 	if c.Preset == "" {
-		out.Visibility, out.Broadcast, out.Urgent = p.Visibility, p.Broadcast, p.Urgent
+		out.Visibility, out.Broadcast, out.Urgent, out.ShowHarness = p.Visibility, p.Broadcast, p.Urgent, p.ShowHarness
+	}
+	if c.ShowHarness != nil {
+		out.ShowHarness = *c.ShowHarness
 	}
 	set := func(key, val string, allowed []string, dst *string) error {
 		if val == "" {
@@ -188,6 +208,9 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 		if k.got != k.want {
 			out.Overrides = append(out.Overrides, k.key)
 		}
+	}
+	if out.ShowHarness != preset.ShowHarness {
+		out.Overrides = append(out.Overrides, "show_harness")
 	}
 	return out, nil
 }
@@ -270,6 +293,33 @@ func CheckPost(p Policy, role Role, sender Member, to []string, urgent bool) Ref
 		return NeedsUrgent
 	}
 	return ""
+}
+
+// harnessNames are the agent names for harnesses whose own name is longer than people
+// call them.
+var harnessNames = map[string]string{"claude-code": "claude"}
+
+// AgentNameBase is the name a new agent gets before a number is added: its harness's
+// short name when the harness is known, otherwise its role.
+func AgentNameBase(harness, role string) string {
+	if !strings.ContainsFunc(harness, func(r rune) bool { return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' }) {
+		return role
+	}
+	h := NormalizeName(harness)
+	if short, ok := harnessNames[h]; ok {
+		return short
+	}
+	return h
+}
+
+// AllocateNumberedName returns the first free base-1, base-2, and so on: neutral names
+// that say nothing about the agent.
+func AllocateNumberedName(base string, taken func(string) bool) string {
+	for i := 1; ; i++ {
+		if name := fmt.Sprintf("%s-%d", base, i); !taken(name) {
+			return name
+		}
+	}
 }
 
 // AllocateName returns base if it is free, otherwise base-2, base-3, and so on.

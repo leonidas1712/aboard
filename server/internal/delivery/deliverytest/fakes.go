@@ -201,7 +201,7 @@ func (s *FakeServer) Post(to delivery.AgentRef, m delivery.Message) int {
 	seq := s.heads[to.Board]
 	m.Seq, m.Board = seq, to.Board
 	if m.FromName == "" {
-		m.FromName, m.Owner, m.Role, m.Trust = "writer", "alex", "writer", "peer"
+		m.FromName, m.Role, m.Sender = "writer", "writer", "owner_agent"
 	}
 	s.inboxes[to] = append(s.inboxes[to], m)
 	followers := make([]chan delivery.Head, 0, len(s.followers))

@@ -92,9 +92,12 @@ type Message struct {
 	Redactions   []Redaction
 
 	// Sender fields, filled in by the store when it reads a message.
-	SenderName  string
-	SenderKind  string
-	SenderRole  *string
-	SenderOwner *string
-	SenderHuman string
+	SenderName    string
+	SenderKind    string
+	SenderRole    *string
+	SenderOwner   *string
+	SenderHuman   string
+	SenderHarness *string
+	// AgentOwners is how many people have agents on the board, when the message was read.
+	AgentOwners int
 }

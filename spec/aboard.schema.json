@@ -142,6 +142,10 @@
             "everyone",
             "granted"
           ]
+        },
+        "show_harness": {
+          "description": "true (both presets): agents see which harness other agents run. false: agents never see another member's harness, and new agents without a chosen name are called agent-1, agent-2 and so on. People always see harnesses.",
+          "type": "boolean"
         }
       }
     }

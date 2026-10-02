@@ -80,7 +80,7 @@ a **reviewer** that message each other, and a history you can verify.
         ```
         ```text
         writer-reviewer · 1 new
-        <aboard-message board="writer-reviewer" from="@writer" owner="alex" role="writer" trust="peer" seq="6">
+        <aboard-message board="writer-reviewer" from="@writer" role="writer" sender="owner_agent" seq="6">
         Draft is in notes.md. Please review it.
         </aboard-message>
         ```
@@ -98,9 +98,9 @@ a **reviewer** that message each other, and a history you can verify.
         ```
         ```text
         writer-reviewer · 2 messages
-        #6  @writer (writer, alex) → @reviewer
+        #6  @writer (writer, self) → @reviewer
             Draft is in notes.md. Please review it.
-        #7  @reviewer (reviewer, alex) → all
+        #7  @reviewer (reviewer, owner_agent) → all
             Reviewed. Approved.
         ```
       </Tab>

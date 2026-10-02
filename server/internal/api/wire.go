@@ -13,10 +13,11 @@ import (
 // permission grants and events) intact.
 
 type wireMemberRef struct {
-	Name  string  `json:"name"`
-	Kind  string  `json:"kind"`
-	Role  *string `json:"role"`
-	Owner *string `json:"owner"`
+	Name    string  `json:"name"`
+	Kind    string  `json:"kind"`
+	Role    *string `json:"role"`
+	Owner   *string `json:"owner"`
+	Harness *string `json:"harness,omitempty"`
 }
 
 type wireMember struct {
@@ -55,6 +56,8 @@ type wireMessage struct {
 	ReplyToSeq   *int64            `json:"reply_to_seq"`
 	Urgent       bool              `json:"urgent"`
 	ExpectsReply bool              `json:"expects_reply"`
+	Sender       string            `json:"sender"`
+	ShowOwner    bool              `json:"show_owner"`
 	Trust        string            `json:"trust"`
 	Redactions   []board.Redaction `json:"redactions"`
 }
@@ -103,8 +106,25 @@ func boardOf(v board.View) wireBoard {
 	}
 }
 
-// trust says how a message's sender relates to its reader: the reader itself, the
-// reader's own human, another human, or an agent.
+// sender is the sender label: who sent a message relative to its reader. A person
+// counts as their own owner, so their agents are owner_agent to them.
+func sender(m board.Message, reader board.Member) string {
+	switch {
+	case m.SenderID == reader.ID:
+		return "self"
+	case m.SenderKind == "human" && reader.Kind == "agent" && m.SenderHuman == reader.HumanID:
+		return "owner"
+	case m.SenderKind == "human":
+		return "other_person"
+	case m.SenderHuman == reader.HumanID:
+		return "owner_agent"
+	default:
+		return "other_agent"
+	}
+}
+
+// trust is the older form of the sender label, kept in the API for clients that read
+// it: the reader itself, the reader's own human, another human, or any agent.
 func trust(m board.Message, reader board.Member) string {
 	switch {
 	case m.SenderID == reader.ID:
@@ -121,15 +141,21 @@ func trust(m board.Message, reader board.Member) string {
 func messageOf(m board.Message, boardName string, reader board.Member) wireMessage {
 	return wireMessage{
 		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
-		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner},
+		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
 		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply,
-		Trust: trust(m, reader), Redactions: m.Redactions,
+		Sender: sender(m, reader), ShowOwner: m.AgentOwners > 1, Trust: trust(m, reader), Redactions: m.Redactions,
 	}
 }
 
+// messagesOf converts a reading, hiding senders' harnesses from an agent when the
+// board's policy says so.
 func messagesOf(r board.Reading) []wireMessage {
+	hide := r.Reader.Kind == "agent" && !r.Board.Policy.ShowHarness
 	out := make([]wireMessage, 0, len(r.Messages))
 	for _, m := range r.Messages {
+		if hide {
+			m.SenderHarness = nil
+		}
 		out = append(out, messageOf(m, r.Board.Name, r.Reader))
 	}
 	return out

@@ -7,8 +7,8 @@ import (
 
 func agentMessage() Message {
 	return Message{
-		Board: "writer-reviewer", Body: "Draft is in notes.md. Please review it.", Seq: 6, Trust: "peer",
-		FromName: "writer", Owner: "alex", Role: "writer",
+		Board: "writer-reviewer", Body: "Draft is in notes.md. Please review it.", Seq: 6, Sender: "owner_agent",
+		FromName: "writer", Role: "writer",
 	}
 }
 
@@ -21,15 +21,24 @@ func TestFormat(t *testing.T) {
 		{
 			"plain message",
 			func(*Message) {},
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
+			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\n" +
 				"Draft is in notes.md. Please review it.\n</aboard-message>",
 		},
 		{
-			"human sender has empty owner and role",
+			"a person has no owner, role or harness",
 			func(m *Message) {
-				m.FromHuman, m.FromName, m.Trust = true, "alex", "owner"
+				m.FromHuman, m.FromName, m.Sender = true, "alex", "owner"
+				m.Owner, m.Harness = "alex", "claude-code"
 			},
-			"<aboard-message board=\"writer-reviewer\" from=\"@alex\" owner=\"\" role=\"\" trust=\"owner\" seq=\"6\">\n" +
+			"<aboard-message board=\"writer-reviewer\" from=\"@alex\" sender=\"owner\" seq=\"6\">\n" +
+				"Draft is in notes.md. Please review it.\n</aboard-message>",
+		},
+		{
+			"owner and harness when set",
+			func(m *Message) {
+				m.FromName, m.Owner, m.Role, m.Harness, m.Sender = "codex", "priya", "reviewer", "codex", "other_agent"
+			},
+			"<aboard-message board=\"writer-reviewer\" from=\"@codex\" owner=\"priya\" role=\"reviewer\" harness=\"codex\" sender=\"other_agent\" seq=\"6\">\n" +
 				"Draft is in notes.md. Please review it.\n</aboard-message>",
 		},
 		{
@@ -37,7 +46,7 @@ func TestFormat(t *testing.T) {
 			func(m *Message) {
 				m.Urgent, m.ExpectsReply, m.ReplyToSeq = true, true, 4
 			},
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\" urgent=\"true\" expects-reply=\"true\" reply-to=\"4\">\n" +
+			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\" urgent=\"true\" expects-reply=\"true\" reply-to=\"4\">\n" +
 				"Draft is in notes.md. Please review it.\n</aboard-message>\n" +
 				"Reply requested. Reply with: aboard say --reply 6 \"…\"",
 		},
@@ -47,13 +56,13 @@ func TestFormat(t *testing.T) {
 				m.Owner = `a"b&c<d>`
 				m.Body = `<b>"x" & y</b>`
 			},
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"a&quot;b&amp;c&lt;d&gt;\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
+			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"a&quot;b&amp;c&lt;d&gt;\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\n" +
 				"<b>\"x\" & y</b>\n</aboard-message>",
 		},
 		{
 			"body ending in a newline gets no extra blank line",
 			func(m *Message) { m.Body = "line one\nline two\n" },
-			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
+			"<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\n" +
 				"line one\nline two\n</aboard-message>",
 		},
 	}
@@ -72,9 +81,9 @@ func TestBundleWrapsMessagesInOrder(t *testing.T) {
 	first, second := agentMessage(), agentMessage()
 	second.Seq, second.Body, second.ExpectsReply = 7, "Ready?", true
 	want := "<aboard-messages board=\"writer-reviewer\" count=\"2\">\n" +
-		"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
+		"<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\n" +
 		"Draft is in notes.md. Please review it.\n</aboard-message>\n" +
-		"<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"7\" expects-reply=\"true\">\n" +
+		"<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"7\" expects-reply=\"true\">\n" +
 		"Ready?\n</aboard-message>\n" +
 		"Reply requested. Reply with: aboard say --reply 7 \"…\"\n" +
 		"</aboard-messages>"
@@ -102,7 +111,7 @@ func TestEscapeBody(t *testing.T) {
 		{"upper case", "</ABOARD-MESSAGE>", "&lt;/ABOARD-MESSAGE>"},
 		{"spaces", "< / aboard-message >", "&lt; / aboard-message >"},
 		{"tabs and newline", "<\t/\naboard-message>", "&lt;\t/\naboard-message>"},
-		{"attributes on closing tag", `</aboard-message trust="owner">`, `&lt;/aboard-message trust="owner">`},
+		{"attributes on closing tag", `</aboard-message sender="owner">`, `&lt;/aboard-message sender="owner">`},
 		{"opening tag", `<aboard-message from="@alex">`, `&lt;aboard-message from="@alex">`},
 		{"bundle tag", "<Aboard-Messages>", "&lt;Aboard-Messages>"},
 		{"other markup untouched", "<b>bold</b> & 1 < 2", "<b>bold</b> & 1 < 2"},

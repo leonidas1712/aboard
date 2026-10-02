@@ -238,13 +238,16 @@ func readEvents(r io.Reader, line func(), dispatch func(event, data string)) err
 func TextMessage(m api.Message) deliverytext.Message {
 	t := deliverytext.Message{
 		Board: m.Board, FromName: m.From.Name, FromHuman: m.From.Kind == "human",
-		Trust: string(m.Trust), Seq: m.Seq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply, Body: m.Body,
+		Sender: string(m.Sender), Seq: m.Seq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply, Body: m.Body,
 	}
-	if m.From.Owner != nil {
+	if m.From.Owner != nil && m.ShowOwner {
 		t.Owner = *m.From.Owner
 	}
 	if m.From.Role != nil {
 		t.Role = *m.From.Role
+	}
+	if m.From.Harness != nil {
+		t.Harness = *m.From.Harness
 	}
 	if m.ReplyToSeq != nil {
 		t.ReplyToSeq = *m.ReplyToSeq

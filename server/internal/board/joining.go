@@ -212,13 +212,15 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		}
 
 		name := in.Name
-		if name != "" {
-			if taken(name) {
-				return apierr.New(http.StatusConflict, "name_taken", fmt.Sprintf("Someone on this board is already called %q.", name),
-					"Choose another name, or leave the name out to get a free one.")
-			}
-		} else {
-			name = rules.AllocateName(role, taken)
+		switch {
+		case name != "" && taken(name):
+			return apierr.New(http.StatusConflict, "name_taken", fmt.Sprintf("Someone on this board is already called %q.", name),
+				"Choose another name, or leave the name out to get a free one.")
+		case name != "":
+		case !b.Policy.ShowHarness:
+			name = rules.AllocateNumberedName("agent", taken)
+		default:
+			name = rules.AllocateName(rules.AgentNameBase(in.Harness, role), taken)
 		}
 		token, err := s.gen.Token("aba")
 		if err != nil {

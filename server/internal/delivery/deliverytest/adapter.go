@@ -28,7 +28,7 @@ type AdapterFixture struct {
 
 // trickyBundle has text a shell would act on, so the suite proves no shell sees it.
 const trickyBundle = "<aboard-messages board=\"docs\" count=\"1\">\n" +
-	"<aboard-message board=\"docs\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\n" +
+	"<aboard-message board=\"docs\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\n" +
 	"It's \"done\"; run $(rm -rf ~) `whoami` && echo $HOME | cat > /tmp/x\n--flag -n\n" +
 	"</aboard-message>\n</aboard-messages>"
 

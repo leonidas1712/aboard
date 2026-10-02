@@ -723,6 +723,7 @@ func newConversation(t *testing.T, st board.Store) conversation {
 				ID: fmt.Sprintf("msg_%d", seq), BoardID: b.ID, Seq: seq, At: at, SenderID: p.from.ID, To: []string{p.to},
 				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{},
 				SenderName: p.from.Name, SenderKind: p.from.Kind, SenderRole: p.from.Role, SenderOwner: p.from.Owner, SenderHuman: p.from.HumanID,
+				SenderHarness: p.from.Harness, AgentOwners: 1, // every agent here is alex's
 			}
 			if err := tx.InsertMessage(m); err != nil {
 				return err
@@ -871,7 +872,7 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 	})
 	want.ReplyToSeq = ptr(int64(2))
 	want.SenderName, want.SenderKind, want.SenderRole = c.writer.Name, c.writer.Kind, c.writer.Role
-	want.SenderOwner, want.SenderHuman = c.writer.Owner, c.writer.HumanID
+	want.SenderOwner, want.SenderHuman, want.SenderHarness, want.AgentOwners = c.writer.Owner, c.writer.HumanID, c.writer.Harness, 1
 	read(t, st, func(tx board.ReadTx) error {
 		got, err := tx.MessageByID("msg_6")
 		if err != nil {

@@ -405,7 +405,7 @@ func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
 	r.setMode(reviewer, delivery.ModeHumans)
 	r.bind(delivery.HarnessCodex, "t1", reviewer)
 	r.post(reviewer, "peer note", false)
-	person := r.server.Post(reviewer, delivery.Message{Body: "from alex", FromName: "alex", FromHuman: true, Trust: "owner"})
+	person := r.server.Post(reviewer, delivery.Message{Body: "from alex", FromName: "alex", FromHuman: true, Sender: "owner"})
 	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
 	got := r.codex.Handed("t1")
 	if len(got) != 1 || !strings.Contains(got[0], `count="2"`) || strings.Index(got[0], "peer note") > strings.Index(got[0], "from alex") {

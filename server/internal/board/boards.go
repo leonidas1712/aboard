@@ -217,8 +217,15 @@ func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Memb
 		if err != nil {
 			return err
 		}
-		out, err = tx.Members(b.ID)
-		return err
+		if out, err = tx.Members(b.ID); err != nil {
+			return err
+		}
+		if p.Agent != nil && !b.Policy.ShowHarness {
+			for i := range out {
+				out[i].Harness = nil
+			}
+		}
+		return nil
 	})
 	return out, err
 }

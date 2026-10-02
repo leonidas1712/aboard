@@ -14,14 +14,14 @@ Joined board writer-reviewer as reviewer (owner alex)
 Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.
 Sent #6 to @reviewer on writer-reviewer
 writer-reviewer · 1 new
-<aboard-message board="writer-reviewer" from="@writer" owner="alex" role="writer" trust="peer" seq="6">
+<aboard-message board="writer-reviewer" from="@writer" role="writer" sender="owner_agent" seq="6">
 Hello from the writer.
 </aboard-message>
 Sent #7 to @writer on writer-reviewer
 writer-reviewer · 2 messages
-#6  @writer (writer, alex) → @reviewer
+#6  @writer (writer, self) → @reviewer
     Hello from the writer.
-#7  @reviewer (reviewer, alex) → @writer
+#7  @reviewer (reviewer, owner_agent) → @writer
     Hello back from the reviewer.
 OK: 7 events on writer-reviewer verified, head #7 sha256:9c1ba60e…
 ```

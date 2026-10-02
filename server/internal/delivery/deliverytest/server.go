@@ -30,7 +30,7 @@ func RunServer(t *testing.T, f ServerFixture) {
 		msgs, _, err := srv.Inbox(ctx, to)
 		must(t, err)
 		if len(msgs) != 2 || msgs[0].Seq != first || msgs[1].Seq != second || msgs[0].Body != "first" ||
-			msgs[0].Urgent || !msgs[1].Urgent || msgs[0].Board != to.Board || msgs[0].Trust != "peer" {
+			msgs[0].Urgent || !msgs[1].Urgent || msgs[0].Board != to.Board || msgs[0].Sender != "owner_agent" {
 			t.Fatalf("inbox %+v", msgs)
 		}
 	})

@@ -121,7 +121,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	} else {
 		text.WriteString("Using local Aboard at " + srv.URL + "\n")
 	}
-	fmt.Fprintf(&text, "Created board %s and joined as %s (owner %s)\n", board, joined.Agent.Name, deref(joined.Agent.Owner))
+	fmt.Fprintf(&text, "Created board %s and joined as %s\n", board, agentText(joined.Agent))
 	text.WriteString(relinkedText(board, previous))
 	if notice != nil {
 		text.WriteString(notice.Message + "\n")
@@ -163,6 +163,15 @@ func (c *client) join(ctx context.Context, req api.JoinRequest) (*api.JoinResult
 		return nil, apiError(r.StatusCode(), r.Body)
 	}
 	return r.JSON201, nil
+}
+
+// agentText names a new agent with its owner, and its role when the name doesn't
+// already say it: "reviewer (owner alex)", "claude (writer, owner alex)".
+func agentText(m api.Member) string {
+	if role := deref(m.Role); role != "" && role != m.Name {
+		return fmt.Sprintf("%s (%s, owner %s)", m.Name, role, deref(m.Owner))
+	}
+	return fmt.Sprintf("%s (owner %s)", m.Name, deref(m.Owner))
 }
 
 // harnessOf is the harness recorded for a new agent: the flag, else the session's.
@@ -240,7 +249,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if inSession {
 		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
 	}
-	text := fmt.Sprintf("Joined board %s as %s (owner %s)\n", board.Name, agent.Name, deref(agent.Owner)) + how +
+	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent)) + how +
 		relinkedText(board.Name, previous)
 	a.emit(struct {
 		Server        serverRef     `json:"server"`

@@ -252,7 +252,7 @@ $defs:
         description: Each message in delivery format (see DeliveryText), same order as `messages`.
         items: { type: string }
         examples:
-          - ["<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\nDraft is in notes.md. Please review it.\n</aboard-message>"]
+          - ["<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\nDraft is in notes.md. Please review it.\n</aboard-message>"]
       bundle:
         type: [string, "null"]
         description: All returned messages as one bundle in delivery format, as the daemon delivers them to an idle session. Null when there are no messages.
@@ -271,13 +271,26 @@ $defs:
 
       One message:
 
-        <aboard-message board="writer-reviewer" from="@writer" owner="alex" role="writer" trust="peer" seq="6">
+        <aboard-message board="writer-reviewer" from="@writer" role="writer" sender="owner_agent" seq="6">
         Draft is in notes.md. Please review it.
         </aboard-message>
 
-      Attributes always present: board, from, owner (empty for humans), role (empty for
-      humans), trust (owner | human | peer), seq. Present only when true or set:
-      urgent="true", expects-reply="true", reply-to="<seq>".
+      Attributes, in this order:
+      - board, from: always.
+      - owner: the sending agent's owner, only once agents of more than one person are
+        on the board (the message's `show_owner`). Never for a person.
+      - role: the sending agent's role. Never for a person.
+      - harness: the sending agent's harness, when it gave one and the board shows
+        harnesses to agents (policy `show_harness`).
+      - sender: owner | owner_agent | other_person | other_agent, the message's
+        `sender`. Always. A message is never delivered to its sender, so `self` doesn't
+        appear here.
+      - seq: always.
+      - urgent="true", expects-reply="true", reply-to="<seq>": only when true or set.
+
+      With two owners on a board, a message from another person's Codex session:
+
+        <aboard-message board="docs" from="@codex" owner="priya" role="reviewer" harness="codex" sender="other_agent" seq="9">
 
       A message with expects-reply is followed by one line:
 
@@ -302,7 +315,10 @@ $defs:
 
       Text output: the header line "<board> · <n> messages" (or "<board> · no messages"
       with a filter, "<board> · no messages yet" without one), then each message as
-      "#6  @writer (writer, alex) → @reviewer" followed by its body indented four spaces.
+      "#6  @writer (writer, self) → @reviewer" followed by its body indented four spaces.
+      In the brackets: an agent's role, its harness when known and shown, then the
+      message's `sender`; for a person only the `sender`. Once agents of more than one
+      person are on the board, an agent's owner follows its name: "@codex · priya".
       When more matching messages exist, a last line names the command for them:
         Earlier: aboard read --before 6 --from @writer
         Later: aboard read --after 12 --from @writer
@@ -310,11 +326,11 @@ $defs:
       --markdown prints a transcript to paste into a session as context instead:
         # writer-reviewer · #6–#7
 
-        **#6 @writer** (writer, alex) → @reviewer
+        **#6 @writer** (writer, self) → @reviewer
 
         > Draft is in notes.md. Please review it.
 
-        **#7 @reviewer** (reviewer, alex) → all · reply to #6
+        **#7 @reviewer** (reviewer, owner_agent) → all · reply to #6
 
         > Reviewed. Approved.
       Each body is a Markdown blockquote, so text in a message can't pass for another

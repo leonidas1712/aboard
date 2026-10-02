@@ -38,7 +38,7 @@ func transcriptText(board string, ms []api.Message) string {
 		fmt.Fprintf(&b, "# %s · #%d–#%d\n", board, ms[0].Seq, ms[len(ms)-1].Seq)
 	}
 	for _, m := range ms {
-		fmt.Fprintf(&b, "\n**#%d @%s** %s → %s", m.Seq, m.From.Name, senderText(m), targetsText(m.To))
+		fmt.Fprintf(&b, "\n**#%d @%s**%s → %s", m.Seq, m.From.Name, senderText(m), targetsText(m.To))
 		if m.ReplyToSeq != nil {
 			fmt.Fprintf(&b, " · reply to #%d", *m.ReplyToSeq)
 		}
@@ -54,13 +54,23 @@ func transcriptText(board string, ms []api.Message) string {
 	return b.String()
 }
 
-// senderText describes a message's sender after its name: "(human)", or the agent's
-// role and owner.
+// senderText describes a message's sender after its name: the owner once the board
+// has agents of more than one person, then in brackets an agent's role and harness, and
+// the sender label.
 func senderText(m api.Message) string {
-	if m.From.Kind == "human" {
-		return "(human)"
+	var owner string
+	if m.ShowOwner && m.From.Kind == "agent" && m.From.Owner != nil {
+		owner = " · " + *m.From.Owner
 	}
-	return fmt.Sprintf("(%s, %s)", deref(m.From.Role), deref(m.From.Owner))
+	var parts []string
+	if m.From.Kind == "agent" {
+		parts = append(parts, deref(m.From.Role))
+		if h := deref(m.From.Harness); h != "" {
+			parts = append(parts, h)
+		}
+	}
+	parts = append(parts, string(m.Sender))
+	return owner + " (" + strings.Join(parts, ", ") + ")"
 }
 
 // timelineText formats messages for reading the board: a header line per message and
@@ -68,7 +78,7 @@ func senderText(m api.Message) string {
 func timelineText(ms []api.Message) string {
 	var b strings.Builder
 	for _, m := range ms {
-		fmt.Fprintf(&b, "#%d  @%s %s → %s\n", m.Seq, m.From.Name, senderText(m), targetsText(m.To))
+		fmt.Fprintf(&b, "#%d  @%s%s → %s\n", m.Seq, m.From.Name, senderText(m), targetsText(m.To))
 		for _, line := range strings.Split(strings.TrimSuffix(m.Body, "\n"), "\n") {
 			b.WriteString("    " + line + "\n")
 		}
