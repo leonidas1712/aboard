@@ -29,7 +29,8 @@ const defaultWatchLimit = 20
 const watchPage = 200
 
 // runWatch follows a board live with the human login: it prints the newest matching
-// messages, then each new one as the server's event stream says the board moved.
+// messages, then each new one as the server's event stream says the board moved. It
+// reads past addressed visibility, so it refuses inside a harness session.
 func runWatch(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("watch")
 	from := fs.String("from", "", "only messages from this member (@name)")
@@ -41,6 +42,9 @@ func runWatch(ctx context.Context, a *app, args []string) error {
 	}
 	if *limit < 1 {
 		return usageError("--limit must be at least 1.", watchUsage)
+	}
+	if err := a.refuseInSession("Watching a board as yourself", "aboard watch"+boardArg(*boardFlag)); err != nil {
+		return err
 	}
 	t, err := a.selectBoard(*boardFlag)
 	if err != nil {

@@ -62,6 +62,11 @@ urgent messages.
 **Your login only goes to the server that issued it**, so a project file from a cloned
 repository can't send it somewhere else.
 
+**Commands that use your login refuse to run inside an agent session.** `aboard board
+policy`, `aboard watch` and changing a delivery mode say to run them in a terminal, so an
+agent allowed to run `aboard` without asking still can't change a policy or read the board
+as you.
+
 ## On one machine
 
 Visibility separates different owners, not processes under one account. Any process

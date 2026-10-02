@@ -223,7 +223,7 @@ changed and not yet confirmed is still handed again, except in `off`.
 `aboard delivery` shows the acting agent's mode; `aboard delivery auto|humans|off`
 changes it, through the daemon, which saves it before answering and applies it at once.
 Changing the mode is a human action: the command refuses with
-`delivery_change_in_session` when it runs inside a harness session, which it recognises
+`human_command_in_session` when it runs inside a harness session, which it recognises
 from the variables listed in each harness profile's `session_env` and `sandbox_env`
 (`ABOARD_SESSION` and `CLAUDECODE` in Claude Code, `CODEX_THREAD_ID` in Codex), and says
 to run it in a terminal. Showing the mode reads the journal and works anywhere. A running

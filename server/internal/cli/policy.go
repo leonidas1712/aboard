@@ -16,7 +16,16 @@ func (a *app) humanClient(ctx context.Context, t target) (*client, error) {
 	return a.client(ctx, t.server, token, requestTimeout)
 }
 
+// boardArg returns the --board flag to repeat in a suggested command, if one was given.
+func boardArg(board string) string {
+	if board == "" {
+		return ""
+	}
+	return " --board " + shellWord(board)
+}
+
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset.
+// It uses the human login, so it refuses inside a harness session.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	const use = "aboard board policy <starter|recommended> [--board NAME] [--json]"
 	fs := a.flags("board")
@@ -31,6 +40,9 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	preset := api.PolicyPreset(pos[1])
 	if preset != "starter" && preset != "recommended" {
 		return usageError(fmt.Sprintf("%q is not a policy preset; use starter or recommended.", pos[1]), use)
+	}
+	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(*boardFlag)); err != nil {
+		return err
 	}
 	t, err := a.selectBoard(*boardFlag)
 	if err != nil {

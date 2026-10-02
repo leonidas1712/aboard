@@ -245,12 +245,7 @@ func (a *app) checkInitChoices(c initChoices, use string) error {
 	if _, ok := delivery.ParseMode(string(c.delivery)); !ok {
 		return usageError(fmt.Sprintf("%q is not a delivery mode; use auto, humans or off.", c.delivery), use)
 	}
-	if harness, in := a.inSession(); in {
-		return newError("delivery_change_in_session",
-			"Changing the delivery mode is up to a person, and this command runs inside a "+harness+" session.",
-			"Run aboard init --delivery "+string(c.delivery)+" in a terminal outside any agent session.")
-	}
-	return nil
+	return a.refuseInSession("Changing the delivery mode", "aboard init --delivery "+string(c.delivery))
 }
 
 // planInit works out every file change for the chosen harnesses, without writing.

@@ -17,6 +17,12 @@
 #   no agent: agent_not_selected (details.choices). Agent commands (say, inbox, read)
 #   never fall back to the human login; human commands (board policy, audit verify, watch) use
 #   the human login unless --as is given.
+# - Inside a harness session (any variable in a harness profile's session_env or
+#   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
+#   or read with the human login refuse with human_command_in_session and exit 1, saying to
+#   run them in a terminal: board policy, watch, and the delivery-mode changes (aboard
+#   delivery MODE, init --delivery). pair and audit verify still run there: pair joins as
+#   an agent, and audit verify prints only counts and hashes.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
 #   Board for human commands (board policy, audit verify, watch) and for pair: --board, then the
 #   project's .aboard file, then the machine default.
@@ -52,8 +58,9 @@ $defs:
       aboard down, then the command again) · daemon_protocol_mismatch (the running daemon
       is from a newer aboard that speaks another control protocol; install the newer
       aboard) · data_newer (the database or delivery journal was written by a newer
-      aboard; install it) · delivery_change_in_session (aboard delivery was asked to change the
-      mode from inside a harness session; a person runs it in a terminal) ·
+      aboard; install it) · human_command_in_session (a command that acts or reads with the
+      human login, or changes a delivery mode, ran inside a harness session; a person runs
+      it in a terminal) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
       message_ref_invalid · check_failed.
@@ -333,6 +340,9 @@ $defs:
 
       With --json it prints JSON Lines instead of one object: one WatchOutput object per
       message, as each arrives. This is the one command whose --json output is a stream.
+
+      Inside a harness session it refuses with human_command_in_session: it reads as the
+      person, past addressed visibility.
     type: object
     required: [board, message]
     properties:
@@ -381,7 +391,7 @@ $defs:
 
       --delivery sets the delivery mode of every agent on this machine that has none of
       its own (see DeliveryOutput); it goes through the delivery daemon. Like aboard
-      delivery, it is refused with delivery_change_in_session inside a harness session.
+      delivery, it is refused with human_command_in_session inside a harness session.
       Without --delivery (or an answer to the question) the mode is left alone.
     type: object
     required: [applied, scope, delivery, allow_commands, harnesses]
@@ -467,7 +477,7 @@ $defs:
                 urgent ones included, never wake or interrupt it.
         off     delivers nothing; the agent reads its inbox itself
       With no argument it shows the mode, anywhere, without starting the daemon. With a
-      mode it changes it: a human action, so it refuses with delivery_change_in_session
+      mode it changes it: a human action, so it refuses with human_command_in_session
       when run inside a harness session (any of the variables in a harness profile's
       session_env or sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …).
       A running daemon from an older aboard is replaced first; if that fails and it lacks
@@ -544,6 +554,9 @@ $defs:
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:
+    description: |
+      A human command with the human login. Inside a harness session it refuses with
+      human_command_in_session.
     type: object
     required: [board, before, after, policy_notice]
     properties:
@@ -556,6 +569,8 @@ $defs:
   AuditVerifyOutput:
     description: |
       Exit 0 when ok, 3 when the chain fails, 1 if verification couldn't run.
+      It runs inside a harness session too: its output is counts, sequence numbers and
+      hashes, never message content.
     type: object
     required: [board, ok, events_checked, data_withheld, head, first_bad, pinned_head]
     properties:

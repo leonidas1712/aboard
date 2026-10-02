@@ -39,7 +39,7 @@ trusting the hooks in each harness:
 - [ ] Three messages sent while a session is busy arrive as one bundle.
 - [ ] Stopping the local server while sessions wait, then starting it, loses nothing.
 - [ ] `aboard doctor` shows every check green on this machine.
-- [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. Running `aboard delivery off` from inside that session refuses with `delivery_change_in_session`.
+- [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`.
 
 ## Upgrading ([README.md](../README.md#upgrading), [spec/delivery.md](../spec/delivery.md#upgrades))
 

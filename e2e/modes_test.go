@@ -168,19 +168,46 @@ func TestDeliveryModeCannotBeChangedInsideASession(t *testing.T) {
 	_, reviewer := pairedClaudeSessions(t, e)
 
 	r := reviewer.runExit("delivery", "off", "--json")
-	if r.code != 1 || field(t, r.json(t), "error.code") != "delivery_change_in_session" {
+	if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
 		t.Fatalf("changing the mode inside a session should refuse\n%s", r)
 	}
 	if hint := field(t, r.json(t), "error.hint").(string); !strings.Contains(hint, "terminal") {
 		t.Fatalf("hint should say to use a terminal: %s", hint)
 	}
 	// Claude Code sets CLAUDECODE for every command it runs, even without Aboard's hooks.
-	if r := e.exec([]string{"CLAUDECODE=1"}, "", "delivery", "off", "--as", "reviewer", "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "delivery_change_in_session" {
+	if r := e.exec([]string{"CLAUDECODE=1"}, "", "delivery", "off", "--as", "reviewer", "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
 		t.Fatalf("changing the mode with CLAUDECODE set should refuse\n%s", r)
 	}
 	codex := &session{e: e, harness: "codex", id: "019a", vars: []string{"CODEX_THREAD_ID=019a"}}
-	if r := codex.runExit("delivery", "humans", "--as", "reviewer", "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "delivery_change_in_session" {
+	if r := codex.runExit("delivery", "humans", "--as", "reviewer", "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
 		t.Fatalf("changing the mode inside Codex should refuse\n%s", r)
 	}
 	expectLines(t, reviewer.run("delivery"), "reviewer on writer-reviewer: delivery auto (wakes for every message)")
+}
+
+// Commands that act or read with the person's login refuse inside a harness session,
+// where an allow rule for aboard would let an agent run them without asking. Pairing and
+// verifying the record still work there.
+func TestHumanCommandsRefuseInsideASession(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer := e.claudeSession("s-writer")
+	writer.run("pair")
+	writer.run("audit", "verify")
+
+	codex := &session{e: e, harness: "codex", id: "019a", vars: []string{"CODEX_THREAD_ID=019a"}}
+	for _, s := range []*session{writer, codex} {
+		for _, args := range [][]string{{"board", "policy", "recommended", "--json"}, {"watch", "--json"}} {
+			r := s.runExit(args...)
+			if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
+				t.Fatalf("%s %v should refuse inside a session\n%s", s.harness, args, r)
+			}
+			if hint := field(t, r.json(t), "error.hint").(string); !strings.Contains(hint, "terminal") {
+				t.Fatalf("hint should say to use a terminal: %s", hint)
+			}
+		}
+	}
+	if got := field(t, e.run("board", "policy", "recommended", "--json").json(t), "after.preset"); got != "recommended" {
+		t.Fatalf("board policy in a terminal: %v", got)
+	}
 }
