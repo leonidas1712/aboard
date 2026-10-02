@@ -118,7 +118,7 @@ func (a *app) agentByName(creds credentials, name, boardFlag string) (target, ag
 }
 
 // sessionAgent returns the agent bound to the session. found is false when the session
-// holds no agent (on the --board board, if given).
+// holds no agent (on the --board board, if given). A session holds at most one agent.
 func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.SessionKey, boardFlag string) (t target, cred agentCredential, found bool, err error) {
 	agents, err := a.sessionAgents(ctx, key)
 	if err != nil {
@@ -130,34 +130,21 @@ func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.
 			matching = append(matching, ag)
 		}
 	}
-	switch len(matching) {
-	case 0:
+	if len(matching) == 0 {
 		return target{}, agentCredential{}, false, nil
-	case 1:
-		ag := matching[0]
-		c, ok := creds.find(ag.Server, ag.Board, ag.Name)
-		if !ok {
-			return target{}, agentCredential{}, false, newError("agent_not_selected",
-				"This session is bound to "+ag.Name+" on board "+ag.Board+", but this machine has no credentials for it.",
-				"Join the board again with aboard join, or pass --as with one of your agents.")
-		}
-		source := boardFromAgent
-		if boardFlag != "" {
-			source = boardFromFlag
-		}
-		return target{server: a.serverRefFor(ag.Server), board: ag.Board, source: source}, c, true, nil
 	}
-	list := make([]map[string]string, 0, len(matching))
-	names := make([]string, 0, len(matching))
-	for _, ag := range matching {
-		list = append(list, map[string]string{"name": ag.Name, "board": ag.Board})
-		names = append(names, ag.Name+" on "+ag.Board)
+	ag := matching[0]
+	c, ok := creds.find(ag.Server, ag.Board, ag.Name)
+	if !ok {
+		return target{}, agentCredential{}, false, newError("agent_not_selected",
+			"This session is bound to "+ag.Name+" on board "+ag.Board+", but this machine has no credentials for it.",
+			"Join the board again with aboard join, or pass --as with one of your agents.")
 	}
-	e := newError("agent_ambiguous",
-		"This session holds agents on more than one board: "+strings.Join(names, ", ")+".",
-		"Pass --as with one of them, or --board to pick the board.")
-	e.Details = map[string]any{"agents": list}
-	return target{}, agentCredential{}, false, e
+	source := boardFromAgent
+	if boardFlag != "" {
+		source = boardFromFlag
+	}
+	return target{server: a.serverRefFor(ag.Server), board: ag.Board, source: source}, c, true, nil
 }
 
 // sessionAgents asks the daemon which agents are bound to the session.
@@ -185,15 +172,34 @@ func (a *app) checkSession(ctx context.Context) (delivery.SessionKey, bool, erro
 	return key, true, err
 }
 
-// bindSession binds an agent to the session, so its messages are delivered there.
-func (a *app) bindSession(ctx context.Context, key delivery.SessionKey, agent delivery.AgentRef) error {
-	_, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBind, Harness: key.Harness, Session: key.ID, Agent: &agent})
+// previousAgent is the agent a session was bound to before a command moved it to
+// another one.
+type previousAgent struct {
+	Name  string `json:"name"`
+	Board string `json:"board"`
+}
+
+// bindSession binds an agent to the session, so its messages are delivered there. A
+// session holds one agent at a time; the one it held before, if any, is returned.
+func (a *app) bindSession(ctx context.Context, key delivery.SessionKey, agent delivery.AgentRef) (*previousAgent, error) {
+	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBind, Harness: key.Harness, Session: key.ID, Agent: &agent})
 	if err != nil {
 		e := asError(err)
 		e.Hint = strings.TrimSpace(e.Hint + " The agent " + agent.Name + " exists; bind it to a session later with aboard resume " + agent.Name + ".")
-		return e
+		return nil, e
 	}
-	return nil
+	if resp.Previous == nil {
+		return nil, nil
+	}
+	return &previousAgent{Name: resp.Previous.Name, Board: resp.Previous.Board}, nil
+}
+
+// movedText is the line saying a session moved from one agent to another, or "".
+func movedText(prev *previousAgent, name, board string) string {
+	if prev == nil {
+		return ""
+	}
+	return fmt.Sprintf("This session was %s on %s; it is now %s on %s.\n", prev.Name, prev.Board, name, board)
 }
 
 // runResume binds the current session to an existing agent on this machine, so its
@@ -221,13 +227,20 @@ func runResume(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	ref := delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name}
-	if _, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBind, Harness: key.Harness, Session: key.ID, Agent: &ref}); err != nil {
+	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBind, Harness: key.Harness, Session: key.ID, Agent: &ref})
+	if err != nil {
 		return err
 	}
+	var prev *previousAgent
+	if resp.Previous != nil {
+		prev = &previousAgent{Name: resp.Previous.Name, Board: resp.Previous.Board}
+	}
 	a.emit(struct {
-		Agent   string `json:"agent"`
-		Board   string `json:"board"`
-		Session string `json:"session"`
-	}{cred.Name, cred.Board, key.String()}, fmt.Sprintf("Resumed %s on %s in this session.\n", cred.Name, cred.Board))
+		Agent         string         `json:"agent"`
+		Board         string         `json:"board"`
+		Session       string         `json:"session"`
+		PreviousAgent *previousAgent `json:"previous_agent"`
+	}{cred.Name, cred.Board, key.String(), prev},
+		fmt.Sprintf("Resumed %s on %s in this session.\n", cred.Name, cred.Board)+movedText(prev, cred.Name, cred.Board))
 	return nil
 }

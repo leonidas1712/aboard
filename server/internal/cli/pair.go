@@ -89,8 +89,9 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	useAs := useFor(joined.Agent.Name)
+	var moved *previousAgent
 	if inSession {
-		if err := a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}); err != nil {
+		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}); err != nil {
 			return err
 		}
 		useAs.BoundSession = optional(session.String())
@@ -122,6 +123,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		text.WriteString("Using local Aboard at " + srv.URL + "\n")
 	}
 	fmt.Fprintf(&text, "Created board %s and joined as %s\n", board, agentText(joined.Agent))
+	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
 	if notice != nil {
 		text.WriteString(notice.Message + "\n")
@@ -129,18 +131,19 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	text.WriteString("\nPaste this into your next session:\n" + line + "\n")
 
 	a.emit(struct {
-		Server        serverRef     `json:"server"`
-		ServerStarted bool          `json:"server_started"`
-		Board         api.Board     `json:"board"`
-		Agent         api.Member    `json:"agent"`
-		Use           agentUse      `json:"use"`
-		Join          pairJoin      `json:"join"`
-		PolicyNotice  *policyNotice `json:"policy_notice"`
-		PreviousBoard *string       `json:"previous_board"`
+		Server        serverRef      `json:"server"`
+		ServerStarted bool           `json:"server_started"`
+		Board         api.Board      `json:"board"`
+		Agent         api.Member     `json:"agent"`
+		Use           agentUse       `json:"use"`
+		Join          pairJoin       `json:"join"`
+		PolicyNotice  *policyNotice  `json:"policy_notice"`
+		PreviousBoard *string        `json:"previous_board"`
+		PreviousAgent *previousAgent `json:"previous_agent"`
 	}{
 		srv, started, joined.Board, joined.Agent, useAs,
 		pairJoin{Code: deref(jc.Code), Line: line, Role: jc.Role, ExpiresAt: jc.ExpiresAt},
-		notice, optional(previous),
+		notice, optional(previous), moved,
 	}, text.String())
 	return nil
 }
@@ -231,8 +234,9 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	useAs := useFor(agent.Name)
+	var moved *previousAgent
 	if inSession {
-		if err := a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}); err != nil {
+		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}); err != nil {
 			return err
 		}
 		useAs.BoundSession = optional(session.String())
@@ -250,17 +254,18 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
 	}
 	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent)) + how +
-		relinkedText(board.Name, previous)
+		movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous)
 	a.emit(struct {
-		Server        serverRef     `json:"server"`
-		Board         api.Board     `json:"board"`
-		Agent         api.Member    `json:"agent"`
-		Use           agentUse      `json:"use"`
-		Charter       string        `json:"charter"`
-		RoleCharter   string        `json:"role_charter"`
-		PolicyNotice  *policyNotice `json:"policy_notice"`
-		PreviousBoard *string       `json:"previous_board"`
-	}{srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous)}, text)
+		Server        serverRef      `json:"server"`
+		Board         api.Board      `json:"board"`
+		Agent         api.Member     `json:"agent"`
+		Use           agentUse       `json:"use"`
+		Charter       string         `json:"charter"`
+		RoleCharter   string         `json:"role_charter"`
+		PolicyNotice  *policyNotice  `json:"policy_notice"`
+		PreviousBoard *string        `json:"previous_board"`
+		PreviousAgent *previousAgent `json:"previous_agent"`
+	}{srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous), moved}, text)
 	return nil
 }
 
