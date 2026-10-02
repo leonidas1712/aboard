@@ -32,9 +32,12 @@ func TestIdleCodexWakesAndReplies(t *testing.T) {
 // six messages go back and forth with no one typing, and then they stop.
 func TestClaudeAndCodexExchange(t *testing.T) {
 	requireClaude(t)
-	requireCodex(t)
+	codex := requireCodex(t)
 	t.Parallel()
 	l := newLab(t)
+	// Every process in the lab, Claude Code's hooks and the daemon they start included,
+	// needs the scratch CODEX_HOME, so it is set before anything starts.
+	l.codexHome(codex)
 	l.pairCLI()
 	writer := l.startClaude("writer", l.project("claude-project", "claude-code"))
 	reviewer := l.startCodex("reviewer", l.project("codex-project", "codex"))

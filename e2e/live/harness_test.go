@@ -638,6 +638,11 @@ func (l *lab) codexHome(setup codexSetup) string {
 	if _, err := os.Stat(home); err == nil {
 		return home
 	}
+	if l.started > 0 {
+		// The first harness's hooks have started the daemon by now, without CODEX_HOME,
+		// and its codex app-server would look for threads in the person's own ~/.codex.
+		l.t.Fatal("set up Codex (l.codexHome) before starting any harness in a test that uses Codex")
+	}
 	if err := os.MkdirAll(home, 0o700); err != nil {
 		l.t.Fatal(err)
 	}

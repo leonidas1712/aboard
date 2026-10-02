@@ -107,7 +107,38 @@ func configSums() map[string]string {
 			sums[path] = "absent"
 		}
 	}
+	// Harnesses install their commands into ~/.local/bin and keep versions beside it, so
+	// every entry there and every installed Claude Code version must stay as it was: a
+	// link must point where it pointed, a file keep its size and time.
+	for _, d := range []string{".local/bin", ".local/share/claude/versions"} {
+		entries, err := os.ReadDir(filepath.Join(home, d))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			path := filepath.Join(home, d, e.Name())
+			sums[path] = entryState(path)
+		}
+	}
 	return sums
+}
+
+// entryState describes a file or link without reading its contents, which for an
+// installed binary can be hundreds of megabytes.
+func entryState(path string) string {
+	info, err := os.Lstat(path)
+	switch {
+	case err != nil:
+		return "absent"
+	case info.Mode()&os.ModeSymlink != 0:
+		target, err := os.Readlink(path)
+		if err != nil {
+			return "unreadable link"
+		}
+		return "link to " + target
+	default:
+		return fmt.Sprintf("%d bytes, modified %s", info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano))
+	}
 }
 
 // configDiff lists every path whose checksum or presence changed.
@@ -116,6 +147,11 @@ func configDiff(before, after map[string]string) string {
 	for path, sum := range before {
 		if after[path] != sum {
 			fmt.Fprintf(&b, "  %s: was %s, now %s\n", path, sum, after[path])
+		}
+	}
+	for path, sum := range after {
+		if _, ok := before[path]; !ok {
+			fmt.Fprintf(&b, "  %s: appeared, %s\n", path, sum)
 		}
 	}
 	return b.String()
@@ -158,6 +194,8 @@ type lab struct {
 	human string
 	addr  string
 	vars  []string
+	// started counts the harnesses started in this lab.
+	started int
 	// claudeConfig is Claude Code's config directory for this test, or empty when
 	// Claude Code uses the person's own (see claudeSetup).
 	claudeConfig string
@@ -213,6 +251,10 @@ func newLabWith(t *testing.T, binary string) *lab {
 		"XDG_DATA_HOME="+filepath.Join(state, "data"),
 		"XDG_STATE_HOME="+filepath.Join(state, "st"),
 		"ABOARD_LOCAL_ADDR="+l.addr,
+		// Claude Code keeps its installed versions under XDG_DATA_HOME but its launcher
+		// link in ~/.local/bin. Updating itself here would install into the scratch
+		// directory and point the person's own launcher at it, so updates are off.
+		"DISABLE_AUTOUPDATER=1",
 	)
 	t.Cleanup(l.teardown)
 	return l
@@ -746,6 +788,7 @@ func (l *lab) tmuxRun(args ...string) string {
 // start runs argv in a new tmux window in dir, with exactly the environment env.
 func (l *lab) start(name, dir string, env, argv []string) *pane {
 	l.t.Helper()
+	l.started++
 	var script strings.Builder
 	// The harness runs in tmux, whatever terminal runs the suite.
 	script.WriteString("#!/bin/sh\nexec env -i TERM=tmux-256color")
