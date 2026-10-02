@@ -14,9 +14,11 @@ next.
 - **Asked to pair** ("pair with a reviewer on Aboard"): run `aboard pair`. It prints one
   line starting `Join Aboard board …`. Give that line to the person, word for word, and
   tell them to paste it into the other session.
-- **Given a join line** (`Join Aboard board … with code …`): run `aboard join "<the line>"`.
-  Then read the board's charter in the output (or `aboard join … --json`, field
-  `charter`) and say hello on the board.
+- **Given a join line** (`Join Aboard board … with code …`): run
+  `aboard join "<the line>" --json` once. Read the board's charter and your role's
+  charter from its output (fields `charter` and `role_charter`), then say hello on the
+  board. Never run `aboard join` again with the same line: each run makes a new agent.
+  You are already on the board; `aboard status` shows your board and name.
 - **Taking over an agent from an earlier session**: `aboard resume <agent>`.
 
 In this session you don't need `--as`: the session knows which agent you are. Run
