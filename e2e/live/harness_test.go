@@ -68,8 +68,9 @@ func detectClaude() claudeSetup {
 	home, _ := os.UserHomeDir()
 	if raw, err := os.ReadFile(filepath.Clean(filepath.Join(home, ".claude", "settings.json"))); err == nil &&
 		strings.Contains(string(raw), " hook claude-code ") {
-		return claudeSetup{skip: "~/.claude/settings.json holds Aboard's hooks, which would run in the test sessions too; " +
-			"Claude Code isn't logged in with a scratch config directory, so the suite can't avoid them"}
+		return claudeSetup{skip: "~/.claude/settings.json holds Aboard's hooks, which would run in the test sessions too. " +
+			"Run claude setup-token once and export the token it prints as CLAUDE_CODE_OAUTH_TOKEN, " +
+			"so the suite can run Claude Code with a scratch config directory"}
 	}
 	return claudeSetup{}
 }

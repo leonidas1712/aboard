@@ -128,12 +128,13 @@ func configDiff(before, after map[string]string) string {
 var harnessMarkers = regexp.MustCompile(`^(CLAUDE|CODEX|ABOARD|TMUX)[A-Z0-9_]*=`)
 
 // cleanEnv is this process's environment without harness markers, keeping what the
-// harnesses need for their login (HOME, ANTHROPIC_*, OPENAI_*, CLAUDE_CONFIG_DIR).
+// harnesses need for their login (HOME, ANTHROPIC_*, OPENAI_*, CLAUDE_CONFIG_DIR, and
+// CLAUDE_CODE_OAUTH_TOKEN, which logs Claude Code in with a scratch config directory).
 func cleanEnv() []string {
 	var out []string
 	for _, kv := range os.Environ() {
 		switch {
-		case strings.HasPrefix(kv, "CLAUDE_CONFIG_DIR="):
+		case strings.HasPrefix(kv, "CLAUDE_CONFIG_DIR="), strings.HasPrefix(kv, "CLAUDE_CODE_OAUTH_TOKEN="):
 		case harnessMarkers.MatchString(kv),
 			strings.HasPrefix(kv, "XDG_CONFIG_HOME="), strings.HasPrefix(kv, "XDG_DATA_HOME="),
 			strings.HasPrefix(kv, "XDG_STATE_HOME="), strings.HasPrefix(kv, "PATH="):
@@ -178,7 +179,12 @@ func newLabWith(t *testing.T, binary string) *lab {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed; the live suite drives harnesses in tmux")
 	}
-	dir := t.TempDir()
+	// Resolve links in the temp path (on macOS /var is a link to /private/var), so paths
+	// the binary prints match the paths the test compares them with.
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	l := &lab{
 		t:     t,
 		dir:   dir,

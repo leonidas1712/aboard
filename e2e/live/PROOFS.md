@@ -24,6 +24,12 @@ tmux server.
 status` says `loggedIn`) and Codex (`codex login status` succeeds, and `codex queue`
 exists). A harness that is missing or logged out is skipped with the reason, not failed.
 
+On a machine where Claude Code keeps its login in the system keychain (macOS), a scratch
+config directory starts logged out. Run `claude setup-token` once and export the token
+it prints as `CLAUDE_CODE_OAUTH_TOKEN` before `make live`: Claude Code then logs in with
+a scratch config directory, and your own `~/.claude` (settings, hooks, project list) is
+never read or written.
+
 **Settings.**
 
 | Variable | Effect |

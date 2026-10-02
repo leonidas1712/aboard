@@ -95,7 +95,12 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	home := t.TempDir()
+	// Resolve links in the temp path (on macOS /var is a link to /private/var), so paths
+	// the binary prints match the paths the test expects.
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	dir := filepath.Join(home, "project")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
