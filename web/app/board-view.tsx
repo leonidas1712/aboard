@@ -59,11 +59,16 @@ export default function BoardView({ name }: { name: string }) {
       }
     };
     loadCrew();
-    const stop = followHeads((b) => {
-      if (b !== name) return;
-      run(catchUp);
-      loadCrew();
-    });
+    const stop = followHeads(
+      (b) => {
+        if (b !== name) return;
+        run(catchUp);
+        loadCrew();
+      },
+      (e) => {
+        if (live) setError(e);
+      },
+    );
     return () => {
       live = false;
       stop();

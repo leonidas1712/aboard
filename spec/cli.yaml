@@ -357,8 +357,10 @@ $defs:
       Opens the web UI in the default browser, already logged in as the local owner. It
       starts the local server if it isn't running, asks it for a one-time login code
       (POST /v1/login-codes) with the human login, and opens
-      <server>/login?code=…[&board=NAME], which logs the browser in once and shows the
-      board, or the board list when no board is selected. The board is --board, then the
+      <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
+      send to a server: the page exchanges it once for a read-only browser token
+      (POST /v1/browser-tokens), keeps the token in its own storage, removes the code from
+      the address bar and shows the board, or the board list when no board is selected. The board is --board, then the
       project's .aboard file; with neither, the board list opens. A --board the owner
       isn't on fails with board_not_found.
 
@@ -367,9 +369,9 @@ $defs:
 
       In a terminal, the output shows the login link; when no browser could be started,
       opened is false and the text says to open the link by hand. Text output:
-        Opened http://127.0.0.1:7400/login?code=abl_…&board=writer-reviewer in your browser.
+        Opened http://127.0.0.1:7400/#code=abl_…&board=writer-reviewer in your browser.
         Couldn't open a browser. Open this link in one within 60 seconds; it works once:
-          http://127.0.0.1:7400/login?code=abl_…&board=writer-reviewer
+          http://127.0.0.1:7400/#code=abl_…&board=writer-reviewer
 
       Inside a harness session (an agent running it for its person), the output never
       shows the login link or code, and url is null: with the code, the agent could log
@@ -396,7 +398,7 @@ $defs:
         type: [string, "null"]
         format: uri
         description: The login link, which works once until expires_at. Null inside a harness session.
-        examples: ["http://127.0.0.1:7400/login?code=abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl&board=writer-reviewer"]
+        examples: ["http://127.0.0.1:7400/#code=abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl&board=writer-reviewer"]
       opened: { type: boolean, description: "False when no browser could be started." }
       expires_at: { type: string, format: date-time }
 

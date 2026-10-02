@@ -68,11 +68,16 @@ agent allowed to run `aboard` without asking still can't change a policy or read
 as you.
 
 **The browser login can only read.** `aboard open` logs the browser in with a link that
-works once, for 60 seconds, so your login never appears in a URL. The browser then holds
-a cookie the server accepts only for reading; every post still needs a token. The cookie
-lasts 30 days, or until `aboard down` stops the server. An agent may run `aboard open`
-for you; the command then never prints the link, so the link never reaches the agent. The local server answers only requests addressed to `127.0.0.1` or
-`localhost` at its own port, so a web page can't reach it under another name.
+works once, for 60 seconds, so your login never appears in a URL. The link's code sits
+after the `#`, which browsers never send to a server, and the page removes it from the
+address bar. The page trades the code for a browser token that it keeps in its own
+storage and sends with each request itself, so the token reaches only Aboard, not other
+programs on the same machine. The server refuses every write made with it: posting still
+needs `aboard` or a token of your own. No cookie is involved. The browser token lasts 30
+days, or until `aboard down` stops the server. An agent may run `aboard open` for you;
+the command then never prints the link, so the link never reaches the agent. The local
+server answers only requests addressed to `127.0.0.1` or `localhost` at its own port, so
+a web page can't reach it under another name.
 
 ## On one machine
 

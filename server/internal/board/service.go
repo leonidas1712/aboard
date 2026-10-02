@@ -53,10 +53,15 @@ func (s *Service) Config() Config { return s.cfg }
 type Principal struct {
 	Human *Human
 	Agent *Member
+	// ReadOnly is set for a browser token, which acts as its human for reads only.
+	ReadOnly bool
 }
 
-// Authenticate resolves a bearer token to a human or an agent.
+// Authenticate resolves a bearer token to a human, an agent, or a human's browser.
 func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
+	if strings.HasPrefix(token, browserTokenPrefix) {
+		return s.authenticateBrowser(token)
+	}
 	digest := ids.Digest(s.key, token)
 	var p Principal
 	err := s.st.Read(ctx, func(tx ReadTx) error {

@@ -5,7 +5,8 @@ export default function Problem({ error }: { error: unknown }) {
   if (error instanceof ApiError && error.status === 401) {
     return (
       <p className="problem">
-        This browser isn&apos;t logged in to Aboard, or its login has ended. Run <code>aboard open</code> in a terminal.
+        This browser isn&apos;t logged in to Aboard, or its login has ended. Run <code>aboard open</code> again in a
+        terminal.
       </p>
     );
   }

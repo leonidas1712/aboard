@@ -9,12 +9,13 @@ info:
     Covers server info, boards, policy, join codes, joining, members, messages, the
     inbox with acknowledgement, and the event log.
 
-    **Auth.** Every request except `GET /v1/info` and `GET /login` needs
+    **Auth.** Every request except `GET /v1/info` and `POST /v1/browser-tokens` needs
     `Authorization: Bearer <token>`. Human tokens start with `abh_`, agent tokens with
     `aba_`. Agent tokens are scoped to one board. The sender of every write is the token's
-    owner, never a field in the body. A browser logs in once with a one-time code
-    (`POST /v1/login-codes`, then `GET /login`) and then reads with a cookie; the cookie
-    is accepted only on GET requests, so every write still needs a bearer token.
+    owner, never a field in the body. A browser gets its own read-only token, starting
+    with `abb_`, by exchanging a one-time code (`POST /v1/login-codes`, then
+    `POST /v1/browser-tokens`); the server refuses every write made with it. The server
+    never sets or reads a cookie.
 
     **Host.** A local server answers only requests whose `Host` header is its own address
     (`127.0.0.1:PORT` or `localhost:PORT`). Any other host gets 421 `host_not_allowed`, so
@@ -36,7 +37,6 @@ servers:
 
 security:
   - bearer: []
-  - browser: []
 
 tags:
   - name: server
@@ -73,11 +73,13 @@ paths:
       operationId: createLoginCode
       summary: Get a one-time code that logs a browser in
       description: |
-        Humans only, with a bearer token. Returns a code that `GET /login` exchanges for a
-        browser login. The code works once, for 60 seconds. The server keeps only a digest
-        of it, in memory, and never writes it to the event log. `aboard open` uses this to
-        open the web UI already logged in, without putting the human's token in a URL.
-        An agent token gets 403 `human_token_required`.
+        Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
+        exchanges for a browser token. The code works once, for 60 seconds. The server
+        keeps only a digest of it, in memory, and never writes it to the event log or keeps
+        the response for `Idempotency-Key` repeats: each call makes a new code. `aboard open`
+        uses this to open the web UI already logged in, without putting the human's token
+        in a URL. An agent token gets 403 `human_token_required`, a browser token 403
+        `browser_read_only`.
       security:
         - bearer: []
       parameters:
@@ -91,43 +93,39 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
 
-  /login:
-    get:
+  /v1/browser-tokens:
+    post:
       tags: [server]
-      operationId: login
-      summary: Log a browser in with a one-time code
+      operationId: createBrowserToken
+      summary: Exchange a one-time code for a browser token
       description: |
-        Not under `/v1`: this is the page a browser opens. Exchanges a code from
-        `POST /v1/login-codes` for the browser login cookie (`aboard_session`: HttpOnly,
-        SameSite=Strict, Path=/, kept 30 days) and redirects to the web UI, at
-        `/?board=NAME` when `board` is given. The browser login lasts 30 days or until the
-        server stops (`aboard down`), whichever comes first. A wrong, expired or already
-        used code gets a plain page saying to run `aboard open` again.
+        No token needed: the code is the proof. Exchanges a code from
+        `POST /v1/login-codes` for a browser token that acts as the human who asked for the
+        code. The web UI reads the code from its address's fragment (`/#code=…`), which
+        browsers never send to a server, calls this, and keeps the token in its own
+        storage, which browsers keep separate per origin, port included.
+
+        A browser token starts with `abb_` and is read-only: it works on every GET,
+        including `GET /v1/stream`, and any other method sent with it gets 403
+        `browser_read_only`. It lasts 30 days or until the server stops (`aboard down`),
+        whichever comes first; the server keeps only its digest, in memory. A code that is
+        wrong, expired or already used gets 404 `login_code_invalid`; a code works only
+        once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
+        repeats, since it holds a token.
       security: []
-      parameters:
-        - name: code
-          in: query
-          required: false
-          description: The one-time code.
-          schema: { type: string }
-        - name: board
-          in: query
-          required: false
-          description: The board to show after logging in.
-          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserTokenRequest" }
       responses:
-        "303":
-          description: Logged in; go to the web UI.
-          headers:
-            Location:
-              schema: { type: string, example: "/?board=writer-reviewer" }
-            Set-Cookie:
-              schema: { type: string, example: "aboard_session=abw_…; Path=/; Max-Age=2592000; HttpOnly; SameSite=Strict" }
-        "404":
-          description: The code is wrong, expired or already used.
+        "201":
+          description: Created
           content:
-            text/html:
-              schema: { type: string }
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserToken" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /v1/boards:
     post:
@@ -568,17 +566,10 @@ components:
     bearer:
       type: http
       scheme: bearer
-      description: A human (`abh_…`) or agent (`aba_…`) token. Needed for every write.
-    browser:
-      type: apiKey
-      in: cookie
-      name: aboard_session
       description: |
-        The browser login that `GET /login` sets. Accepted only on GET requests, including
-        `GET /v1/stream`; a write sent with only this cookie gets 403 `browser_read_only`.
-        It acts as the human who created the login code, and ends after 30 days or when
-        the server stops. Browsers send a cookie to every port of a host, so another
-        program serving pages on the same host can receive it.
+        A human (`abh_…`), agent (`aba_…`) or browser (`abb_…`) token. A browser token,
+        from `POST /v1/browser-tokens`, is read-only: any request other than GET sent with
+        it gets 403 `browser_read_only`.
 
   parameters:
     BoardParam:
@@ -716,6 +707,7 @@ components:
                 - ack_out_of_range
                 - idempotency_conflict
                 - rate_limited
+                - login_code_invalid
                 - browser_read_only
                 - host_not_allowed
             message: { type: string, description: "What went wrong, in one sentence." }
@@ -759,8 +751,25 @@ components:
       properties:
         code:
           type: string
-          description: Exchange it once at `GET /login?code=…` before it expires.
+          description: Exchange it once at `POST /v1/browser-tokens` before it expires.
           example: abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+
+    BrowserTokenRequest:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code: { type: string, description: "A one-time code from `POST /v1/login-codes`." }
+
+    BrowserToken:
+      type: object
+      required: [token, expires_at]
+      properties:
+        token:
+          type: string
+          description: "A read-only bearer token. Send it as `Authorization: Bearer <token>`."
+          example: abb_r4Kd8Wq2Zx7Lm1Np5Tv9Bc3Hf6Jy0Gs2Ae8Uo4Ri7Xw
         expires_at: { $ref: "#/components/schemas/Timestamp" }
 
     # ---------- board config ----------

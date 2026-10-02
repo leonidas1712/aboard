@@ -5,6 +5,7 @@ package e2e
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,16 +30,19 @@ type reply struct {
 	body   string
 }
 
-// get makes a GET request to the local server the way a browser would, without
-// following redirects.
-func (e *env) get(rawURL string, cookie *http.Cookie, host string) reply {
+// request makes a request to the local server, sending token as a bearer token when
+// it is set, without following redirects.
+func (e *env) request(method, rawURL, token, host, body string) reply {
 	e.t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, http.NoBody)
+	req, err := http.NewRequestWithContext(context.Background(), method, rawURL, strings.NewReader(body))
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	if cookie != nil {
-		req.AddCookie(cookie)
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	if host != "" {
 		req.Host = host
@@ -53,10 +57,34 @@ func (e *env) get(rawURL string, cookie *http.Cookie, host string) reply {
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	if c := resp.Header.Values("Set-Cookie"); len(c) > 0 {
+		e.t.Fatalf("%s %s set a cookie: %q", method, rawURL, c)
+	}
 	return reply{status: resp.StatusCode, header: resp.Header, body: string(b)}
 }
 
-func TestOpenLogsTheBrowserInOnceWithAReadOnlyCookie(t *testing.T) {
+// get makes a GET request to the local server, the way a browser would.
+func (e *env) get(rawURL, token, host string) reply {
+	e.t.Helper()
+	return e.request(http.MethodGet, rawURL, token, host, "")
+}
+
+// exchange trades the code in a login link's fragment for a browser token, the way the
+// web UI does.
+func (e *env) exchange(link *url.URL) reply {
+	e.t.Helper()
+	frag, err := url.ParseQuery(link.Fragment)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	body, err := json.Marshal(map[string]string{"code": frag.Get("code")})
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return e.request(http.MethodPost, "http://"+link.Host+"/v1/browser-tokens", "", "", string(body))
+}
+
+func TestOpenLogsTheBrowserInOnceWithAReadOnlyToken(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
@@ -69,34 +97,32 @@ func TestOpenLogsTheBrowserInOnceWithAReadOnlyCookie(t *testing.T) {
 		t.Fatalf("aboard open: %v", out)
 	}
 	link, err := url.Parse(out["url"].(string))
-	if err != nil || link.Host != e.addr || link.Path != "/login" || link.Query().Get("board") != board || link.Query().Get("code") == "" {
+	if err != nil || link.Host != e.addr || link.Path != "/" || link.RawQuery != "" {
 		t.Fatalf("login link %v: %v", out["url"], err)
 	}
+	frag, err := url.ParseQuery(link.Fragment)
+	if err != nil || frag.Get("board") != board || !strings.HasPrefix(frag.Get("code"), "abl_") {
+		t.Fatalf("login link's fragment %q: %v", link.Fragment, err)
+	}
 
-	first := e.get(link.String(), nil, "")
-	if first.status != http.StatusSeeOther || first.header.Get("Location") != "/?board="+board {
-		t.Fatalf("first login: %d to %q", first.status, first.header.Get("Location"))
+	first := e.exchange(link)
+	var got struct {
+		Token string `json:"token"`
 	}
-	var cookie *http.Cookie
-	for _, c := range (&http.Response{Header: first.header}).Cookies() {
-		if c.Name == "aboard_session" {
-			cookie = c
-		}
+	if err := json.Unmarshal([]byte(first.body), &got); first.status != http.StatusCreated || err != nil || !strings.HasPrefix(got.Token, "abb_") {
+		t.Fatalf("exchanging the code: %d %s", first.status, first.body)
 	}
-	if cookie == nil || !cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode {
-		t.Fatalf("login cookie: %q", first.header.Get("Set-Cookie"))
-	}
-	again := e.get(link.String(), nil, "")
-	if again.status != http.StatusNotFound || !strings.Contains(again.body, "aboard open") {
-		t.Fatalf("second use of the link: %d %s", again.status, again.body)
+	token := got.Token
+	if again := e.exchange(link); again.status != http.StatusNotFound || !strings.Contains(again.body, "login_code_invalid") || !strings.Contains(again.body, "aboard open") {
+		t.Fatalf("second use of the code: %d %s", again.status, again.body)
 	}
 
 	base := "http://" + e.addr
-	if r := e.get(base+"/v1/boards", cookie, ""); r.status != http.StatusOK || !strings.Contains(r.body, `"name":"`+board+`"`) {
-		t.Fatalf("boards with the cookie: %d %s", r.status, r.body)
+	if r := e.get(base+"/v1/boards", token, ""); r.status != http.StatusOK || !strings.Contains(r.body, `"name":"`+board+`"`) {
+		t.Fatalf("boards with the browser token: %d %s", r.status, r.body)
 	}
-	if r := e.get(base+"/v1/boards/"+board+"/messages", cookie, ""); r.status != http.StatusOK || !strings.Contains(r.body, "Draft is in notes.md.") {
-		t.Fatalf("messages with the cookie: %d %s", r.status, r.body)
+	if r := e.get(base+"/v1/boards/"+board+"/messages", token, ""); r.status != http.StatusOK || !strings.Contains(r.body, "Draft is in notes.md.") {
+		t.Fatalf("messages with the browser token: %d %s", r.status, r.body)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -105,7 +131,7 @@ func TestOpenLogsTheBrowserInOnceWithAReadOnlyCookie(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.AddCookie(cookie)
+	req.Header.Set("Authorization", "Bearer "+token)
 	stream, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -113,23 +139,12 @@ func TestOpenLogsTheBrowserInOnceWithAReadOnlyCookie(t *testing.T) {
 	event, err := bufio.NewReader(stream.Body).ReadString('\n')
 	_ = stream.Body.Close()
 	if stream.StatusCode != http.StatusOK || err != nil || event != "event: head\n" {
-		t.Fatalf("stream with the cookie: %d %q %v", stream.StatusCode, event, err)
+		t.Fatalf("stream with the browser token: %d %q %v", stream.StatusCode, event, err)
 	}
 
-	post, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/boards/"+board+"/messages", strings.NewReader(`{"body":"from a web page"}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	post.Header.Set("Content-Type", "application/json")
-	post.AddCookie(cookie)
-	resp, err := http.DefaultClient.Do(post)
-	if err != nil {
-		t.Fatal(err)
-	}
-	body, err := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
-	if err != nil || resp.StatusCode != http.StatusForbidden || !strings.Contains(string(body), "browser_read_only") {
-		t.Fatalf("post with only the cookie: %d %s %v", resp.StatusCode, body, err)
+	post := e.request(http.MethodPost, base+"/v1/boards/"+board+"/messages", token, "", `{"body":"from a web page"}`)
+	if post.status != http.StatusForbidden || !strings.Contains(post.body, "browser_read_only") {
+		t.Fatalf("post with the browser token: %d %s", post.status, post.body)
 	}
 }
 
@@ -137,11 +152,11 @@ func TestLocalServerRefusesOtherHosts(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.run("up")
-	r := e.get("http://"+e.addr+"/v1/info", nil, "rebind.example:"+e.port())
+	r := e.get("http://"+e.addr+"/v1/info", "", "rebind.example:"+e.port())
 	if r.status != http.StatusMisdirectedRequest || !strings.Contains(r.body, "host_not_allowed") {
 		t.Fatalf("other host: %d %s", r.status, r.body)
 	}
-	if r := e.get("http://"+e.addr+"/v1/info", nil, "localhost:"+e.port()); r.status != http.StatusOK {
+	if r := e.get("http://"+e.addr+"/v1/info", "", "localhost:"+e.port()); r.status != http.StatusOK {
 		t.Fatalf("localhost: %d", r.status)
 	}
 }
@@ -150,7 +165,7 @@ func TestBinaryWithoutTheUIServesAPageSayingHowToGetIt(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.run("up")
-	r := e.get("http://"+e.addr+"/", nil, "")
+	r := e.get("http://"+e.addr+"/", "", "")
 	if r.status != http.StatusOK || !strings.Contains(r.body, "built without its web UI") || !strings.Contains(r.body, "make install") {
 		t.Fatalf("/ without the UI: %d %s", r.status, r.body)
 	}
@@ -164,7 +179,7 @@ func TestOpenWithoutABrowserPrintsTheLink(t *testing.T) {
 		t.Fatalf("aboard open without a browser:\n%s", r)
 	}
 	lines := r.lines()
-	want := "http://" + e.addr + "/login?code="
+	want := "http://" + e.addr + "/#code="
 	if len(lines) != 3 || lines[0] != "Started local Aboard at http://"+e.addr ||
 		lines[1] != "Couldn't open a browser. Open this link in one within 60 seconds; it works once:" ||
 		!strings.HasPrefix(lines[2], "  "+want) {
@@ -207,7 +222,11 @@ func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 		if strings.Contains(r.stdout+r.stderr, strings.TrimPrefix(link, "http://"+e.addr)) {
 			t.Fatalf("the output holds the login code:\n%s", r)
 		}
-		if got := e.get(link, nil, ""); got.status != http.StatusSeeOther {
+		u, err := url.Parse(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := e.exchange(u); got.status != http.StatusCreated {
 			t.Fatalf("the link the browser got doesn't log in: %d %s", got.status, got.body)
 		}
 	}

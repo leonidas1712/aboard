@@ -89,7 +89,6 @@ func NewHandler(o Options) (http.Handler, error) {
 	apiChain := validate(authenticate(o, limiter, idempotent(o, routes)))
 	outer := http.NewServeMux()
 	outer.Handle("/v1/", apiChain)
-	outer.Handle("/login", apiChain)
 	outer.Handle("/", serveUI(o.UI))
 	return recoverPanics(o.Log, checkHost(o.Log, o.Hosts, outer)), nil
 }
@@ -133,11 +132,11 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 }
 
 // authenticate resolves the bearer token for every route except GET /v1/info and
-// GET /login, and rate limits join attempts by client address. A GET without a bearer
-// token may use the browser login cookie instead.
+// POST /v1/browser-tokens, refuses every request but GET made with a browser token,
+// and rate limits join attempts by client address.
 func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/info" || r.URL.Path == "/login" {
+		if r.URL.Path == "/v1/info" || r.URL.Path == "/v1/browser-tokens" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -151,19 +150,6 @@ func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handl
 			}
 		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if cookie, err := r.Cookie(sessionCookie); (!ok || token == "") && err == nil {
-			if r.Method != http.MethodGet {
-				writeError(w, o.Log, browserReadOnly())
-				return
-			}
-			p, err := o.Service.AuthenticateBrowser(r.Context(), cookie.Value)
-			if err != nil {
-				writeError(w, o.Log, err)
-				return
-			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, p)))
-			return
-		}
 		if !ok || token == "" {
 			writeError(w, o.Log, apierr.Unauthorized())
 			return
@@ -171,6 +157,10 @@ func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handl
 		p, err := o.Service.Authenticate(r.Context(), token)
 		if err != nil {
 			writeError(w, o.Log, err)
+			return
+		}
+		if p.ReadOnly && r.Method != http.MethodGet {
+			writeError(w, o.Log, browserReadOnly())
 			return
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)

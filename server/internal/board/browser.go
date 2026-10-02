@@ -13,16 +13,20 @@ import (
 // LoginCodeTTL is how long a browser login code works.
 const LoginCodeTTL = 60 * time.Second
 
-// BrowserLoginTTL is how long a browser stays logged in.
-const BrowserLoginTTL = 30 * 24 * time.Hour
+// BrowserTokenTTL is how long a browser token works.
+const BrowserTokenTTL = 30 * 24 * time.Hour
 
-// browserLogins keeps login codes and browser logins in memory, by digest. They are
+// browserTokenPrefix starts every browser token, the way abh_ and aba_ start human
+// and agent tokens.
+const browserTokenPrefix = "abb_"
+
+// browserLogins keeps login codes and browser tokens in memory, by digest. They are
 // bookkeeping, not part of the record: none of them is an event, and all of them end
 // when the server stops, which is how a person logs every browser out.
 type browserLogins struct {
-	mu       sync.Mutex
-	codes    map[string]browserLogin // digest of a login code → who it logs in
-	sessions map[string]browserLogin // digest of a browser login → who it acts as
+	mu     sync.Mutex
+	codes  map[string]browserLogin // digest of a login code → who it logs in
+	tokens map[string]browserLogin // digest of a browser token → who it acts as
 }
 
 type browserLogin struct {
@@ -31,7 +35,7 @@ type browserLogin struct {
 }
 
 func newBrowserLogins() *browserLogins {
-	return &browserLogins{codes: map[string]browserLogin{}, sessions: map[string]browserLogin{}}
+	return &browserLogins{codes: map[string]browserLogin{}, tokens: map[string]browserLogin{}}
 }
 
 // prune drops expired entries, so the maps stay as small as the logins in use.
@@ -49,8 +53,8 @@ type LoginCode struct {
 	ExpiresAt string
 }
 
-// CreateLoginCode makes a code that RedeemLoginCode exchanges once, within
-// LoginCodeTTL, for a browser login. Only humans can ask for one.
+// CreateLoginCode makes a code that CreateBrowserToken exchanges once, within
+// LoginCodeTTL, for a browser token. Only humans can ask for one.
 func (s *Service) CreateLoginCode(_ context.Context, p Principal) (LoginCode, error) {
 	if err := requireHuman(p); err != nil {
 		return LoginCode{}, err
@@ -68,16 +72,17 @@ func (s *Service) CreateLoginCode(_ context.Context, p Principal) (LoginCode, er
 	return LoginCode{Code: code, ExpiresAt: stamp(expires)}, nil
 }
 
-// LoginCodeInvalid is the error for a login code that is wrong, expired or used.
-var LoginCodeInvalid = func() *apierr.Error {
+// loginCodeInvalid is the error for a login code that is wrong, expired or used.
+func loginCodeInvalid() *apierr.Error {
 	return apierr.New(http.StatusNotFound, "login_code_invalid",
 		"That login link doesn't work: it is wrong, expired or already used.",
 		"Run aboard open in a terminal to get a new one.")
 }
 
-// RedeemLoginCode uses up a login code and returns a new browser login for its human,
-// and when the login ends. A code works only once, even if this call fails.
-func (s *Service) RedeemLoginCode(_ context.Context, code string) (token string, expires time.Time, err error) {
+// CreateBrowserToken uses up a login code and returns a new browser token for its
+// human, and when the token ends. A browser token can only read. A code works only
+// once, even if this call fails.
+func (s *Service) CreateBrowserToken(_ context.Context, code string) (token string, expires time.Time, err error) {
 	digest := ids.Digest(s.key, code)
 	now := s.clk.Now()
 	s.logins.mu.Lock()
@@ -85,27 +90,27 @@ func (s *Service) RedeemLoginCode(_ context.Context, code string) (token string,
 	l, ok := s.logins.codes[digest]
 	delete(s.logins.codes, digest)
 	if !ok || !now.Before(l.expires) {
-		return "", time.Time{}, LoginCodeInvalid()
+		return "", time.Time{}, loginCodeInvalid()
 	}
-	if token, err = s.gen.Token("abw"); err != nil {
+	if token, err = s.gen.Token("abb"); err != nil {
 		return "", time.Time{}, err
 	}
-	expires = now.Add(BrowserLoginTTL)
-	prune(s.logins.sessions, now)
-	s.logins.sessions[ids.Digest(s.key, token)] = browserLogin{human: l.human, expires: expires}
+	expires = now.Add(BrowserTokenTTL)
+	prune(s.logins.tokens, now)
+	s.logins.tokens[ids.Digest(s.key, token)] = browserLogin{human: l.human, expires: expires}
 	return token, expires, nil
 }
 
-// AuthenticateBrowser resolves a browser login to the human it acts as.
-func (s *Service) AuthenticateBrowser(_ context.Context, token string) (Principal, error) {
+// authenticateBrowser resolves a browser token to the human it reads as.
+func (s *Service) authenticateBrowser(token string) (Principal, error) {
 	s.logins.mu.Lock()
 	defer s.logins.mu.Unlock()
-	l, ok := s.logins.sessions[ids.Digest(s.key, token)]
+	l, ok := s.logins.tokens[ids.Digest(s.key, token)]
 	if !ok || !s.clk.Now().Before(l.expires) {
 		return Principal{}, apierr.New(http.StatusUnauthorized, "unauthorized",
 			"This browser isn't logged in to Aboard, or its login has ended.",
 			"Run aboard open in a terminal to log in again.")
 	}
 	h := l.human
-	return Principal{Human: &h}, nil
+	return Principal{Human: &h, ReadOnly: true}, nil
 }

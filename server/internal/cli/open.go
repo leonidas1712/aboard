@@ -13,9 +13,10 @@ import (
 const openUsage = "aboard open [--board NAME] [--json]"
 
 // runOpen opens the web UI in the browser, logged in as the local owner, through a
-// one-time login link: the owner's token never appears in a URL. Inside a harness
-// session an agent runs it for its person, so it never shows the link there: with the
-// code, the agent could log in before the browser and read the board as the person.
+// one-time login link: the owner's token never appears in a URL, and the link's code
+// only in its fragment. Inside a harness session an agent runs it for its person, so it
+// never shows the link there: with the code, the agent could log in before the browser
+// and read the board as the person.
 func runOpen(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("open")
 	boardFlag := fs.String("board", "", "the board to show; without it, the board list")
@@ -54,13 +55,14 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 	if r.JSON201 == nil {
 		return apiError(r.StatusCode(), r.Body)
 	}
-	q := url.Values{"code": {r.JSON201.Code}}
+	// The code goes in the fragment, which browsers never send to a server; the page
+	// reads it, exchanges it for a browser token and drops it from the address bar.
+	link := srv.URL + "/#code=" + url.QueryEscape(r.JSON201.Code)
 	uiURL := srv.URL + "/"
 	if board != "" {
-		q.Set("board", board)
+		link += "&board=" + url.QueryEscape(board)
 		uiURL += "?" + url.Values{"board": {board}}.Encode()
 	}
-	link := srv.URL + "/login?" + q.Encode()
 	opened := a.env.OpenBrowser(ctx, link) == nil
 	if !opened && inSession {
 		return newError("browser_unavailable", "Couldn't open a browser from this session.",

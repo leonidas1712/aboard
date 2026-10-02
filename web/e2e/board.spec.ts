@@ -55,9 +55,15 @@ test("the board view shows the timeline live, the crew and the starter badge", a
   aboard("say", "--as", "writer", "--to", "@reviewer", "Draft is in notes.md. <b>not bold</b>");
 
   const open = JSON.parse(aboard("open", "--json"));
+  expect(open.url).toMatch(/\/#code=abl_[^&]+&board=writer-reviewer$/);
   await page.goto(open.url);
 
+  // The page swaps the code for a token it keeps itself: the address bar loses the code
+  // and no cookie is set.
   await expect(page).toHaveURL(/\/\?board=writer-reviewer$/);
+  expect(page.url()).not.toContain("code");
+  expect(await page.evaluate(() => document.cookie)).toBe("");
+  expect((await page.context().cookies()).length).toBe(0);
   await expect(page.getByText("Draft is in notes.md. <b>not bold</b>")).toBeVisible();
   await expect(page.locator(".badge")).toHaveText("starter policy");
   const crew = page.getByRole("complementary", { name: "Crew" });
@@ -71,4 +77,10 @@ test("the board view shows the timeline live, the crew and the starter badge", a
 
   await page.getByRole("link", { name: "Boards" }).click();
   await expect(page.getByRole("link", { name: "writer-reviewer" })).toBeVisible();
+
+  // The token lasts until the server stops; after that the page says to log in again.
+  aboard("down");
+  aboard("up");
+  await page.reload();
+  await expect(page.locator(".problem")).toContainText("Run aboard open again");
 });

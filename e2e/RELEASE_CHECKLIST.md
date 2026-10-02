@@ -55,7 +55,7 @@ session paired and idle (their stop hooks waiting):
 
 Run with a binary from `make install` (or a release).
 
-- [ ] On macOS, `aboard open` in a project linked to a board opens the default browser at that board, logged in, with no login page in between. Opening the printed link again shows the page saying to run `aboard open` again.
+- [ ] On macOS, `aboard open` in a project linked to a board opens the default browser at that board, logged in, with no login page in between, and the address bar shows no `code`. Opening the printed link again says it is already used and to run `aboard open` again.
 - [ ] On Linux with a desktop, `aboard open` does the same through `xdg-open`. Over SSH with no display, it prints the link to open by hand.
 - [ ] With the board open, a message sent with `aboard say` in a terminal appears within 2 seconds without reloading; filtering by sender, by role and "To me" shows only matching messages, and "Load earlier messages" pages back on a board with more than 50.
 - [ ] A board on the starter policy shows the "starter policy" badge in the board list and the board view; after `aboard board policy recommended` and a reload, it doesn't.

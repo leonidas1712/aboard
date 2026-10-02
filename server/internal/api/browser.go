@@ -6,16 +6,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
-	"github.com/leonidas1712/aboard/server/internal/board"
 )
-
-// sessionCookie is the cookie that holds a browser login.
-const sessionCookie = "aboard_session"
 
 func (h *handlers) CreateLoginCode(ctx context.Context, _ CreateLoginCodeRequestObject) (CreateLoginCodeResponseObject, error) {
 	c, err := h.svc.CreateLoginCode(ctx, principal(ctx))
@@ -25,47 +20,26 @@ func (h *handlers) CreateLoginCode(ctx context.Context, _ CreateLoginCodeRequest
 	return convert[CreateLoginCode201JSONResponse](map[string]string{"code": c.Code, "expires_at": c.ExpiresAt})
 }
 
-// loginFailedPage is what a browser shows when its login link doesn't work.
-const loginFailedPage = `<!doctype html><meta charset="utf-8"><title>Aboard</title>` +
-	`<p>This login link doesn't work: it is wrong, expired or already used. Run <code>aboard open</code> in a terminal to get a new one.</p>`
-
-// Login exchanges a login code for the browser login cookie and sends the browser on to
-// the web UI.
-func (h *handlers) Login(ctx context.Context, req LoginRequestObject) (LoginResponseObject, error) {
-	var code string
-	if req.Params.Code != nil {
-		code = *req.Params.Code
-	}
-	token, expires, err := h.svc.RedeemLoginCode(ctx, code)
-	if e, ok := apierr.As(err); ok && e.Code == board.LoginCodeInvalid().Code {
-		return Login404TexthtmlResponse{Body: strings.NewReader(loginFailedPage), ContentLength: int64(len(loginFailedPage))}, nil
-	}
+// CreateBrowserToken exchanges a login code for a read-only browser token. It needs no
+// token: the code is the proof.
+func (h *handlers) CreateBrowserToken(ctx context.Context, req CreateBrowserTokenRequestObject) (CreateBrowserTokenResponseObject, error) {
+	token, expires, err := h.svc.CreateBrowserToken(ctx, req.Body.Code)
 	if err != nil {
 		return nil, err
 	}
-	// Not Secure: the local server speaks plain HTTP on 127.0.0.1, where some browsers
-	// drop Secure cookies.
-	cookie := (&http.Cookie{ //nolint:gosec // see above
-		Name: sessionCookie, Value: token, Path: "/", Expires: expires.UTC(),
-		MaxAge: int(board.BrowserLoginTTL.Seconds()), HttpOnly: true, SameSite: http.SameSiteStrictMode,
-	}).String()
-	location := "/"
-	if req.Params.Board != nil && *req.Params.Board != "" {
-		location = "/?board=" + url.QueryEscape(*req.Params.Board)
-	}
-	return Login303Response{Headers: Login303ResponseHeaders{Location: &location, SetCookie: &cookie}}, nil
+	return CreateBrowserToken201JSONResponse{Token: token, ExpiresAt: expires.UTC()}, nil
 }
 
-// browserReadOnly is the error for a write sent with only the browser login.
+// browserReadOnly is the error for a write sent with a browser token.
 func browserReadOnly() *apierr.Error {
 	return apierr.New(http.StatusForbidden, "browser_read_only",
-		"The browser login can only read; writes need a bearer token.",
-		"Use the aboard command, or send Authorization: Bearer <token>.")
+		"A browser token can only read.",
+		"Use the aboard command, or send a human or agent token.")
 }
 
 // checkHost refuses requests whose Host header isn't one of hosts, so a web page that
-// points its own domain name at this address (DNS rebinding) can't use the browser's
-// login. An empty hosts list allows every host.
+// points its own domain name at this address (DNS rebinding) can't reach the server
+// through the browser. An empty hosts list allows every host.
 func checkHost(log *slog.Logger, hosts []string, next http.Handler) http.Handler {
 	if len(hosts) == 0 {
 		return next
