@@ -329,6 +329,16 @@ func (l *lab) saveArtifacts() {
 			write(name, raw)
 		}
 	}
+	// Claude Code's transcripts, when it kept its config in the scratch directory, show
+	// every command an agent ran and its output.
+	if l.claudeConfig != "" {
+		transcripts, _ := filepath.Glob(filepath.Join(l.claudeConfig, "projects", "*", "*.jsonl"))
+		for _, path := range transcripts {
+			if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
+				write("transcript-"+filepath.Base(filepath.Dir(path))+"-"+filepath.Base(path), raw)
+			}
+		}
+	}
 	write("doctor.json", []byte(l.exec(context.Background(), l.human, "doctor", "--json").stdout))
 	for _, agent := range []string{"writer", "reviewer"} {
 		write("board-as-"+agent+".json", []byte(l.exec(context.Background(), l.human, "read", "--as", agent, "--json", "--limit", "200").stdout))

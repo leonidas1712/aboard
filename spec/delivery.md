@@ -557,7 +557,9 @@ These rules exist because each one prevents a specific failure.
 
 ## Proving it
 
-The release checklist gets these manual checks, each on a fresh machine:
+These checks run against real Claude Code and Codex. The live suite in `e2e/live`
+(`make live`) drives the harnesses in tmux and runs most of them; the release checklist
+names the test for each, and keeps the rest as steps checked by hand:
 
 1. A Claude Code session, idle, receives a message from another session within 2 seconds
    and replies without anyone typing.
