@@ -39,7 +39,8 @@ func orderForBundle(msgs []Message) {
 }
 
 // compose builds a bundle of at most limit bytes from offers, taken in order. Text is
-// grouped by board. Whatever doesn't fit is left for the next bundle; a message too
+// grouped by board; a session holds one agent, so in practice that is one board's
+// messages. Whatever doesn't fit is left for the next bundle; a message too
 // large for any bundle is returned in tooLarge so it can be skipped.
 func compose(offers []offer, limit int) composed {
 	var c composed

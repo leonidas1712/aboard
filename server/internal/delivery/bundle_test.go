@@ -8,7 +8,7 @@ import (
 )
 
 func msg(board string, seq int, urgent bool, body string) Message {
-	return Message{Board: board, FromName: "writer", Owner: "alex", Role: "writer", Trust: "peer", Seq: seq, Urgent: urgent, Body: body}
+	return Message{Board: board, FromName: "writer", Role: "writer", Sender: "owner_agent", Seq: seq, Urgent: urgent, Body: body}
 }
 
 func TestOrderForBundlePutsUrgentFirstThenOldest(t *testing.T) {

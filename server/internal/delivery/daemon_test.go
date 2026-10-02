@@ -298,29 +298,22 @@ func TestUrgentMessageGoesToTheToolHookAndOrdinaryOnesWaitForIdle(t *testing.T) 
 	}
 }
 
-func TestBundlesStayWithinTheLimitAndGroupByBoard(t *testing.T) {
+func TestBundlesStayWithinTheLimit(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
 	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
-	r.bind(delivery.HarnessClaudeCode, "s1", planner)
 	big := strings.Repeat("x", 12<<10)
 	r.post(reviewer, "a"+big, false)
 	r.post(reviewer, "b"+big, false)
 	r.post(reviewer, "c"+big, false)
-	r.post(planner, "plan", false)
 
 	first := r.wait("s1", "b1", false).bundle()
 	if len(first) > delivery.BundleLimit || !strings.Contains(first, `count="2"`) {
 		t.Fatalf("first bundle: %d bytes, want two messages under %d", len(first), delivery.BundleLimit)
 	}
 	second := r.wait("s1", "b1", false).bundle()
-	for _, want := range []string{`<aboard-messages board="docs" count="1">`, `<aboard-messages board="plans" count="1">`, "plan"} {
-		if !strings.Contains(second, want) {
-			t.Fatalf("second bundle lacks %q:\n%.300s", want, second)
-		}
-	}
-	if strings.Index(second, `board="docs"`) > strings.Index(second, `board="plans"`) {
-		t.Fatal("boards are not in order")
+	if !strings.Contains(second, `<aboard-messages board="docs" count="1">`) || !strings.Contains(second, "c"+big[:10]) {
+		t.Fatalf("second bundle:\n%.300s", second)
 	}
 }
 
@@ -405,7 +398,7 @@ func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
 	r.setMode(reviewer, delivery.ModeHumans)
 	r.bind(delivery.HarnessCodex, "t1", reviewer)
 	r.post(reviewer, "peer note", false)
-	person := r.server.Post(reviewer, delivery.Message{Body: "from alex", FromName: "alex", FromHuman: true, Trust: "owner"})
+	person := r.server.Post(reviewer, delivery.Message{Body: "from alex", FromName: "alex", FromHuman: true, Sender: "owner"})
 	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
 	got := r.codex.Handed("t1")
 	if len(got) != 1 || !strings.Contains(got[0], `count="2"`) || strings.Index(got[0], "peer note") > strings.Index(got[0], "from alex") {
@@ -594,6 +587,51 @@ func TestUnconfirmedBundleGoesToTheNextSessionForTheAgent(t *testing.T) {
 	}
 }
 
+// A session fills one seat at a time. Binding it to another agent ends the old binding:
+// nothing more is delivered for the old agent here, and the bundle handed for it but not
+// confirmed goes to whichever session binds it next. The move survives a restart.
+func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	if prev := r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &reviewer}).Previous; prev != nil {
+		t.Fatalf("a session with no agent moved from %+v", prev)
+	}
+	r.post(reviewer, "handed before the move", false)
+	r.wait("s1", "b1", false).bundle()
+
+	resp := r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &planner})
+	if resp.Previous == nil || *resp.Previous != reviewer {
+		t.Fatalf("binding another agent should name the one it replaced, got %+v", resp.Previous)
+	}
+	again := r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &planner})
+	if again.Previous != nil {
+		t.Fatalf("binding the same agent again moved from %+v", again.Previous)
+	}
+	r.restart()
+	r.post(reviewer, "for the old seat", false)
+	r.post(planner, "for the new seat", false)
+	b := r.wait("s1", "b1", false).bundle()
+	if !strings.Contains(b, "for the new seat") || strings.Contains(b, "for the old seat") || strings.Contains(b, "handed before the move") {
+		t.Fatalf("the moved session got:\n%s", b)
+	}
+	if got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "s1"}).Agents; len(got) != 1 || got[0] != planner {
+		t.Fatalf("agents bound to the moved session: %+v", got)
+	}
+	if got := r.server.Cursor(reviewer); got != 0 {
+		t.Fatalf("the old agent's messages were acknowledged up to %d", got)
+	}
+
+	r.register("s2", "c1")
+	r.bind(delivery.HarnessClaudeCode, "s2", reviewer)
+	// The bundle handed before the move goes again as it was, then what came after it.
+	if b = r.wait("s2", "c1", false).bundle(); !strings.Contains(b, "handed before the move") {
+		t.Fatalf("the session that resumed the old agent got first:\n%s", b)
+	}
+	if b = r.wait("s2", "c1", false).bundle(); !strings.Contains(b, "for the old seat") {
+		t.Fatalf("the session that resumed the old agent got next:\n%s", b)
+	}
+}
+
 func TestNewBootHandsUnconfirmedBundlesOverAgain(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
@@ -613,12 +651,13 @@ func TestNewBootHandsUnconfirmedBundlesOverAgain(t *testing.T) {
 func TestRevokedTokenStopsOnlyThatAgent(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
+	r.register("s2", "c1")
 	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
-	r.bind(delivery.HarnessClaudeCode, "s1", planner)
+	r.bind(delivery.HarnessClaudeCode, "s2", planner)
 	r.server.Revoke(reviewer)
 	r.post(reviewer, "for the revoked agent", false)
 	r.post(planner, "for the planner", false)
-	b := r.wait("s1", "b1", false).bundle()
+	b := r.wait("s2", "c1", false).bundle()
 	if !strings.Contains(b, "for the planner") || strings.Contains(b, "revoked") {
 		t.Fatalf("bundle:\n%s", b)
 	}
@@ -634,7 +673,7 @@ func TestAgentsListsWhatIsBoundToTheSession(t *testing.T) {
 	r.bind(delivery.HarnessClaudeCode, "s1", planner)
 	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
 	got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "s1"}).Agents
-	if len(got) != 2 || got[0] != reviewer || got[1] != planner {
+	if len(got) != 1 || got[0] != reviewer {
 		t.Fatalf("agents %+v", got)
 	}
 	unknown := r.call(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "nope"})

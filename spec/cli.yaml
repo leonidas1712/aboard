@@ -12,9 +12,10 @@
 # - Agent resolution: --as, then ABOARD_AGENT, then the agent bound to the current
 #   session (ABOARD_SESSION set by the Claude Code hook, or CODEX_THREAD_ID set by Codex).
 #   The agent decides the board: each agent belongs to one board. A name this machine has
-#   on two boards fails with agent_ambiguous (details.boards) unless --board picks one; a
-#   session bound to agents on two boards fails the same way unless --as picks one. With
-#   no agent: agent_not_selected (details.choices). Agent commands (say, inbox, read)
+#   on two boards fails with agent_ambiguous (details.boards) unless --board picks one. A
+#   session is bound to at most one agent: pair, join or resume in a session bound to
+#   another agent moves the session to the new one (see PreviousAgent). With no agent:
+#   agent_not_selected (details.choices). Agent commands (say, inbox, read)
 #   never fall back to the human login; human commands (board policy, audit verify, watch)
 #   use the human login unless --as is given, and open always uses it.
 # - Inside a harness session (any variable in a harness profile's session_env or
@@ -49,8 +50,7 @@ $defs:
       this machine hasn't accepted) · login_required (team mode: run aboard connect) ·
       agent_not_selected (details.choices lists your agents on this board;
       details.board_source says where the board came from) · agent_ambiguous
-      (details.boards lists the boards with that agent name, or details.agents the agents
-      bound to this session as [{name, board}]) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
+      (details.boards lists the boards with that agent name) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
       session the daemon hasn't registered) · codex_subagent_target · codex_target_absent ·
       harness_unavailable (the session couldn't be checked for another reason) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
@@ -99,6 +99,19 @@ $defs:
       it wasn't linked or stays on the same board. Text output then prints
       "Linked this directory to board <board> (it was linked to <previous>)."
     type: [string, "null"]
+  PreviousAgent:
+    description: |
+      The agent this harness session was bound to before the command moved it to the new
+      one, or null if the session had no agent or keeps the same one. A session fills one
+      seat at a time: the old agent's unread messages stay on the server for whichever
+      session resumes it, and a bundle handed for it but not yet confirmed is handed again
+      there. Text output then prints
+      "This session was <name> on <board>; it is now <new name> on <new board>."
+    type: [object, "null"]
+    required: [name, board]
+    properties:
+      name: { type: string, examples: [claude] }
+      board: { type: string, examples: [writer-reviewer] }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -173,6 +186,7 @@ $defs:
           expires_at: { type: string, format: date-time }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
       previous_board: { $ref: "#/$defs/PreviousBoard" }
+      previous_agent: { $ref: "#/$defs/PreviousAgent" }
 
   # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
   JoinOutput:
@@ -187,6 +201,7 @@ $defs:
       role_charter: { type: string, description: This agent's role charter. }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
       previous_board: { $ref: "#/$defs/PreviousBoard" }
+      previous_agent: { $ref: "#/$defs/PreviousAgent" }
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
@@ -252,7 +267,7 @@ $defs:
         description: Each message in delivery format (see DeliveryText), same order as `messages`.
         items: { type: string }
         examples:
-          - ["<aboard-message board=\"writer-reviewer\" from=\"@writer\" owner=\"alex\" role=\"writer\" trust=\"peer\" seq=\"6\">\nDraft is in notes.md. Please review it.\n</aboard-message>"]
+          - ["<aboard-message board=\"writer-reviewer\" from=\"@writer\" role=\"writer\" sender=\"owner_agent\" seq=\"6\">\nDraft is in notes.md. Please review it.\n</aboard-message>"]
       bundle:
         type: [string, "null"]
         description: All returned messages as one bundle in delivery format, as the daemon delivers them to an idle session. Null when there are no messages.
@@ -271,13 +286,26 @@ $defs:
 
       One message:
 
-        <aboard-message board="writer-reviewer" from="@writer" owner="alex" role="writer" trust="peer" seq="6">
+        <aboard-message board="writer-reviewer" from="@writer" role="writer" sender="owner_agent" seq="6">
         Draft is in notes.md. Please review it.
         </aboard-message>
 
-      Attributes always present: board, from, owner (empty for humans), role (empty for
-      humans), trust (owner | human | peer), seq. Present only when true or set:
-      urgent="true", expects-reply="true", reply-to="<seq>".
+      Attributes, in this order:
+      - board, from: always.
+      - owner: the sending agent's owner, only once agents of more than one person are
+        on the board (the message's `show_owner`). Never for a person.
+      - role: the sending agent's role. Never for a person.
+      - harness: the sending agent's harness, when it gave one and the board shows
+        harnesses to agents (policy `show_harness`).
+      - sender: owner | owner_agent | other_person | other_agent, the message's
+        `sender`. Always. A message is never delivered to its sender, so `self` doesn't
+        appear here.
+      - seq: always.
+      - urgent="true", expects-reply="true", reply-to="<seq>": only when true or set.
+
+      With two owners on a board, a message from another person's Codex session:
+
+        <aboard-message board="docs" from="@codex" owner="priya" role="reviewer" harness="codex" sender="other_agent" seq="9">
 
       A message with expects-reply is followed by one line:
 
@@ -302,7 +330,10 @@ $defs:
 
       Text output: the header line "<board> · <n> messages" (or "<board> · no messages"
       with a filter, "<board> · no messages yet" without one), then each message as
-      "#6  @writer (writer, alex) → @reviewer" followed by its body indented four spaces.
+      "#6  @writer (writer, self) → @reviewer" followed by its body indented four spaces.
+      In the brackets: an agent's role, its harness when known and shown, then the
+      message's `sender`; for a person only the `sender`. Once agents of more than one
+      person are on the board, an agent's owner follows its name: "@codex · priya".
       When more matching messages exist, a last line names the command for them:
         Earlier: aboard read --before 6 --from @writer
         Later: aboard read --after 12 --from @writer
@@ -310,11 +341,11 @@ $defs:
       --markdown prints a transcript to paste into a session as context instead:
         # writer-reviewer · #6–#7
 
-        **#6 @writer** (writer, alex) → @reviewer
+        **#6 @writer** (writer, self) → @reviewer
 
         > Draft is in notes.md. Please review it.
 
-        **#7 @reviewer** (reviewer, alex) → all · reply to #6
+        **#7 @reviewer** (reviewer, owner_agent) → all · reply to #6
 
         > Reviewed. Approved.
       Each body is a Markdown blockquote, so text in a message can't pass for another
@@ -406,14 +437,16 @@ $defs:
   ResumeOutput:
     description: |
       Binds the current session to an existing agent on this machine. Its unread messages
-      and any bundle left unconfirmed are delivered to this session. Text output:
+      and any bundle left unconfirmed are delivered to this session. A session bound to
+      another agent moves to this one (see PreviousAgent). Text output:
         Resumed reviewer on writer-reviewer in this session.
     type: object
-    required: [agent, board, session]
+    required: [agent, board, session, previous_agent]
     properties:
       agent: { type: string }
       board: { type: string }
       session: { type: string, examples: ["claude-code:5f1c…", "codex:01a0f6f6…"] }
+      previous_agent: { $ref: "#/$defs/PreviousAgent" }
 
   # ---------- aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery MODE] [--allow-commands] ----------
   InitOutput:
@@ -560,14 +593,16 @@ $defs:
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as); delivery auto
         Policy: starter (a starting point; tighten with aboard board policy recommended)
-      When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
+        People: alex (admin), sam (member)
+      The People line appears only when more than one person is on the board; with one
+      person, people is null and access isn't mentioned. When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
       starts it" and "Daemon: not running; it starts when a session or command needs it".
       With no hooks installed the Setup line is "Setup:  none; aboard init adds the skill
       and hooks". A remote server is "reachable" or "unreachable". With no agent selected the Agent
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy]
+    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       setup:
@@ -606,12 +641,25 @@ $defs:
         oneOf:
           - $ref: openapi.yaml#/components/schemas/Policy
           - type: "null"
+      people:
+        description: |
+          The people on the board in the order they joined, with what each may change
+          (see Member.access). Null when only one person is on the board, or when the
+          server can't be reached.
+        type: [array, "null"]
+        items:
+          type: object
+          required: [name, access]
+          properties:
+            name: { type: string }
+            access: { enum: [admin, member] }
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:
     description: |
-      A human command with the human login. Inside a harness session it refuses with
-      human_command_in_session.
+      A human command with the human login, for the board's admins. A person who isn't
+      an admin gets admin_required, whose hint names the admins. Inside a harness
+      session it refuses with human_command_in_session.
     type: object
     required: [board, before, after, policy_notice]
     properties:

@@ -98,7 +98,10 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	if err := tx.InsertBoard(b); err != nil {
 		return board.Board{}, board.Member{}, err
 	}
-	m := board.Member{ID: "mem_" + name, BoardID: b.ID, Name: humanID, Kind: "human", HumanID: humanID, Status: "active", JoinedAt: at}
+	m := board.Member{
+		ID: "mem_" + name, BoardID: b.ID, Name: humanID, Kind: "human", HumanID: humanID,
+		Access: rules.AccessAdmin, Status: "active", JoinedAt: at,
+	}
 	if err := tx.InsertMember(m); err != nil {
 		return board.Board{}, board.Member{}, err
 	}
@@ -546,6 +549,18 @@ func membersInJoinOrder(t *testing.T, st board.Store) {
 			}
 			want = append(want, m)
 		}
+		// A second person, who is a member rather than an admin.
+		if err := tx.InsertHuman(human("hum_blair")); err != nil {
+			return err
+		}
+		blair := board.Member{
+			ID: "mem_docs_blair", BoardID: b.ID, Name: "blair", Kind: "human", HumanID: "hum_blair",
+			Access: rules.AccessMember, Status: "active", JoinedAt: at,
+		}
+		if err := tx.InsertMember(blair); err != nil {
+			return err
+		}
+		want = append(want, blair)
 		return nil
 	})
 	read(t, st, func(tx board.ReadTx) error {
@@ -723,6 +738,7 @@ func newConversation(t *testing.T, st board.Store) conversation {
 				ID: fmt.Sprintf("msg_%d", seq), BoardID: b.ID, Seq: seq, At: at, SenderID: p.from.ID, To: []string{p.to},
 				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{},
 				SenderName: p.from.Name, SenderKind: p.from.Kind, SenderRole: p.from.Role, SenderOwner: p.from.Owner, SenderHuman: p.from.HumanID,
+				SenderHarness: p.from.Harness, AgentOwners: 1, // every agent here is alex's
 			}
 			if err := tx.InsertMessage(m); err != nil {
 				return err
@@ -871,7 +887,7 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 	})
 	want.ReplyToSeq = ptr(int64(2))
 	want.SenderName, want.SenderKind, want.SenderRole = c.writer.Name, c.writer.Kind, c.writer.Role
-	want.SenderOwner, want.SenderHuman = c.writer.Owner, c.writer.HumanID
+	want.SenderOwner, want.SenderHuman, want.SenderHarness, want.AgentOwners = c.writer.Owner, c.writer.HumanID, c.writer.Harness, 1
 	read(t, st, func(tx board.ReadTx) error {
 		got, err := tx.MessageByID("msg_6")
 		if err != nil {

@@ -82,7 +82,17 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			ReplyToSeq: replyToSeq, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
 			SenderName: me.Name, SenderKind: me.Kind, SenderRole: me.Role, SenderOwner: me.Owner, SenderHuman: me.HumanID,
 		}
-		return tx.InsertMessage(msg)
+		if err := tx.InsertMessage(msg); err != nil {
+			return err
+		}
+		// Read it back for what the store adds, such as how many people have agents here.
+		if msg, err = tx.MessageByID(id); err != nil {
+			return err
+		}
+		if !b.Policy.ShowHarness && me.Kind == "agent" {
+			msg.SenderHarness = nil
+		}
+		return nil
 	})
 	if err != nil {
 		return Message{}, err

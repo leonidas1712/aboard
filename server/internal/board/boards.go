@@ -28,7 +28,7 @@ type NewBoard struct {
 }
 
 // CreateBoard creates a board, optionally from a template, and makes the calling human
-// its first member.
+// its first member and admin.
 func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (View, error) {
 	if err := requireHuman(p); err != nil {
 		return View{}, err
@@ -120,7 +120,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		}
 		creator := Member{
 			ID: memberID, BoardID: boardID, Name: p.Human.Name, Kind: "human", HumanID: p.Human.ID,
-			Status: "active", JoinedAt: stamp(now),
+			Access: rules.AccessAdmin, Status: "active", JoinedAt: stamp(now),
 		}
 		if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, map[string]any{
 			"board_id": b.ID, "name": b.Name, "template": b.Template, "charter": b.Charter, "roles": b.Roles, "policy": b.Policy,
@@ -146,9 +146,13 @@ func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinC
 	if err := tx.InsertMember(m); err != nil {
 		return fmt.Errorf("insert member: %w", err)
 	}
+	var access *string
+	if m.Access != "" {
+		access = ptr(m.Access)
+	}
 	_, err := s.append(tx, b, events.MemberJoined, actor, at, map[string]any{
 		"member_id": m.ID, "name": m.Name, "kind": m.Kind, "role": m.Role, "owner": m.Owner,
-		"harness": m.Harness, "join_code_id": joinCodeID,
+		"harness": m.Harness, "access": access, "join_code_id": joinCodeID,
 	})
 	return err
 }
@@ -217,13 +221,20 @@ func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Memb
 		if err != nil {
 			return err
 		}
-		out, err = tx.Members(b.ID)
-		return err
+		if out, err = tx.Members(b.ID); err != nil {
+			return err
+		}
+		if p.Agent != nil && !b.Policy.ShowHarness {
+			for i := range out {
+				out[i].Harness = nil
+			}
+		}
+		return nil
 	})
 	return out, err
 }
 
-// UpdatePolicy changes a board's policy. Only humans may.
+// UpdatePolicy changes a board's policy. Only the board's admins may.
 func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, change rules.PolicyChange) (View, error) {
 	if err := requireHuman(p); err != nil {
 		return View{}, err
@@ -232,6 +243,9 @@ func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, ch
 	err := s.st.Write(ctx, func(tx Tx) error {
 		b, me, err := access(tx, p, name)
 		if err != nil {
+			return err
+		}
+		if err := requireAdmin(tx, b, me, "change its policy"); err != nil {
 			return err
 		}
 		after, err := b.Policy.Apply(change)

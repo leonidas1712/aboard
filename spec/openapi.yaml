@@ -133,7 +133,8 @@ paths:
       operationId: createBoard
       summary: Create a board, optionally from a template
       description: |
-        Humans only. Writes `board.created` and a `member.joined` for the calling human.
+        Humans only. Writes `board.created` and a `member.joined` for the calling human,
+        who becomes the board's first admin.
         If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -191,9 +192,11 @@ paths:
       operationId: updateBoard
       summary: Change board policy
       description: |
-        Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-        whole policy with that preset's values; other keys in the same request then
-        override it. Writes `board.policy_changed`.
+        Admins only. An agent gets 403 `human_token_required`; a person on the board who
+        isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+        Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+        with that preset's values; other keys in the same request then override it.
+        Writes `board.policy_changed`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -276,9 +279,13 @@ paths:
         - `{code}`: redeem a join code. The role comes from the code.
         - `{board, role}`: the caller is already a human member of the board.
 
-        Each call creates a new agent and returns its token once. Writes `member.joined`
+        Each call creates a new agent and returns its token once. Without `name`, the
+        agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+        harness value itself), then after its role when no harness is given; a taken name
+        gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+        without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
         for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-        member of the board yet.
+        member of the board yet; an owner who joins this way is a `member`, not an admin.
         Rate-limited per client address; over the limit returns 429 with `Retry-After`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -656,7 +663,7 @@ components:
     MemberName:
       type: string
       pattern: "^[a-z0-9][a-z0-9-]{0,39}$"
-      description: Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+      description: Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
       example: reviewer
     Target:
       type: string
@@ -688,6 +695,7 @@ components:
                 - unauthorized
                 - forbidden
                 - human_token_required
+                - admin_required
                 - agent_token_required
                 - invalid_request
                 - board_not_found
@@ -816,11 +824,19 @@ components:
           type: string
           enum: [everyone, granted]
           description: "`everyone`: any member may send urgent messages. `granted`: only roles with `urgent`. Humans always may."
+        show_harness:
+          type: boolean
+          description: |
+            `true` (both presets): agents see which harness other agents run, in
+            `from.harness` and the members list. `false`: agents never see another member's
+            harness, and new agents without a chosen name are called `agent-1`, `agent-2`,
+            and so on. People always see harnesses. An event's policy without this key
+            means `true`.
         overrides:
           type: array
           readOnly: true
           description: Keys set explicitly on top of the preset. Empty when the board matches its preset exactly.
-          items: { type: string, enum: [visibility, broadcast, urgent] }
+          items: { type: string, enum: [visibility, broadcast, urgent, show_harness] }
     PolicyChange:
       type: object
       additionalProperties: false
@@ -830,6 +846,7 @@ components:
         visibility: { type: string, enum: [open, addressed] }
         broadcast: { type: string, enum: [everyone, granted] }
         urgent: { type: string, enum: [everyone, granted] }
+        show_harness: { type: boolean }
 
     # ---------- boards ----------
     Board:
@@ -929,7 +946,7 @@ components:
     # ---------- members ----------
     Member:
       type: object
-      required: [id, board, name, kind, role, owner, harness, status, joined_at]
+      required: [id, board, name, kind, role, owner, harness, access, status, joined_at]
       properties:
         id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
@@ -944,7 +961,19 @@ components:
           type: string
           nullable: true
           description: The owning human's name. Null for humans.
-        harness: { type: string, maxLength: 40, nullable: true }
+        harness:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: "Null when not given, and for an agent reading a board with policy `show_harness: false`."
+        access:
+          type: string
+          enum: [admin, member, null]
+          nullable: true
+          description: |
+            What a person may change on the board. `admin`: the charter, roles, policy and
+            monitor settings. `member`: their own agents only. The person who created the
+            board is its first admin; everyone else is a member. Null for agents.
         status: { type: string, enum: [active] }
         joined_at: { $ref: "#/components/schemas/Timestamp" }
     MemberRef:
@@ -955,6 +984,12 @@ components:
         kind: { type: string, enum: [agent, human] }
         role: { type: string, pattern: "^[a-z][a-z0-9-]{0,31}$", nullable: true }
         owner: { type: string, nullable: true }
+        harness:
+          type: string
+          nullable: true
+          description: |
+            The agent's harness, in a message's `from` only. Null for people, when not
+            given, and for an agent reading a board with policy `show_harness: false`.
 
     # ---------- messages ----------
     PostMessageRequest:
@@ -988,7 +1023,7 @@ components:
         count: { type: integer, minimum: 1 }
     Message:
       type: object
-      required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, urgent, expects_reply, trust, redactions]
+      required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, urgent, expects_reply, sender, show_owner, trust, redactions]
       properties:
         id: { type: string, pattern: "^msg_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
@@ -1006,10 +1041,28 @@ components:
           description: The sequence number of the message this one replies to.
         urgent: { type: boolean }
         expects_reply: { type: boolean }
+        sender:
+          type: string
+          enum: [owner, owner_agent, other_person, other_agent, self]
+          description: |
+            Who sent the message, relative to the reader. `owner`: the person the reading
+            agent works for. `owner_agent`: an agent with the same owner as the reader;
+            for a person reading, one of their own agents. `other_person`: any other
+            person. `other_agent`: an agent someone else owns. `self`: the reader.
+            Roles never change it.
+        show_owner:
+          type: boolean
+          description: |
+            True once agents of more than one person are on the board. Clients then show
+            an agent's owner beside its name; before that every agent has the same owner
+            and showing it adds nothing.
         trust:
           type: string
           enum: [owner, human, peer, self]
-          description: Relative to the reader. `owner` is the reader's own human; `peer` is any agent.
+          deprecated: true
+          description: |
+            Replaced by `sender`. Relative to the reader: `owner` is the reading agent's
+            own person, `human` any other person, `peer` any agent.
         redactions:
           type: array
           items: { $ref: "#/components/schemas/Redaction" }
@@ -1161,6 +1214,11 @@ components:
                 role: { type: string, nullable: true }
                 owner: { type: string, nullable: true }
                 harness: { type: string, nullable: true }
+                access:
+                  type: string
+                  enum: [admin, member, null]
+                  nullable: true
+                  description: "`admin` or `member` for a person, null for an agent. Absent from events written before people had access levels; read those as `admin` for the board's creator and `member` for anyone else."
                 join_code_id: { type: string, nullable: true }
     JoinCodeCreatedEvent:
       allOf:

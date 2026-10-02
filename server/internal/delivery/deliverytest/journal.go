@@ -61,6 +61,17 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 		}
 	})
 
+	t.Run("ASessionHoldsOneBinding", func(t *testing.T) {
+		j := open(t)
+		must(t, j.Bind(ctx, delivery.Binding{Agent: review, Session: claudeA, BoundAt: t0}))
+		must(t, j.Bind(ctx, delivery.Binding{Agent: writer, Session: claudeA, BoundAt: t0.Add(time.Second)}))
+		got, err := j.Bindings(ctx)
+		must(t, err)
+		if len(got) != 1 || got[0].Agent != writer || got[0].Session != claudeA {
+			t.Fatalf("want only the latest agent bound to the session, got %+v", got)
+		}
+	})
+
 	t.Run("ModesAreSavedAndReplaced", func(t *testing.T) {
 		j := open(t)
 		got, err := j.Modes(ctx)

@@ -40,8 +40,14 @@ func threeAgents(t *testing.T, e *env) {
 	e.run("join", line, "--name", "critic")
 }
 
+// entry is one message as the reviewer reads it: its own, or from another of alex's
+// agents.
 func entry(seq int, from, role, to, body string) []string {
-	return []string{fmt.Sprintf("#%d  @%s (%s, alex) → %s", seq, from, role, to), "    " + body}
+	sender := "owner_agent"
+	if from == "reviewer" {
+		sender = "self"
+	}
+	return []string{fmt.Sprintf("#%d  @%s (%s, %s) → %s", seq, from, role, sender, to), "    " + body}
 }
 
 func lines(parts ...any) []string {
@@ -137,11 +143,11 @@ func TestReadMarkdownTranscript(t *testing.T) {
 	expectLines(t, e.run("read", "--as", "writer", "--markdown"),
 		"# writer-reviewer · #6–#7",
 		"",
-		"**#6 @writer** (writer, alex) → @reviewer",
+		"**#6 @writer** (writer, self) → @reviewer",
 		"",
 		"> Draft is in notes.md. Please review it.",
 		"",
-		"**#7 @reviewer** (reviewer, alex) → all · reply to #6",
+		"**#7 @reviewer** (reviewer, owner_agent) → all · reply to #6",
 		"",
 		"> Reviewed. Approved.",
 		">",
@@ -278,11 +284,11 @@ func TestWatchFollowsTheBoardLive(t *testing.T) {
 	e.run("say", "--as", "writer", "--to", "@reviewer", "first")
 
 	w := e.watch()
-	w.expect(w.stdout, "#6  @writer (writer, alex) → @reviewer", "    first")
+	w.expect(w.stdout, "#6  @writer (writer, owner_agent) → @reviewer", "    first")
 	w.expect(w.stderr, "Watching writer-reviewer. Stop with Ctrl-C.")
 
 	e.run("say", "--as", "reviewer", "second")
-	w.expect(w.stdout, "#7  @reviewer (reviewer, alex) → all", "    second")
+	w.expect(w.stdout, "#7  @reviewer (reviewer, owner_agent) → all", "    second")
 
 	// The stream drops when the server stops. Once it is back, watch reconnects and
 	// prints what it missed.
@@ -290,7 +296,7 @@ func TestWatchFollowsTheBoardLive(t *testing.T) {
 	w.waitFor(w.stderr, "Lost the connection")
 	e.run("up")
 	e.run("say", "--as", "writer", "third")
-	w.expect(w.stdout, "#8  @writer (writer, alex) → all", "    third")
+	w.expect(w.stdout, "#8  @writer (writer, owner_agent) → all", "    third")
 	w.stop()
 }
 

@@ -42,6 +42,7 @@ type Member struct {
 	Owner       *string
 	Harness     *string
 	TokenDigest *string
+	Access      string // rules.AccessAdmin or rules.AccessMember for a person, empty for an agent
 	Status      string
 	Cursor      int64
 	JoinedAt    string
@@ -49,7 +50,7 @@ type Member struct {
 
 // Rules returns what the rules package needs to know about the member.
 func (m Member) Rules() rules.Member {
-	r := rules.Member{ID: m.ID, Name: m.Name, Kind: m.Kind}
+	r := rules.Member{ID: m.ID, Name: m.Name, Kind: m.Kind, HumanID: m.HumanID, Access: m.Access}
 	if m.Role != nil {
 		r.Role = *m.Role
 	}
@@ -92,9 +93,12 @@ type Message struct {
 	Redactions   []Redaction
 
 	// Sender fields, filled in by the store when it reads a message.
-	SenderName  string
-	SenderKind  string
-	SenderRole  *string
-	SenderOwner *string
-	SenderHuman string
+	SenderName    string
+	SenderKind    string
+	SenderRole    *string
+	SenderOwner   *string
+	SenderHuman   string
+	SenderHarness *string
+	// AgentOwners is how many people have agents on the board, when the message was read.
+	AgentOwners int
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"maps"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -48,5 +50,55 @@ func TestDatabaseFromANewerAboardIsRefused(t *testing.T) {
 	_ = db.Close()
 	if _, err := sqlite.Open(ctx, path, clock.Real{}); !errors.Is(err, sqlite.ErrNewerSchema) {
 		t.Fatalf("opening a newer database: got %v, want ErrNewerSchema", err)
+	}
+}
+
+// People on boards created before access levels existed get them on upgrade: each
+// board's creator is its admin and every other person a member; agents get none.
+func TestUpgradeGivesExistingPeopleAccessLevels(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "aboard.db")
+	initial, err := os.ReadFile(filepath.Join("migrations", "0001_initial.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		string(initial),
+		"PRAGMA user_version = 1",
+		`INSERT INTO humans VALUES ('hum_alex', 'alex', 'd1', 'x'), ('hum_sam', 'sam', 'd2', 'x')`,
+		`INSERT INTO boards VALUES ('brd_a', 'docs', NULL, '', '{}', '{}', 0, 'h', 'x', 'mem_alex')`,
+		`INSERT INTO members (id, board_id, name, kind, role, human_id, owner, status, joined_at) VALUES
+			('mem_alex', 'brd_a', 'alex', 'human', NULL, 'hum_alex', NULL, 'active', 'x'),
+			('mem_sam', 'brd_a', 'sam', 'human', NULL, 'hum_sam', NULL, 'active', 'x'),
+			('mem_writer', 'brd_a', 'writer', 'agent', 'writer', 'hum_sam', 'sam', 'active', 'x')`,
+	} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	_ = db.Close()
+
+	st, err := sqlite.Open(ctx, path, clock.Real{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	got := map[string]string{}
+	err = st.Read(ctx, func(tx board.ReadTx) error {
+		ms, err := tx.Members("brd_a")
+		for _, m := range ms {
+			got[m.Name] = m.Access
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := map[string]string{"alex": "admin", "sam": "member", "writer": ""}; !maps.Equal(got, want) {
+		t.Fatalf("access after upgrade %v, want %v", got, want)
 	}
 }

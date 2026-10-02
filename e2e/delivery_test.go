@@ -18,8 +18,8 @@ import (
 func pairedClaudeSessions(t *testing.T, e *env) (writer, reviewer *session) {
 	t.Helper()
 	writer, reviewer = e.claudeSession("s-writer"), e.claudeSession("s-reviewer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
-	reviewer.run("join", line)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	reviewer.run("join", line, "--name", "reviewer")
 	return writer, reviewer
 }
 
@@ -41,7 +41,7 @@ func TestIdleClaudeSessionWakesWithMessage(t *testing.T) {
 	if woke.code != 2 {
 		t.Fatalf("stop hook should exit 2 with the bundle\n%s", woke)
 	}
-	for _, want := range []string{`<aboard-messages board="writer-reviewer" count="1">`, `from="@writer"`, `trust="peer"`, "Draft is in notes.md."} {
+	for _, want := range []string{`<aboard-messages board="writer-reviewer" count="1">`, `from="@writer"`, `harness="claude-code" sender="owner_agent"`, "Draft is in notes.md."} {
 		if !strings.Contains(woke.stderr, want) {
 			t.Fatalf("bundle on stderr lacks %q\n%s", want, woke)
 		}
@@ -139,6 +139,57 @@ func TestUnconfirmedBundleGoesToTheNextSession(t *testing.T) {
 	}
 }
 
+// A session fills one seat at a time: joining another board moves it there. The old
+// agent's later messages wait for whichever session resumes it, and the bundle handed
+// for it before the move is handed again there, so nothing is lost.
+func TestJoiningAnotherBoardMovesTheSession(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer, reviewer := pairedClaudeSessions(t, e)
+	line := field(t, e.run("pair", "--new", "--json").json(t), "join.line").(string)
+
+	stop := reviewer.startHook("stop")
+	writer.run("say", "--to", "@reviewer", "handed before the move")
+	if woke := stop.wait(5 * time.Second); woke.code != 2 {
+		t.Fatalf("no wake\n%s", woke)
+	}
+	// In the woken turn, before anything confirms the bundle, the session joins another board.
+	moved := reviewer.run("join", line, "--name", "sweeper")
+	if !strings.Contains(moved.stdout, "This session was reviewer on writer-reviewer; it is now sweeper on writer-reviewer-2.") {
+		t.Fatalf("join didn't say the session moved\n%s", moved)
+	}
+	if got := field(t, reviewer.run("status", "--json").json(t), "agent"); got != "sweeper" {
+		t.Fatalf("status in the session shows agent %v, want sweeper", got)
+	}
+	again := reviewer.run("resume", "sweeper", "--json").json(t)
+	if prev := field(t, again, "previous_agent"); prev != nil {
+		t.Fatalf("resuming the agent the session already holds moved it from %v", prev)
+	}
+
+	writer.run("say", "--to", "@reviewer", "for the old seat")
+	e.run("say", "--as", "writer", "--board", "writer-reviewer-2", "--to", "@sweeper", "for the new seat")
+	woke := reviewer.startHook("stop").wait(5 * time.Second)
+	if woke.code != 2 || !strings.Contains(woke.stderr, "for the new seat") ||
+		strings.Contains(woke.stderr, "for the old seat") || strings.Contains(woke.stderr, "handed before the move") {
+		t.Fatalf("the moved session should get only the new seat's messages\n%s", woke)
+	}
+
+	next := e.claudeSession("s-reviewer-2")
+	resumed := next.run("resume", "reviewer", "--json").json(t)
+	if prev := field(t, resumed, "previous_agent"); prev != nil {
+		t.Fatalf("a session with no agent moved from %v", prev)
+	}
+	// The bundle handed before the move goes again as it was, then what came after it.
+	got := next.startHook("stop").wait(5 * time.Second)
+	if got.code != 2 || !strings.Contains(got.stderr, "handed before the move") {
+		t.Fatalf("resuming the old agent should hand its unconfirmed bundle again\n%s", got)
+	}
+	got = next.startHook("stop").wait(5 * time.Second)
+	if got.code != 2 || !strings.Contains(got.stderr, "for the old seat") {
+		t.Fatalf("resuming the old agent should deliver what came after the move\n%s", got)
+	}
+}
+
 // If the daemon dies while a stop hook waits, the hook brings it back and still delivers.
 func TestStopHookSurvivesDaemonRestart(t *testing.T) {
 	t.Parallel()
@@ -174,9 +225,9 @@ func TestCodexSessionReceivesMessagesThroughItsQueue(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000001")
-	codex.run("join", line)
+	codex.run("join", line, "--name", "reviewer")
 
 	writer.run("say", "--to", "@reviewer", "first")
 	writer.run("say", "--to", "@reviewer", "second")
@@ -204,9 +255,9 @@ func TestUrgentMessageReachesBusyCodexSessionAtNextToolCall(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000003")
-	codex.run("join", line)
+	codex.run("join", line, "--name", "reviewer")
 	if r := codex.hook("prompt", `"prompt":"long task"`); r.code != 0 {
 		t.Fatalf("codex prompt hook failed\n%s", r)
 	}
@@ -403,9 +454,9 @@ func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
 	reviewer, harness := e.claudeSessionIn("s-reviewer")
-	reviewer.run("join", line)
+	reviewer.run("join", line, "--name", "reviewer")
 	if got := e.openSessions(); got != "2 sessions" {
 		t.Fatalf("before the crash: %s", got)
 	}

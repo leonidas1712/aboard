@@ -188,7 +188,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		s.setOpen(ctx, false)
 	case OpBind:
-		s.bind(ctx, *req.Agent)
+		ok.Previous = s.bind(ctx, *req.Agent)
 		if !s.open {
 			s.setOpen(ctx, true)
 		}
@@ -335,10 +335,18 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	s.refreshAll(true)
 }
 
-// bind makes the session the one the agent's messages go to.
-func (s *session) bind(ctx context.Context, agent AgentRef) {
+// bind makes the session the one the agent's messages go to. A session fills one seat
+// at a time, so an agent it held before is let go; bind returns that agent.
+func (s *session) bind(ctx context.Context, agent AgentRef) *AgentRef {
+	var previous *AgentRef
+	for _, ref := range s.agentRefs() {
+		if ref != agent {
+			s.unbind(ctx, ref)
+			previous = &ref
+		}
+	}
 	if a, ok := s.agents[agent]; ok && !a.adopting {
-		return
+		return previous
 	}
 	if err := s.d.cfg.Journal.Bind(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now()}); err != nil {
 		s.d.log.Error("bind agent", "agent", agent.Name, "board", agent.Board, "error", err)
@@ -346,9 +354,28 @@ func (s *session) bind(ctx context.Context, agent AgentRef) {
 	s.agents[agent] = &agentState{ref: agent, adopting: true, deliveries: map[int64]*Delivery{}}
 	if prev := s.d.setOwner(agent, s); prev != nil {
 		prev.mail.put(sessionMsg{release: &agent, adopter: s})
-		return
+		return previous
 	}
 	s.onAdopt(ctx, agent)
+	return previous
+}
+
+// unbind lets an agent go with no session to take it. Bundles handed here and never
+// confirmed go back to pending, and the agent's unread messages stay unread on its
+// server, so whichever session binds the agent next gets both. The journal's binding
+// is replaced when the session's new agent is bound.
+func (s *session) unbind(ctx context.Context, agent AgentRef) {
+	if a := s.agents[agent]; !a.adopting {
+		for _, dl := range a.deliveries {
+			if dl.State == StateHanded || dl.State == StateHeld {
+				s.setState(ctx, dl, StatePending)
+			}
+		}
+	}
+	// An agent still being adopted is given up by its previous session, which puts its
+	// bundles back to pending; the adoption, when it arrives, finds no agent here.
+	delete(s.agents, agent)
+	s.d.dropOwner(agent, s)
 }
 
 // onRelease gives an agent up to the session that bound it. Bundles this session never
@@ -372,14 +399,14 @@ func (s *session) onRelease(ctx context.Context, agent AgentRef, to *session) {
 
 // onAdopt takes over an agent once no other session holds it, loading its deliveries.
 func (s *session) onAdopt(ctx context.Context, agent AgentRef) {
-	a, ok := s.agents[agent]
-	if !ok || !a.adopting {
-		return
-	}
 	if to, fwd := s.forward[agent]; fwd {
 		delete(s.forward, agent)
 		delete(s.agents, agent)
 		to.mail.put(sessionMsg{adopt: &agent})
+		return
+	}
+	a, ok := s.agents[agent]
+	if !ok || !a.adopting {
 		return
 	}
 	ds, err := s.d.cfg.Journal.Deliveries(ctx, openStates...)

@@ -100,3 +100,40 @@ func TestJournalFromANewerAboardIsRefused(t *testing.T) {
 		t.Fatalf("opening a newer journal: got %v, want ErrNewerSchema", err)
 	}
 }
+
+// A journal from before a session held one binding keeps each session's most recent one.
+func TestMigrationKeepsEachSessionsLatestBinding(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "delivery.db")
+	j, err := Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Go back to the schema that allowed several bindings per session.
+	for _, q := range []string{
+		"DROP INDEX bindings_one_per_session",
+		"PRAGMA user_version = 3",
+		`INSERT INTO bindings VALUES
+			('http://127.0.0.1:7400', 'docs', 'reviewer', 'claude-code', 's-a', '2026-10-01T12:00:00Z'),
+			('http://127.0.0.1:7400', 'plans', 'planner', 'claude-code', 's-a', '2026-10-01T12:05:00Z'),
+			('http://127.0.0.1:7400', 'docs', 'writer', 'codex', 's-a', '2026-10-01T11:00:00Z')`,
+	} {
+		if _, err := j.db.ExecContext(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := open(t, path).Bindings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]string{}
+	for _, b := range got {
+		names[b.Session.String()] = b.Agent.Name
+	}
+	if len(got) != 2 || names["claude-code:s-a"] != "planner" || names["codex:s-a"] != "writer" {
+		t.Fatalf("bindings after the migration: %+v", got)
+	}
+}

@@ -111,6 +111,49 @@ func TestPolicyApply(t *testing.T) {
 	}
 }
 
+func TestShowHarness(t *testing.T) {
+	starter, _ := Preset(Starter)
+	if !starter.ShowHarness {
+		t.Fatal("the starter preset hides harnesses")
+	}
+	off := false
+	hidden, err := starter.Apply(PolicyChange{ShowHarness: &off})
+	if err != nil || hidden.ShowHarness || !slices.Equal(hidden.Overrides, []string{"show_harness"}) {
+		t.Fatalf("got %+v, %v", hidden, err)
+	}
+	if kept, _ := hidden.Apply(PolicyChange{Broadcast: Granted}); kept.ShowHarness {
+		t.Fatalf("changing another key showed harnesses again: %+v", kept)
+	}
+	if reset, _ := hidden.Apply(PolicyChange{Preset: Recommended}); !reset.ShowHarness {
+		t.Fatalf("a preset didn't replace show_harness: %+v", reset)
+	}
+	var old Policy
+	if err := json.Unmarshal([]byte(`{"preset":"starter","visibility":"open","broadcast":"everyone","urgent":"everyone","overrides":[]}`), &old); err != nil || !old.ShowHarness {
+		t.Fatalf("a policy without show_harness should read as true: %+v, %v", old, err)
+	}
+}
+
+func TestAgentNameBase(t *testing.T) {
+	for _, tt := range []struct{ harness, role, want string }{
+		{"claude-code", "writer", "claude"},
+		{"codex", "reviewer", "codex"},
+		{"OpenCode", "reviewer", "opencode"},
+		{"", "reviewer", "reviewer"},
+		{"!!!", "reviewer", "reviewer"},
+	} {
+		if got := AgentNameBase(tt.harness, tt.role); got != tt.want {
+			t.Errorf("AgentNameBase(%q, %q) = %q, want %q", tt.harness, tt.role, got, tt.want)
+		}
+	}
+}
+
+func TestAllocateNumberedName(t *testing.T) {
+	taken := map[string]bool{"agent-1": true}
+	if got := AllocateNumberedName("agent", func(n string) bool { return taken[n] }); got != "agent-2" {
+		t.Fatalf("got %s", got)
+	}
+}
+
 func TestGrantReadsBothForms(t *testing.T) {
 	var fromYAML Role
 	if err := yaml.Unmarshal([]byte("can: [post, {claim_tasks: [experiment]}]"), &fromYAML); err != nil {
@@ -152,6 +195,34 @@ func TestNormalizeName(t *testing.T) {
 	} {
 		if got := NormalizeName(in); got != want {
 			t.Errorf("NormalizeName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCanManage(t *testing.T) {
+	admin := Member{ID: "m1", Kind: "human", HumanID: "alex", Access: AccessAdmin}
+	sam := Member{ID: "m2", Kind: "human", HumanID: "sam", Access: AccessMember}
+	priya := Member{ID: "m3", Kind: "human", HumanID: "priya", Access: AccessMember}
+	samsWriter := Member{ID: "m4", Kind: "agent", HumanID: "sam", Role: "writer"}
+	samsReviewer := Member{ID: "m5", Kind: "agent", HumanID: "sam", Role: "reviewer"}
+	alexsAgent := Member{ID: "m6", Kind: "agent", HumanID: "alex", Role: "writer"}
+	// An access level on an agent, set by mistake, doesn't make it an admin.
+	marked := Member{ID: "m7", Kind: "agent", HumanID: "alex", Access: AccessAdmin}
+	tests := []struct {
+		name          string
+		person, agent Member
+		want          bool
+	}{
+		{"owner", sam, samsWriter, true},
+		{"admin, someone else's agent", admin, samsWriter, true},
+		{"member, someone else's agent", priya, samsWriter, false},
+		{"member, the admin's agent", sam, alexsAgent, false},
+		{"agent of the same owner", samsReviewer, samsWriter, false},
+		{"agent marked admin", marked, samsWriter, false},
+	}
+	for _, tt := range tests {
+		if got := CanManage(tt.person, tt.agent); got != tt.want {
+			t.Errorf("%s: CanManage = %v, want %v", tt.name, got, tt.want)
 		}
 	}
 }

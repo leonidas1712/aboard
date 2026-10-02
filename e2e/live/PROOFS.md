@@ -57,6 +57,7 @@ Code 2.1.287 with its default model.
 | `TestUpgradeWithSessionOpen` | A session set up with an older aboard keeps working when the new binary is installed over it at the same path: two messages are answered, the daemon and local server are replaced, each message is handed once, doctor reports nothing outdated, the hooks file is byte for byte the same, and `aboard init` again changes nothing. | 3 |
 | `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
 | `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. | 4 |
+| `TestSessionMovesBetweenBoards` | A session that joins one board and then another moves: a message on the new board is handed within 2 seconds and answered there, while a message to its old agent wakes nothing for 20 seconds and stays unread for whichever session resumes that agent. | 3 |
 | `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
 | `TestIdleCodexWakesAndReplies` | Codex runs the project's hooks (session start, prompt, tool, stop). An idle Codex session is woken through `codex queue` within 2 seconds plus Codex's 2-second gather, and answers on the board. | 2 |
 | `TestClaudeAndCodexExchange` | Claude Code and Codex run the wiring check to PING 3 with no one typing. | about 9 |
@@ -229,6 +230,7 @@ on the helpers in `live_test.go` and `harness_test.go`:
 | `TestUpgradeWithSessionOpen` | Pass | answers 4.1 s and 2.2 s after posting; the first message handed twice (since fixed: rerun handed each once, answers 2.7 s and 1.4 s) |
 | `TestProjectScopeInit` | Pass | |
 | `TestKilledSessionRedelivers` | Pass | session closed 3.0 s after the kill; redelivered to the next session |
+| `TestSessionMovesBetweenBoards` | Pass | 2026-10-03, run on its own: handed 5 ms after posting, reply 2.0 s; old seat: no wake in 20 s, still unread |
 | `TestRestartsLoseNothing` | Pass | answers 2.6 s after the daemon restart, 2.9 s after the server restart |
 | `TestIdleCodexWakesAndReplies` | Pass | hooks ran; queued 2.1 s after posting (2 s of it Codex's gather), reply 6.2 s |
 | `TestClaudeAndCodexExchange` | Skipped | Claude Code needs `CLAUDE_CODE_OAUTH_TOKEN` on that machine |

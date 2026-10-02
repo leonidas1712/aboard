@@ -99,6 +99,7 @@ func (e BoardPolicyChangedEventType) Valid() bool {
 // Defines values for ErrorErrorCode.
 const (
 	AckOutOfRange       ErrorErrorCode = "ack_out_of_range"
+	AdminRequired       ErrorErrorCode = "admin_required"
 	AgentTokenRequired  ErrorErrorCode = "agent_token_required"
 	BoardNameTaken      ErrorErrorCode = "board_name_taken"
 	BoardNotFound       ErrorErrorCode = "board_not_found"
@@ -132,6 +133,8 @@ const (
 func (e ErrorErrorCode) Valid() bool {
 	switch e {
 	case AckOutOfRange:
+		return true
+	case AdminRequired:
 		return true
 	case AgentTokenRequired:
 		return true
@@ -222,6 +225,27 @@ func (e JoinCodeRevokedEventType) Valid() bool {
 	}
 }
 
+// Defines values for MemberAccess.
+const (
+	MemberAccessAdmin       MemberAccess = "admin"
+	MemberAccessLessThannil MemberAccess = "<nil>"
+	MemberAccessMember      MemberAccess = "member"
+)
+
+// Valid indicates whether the value is a known member of the MemberAccess enum.
+func (e MemberAccess) Valid() bool {
+	switch e {
+	case MemberAccessAdmin:
+		return true
+	case MemberAccessLessThannil:
+		return true
+	case MemberAccessMember:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MemberKind.
 const (
 	MemberKindAgent MemberKind = "agent"
@@ -249,6 +273,27 @@ const (
 func (e MemberStatus) Valid() bool {
 	switch e {
 	case Active:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemberJoinedEventDataAccess.
+const (
+	MemberJoinedEventDataAccessAdmin       MemberJoinedEventDataAccess = "admin"
+	MemberJoinedEventDataAccessLessThannil MemberJoinedEventDataAccess = "<nil>"
+	MemberJoinedEventDataAccessMember      MemberJoinedEventDataAccess = "member"
+)
+
+// Valid indicates whether the value is a known member of the MemberJoinedEventDataAccess enum.
+func (e MemberJoinedEventDataAccess) Valid() bool {
+	switch e {
+	case MemberJoinedEventDataAccessAdmin:
+		return true
+	case MemberJoinedEventDataAccessLessThannil:
+		return true
+	case MemberJoinedEventDataAccessMember:
 		return true
 	default:
 		return false
@@ -300,6 +345,33 @@ func (e MemberRefKind) Valid() bool {
 	case MemberRefKindAgent:
 		return true
 	case MemberRefKindHuman:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MessageSender.
+const (
+	MessageSenderOtherAgent  MessageSender = "other_agent"
+	MessageSenderOtherPerson MessageSender = "other_person"
+	MessageSenderOwner       MessageSender = "owner"
+	MessageSenderOwnerAgent  MessageSender = "owner_agent"
+	MessageSenderSelf        MessageSender = "self"
+)
+
+// Valid indicates whether the value is a known member of the MessageSender enum.
+func (e MessageSender) Valid() bool {
+	switch e {
+	case MessageSenderOtherAgent:
+		return true
+	case MessageSenderOtherPerson:
+		return true
+	case MessageSenderOwner:
+		return true
+	case MessageSenderOwnerAgent:
+		return true
+	case MessageSenderSelf:
 		return true
 	default:
 		return false
@@ -404,15 +476,18 @@ func (e PolicyBroadcast) Valid() bool {
 
 // Defines values for PolicyOverrides.
 const (
-	PolicyOverridesBroadcast  PolicyOverrides = "broadcast"
-	PolicyOverridesUrgent     PolicyOverrides = "urgent"
-	PolicyOverridesVisibility PolicyOverrides = "visibility"
+	PolicyOverridesBroadcast   PolicyOverrides = "broadcast"
+	PolicyOverridesShowHarness PolicyOverrides = "show_harness"
+	PolicyOverridesUrgent      PolicyOverrides = "urgent"
+	PolicyOverridesVisibility  PolicyOverrides = "visibility"
 )
 
 // Valid indicates whether the value is a known member of the PolicyOverrides enum.
 func (e PolicyOverrides) Valid() bool {
 	switch e {
 	case PolicyOverridesBroadcast:
+		return true
+	case PolicyOverridesShowHarness:
 		return true
 	case PolicyOverridesUrgent:
 		return true
@@ -782,7 +857,7 @@ type Hash = string
 
 // Inbox defines model for Inbox.
 type Inbox struct {
-	// Agent Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+	// Agent Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 	//
 	// Example: reviewer
 	Agent MemberName `json:"agent"`
@@ -889,7 +964,7 @@ type JoinRequest struct {
 	// Example: codex
 	Harness *Harness `json:"harness,omitempty"`
 
-	// Name Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+	// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 	//
 	// Example: reviewer
 	Name *MemberName `json:"name,omitempty"`
@@ -918,14 +993,21 @@ type LoginCode struct {
 
 // Member defines model for Member.
 type Member struct {
+	// Access What a person may change on the board. `admin`: the charter, roles, policy and
+	// monitor settings. `member`: their own agents only. The person who created the
+	// board is its first admin; everyone else is a member. Null for agents.
+	Access *MemberAccess `json:"access"`
+
 	// Board Example: writer-reviewer
-	Board    BoardName  `json:"board"`
+	Board BoardName `json:"board"`
+
+	// Harness Null when not given, and for an agent reading a board with policy `show_harness: false`.
 	Harness  *string    `json:"harness"`
 	Id       string     `json:"id"`
 	JoinedAt Timestamp  `json:"joined_at"`
 	Kind     MemberKind `json:"kind"`
 
-	// Name Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+	// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 	//
 	// Example: reviewer
 	Name MemberName `json:"name"`
@@ -937,6 +1019,11 @@ type Member struct {
 	Role   *string      `json:"role"`
 	Status MemberStatus `json:"status"`
 }
+
+// MemberAccess What a person may change on the board. `admin`: the charter, roles, policy and
+// monitor settings. `member`: their own agents only. The person who created the
+// board is its first admin; everyone else is a member. Null for agents.
+type MemberAccess string
 
 // MemberKind defines model for Member.Kind.
 type MemberKind string
@@ -950,12 +1037,14 @@ type MemberJoinedEvent struct {
 	At      Timestamp `json:"at"`
 	BoardId string    `json:"board_id"`
 	Data    *struct {
-		Harness    *string                   `json:"harness"`
-		JoinCodeId *string                   `json:"join_code_id"`
-		Kind       MemberJoinedEventDataKind `json:"kind"`
-		MemberId   string                    `json:"member_id"`
+		// Access `admin` or `member` for a person, null for an agent. Absent from events written before people had access levels; read those as `admin` for the board's creator and `member` for anyone else.
+		Access     *MemberJoinedEventDataAccess `json:"access,omitempty"`
+		Harness    *string                      `json:"harness"`
+		JoinCodeId *string                      `json:"join_code_id"`
+		Kind       MemberJoinedEventDataKind    `json:"kind"`
+		MemberId   string                       `json:"member_id"`
 
-		// Name Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+		// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 		//
 		// Example: reviewer
 		Name  MemberName `json:"name"`
@@ -975,22 +1064,28 @@ type MemberJoinedEvent struct {
 	Type MemberJoinedEventType `json:"type"`
 }
 
+// MemberJoinedEventDataAccess `admin` or `member` for a person, null for an agent. Absent from events written before people had access levels; read those as `admin` for the board's creator and `member` for anyone else.
+type MemberJoinedEventDataAccess string
+
 // MemberJoinedEventDataKind defines model for MemberJoinedEvent.Data.Kind.
 type MemberJoinedEventDataKind string
 
 // MemberJoinedEventType defines model for MemberJoinedEvent.Type.
 type MemberJoinedEventType string
 
-// MemberName Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+// MemberName Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 //
 // Example: reviewer
 type MemberName = string
 
 // MemberRef defines model for MemberRef.
 type MemberRef struct {
-	Kind MemberRefKind `json:"kind"`
+	// Harness The agent's harness, in a message's `from` only. Null for people, when not
+	// given, and for an agent reading a board with policy `show_harness: false`.
+	Harness *string       `json:"harness,omitempty"`
+	Kind    MemberRefKind `json:"kind"`
 
-	// Name Unique per board. Agents get their role name, then `-2`, `-3`… unless they set one.
+	// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 	//
 	// Example: reviewer
 	Name  MemberName `json:"name"`
@@ -1017,16 +1112,40 @@ type Message struct {
 	// ReplyToSeq The sequence number of the message this one replies to.
 	ReplyToSeq *int `json:"reply_to_seq"`
 
-	// Seq Position in a board's event log. Messages share this numbering.
-	Seq Seq      `json:"seq"`
-	To  []Target `json:"to"`
+	// Sender Who sent the message, relative to the reader. `owner`: the person the reading
+	// agent works for. `owner_agent`: an agent with the same owner as the reader;
+	// for a person reading, one of their own agents. `other_person`: any other
+	// person. `other_agent`: an agent someone else owns. `self`: the reader.
+	// Roles never change it.
+	Sender MessageSender `json:"sender"`
 
-	// Trust Relative to the reader. `owner` is the reader's own human; `peer` is any agent.
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq Seq `json:"seq"`
+
+	// ShowOwner True once agents of more than one person are on the board. Clients then show
+	// an agent's owner beside its name; before that every agent has the same owner
+	// and showing it adds nothing.
+	ShowOwner bool     `json:"show_owner"`
+	To        []Target `json:"to"`
+
+	// Trust Replaced by `sender`. Relative to the reader: `owner` is the reading agent's
+	// own person, `human` any other person, `peer` any agent.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Trust  MessageTrust `json:"trust"`
 	Urgent bool         `json:"urgent"`
 }
 
-// MessageTrust Relative to the reader. `owner` is the reader's own human; `peer` is any agent.
+// MessageSender Who sent the message, relative to the reader. `owner`: the person the reading
+// agent works for. `owner_agent`: an agent with the same owner as the reader;
+// for a person reading, one of their own agents. `other_person`: any other
+// person. `other_agent`: an agent someone else owns. `self`: the reader.
+// Roles never change it.
+type MessageSender string
+
+// MessageTrust Replaced by `sender`. Relative to the reader: `owner` is the reading agent's
+// own person, `human` any other person, `peer` any agent.
+//
+// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 type MessageTrust string
 
 // MessagePage defines model for MessagePage.
@@ -1102,6 +1221,13 @@ type Policy struct {
 	Overrides *[]PolicyOverrides `json:"overrides,omitempty"`
 	Preset    PolicyPreset       `json:"preset"`
 
+	// ShowHarness `true` (both presets): agents see which harness other agents run, in
+	// `from.harness` and the members list. `false`: agents never see another member's
+	// harness, and new agents without a chosen name are called `agent-1`, `agent-2`,
+	// and so on. People always see harnesses. An event's policy without this key
+	// means `true`.
+	ShowHarness *bool `json:"show_harness,omitempty"`
+
 	// Urgent `everyone`: any member may send urgent messages. `granted`: only roles with `urgent`. Humans always may.
 	Urgent PolicyUrgent `json:"urgent"`
 
@@ -1123,10 +1249,11 @@ type PolicyVisibility string
 
 // PolicyChange defines model for PolicyChange.
 type PolicyChange struct {
-	Broadcast  *PolicyChangeBroadcast  `json:"broadcast,omitempty"`
-	Preset     *PolicyPreset           `json:"preset,omitempty"`
-	Urgent     *PolicyChangeUrgent     `json:"urgent,omitempty"`
-	Visibility *PolicyChangeVisibility `json:"visibility,omitempty"`
+	Broadcast   *PolicyChangeBroadcast  `json:"broadcast,omitempty"`
+	Preset      *PolicyPreset           `json:"preset,omitempty"`
+	ShowHarness *bool                   `json:"show_harness,omitempty"`
+	Urgent      *PolicyChangeUrgent     `json:"urgent,omitempty"`
+	Visibility  *PolicyChangeVisibility `json:"visibility,omitempty"`
 }
 
 // PolicyChangeBroadcast defines model for PolicyChange.Broadcast.
@@ -1767,7 +1894,8 @@ type ClientInterface interface {
 
 	// CreateBoardWithBody Create a board, optionally from a template
 	//
-	// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+	// who becomes the board's first admin.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	//
 	// Takes any type of body and a specified content type.
@@ -1777,7 +1905,8 @@ type ClientInterface interface {
 
 	// CreateBoard Create a board, optionally from a template
 	//
-	// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+	// who becomes the board's first admin.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	//
 	// Takes a body of the `application/json` content type.
@@ -1792,9 +1921,11 @@ type ClientInterface interface {
 
 	// UpdateBoardWithBody Change board policy
 	//
-	// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-	// whole policy with that preset's values; other keys in the same request then
-	// override it. Writes `board.policy_changed`.
+	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+	// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+	// with that preset's values; other keys in the same request then override it.
+	// Writes `board.policy_changed`.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1803,9 +1934,11 @@ type ClientInterface interface {
 
 	// UpdateBoard Change board policy
 	//
-	// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-	// whole policy with that preset's values; other keys in the same request then
-	// override it. Writes `board.policy_changed`.
+	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+	// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+	// with that preset's values; other keys in the same request then override it.
+	// Writes `board.policy_changed`.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1962,9 +2095,13 @@ type ClientInterface interface {
 	// - `{code}`: redeem a join code. The role comes from the code.
 	// - `{board, role}`: the caller is already a human member of the board.
 	//
-	// Each call creates a new agent and returns its token once. Writes `member.joined`
+	// Each call creates a new agent and returns its token once. Without `name`, the
+	// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+	// harness value itself), then after its role when no harness is given; a taken name
+	// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+	// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 	// for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-	// member of the board yet.
+	// member of the board yet; an owner who joins this way is a `member`, not an admin.
 	// Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 	//
 	// Takes any type of body and a specified content type.
@@ -1978,9 +2115,13 @@ type ClientInterface interface {
 	// - `{code}`: redeem a join code. The role comes from the code.
 	// - `{board, role}`: the caller is already a human member of the board.
 	//
-	// Each call creates a new agent and returns its token once. Writes `member.joined`
+	// Each call creates a new agent and returns its token once. Without `name`, the
+	// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+	// harness value itself), then after its role when no harness is given; a taken name
+	// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+	// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 	// for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-	// member of the board yet.
+	// member of the board yet; an owner who joins this way is a `member`, not an admin.
 	// Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 	//
 	// Takes a body of the `application/json` content type.
@@ -2087,7 +2228,8 @@ func (c *Client) ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) 
 
 // CreateBoardWithBody Create a board, optionally from a template
 //
-// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+// who becomes the board's first admin.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 //
 // Takes any type of body and a specified content type.
@@ -2107,7 +2249,8 @@ func (c *Client) CreateBoardWithBody(ctx context.Context, params *CreateBoardPar
 
 // CreateBoard Create a board, optionally from a template
 //
-// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+// who becomes the board's first admin.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 //
 // Takes a body of the `application/json` content type.
@@ -2142,9 +2285,11 @@ func (c *Client) GetBoard(ctx context.Context, board BoardParam, reqEditors ...R
 
 // UpdateBoardWithBody Change board policy
 //
-// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-// whole policy with that preset's values; other keys in the same request then
-// override it. Writes `board.policy_changed`.
+// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+// with that preset's values; other keys in the same request then override it.
+// Writes `board.policy_changed`.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2163,9 +2308,11 @@ func (c *Client) UpdateBoardWithBody(ctx context.Context, board BoardParam, para
 
 // UpdateBoard Change board policy
 //
-// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-// whole policy with that preset's values; other keys in the same request then
-// override it. Writes `board.policy_changed`.
+// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+// with that preset's values; other keys in the same request then override it.
+// Writes `board.policy_changed`.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -2442,9 +2589,13 @@ func (c *Client) GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*h
 // - `{code}`: redeem a join code. The role comes from the code.
 // - `{board, role}`: the caller is already a human member of the board.
 //
-// Each call creates a new agent and returns its token once. Writes `member.joined`
+// Each call creates a new agent and returns its token once. Without `name`, the
+// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+// harness value itself), then after its role when no harness is given; a taken name
+// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 // for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-// member of the board yet.
+// member of the board yet; an owner who joins this way is a `member`, not an admin.
 // Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 //
 // Takes any type of body and a specified content type.
@@ -2468,9 +2619,13 @@ func (c *Client) JoinWithBody(ctx context.Context, params *JoinParams, contentTy
 // - `{code}`: redeem a join code. The role comes from the code.
 // - `{board, role}`: the caller is already a human member of the board.
 //
-// Each call creates a new agent and returns its token once. Writes `member.joined`
+// Each call creates a new agent and returns its token once. Without `name`, the
+// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+// harness value itself), then after its role when no harness is given; a taken name
+// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 // for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-// member of the board yet.
+// member of the board yet; an owner who joins this way is a `member`, not an admin.
 // Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 //
 // Takes a body of the `application/json` content type.
@@ -3721,7 +3876,8 @@ type ClientWithResponsesInterface interface {
 
 	// CreateBoardWithBodyWithResponse Create a board, optionally from a template
 	//
-	// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+	// who becomes the board's first admin.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -3731,7 +3887,8 @@ type ClientWithResponsesInterface interface {
 
 	// CreateBoardWithResponse Create a board, optionally from a template
 	//
-	// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+	// who becomes the board's first admin.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -3748,9 +3905,11 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateBoardWithBodyWithResponse Change board policy
 	//
-	// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-	// whole policy with that preset's values; other keys in the same request then
-	// override it. Writes `board.policy_changed`.
+	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+	// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+	// with that preset's values; other keys in the same request then override it.
+	// Writes `board.policy_changed`.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3759,9 +3918,11 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateBoardWithResponse Change board policy
 	//
-	// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-	// whole policy with that preset's values; other keys in the same request then
-	// override it. Writes `board.policy_changed`.
+	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+	// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+	// with that preset's values; other keys in the same request then override it.
+	// Writes `board.policy_changed`.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3928,9 +4089,13 @@ type ClientWithResponsesInterface interface {
 	// - `{code}`: redeem a join code. The role comes from the code.
 	// - `{board, role}`: the caller is already a human member of the board.
 	//
-	// Each call creates a new agent and returns its token once. Writes `member.joined`
+	// Each call creates a new agent and returns its token once. Without `name`, the
+	// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+	// harness value itself), then after its role when no harness is given; a taken name
+	// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+	// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 	// for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-	// member of the board yet.
+	// member of the board yet; an owner who joins this way is a `member`, not an admin.
 	// Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -3944,9 +4109,13 @@ type ClientWithResponsesInterface interface {
 	// - `{code}`: redeem a join code. The role comes from the code.
 	// - `{board, role}`: the caller is already a human member of the board.
 	//
-	// Each call creates a new agent and returns its token once. Writes `member.joined`
+	// Each call creates a new agent and returns its token once. Without `name`, the
+	// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+	// harness value itself), then after its role when no harness is given; a taken name
+	// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+	// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 	// for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-	// member of the board yet.
+	// member of the board yet; an owner who joins this way is a `member`, not an admin.
 	// Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -5232,7 +5401,8 @@ func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, reqEdi
 
 // CreateBoardWithBodyWithResponse Create a board, optionally from a template
 //
-// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+// who becomes the board's first admin.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -5248,7 +5418,8 @@ func (c *ClientWithResponses) CreateBoardWithBodyWithResponse(ctx context.Contex
 
 // CreateBoardWithResponse Create a board, optionally from a template
 //
-// Humans only. Writes `board.created` and a `member.joined` for the calling human.
+// Humans only. Writes `board.created` and a `member.joined` for the calling human,
+// who becomes the board's first admin.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -5277,9 +5448,11 @@ func (c *ClientWithResponses) GetBoardWithResponse(ctx context.Context, board Bo
 
 // UpdateBoardWithBodyWithResponse Change board policy
 //
-// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-// whole policy with that preset's values; other keys in the same request then
-// override it. Writes `board.policy_changed`.
+// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+// with that preset's values; other keys in the same request then override it.
+// Writes `board.policy_changed`.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5294,9 +5467,11 @@ func (c *ClientWithResponses) UpdateBoardWithBodyWithResponse(ctx context.Contex
 
 // UpdateBoardWithResponse Change board policy
 //
-// Humans only. Only `policy` can be changed. Setting `policy.preset` replaces the
-// whole policy with that preset's values; other keys in the same request then
-// override it. Writes `board.policy_changed`.
+// Admins only. An agent gets 403 `human_token_required`; a person on the board who
+// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
+// Only `policy` can be changed. Setting `policy.preset` replaces the whole policy
+// with that preset's values; other keys in the same request then override it.
+// Writes `board.policy_changed`.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5535,9 +5710,13 @@ func (c *ClientWithResponses) GetInfoWithResponse(ctx context.Context, reqEditor
 // - `{code}`: redeem a join code. The role comes from the code.
 // - `{board, role}`: the caller is already a human member of the board.
 //
-// Each call creates a new agent and returns its token once. Writes `member.joined`
+// Each call creates a new agent and returns its token once. Without `name`, the
+// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+// harness value itself), then after its role when no harness is given; a taken name
+// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 // for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-// member of the board yet.
+// member of the board yet; an owner who joins this way is a `member`, not an admin.
 // Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -5557,9 +5736,13 @@ func (c *ClientWithResponses) JoinWithBodyWithResponse(ctx context.Context, para
 // - `{code}`: redeem a join code. The role comes from the code.
 // - `{board, role}`: the caller is already a human member of the board.
 //
-// Each call creates a new agent and returns its token once. Writes `member.joined`
+// Each call creates a new agent and returns its token once. Without `name`, the
+// agent is named after its harness (`claude` for `claude-code`, `codex`, or the
+// harness value itself), then after its role when no harness is given; a taken name
+// gets `-2`, `-3`, and so on. On a board with policy `show_harness: false`, agents
+// without `name` are called `agent-1`, `agent-2`, and so on. Writes `member.joined`
 // for the agent, preceded by a `member.joined` for its owner if the owner isn't a
-// member of the board yet.
+// member of the board yet; an owner who joins this way is a `member`, not an admin.
 // Rate-limited per client address; over the limit returns 429 with `Retry-After`.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -9481,159 +9664,173 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"AP//",
+	"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",
+	"X3z6/u7/BwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

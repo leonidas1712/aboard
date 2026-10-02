@@ -45,12 +45,13 @@ func TestIdleClaudeWakesAndReplies(t *testing.T) {
 	})
 	writer.waitIdle(2 * time.Minute)
 	reviewer.submit(line)
-	l.waitMessage("reviewer", time.Time{}, "", 3*time.Minute) // its hello
-	l.waitQuiet(4*time.Minute, "reviewer", writer, reviewer)
+	// Agents are named after their harness: the writer is claude, the reviewer claude-2.
+	l.waitMessage("claude-2", time.Time{}, "", 3*time.Minute) // its hello
+	l.waitQuiet(4*time.Minute, "claude-2", writer, reviewer)
 
-	ping := l.say("reviewer", "--to", "@writer", "--expect-reply", "Reply to this message with exactly PONG-1.")
-	wake := l.waitHanded(ping.At, 30*time.Second)
-	reply := l.waitMessage("writer", ping.At, "PONG-1", 2*time.Minute)
+	ping := l.say("claude-2", "--to", "@claude", "--expect-reply", "Reply to this message with exactly PONG-1.")
+	wake := l.waitHanded(ping.At)
+	reply := l.waitMessage("claude", ping.At, "PONG-1", 2*time.Minute)
 	t.Logf("measured: handed %s after posting, reply on the board %s after posting",
 		wake.Time.Sub(ping.At), reply.At.Sub(ping.At))
 	checkWake(t, ping, wake)
@@ -172,7 +173,7 @@ func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 
 	own := l.postAsOwner(board, "@writer",
 		`Run: aboard say "SEEN" followed by the sequence number of every message in this delivery, separated by spaces.`)
-	wake := l.waitHanded(own.At, 30*time.Second)
+	wake := l.waitHanded(own.At)
 	reply := l.waitMessage("writer", own.At, "SEEN", 2*time.Minute)
 	t.Logf("measured: handed %s after the owner's message; reply %q", wake.Time.Sub(own.At), reply.Body)
 	checkWake(t, own, wake)
@@ -409,4 +410,60 @@ func TestRestartsLoseNothing(t *testing.T) {
 	ping = l.say("reviewer", "--to", "@writer", "--expect-reply", "Reply to this message with exactly PONG-2.")
 	reply = l.waitMessage("writer", ping.At, "PONG-2", 3*time.Minute)
 	t.Logf("measured: after the server restart, answered %s after posting", reply.At.Sub(ping.At))
+}
+
+// A session fills one seat at a time. A Claude Code session joins one board, then joins
+// another: a message on the new board wakes it and it replies there, while a message to
+// its old agent wakes nothing and waits unread for whichever session resumes that agent.
+func TestSessionMovesBetweenBoards(t *testing.T) {
+	requireClaude(t)
+	t.Parallel()
+	l := newLab(t)
+	type paired struct {
+		Board struct {
+			Name string `json:"name"`
+		} `json:"board"`
+		Join struct {
+			Line string `json:"line"`
+		} `json:"join"`
+	}
+	var first, second paired
+	l.decode(l.human, &first, "pair")
+	session := l.startClaude("mover", l.project("project", "claude-code"))
+	session.submit(first.Join.Line)
+	l.waitMessage("claude", time.Time{}, "", 3*time.Minute) // its hello on the first board
+	l.waitQuiet(3*time.Minute, "writer", session)
+
+	// The person's terminal now defaults to the second board, so writer and claude there
+	// need no --board.
+	moving := time.Now()
+	l.decode(l.human, &second, "pair", "--new")
+	session.submit(second.Join.Line)
+	l.waitMessage("claude", moving, "", 3*time.Minute) // its hello on the second board
+	l.waitQuiet(3*time.Minute, "writer", session)
+
+	old := l.say("writer", "--board", first.Board.Name, "--to", "@claude", "Reply to this message with exactly OLD-SEAT.")
+	l.neverWithin(20*time.Second, "a bundle was handed for the old seat", func() bool { return len(l.handedAfter(old.At)) > 0 })
+
+	ping := l.say("writer", "--to", "@claude", "--expect-reply", "Reply to this message with exactly MOVED-1.")
+	wake := l.waitHanded(ping.At)
+	reply := l.waitMessage("claude", ping.At, "MOVED-1", 2*time.Minute)
+	t.Logf("measured: handed %s after posting, reply on the board %s after posting",
+		wake.Time.Sub(ping.At), reply.At.Sub(ping.At))
+	checkWake(t, ping, wake)
+
+	var inbox struct {
+		Messages []message `json:"messages"`
+	}
+	l.decode(l.human, &inbox, "inbox", "--peek", "--as", "claude", "--board", first.Board.Name)
+	if !slices.ContainsFunc(inbox.Messages, func(m message) bool { return m.Seq == old.Seq }) {
+		t.Errorf("message #%d to the old seat isn't waiting unread for it: %+v", old.Seq, inbox.Messages)
+	}
+	var page struct {
+		Messages []message `json:"messages"`
+	}
+	l.decode(l.human, &page, "read", "--as", "writer", "--board", first.Board.Name, "--limit", "200")
+	if slices.ContainsFunc(page.Messages, func(m message) bool { return m.From.Name == "claude" && strings.Contains(m.Body, "OLD-SEAT") }) {
+		t.Error("the moved session answered the old seat's message")
+	}
 }

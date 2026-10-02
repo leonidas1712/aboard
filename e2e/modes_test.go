@@ -85,7 +85,7 @@ func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 	if woke.code != 2 {
 		t.Fatalf("the owner's message should wake the session\n%s", woke)
 	}
-	for _, want := range []string{`count="2"`, "peer note", `trust="peer"`, "owner asks for a summary", `trust="owner"`} {
+	for _, want := range []string{`count="2"`, "peer note", `sender="owner_agent"`, "owner asks for a summary", `sender="owner"`} {
 		if !strings.Contains(woke.stderr, want) {
 			t.Fatalf("bundle lacks %q\n%s", want, woke)
 		}
