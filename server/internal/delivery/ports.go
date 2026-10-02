@@ -3,7 +3,6 @@ package delivery
 import (
 	"context"
 	"net"
-	"time"
 )
 
 // Adapter is how the daemon reaches one harness. A new harness is a new Adapter; it
@@ -70,9 +69,6 @@ type Journal interface {
 	UpdateDelivery(ctx context.Context, d Delivery) error
 	// Deliveries returns the deliveries in any of the given states, oldest first.
 	Deliveries(ctx context.Context, states ...State) ([]Delivery, error)
-	// RecoverHanded puts every handed delivery back to pending, for a daemon starting
-	// after a crash, and returns how many it changed.
-	RecoverHanded(ctx context.Context, now time.Time) (int, error)
 }
 
 // Control is the socket hooks and the CLI use to talk to the daemon. Accept returns

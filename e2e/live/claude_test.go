@@ -187,7 +187,8 @@ func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 
 // A person installs a new aboard over the old one while a Claude Code session waits.
 // Without restarting the session, messages still arrive and get answers, the new aboard
-// replaces the old daemon and server, and the hook files stay byte for byte the same.
+// replaces the old daemon and server without handing a message twice, and the hook files
+// stay byte for byte the same.
 func TestUpgradeWithSessionOpen(t *testing.T) {
 	requireClaude(t)
 	t.Parallel()
@@ -213,6 +214,7 @@ func TestUpgradeWithSessionOpen(t *testing.T) {
 	if err := os.Rename(staged, l.bin); err != nil {
 		t.Fatal(err)
 	}
+	installed := time.Now()
 
 	for i := 1; i <= 2; i++ {
 		want := fmt.Sprintf("PONG-%d", i)
@@ -222,6 +224,9 @@ func TestUpgradeWithSessionOpen(t *testing.T) {
 		writer.waitIdle(2 * time.Minute)
 	}
 
+	if n := len(l.handedAfter(installed)); n != 2 {
+		t.Errorf("%d bundles handed for the two messages after the upgrade; each should be handed once", n)
+	}
 	if pid := l.daemonPID(); pid == 0 || pid == oldDaemon {
 		t.Errorf("daemon pid %d; the old daemon (pid %d) should have been replaced", pid, oldDaemon)
 	}

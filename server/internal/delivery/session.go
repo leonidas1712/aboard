@@ -245,6 +245,11 @@ func (s *session) event(ctx context.Context, boot string) {
 func (s *session) newBoot(ctx context.Context, boot string) {
 	s.boot = boot
 	s.saveSession(ctx)
+	s.unhand(ctx)
+}
+
+// unhand puts every bundle handed to this session and not confirmed back to pending.
+func (s *session) unhand(ctx context.Context) {
 	for _, a := range s.agents {
 		for _, dl := range a.deliveries {
 			if dl.State == StateHanded {
@@ -314,6 +319,10 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		s.event(ctx, req.Boot)
 	case req.Boot != "" && req.Boot != s.boot:
 		s.newBoot(ctx, req.Boot)
+	default:
+		// The hook was waiting when the daemon went away, so a bundle handed to it then
+		// never arrived.
+		s.unhand(ctx)
 	}
 	if s.waiter != nil && s.waiter != w {
 		s.waiter.Release()

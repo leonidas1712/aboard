@@ -82,12 +82,6 @@ func Run(ctx context.Context, cfg Config) error {
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
 	}
-	if n, err := cfg.Journal.RecoverHanded(ctx, cfg.Clock.Now()); err != nil {
-		return fmt.Errorf("recover deliveries: %w", err)
-	} else if n > 0 {
-		d.log.Info("deliveries handed before a restart will be handed again", "count", n)
-	}
-
 	g, gctx := errgroup.WithContext(ctx)
 	d.g, d.ctx = g, gctx
 	if err := d.restore(gctx); err != nil {
@@ -127,6 +121,9 @@ func (d *Daemon) restore(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load delivery modes: %w", err)
 	}
+	if err := d.recoverHanded(ctx, records, deliveries); err != nil {
+		return err
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	maps.Copy(d.modes, modes)
@@ -157,6 +154,40 @@ func (d *Daemon) restore(ctx context.Context) error {
 	for _, s := range d.sessions {
 		s.restored = true
 		d.startSession(s)
+	}
+	return nil
+}
+
+// recoverHanded decides, as the daemon starts, what happens to deliveries an earlier
+// daemon handed over and never saw confirmed. A bundle a waiting hook took has reached
+// the session, which may still be running the turn it woke: after an upgrade that
+// turn's own hooks replace the old daemon. So it stays handed, and the session's next
+// event from the same process confirms it, as it would have before the restart. A hook
+// that was still waiting reconnects with a resumed wait, which hands it again (onWait).
+// Everything else goes back to pending: a queueing harness's call may not have
+// finished, and a closed session never confirms.
+func (d *Daemon) recoverHanded(ctx context.Context, records []SessionRecord, deliveries []Delivery) error {
+	open := map[SessionKey]bool{}
+	for _, r := range records {
+		open[r.Key] = r.Open
+	}
+	n := 0
+	for i := range deliveries {
+		dl := &deliveries[i]
+		if dl.State != StateHanded {
+			continue
+		}
+		if a, ok := d.adapters[dl.Session.Harness]; ok && a.WaitsForIdle() && open[dl.Session] {
+			continue
+		}
+		dl.State, dl.UpdatedAt = StatePending, d.cfg.Clock.Now()
+		if err := d.cfg.Journal.UpdateDelivery(ctx, *dl); err != nil {
+			return fmt.Errorf("recover delivery %d: %w", dl.ID, err)
+		}
+		n++
+	}
+	if n > 0 {
+		d.log.Info("deliveries handed before a restart will be handed again", "count", n)
 	}
 	return nil
 }

@@ -539,6 +539,26 @@ func TestCrashAfterHandingOverHandsTheBundleOverAgain(t *testing.T) {
 	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == seq })
 }
 
+// A daemon replaced while the turn a bundle woke still runs, as an upgrade does from that
+// turn's own hooks, keeps the bundle handed: the turn's next event confirms it, and it
+// isn't handed over a second time.
+func TestRestartDuringAWokenTurnConfirmsWithoutHandingOverAgain(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	seq := r.post(reviewer, "please review", false)
+	r.wait("s1", "b1", false).bundle()
+
+	r.restart()
+	h := r.wait("s1", "b1", false)
+	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == seq })
+	select {
+	case resp := <-h.events:
+		t.Fatalf("the confirmed bundle was handed over again: %+v", resp)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
 func TestCrashAfterConfirmingAcknowledgesWithoutHandingOverAgain(t *testing.T) {
 	r := newRig(t)
 	r.bind(delivery.HarnessCodex, "t1", reviewer)
