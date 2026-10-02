@@ -37,6 +37,8 @@ const (
 	OpBind = "bind"
 	// OpAgents lists the agents bound to the session.
 	OpAgents = "agents"
+	// OpMode shows an agent's delivery mode, or sets it when the request has one.
+	OpMode = "mode"
 	// OpStatus reports the daemon's state for aboard doctor.
 	OpStatus = "status"
 )
@@ -71,6 +73,8 @@ type Request struct {
 	// before the session's latest prompt belongs to an earlier turn, and is released.
 	Started time.Time `json:"started,omitzero"`
 	Agent   *AgentRef `json:"agent,omitempty"`
+	// Mode is the delivery mode an OpMode request sets; empty only shows it.
+	Mode Mode `json:"mode,omitempty"`
 	// Process is the harness process the request came from, when the caller found it.
 	Process *Process `json:"process,omitempty"`
 }
@@ -86,7 +90,11 @@ type Response struct {
 	Boot   string     `json:"boot,omitempty"`
 	Agents []AgentRef `json:"agents,omitempty"`
 	Status *Status    `json:"status,omitempty"`
-	Error  *WireError `json:"error,omitempty"`
+	// Mode is the agent's delivery mode, in answer to OpMode; Changed says whether the
+	// request changed it.
+	Mode    Mode       `json:"mode,omitempty"`
+	Changed bool       `json:"changed,omitempty"`
+	Error   *WireError `json:"error,omitempty"`
 }
 
 // WireError is an error reported over the control socket, in the shape the CLI prints.

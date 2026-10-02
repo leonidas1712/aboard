@@ -59,6 +59,10 @@ type Journal interface {
 	Sessions(ctx context.Context) ([]SessionRecord, error)
 	Bind(ctx context.Context, b Binding) error
 	Bindings(ctx context.Context) ([]Binding, error)
+	// SetMode records an agent's delivery mode.
+	SetMode(ctx context.Context, agent AgentRef, mode Mode) error
+	// Modes returns every agent's recorded delivery mode. An agent not in it is auto.
+	Modes(ctx context.Context) (map[AgentRef]Mode, error)
 	// AddDelivery records a new delivery with its messages and returns its id.
 	AddDelivery(ctx context.Context, d Delivery) (int64, error)
 	// UpdateDelivery saves a delivery's state, session, attempts, reason and retry

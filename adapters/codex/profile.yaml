@@ -11,6 +11,7 @@ checks:
     run: [codex, login, status]
 
 sandbox_env: [CODEX_SANDBOX, CODEX_SANDBOX_NETWORK_DISABLED]
+session_env: [CODEX_THREAD_ID]
 
 skills_dir: .agents/skills
 

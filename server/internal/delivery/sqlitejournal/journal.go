@@ -229,6 +229,74 @@ func (j *Journal) Bindings(ctx context.Context) ([]delivery.Binding, error) {
 	return out, nil
 }
 
+// SetMode records an agent's delivery mode, replacing any earlier one.
+func (j *Journal) SetMode(ctx context.Context, agent delivery.AgentRef, mode delivery.Mode) error {
+	return j.write(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO modes (server, board, agent, mode) VALUES (?, ?, ?, ?)
+			ON CONFLICT (server, board, agent) DO UPDATE SET mode = excluded.mode`,
+			agent.Server, agent.Board, agent.Name, string(mode))
+		if err != nil {
+			return fmt.Errorf("set delivery mode of %s on %s: %w", agent.Name, agent.Board, err)
+		}
+		return nil
+	})
+}
+
+// Modes returns every agent's recorded delivery mode.
+func (j *Journal) Modes(ctx context.Context) (map[delivery.AgentRef]delivery.Mode, error) {
+	return readModes(ctx, j.db)
+}
+
+func readModes(ctx context.Context, db *sql.DB) (map[delivery.AgentRef]delivery.Mode, error) {
+	rows, err := db.QueryContext(ctx, `SELECT server, board, agent, mode FROM modes`)
+	if err != nil {
+		return nil, fmt.Errorf("list delivery modes: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := map[delivery.AgentRef]delivery.Mode{}
+	for rows.Next() {
+		var a delivery.AgentRef
+		var mode string
+		if err := rows.Scan(&a.Server, &a.Board, &a.Name, &mode); err != nil {
+			return nil, fmt.Errorf("read delivery mode: %w", err)
+		}
+		out[a] = delivery.Mode(mode)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list delivery modes: %w", err)
+	}
+	return out, nil
+}
+
+// ReadModes returns the delivery modes recorded in the journal at path without opening
+// it for writing or changing its schema, so it can be read while a daemon, perhaps an
+// older one, has it open. A journal that doesn't exist, or predates modes, has none.
+func ReadModes(ctx context.Context, path string) (map[delivery.AgentRef]delivery.Mode, error) {
+	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+		return map[delivery.AgentRef]delivery.Mode{}, nil
+	}
+	q := url.Values{}
+	q.Add("_pragma", "busy_timeout(10000)")
+	q.Add("mode", "ro")
+	db, err := sql.Open("sqlite", "file:"+path+"?"+q.Encode())
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", path, err)
+	}
+	defer func() { _ = db.Close() }()
+	var version int
+	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return nil, fmt.Errorf("read journal schema version: %w", err)
+	}
+	if version < modesVersion {
+		return map[delivery.AgentRef]delivery.Mode{}, nil
+	}
+	return readModes(ctx, db)
+}
+
+// modesVersion is the journal schema version that added delivery modes.
+const modesVersion = 3
+
 // AddDelivery records a delivery and its messages in one transaction.
 func (j *Journal) AddDelivery(ctx context.Context, d delivery.Delivery) (int64, error) {
 	if len(d.Seqs) == 0 {

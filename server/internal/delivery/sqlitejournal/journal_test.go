@@ -56,3 +56,26 @@ func TestJournalFileIsPrivateAndSurvivesReopening(t *testing.T) {
 		t.Fatalf("after reopening: %+v", got)
 	}
 }
+
+// Delivery modes can be read from the file while the daemon has it open, and a journal
+// that doesn't exist yet has none.
+func TestModesCanBeReadWithoutOpeningTheJournal(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "delivery.db")
+	got, err := ReadModes(ctx, path)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("modes of a missing journal: %v %v", got, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("reading modes created the journal")
+	}
+	j := open(t, path)
+	agent := delivery.AgentRef{Server: "http://127.0.0.1:7400", Board: "docs", Name: "reviewer"}
+	if err := j.SetMode(ctx, agent, delivery.ModeHumans); err != nil {
+		t.Fatal(err)
+	}
+	got, err = ReadModes(ctx, path)
+	if err != nil || got[agent] != delivery.ModeHumans {
+		t.Fatalf("modes while the journal is open: %v %v", got, err)
+	}
+}

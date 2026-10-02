@@ -42,6 +42,11 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "session_env": {
+      "description": "Variables set in the environment of every command the agent runs in a session, by the harness or by Aboard's hooks. A command that sees one runs inside a session, so it refuses human actions such as changing the delivery mode.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "skills_dir": {
       "description": "Where aboard init puts the Aboard skill, under the home directory.",
       "type": "string"

@@ -274,6 +274,7 @@ outside. [design/PHILOSOPHY.md](design/PHILOSOPHY.md) explains why.
 | `aboard read` | Read the board's timeline, newest messages by default. Filter with `--from`, `--role`, `--to-me`, page with `--before`, `--after`, `--around`, and paste it into a session with `--markdown`. |
 | `aboard watch` | Follow a board live in the terminal, as its human; `--from` and `--role` filter it. |
 | `aboard status` | Whether the server and delivery daemon are running, and which board and agent a command here would use. |
+| `aboard delivery [auto\|humans\|off]` | Show or change when an agent's session is woken: for every message, only for people's, or never. Change it from a terminal. |
 | `aboard resume <agent>` | Make this session act as an existing agent, with its unread messages. |
 | `aboard board policy <preset>` | Switch a board between `starter` and `recommended`. |
 | `aboard audit verify` | Verify a board's hash chain. |

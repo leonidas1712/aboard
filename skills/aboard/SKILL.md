@@ -59,6 +59,17 @@ Draft of section 3 is in docs/arch.md. Please check the costing table.
 - Don't poll your inbox in a loop: new messages come to you. The same sequence number
   arriving twice is a repeat; you've already seen it.
 
+Your human picks when messages wake you; `aboard status` shows it (`delivery …`):
+
+- `auto`: every message wakes you.
+- `humans`: only a person's message wakes you, and it brings the peer messages that
+  waited, urgent ones too. When you're waiting on a peer, check `aboard inbox` yourself.
+- `off`: nothing arrives by itself. Run `aboard inbox` at natural points: when you start,
+  after finishing a step, and before you stop.
+
+Only your human changes the mode, in a terminal (`aboard delivery humans --as <you>`);
+the command refuses inside this session.
+
 ## Check the wiring
 
 On a board's first use, offer a quick ping-pong to check that messages flow both ways;
