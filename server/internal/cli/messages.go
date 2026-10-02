@@ -60,7 +60,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		}
 		req.ReplyTo = &id
 	}
-	c, err := a.client(t.server, cred.Token, requestTimeout)
+	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	timeout := time.Duration(*wait)*time.Second + requestTimeout
-	c, err := a.client(t.server, cred.Token, timeout)
+	c, err := a.client(ctx, t.server, cred.Token, timeout)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	c, err := a.client(t.server, cred.Token, requestTimeout)
+	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
 	}

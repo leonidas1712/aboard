@@ -146,7 +146,7 @@ type proc struct {
 // startHook starts a hook command in the background.
 func (s *session) startHook(event string) *proc {
 	s.e.t.Helper()
-	cmd := exec.Command(binary, "hook", s.harness, event)
+	cmd := exec.Command(s.e.bin, "hook", s.harness, event)
 	cmd.Dir = s.e.dir
 	cmd.Env = append(append([]string{}, s.e.vars...), s.vars...)
 	cmd.Stdin = strings.NewReader(hookInput(s.id, hookEvents[event], ""))
@@ -165,7 +165,7 @@ func (s *session) startHook(event string) *proc {
 // input.
 func (s *session) startHookHeld(event string) (*proc, func()) {
 	s.e.t.Helper()
-	cmd := exec.Command(binary, "hook", s.harness, event)
+	cmd := exec.Command(s.e.bin, "hook", s.harness, event)
 	cmd.Dir = s.e.dir
 	cmd.Env = append(append([]string{}, s.e.vars...), s.vars...)
 	in, err := cmd.StdinPipe()

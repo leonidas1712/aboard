@@ -43,9 +43,12 @@ type Options struct {
 	// time it starts.
 	OwnerTokenPath string
 	Version        string
-	Log            *slog.Logger
-	Clock          clock.Clock
-	Rand           io.Reader
+	// Commit and CommitTime name the Git commit the server was built from, when known.
+	Commit     string
+	CommitTime time.Time
+	Log        *slog.Logger
+	Clock      clock.Clock
+	Rand       io.Reader
 }
 
 // JoinHost is how join lines name a local server at addr: "localhost", with the port
@@ -99,7 +102,7 @@ func Run(ctx context.Context, o Options) error {
 	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
 	defer startShutdown()
 	handler, err := api.NewHandler(api.Options{
-		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, JoinsPerMinute: 30,
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30,
 		Shutdown: shutdown,
 	})
 	if err != nil {

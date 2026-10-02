@@ -84,11 +84,11 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 		if err != nil {
 			return err
 		}
-		c, err = a.client(t.server, cred.Token, requestTimeout)
+		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 		if err != nil {
 			return err
 		}
-	} else if c, err = a.humanClient(t); err != nil {
+	} else if c, err = a.humanClient(ctx, t); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)

@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	middleware "github.com/oapi-codegen/nethttp-middleware"
@@ -31,6 +32,10 @@ type Options struct {
 	Clock     clock.Clock
 	Log       *slog.Logger
 	Version   string
+	// Commit and CommitTime name the Git commit the server was built from; empty and
+	// zero when unknown. GET /v1/info reports them with Version.
+	Commit     string
+	CommitTime time.Time
 	// JoinsPerMinute limits POST /v1/join per client address.
 	JoinsPerMinute int
 	// Shutdown is done when the server starts shutting down. Open event streams on
@@ -46,7 +51,7 @@ func NewHandler(o Options) (http.Handler, error) {
 	}
 	spec.Servers = nil // validate paths only; the API is served at any host
 
-	strict := NewStrictHandlerWithOptions(&handlers{svc: o.Service, version: o.Version, clk: o.Clock, log: o.Log, shutdown: o.Shutdown}, nil, StrictHTTPServerOptions{
+	strict := NewStrictHandlerWithOptions(&handlers{svc: o.Service, version: o.Version, commit: o.Commit, commitTime: o.CommitTime, clk: o.Clock, log: o.Log, shutdown: o.Shutdown}, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body is not valid JSON: "+err.Error(),
 				"Send a JSON body as described in the API reference."))

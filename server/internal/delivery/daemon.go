@@ -31,8 +31,9 @@ type Config struct {
 	Processes Processes
 	Clock     clock.Clock
 	Log       *slog.Logger
-	// PID is reported by the status operation.
-	PID int
+	// PID and Build are reported by the status operation.
+	PID   int
+	Build Build
 	// IdleExit overrides how long the daemon runs with no open session; zero means
 	// the default.
 	IdleExit time.Duration
@@ -385,9 +386,9 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		return
 	}
 	if req.V != ProtocolVersion {
-		_ = WriteFrame(conn, errorResponse("invalid_request",
-			fmt.Sprintf("The delivery daemon speaks protocol version %d, not %d.", ProtocolVersion, req.V),
-			"Use the same aboard binary for hooks and the daemon, or stop the running daemon so the current one starts."))
+		_ = WriteFrame(conn, errorResponse("daemon_protocol_mismatch",
+			fmt.Sprintf("The running delivery daemon (aboard %s) speaks control protocol %d; this aboard speaks %d.", d.cfg.Build.Version, ProtocolVersion, req.V),
+			"Install the same aboard as the running daemon, or run aboard down so this one starts its own."))
 		return
 	}
 	switch req.Op {
@@ -553,7 +554,7 @@ func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: Eve
 // status reports the daemon's state for aboard doctor.
 func (d *Daemon) status(ctx context.Context) Response {
 	st := &Status{
-		PID: d.cfg.PID, OpenSessions: d.openCount(), Servers: []ServerStatus{},
+		PID: d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
 		Attention: []StatusItem{}, Skipped: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
 	}
 	d.mu.Lock()

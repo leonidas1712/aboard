@@ -106,9 +106,22 @@ type WireError struct {
 
 func (e *WireError) Error() string { return e.Code + ": " + e.Message }
 
+// Build identifies the aboard build a daemon or server runs, so a newer command can
+// tell an older one apart and replace it.
+type Build struct {
+	// Version is the release version, compared as a semantic version.
+	Version string `json:"version"`
+	// Commit and CommitTime name the Git commit the binary was built from, when known.
+	Commit     string    `json:"commit,omitempty"`
+	CommitTime time.Time `json:"commit_time,omitzero"`
+}
+
 // Status is the daemon's state as aboard doctor shows it.
 type Status struct {
-	PID          int             `json:"pid"`
+	PID int `json:"pid"`
+	// Build is the daemon's build; a daemon from before builds were reported leaves it
+	// empty.
+	Build        Build           `json:"build"`
 	OpenSessions int             `json:"open_sessions"`
 	Servers      []ServerStatus  `json:"servers"`
 	Attention    []StatusItem    `json:"attention"`

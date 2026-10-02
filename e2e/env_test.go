@@ -23,6 +23,13 @@ import (
 // binary is the aboard executable built once for all tests.
 var binary string
 
+// oldBinary is aboard built with an older version stamp, playing an earlier install
+// that a person upgrades from.
+var oldBinary string
+
+// oldVersion is oldBinary's version, older than the source's.
+const oldVersion = "0.0.1"
+
 // fakeBin holds the fake codex binary, first on every test's PATH.
 var fakeBin string
 
@@ -41,6 +48,16 @@ func TestMain(m *testing.M) {
 	build.Stdout, build.Stderr = os.Stderr, os.Stderr
 	if err := build.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard:", err)
+		os.Exit(1)
+	}
+	// Named aboard too, as an installed binary is: aboard only stops processes by that name.
+	oldBinary = filepath.Join(dir, "old", "aboard")
+	old := exec.Command("go", "build", "-race", "-o", oldBinary,
+		"-ldflags", "-X github.com/leonidas1712/aboard/server/internal/cli.version="+oldVersion, "./server/cmd/aboard")
+	old.Dir = ".."
+	old.Stdout, old.Stderr = os.Stderr, os.Stderr
+	if err := old.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
 		os.Exit(1)
 	}
 	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")
@@ -66,7 +83,10 @@ func TestMain(m *testing.M) {
 
 // env is one isolated machine: its own home, working directory and local server port.
 type env struct {
-	t    *testing.T
+	t *testing.T
+	// bin is the aboard binary commands and hooks run: binary unless a test installs
+	// another one.
+	bin  string
 	home string
 	dir  string
 	addr string
@@ -80,7 +100,7 @@ func newEnv(t *testing.T) *env {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	e := &env{t: t, home: home, dir: dir, addr: freeAddr(t)}
+	e := &env{t: t, bin: binary, home: home, dir: dir, addr: freeAddr(t)}
 	e.vars = []string{
 		"HOME=" + home,
 		"USER=alex",
@@ -155,7 +175,7 @@ func (e *env) runExit(args ...string) result {
 // exec runs aboard with extra environment variables and standard input.
 func (e *env) exec(extra []string, stdin string, args ...string) result {
 	e.t.Helper()
-	cmd := exec.Command(binary, args...)
+	cmd := exec.Command(e.bin, args...)
 	cmd.Dir = e.dir
 	cmd.Env = append(append([]string{}, e.vars...), extra...)
 	cmd.Stdin = strings.NewReader(stdin)

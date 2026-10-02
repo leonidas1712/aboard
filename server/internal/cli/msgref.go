@@ -69,7 +69,7 @@ func (a *app) resolveMessageRef(ctx context.Context, ref messageRef, t target, c
 		board = ref.Board
 		cred, _ = creds.find(t.server.URL, board, names[0])
 	}
-	c, err := a.client(t.server, cred.Token, requestTimeout)
+	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return "", err
 	}

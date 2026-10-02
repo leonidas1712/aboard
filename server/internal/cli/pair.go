@@ -64,7 +64,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	c, err := a.client(srv, token, requestTimeout)
+	c, err := a.client(ctx, srv, token, requestTimeout)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	c, err := a.client(srv, token, requestTimeout)
+	c, err := a.client(ctx, srv, token, requestTimeout)
 	if err != nil {
 		return err
 	}

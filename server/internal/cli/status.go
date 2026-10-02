@@ -102,7 +102,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		fmt.Fprintf(&text, "Agent:  %s (from %s); delivery %s\n", name, label, m)
 	}
 
-	if c, err := a.humanClient(t); err == nil {
+	if c, err := a.humanClient(ctx, t); err == nil {
 		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
 		if b, err := c.board(ctx, t.board); err == nil {

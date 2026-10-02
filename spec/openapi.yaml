@@ -47,6 +47,9 @@ paths:
       tags: [server]
       operationId: getInfo
       summary: Identify the server
+      description: |
+        Returns the server's name, build and identity. A client uses the build to tell a
+        server from an older aboard apart from a broken one.
       security: []
       responses:
         "200":
@@ -649,7 +652,20 @@ components:
       required: [name, version, server_id, mode]
       properties:
         name: { type: string, enum: [aboard] }
-        version: { type: string, example: 0.1.0 }
+        version:
+          type: string
+          example: 0.1.0
+          description: The server's release version, compared as a semantic version.
+        commit:
+          type: string
+          example: 881a92f4c3d1e0b2a7f6e5d4c3b2a1f0e9d8c7b6
+          description: The Git commit the server was built from, when known.
+        commit_time:
+          type: string
+          format: date-time
+          description: |
+            When that commit was made, when known. Between two builds with the same
+            `version`, the one with the later `commit_time` is newer.
         server_id: { type: string, pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$" }
         mode: { type: string, enum: [local, team] }
 

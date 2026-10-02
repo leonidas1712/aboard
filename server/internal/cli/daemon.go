@@ -81,6 +81,9 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 	}()
 	log := slog.New(slog.NewJSONHandler(a.env.Stderr, nil))
 	journal, err := sqlitejournal.Open(ctx, p.deliveryDB())
+	if errors.Is(err, sqlitejournal.ErrNewerSchema) {
+		return dataNewer(p.deliveryDB(), err)
+	}
 	if err != nil {
 		return fmt.Errorf("open the delivery journal: %w", err)
 	}
@@ -109,6 +112,7 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 		Clock:     clock.Real{},
 		Log:       log,
 		PID:       pid,
+		Build:     currentBuild(),
 	})
 	log.Info("delivery daemon stopped", "error", errText(err))
 	if err != nil {
@@ -214,6 +218,7 @@ func (a *app) dialDaemon(ctx context.Context) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.replaceOutdatedDaemon(ctx, p)
 	if c, err := control.Dial(ctx, p.socket()); err == nil {
 		return c, nil
 	}
@@ -223,6 +228,11 @@ func (a *app) dialDaemon(ctx context.Context) (net.Conn, error) {
 	if err := a.startDaemon(p); err != nil {
 		return nil, err
 	}
+	return a.waitDaemon(ctx, p)
+}
+
+// waitDaemon connects to a delivery daemon that is starting, waiting for it to answer.
+func (a *app) waitDaemon(ctx context.Context, p paths) (net.Conn, error) {
 	deadline := time.Now().Add(daemonStartTimeout)
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()

@@ -2,6 +2,8 @@ package sqlite_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -22,4 +24,29 @@ func TestSQLiteIsABoardStore(t *testing.T) {
 		t.Cleanup(func() { _ = st.Close() })
 		return st
 	})
+}
+
+// A database written by a newer aboard, with migrations this one doesn't know, is
+// refused rather than misread.
+func TestDatabaseFromANewerAboardIsRefused(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "aboard.db")
+	st, err := sqlite.Open(ctx, path, clock.Real{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "PRAGMA user_version = 9999"); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+	if _, err := sqlite.Open(ctx, path, clock.Real{}); !errors.Is(err, sqlite.ErrNewerSchema) {
+		t.Fatalf("opening a newer database: got %v, want ErrNewerSchema", err)
+	}
 }

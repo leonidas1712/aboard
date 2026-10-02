@@ -14,9 +14,6 @@ import (
 	"strings"
 )
 
-// version is the CLI and local server version.
-const version = "0.1.0"
-
 // Env is everything a command reads from or writes to the outside world.
 type Env struct {
 	Stdin  io.Reader
@@ -46,6 +43,10 @@ func OSEnv() Env {
 type app struct {
 	env  Env
 	json bool
+	// daemonChecked and localChecked are set once this command has checked the running
+	// delivery daemon and local server for an older build, so it checks each only once.
+	daemonChecked bool
+	localChecked  bool
 }
 
 type command struct {
@@ -182,6 +183,6 @@ func runVersion(_ context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, "aboard version [--json]", 0, 0); err != nil {
 		return err
 	}
-	a.emit(map[string]string{"version": version}, "aboard "+version+"\n")
+	a.emit(currentBuild(), "aboard "+version+"\n")
 	return nil
 }

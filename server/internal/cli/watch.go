@@ -50,7 +50,7 @@ func runWatch(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	c, err := a.client(t.server, token, requestTimeout)
+	c, err := a.client(ctx, t.server, token, requestTimeout)
 	if err != nil {
 		return err
 	}

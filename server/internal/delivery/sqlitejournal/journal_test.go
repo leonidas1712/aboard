@@ -2,6 +2,7 @@ package sqlitejournal
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,5 +78,25 @@ func TestModesCanBeReadWithoutOpeningTheJournal(t *testing.T) {
 	got, err = ReadModes(ctx, path)
 	if err != nil || got[agent] != delivery.ModeHumans {
 		t.Fatalf("modes while the journal is open: %v %v", got, err)
+	}
+}
+
+// A journal written by a newer aboard, with migrations this one doesn't know, is refused
+// rather than misread.
+func TestJournalFromANewerAboardIsRefused(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "delivery.db")
+	j, err := Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := j.db.ExecContext(ctx, "PRAGMA user_version = 9999"); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(ctx, path); !errors.Is(err, ErrNewerSchema) {
+		t.Fatalf("opening a newer journal: got %v, want ErrNewerSchema", err)
 	}
 }

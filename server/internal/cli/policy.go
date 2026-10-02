@@ -8,12 +8,12 @@ import (
 )
 
 // humanClient returns a client for the board's server with the local owner's login.
-func (a *app) humanClient(t target) (*client, error) {
+func (a *app) humanClient(ctx context.Context, t target) (*client, error) {
 	token, err := a.readOwnerToken(t.server)
 	if err != nil {
 		return nil, err
 	}
-	return a.client(t.server, token, requestTimeout)
+	return a.client(ctx, t.server, token, requestTimeout)
 }
 
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset.
@@ -36,7 +36,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	c, err := a.humanClient(t)
+	c, err := a.humanClient(ctx, t)
 	if err != nil {
 		return err
 	}

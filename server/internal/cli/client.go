@@ -21,8 +21,19 @@ type client struct {
 }
 
 // client returns an API client for srv that sends token, and a fresh Idempotency-Key
-// on every write. token may be empty for calls that need no login.
-func (a *app) client(srv serverRef, token string, timeout time.Duration) (*client, error) {
+// on every write. token may be empty for calls that need no login. The first time a
+// command uses the local server, a local server from an older aboard is replaced.
+func (a *app) client(ctx context.Context, srv serverRef, token string, timeout time.Duration) (*client, error) {
+	if srv.URL == a.localServer().URL {
+		if err := a.replaceOutdatedLocal(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return a.newClient(srv, token, timeout)
+}
+
+// newClient returns an API client like client, without checking the server's build.
+func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*client, error) {
 	rnd := a.env.Rand
 	c, err := api.NewClientWithResponses(srv.URL,
 		api.WithHTTPClient(&http.Client{Timeout: timeout}),

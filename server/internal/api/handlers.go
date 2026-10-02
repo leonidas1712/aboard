@@ -17,8 +17,11 @@ import (
 type handlers struct {
 	svc     *board.Service
 	version string
-	clk     clock.Clock
-	log     *slog.Logger
+	// commit and commitTime are the server's build, reported by GET /v1/info.
+	commit     string
+	commitTime time.Time
+	clk        clock.Clock
+	log        *slog.Logger
 	// shutdown is done when the server starts shutting down; event streams end then.
 	shutdown context.Context
 }
@@ -43,7 +46,14 @@ func afterOr(a *int) int64 {
 
 func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoResponseObject, error) {
 	cfg := h.svc.Config()
-	return GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}, nil
+	info := GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}
+	if h.commit != "" {
+		info.Commit = &h.commit
+	}
+	if !h.commitTime.IsZero() {
+		info.CommitTime = &h.commitTime
+	}
+	return info, nil
 }
 
 func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject) (CreateBoardResponseObject, error) {

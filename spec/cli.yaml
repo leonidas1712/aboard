@@ -48,8 +48,11 @@ $defs:
       harness_unavailable (the session couldn't be checked for another reason) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
       inside a harness's sandbox, where it won't start one) · daemon_outdated (the running
-      daemon is from an older aboard and lacks the operation; run aboard down, then the
-      command again) · delivery_change_in_session (aboard delivery was asked to change the
+      daemon is from an older aboard, couldn't be replaced, and lacks the operation; run
+      aboard down, then the command again) · daemon_protocol_mismatch (the running daemon
+      is from a newer aboard that speaks another control protocol; install the newer
+      aboard) · data_newer (the database or delivery journal was written by a newer
+      aboard; install it) · delivery_change_in_session (aboard delivery was asked to change the
       mode from inside a harness session; a person runs it in a terminal) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
       board; details.board, details.server, details.agents) · join_line_invalid ·
@@ -110,6 +113,19 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       server_stopped: { type: boolean, description: "False when it wasn't running." }
       daemon_stopped: { type: boolean, description: "False when it wasn't running." }
+
+  # ---------- aboard version ----------
+  VersionOutput:
+    description: |
+      This binary's build. Commands compare builds to replace an older delivery daemon
+      or local server (spec/delivery.md, Upgrades). commit and commit_time are present
+      when the binary was built from a Git checkout. Text output: "aboard 0.1.0".
+    type: object
+    required: [version]
+    properties:
+      version: { type: string, examples: ["0.1.0"] }
+      commit: { type: string }
+      commit_time: { type: string, format: date-time }
 
   # ---------- aboard up ----------
   UpOutput:
@@ -342,6 +358,8 @@ $defs:
       Adds the Aboard skill to every detected harness, and the delivery hooks to Claude
       Code and Codex. Without --yes it only lists the changes it would make and exits 0
       with applied false; with --yes it makes them. Running it again changes nothing.
+      A file that differs from what this aboard would write is listed as update; init
+      --yes rewrites only Aboard's own parts of it, and leaves identical files untouched.
     type: object
     required: [applied, harnesses]
     properties:
@@ -378,7 +396,7 @@ $defs:
           type: object
           required: [name, level, code, message, fix]
           properties:
-            name: { type: string, examples: [local_server, daemon, claude_hooks, codex] }
+            name: { type: string, examples: [local_server, daemon, claude_hooks, claude_skill, codex, codex_hooks, codex_skill] }
             level: { enum: [ok, warning, error] }
             code: { type: [string, "null"], description: "Null when ok; otherwise a code from spec/delivery.md." }
             message: { type: string }
@@ -412,7 +430,8 @@ $defs:
       mode it changes it: a human action, so it refuses with delivery_change_in_session
       when run inside a harness session (any of the variables in a harness profile's
       session_env or sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …).
-      A running daemon from an older aboard fails it with daemon_outdated. Text output:
+      A running daemon from an older aboard is replaced first; if that fails and it lacks
+      the operation, the command fails with daemon_outdated. Text output:
         reviewer on writer-reviewer: delivery humans (wakes only for messages from people)
         reviewer on writer-reviewer: delivery now off (delivers nothing; the agent reads its inbox itself)
       "now" marks a change. auto reads "(wakes for every message)".

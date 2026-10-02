@@ -225,9 +225,10 @@ Changing the mode is a human action: the command refuses with
 from the variables listed in each harness profile's `session_env` and `sandbox_env`
 (`ABOARD_SESSION` and `CLAUDECODE` in Claude Code, `CODEX_THREAD_ID` in Codex), and says
 to run it in a terminal. Showing the mode reads the journal and works anywhere. A running
-daemon from an older aboard doesn't know the operation; the command then fails with
-`daemon_outdated` and says to run `aboard down` and try again, which starts the current
-daemon. `aboard status` shows the mode on its Agent line.
+daemon from an older aboard is replaced first (see [Upgrades](#upgrades)); if it couldn't
+be replaced and doesn't know the operation, the command fails with `daemon_outdated` and
+says to run `aboard down` and try again, which starts the current daemon. `aboard status`
+shows the mode on its Agent line.
 
 ### Anything else
 
@@ -358,6 +359,12 @@ unconfirmed.
 - Operations: register a session, mark busy, wait for a delivery, ask for urgent
   messages, report a session's end, bind an agent, show or set an agent's delivery
   mode, report status.
+- The status answer carries the daemon's build as `build: {version, commit,
+  commit_time}`, the same fields as the server's `GET /v1/info`. A daemon whose status
+  has no `build` is from an older aboard.
+- A request with a protocol version the daemon doesn't speak fails with
+  `daemon_protocol_mismatch`, naming both versions and saying to install the same
+  aboard as the running daemon, or to run `aboard down` so the current one starts.
 
 ## Setup
 
@@ -369,6 +376,67 @@ files changes). `aboard init --yes` makes the changes; running it again changes 
 A harness counts as detected when its folder exists or its command is on the PATH. Both
 harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
 stays with the person.
+
+An installed file is out of date when it differs from what this `aboard init` would write
+now: the skill compared byte for byte, and each Aboard hook entry compared with the entry
+`aboard init` would write (the absolute path of this aboard, then `hook <harness>
+<event>`, with its options). Installed files carry no version mark. Hook commands run the
+installed binary by its path, so after an upgrade at the same path they already run the
+new one, and the entries stay byte for byte the same; the harnesses ask the person to
+trust hooks only when an entry changes, so an upgrade that doesn't change the hooks never
+asks again. `aboard doctor` reports a skill or hook entry that differs, and says to run
+`aboard init --yes`, which rewrites only what differs and only Aboard's own skill file
+and hook entries.
+
+## Upgrades
+
+What we want: installing a new `aboard` upgrades everything on the machine, while
+sessions stay open, without losing a message.
+
+How Aboard does it: hooks run the installed binary by its path, so the next hook runs the
+new one. When a command or hook from a newer build reaches a delivery daemon or a local
+server from an older build, it replaces it, then carries on:
+
+1. It asks the running one for its build: the daemon's `status` answer, or the local
+   server's `GET /v1/info`.
+2. If that build is older than its own, it takes the lock `<state>/aboard/upgrade.lock`
+   and asks again, so of several commands racing, one replaces it and the others find
+   the current one already running.
+3. It stops the old one with SIGTERM, only if that process is `aboard`, waits until it
+   has exited (for the daemon: until `daemon.lock` is free), and starts its own binary.
+   If an older hook restarted an older daemon in between, it tries again, up to three
+   times.
+4. It releases the lock and runs the command against the new one.
+
+The journal and the database are on disk, so nothing is lost: deliveries handed and not
+confirmed go back to `pending` when the new daemon starts, and are handed again (see
+[The journal](#the-journal)). A command inside a harness's sandbox never replaces the
+daemon, because it couldn't start the new one. `aboard down` and `aboard doctor`'s
+reading of the local server never replace anything. If replacing fails, the command uses
+the old one, and `aboard doctor` reports `daemon_outdated` or `server_outdated` with the
+fix `aboard down`.
+
+A command never replaces a newer build with an older one. An older command meeting a
+newer daemon or server uses it: the control socket and the API only gain operations and
+fields. If the daemon speaks a protocol the older command doesn't, the command fails with
+`daemon_protocol_mismatch` and says to install the newer aboard.
+
+**Comparing builds.** Each build has a release `version`, set when it is built (`go
+build -ldflags "-X github.com/leonidas1712/aboard/server/internal/cli.version=0.2.0"`;
+`0.1.0` otherwise), and, when built from a Git checkout, the `commit` and its
+`commit_time`, read from the Go build information. `aboard version --json` prints all
+three. Build A is older than build B when:
+
+- A's version is lower than B's, compared as semantic versions (`0.1.0` < `0.1.1` <
+  `0.2.0-rc.1` < `0.2.0`); a missing or unreadable version is lower than any other; or
+- the versions are equal, both have a `commit_time`, and A's is earlier.
+
+Anything else counts as the same build, and nothing is replaced: two builds from the same
+commit, with uncommitted changes, need `aboard down` to switch.
+
+**Stored data.** The database and the journal apply their numbered migrations when they
+open. A binary that finds data written by a newer schema than it knows refuses to start
+with `data_newer`, and says to install the current aboard, rather than misreading it.
 
 ## `aboard doctor`
 
@@ -402,6 +470,10 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `login_missing` | No human login for a server with bound agents | `aboard connect` |
 | `delivery_attention` | Deliveries stopped after repeated failures | Per delivery, from its reason |
 | `delivery_skipped` | Messages too large for automatic delivery | Read them with `aboard read` |
+| `daemon_outdated` | The running daemon is from an older aboard and couldn't be replaced (warning) | `aboard down` |
+| `server_outdated` | The local server is from an older aboard (warning); the next command that uses it replaces it | Run any command, or `aboard down` |
+| `skill_outdated` | An installed skill differs from the one this aboard installs (warning) | `aboard init --yes` |
+| `hooks_outdated` | Aboard's hook entries differ from the ones this aboard installs (warning) | `aboard init --yes` |
 
 ## Failures and what the person sees
 

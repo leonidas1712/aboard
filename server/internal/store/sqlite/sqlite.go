@@ -55,6 +55,16 @@ func Open(ctx context.Context, path string, clk clock.Clock) (*Store, error) {
 	return s, nil
 }
 
+// ErrNewerSchema means the data was written by a newer aboard, whose schema this one
+// doesn't know; reading it could misread it, so Open refuses.
+var ErrNewerSchema = errors.New("written by a newer aboard")
+
+// migrationNumber returns the number a migration's file name starts with, or 0.
+func migrationNumber(name string) int {
+	n, _ := strconv.Atoi(strings.SplitN(strings.TrimPrefix(name, "migrations/"), "_", 2)[0])
+	return n
+}
+
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
@@ -68,6 +78,9 @@ func (s *Store) migrate(ctx context.Context) error {
 		return fmt.Errorf("list migrations: %w", err)
 	}
 	sort.Strings(names)
+	if latest := migrationNumber(names[len(names)-1]); version > latest {
+		return fmt.Errorf("%w: the database is at schema %d, and this aboard knows up to %d", ErrNewerSchema, version, latest)
+	}
 	for _, name := range names {
 		n, err := strconv.Atoi(strings.SplitN(strings.TrimPrefix(name, "migrations/"), "_", 2)[0])
 		if err != nil {

@@ -140,6 +140,14 @@ which agent it is.
 anything doesn't work, run `aboard doctor`. It checks each part and prints the fix for
 anything that's wrong.
 
+### Upgrading
+
+Install the new binary the same way. Running pieces are replaced automatically: the next command or hook
+from the new `aboard` stops the older delivery daemon and local server and starts its
+own, and messages waiting for delivery are still delivered. Open sessions keep working;
+`aboard doctor` lists anything still out of date, such as a skill or hooks that changed
+in the new release, with the fix `aboard init --yes`.
+
 ## How it works
 
 ```mermaid

@@ -898,7 +898,8 @@ machines that use them. Nothing should break when that happens:
   by its path, so a new binary is used by the next hook. A running delivery daemon or
   local server from an older build is replaced automatically when a command or hook
   from the newer build reaches it; their state (the journal, the database) is durable,
-  so nothing is lost. Until that lands, `aboard down` does it by hand.
+  so nothing is lost. [spec/delivery.md](../spec/delivery.md#upgrades) says how builds
+  compare and how two commands racing to replace one are kept apart.
 - **Installed files carry a version.** The skill and the hook entries `aboard init`
   writes are marked with the version that wrote them. `aboard doctor` reports any that
   are out of date, and `aboard init --yes` updates them in place without touching
