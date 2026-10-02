@@ -155,9 +155,10 @@ func (l *lab) trustInClaude(dir string) {
 	}
 }
 
-// waitClaudeReady answers Claude Code's first-run questions and waits for its prompt.
-// With the person's own config, a new project shows the workspace trust question; since
-// the project pre-approves aboard commands, its default answer is "No, exit".
+// waitClaudeReady answers Claude Code's workspace trust question and waits for its
+// prompt. With the person's own config, a new project shows that question; since the
+// project pre-approves aboard commands, its default answer is "No, exit". First-run
+// setup isn't answered: it would write the person's own settings.
 func (p *pane) waitClaudeReady() {
 	p.l.t.Helper()
 	p.l.waitFor(90*time.Second, p.name+": Claude Code to show its prompt", func() bool {
@@ -173,7 +174,8 @@ func (p *pane) waitClaudeReady() {
 			p.keys("Enter")
 			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Yes, I trust this folder") })
 		case strings.Contains(s, "Choose the text style"):
-			p.keys("Enter")
+			// Answering would save the theme in the person's own settings.json.
+			p.l.t.Fatalf("%s: Claude Code shows its first-run setup. Start claude once by hand to finish it, then run the suite again.", p.name)
 		case claudeReady(s):
 			return true
 		}
