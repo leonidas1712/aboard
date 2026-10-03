@@ -145,17 +145,19 @@ func TestMeNamesTheCaller(t *testing.T) {
 
 	me, err := s.client(s.owner).GetMeWithResponse(ctx)
 	mustStatus(t, me, err, 200)
-	if me.JSON200.Kind != api.MeKindHuman || me.JSON200.Name != "alex" || me.JSON200.Board != nil || me.JSON200.Owner != nil || me.JSON200.Browser {
+	if me.JSON200.Kind != api.MeKindHuman || me.JSON200.Name != "alex" || me.JSON200.Board != nil || me.JSON200.Owner != nil || me.JSON200.Browser ||
+		!strings.HasPrefix(me.JSON200.Id, "hum_") {
 		t.Fatalf("person: %s", me.Body)
 	}
+	person := me.JSON200.Id
 	me, err = s.client(s.browserToken(s.owner)).GetMeWithResponse(ctx)
 	mustStatus(t, me, err, 200)
-	if me.JSON200.Kind != api.MeKindHuman || me.JSON200.Name != "alex" || !me.JSON200.Browser {
+	if me.JSON200.Kind != api.MeKindHuman || me.JSON200.Name != "alex" || !me.JSON200.Browser || me.JSON200.Id != person {
 		t.Fatalf("browser: %s", me.Body)
 	}
 	me, err = s.client(writer).GetMeWithResponse(ctx)
 	mustStatus(t, me, err, 200)
-	if me.JSON200.Kind != api.MeKindAgent || me.JSON200.Name != "writer" || me.JSON200.Board == nil || *me.JSON200.Board != boardName ||
+	if me.JSON200.Kind != api.MeKindAgent || me.JSON200.Name != "writer" || !strings.HasPrefix(me.JSON200.Id, "mem_") || me.JSON200.Board == nil || *me.JSON200.Board != boardName ||
 		me.JSON200.Owner == nil || *me.JSON200.Owner != "alex" {
 		t.Fatalf("agent: %s", me.Body)
 	}

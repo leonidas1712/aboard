@@ -117,6 +117,7 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 		return nil, err
 	}
 	out := struct {
+		ID      string  `json:"id"`
 		Kind    string  `json:"kind"`
 		Name    string  `json:"name"`
 		Board   *string `json:"board"`
@@ -124,9 +125,9 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 		Browser bool    `json:"browser"`
 	}{Browser: me.Browser}
 	if me.Agent != nil {
-		out.Kind, out.Name, out.Board, out.Owner = "agent", me.Agent.Name, &me.Board, me.Agent.Owner
+		out.ID, out.Kind, out.Name, out.Board, out.Owner = me.Agent.ID, "agent", me.Agent.Name, &me.Board, me.Agent.Owner
 	} else {
-		out.Kind, out.Name = "human", me.Human.Name
+		out.ID, out.Kind, out.Name = me.Human.ID, "human", me.Human.Name
 	}
 	return convert[GetMe200JSONResponse](out)
 }

@@ -873,8 +873,15 @@ components:
 
     Me:
       type: object
-      required: [kind, name, board, owner, browser]
+      required: [id, kind, name, board, owner, browser]
       properties:
+        id:
+          type: string
+          pattern: "^(hum|mem)_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: |
+            Stable for as long as the person or agent exists: a person's id (`hum_…`) is
+            the same on every board, and an agent's (`mem_…`) is its seat on its board,
+            the `id` of its member. Clients can key anything per person on it.
         kind: { type: string, enum: [human, agent] }
         name:
           type: string
