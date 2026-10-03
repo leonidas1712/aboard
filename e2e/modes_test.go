@@ -17,7 +17,7 @@ import (
 // login, the way the web UI or a script on the API would.
 func (e *env) postAsOwner(board, body string, urgent bool) {
 	e.t.Helper()
-	token, err := os.ReadFile(filepath.Join(e.home, ".config", "aboard", "local-owner-token"))
+	token, err := os.ReadFile(filepath.Join(e.configDir(), "local-owner-token"))
 	if err != nil {
 		e.t.Fatalf("no owner login: %v", err)
 	}

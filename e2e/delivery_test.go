@@ -200,7 +200,7 @@ func TestStopHookSurvivesDaemonRestart(t *testing.T) {
 		t.Fatal("stop hook returned early")
 	}
 
-	pidFile := filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid")
+	pidFile := filepath.Join(e.stateDir(), "daemon.pid")
 	raw, err := os.ReadFile(pidFile)
 	if err != nil {
 		t.Fatalf("no daemon pid file: %v", err)
@@ -503,7 +503,7 @@ func TestLateStopHookAfterAPromptGetsNoBundle(t *testing.T) {
 
 // daemonRunning reports whether this env's delivery daemon is running.
 func (e *env) daemonRunning() bool {
-	raw, err := os.ReadFile(filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid"))
+	raw, err := os.ReadFile(filepath.Join(e.stateDir(), "daemon.pid"))
 	if err != nil {
 		return false
 	}

@@ -93,7 +93,7 @@ func claudeLoggedIn(env []string) bool {
 
 // startClaude starts Claude Code in dir, the way a person starts it in a project, and
 // waits until it takes a prompt. Commands it runs see the lab's Aboard state through the
-// XDG variables it was started with, and so do its hooks.
+// ABOARD_HOME it was started with, and so do its hooks.
 func (l *lab) startClaude(name, dir string) *pane {
 	l.t.Helper()
 	setup := requireClaude(l.t)
@@ -543,7 +543,7 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 	}
 	words := []string{"env"}
 	for _, kv := range env {
-		for _, name := range []string{"PATH=", "XDG_CONFIG_HOME=", "XDG_DATA_HOME=", "XDG_STATE_HOME=", "ABOARD_LOCAL_ADDR=", "CODEX_HOME="} {
+		for _, name := range []string{"PATH=", "ABOARD_HOME=", "ABOARD_LOCAL_ADDR=", "CODEX_HOME="} {
 			if strings.HasPrefix(kv, name) {
 				words = append(words, shellQuote(kv))
 			}

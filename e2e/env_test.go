@@ -112,9 +112,7 @@ func newEnv(t *testing.T) *env {
 		"PATH=" + fakeBin + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
 		"FAKE_CODEX_THREADS=" + filepath.Join(home, "fake-codex-threads.json"),
-		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"),
-		"XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
-		"XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
+		"ABOARD_HOME=" + filepath.Join(home, "aboard"),
 		"ABOARD_LOCAL_ADDR=" + e.addr,
 	}
 	t.Cleanup(e.stopServer)
@@ -127,15 +125,18 @@ func (e *env) port() string {
 	return port
 }
 
-func (e *env) dataDir() string {
-	return filepath.Join(e.home, ".local", "share", "aboard")
-}
+// aboardHome is the env's ABOARD_HOME, which holds all of aboard's files.
+func (e *env) aboardHome() string { return filepath.Join(e.home, "aboard") }
+
+func (e *env) dataDir() string   { return filepath.Join(e.aboardHome(), "data") }
+func (e *env) configDir() string { return filepath.Join(e.aboardHome(), "config") }
+func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state") }
 
 // stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
 	for _, pidFile := range []string{
 		filepath.Join(e.dataDir(), "server.pid"),
-		filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid"),
+		filepath.Join(e.stateDir(), "daemon.pid"),
 	} {
 		raw, err := os.ReadFile(pidFile)
 		if err != nil {
