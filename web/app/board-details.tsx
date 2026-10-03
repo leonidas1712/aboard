@@ -1,17 +1,20 @@
 "use client";
 
-// Board details: opened from the board's title in the header. It shows the facts about
-// the board (title, name, id, server, policy, when it was made, who is on it), copies
-// them as plain text, and adds an agent: it creates a join code as the person and shows
-// the prompt to paste into the agent's session, the same one `aboard invite` prints.
+// The facts about a board and adding an agent to it, both in the board panel. Details
+// shows the board's name, id, server, policy and when it was made, copies them as plain
+// text, and says whether the record verifies. AddAgent creates a join code as the
+// person and shows the prompt to paste into the agent's session, the same one
+// `aboard invite` prints.
 
-import { Check, ChevronDown, Copy } from "lucide-react";
+import { Check, Copy, ShieldAlert, ShieldCheck, UserPlus, X } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Board, post } from "./api";
 import { Problem } from "./chrome";
-import { count, policyName } from "./words";
+import { problemText } from "./record";
+import type { RecordCheck } from "./use-board";
+import { policyName } from "./words";
 
 /** invitePrompt is the sentence under the join line; `aboard invite` prints the same. */
 export const invitePrompt =
@@ -19,24 +22,23 @@ export const invitePrompt =
 
 type JoinCode = { join_line: string; role: string; expires_at: string };
 
-type Props = {
+type DetailsProps = {
   board: Board;
   agents: number;
   people: number;
+  record: RecordCheck;
 };
 
-/** BoardDetails is the board's title in the header, as a button that opens its details. */
-export function BoardDetails({ board, agents, people }: Props) {
+/** Details lists the facts about a board, copies them, and shows the record check. */
+export function Details({ board, agents, people, record }: DetailsProps) {
   const title = board.title?.trim();
   const server = typeof window === "undefined" ? "" : window.location.origin;
   const facts: [string, string][] = [
-    ["Title", title || "None"],
     ["Name", board.name],
     ["ID", board.id],
     ["Server", server],
     ["Policy", policyName(board.policy)],
     ["Created", `${new Date(board.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} by ${board.created_by.name}`],
-    ["Who's here", `${count(agents, "agent", "agents")}, ${count(people, "person", "people")}`],
   ];
   const plain = [
     `Board: ${title ? `${title} (${board.name})` : board.name}`,
@@ -49,37 +51,17 @@ export function BoardDetails({ board, agents, people }: Props) {
   ].join("\n");
 
   return (
-    <Dialog>
-      <h1 className="min-w-0">
-        <DialogTrigger
-          className="board-title group -mx-2 flex min-h-11 min-w-0 flex-wrap items-center gap-x-2.5 rounded-control px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected data-[state=open]:bg-selected"
-          title="Board details"
-        >
-          <span className="text-title font-bold break-words">{title || board.name}</span>
-          {title && <span className="text-meta break-all text-muted">{board.name}</span>}
-          <ChevronDown className="size-3.5 text-muted" strokeWidth={1.5} aria-hidden />
-          <span className="sr-only">, board details</span>
-        </DialogTrigger>
-      </h1>
-      <DialogContent className="board-details">
-        <div className="px-6 pt-5 pb-5">
-          <DialogTitle className="pr-10">Board details</DialogTitle>
-          <DialogDescription className="sr-only">What this board is, and how to add an agent to it.</DialogDescription>
-
-          <dl className="mt-3 grid grid-cols-[76px_minmax(0,1fr)] gap-x-3 gap-y-1">
-            {facts.map(([label, value]) => (
-              <Fact key={label} label={label}>
-                {value}
-              </Fact>
-            ))}
-          </dl>
-          <div className="mt-3">
-            <CopyButton text={plain} label="Copy details" variant="secondary" />
-          </div>
-        </div>
-        <AddAgent board={board} />
-      </DialogContent>
-    </Dialog>
+    <div className="board-facts flex flex-col gap-3">
+      <dl className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-1">
+        {facts.map(([label, value]) => (
+          <Fact key={label} label={label}>
+            {value}
+          </Fact>
+        ))}
+      </dl>
+      <CopyButton text={plain} label="Copy details" variant="secondary" />
+      <RecordLine record={record} />
+    </div>
   );
 }
 
@@ -92,102 +74,159 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** RecordLine says whether the browser's check of the board's hash chain passed. */
+function RecordLine({ record }: { record: RecordCheck }) {
+  if (record.state === "failed") {
+    return (
+      <div role="alert" className="record rounded-box bg-attention px-3.5 py-3 text-ink">
+        <p className="flex items-center gap-2 font-bold">
+          <ShieldAlert className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
+          Record doesn&apos;t verify
+        </p>
+        <p className="mt-1">{problemText(record.problem)}</p>
+        <p className="mt-1">
+          Run <code>aboard audit verify</code> in a terminal for the details.
+        </p>
+      </div>
+    );
+  }
+  if (record.state === "checking") return <p className="record text-meta text-muted">Checking the record…</p>;
+  const n = record.count;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+        >
+          <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
+          Record verified · {n} {n === 1 ? "event" : "events"}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" className="record-explained">
+        Every event on this board is linked to the one before it by a hash. Your browser just re-checked all {n} and found none
+        changed. <code>aboard audit verify</code> runs the same check.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
- * AddAgent creates a join code for a role and shows the prompt to paste. The role picker
- * shows only when the board has more than one role; changing the role asks for a new code.
+ * AddAgent is a button that creates a join code for the board's member role (or its
+ * first role) and shows the prompt to paste. When the board has more than one role, a
+ * picker beside the prompt changes the role, which makes a new code.
  */
-function AddAgent({ board }: { board: Board }) {
+export function AddAgent({ board }: { board: Board }) {
   const roles = Object.keys(board.roles).sort((a, b) => (a === "member" ? -1 : b === "member" ? 1 : a.localeCompare(b)));
   const [role, setRole] = useState(roles.includes("member") ? "member" : (roles[0] ?? "member"));
+  const [open, setOpen] = useState(false);
   const [code, setCode] = useState<JoinCode | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const pick = useId();
   const promptId = useId();
+  const opener = useRef<HTMLButtonElement>(null);
 
-  const create = async () => {
+  const create = async (r: string) => {
+    setOpen(true);
     setBusy(true);
     setError(null);
+    setCode(null);
     try {
-      setCode(await post<JoinCode>(`/v1/boards/${encodeURIComponent(board.name)}/join-codes`, { role }));
+      setCode(await post<JoinCode>(`/v1/boards/${encodeURIComponent(board.name)}/join-codes`, { role: r }));
     } catch (e) {
       setError(e);
     } finally {
       setBusy(false);
     }
   };
+  const close = () => {
+    setOpen(false);
+    setCode(null);
+    setError(null);
+    requestAnimationFrame(() => opener.current?.focus());
+  };
   const prompt = code ? `${code.join_line}\n${invitePrompt}` : "";
 
-  return (
-    <section aria-labelledby="add-agent" className="add-agent border-t border-rule px-6 pt-4 pb-6">
-      <h2 id="add-agent" className="text-body font-bold">
+  if (!open) {
+    return (
+      <Button ref={opener} type="button" variant="secondary" className="add-agent w-full" onClick={() => create(role)}>
+        <UserPlus strokeWidth={1.5} aria-hidden />
         Add an agent
-      </h2>
-      <p className="mt-0.5 text-muted">
-        Make a join code and paste the prompt into the agent&apos;s session. Any number of agents can join with the code until
-        it expires.
+      </Button>
+    );
+  }
+
+  return (
+    <section aria-labelledby={`${promptId}-title`} className="add-agent flex flex-col gap-3 rounded-box bg-surface px-3.5 pt-2 pb-3.5 animate-fade-in">
+      <div className="flex items-center justify-between gap-2">
+        <h4 id={`${promptId}-title`} className="font-bold">
+          Add an agent
+        </h4>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close Add an agent"
+          title="Close"
+          className="-mr-2 inline-flex size-9 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+        >
+          <X className="size-4" strokeWidth={1.5} aria-hidden />
+        </button>
+      </div>
+      <p className="-mt-2 text-meta text-muted">
+        Paste the prompt into the agent&apos;s session. Any number of agents can join with it until it expires.
       </p>
 
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        {roles.length > 1 ? (
-          <div className="flex flex-col gap-1">
-            <label htmlFor={pick} className="text-meta font-bold text-muted">
-              Joins as
-            </label>
-            <select
-              id={pick}
-              value={role}
-              onChange={(e) => {
-                setRole(e.target.value);
-                setCode(null);
-              }}
-              className="h-11 min-w-[10rem] rounded-control border border-field-border bg-surface px-3.5 text-ink"
-            >
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <p className="self-center">
-            Joins as <strong>{role}</strong>
-          </p>
-        )}
-        {!code && (
-          <Button type="button" onClick={create} disabled={busy}>
-            {busy ? "Making a code…" : "Add an agent"}
-          </Button>
-        )}
-      </div>
-      {roles.length > 1 && board.roles[role]?.charter && <p className="mt-2 text-meta text-muted">{board.roles[role].charter}</p>}
-
-      {error !== null && (
-        <div className="mt-4">
-          <Problem error={error} />
+      {roles.length > 1 && (
+        <div className="flex flex-col gap-1">
+          <label htmlFor={pick} className="text-meta font-bold text-muted">
+            Joins as
+          </label>
+          <select
+            id={pick}
+            value={role}
+            disabled={busy}
+            onChange={(e) => {
+              setRole(e.target.value);
+              void create(e.target.value);
+            }}
+            className="h-11 w-full rounded-control border border-field-border bg-surface px-3 text-ink"
+          >
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          {board.roles[role]?.charter && <p className="text-meta text-muted">{board.roles[role].charter}</p>}
         </div>
       )}
 
+      {error !== null && <Problem error={error} />}
+
+      {busy && (
+        <p className="text-meta text-muted" role="status">
+          Making a join code…
+        </p>
+      )}
+
       {code && (
-        <div className="mt-4 flex flex-col gap-3 animate-fade-in">
+        <div className="flex flex-col gap-3 animate-fade-in">
           <div className="flex flex-col gap-1">
             <p id={promptId} className="text-meta font-bold text-muted">
               Prompt for the agent&apos;s session
             </p>
             <pre
               aria-labelledby={promptId}
-              className="invite-prompt rounded-control border border-rule bg-background px-3.5 py-3 font-sans text-body whitespace-pre-wrap break-words select-all"
+              className="invite-prompt rounded-control border border-rule bg-background px-3 py-2.5 font-sans text-body whitespace-pre-wrap break-words select-all"
             >
               {prompt}
             </pre>
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <CopyButton text={prompt} label="Copy prompt" variant="primary" />
-            <p className="text-meta text-muted">
-              Joins as {code.role}. Works until {until(code.expires_at)}.
-            </p>
-          </div>
+          <CopyButton text={prompt} label="Copy prompt" variant="primary" />
+          <p className="text-meta text-muted">
+            Joins as {code.role}. Works until {until(code.expires_at)}.
+          </p>
         </div>
       )}
     </section>
