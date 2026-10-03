@@ -31,6 +31,8 @@ type sessionMsg struct {
 	checkAlive bool
 	// modeChanged says an agent's delivery mode changed, so what may be delivered did.
 	modeChanged bool
+	// renewPresence asks the session to report its agents' presence again.
+	renewPresence bool
 }
 
 type inboxResult struct {
@@ -65,8 +67,13 @@ type session struct {
 	// inTurn is true while a queueing harness runs a turn, as its prompt and stop hooks
 	// report. Urgent messages then wait for a tool hook instead of the queue.
 	inTurn bool
-	waiter *waiter
-	agents map[AgentRef]*agentState
+	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
+	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
+	working bool
+	// reported is the presence last reported for each agent.
+	reported map[AgentRef]Presence
+	waiter   *waiter
+	agents   map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
 	restored bool
 	// refreshing holds refreshes whose results a waiting hook should see before a
@@ -103,6 +110,7 @@ func (s *session) run(ctx context.Context) error {
 		s.d.setOpen(s.key, s.open)
 		s.checkAlive(ctx)
 		s.refreshAll(false)
+		s.reportPresence(false)
 	}
 	for {
 		var timer <-chan time.Time
@@ -113,10 +121,13 @@ func (s *session) run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-s.mail.ready():
+			renew := false
 			for _, m := range s.mail.take() {
+				renew = renew || m.renewPresence
 				s.handle(ctx, m)
 			}
 			s.tryDeliver(ctx)
+			s.reportPresence(renew)
 		case <-timer:
 			s.tryDeliver(ctx)
 		}
@@ -143,6 +154,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.checkAlive(ctx)
 	case m.modeChanged:
 		s.refreshAll(false)
+	case m.renewPresence:
 	default:
 		m.reply <- s.onRequest(ctx, m.req)
 	}
@@ -153,7 +165,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	s.noteProcess(ctx, req)
 	switch req.Op {
 	case OpRegister:
-		s.inTurn = false
+		s.inTurn, s.working = false, false
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
 		} else {
@@ -164,6 +176,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	case OpPrompt:
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()
+		s.working = true
 		if !req.Wake {
 			s.event(ctx, req.Boot)
 		}
@@ -173,15 +186,16 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 	case OpUrgent:
 		s.busyAt = s.now()
+		s.working = true
 		s.event(ctx, req.Boot)
 		ok.Bundle = s.handUrgent(ctx)
 	case OpTurnEnd:
-		s.inTurn = false
+		s.inTurn, s.working = false, false
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
 			s.gatherUntil = s.now()
 		}
 	case OpEnd:
-		s.inTurn = false
+		s.inTurn, s.working = false, false
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil
@@ -221,7 +235,47 @@ func (s *session) checkAlive(ctx context.Context) {
 		s.waiter.Release()
 		s.waiter = nil
 	}
+	s.working = false
 	s.setOpen(ctx, false)
+}
+
+// presence is what the session's agent is doing now.
+func (s *session) presence() Presence {
+	switch {
+	case !s.open:
+		return PresenceNoSession
+	case s.working:
+		return PresenceWorking
+	default:
+		return PresenceIdle
+	}
+}
+
+// reportPresence reports the presence of each agent the session holds when it changed,
+// or, with renew, again while it isn't no_session, so the server doesn't let it run
+// out. no_session isn't renewed: an unrenewed presence becomes it anyway.
+func (s *session) reportPresence(renew bool) {
+	p := s.presence()
+	for ref, a := range s.agents {
+		if a.adopting {
+			continue
+		}
+		if last, ok := s.reported[ref]; ok && last == p && (!renew || p == PresenceNoSession) {
+			continue
+		}
+		s.reported[ref] = p
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: p})
+	}
+}
+
+// leavePresence reports that an agent leaving the session has no session now, unless
+// that is already what was reported. The session that takes the agent next reports
+// after this, through the same server connection, so its report wins.
+func (s *session) leavePresence(ref AgentRef) {
+	if last, ok := s.reported[ref]; ok && last != PresenceNoSession {
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession})
+	}
+	delete(s.reported, ref)
 }
 
 func (s *session) agentRefs() []AgentRef {
@@ -328,6 +382,7 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		s.waiter.Release()
 	}
 	s.waiter = w
+	s.working = false
 	w.accepted()
 	if !s.open {
 		s.setOpen(ctx, true)
@@ -375,6 +430,7 @@ func (s *session) unbind(ctx context.Context, agent AgentRef) {
 	// An agent still being adopted is given up by its previous session, which puts its
 	// bundles back to pending; the adoption, when it arrives, finds no agent here.
 	delete(s.agents, agent)
+	s.leavePresence(agent)
 	s.d.dropOwner(agent, s)
 }
 
@@ -393,6 +449,7 @@ func (s *session) onRelease(ctx context.Context, agent AgentRef, to *session) {
 			}
 		}
 		delete(s.agents, agent)
+		s.leavePresence(agent)
 	}
 	to.mail.put(sessionMsg{adopt: &agent})
 }
@@ -730,6 +787,9 @@ func (s *session) tryDeliver(ctx context.Context) {
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, Bundle: c.text, Waiter: s.waiterOrNil()})
 	if s.adapter.WaitsForIdle() {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
+	}
+	if err == nil && s.adapter.WaitsForIdle() {
+		s.working = true // the waiting hook took the bundle and wakes the session with it
 	}
 	switch {
 	case err == nil && confirmed:

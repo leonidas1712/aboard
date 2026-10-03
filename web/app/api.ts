@@ -1,6 +1,6 @@
 // The few parts of Aboard's public API the UI reads (spec/openapi.yaml). The page logs
 // in with the one-time code `aboard open` puts in the address's fragment, keeps the
-// read-only browser token it gets for it, and sends that token with every request. No
+// browser token it gets for it, which acts as that person, and sends it with every request. No
 // cookie is involved.
 
 export type Board = {

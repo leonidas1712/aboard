@@ -392,7 +392,7 @@ $defs:
       starts the local server if it isn't running, asks it for a one-time login code
       (POST /v1/login-codes) with the human login, and opens
       <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
-      send to a server: the page exchanges it once for a read-only browser token
+      send to a server: the page exchanges it once for a browser token that acts as the owner
       (POST /v1/browser-tokens), keeps the token in its own storage, removes the code from
       the address bar and shows the board, or the board list when no board is selected. The board is --board, then the
       project's .aboard file; with neither, the board list opens. A --board the owner
@@ -594,7 +594,7 @@ $defs:
         Daemon: running (pid 4182), 2 open sessions
         Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
-        Agent:  writer (from --as); delivery auto
+        Agent:  writer (from --as); delivery auto; idle
         Policy: starter (a starting point; tighten with aboard board policy recommended)
         People: alex (admin), sam (member)
       The People line appears only when more than one person is on the board; with one
@@ -605,7 +605,7 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy, people]
+    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       setup:
@@ -636,6 +636,12 @@ $defs:
       delivery:
         enum: [auto, humans, off, null]
         description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
+      presence:
+        enum: [working, idle, waiting, no_session, null]
+        description: |
+          What the agent's session is doing, as the board's members see it
+          (Member.presence in openapi.yaml). It ends the Agent line, with no_session
+          written "no session". Null with no agent, or when the server can't be reached.
       agents:
         type: array
         description: This machine's agents on the board, sorted.

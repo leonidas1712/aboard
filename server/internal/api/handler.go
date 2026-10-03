@@ -132,8 +132,7 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 }
 
 // authenticate resolves the bearer token for every route except GET /v1/info and
-// POST /v1/browser-tokens, refuses every request but GET made with a browser token,
-// and rate limits join attempts by client address.
+// POST /v1/browser-tokens, and rate limits join attempts by client address.
 func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/info" || r.URL.Path == "/v1/browser-tokens" {
@@ -157,10 +156,6 @@ func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handl
 		p, err := o.Service.Authenticate(r.Context(), token)
 		if err != nil {
 			writeError(w, o.Log, err)
-			return
-		}
-		if p.ReadOnly && r.Method != http.MethodGet {
-			writeError(w, o.Log, browserReadOnly())
 			return
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)

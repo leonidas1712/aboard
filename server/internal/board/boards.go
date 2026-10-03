@@ -213,7 +213,7 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 	return v, err
 }
 
-// Members lists a board's members.
+// Members lists a board's members, each agent with its current presence.
 func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Member, error) {
 	var out []Member
 	err := s.st.Read(ctx, func(tx ReadTx) error {
@@ -223,6 +223,10 @@ func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Memb
 		}
 		if out, err = tx.Members(b.ID); err != nil {
 			return err
+		}
+		now := s.clk.Now()
+		for i := range out {
+			out[i].Presence = out[i].CurrentPresence(now)
 		}
 		if p.Agent != nil && !b.Policy.ShowHarness {
 			for i := range out {

@@ -154,6 +154,26 @@ func (s *Server) Ack(ctx context.Context, agent delivery.AgentRef, upTo int) err
 	return nil
 }
 
+// SetPresence reports what the agent's session is doing, with the agent's own token.
+func (s *Server) SetPresence(ctx context.Context, agent delivery.AgentRef, p delivery.Presence) error {
+	token, err := s.tokens.AgentToken(agent)
+	if err != nil {
+		return err
+	}
+	c, err := s.client(token)
+	if err != nil {
+		return err
+	}
+	r, err := c.SetPresenceWithResponse(ctx, &api.SetPresenceParams{}, api.SetPresenceJSONRequestBody{Presence: api.Presence(p)})
+	if err != nil {
+		return fmt.Errorf("report presence of %s on %s: %w", agent.Name, agent.Board, err)
+	}
+	if r.JSON200 == nil {
+		return statusError("report presence of "+agent.Name+" on "+agent.Board, r.StatusCode(), r.Body)
+	}
+	return nil
+}
+
 // Follow reads the server's stream of board heads until ctx ends or the stream fails.
 func (s *Server) Follow(ctx context.Context, connected func(), head func(delivery.Head)) error {
 	token, err := s.tokens.HumanToken(s.url)

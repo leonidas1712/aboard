@@ -37,6 +37,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MembersInJoinOrder", membersInJoinOrder},
 		{"MemberLookups", memberLookups},
 		{"SetCursorOnlyMovesForward", setCursorOnlyMovesForward},
+		{"SetPresenceReplacesIt", setPresenceReplacesIt},
 		{"JoinCodesByDigestAndID", joinCodesByDigestAndID},
 		{"RevokeJoinCodeKeepsFirstTime", revokeJoinCodeKeepsFirstTime},
 		{"TimelineReadAllReturnsEveryMessage", timelineReadAllReturnsEveryMessage},
@@ -630,6 +631,41 @@ func setCursorOnlyMovesForward(t *testing.T, st board.Store) {
 			}
 			if m.Cursor != step.want {
 				t.Errorf("cursor after SetCursor(%d) = %d, want %d", step.set, m.Cursor, step.want)
+			}
+			return nil
+		})
+	}
+}
+
+func setPresenceReplacesIt(t *testing.T, st board.Store) {
+	write(t, st, func(tx board.Tx) error {
+		b, _, err := newBoard(tx, "docs")
+		if err != nil {
+			return err
+		}
+		return tx.InsertMember(agent(b, "hum_alex", "writer", "member"))
+	})
+	read(t, st, func(tx board.ReadTx) error {
+		m, err := tx.MemberByName("brd_docs", "writer")
+		if err == nil && m.Presence != (board.Presence{}) {
+			t.Errorf("presence of a new agent = %+v, want none", m.Presence)
+		}
+		return err
+	})
+	for _, p := range []board.Presence{
+		{State: board.PresenceWorking, Since: at, At: at},
+		{State: board.PresenceIdle, Since: "2026-10-01T16:01:00.000Z", At: "2026-10-01T16:02:00.000Z"},
+	} {
+		write(t, st, func(tx board.Tx) error { return tx.SetPresence("mem_docs_writer", p) })
+		read(t, st, func(tx board.ReadTx) error {
+			ms, err := tx.Members("brd_docs")
+			if err != nil {
+				return err
+			}
+			for _, m := range ms {
+				if m.Name == "writer" && m.Presence != p {
+					t.Errorf("presence after SetPresence(%+v) = %+v", p, m.Presence)
+				}
 			}
 			return nil
 		})

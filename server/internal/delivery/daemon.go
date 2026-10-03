@@ -89,6 +89,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	g.Go(func() error { return d.acceptLoop(gctx) })
 	g.Go(func() error { return d.idleLoop(gctx) })
+	g.Go(func() error { return d.presenceLoop(gctx) })
 	if cfg.Processes != nil {
 		g.Go(func() error { return d.livenessLoop(gctx) })
 	}
@@ -203,6 +204,7 @@ func (d *Daemon) newSessionLocked(key SessionKey) *session {
 	s := &session{
 		d: d, key: key, adapter: ad, mail: newMailbox[sessionMsg](),
 		agents: map[AgentRef]*agentState{}, refreshing: map[int64]bool{}, forward: map[AgentRef]*session{},
+		reported: map[AgentRef]Presence{},
 	}
 	d.sessions[key] = s
 	return s
@@ -398,6 +400,23 @@ func (d *Daemon) livenessLoop(ctx context.Context) error {
 		d.mu.Lock()
 		for _, s := range d.sessions {
 			s.mail.put(sessionMsg{checkAlive: true})
+		}
+		d.mu.Unlock()
+	}
+}
+
+// presenceLoop asks every session to report its agents' presence again every
+// PresenceRenew, so the server doesn't let it run out while it holds.
+func (d *Daemon) presenceLoop(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-d.cfg.Clock.After(PresenceRenew):
+		}
+		d.mu.Lock()
+		for _, s := range d.sessions {
+			s.mail.put(sessionMsg{renewPresence: true})
 		}
 		d.mu.Unlock()
 	}

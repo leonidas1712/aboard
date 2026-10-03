@@ -104,7 +104,8 @@ ONLY allowed scope for v0.1.
 ```
 /spec       contracts: openapi.yaml, events.md, aboard.schema.json, cli.yaml, delivery.md,
             harness-profile.schema.json
-/design     VISION.md, DECISIONS.md
+/design     VISION.md, DECISIONS.md, UI.md
+PRODUCT.md, DESIGN.md  design records used for UI work (with .impeccable/design.json)
 /engineering how we write Go, tests and text; glossary
 /server     Go: api, store, events, rules, monitors, files, delivery, launchers, cli
 /web        Next.js board UI (static export, embedded in the binary)

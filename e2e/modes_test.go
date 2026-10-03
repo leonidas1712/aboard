@@ -70,7 +70,7 @@ func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 	if got := field(t, reviewer.run("status", "--json").json(t), "delivery"); got != "humans" {
 		t.Fatalf("status delivery %v, want humans", got)
 	}
-	if !strings.Contains(reviewer.run("status").stdout, "Agent:  reviewer (from this session); delivery humans\n") {
+	if !strings.Contains(reviewer.run("status").stdout, "Agent:  reviewer (from this session); delivery humans;") {
 		t.Fatalf("status text lacks the mode:\n%s", reviewer.run("status").stdout)
 	}
 
