@@ -17,10 +17,10 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e live vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance live harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
-## check: format check, lint, vet, generated code, core size, tests, e2e, vulnerabilities
-check: fmt-check lint vet generate-check core-size test e2e vuln
+## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, vulnerabilities
+check: fmt-check lint vet generate-check core-size harness-table-check test e2e vuln
 	@echo "make check: OK"
 
 ## fmt: rewrite Go files with gofumpt and goimports
@@ -79,11 +79,29 @@ e2e:
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
 	go test -race -tags e2e -count=1 ./e2e/...
 
-## live: drive real Claude Code and Codex in tmux (spends model turns; RUN=TestName for one)
+## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
+# The kit's two halves also run in make test and make e2e, so make check runs them.
+conformance:
+	@$(REQUIRE_GO); \
+	HARNESS='$(HARNESS)' go test -race -count=1 -run '^TestHarnessConformance$$' ./server/internal/harness/registry/; \
+	status=0; out="$$(HARNESS='$(HARNESS)' go test -race -tags e2e -count=1 -run '^TestHarnessConformance$$' -v ./e2e/ 2>&1)" || status=$$?; \
+	echo "$$out" | grep -v -E '^ *(=== |--- PASS)' || true; \
+	exit $$status
+
+## live: drive real harnesses in tmux (spends model turns; HARNESS=<name> for one harness, RUN=TestName for one test)
 # Not part of make check. Needs tmux and logged-in harnesses; a missing one is skipped.
-# Run it before a release and after any change to delivery, setup or upgrades.
+# Run it before a release and after any change to delivery, setup or upgrades. Each
+# scenario's result is saved in e2e/live/support.json; make harness-table then updates
+# the README's table.
 live:
-	@$(REQUIRE_GO); go test -tags live -count=1 -v -timeout 60m $(if $(RUN),-run '$(RUN)') ./e2e/live/...
+	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 60m $(if $(RUN),-run '$(RUN)') ./e2e/live/...
+
+## harness-table: write the README's harness table from the profiles and the live kit's results
+harness-table:
+	@$(REQUIRE_GO); go run ./scripts/harnesstable
+
+harness-table-check:
+	@$(REQUIRE_GO); go run ./scripts/harnesstable -check
 
 # The web UI needs Node 20 or later; make check doesn't, and a binary built without the
 # ui tag serves a page saying how to get the UI.

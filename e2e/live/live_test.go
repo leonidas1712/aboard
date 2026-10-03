@@ -58,6 +58,10 @@ func runTests(m *testing.M) int {
 		return 1
 	}
 	code := m.Run()
+	if err := saveResults(); err != nil {
+		fmt.Fprintln(os.Stderr, "live: save the results for the harness table:", err)
+		code = 1
+	}
 	if diff := configDiff(realConfig, configSums()); diff != "" {
 		fmt.Fprintln(os.Stderr, "live: the real harness config or Aboard state changed during the run:\n"+diff)
 		return 1
@@ -860,6 +864,20 @@ type pane struct {
 	dir  string
 	// harness is the command the pane runs: claude or codex.
 	harness string
+	// d drives the harness the pane runs.
+	d *driver
+}
+
+// driverFor returns the driver of the harness whose command is name.
+func (l *lab) driverFor(name string) *driver {
+	l.t.Helper()
+	for _, d := range drivers(l.t) {
+		if d.p.Command == name {
+			return d
+		}
+	}
+	l.t.Fatalf("no live driver runs %s", name)
+	return nil
 }
 
 func (p *pane) target() string { return "live:" + p.name }
@@ -885,7 +903,7 @@ func (l *lab) start(name, dir string, env, argv []string) *pane {
 	} else {
 		l.tmuxRun("new-window", "-t", "live:", "-n", name, "-c", dir, path)
 	}
-	p := &pane{l: l, name: name, dir: dir, harness: argv[0]}
+	p := &pane{l: l, name: name, dir: dir, harness: argv[0], d: l.driverFor(argv[0])}
 	l.panes = append(l.panes, p)
 	return p
 }

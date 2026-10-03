@@ -4,7 +4,8 @@ Steps checked before each release that need a real harness login or a judgment c
 Everything else shown in the docs is covered by an `/e2e` test. Steps marked
 **automated** run in the live suite: `make live` on a machine with tmux and logged-in
 harnesses ([live/PROOFS.md](live/PROOFS.md)); check the box when its test passes, or
-skipped only because that harness isn't installed. The rest are checked by hand. Each
+skipped only because that harness isn't installed. Then `make harness-table` writes the
+results into the README's support matrix. The rest are checked by hand. Each
 section names the doc it protects.
 
 Check the steps by hand in a sandbox, so they run the build under test and never touch
@@ -20,8 +21,8 @@ The "In two terminals" tab is covered by an e2e test. Check the "In your agents"
 hand, on a fresh machine with Claude Code and Codex logged in:
 
 - [ ] Installing via the "In your agents" tab and running `aboard init` adds the Aboard skill to every detected harness, and shows each hook change and asks before writing it.
-- [ ] `aboard init --yes --scope project` in a fresh project: after trusting the project and its hooks, a Claude Code session and a Codex session started there load the skill and run the hooks (`aboard status` in each names its session), and sessions started elsewhere don't. Claude Code: **automated**, `TestProjectScopeInit`. Codex: the hooks running there, **automated**, `TestIdleCodexWakesAndReplies`; the rest by hand.
-- [ ] In a Claude Code session, "Pair with another agent on Aboard" makes the agent run `aboard pair` and reply with exactly one join line. **Automated** up to the join line working in a second Claude Code session, `TestIdleClaudeWakesAndReplies`; check "exactly one line" by hand.
+- [ ] `aboard init --yes --scope project` in a fresh project: after trusting the project and its hooks, a Claude Code session and a Codex session started there load the skill and run the hooks (`aboard status` in each names its session), and sessions started elsewhere don't. **Automated** for both, `TestProjectScopeSetup`; trusting them by hand.
+- [ ] In a Claude Code session, "Pair with another agent on Aboard" makes the agent run `aboard pair` and reply with exactly one join line. **Automated** up to the join line working in a second session of the same harness, `TestWakesAndReplies`; check "exactly one line" by hand.
 - [ ] Pasting that line into a Codex session joins it as a second **member** (board `general`); it reads the charter and says hello.
 - [ ] `aboard pair writer-reviewer` joins as **writer** and its join line is for a **reviewer**: covered by e2e, `TestPairWriterReviewer`.
 - [ ] The two agents exchange messages without anyone typing; each delivered message arrives wrapped as `<aboard-message … sender="owner_agent" …>`.
@@ -42,21 +43,21 @@ On a machine with Claude Code and Codex logged in. The automated steps set up ea
 project with `aboard init --yes --scope project`; the steps by hand need the hooks
 trusted in each harness.
 
-- [ ] An idle Claude Code session receives a message from another session within 2 seconds and replies without anyone typing. **Automated**, `TestIdleClaudeWakesAndReplies`.
-- [ ] An idle Codex session does the same. **Automated**, `TestIdleCodexWakesAndReplies`.
-- [ ] Claude Code and Codex exchange five messages with no one typing. **Automated**, `TestClaudeAndCodexExchange` (and `TestClaudeExchangesFiveMessages` for two Claude Code sessions).
+- [ ] An idle Claude Code session receives a message from another session within 2 seconds and replies without anyone typing. **Automated**, `TestWakesAndReplies/claude-code`.
+- [ ] An idle Codex session does the same. **Automated**, `TestWakesAndReplies/codex`.
+- [ ] Claude Code and Codex exchange five messages with no one typing. **Automated**, `TestPingPongAcrossHarnesses` (and `TestPingPong` for two sessions of one harness).
 - [ ] A prompt typed while the stop hook waits is not interrupted by a delivery.
 - [ ] A prompt typed the instant a turn ends (before its stop hook reaches the daemon), followed by a message, doesn't deliver into the busy turn; the message arrives when that turn ends.
-- [ ] Killing a Claude Code or Codex process outright (no end hook) drops `aboard doctor`'s session count within 5 seconds. Claude Code: **automated**, `TestKilledSessionRedelivers`. Codex runs its threads in its own app server, which outlives the terminal, so its session closes only when that app server stops: **automated** (within 30 seconds), `TestResumedCodexSessionReconnects`.
-- [ ] A message from the agent's owner reaches a busy Claude Code session, and a busy Codex session, at its next tool boundary; peer messages, urgent ones too, wait for the end of the turn. **Automated**, `TestOwnerReachesBusyClaude` and `TestOwnerReachesBusyCodex`.
-- [ ] A peer's message to a busy Claude Code session is named once in a waiting notice at a tool boundary and arrives whole when the turn ends. **Automated**, `TestPeerWaitsButNoticeArrives`.
-- [ ] Codex starts the wiring check and each PONG reaches it within 30 seconds; asked to use `aboard say --wait-reply`, it gets the reply in the same command. **Automated**, `TestCodexStartsPingPong` and `TestCodexWaitsForReplyInItsTurn`.
+- [ ] Killing a Claude Code or Codex process outright (no end hook) drops `aboard doctor`'s session count within 5 seconds. Claude Code: **automated**, `TestKilledSessionRedelivers/claude-code`. Codex runs its threads in its own app server, which outlives the terminal, so its session closes only when that app server stops: **automated** (within 30 seconds), `TestResumeReconnects/codex`.
+- [ ] A message from the agent's owner reaches a busy Claude Code session, and a busy Codex session, at its next tool boundary; peer messages, urgent ones too, wait for the end of the turn. **Automated**, `TestOwnerReachesBusy`.
+- [ ] A peer's message to a busy Claude Code session is named once in a waiting notice at a tool boundary and arrives whole when the turn ends. **Automated**, `TestPeerWaitsButNoticeArrives/claude-code`.
+- [ ] Codex starts the wiring check and each PONG reaches it within 30 seconds; asked to use `aboard say --wait-reply`, it gets the reply in the same command. **Automated**, `TestRepliesReachPromptly/codex` and `TestCodexWaitsForReplyInItsTurn`.
 - [ ] With Claude Code before 2.1.118, `aboard init` installs the tool hook on `PostToolUse` and `PostToolUseFailure`, and the owner's message still reaches a busy turn after a tool call that failed. By hand.
 - [ ] After upgrading from a release with the tool hook on `PostToolUse`, `aboard doctor` reports `hooks_outdated` for both harnesses until `aboard init --yes`; then each harness asks once to trust the changed hooks, and no Aboard entry stays on `PostToolUse`. The report and the move: covered by e2e; the trust prompts by hand.
-- [ ] Killing the Claude Code session after a wake, before its turn ends, redelivers the bundle to the next session that resumes the agent. **Automated**, `TestKilledSessionRedelivers`.
-- [ ] A Claude Code session that exits and is resumed with `claude --resume <id>`, and a Codex session resumed with `codex resume <id>` after its app server stopped, are their agents again with no `aboard resume`: the message sent while they were closed arrives when their first turn ends, and is answered. **Automated**, `TestResumedClaudeSessionReconnects` and `TestResumedCodexSessionReconnects`.
-- [ ] Three messages sent while a session is busy arrive as one bundle. **Automated**, `TestOwnerReachesBusyClaude`.
-- [ ] Stopping the local server while sessions wait, then starting it, loses nothing. **Automated** for Claude Code, with the daemon stopped too, `TestRestartsLoseNothing`.
+- [ ] Killing the Claude Code session after a wake, before its turn ends, redelivers the bundle to the next session that resumes the agent. **Automated**, `TestKilledSessionRedelivers/claude-code`.
+- [ ] A Claude Code session that exits and is resumed with `claude --resume <id>`, and a Codex session resumed with `codex resume <id>` after its app server stopped, are their agents again with no `aboard resume`: the message sent while they were closed arrives when their first turn ends, and is answered. **Automated**, `TestResumeReconnects`.
+- [ ] Three messages sent while a session is busy arrive as one bundle. **Automated**, `TestOwnerReachesBusy/claude-code`.
+- [ ] Stopping the local server while sessions wait, then starting it, loses nothing. **Automated**, with the daemon stopped too, `TestRestartsLoseNothing`.
 - [ ] `aboard doctor` shows every check green on this machine.
 - [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. **Automated**, `TestHumansModeWakesOnlyForPeople`. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`: covered by e2e.
 

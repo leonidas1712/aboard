@@ -255,14 +255,7 @@ func (p *pane) submit(text string) {
 	if len(prefix) > 30 {
 		prefix = prefix[:30]
 	}
-	taken := func() bool {
-		in, ok := inputLine(p.screen())
-		return !ok || !strings.Contains(in, prefix)
-	}
-	if p.harness == "codex" {
-		// Codex shows a submitted prompt above its prompt box, with the same marker.
-		taken = func() bool { return !strings.Contains(codexInput(p.screen()), prefix) }
-	}
+	taken := func() bool { return p.d.taken(p, prefix) }
 	if !waitQuietly(5*time.Second, taken) {
 		// The first Enter was taken as part of the typed text, or Codex was still starting.
 		p.keys("Enter")
@@ -283,23 +276,7 @@ func codexInput(screen string) string {
 }
 
 // idle reports whether the harness shows its prompt with no turn running.
-func (p *pane) idle() bool {
-	s := p.screen()
-	if p.harness == "codex" {
-		if strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue") {
-			// Codex can ask again mid-session. Trusting records the hooks in the test's own
-			// CODEX_HOME, never the person's.
-			p.keys("2")
-			p.keys("Enter")
-			return false
-		}
-		// Older Codex shows how much context is left under its prompt; newer shows "? for
-		// shortcuts" there instead.
-		return (strings.Contains(s, "context left") || strings.Contains(s, "? for shortcuts")) &&
-			!strings.Contains(s, "Working") && !strings.Contains(s, "esc to interrupt")
-	}
-	return claudeReady(s) && !claudeBusy(s)
-}
+func (p *pane) idle() bool { return p.d.idle(p) }
 
 // waitIdle waits until the harness has shown its prompt with no turn running for a
 // second, so a Claude Code turn's stop hook has started waiting.
@@ -329,16 +306,7 @@ func (p *pane) bind(agent string) {
 	p.l.t.Helper()
 	p.submit(fmt.Sprintf(bindPrompt, agent))
 	p.waitIdle(3 * time.Minute)
-	if p.harness == "codex" {
-		// Without its hooks, Codex still gets ordinary messages through its queue, but the
-		// daemon never sees its turns; the suite proves the hooks as Codex runs them. Codex
-		// 0.160 can show no "Working" line for a moment between steps, so the screen alone
-		// can look idle mid-turn; the stop hook is what ends the turn.
-		p.l.waitFor(3*time.Minute, p.name+": Codex to run its session start, prompt and stop hooks", func() bool {
-			return p.l.codexHooksRan("session-start", "prompt", "stop")
-		})
-		p.waitIdle(time.Minute)
-	}
+	p.d.afterBind(p)
 }
 
 // slowTask is a script tests put in a project to keep a turn busy. Claude Code refuses

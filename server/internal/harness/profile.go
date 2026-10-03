@@ -53,8 +53,11 @@ type Profile struct {
 	Delivery struct {
 		Method       string     `yaml:"method"`
 		Capabilities []string   `yaml:"capabilities"`
+		Queue        []string   `yaml:"queue"`
 		Hooks        []HookSpec `yaml:"hooks"`
 		MidTurn      string     `yaml:"mid_turn"`
+		// WaitingNotice is true when the tool hook also names the other waiting messages.
+		WaitingNotice bool `yaml:"waiting_notice"`
 	} `yaml:"delivery"`
 }
 

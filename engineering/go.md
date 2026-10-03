@@ -154,9 +154,12 @@ One command runs everything CI runs, in this order:
 2. `golangci-lint run` (config in `/.golangci.yml`)
 3. `go vet ./...`
 4. generated code is up to date
-5. `go test -race ./...`
-6. the e2e tests in `/e2e` (`go test -race -tags e2e ./e2e/...`)
-7. `govulncheck ./...`
+5. the core is within its size budget, and the README's harness table matches the
+   profiles and the live kit's results
+6. `go test -race ./...`
+7. the e2e tests in `/e2e` (`go test -race -tags e2e ./e2e/...`), the harness
+   conformance kit among them
+8. `govulncheck ./...`
 
 Tools are pinned in the Makefile and installed into `.bin/` on first use; nothing global
 is needed beyond Go. CI (`.github/workflows/check.yml`) runs `make check` on Linux and

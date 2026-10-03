@@ -11,14 +11,17 @@ to see delivery work for real.
 ## Running it
 
 ```bash
-make live                          # every test, about 2 minutes
-make live RUN=TestOwnerReachesBusyClaude
-LIVE_KEEP=1 make live RUN=TestIdleClaudeWakesAndReplies   # keep the panes and logs even on a pass
+make live                                  # every scenario for every harness, and the tests about one harness
+make live HARNESS=codex                    # one harness: its scenarios and its own tests
+make live RUN=TestOwnerReachesBusy/claude-code
+LIVE_KEEP=1 make live RUN=TestWakesAndReplies   # keep the panes and logs even on a pass
+make harness-table                         # then write the results into the README's table
 ```
 
 `make live` runs `go test -tags live -count=1 -v -timeout 60m ./e2e/live/...`; `RUN` is
-passed to `-run`. Tests run in parallel, each with its own scratch directory, port and
-tmux server.
+passed to `-run` and `HARNESS` (a harness's name, or several separated by commas) picks
+the harnesses. Tests run in parallel, each with its own scratch directory, port and tmux
+server.
 
 **Prerequisites.** Go, tmux, and the harnesses logged in: Claude Code through
 `CLAUDE_CODE_OAUTH_TOKEN` (below) and Codex (`codex login status` succeeds, and `codex
@@ -43,34 +46,70 @@ Code test fails with that instruction: the suite never falls back to your own co
 transcripts (every command an agent ran and its output), `daemon.log`, `server.log`,
 `doctor.json` and the board to `<artifacts>/<TestName>-<time>/`, and prints the path.
 
-## What each test proves
+## The live kit
 
-Turns are model turns per run (prompts typed plus bundles delivered), measured on Claude
-Code 2.1.287 with its default model.
+The live kit is the scenarios in `scenarios_test.go`, written once and run for every
+harness with a driver (`drivers_test.go`), as subtests named after the harness:
+`TestWakesAndReplies/claude-code`, `TestWakesAndReplies/codex`. A driver holds what a
+harness's profile can't say: how its screen shows a prompt and a running turn, the
+questions it asks at start, what it leaves running after its terminal quits, and how to
+ask it for a subagent. A scenario that doesn't apply to a harness records n/a with the
+reason, from the harness's profile: a Codex session killed after a wake has nothing to
+hand again, since Codex's queue confirms a bundle when it takes it.
+
+Each scenario's result (pass, fail or n/a, the day, and the test) is saved in
+[support.json](support.json) when the run ends, with the harness's version.
+`make harness-table` turns it, with the profiles, into the support matrix in the
+README; `make check` fails when that table is out of date. A capability counts as
+supported once a scenario that measures it passed; a failure in the latest run makes it
+partial until it passes again. Notes in `support.json` are written by hand, for what a
+profile can't say. The entries from before the kit name the earlier test that proved
+them.
+
+Turns are model turns per run of one harness (prompts typed plus bundles delivered),
+measured on Claude Code 2.1.287 with its default model.
+
+| Scenario | Proves | Capabilities | Turns |
+| --- | --- | --- | --- |
+| `TestWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins and says hello (the baseline, recorded as `JoinsAndTalks`). Then a message to the idle first session is handed over within 2 seconds (plus the 2-second gather for a harness that queues), its presence goes working and back to idle, and it answers on the board with no one typing. | Baseline, wakes when idle, presence | 6 |
+| `TestPingPong` | One prompt starts the skill's wiring check to PING 3: six messages go back and forth between two sessions of the harness, taking turns, and the exchange stops. | Wakes when idle | 9 |
+| `TestPingPongAcrossHarnesses` | The same between two harnesses, once for each pair (`claude-code-with-codex`). | Wakes when idle | about 9 |
+| `TestRepliesReachPromptly` | The session starts the wiring check itself with a person's agent; each PONG reaches it within 30 seconds of being posted, measured from the daemon's log (handed, added at a tool boundary or shown by `say --wait-reply`), so it never keeps its turn busy waiting. | Wakes when idle | 4 |
+| `TestOwnerReachesBusy` | While a turn runs a slow task twice and then posts DONE, the owner's message (posted with the owner login on the API) reaches it at the next tool boundary and is acted on before DONE; two peer messages sent at the same time, one urgent, never enter the turn: a harness whose hook waits for idle is handed them in one bundle after DONE, and a queue holds them until then. | Owner mid-turn, peers at turn end | 3 |
+| `TestPeerWaitsButNoticeArrives` | While a turn runs two slow tasks, a peer's message never enters it: one tool boundary's notice names it, exactly once, and the message arrives in a bundle when the turn ends (or the agent fetches it itself after the notice). n/a for a harness whose queue takes peers' messages at once. | Waiting notice | 3 |
+| `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. n/a for a harness whose queue confirms a bundle when it takes it. | Wakes when idle | 4 |
+| `TestRestartsLoseNothing` | Stopping the daemon (a waiting hook starts it again, or `aboard daemon start` for a harness with none), and separately stopping the local server and running `aboard up`, loses no message. | Wakes when idle | 3 |
+| `TestProjectScopeSetup` | `aboard init --scope project` writes every install item into the project; doctor and status name the project's setup; a session started there runs the hooks and one started elsewhere doesn't; your own config is untouched. | Project setup | 0 (1 for a harness that runs its session-start hook only at the first prompt) |
+| `TestResumeReconnects` | A session that quits (the agent shows as disconnected; for a harness whose sessions outlive the terminal, its background process is stopped too) and is resumed with the profile's `interactive.resume` in the same pane keeps its session id and is its agent again with no `aboard resume`: the message sent while it was closed, which wakes nothing, is handed when its first turn ends and answered. | Reconnects on resume | 3 |
+| `TestSubagentCannotActAsItsParent` | The session has one subagent run `aboard status` and `aboard say`; the subagent's commands are refused (`subagent_without_seat` in the transcripts, and the mark where a hook adds it), nothing reaches the board, and the session reports with `SUBAGENT-DONE`. For Claude Code it also logs the hook input, whether SubagentStart and SubagentStop fired, and whether Claude Code asked before the marked command. | Subagents | 1 |
+
+`TestEveryHarnessHasALiveDriver` checks every harness with a profile has a driver, and
+starts no harness.
+
+Tests about one harness stay as they were, skipped when `HARNESS` leaves that harness
+out:
 
 | Test | Proves | Turns |
 | --- | --- | --- |
-| `TestIdleClaudeWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins. Then a message to the idle first session is handed over within 2 seconds and answered on the board with no one typing. | 6 |
-| `TestClaudeExchangesFiveMessages` | One prompt starts the skill's wiring check to PING 3: six messages go back and forth between two sessions, taking turns, and the exchange stops. | 9 |
-| `TestOwnerReachesBusyClaude` | While a turn runs a 25-second task, the owner's message (posted with the owner login on the API) reaches it at the next tool boundary and is acted on in that turn; three peer messages sent at the same time, one urgent, wait for the turn to end and arrive as one bundle. | 3 |
-| `TestPeerWaitsButNoticeArrives` | While a turn runs two slow tasks, a peer's message never enters it: one tool boundary's notice names it, exactly once, and the message arrives in a bundle when the turn ends. | 3 |
-| `TestHumansModeWakesOnlyForPeople` | With `aboard delivery humans`, a peer's message wakes nothing for 10 seconds and stays unread; the owner's message (posted with the owner login on the API) wakes the session within 2 seconds, and the agent reports both sequence numbers from that one bundle. | 2 |
-| `TestUpgradeWithSessionOpen` | A session set up with an older aboard keeps working when the new binary is installed over it at the same path: two messages are answered, the daemon and local server are replaced, each message is handed once, doctor reports nothing outdated, the hooks file is byte for byte the same, and `aboard init` again changes nothing. | 3 |
-| `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
-| `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. | 4 |
-| `TestSessionMovesBetweenBoards` | A session that joins one board and then another moves: a message on the new board is handed within 2 seconds and answered there, while a message to its old agent wakes nothing for 20 seconds and stays unread for whichever session resumes that agent. | 3 |
-| `TestClaudeSubagentCannotActAsItsParent` | A subagent asked to run `aboard status` and `aboard say` gets `agent_id` in its Bash hook input; Aboard's pre-tool hook marks the command and aboard refuses to post (`subagent_without_seat` in the transcript), so nothing reaches the board. It logs whether SubagentStart and SubagentStop fired, whether the subagent's status named the parent's agent, and whether Claude Code asked before the marked command. | 1 |
-| `TestResumedClaudeSessionReconnects` | A session that quits (its end hook closes it, and the agent shows as disconnected) and is resumed with `claude --resume <id>` in the same pane keeps its session id and is its agent again with no `aboard resume`: the message sent while it was closed, which wakes nothing, is handed when its first turn ends and answered. | 3 |
-| `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
-| `TestIdleCodexWakesAndReplies` | Codex runs the project's hooks (session start, prompt, tool, stop). An idle Codex session is woken through `codex queue` within 2 seconds plus Codex's 2-second gather, and answers on the board. | 2 |
-| `TestClaudeAndCodexExchange` | Claude Code and Codex run the wiring check to PING 3 with no one typing. | about 9 |
-| `TestCodexStartsPingPong` | Codex starts the wiring check itself; each PONG reaches Codex within 30 seconds of being posted, measured from the daemon's log (handed, added at a tool boundary or shown by `say --wait-reply`), so Codex never keeps its turn busy waiting. | 4 |
-| `TestOwnerReachesBusyCodex` | While Codex runs a slow task twice, the owner's message reaches the turn at the next tool call (Codex's pre-tool hook), is acted on in that turn, and never goes into Codex's queue. | 2 |
+| `TestHumansModeWakesOnlyForPeople` | With `aboard delivery humans`, a peer's message wakes nothing for 10 seconds and stays unread; the owner's message (posted with the owner login on the API) wakes the session within 2 seconds, and the agent reports both sequence numbers from that one bundle. Claude Code. | 2 |
+| `TestUpgradeWithSessionOpen` | A session set up with an older aboard keeps working when the new binary is installed over it at the same path: two messages are answered, the daemon and local server are replaced, each message is handed once, doctor reports nothing outdated, the hooks file is byte for byte the same, and `aboard init` again changes nothing. Claude Code. | 3 |
+| `TestSessionMovesBetweenBoards` | A session that joins one board and then another moves: a message on the new board is handed within 2 seconds and answered there, while a message to its old agent wakes nothing for 20 seconds and stays unread for whichever session resumes that agent. Claude Code. | 3 |
 | `TestCodexWaitsForReplyInItsTurn` | From inside its sandbox, Codex asks with `aboard say --wait-reply` and gets the reply in the same command: the daemon records it as shown and never queues it. | 2 |
-| `TestResumedCodexSessionReconnects` | Quitting Codex leaves its thread loaded in Codex's own app server, so the session stays open; once that app server stops, the agent is disconnected and a message wakes nothing. `codex resume <id>` keeps the thread id; its session-start hook (run when the first turn starts) binds it again with no `aboard resume`, and the message goes into its queue and is answered. | 3 |
-| `TestCodexSandboxNeedsTheAllowRule` | With Codex's default sandbox (network off) and no allow rule, `aboard status` run by `codex exec` says the server can't be reached from Codex's sandbox, not that it stopped, and doctor warns `codex_aboard_not_allowed`; after `aboard init --scope project --allow-commands`, the same command reaches the running server and daemon. Read from the command's output in Codex's event stream. | 2 |
+| `TestCodexSandboxNeedsTheAllowRule` | With Codex's default sandbox (network off) and no allow rule, `aboard status` run by `codex exec` says the server can't be reached from Codex's sandbox, not that it stopped, and doctor warns `codex_aboard_not_allowed`; after `aboard init --scope project --allow-commands`, the same command reaches the running server and daemon. Read from the command's output in Codex's event stream. Recorded as the sandbox check. | 2 |
 
-A full run with Claude Code only is about 37 turns; the Codex tests add about 13.
+A full run with Claude Code only is about 45 turns; Codex adds about 35, and the
+exchange between them about 9.
+
+**Renamed when the scenarios were written once.** `TestIdleClaudeWakesAndReplies` and
+`TestIdleCodexWakesAndReplies` are `TestWakesAndReplies`; `TestClaudeExchangesFiveMessages`
+is `TestPingPong`; `TestClaudeAndCodexExchange` is `TestPingPongAcrossHarnesses`;
+`TestCodexStartsPingPong` is `TestRepliesReachPromptly`; `TestOwnerReachesBusyClaude` and
+`TestOwnerReachesBusyCodex` are `TestOwnerReachesBusy`; `TestProjectScopeInit` is
+`TestProjectScopeSetup`; `TestResumedClaudeSessionReconnects` and
+`TestResumedCodexSessionReconnects` are `TestResumeReconnects`;
+`TestClaudeSubagentCannotActAsItsParent` is `TestSubagentCannotActAsItsParent`.
+`TestPeerWaitsButNoticeArrives`, `TestKilledSessionRedelivers` and
+`TestRestartsLoseNothing` keep their names and now run per harness.
 
 ## Checked by hand
 
@@ -200,25 +239,39 @@ within the turn; the ordinary one goes to the queue and arrives when the turn en
 remove the `[hooks.state…]` and `[projects."<scratch path>"]` entries from Codex's
 `config.toml`, or use a scratch `CODEX_HOME`.
 
-## Adding a test
+## Adding a scenario or a harness
 
-A new live check is a new `Test…` function in `claude_test.go` or `codex_test.go`, built
-on the helpers in `live_test.go` and `harness_test.go`:
+**A harness.** Add its driver to `newDriver` in `drivers_test.go`: how to start it in a
+project set up with `l.project` and in a plain folder, how its screen shows a prompt and
+a running turn, the questions it asks at start and before a command, what it leaves
+running after its terminal quits, and how to ask it for a subagent. Its profile gives the
+rest, including `interactive.resume`. Then `make live HARNESS=<name>` and `make
+harness-table`. `TestEveryHarnessHasALiveDriver` fails until the driver exists.
 
-1. `requireClaude(t)` or `requireCodex(t)` first, then `t.Parallel()` and `l := newLab(t)`.
-2. Make agents with `l.pairCLI()` (writer and reviewer, from a terminal), a project with
-   `l.project(name, harness)`, and sessions with `l.startClaude` or `l.startCodex`.
+**A scenario.** A new `Test…` function in `scenarios_test.go` that calls `eachHarness`,
+built on the helpers in `live_test.go`, `harness_test.go` and `drivers_test.go`:
+
+1. `eachHarness(t, "<Scenario>", func(t, d, rec) {…})` runs it for every harness, after
+   the driver's `require`, in parallel. Call `rec.notApplicable(reason)` first when the
+   profile says the scenario doesn't apply.
+2. `l := newLab(t)` and `d.setUp(l)` before any harness starts. Make agents with
+   `l.pairCLI()` (writer and reviewer, from a terminal), a project with `l.project(name,
+   d.p.Harness)`, and sessions with `d.start`.
 3. `p.bind(agent)` gives a session its agent and the standing instruction to do what
    messages ask. Then send messages that ask for one checkable action, such as
    `Reply to this message with exactly PONG-1.`
 4. Assert on the board (`l.waitMessage`, `l.messages`, `l.writerInbox`), the daemon's log
-   (`l.handed`, `l.waitHanded`) and `l.doctor`. Wait with `l.waitFor`, never a sleep.
-   Read the pane only to see whether the harness is ready or busy.
-5. Measure what the spec bounds and log it with `t.Logf("measured: …")`, keep prompts
-   short, and add the test and its turn count to the table above and to the release
-   checklist item it automates.
+   (`l.handed`, `l.waitHanded`, `l.reached`) and `l.doctor`. Wait with `l.waitFor`, never
+   a sleep. Read the pane only to see whether the harness is ready or busy.
+5. Add the scenario to the capabilities it measures in `e2e/support/matrix.go`, to the
+   table above with its turns, and to the release checklist item it automates. Measure
+   what the spec bounds and log it with `t.Logf("measured: …")`.
+
+A test about one harness starts with `only(t, "<harness>")`.
 
 ## Last run
+
+Before the scenarios were written once, so under the earlier names.
 
 2026-10-02, Claude Code 2.1.287 (default model), no Codex installed. `make live`: 1 minute
 47 seconds, about 31 turns. The Codex rows are from 2026-10-02 on macOS with Codex 0.159.3

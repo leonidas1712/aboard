@@ -102,7 +102,8 @@
       "additionalProperties": false,
       "required": ["start"],
       "properties": {
-        "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt." }
+        "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt." },
+        "resume": { "$ref": "#/$defs/argv", "description": "Opens an earlier session again by its id, {session}, in a terminal. The live conformance kit resumes sessions with it." }
       }
     },
     "headless": {

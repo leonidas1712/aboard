@@ -112,15 +112,15 @@ tool boundary or turn end.
 | `extension` | Aboard's extension inside the harness holds a connection to the daemon (below) | None yet |
 | `none` | The skill has the agent run `aboard inbox --wait` | Every other harness |
 
-**The extension connection.** Specified; not built yet. Aboard's extension inside the
-harness opens a long-lived connection to the control socket, registers its session and
-the harness process it runs in, receives bundles over that connection, adds them to the
-session (waking it when it is idle) and confirms each one. The open connection is also
-the session's liveness: when it closes, the session is closed, as when the process
-table shows a harness gone. The same capability later covers a harness the daemon pushes
-to over its own endpoint, such as a gateway that holds sessions with no terminal. The
-messages on that connection are a versioned contract of their own, written down with
-the first harness that uses it.
+**The extension connection.** Specified in [control.md](control.md#the-extension-connection);
+not built yet. Aboard's extension inside the harness opens a long-lived connection to the
+control socket, registers its session and the harness process it runs in (`hello`),
+receives bundles over that connection while the session is idle, adds them to the
+session (waking it) and confirms each one (`received`), and reports when turns start and
+end. The open connection is also the session's liveness: when it closes, the session is
+closed, as when the process table shows a harness gone. The same capability later covers
+a harness the daemon pushes to over its own endpoint, such as a gateway that holds
+sessions with no terminal.
 
 **Lifecycle** (`lifecycle`): how the daemon knows a session is alive (`process`, or an
 open extension `connection`); whether sessions run in a long-running harness process
@@ -621,25 +621,22 @@ unconfirmed. Like `join`, it moves a session that was bound to another agent.
 
 ## The control socket
 
+The socket hooks, commands and extensions use to talk to the daemon is a versioned
+contract of its own: [control.md](control.md) gives its transport, every message with an
+example, the errors, and the extension connection. In short:
+
 - Path `<state>/aboard/daemon.sock` (`$ABOARD_HOME/state/daemon.sock` when `ABOARD_HOME`
-  is set, with the same short-path fallback under `/tmp/aboard-<uid>/`); the directory is
-  0700 and the socket 0600.
-- Every connection's peer must be the same OS user as the daemon. The daemon reads the
-  peer's user id from the kernel: `SO_PEERCRED` on Linux, `LOCAL_PEERCRED` on macOS. If
-  it can't read it, it refuses the connection. The check is tested on both systems in CI.
-- Messages are one JSON object per line, at most 128 KiB, each with a protocol version.
-  Unknown operations and oversized frames are rejected.
-- Operations: register a session, mark busy, wait for a delivery, ask what a tool
-  boundary adds to the turn, hold replies to a message and claim messages a command
-  showed (for `aboard say --wait-reply`), report a session's end, bind an agent (the answer names the agent the session
-  was bound to before, if it moved), show or set an agent's delivery
-  mode, report status.
+  is set, with a short-path fallback under `/tmp/aboard-<uid>/`); the directory is 0700
+  and the socket 0600.
+- Every connection's peer must be the same OS user as the daemon, read from the kernel
+  (`SO_PEERCRED` on Linux, `LOCAL_PEERCRED` on macOS); a peer whose user can't be read is
+  refused. The check is tested on both systems in CI.
+- Messages are one JSON object per line, at most 128 KiB, and the first message of every
+  connection carries the protocol version. A version the daemon doesn't speak fails with
+  `daemon_protocol_mismatch`, naming both versions and saying to install the same aboard
+  as the running daemon, or to run `aboard down` so the current one starts.
 - The status answer carries the daemon's build as `build: {version, commit,
-  commit_time}`, the same fields as the server's `GET /v1/info`. A daemon whose status
-  has no `build` is from an older aboard.
-- A request with a protocol version the daemon doesn't speak fails with
-  `daemon_protocol_mismatch`, naming both versions and saying to install the same
-  aboard as the running daemon, or to run `aboard down` so the current one starts.
+  commit_time}`, the same fields as the server's `GET /v1/info`.
 
 ## Setup
 
