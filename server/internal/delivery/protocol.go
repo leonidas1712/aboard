@@ -112,6 +112,12 @@ type Response struct {
 	// Previous is the agent the session was bound to before an OpBind moved it to
 	// another one; nil when the session had no agent or keeps the same one.
 	Previous *AgentRef `json:"previous,omitempty"`
+	// Reopened says an OpRegister opened a session that had closed: the harness resumed
+	// it with the same session id. Agents then lists the agent it is bound to again.
+	Reopened bool `json:"reopened,omitempty"`
+	// Lost, in answer to OpRegister, is the agent the session filled until another
+	// session resumed it; the session has no agent now.
+	Lost *AgentRef `json:"lost,omitempty"`
 	// Held says an OpHold took effect: the agent is bound to an open session here.
 	Held bool `json:"held,omitempty"`
 	// Claimed are the messages an OpClaim recorded; one already handed to a session isn't.

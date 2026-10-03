@@ -22,7 +22,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Board details panel with "Add an agent" and "Copy details"; `aboard invite` | done | D143 |
 | `aboard pair` in a linked directory names both ways on: `aboard invite` for another agent, `aboard pair --new` for another board | done | D44, D143 |
 | Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | done | D66, D72, D152 |
-| Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | next | D157 |
+| Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | review | D157 |
 
 ## Done
 
