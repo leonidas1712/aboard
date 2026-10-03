@@ -7,35 +7,21 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { type Board, type Member, type MessagePage, follow, get } from "./api";
+import { type Board, type Member, follow, get } from "./api";
+import { Account } from "./account";
 import { Header, Problem } from "./chrome";
 import { boardLabel, count, exactTime, policyName, relativeTime } from "./words";
 
-/** Facts are what the list says about one board, read from the public API. */
-type Facts = { agents: number; working: number; people: number; messages: number; last: string | null };
-
-const PAGE = 200;
+/** Facts are what the list says about one board's members, read from the public API. */
+type Facts = { agents: number; working: number; people: number };
 
 async function factsOf(b: Board): Promise<Facts> {
-  const path = `/v1/boards/${encodeURIComponent(b.name)}`;
-  const { members } = await get<{ members: Member[] }>(`${path}/members`);
-  // Messages are counted by reading them, a page at a time; a board's list is short.
-  let messages = 0;
-  let last: string | null = null;
-  for (let after = 0; ; ) {
-    const page = await get<MessagePage>(`${path}/messages`, { after, limit: PAGE });
-    messages += page.messages.length;
-    last = page.messages.at(-1)?.at ?? last;
-    if (page.next_after === null) break;
-    after = page.next_after;
-  }
+  const { members } = await get<{ members: Member[] }>(`/v1/boards/${encodeURIComponent(b.name)}/members`);
   const agents = members.filter((m) => m.kind === "agent");
   return {
     agents: agents.length,
     working: agents.filter((a) => a.presence === "working").length,
     people: members.filter((m) => m.kind === "human").length,
-    messages,
-    last,
   };
 }
 
@@ -91,7 +77,7 @@ export default function BoardList() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <Header />
+      <Header account={<Account />} />
       <main className="mx-auto w-full max-w-[960px] px-4 py-8 sm:px-6">
         <h1 className="mb-4 text-headline font-bold">Your boards</h1>
         {error !== null && <Problem error={error} />}
@@ -168,28 +154,28 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
               {count(f.people, "person", "people")}
             </td>
           )}
-          <td className={cn(cell, "tabular-nums md:text-right")}>
-            {sep}
-            <span className="md:hidden">{count(f.messages, "message", "messages")}</span>
-            <span className="max-md:hidden">{f.messages}</span>
-          </td>
-          <td className={cell}>
-            {sep}
-            {f.last ? (
-              <time dateTime={f.last} title={exactTime(f.last)}>
-                <span className="md:hidden">last </span>
-                {relativeTime(f.last, now)}
-              </time>
-            ) : (
-              <span className="text-muted">none yet</span>
-            )}
-          </td>
         </>
       ) : (
-        <td colSpan={showPeople ? 4 : 3} className="py-3 pr-4 align-top max-md:block max-md:p-0">
-          <span className="block h-4 w-48 rounded-[4px] bg-selected motion-safe:animate-pulse" aria-label="Loading" />
+        <td colSpan={showPeople ? 2 : 1} className="py-3 pr-4 align-top max-md:inline max-md:p-0">
+          <span className="inline-block h-4 w-24 rounded-[4px] bg-selected motion-safe:animate-pulse" aria-label="Loading" />
         </td>
       )}
+      <td className={cn(cell, "messages tabular-nums md:text-right")}>
+        {sep}
+        <span className="md:hidden">{count(b.message_count ?? 0, "message", "messages")}</span>
+        <span className="max-md:hidden">{b.message_count ?? 0}</span>
+      </td>
+      <td className={cell}>
+        {sep}
+        {b.last_message_at ? (
+          <time dateTime={b.last_message_at} title={exactTime(b.last_message_at)}>
+            <span className="md:hidden">last </span>
+            {relativeTime(b.last_message_at, now)}
+          </time>
+        ) : (
+          <span className="text-muted">none yet</span>
+        )}
+      </td>
       <td className="py-3 pr-2 align-top max-md:block max-md:p-0 max-md:text-meta max-md:text-muted">{policyName(b.policy)}</td>
     </tr>
   );

@@ -5,26 +5,30 @@
 
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { ApiError, type MemberRef, type Message } from "./api";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
 import { FilterChips, FilterControl } from "./filter";
-import { type PanelSize, SidePanel, stripWidth } from "./panels";
+import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
+import { Account } from "./account";
 import { readStored, store, usePref } from "./prefs";
 import { AboutBoard, WhosHere } from "./sidebars";
 import { type Entry, Timeline } from "./timeline";
 import { type Filter, filterActive, useBoard } from "./use-board";
 import { type NowPart, eventLine, eventMatches, identitiesOf, identityOf, nowLine } from "./words";
 
-const leftPanel = { initial: 260, min: 200, max: 400 };
-const rightPanel = { initial: 300, min: 240, max: 440 };
+const leftPanel: Limits = { initial: 272, min: 240, max: 400 };
+const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
 
 export default function BoardView({ name }: { name: string }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
-  const [left, setLeft] = usePref<PanelSize>("aboard.panel.left", { width: leftPanel.initial, collapsed: false });
-  const [right, setRight] = usePref<PanelSize>("aboard.panel.right", { width: rightPanel.initial, collapsed: false });
+  const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", { width: leftPanel.initial, collapsed: false });
+  const [rightPref, setRight] = usePref<PanelSize>("aboard.panel.right", { width: rightPanel.initial, collapsed: false });
+  const left = clampSize(leftPref, leftPanel);
+  const right = clampSize(rightPref, rightPanel);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [stick, setStick] = useState(0);
   const [postError, setPostError] = useState<unknown>(null);
@@ -109,6 +113,10 @@ export default function BoardView({ name }: { name: string }) {
     [byId],
   );
 
+  const mine = (s.members ?? []).find((m) => m.kind === "human" && m.name === me);
+  const myIdentity = mine ? colours.get(`human:${mine.name}`) : undefined;
+  const myAccess = mine?.access ?? null;
+
   const pick = useCallback((member: string) => setFilter((f) => ({ ...f, from: f.from === member ? undefined : member })), []);
 
   const now = nowLine(
@@ -138,15 +146,23 @@ export default function BoardView({ name }: { name: string }) {
   return (
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-dvh flex-col lg:h-dvh">
-        <Header board={name} title={s.board?.title} starter={s.board?.policy.preset === "starter"} />
-        <div className="board-columns flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)]" style={{ "--columns": columns } as CSSProperties}>
-          <SidePanel side="left" label="About this board" size={left} setSize={setLeft} {...leftPanel} className="order-2 lg:order-none">
+        <Header
+          board={name}
+          title={s.board?.title}
+          starter={s.board?.policy.preset === "starter"}
+          account={<Account identity={myIdentity} admin={people.length > 1 && myAccess === "admin"} />}
+        />
+        <div
+          className="board-columns mx-auto flex w-full max-w-[1480px] flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)] min-[1480px]:border-x min-[1480px]:border-rule"
+          style={{ "--columns": columns } as CSSProperties}
+        >
+          <SidePanel side="left" title="About this board" label="About this board" size={left} setSize={setLeft} limits={leftPanel} className="order-2 lg:order-none">
             <AboutBoard board={s.board} boards={s.boards} record={s.record} />
           </SidePanel>
 
-          <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] flex-col px-4 sm:px-6 lg:order-none lg:h-auto lg:min-h-0">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-[780px] flex-col">
-              <div className="flex items-start justify-between gap-x-4 py-2">
+          <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] min-w-0 flex-col px-4 sm:px-6 lg:order-none lg:h-auto lg:min-h-0 xl:px-8">
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-[800px] flex-col">
+              <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
                 <NowLine parts={loading ? null : now} />
                 <FilterControl
                   filter={filter}
@@ -197,7 +213,7 @@ export default function BoardView({ name }: { name: string }) {
             </div>
           </main>
 
-          <SidePanel side="right" label="Who's here" size={right} setSize={setRight} {...rightPanel} className="order-3 lg:order-none">
+          <SidePanel side="right" title="Who's here" label="Who's here" size={right} setSize={setRight} limits={rightPanel} className="order-3 lg:order-none">
             <WhosHere board={s.board} members={s.members} me={me} from={filter.from} onPick={pick} />
           </SidePanel>
         </div>

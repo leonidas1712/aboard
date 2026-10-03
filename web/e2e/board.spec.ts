@@ -78,6 +78,22 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Docs review");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("writer-reviewer");
 
+  // The top bar says who you are, on which server, and keeps this browser's theme.
+  const account = page.getByRole("button", { name: /^You are alex/ });
+  await expect(account).toContainText("alex");
+  await account.click();
+  const menu = page.locator(".account-menu");
+  await expect(menu).toContainText("This computer (local)");
+  await expect(menu).not.toContainText("Admin");
+  await page.getByRole("menuitemradio", { name: "Dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await page.getByRole("menuitemradio", { name: "Same as this computer" }).click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
+  await page.keyboard.press("Escape");
+
   // A new board says what to do next, shows the starter policy and its verified record.
   await expect(page.getByText("Nothing has been said on this board yet.")).toBeVisible();
   await expect(page.getByRole("banner").getByText("Starter policy")).toBeVisible();
@@ -171,6 +187,10 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(row).toContainText("writer-reviewer");
   await expect(row).toContainText("2 agents");
   await expect(row).toContainText("Starter policy");
+  // The count comes from the board itself: five messages were posted above.
+  await expect(row.locator(".messages")).toContainText("5");
+  aboard("say", "--as", "reviewer", "--to", "@writer", "One more.");
+  await expect(row.locator(".messages")).toContainText("6");
 
   // The token lasts until the server stops; after that the page says to log in again.
   aboard("down");

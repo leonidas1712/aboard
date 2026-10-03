@@ -9,7 +9,7 @@ import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useR
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardEvent, Message, MemberRef } from "./api";
-import { clockTime, displayName, exactTime, initialOf, recipients, relativeTime } from "./words";
+import { clockTime, displayName, exactTime, markOf, recipients, relativeTime } from "./words";
 
 export type Entry = { kind: "message"; seq: number; m: Message } | { kind: "event"; seq: number; e: BoardEvent; line: string };
 
@@ -258,15 +258,20 @@ function Time({ at, now }: { at: string; now: number }) {
   );
 }
 
-/** SenderMark is a sender's initial on its identity colour, in the timeline's gutter. */
-export function SenderMark({ name, identity, className }: { name: string; identity: number; className?: string }) {
+/** SenderMark is a sender's one or two letters on its identity colour. */
+export function SenderMark({ name, kind, identity, className }: { name: string; kind: "agent" | "human"; identity: number; className?: string }) {
+  const mark = markOf(name, kind);
   return (
     <span
       aria-hidden
-      className={cn("sender-mark flex size-8 shrink-0 items-center justify-center rounded-control text-body font-bold select-none", className)}
+      className={cn(
+        "sender-mark flex size-8 shrink-0 items-center justify-center rounded-control font-bold tracking-[0.02em] select-none",
+        mark.length > 1 ? "text-[13px]" : "text-body",
+        className,
+      )}
       style={{ background: `var(--id-${identity}-bg)`, color: `var(--id-${identity}-fg)` }}
     >
-      {initialOf(name)}
+      {mark}
     </span>
   );
 }
@@ -373,7 +378,7 @@ function MessageEntry({
             {clockTime(m.at)}
           </time>
         ) : (
-          <SenderMark name={m.from.name} identity={identity} />
+          <SenderMark name={m.from.name} kind={m.from.kind} identity={identity} />
         )}
       </span>
       <div className="min-w-0">

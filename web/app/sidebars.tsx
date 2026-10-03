@@ -3,13 +3,12 @@
 // The board view's sidebars: about this board on the left (your boards, the charter,
 // the rules, the record) and who's here on the right.
 
-import { ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Board, Member } from "./api";
-import { SectionHeading } from "./chrome";
 import { usePref } from "./prefs";
 import { problemText } from "./record";
 import type { RecordCheck } from "./use-board";
@@ -20,8 +19,8 @@ function Section({ id, title, children }: { id: string; title: string; children:
   const [open, setOpen] = usePref(`aboard.open.${id}`, true);
   return (
     <Collapsible asChild open={open} onOpenChange={setOpen}>
-      <section aria-labelledby={id}>
-        <h2 id={id} className="mb-1 text-meta font-bold text-muted">
+      <section aria-labelledby={id} className="flex flex-col">
+        <h3 id={id} className="text-meta font-bold text-muted">
           <CollapsibleTrigger className="group -mx-2 flex min-h-9 w-[calc(100%+1rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
             <ChevronRight
               className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
@@ -30,8 +29,8 @@ function Section({ id, title, children }: { id: string; title: string; children:
             />
             {title}
           </CollapsibleTrigger>
-        </h2>
-        <CollapsibleContent className="animate-fade-in">{children}</CollapsibleContent>
+        </h3>
+        <CollapsibleContent className="pt-1 animate-fade-in">{children}</CollapsibleContent>
       </section>
     </Collapsible>
   );
@@ -39,30 +38,31 @@ function Section({ id, title, children }: { id: string; title: string; children:
 
 export function AboutBoard({ board, boards, record }: { board: Board | null; boards: Board[] | null; record: RecordCheck }) {
   return (
-    <div className="flex flex-col gap-5">
-      <nav aria-labelledby="your-boards">
-        <SectionHeading id="your-boards">Your boards</SectionHeading>
-        <ul className="flex flex-col gap-0.5">
-          {(boards ?? []).map((b) => {
-            const current = b.name === board?.name;
-            return (
-              <li key={b.id}>
-                <a
-                  href={`/?board=${encodeURIComponent(b.name)}`}
-                  aria-current={current ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-11 flex-col justify-center rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
-                    current && "bg-selected",
-                  )}
-                >
-                  <span className={cn("break-words", current && "font-bold")}>{boardLabel(b)}</span>
-                  {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+    <div className="flex flex-1 flex-col gap-4">
+      <Section id="your-boards" title="Your boards">
+        <nav aria-labelledby="your-boards">
+          <ul className="-mx-2.5 flex flex-col gap-0.5">
+            {(boards ?? []).map((b) => {
+              const current = b.name === board?.name;
+              return (
+                <li key={b.id}>
+                  <a
+                    href={`/?board=${encodeURIComponent(b.name)}`}
+                    aria-current={current ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-11 flex-col justify-center rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
+                      current && "bg-selected",
+                    )}
+                  >
+                    <span className={cn("break-words", current && "font-bold")}>{boardLabel(b)}</span>
+                    {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </Section>
 
       {board?.charter && (
         <Section id="charter" title="What this board is for">
@@ -86,7 +86,9 @@ export function AboutBoard({ board, boards, record }: { board: Board | null; boa
         </Section>
       )}
 
-      <RecordLine record={record} />
+      <div className="mt-auto pt-4">
+        <RecordLine record={record} />
+      </div>
     </div>
   );
 }
@@ -113,7 +115,7 @@ function RecordLine({ record }: { record: RecordCheck }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
         >
           <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
           Record verified · {n} {n === 1 ? "event" : "events"}
@@ -145,30 +147,29 @@ export function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
   const showOwner = owners.size > 1;
   return (
     <div className="flex flex-col gap-6">
-      <section aria-labelledby="whos-here">
-        <SectionHeading id="whos-here">Who&apos;s here</SectionHeading>
-        {members === null ? (
-          <div className="h-16 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />
-        ) : agents.length === 0 ? (
-          <p>No agents yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {agents.map((a) => (
-              <AgentItem
-                key={a.id}
-                agent={a}
-                roleCharter={board?.roles[a.role ?? ""]?.charter}
-                showOwner={showOwner}
-                picked={from === a.name}
-                onPick={() => onPick(a.name)}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
+      {members === null ? (
+        <div className="h-16 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />
+      ) : agents.length === 0 ? (
+        <p>No agents yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-5" aria-label="Agents">
+          {agents.map((a) => (
+            <AgentItem
+              key={a.id}
+              agent={a}
+              roleCharter={board?.roles[a.role ?? ""]?.charter}
+              showOwner={showOwner}
+              picked={from === a.name}
+              onPick={() => onPick(a.name)}
+            />
+          ))}
+        </ul>
+      )}
       {people.length > 1 && (
         <section aria-labelledby="people">
-          <SectionHeading id="people">People</SectionHeading>
+          <h3 id="people" className="mb-1 text-meta font-bold text-muted">
+            People
+          </h3>
           <ul className="flex flex-col gap-1">
             {people.map((p) => (
               <li key={p.id} className="flex items-baseline justify-between gap-3">
@@ -219,38 +220,43 @@ function AgentItem({
 }) {
   const presence = agent.presence ?? "no_session";
   const waiting = presence === "waiting";
+  const label = cn("text-meta", waiting ? "text-ink" : "text-muted");
   return (
-    <li
-      className={cn("agent transition-colors duration-200 ease-out", waiting && "-mx-3 rounded-box bg-attention px-3 py-2.5")}
-      data-agent={agent.name}
-    >
+    <li className={cn("agent transition-colors duration-200 ease-out", waiting && "-mx-3 rounded-box bg-attention px-3 py-2.5")} data-agent={agent.name}>
       <div className="flex items-center justify-between gap-3">
         <NameButton name={agent.name} picked={picked} onPick={onPick}>
           {agent.name}
         </NameButton>
-        <CrossFade
-          value={presenceWords[presence]}
-          className={cn("text-meta", waiting ? "text-ink" : presence === "working" ? "text-ink" : "text-muted")}
-        />
+        <span className="flex shrink-0 items-center gap-1.5">
+          <span
+            aria-hidden
+            className={cn(
+              "presence-dot size-2 rounded-full transition-colors duration-200 ease-out",
+              presence === "working" ? "bg-accent" : presence === "no_session" ? "border border-muted" : waiting ? "bg-ink" : "bg-muted",
+            )}
+          />
+          <CrossFade value={presenceWords[presence]} className={cn("text-meta", presence === "working" || waiting ? "text-ink" : "text-muted")} />
+        </span>
       </div>
       {waiting && <p className="text-meta">Its session is waiting for you, such as a permission prompt.</p>}
-      <dl className="mt-0.5 grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 gap-y-0.5">
+      <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
         {showOwner && (
           <>
-            <dt className={cn("text-meta", waiting ? "text-ink" : "text-muted")}>Owner</dt>
+            <dt className={label}>Owner</dt>
             <dd>{agent.owner}</dd>
           </>
         )}
-        <dt className={cn("pt-px text-meta", waiting ? "text-ink" : "text-muted")}>Role</dt>
+        <dt className={label}>Role</dt>
         <dd>
           <Collapsible>
-            <CollapsibleTrigger className="group -ml-1 inline-flex items-center gap-1 rounded-[6px] px-1 text-ink hover:bg-selected">
-              <ChevronRight
-                className="size-3.5 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
+            <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px]">
+              {agent.role}
+              <ChevronDown
+                className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
                 strokeWidth={1.5}
                 aria-hidden
               />
-              {agent.role}
+              <span className="sr-only">: what this role does</span>
             </CollapsibleTrigger>
             <CollapsibleContent className="animate-fade-in">
               <p className="mt-1 text-meta">{roleCharter?.trim() || "This role has no description."}</p>
@@ -259,7 +265,7 @@ function AgentItem({
         </dd>
         {agent.harness && (
           <>
-            <dt className={cn("text-meta", waiting ? "text-ink" : "text-muted")}>Harness</dt>
+            <dt className={label}>Harness</dt>
             <dd>{harnessName(agent.harness)}</dd>
           </>
         )}

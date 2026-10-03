@@ -4,10 +4,19 @@ import { MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { ApiError } from "./api";
 
-/** Header shows the product name and, on a board, its title with its name beside it. */
-export function Header({ board, title, starter }: { board?: string; title?: string | null; starter?: boolean }) {
+/**
+ * Header shows the product name and, on a board, its title with its name beside it, and
+ * who you are at the right once the browser is logged in.
+ */
+export function Header({
+  board,
+  title,
+  starter,
+  account,
+}: { board?: string; title?: string | null; starter?: boolean; account?: ReactNode }) {
   return (
-    <header className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 border-b border-rule bg-surface px-4 py-3 sm:px-6">
+    <header className="border-b border-rule bg-surface">
+      <div className="mx-auto flex min-h-16 max-w-[1480px] flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-6">
       <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
         <MessagesSquare className="size-[22px]" strokeWidth={1.5} aria-hidden />
         Aboard
@@ -23,6 +32,8 @@ export function Header({ board, title, starter }: { board?: string; title?: stri
           Starter policy
         </a>
       )}
+      {account}
+      </div>
     </header>
   );
 }

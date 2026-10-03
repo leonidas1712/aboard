@@ -136,7 +136,7 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
                       <DropdownMenuLabel>Roles</DropdownMenuLabel>
                       {roles.map((r) => (
                         <DropdownMenuRadioItem key={r} value={`role:${r}`}>
-                          Every {r}
+                          Role {r}
                         </DropdownMenuRadioItem>
                       ))}
                     </>

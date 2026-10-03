@@ -65,9 +65,32 @@ export function identitiesOf(ids: string[]): Map<string, number> {
   return out;
 }
 
-/** initialOf is the letter a sender mark shows. */
-export function initialOf(name: string): string {
-  return (name.match(/[a-z0-9]/i)?.[0] ?? "?").toUpperCase();
+// Names agents get from their harness, and the two letters their marks show.
+const harnessMarks: Record<string, string> = {
+  claude: "CL",
+  codex: "CX",
+  opencode: "OC",
+  openclaw: "OW",
+  hermes: "HE",
+  pi: "PI",
+};
+
+/**
+ * markOf is the one or two characters a sender mark shows. An agent named after its
+ * harness shows the harness's two letters (claude CL, codex CX); a later seat shows the
+ * harness's first letter and its number (claude-2 C2, agent-3 A3). Any other name shows
+ * the initials of its first two words (docs-bot DB), or its first two letters (scout
+ * SC). A person shows their initials: one letter for a one-word name (leo L).
+ */
+export function markOf(name: string, kind: "agent" | "human"): string {
+  const words = name.split(/[-_.\s]+/).filter(Boolean);
+  const first = (w: string) => (w.match(/[a-z0-9]/i)?.[0] ?? "?").toUpperCase();
+  if (kind === "human") return words.slice(0, 2).map(first).join("") || "?";
+  const [base, seat] = words;
+  if (words.length === 1 && harnessMarks[base]) return harnessMarks[base];
+  if (words.length === 2 && /^\d+$/.test(seat)) return first(base) + seat;
+  if (words.length >= 2) return first(words[0]) + first(words[1]);
+  return (base ?? "?").replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "?";
 }
 
 /** clockTime is a time of day, as in a chat's gutter ("14:05"). */
@@ -85,11 +108,14 @@ export function displayName(m: MemberRef, showOwner: boolean): string {
   return showOwner && m.kind === "agent" && m.owner ? `${m.name} · ${m.owner}` : m.name;
 }
 
-/** recipient turns a target into words: all is "everyone", @claude is "claude". */
+/**
+ * recipient turns a target into words: all is "everyone", @claude is "claude", and
+ * role:member is "role member", so a role never reads like everyone.
+ */
 export function recipient(t: string): string {
   if (t === "all") return "everyone";
   if (t.startsWith("@")) return t.slice(1);
-  if (t.startsWith("role:")) return `every ${t.slice(5)}`;
+  if (t.startsWith("role:")) return `role ${t.slice(5)}`;
   return t;
 }
 

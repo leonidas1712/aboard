@@ -302,17 +302,23 @@ design to Inter, Arial or the system UI font.
 
 ## Layout
 
-A wrapping row of three columns: a left sidebar (about 260px; "About this board": your
-boards, what the board is for, rules), the centre column, and a right sidebar (260 to
-340px; who's here, open tasks, pinned files, needs you). The centre column is capped at
-about 780px so lines stay readable, and takes the remaining width up to that cap. On a
-narrow screen the row wraps and the columns stack, centre first.
+The board view is one centred page grid, at most 1480px wide, with the header's
+contents on the same grid: the left panel (272px by default), the centre, and the right
+panel (300px). The centre is fluid and its contents are capped at 800px, centred in it.
+Every column starts with a header row 56px high, so the panels' titles, their hide
+buttons and the "Now:" line share one line; a hidden panel's strip keeps its show button
+in that row. Sections in a panel are 16px apart whether open or closed. Who you are sits
+at the right of the header: your mark and name, opening a menu with your access on this
+board (only with a second person), the server, and the theme (system, light or dark,
+kept per browser). The record line sits at the bottom of the left panel.
+
+On a narrow screen the row wraps and the columns stack, centre first.
 
 Above the columns sit the header (product name, board name, Pause board) and the tabs
 bar, both on the surface colour with a 1px rule below.
 
 Spacing follows a small scale: 4 and 8px inside a group (a name and its fields), 12 to
-14px between timeline entries' contents, 20 to 26px between sidebar sections, 24 to
+14px between timeline entries' contents, 16px between sidebar sections, 20 to
 32px of column padding. Timeline entries are separated by a 1px rule, not by space or
 boxes.
 
@@ -361,8 +367,10 @@ The current tab is marked by a 3px accent underline. Icons are 16px line icons w
   link ("Edit charter", "Tighten the rules").
 - **Board list:** each board a list item with 8px by 10px padding; the current one has
   the `selected` fill and bold text. Counts sit right-aligned as plain numbers.
-- **Who's here:** each agent's name in bold with its presence word right-aligned in
-  `muted` (working, idle, waiting, no session); then fields: Owner (only with a second
+- **Who's here:** each agent a block: its name in bold, and right-aligned its presence
+  as an 8px dot and a word (working: accent dot, `ink` word; idle: `muted` dot; no
+  session: a `muted` ring; waiting: the marigold block); then a two-column field grid
+  (72px labels in Meta, values in Body, on one baseline): Owner (only with a second
   person), Role (a disclosure that opens a one-line description of the role), Harness.
   People follow, with their Access (Admin) or as one line ("People Leo (you, admin),
   Priya").
@@ -373,8 +381,15 @@ The current tab is marked by a 3px accent underline. Icons are 16px line icons w
   line is the sender in bold, a small kind glyph, then → recipient (a muted arrow icon
   labelled "to", e.g. "claude → codex", "codex → everyone"), and the time pushed to the
   right in Meta. The body follows in Body.
-- **Sender mark:** a 32px rounded square (8px radius) with the sender's initial in Body
-  Strong, on the sender's identity colour. Decorative (`aria-hidden`); the name says who.
+- **Sender mark:** a 32px rounded square (8px radius) with one or two characters in
+  bold Meta (Body for one character), on the sender's identity colour. Decorative
+  (`aria-hidden`); the name says who. The characters follow one rule:
+  - an agent named after its harness shows the harness's two letters: `claude` CL,
+    `codex` CX, `opencode` OC, `openclaw` OW, `hermes` HE, `pi` PI;
+  - a later seat shows the first letter and its number: `claude-2` C2, `agent-3` A3;
+  - any other agent name shows the initials of its first two words (`docs-bot` DB), or
+    the first two letters of a one-word name (`scout` SC);
+  - a person shows their initials: `leo` L, `priya-shah` PS.
 - **Kind glyphs** beside the name, 14px, each with an `aria-label` and a hover title:
   message (speech bubble, `muted`), reply (curved arrow, accent), asks for a reply
   (circled question mark, `ink`), urgent (lightning, `ink`).

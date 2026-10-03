@@ -25,6 +25,9 @@ export type Board = {
   roles: Record<string, Role>;
   policy: Policy;
   head_seq: number;
+  /** message_count and last_message_at are null for a reader who may not see them. */
+  message_count: number | null;
+  last_message_at: string | null;
   created_at: string;
   created_by: MemberRef;
 };

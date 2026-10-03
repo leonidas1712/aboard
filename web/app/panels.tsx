@@ -1,9 +1,10 @@
 "use client";
 
-// The board view's side panels on a wide screen: each collapses to a thin strip with a
-// button that opens it again, and its width can be dragged, or set from the keyboard,
-// within limits. This browser remembers both. On a narrow screen the panels stack below
-// the conversation and neither applies.
+// The board view's side panels. Each has a header row (its title and a button that
+// hides it) on the same line as the conversation's "Now:" line. On a wide screen a
+// hidden panel leaves a thin strip whose button, in the same row, shows it again, and a
+// panel's inner edge can be dragged, or moved from the keyboard, within limits. This
+// browser remembers both. On a narrow screen the panels stack below the conversation.
 
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef } from "react";
@@ -11,28 +12,40 @@ import { cn } from "@/lib/utils";
 
 export type PanelSize = { width: number; collapsed: boolean };
 
-/** The strip a collapsed panel leaves, in pixels. */
-export const stripWidth = 48;
+/** The strip a hidden panel leaves, in pixels. */
+export const stripWidth = 56;
+
+/** Limits are a panel's narrowest, widest and first width. */
+export type Limits = { min: number; max: number; initial: number };
+
+/** clampSize keeps a remembered size within limits, whatever an older page stored. */
+export function clampSize(s: PanelSize, l: Limits): PanelSize {
+  const w = Number.isFinite(s?.width) ? s.width : l.initial;
+  return { collapsed: !!s?.collapsed, width: Math.round(Math.min(l.max, Math.max(l.min, w))) };
+}
+
+/** The header row every column shares, so their first lines align. */
+export const headerRow = "flex min-h-14 items-center";
 
 type Props = {
   side: "left" | "right";
+  /** title heads the panel; label names it for assistive technology and its buttons. */
+  title: string;
   label: string;
   size: PanelSize;
   setSize: (s: PanelSize) => void;
-  min: number;
-  max: number;
-  /** initial is the width a double-click on the edge goes back to. */
-  initial: number;
+  limits: Limits;
   children: ReactNode;
   className?: string;
 };
 
-export function SidePanel({ side, label, size, setSize, min, max, initial, children, className }: Props) {
+export function SidePanel({ side, title, label, size, setSize, limits, children, className }: Props) {
   const drag = useRef<{ x: number; width: number } | null>(null);
-  const clamp = (w: number) => Math.round(Math.min(max, Math.max(min, w)));
+  const clamp = (w: number) => Math.round(Math.min(limits.max, Math.max(limits.min, w)));
   const left = side === "left";
   const Close = left ? PanelLeftClose : PanelRightClose;
   const Open = left ? PanelLeftOpen : PanelRightOpen;
+  const id = `${side}-panel-title`;
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -52,27 +65,26 @@ export function SidePanel({ side, label, size, setSize, min, max, initial, child
     const shrink = left ? "ArrowLeft" : "ArrowRight";
     if (e.key === grow) setSize({ collapsed: false, width: clamp(size.width + step) });
     else if (e.key === shrink) setSize({ collapsed: false, width: clamp(size.width - step) });
-    else if (e.key === "Home") setSize({ collapsed: false, width: min });
-    else if (e.key === "End") setSize({ collapsed: false, width: max });
+    else if (e.key === "Home") setSize({ collapsed: false, width: limits.min });
+    else if (e.key === "End") setSize({ collapsed: false, width: limits.max });
     else return;
     e.preventDefault();
   };
 
+  const iconButton =
+    "inline-flex size-10 shrink-0 items-center justify-center rounded-control text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink";
+
   return (
     <aside
-      aria-label={label}
+      aria-labelledby={id}
       data-collapsed={size.collapsed || undefined}
-      className={cn(
-        "side-panel relative border-t border-rule lg:min-h-0 lg:border-t-0",
-        left ? "lg:border-r" : "lg:border-l",
-        className,
-      )}
+      className={cn("side-panel relative min-w-0 border-t border-rule lg:min-h-0 lg:border-t-0", left ? "lg:border-r" : "lg:border-l", className)}
     >
-      {/* The strip: only the button that opens the panel again. */}
-      <div className={cn("hidden h-full flex-col items-center pt-3", size.collapsed && "lg:flex")}>
+      {/* The strip: only the button that shows the panel again, in the header row. */}
+      <div className={cn(headerRow, "hidden justify-center", size.collapsed && "lg:flex")}>
         <button
           type="button"
-          className="panel-open inline-flex size-11 items-center justify-center rounded-control text-ink transition-colors duration-[140ms] ease-out hover:bg-selected"
+          className={cn("panel-open", iconButton)}
           aria-label={`Show ${label}`}
           aria-expanded={false}
           title={`Show ${label}`}
@@ -81,11 +93,14 @@ export function SidePanel({ side, label, size, setSize, min, max, initial, child
           <Open className="size-[18px]" strokeWidth={1.5} aria-hidden />
         </button>
       </div>
-      <div className={cn("quiet-scroll h-full px-4 py-5 sm:px-6 lg:overflow-y-auto lg:pt-3", size.collapsed && "lg:hidden")}>
-        <div className={cn("mb-1 hidden lg:flex", left ? "justify-end" : "justify-start")}>
+      <div className={cn("quiet-scroll flex h-full flex-col px-4 pb-6 sm:px-6 lg:overflow-y-auto lg:px-5", size.collapsed && "lg:hidden")}>
+        <div className={cn(headerRow, "justify-between gap-3 pt-2 lg:pt-0")}>
+          <h2 id={id} className="text-meta font-bold text-muted">
+            {title}
+          </h2>
           <button
             type="button"
-            className="panel-close -mx-2 inline-flex size-11 items-center justify-center rounded-control text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+            className={cn("panel-close -mr-2.5 hidden lg:inline-flex", iconButton)}
             aria-label={`Hide ${label}`}
             aria-expanded
             title={`Hide ${label}`}
@@ -103,15 +118,15 @@ export function SidePanel({ side, label, size, setSize, min, max, initial, child
           aria-orientation="vertical"
           aria-label={`Resize ${label}`}
           aria-valuenow={size.width}
-          aria-valuemin={min}
-          aria-valuemax={max}
+          aria-valuemin={limits.min}
+          aria-valuemax={limits.max}
           tabIndex={0}
           title="Drag to resize; double-click to reset"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          onDoubleClick={() => setSize({ collapsed: false, width: initial })}
+          onDoubleClick={() => setSize({ collapsed: false, width: limits.initial })}
           onKeyDown={onKeyDown}
           className={cn(
             "resize-handle group absolute inset-y-0 z-10 hidden w-3 cursor-col-resize touch-none outline-none lg:block",
