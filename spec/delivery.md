@@ -476,10 +476,19 @@ three. Build A is older than build B when:
 
 - A's version is lower than B's, compared as semantic versions (`0.1.0` < `0.1.1` <
   `0.2.0-rc.1` < `0.2.0`); a missing or unreadable version is lower than any other; or
-- the versions are equal, both have a `commit_time`, and A's is earlier.
+- the versions are equal, both have a `commit_time`, and A's is earlier; or
+- the versions are equal, A has no `commit_time` and B has one: A predates commit
+  reporting, so it is the older build.
 
 Anything else counts as the same build, and nothing is replaced: two builds from the same
-commit, with uncommitted changes, need `aboard down` to switch.
+commit, with uncommitted changes, or two builds that both lack a `commit_time`, need
+`aboard down` to switch.
+
+**An older server that lacks an operation.** When the server answers `404 not_found` or
+`501 not_implemented` for an operation in the spec, the command asks the server for its
+build. If the server's build is older than the command's, or it can't tell, the command
+fails with `server_outdated`: for the local server, run `aboard down` and the command
+again, which starts the current server; for a team server, whoever runs it upgrades it.
 
 **Stored data.** The database and the journal apply their numbered migrations when they
 open. A binary that finds data written by a newer schema than it knows refuses to start

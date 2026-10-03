@@ -58,7 +58,10 @@ $defs:
       daemon is from an older aboard, couldn't be replaced, and lacks the operation; run
       aboard down, then the command again) · daemon_protocol_mismatch (the running daemon
       is from a newer aboard that speaks another control protocol; install the newer
-      aboard) · data_newer (the database or delivery journal was written by a newer
+      aboard) · server_outdated (the server is from an older aboard, or its build can't be
+      read, and answered not_found or not_implemented for an operation in the spec; for
+      the local server run aboard down, then the command again; a team server needs
+      upgrading by whoever runs it) · data_newer (the database or delivery journal was written by a newer
       aboard; install it) · human_command_in_session (a command that acts or reads with the
       human login, or changes a delivery mode, ran inside a harness session; a person runs
       it in a terminal) · browser_unavailable (aboard open inside a harness session

@@ -749,7 +749,8 @@ components:
           format: date-time
           description: |
             When that commit was made, when known. Between two builds with the same
-            `version`, the one with the later `commit_time` is newer.
+            `version`, the one with the later `commit_time` is newer, and one without
+            a `commit_time` is older than one with it.
         server_id: { type: string, pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$" }
         mode: { type: string, enum: [local, team] }
 
