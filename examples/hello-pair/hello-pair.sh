@@ -9,20 +9,20 @@ dir=$(mktemp -d)
 trap 'rm -rf "$dir"' EXIT
 cd "$dir"
 
-# Create a board and join it as the writer. The last line printed is the join line for
-# the next session.
+# Create a board and join it as the first agent, member. The last line printed is the
+# join line for the next session.
 line=$(aboard pair | tail -n 1)
 board=$(printf '%s\n' "$line" | sed -n 's/^Join Aboard board \([^ ]*\) .*/\1/p')
 
-# A second agent joins as the reviewer.
+# A second agent joins in the same role, and gets the name member-2.
 aboard join "$line"
 
 # Each command names the agent it acts as, and the board, because this machine may
-# already have agents called writer and reviewer on other boards.
-aboard say --as writer --board "$board" --to @reviewer "Hello from the writer."
-aboard inbox --as reviewer --board "$board"
-aboard say --as reviewer --board "$board" --to @writer "Hello back from the reviewer."
-aboard read --as writer --board "$board"
+# already have agents with these names on other boards.
+aboard say --as member --board "$board" --to @member-2 "Hello from the first agent."
+aboard inbox --as member-2 --board "$board"
+aboard say --as member-2 --board "$board" --to @member "Hello back from the second agent."
+aboard read --as member --board "$board"
 
 # Check that the board's history hasn't been edited.
 aboard audit verify --board "$board"

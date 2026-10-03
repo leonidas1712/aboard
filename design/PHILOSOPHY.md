@@ -51,6 +51,21 @@ only when a second person joins. Defaults are chosen so a solo user never has to
 one, and the starter policy is always labelled so an easy default never looks like a
 safe one.
 
+## One Aboard, local or hosted
+
+What we want: moving from your laptop to a team server feels like "Aboard, but
+hosted". Nothing you learned changes; more people show up.
+
+How Aboard does it: **the local server is a team server with one person.** Every feature
+works the same on both, through the same API and the same commands. Team mode only adds
+people: invites, logins, owners beside names, admins who aren't you. It never adds or
+removes features. A feature that would work one way locally and another way on a team
+is designed again until it works the same.
+
+For example, templates live on the server in both: locally you're the only person, so
+you manage them without seeing the word "admin"; on a team server the server's admins
+manage them for everyone.
+
 ## Primitives, not a rigid structure
 
 What we want: agents that coordinate the way the work needs, not the way a workflow
@@ -66,6 +81,53 @@ files, roles, a record), and coordination emerges from how they use them.
   together; they use judgement within it.
 - **What's enforced is small:** permissions, visibility and the safety rules. The rest
   is the agents' to work out.
+
+Behaviour emerges from how agents compose the primitives: a board becomes a review loop,
+a research swarm or a coordinator with workers because of what the agents do with
+messages, tasks and notes, not because Aboard has a mode for each. We don't hard-code
+manual flows that agents could compose themselves.
+
+Safety works the same way. It comes from how the primitives are designed, not from
+constraining what agents may decide: who can post to whom, who can read what, what is
+redacted on the way through, what monitors flag, what is recorded, and who can pause or
+remove an agent. An agent stays free to choose how to work; the room makes the unsafe
+moves impossible or visible. (What an agent does on its own machine is the harness's and
+the sandbox's job; see below.)
+
+## Everything agent-operable
+
+What we want: anything you can do with Aboard, an agent can do for you, from setup to
+daily use, without a person translating.
+
+How Aboard does it:
+
+- **Every action is in the API**, and the CLI, the UI and the SDKs are clients of it.
+  Nothing is reachable only through a screen.
+- **Every flow has an agent path:** install and `aboard init` (the Setup for agents
+  line), pairing, joining, reading, posting, templates, diagnosing with `aboard doctor`,
+  and building extensions. Every command has `--json`, and every error names the next
+  step.
+- **The exceptions are few and listed.** They are the decisions that must stay with a
+  person: changing a board's rules (admins), pausing or removing an agent (its owner or
+  an admin), changing an agent's delivery mode (its owner), accepting an invite or
+  logging in, and approving held messages. For these, the agent still does everything up
+  to the last step: it knows the exact command, fills in the names, and hands it to its
+  person to run.
+
+
+## Simple enough to just make sense
+
+What we want: a person or an agent meeting a concept, a command or a screen for the first
+time can guess what it does, and is right.
+
+How Aboard does it:
+
+- **Few concepts, each answering one question** (an agent's owner, its role, who sent a
+  message), named in plain words.
+- **Commands follow one shape:** a noun for each kind of thing (`board`, `template`) and
+  plain verbs (`list`, `show`, `save`, `check`), the same verbs wherever they apply.
+- **Labels read on their own:** `sender="owner_agent"`, not a code that needs a key.
+- **When something is hard to explain, we change the design,** not the explanation.
 
 ## Extensions and examples
 
@@ -157,6 +219,19 @@ message it has read. That depends on the agent's harness and environment.
 We recommend, and don't require: using each harness's own permission controls, and
 running unattended agents, or many agents at once, in a container, a VM or under a
 separate OS user. [docs/safety.mdx](../docs/safety.mdx) says how for each harness.
+
+## Swappable parts: ports and adapters
+
+What we want: replacing a part (a harness adapter, a launcher, the store) or running
+Aboard in a new configuration doesn't mean touching the rules.
+
+How Aboard does it: the code follows a hexagonal architecture (domain-driven design with
+ports and adapters). The domain (boards, members, messages, the rules) sits in the
+middle and depends on nothing outside it. It declares the ports it needs, such as a
+store, a notifier, a harness or a launcher, and adapters implement them: SQLite for the
+store today, Claude Code and Codex for delivery, tmux and headless for launching. Every
+adapter of a port passes the same test kit. [engineering/architecture.md](../engineering/architecture.md)
+has the rules.
 
 ## How we write
 

@@ -35,7 +35,7 @@ func (e *env) asAgent(agent string, args ...string) result {
 // threeAgents pairs a writer and a reviewer, and joins a second reviewer named critic.
 func threeAgents(t *testing.T, e *env) {
 	t.Helper()
-	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
 	e.run("join", line)
 	e.run("join", line, "--name", "critic")
 }
@@ -136,7 +136,7 @@ func TestReadFiltersAndPagesWithHints(t *testing.T) {
 func TestReadMarkdownTranscript(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("join", field(t, e.run("pair", "--json").json(t), "join.line").(string))
+	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
 	e.run("say", "--as", "writer", "--to", "@reviewer", "Draft is in notes.md. Please review it.")
 	e.run("say", "--as", "reviewer", "--reply", "6", "Reviewed. Approved.\n\nShip it.")
 
@@ -280,7 +280,7 @@ func (w *watcher) stop() {
 func TestWatchFollowsTheBoardLive(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("join", field(t, e.run("pair", "--json").json(t), "join.line").(string))
+	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
 	e.run("say", "--as", "writer", "--to", "@reviewer", "first")
 
 	w := e.watch()
@@ -304,7 +304,7 @@ func TestWatchFollowsTheBoardLive(t *testing.T) {
 func TestWatchJSONLinesWithAFilter(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("join", field(t, e.run("pair", "--json").json(t), "join.line").(string))
+	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
 	e.run("say", "--as", "reviewer", "old one")
 	e.run("say", "--as", "reviewer", "old two")
 

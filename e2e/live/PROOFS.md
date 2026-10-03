@@ -50,7 +50,7 @@ Code 2.1.287 with its default model.
 
 | Test | Proves | Turns |
 | --- | --- | --- |
-| `TestIdleClaudeWakesAndReplies` | Pairing in plain words: "Pair with a reviewer on Aboard" in one session gives a join line; typed into a second session, it joins. Then a message to the idle first session is handed over within 2 seconds and answered on the board with no one typing. | 6 |
+| `TestIdleClaudeWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins. Then a message to the idle first session is handed over within 2 seconds and answered on the board with no one typing. | 6 |
 | `TestClaudeExchangesFiveMessages` | One prompt starts the skill's wiring check to PING 3: six messages go back and forth between two sessions, taking turns, and the exchange stops. | 9 |
 | `TestUrgentReachesBusyClaude` | While a turn runs a 25-second task, an urgent message reaches it at the next tool call and is acted on in that turn; three ordinary messages sent at the same time wait for the turn to end and arrive as one bundle. | 3 |
 | `TestHumansModeWakesOnlyForPeople` | With `aboard delivery humans`, a peer's message wakes nothing for 10 seconds and stays unread; the owner's message (posted with the owner login on the API) wakes the session within 2 seconds, and the agent reports both sequence numbers from that one bundle. | 2 |

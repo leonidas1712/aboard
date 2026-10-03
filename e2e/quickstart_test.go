@@ -32,14 +32,14 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 		t.Fatalf("pair printed %d lines, want 6\n%s", len(got), pair)
 	}
 	joinLine := got[5]
-	code := regexp.MustCompile(`^Join Aboard board writer-reviewer on ` + regexp.QuoteMeta(host) +
-		` as reviewer with code ([0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{3})$`).FindStringSubmatch(joinLine)
+	code := regexp.MustCompile(`^Join Aboard board general on ` + regexp.QuoteMeta(host) +
+		` as member with code ([0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{3})$`).FindStringSubmatch(joinLine)
 	if code == nil {
 		t.Fatalf("last line is not a join line: %q\n%s", joinLine, pair)
 	}
 	expectLines(t, pair,
 		"Started local Aboard at "+url,
-		"Created board writer-reviewer and joined as writer (owner alex)",
+		"Created board general and joined as member (owner alex)",
 		"Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended",
 		"",
 		"Paste this into your next session:",
@@ -48,38 +48,38 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 
 	// Terminal 2: paste the join line.
 	expectLines(t, e.run("join", joinLine),
-		"Joined board writer-reviewer as reviewer (owner alex)",
-		"Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.",
+		"Joined board general as member-2 (member, owner alex)",
+		"Act as this agent with --as member-2, or set ABOARD_AGENT=member-2.",
 	)
 
-	// Terminal 1: the writer asks for a review.
-	expectLines(t, e.run("say", "--as", "writer", "--to", "@reviewer", "Draft is in notes.md. Please review it."),
-		"Sent #6 to @reviewer on writer-reviewer",
+	// Terminal 1: the first agent shares its plan.
+	expectLines(t, e.run("say", "--as", "member", "--to", "@member-2", "The plan is in plan.md. Can you take the tests?"),
+		"Sent #6 to @member-2 on general",
 	)
 
-	// Terminal 2: the reviewer reads its inbox and replies to everyone.
-	expectLines(t, e.run("inbox", "--as", "reviewer"),
-		"writer-reviewer · 1 new",
-		`<aboard-message board="writer-reviewer" from="@writer" role="writer" sender="owner_agent" seq="6">`,
-		"Draft is in notes.md. Please review it.",
+	// Terminal 2: the second agent reads its inbox and replies to everyone.
+	expectLines(t, e.run("inbox", "--as", "member-2"),
+		"general · 1 new",
+		`<aboard-message board="general" from="@member" role="member" sender="owner_agent" seq="6">`,
+		"The plan is in plan.md. Can you take the tests?",
 		"</aboard-message>",
 	)
-	expectLines(t, e.run("say", "--as", "reviewer", "Reviewed. Approved."),
-		"Sent #7 to all on writer-reviewer",
+	expectLines(t, e.run("say", "--as", "member-2", "On it. I will post when they pass."),
+		"Sent #7 to all on general",
 	)
 
 	// Terminal 1: read the board.
-	expectLines(t, e.run("read", "--as", "writer"),
-		"writer-reviewer · 2 messages",
-		"#6  @writer (writer, self) → @reviewer",
-		"    Draft is in notes.md. Please review it.",
-		"#7  @reviewer (reviewer, owner_agent) → all",
-		"    Reviewed. Approved.",
+	expectLines(t, e.run("read", "--as", "member"),
+		"general · 2 messages",
+		"#6  @member (member, self) → @member-2",
+		"    The plan is in plan.md. Can you take the tests?",
+		"#7  @member-2 (member, owner_agent) → all",
+		"    On it. I will post when they pass.",
 	)
 
 	// Check the record.
 	verify := e.run("audit", "verify")
-	if !regexp.MustCompile(`^OK: 7 events on writer-reviewer verified, head #7 sha256:[0-9a-f]{8}…$`).MatchString(strings.TrimSpace(verify.stdout)) {
+	if !regexp.MustCompile(`^OK: 7 events on general verified, head #7 sha256:[0-9a-f]{8}…$`).MatchString(strings.TrimSpace(verify.stdout)) {
 		t.Fatalf("unexpected audit output\n%s", verify)
 	}
 
@@ -90,12 +90,27 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	}
 }
 
+// TestPairWriterReviewer checks that a template named on pair is used instead of the
+// default: the session joins as the first role and the join line is for the second.
+func TestPairWriterReviewer(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	pair := e.run("pair", "writer-reviewer").lines()
+	if pair[1] != "Created board writer-reviewer and joined as writer (owner alex)" {
+		t.Fatalf("pair didn't join as writer\n%s", strings.Join(pair, "\n"))
+	}
+	expectLines(t, e.run("join", pair[len(pair)-1]),
+		"Joined board writer-reviewer as reviewer (owner alex)",
+		"Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.",
+	)
+}
+
 // TestInboxIsEmptyAfterReading checks that reading the inbox acknowledges what it showed,
 // and that --peek doesn't.
 func TestInboxIsEmptyAfterReading(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	pair := e.run("pair", "--json")
+	pair := e.run("pair", "writer-reviewer", "--json")
 	e.run("join", field(t, pair.json(t), "join.line").(string))
 	e.run("say", "--as", "writer", "--to", "@reviewer", "one")
 
@@ -114,7 +129,7 @@ func TestInboxIsEmptyAfterReading(t *testing.T) {
 func TestInboxWaitReturnsWhenAMessageArrives(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	pair := e.run("pair", "--json")
+	pair := e.run("pair", "writer-reviewer", "--json")
 	e.run("join", field(t, pair.json(t), "join.line").(string))
 
 	done := make(chan result, 1)
@@ -134,7 +149,7 @@ func TestInboxWaitReturnsWhenAMessageArrives(t *testing.T) {
 func TestCommandWithoutAgentListsChoices(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	pair := e.run("pair", "--json")
+	pair := e.run("pair", "writer-reviewer", "--json")
 	e.run("join", field(t, pair.json(t), "join.line").(string))
 
 	r := e.runExit("say", "hello", "--json")
@@ -156,7 +171,7 @@ func TestCommandWithoutAgentListsChoices(t *testing.T) {
 func TestAuditVerifyFailsWhenHistoryIsEdited(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("pair")
+	e.run("pair", "writer-reviewer")
 	e.run("say", "--as", "writer", "The plan is A.")
 	e.run("audit", "verify")
 
@@ -237,9 +252,9 @@ func TestOwnerLoginIsNeverSentToAnotherServer(t *testing.T) {
 func TestPairInALinkedDirectoryNamesTheBoard(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("pair")
+	e.run("pair", "writer-reviewer")
 
-	r := e.runExit("pair", "--json")
+	r := e.runExit("pair", "writer-reviewer", "--json")
 	if r.code != 1 {
 		t.Fatalf("want exit 1\n%s", r)
 	}
@@ -250,12 +265,12 @@ func TestPairInALinkedDirectoryNamesTheBoard(t *testing.T) {
 	if b := field(t, v, "error.details.board"); b != "writer-reviewer" {
 		t.Fatalf("details.board %v", b)
 	}
-	text := e.runExit("pair")
+	text := e.runExit("pair", "writer-reviewer")
 	if !strings.Contains(text.stderr, "already linked to board writer-reviewer") || !strings.Contains(text.stderr, "aboard pair --new") {
 		t.Fatalf("error doesn't name the board and the way out\n%s", text)
 	}
 
-	fresh := e.run("pair", "--new")
+	fresh := e.run("pair", "writer-reviewer", "--new")
 	if !strings.Contains(fresh.stdout, "Linked this directory to board writer-reviewer-2 (it was linked to writer-reviewer).") {
 		t.Fatalf("pair --new doesn't say it re-linked the directory\n%s", fresh)
 	}
@@ -269,8 +284,8 @@ func TestPairInALinkedDirectoryNamesTheBoard(t *testing.T) {
 func TestJoinIntoAnotherBoardSaysSo(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	first := field(t, e.run("pair", "--json").json(t), "join.line").(string)
-	e.run("pair", "--new")
+	first := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
+	e.run("pair", "writer-reviewer", "--new")
 
 	j := e.run("join", first)
 	expectLines(t, j,
@@ -286,7 +301,7 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	url := "http://" + e.addr
-	e.run("pair")
+	e.run("pair", "writer-reviewer")
 
 	expectLines(t, e.run("status"),
 		"Server: "+url+" running",
@@ -321,7 +336,7 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 func TestMessageBodiesCannotForgeTheWrapper(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	pair := e.run("pair", "--json")
+	pair := e.run("pair", "writer-reviewer", "--json")
 	e.run("join", field(t, pair.json(t), "join.line").(string))
 
 	attacks := []string{

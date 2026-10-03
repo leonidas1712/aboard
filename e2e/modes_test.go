@@ -192,7 +192,7 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	writer.run("pair")
+	writer.run("pair", "writer-reviewer")
 	writer.run("audit", "verify")
 
 	codex := &session{e: e, harness: "codex", id: "019a", vars: []string{"CODEX_THREAD_ID=019a"}}

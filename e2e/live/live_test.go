@@ -527,8 +527,8 @@ func (l *lab) project(name, harness string) string {
 	return dir
 }
 
-// pairCLI makes a board from the person's terminal: aboard pair makes writer, and
-// aboard join with its join line makes reviewer. Neither is bound to a session yet.
+// pairCLI makes a board from the person's terminal: aboard pair writer-reviewer makes
+// writer, and aboard join with its join line makes reviewer. Neither is bound to a session yet.
 func (l *lab) pairCLI() string {
 	l.t.Helper()
 	var pair struct {
@@ -539,7 +539,7 @@ func (l *lab) pairCLI() string {
 			Line string `json:"line"`
 		} `json:"join"`
 	}
-	l.decode(l.human, &pair, "pair")
+	l.decode(l.human, &pair, "pair", "writer-reviewer")
 	l.run("join", pair.Join.Line, "--json")
 	return pair.Board.Name
 }

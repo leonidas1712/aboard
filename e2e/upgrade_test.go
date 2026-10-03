@@ -132,7 +132,7 @@ func TestOlderLocalServerIsReplacedAndKeepsItsData(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.bin = oldBinary
-	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
 	e.run("join", line)
 	e.run("say", "--as", "writer", "--to", "@reviewer", "written by the old server")
 	oldPID := e.serverPID()

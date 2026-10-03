@@ -18,7 +18,7 @@ import (
 func pairedClaudeSessions(t *testing.T, e *env) (writer, reviewer *session) {
 	t.Helper()
 	writer, reviewer = e.claudeSession("s-writer"), e.claudeSession("s-reviewer")
-	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
 	reviewer.run("join", line, "--name", "reviewer")
 	return writer, reviewer
 }
@@ -146,7 +146,7 @@ func TestJoiningAnotherBoardMovesTheSession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer, reviewer := pairedClaudeSessions(t, e)
-	line := field(t, e.run("pair", "--new", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--new", "--json").json(t), "join.line").(string)
 
 	stop := reviewer.startHook("stop")
 	writer.run("say", "--to", "@reviewer", "handed before the move")
@@ -225,7 +225,7 @@ func TestCodexSessionReceivesMessagesThroughItsQueue(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000001")
 	codex.run("join", line, "--name", "reviewer")
 
@@ -255,7 +255,7 @@ func TestUrgentMessageReachesBusyCodexSessionAtNextToolCall(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000003")
 	codex.run("join", line, "--name", "reviewer")
 	if r := codex.hook("prompt", `"prompt":"long task"`); r.code != 0 {
@@ -288,7 +288,7 @@ func TestUrgentMessageReachesBusyCodexSessionAtNextToolCall(t *testing.T) {
 func TestCodexSubAgentThreadCannotJoin(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
 	threads := `{"019a0000-0000-7000-8000-00000000000b":{"parent":"019a0000-0000-7000-8000-00000000000a"}}`
 	if err := os.WriteFile(filepath.Join(e.home, "fake-codex-threads.json"), []byte(threads), 0o600); err != nil {
 		t.Fatal(err)
@@ -311,8 +311,8 @@ func TestCodexSubAgentThreadCannotJoin(t *testing.T) {
 func TestAgentNameOnTwoBoardsMustBeDisambiguated(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	e.run("pair")
-	e.run("pair", "--new")
+	e.run("pair", "writer-reviewer")
+	e.run("pair", "writer-reviewer", "--new")
 	other := filepath.Join(e.home, "elsewhere")
 	if err := os.MkdirAll(other, 0o755); err != nil {
 		t.Fatal(err)
@@ -454,7 +454,7 @@ func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
 	reviewer, harness := e.claudeSessionIn("s-reviewer")
 	reviewer.run("join", line, "--name", "reviewer")
 	if got := e.openSessions(); got != "2 sessions" {
@@ -516,7 +516,7 @@ func (e *env) daemonRunning() bool {
 func TestCommandInsideASandboxDoesNotStartTheDaemon(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	line := field(t, e.run("pair", "--json").json(t), "join.line").(string)
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
 	if e.daemonRunning() {
 		t.Fatal("pair outside any session started the daemon")
 	}
@@ -567,7 +567,7 @@ func TestStatusShowsWhatRunsAndDownStopsIt(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	session := e.claudeSession("s-writer") // starts the daemon
-	session.run("pair")
+	session.run("pair", "writer-reviewer")
 
 	st := session.run("status", "--json").json(t)
 	if field(t, st, "server_running") != true || field(t, st, "daemon.running") != true || field(t, st, "daemon.open_sessions") != float64(1) {
