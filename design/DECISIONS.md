@@ -507,6 +507,11 @@ Why: "my message never arrived" crosses three processes, and an agent can only d
 **D151. `GET /v1/info` carries the API version (openapi.yaml's `info.version`) and a list of feature names the server supports, beside its build. Clients, daemons and adapters check the features before using one, and say `server_outdated` naming the missing feature, rather than calling and interpreting a `not_found`. `aboard doctor` reports both.**
 Why: with mixed versions (D148) a client needs to know what a server can do before it asks; the build alone says how old a server is, not what it supports, and guessing from errors only works for whole missing endpoints, not for new fields or behaviour.
 
+## Accepted (2026-10-03): Codex's sandbox
+
+**D152. Codex's sandbox blocks network access by default, which covers the local server's address and the daemon's socket, so `aboard` commands Codex runs there see neither, running or not. A command that runs inside a sandbox marked as blocking the network (Codex's `CODEX_SANDBOX_NETWORK_DISABLED`) and gets no answer fails with `sandbox_blocks_network`, starts nothing, and names the fix: `aboard init --yes --allow-commands` in a terminal, whose Codex rule runs `aboard` outside the sandbox, or approving the command. It is checked before `daemon_in_sandbox` (D66), and `aboard status` and `aboard doctor` say the same rather than "not running". The guided `aboard init` says why in one line and suggests yes when Codex is among the harnesses; `aboard init --yes` without the flag keeps its default but recommends it in one line; doctor warns `codex_aboard_not_allowed` while no Codex rules file allows `aboard`. Refines D66 and D72.**
+Why: QA saw `aboard status` inside Codex report a running server as stopped, and other commands fail with `daemon_in_sandbox`, until the person approved each one outside the sandbox. Verified with Codex 0.159.3: without the rule `aboard status` reported both stopped; with the rule it reported both running. The rule matches only commands whose first word is `aboard` (`codex execpolicy check`), so it allows nothing broader. Opening the sandbox's network instead would let every command reach the network.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,

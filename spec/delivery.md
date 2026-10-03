@@ -75,6 +75,17 @@ Aboard's hooks in the harness (its session-start hook runs outside the sandbox a
 starts the daemon) or to run `aboard daemon start` in a normal terminal. `aboard doctor`
 reports the same.
 
+**A sandbox that blocks the network.** Codex's sandbox blocks network access by default
+(`CODEX_SANDBOX_NETWORK_DISABLED=1`), and that covers both the local server's address
+and the daemon's socket: verified with Codex 0.159.3, `aboard status` run there reports
+both as not running while they run. A command that runs there and gets no answer from
+the server or the daemon fails with `sandbox_blocks_network` instead of
+`server_unreachable` or `daemon_in_sandbox`, starts nothing, and names the fix: `aboard
+init --yes --allow-commands` in a terminal adds Codex's allow rule for `aboard`, and Codex
+runs the commands its rules allow outside its sandbox; or the person approves the
+command to run outside it. `aboard status` and `aboard doctor` say the same rather than
+"not running".
+
 **Stops when idle.** With no open session for 10 minutes, the daemon exits. Messages for
 agents whose sessions are closed simply wait on their server; the next session start
 brings the daemon back, and it picks up where the read positions are.
@@ -639,6 +650,8 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | --- | --- | --- |
 | `daemon_not_running` | The daemon isn't running and couldn't start | The log path and the error |
 | `daemon_in_sandbox` | The daemon isn't running and doctor runs inside a harness's sandbox | Trust Aboard's hooks in the harness, or run `aboard daemon start` in a normal terminal |
+| `sandbox_blocks_network` | Doctor runs inside a sandbox that blocks network access (Codex's default), so it can't reach the server or the daemon | `aboard init --yes --allow-commands` in a terminal, or approve the command outside the sandbox |
+| `codex_aboard_not_allowed` | Codex is installed but no rules file allows `aboard` in a scope it reads (warning); its commands then run in the sandbox, which blocks the local server | `aboard init --yes --allow-commands`, with `--scope project` when only the project is set up |
 | `socket_unsafe` | The socket or its directory is readable by others | Remove the directory; it is recreated |
 | `peer_check_unavailable` | The kernel didn't report the peer's user | Delivery is refused on this system |
 | `claude_code_not_installed` | Claude Code isn't installed (warning) | Install it, or ignore |
