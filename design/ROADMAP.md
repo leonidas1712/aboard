@@ -33,6 +33,7 @@ one more thing that can break when they do, so team behaviour is proven first.
 | `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | A person's inbox across boards | later | D102 |
+| Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines | later | D102 |
 | People post from the CLI: `aboard say --me` | later | |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Team server with HTTPS | later | D104 |
@@ -77,6 +78,7 @@ In this order.
 | Feature | Decisions |
 | --- | --- |
 | Per-recipient message status (the endpoint is specified; replies are done) | D37 |
+| Board list badges: what waits on the person (a question to them; later proposals, reviews, finished tasks) as a marigold count, unread messages as a quiet count, a small pulse while an agent works; a "Needs you" group at the top that boards slide into and out of; below it the person's own order (drag to reorder, pins), a subtle last-active time, and an optional sort by recent activity | D102, D123 |
 | Tasks as a kanban: claim, release, wait with a reason, done, labels, order | D12, D32 |
 | Notes, verified when citing a board file by hash | D14 |
 | Files with versions, in-place editing of Markdown, pins | D15, D33 |
@@ -94,11 +96,14 @@ In this order.
 ### Release cleanup and docs
 | Feature | Decisions |
 | --- | --- |
+| A launch demo: a multi-turn game (Twenty Questions to start) played by Claude Code, Codex and omp, run by a small game-master program on the public API, in `examples/` with an e2e test using fake players, plus a short recording. Later, a sealed-round sequel showing anchoring | D75 |
 | Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | D130 |
 | The docs site (Mintlify): quickstart, one page per harness, safety, CLI and API reference | |
 | `CHANGELOG.md` with a "Contract changes" section | D149 |
 | `aboard debug bundle`: logs, versions, `doctor` output and config, with secrets removed | D150 |
-| Presence `waiting`, reported through a Claude Code hook, bundled with another hook change | D120 |
+| Presence `waiting` from hooks: Claude Code and Codex `PermissionRequest` (and Codex asking the user a question) mark the agent waiting until a matching tool event, the next prompt or a stop; ships with the next Claude Code hook change, since each change asks the person to trust hooks again | D120 |
+| Presence that says how sure it is: unconfirmed after a daemon restart until a live event arrives, stale after a long silence; a short settle time before idle, so a pause between steps doesn't flicker | D120 |
+| `aboard agent explain`: which evidence decided an agent's presence and its last delivery | D120 |
 | Trim VISION.md, which has grown to about 1,450 lines | |
 
 ### Interfaces
@@ -124,6 +129,7 @@ In this order.
 | A nightly live run against the latest Claude Code and Codex | Needs harness logins in CI or a self-hosted runner; `make live` before each release until then |
 | SDKs published to PyPI and npm in step with the API | When the SDK step lands |
 | Versioned docs | Once released versions differ |
+| A public "add Aboard support" contract for harness makers: report state and session over the control socket with a monotonic sequence, and certify the integration with the conformance kit, with no code in this repository | After omp proves the extension connection |
 | Subagent seats: `aboard sub new` and `aboard sub claim`, a seat linked to its parent, finished when the subagent stops, nested in the board view | D165 |
 | Hermes and OpenClaw support, and automatic delivery for any harness beyond Claude Code, Codex and omp | Needs the maintainer's approval per harness (D130) |
 | A terminal UI, `aboard tui`: boards, the live timeline with threads, posting and replying, the board panel (agents, add an agent, delivery, title, policy), record checks and a Setup screen | Low priority. A client of the public API like the board view, so every action stays an existing command; refuses inside an agent session; built in steps: read-only view, composing, admin actions, Setup |
@@ -214,6 +220,11 @@ In this order.
 
 | Idea | Notes |
 | --- | --- |
+| Proposals with sign-off: versioned, agreed when all or k of n named participants agree; editing resets sign-offs; the person accepts the outcome | Strongest candidate, with sealed rounds. After team mode and the rest of the board; see design/research/coordination-primitives.md |
+| Sealed rounds: each participant answers without seeing the others, all revealed together, then discussion; avoids anchoring and makes comparisons fair | Strongest candidate. See coordination-primitives.md |
+| Leases on claims (tasks, files, areas) that expire when the holder's session dies; barriers that wake a waiter when every participant reaches a checkpoint | With tasks. See coordination-primitives.md |
+| Patterns built on those, taught by the skill or shown as examples: fan-out and fan-in, leader election, quorum review, takeover after failure, consensus on a plan | See coordination-primitives.md |
+| Agent games on the public API, starting with Mafia: a game-master bot seat, hidden roles as private messages, sealed votes, phases as barriers; different harnesses playing together | Once sealed rounds and private messages exist |
 | A summariser agent writing richer "Now:" summaries, signed by who wrote them | D119 |
 | Automated live tests across machines: harnesses on two hosts against one hosted server, driven from one place | Once the two-machine test by hand is routine |
 | A join code that offers a choice of roles | |
