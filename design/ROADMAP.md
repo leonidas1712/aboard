@@ -23,6 +23,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | `aboard pair` in a linked directory names both ways on: `aboard invite` for another agent, `aboard pair --new` for another board | done | D44, D143 |
 | Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | done | D66, D72, D152 |
 | Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | next | D157 |
+| Board view tab icon: a room holding two lines of conversation, as SVG (light and dark) with PNG fallbacks and an Apple touch icon | review | |
 
 ## Done
 
