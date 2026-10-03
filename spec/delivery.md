@@ -429,8 +429,9 @@ Global setup follows each harness's config folder: `$CLAUDE_CONFIG_DIR` in place
 and status alike. Codex's skill stays in `~/.agents/skills`, which `CODEX_HOME` doesn't
 move. A harness counts as detected when its config folder exists or its command is on
 the PATH. Both
-harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
-stays with the person.
+harnesses ask the person to trust new or changed hooks (in `/hooks`) before running them;
+that step stays with the person, and `aboard init` reminds them only for the harnesses
+whose hooks it added or updated.
 
 In a terminal, `aboard init` asks which harnesses, the scope, the delivery mode for agents
 without their own, and whether to allow `aboard` commands without a permission prompt,

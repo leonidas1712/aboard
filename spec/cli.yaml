@@ -494,6 +494,11 @@ $defs:
       with applied false; with --yes it makes them. Running it again changes nothing.
       A file that differs from what this aboard would write is listed as update; init
       --yes rewrites only Aboard's own parts of it, and leaves identical files untouched.
+      Text output lists one line per file, then ends with "Nothing to change.", "Run
+      aboard init --yes … to make these changes." or, once applied, "Done." followed by a
+      reminder to trust the hooks in /hooks naming only the harnesses whose hook files
+      were added or updated ("Done. Codex asks you to trust new hooks before they run:
+      review them in /hooks."); rewriting only a skill asks for no trust.
 
       Run in a terminal (stdin and stdout are terminals) without --yes or --json, it asks
       which harnesses, the scope, the delivery mode and whether to allow aboard commands,
