@@ -176,3 +176,44 @@ func TestStreamSendsPresenceChanges(t *testing.T) {
 	}
 	st.keepalive()
 }
+
+// An agent's delivery mode is reported with its presence and shown to the board's
+// members; a report without one keeps the mode reported before.
+func TestDeliveryModeIsReportedWithPresence(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	boardName, writer, reviewer := s.pair("starter")
+	modeOf := func(member string) string {
+		r, err := s.client(reviewer).ListMembersWithResponse(ctx, boardName)
+		mustStatus(t, r, err, 200)
+		for _, m := range r.JSON200.Members {
+			if m.Name == member {
+				if m.Delivery == nil {
+					return "null"
+				}
+				return string(*m.Delivery)
+			}
+		}
+		t.Fatalf("no member %s", member)
+		return ""
+	}
+	if got := modeOf("writer"); got != "null" {
+		t.Fatalf("before any report: delivery %s, want null", got)
+	}
+	humans := api.DeliveryModeHumans
+	r, err := s.client(writer).SetPresenceWithResponse(ctx, nil, api.SetPresenceJSONRequestBody{Presence: api.PresenceIdle, Delivery: &humans})
+	mustStatus(t, r, err, 200)
+	if got := modeOf("writer"); got != "humans" {
+		t.Fatalf("after reporting humans: %s", got)
+	}
+	s.setPresence(writer, api.PresenceWorking)
+	if got := modeOf("writer"); got != "humans" {
+		t.Fatalf("a report without a mode changed it to %s", got)
+	}
+	if got := modeOf("alex"); got != "null" {
+		t.Fatalf("a person's delivery: %s, want null", got)
+	}
+	bad := api.DeliveryMode("loud")
+	r, err = s.client(writer).SetPresenceWithResponse(ctx, nil, api.SetPresenceJSONRequestBody{Presence: api.PresenceIdle, Delivery: &bad})
+	mustStatus(t, r, err, 400)
+}

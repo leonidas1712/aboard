@@ -4,9 +4,13 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
@@ -33,6 +37,24 @@ type sessionMsg struct {
 	modeChanged bool
 	// renewPresence asks the session to report its agents' presence again.
 	renewPresence bool
+	// hold starts keeping replies to a message out of bundles, answered on reply;
+	// unhold ends it.
+	hold, unhold *hold
+	// claim records messages a command showed as received, answered on reply.
+	claim *claimRequest
+}
+
+// hold keeps replies to one of an agent's messages out of its bundles and notices, while
+// a command waits for the reply itself.
+type hold struct {
+	agent   AgentRef
+	replyTo int
+}
+
+// claimRequest names messages a command showed to the agent.
+type claimRequest struct {
+	agent AgentRef
+	seqs  []int
 }
 
 type inboxResult struct {
@@ -65,13 +87,13 @@ type session struct {
 	// busyAt is when the session last showed it was in a turn: a prompt or a tool call.
 	busyAt time.Time
 	// inTurn is true while a queueing harness runs a turn, as its prompt and stop hooks
-	// report. Urgent messages then wait for a tool hook instead of the queue.
+	// report. The owner's messages then wait for a tool hook instead of the queue.
 	inTurn bool
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
 	working bool
-	// reported is the presence last reported for each agent.
-	reported map[AgentRef]Presence
+	// reported is the presence and delivery mode last reported for each agent.
+	reported map[AgentRef]reportedPresence
 	waiter   *waiter
 	agents   map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
@@ -85,6 +107,8 @@ type session struct {
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
 	forward map[AgentRef]*session
+	// holds are the replies commands are waiting for themselves.
+	holds map[*hold]bool
 }
 
 // agentState is what a session knows about one of its agents.
@@ -101,6 +125,11 @@ type agentState struct {
 	// problem stops deliveries for the agent, such as a revoked token.
 	problem    string
 	deliveries map[int64]*Delivery
+	// announced are the waiting messages a notice has named, so none is named twice.
+	announced map[int]bool
+	// previewed are the owner's messages too long for a tool boundary that were shown cut
+	// short once; they stay unread until the end of the turn or the agent's inbox.
+	previewed map[int]bool
 }
 
 func (s *session) now() time.Time { return s.d.cfg.Clock.Now() }
@@ -155,6 +184,19 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 	case m.modeChanged:
 		s.refreshAll(false)
 	case m.renewPresence:
+	case m.hold != nil:
+		_, ok := s.agents[m.hold.agent]
+		if ok && s.open {
+			s.holds[m.hold] = true
+		}
+		m.reply <- Response{V: ProtocolVersion, Held: ok && s.open}
+	case m.unhold != nil:
+		delete(s.holds, m.unhold)
+		if !s.adapter.WaitsForIdle() && s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
+			s.gatherUntil = s.now()
+		}
+	case m.claim != nil:
+		m.reply <- Response{V: ProtocolVersion, Claimed: s.onClaim(ctx, *m.claim)}
 	default:
 		m.reply <- s.onRequest(ctx, m.req)
 	}
@@ -184,12 +226,17 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			s.waiter.Release()
 			s.waiter = nil
 		}
-	case OpUrgent:
+	case OpBoundary, OpUrgent:
 		s.busyAt = s.now()
 		s.working = true
-		s.event(ctx, req.Boot)
-		ok.Bundle = s.handUrgent(ctx)
+		if req.Boot != "" && req.Boot != s.boot {
+			s.newBoot(ctx, req.Boot)
+		} else {
+			s.confirmBefore(ctx, req.Started)
+		}
+		ok.Bundle, ok.Notice = s.boundary(ctx)
 	case OpTurnEnd:
+		s.event(ctx, req.Boot)
 		s.inTurn, s.working = false, false
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
 			s.gatherUntil = s.now()
@@ -251,20 +298,28 @@ func (s *session) presence() Presence {
 	}
 }
 
-// reportPresence reports the presence of each agent the session holds when it changed,
-// or, with renew, again while it isn't no_session, so the server doesn't let it run
-// out. no_session isn't renewed: an unrenewed presence becomes it anyway.
+// reportedPresence is what was last reported for an agent.
+type reportedPresence struct {
+	state Presence
+	mode  Mode
+}
+
+// reportPresence reports the presence and delivery mode of each agent the session holds
+// when either changed, or, with renew, again while it isn't no_session, so the server
+// doesn't let it run out. no_session isn't renewed: an unrenewed presence becomes it
+// anyway.
 func (s *session) reportPresence(renew bool) {
 	p := s.presence()
 	for ref, a := range s.agents {
 		if a.adopting {
 			continue
 		}
-		if last, ok := s.reported[ref]; ok && last == p && (!renew || p == PresenceNoSession) {
+		now := reportedPresence{state: p, mode: s.d.mode(ref)}
+		if last, ok := s.reported[ref]; ok && last == now && (!renew || p == PresenceNoSession) {
 			continue
 		}
-		s.reported[ref] = p
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: p})
+		s.reported[ref] = now
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: now.state, mode: now.mode})
 	}
 }
 
@@ -272,8 +327,8 @@ func (s *session) reportPresence(renew bool) {
 // that is already what was reported. The session that takes the agent next reports
 // after this, through the same server connection, so its report wins.
 func (s *session) leavePresence(ref AgentRef) {
-	if last, ok := s.reported[ref]; ok && last != PresenceNoSession {
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession})
+	if last, ok := s.reported[ref]; ok && last.state != PresenceNoSession {
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession, mode: last.mode})
 	}
 	delete(s.reported, ref)
 }
@@ -340,10 +395,16 @@ func (s *session) saveSession(ctx context.Context) {
 }
 
 // confirm marks every bundle handed to this session as received.
-func (s *session) confirm(ctx context.Context) {
+func (s *session) confirm(ctx context.Context) { s.confirmBefore(ctx, time.Time{}) }
+
+// confirmBefore marks every bundle handed to this session before t as received, or every
+// one when t is zero. A tool hook that started before a bundle was handed to another
+// hook running at the same moment (parallel tool calls) doesn't show that the session
+// received it.
+func (s *session) confirmBefore(ctx context.Context, t time.Time) {
 	for _, a := range s.agents {
 		for _, dl := range a.deliveries {
-			if dl.State == StateHanded && dl.Session == s.key {
+			if dl.State == StateHanded && dl.Session == s.key && (t.IsZero() || dl.UpdatedAt.Before(t)) {
 				s.setState(ctx, dl, StateConfirmed)
 			}
 		}
@@ -406,7 +467,7 @@ func (s *session) bind(ctx context.Context, agent AgentRef) *AgentRef {
 	if err := s.d.cfg.Journal.Bind(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now()}); err != nil {
 		s.d.log.Error("bind agent", "agent", agent.Name, "board", agent.Board, "error", err)
 	}
-	s.agents[agent] = &agentState{ref: agent, adopting: true, deliveries: map[int64]*Delivery{}}
+	s.agents[agent] = newAgentState(agent, true)
 	if prev := s.d.setOwner(agent, s); prev != nil {
 		prev.mail.put(sessionMsg{release: &agent, adopter: s})
 		return previous
@@ -548,9 +609,12 @@ func (s *session) setProblem(a *agentState, reason string) {
 }
 
 // movedTo records that the agent's read position is at cursor: deliveries entirely
-// behind it are done, whoever acknowledged them.
+// behind it are done, whoever acknowledged them, and messages behind it leave the
+// announced and previewed sets.
 func (s *session) movedTo(ctx context.Context, a *agentState, cursor int) {
 	a.ackedUpTo = cursor
+	maps.DeleteFunc(a.announced, func(seq int, _ bool) bool { return seq <= cursor })
+	maps.DeleteFunc(a.previewed, func(seq int, _ bool) bool { return seq <= cursor })
 	for id, dl := range a.deliveries {
 		if slices.Max(append([]int{0}, dl.Seqs...)) > cursor {
 			continue
@@ -578,28 +642,82 @@ type filter int
 
 const (
 	allMessages filter = iota
-	urgentOnly
-	notUrgent
+	// ownerOnly is what a tool boundary in a busy turn may carry: only the agent's
+	// owner reaches it mid-turn.
+	ownerOnly
+	notOwner
 )
+
+// fromOwner reports whether the agent's owner sent m. Only the owner's messages reach a
+// busy session; a peer's, another person's or another person's agent's wait for the
+// end of the turn, urgent or not.
+func fromOwner(m Message) bool { return m.Sender == senderOwner }
+
+// senderOwner is the sender label of a message from the reader's owner.
+const senderOwner = "owner"
 
 func (f filter) allows(m Message) bool {
 	switch f {
-	case urgentOnly:
-		return m.Urgent
-	case notUrgent:
-		return !m.Urgent
+	case ownerOnly:
+		return fromOwner(m)
+	case notOwner:
+		return !fromOwner(m)
 	case allMessages:
 	}
 	return true
 }
 
-// queueFilter is what may go into a queueing harness's queue now: during a turn, urgent
-// messages wait for a tool hook, since the queue would hold them until the turn ends.
+// queueFilter is what may go into a queueing harness's queue now: during a turn, the
+// owner's messages wait for a tool hook, since the queue would hold them until the turn
+// ends.
 func (s *session) queueFilter() filter {
 	if s.inTurn {
-		return notUrgent
+		return notOwner
 	}
 	return allMessages
+}
+
+// held reports whether a command is waiting itself for m, a reply it asked for.
+func (s *session) held(agent AgentRef, m Message) bool {
+	for h := range s.holds {
+		if h.agent == agent && m.ReplyToSeq == h.replyTo {
+			return true
+		}
+	}
+	return false
+}
+
+// onClaim records messages a command showed to the agent as received, as if a session
+// had confirmed them, so they are acknowledged in turn and never handed over. A message
+// already in a delivery is left as it is.
+func (s *session) onClaim(ctx context.Context, c claimRequest) []int {
+	a, ok := s.agents[c.agent]
+	if !ok || a.adopting {
+		return nil
+	}
+	t := taken(a)
+	var seqs []int
+	for _, seq := range c.seqs {
+		if _, in := t[seq]; !in && seq > a.ackedUpTo {
+			seqs = append(seqs, seq)
+		}
+	}
+	if len(seqs) == 0 {
+		return nil
+	}
+	now := s.now()
+	dl := &Delivery{Agent: c.agent, Session: s.key, Boot: s.boot, State: StateConfirmed, Seqs: seqs, CreatedAt: now, UpdatedAt: now}
+	id, err := s.d.cfg.Journal.AddDelivery(ctx, *dl)
+	if err != nil {
+		s.d.log.Error("record claimed messages", "agent", c.agent.Name, "error", err)
+		return nil
+	}
+	dl.ID = id
+	a.deliveries[id] = dl
+	s.maybeAck(a)
+	s.refresh(a, false)
+	s.d.log.Info("claimed by a command", "session", s.key.String(), "seqs", seqs)
+	return seqs
 }
 
 // newMessages returns unread messages that are in no delivery yet.
@@ -607,7 +725,7 @@ func (s *session) newMessages(a *agentState, f filter) []Message {
 	t := taken(a)
 	var out []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || !f.allows(m) {
+		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) {
 			continue
 		}
 		out = append(out, m)
@@ -703,7 +821,7 @@ func (s *session) offers(f filter) []offer {
 			continue
 		}
 		if again != nil {
-			if f == urgentOnly {
+			if f == ownerOnly {
 				continue
 			}
 			msgs := s.messagesFor(a, again.Seqs)
@@ -727,12 +845,12 @@ func (s *session) offers(f filter) []offer {
 }
 
 // forHumansMode narrows new messages for an agent that wakes only for people: nothing
-// unless a person sent one of them. A bundle at idle then carries them all, peer ones too;
-// urgent messages mid-turn are only the people's.
+// unless a person sent one of them. A bundle at idle then carries them all, peer ones
+// too. Mid-turn only the owner's messages go, and the owner is a person.
 func forHumansMode(msgs []Message, f filter) []Message {
 	fromHuman := func(m Message) bool { return m.FromHuman }
-	if f == urgentOnly {
-		return slices.DeleteFunc(msgs, func(m Message) bool { return !fromHuman(m) })
+	if f == ownerOnly {
+		return msgs
 	}
 	if !slices.ContainsFunc(msgs, fromHuman) {
 		return nil
@@ -815,7 +933,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.gatherUntil = s.now()
 	}
 	s.scheduleRetry()
-	s.d.log.Info("bundle handed", "session", s.key.String(), "deliveries", len(handed), "bytes", len(c.text), "error", errText(err))
+	s.d.log.Info("bundle handed", "session", s.key.String(), "deliveries", len(handed), "seqs", partSeqs(c.parts), "bytes", len(c.text), "error", errText(err))
 }
 
 // hand calls the harness. The call isn't cut off the moment the daemon starts stopping:
@@ -920,25 +1038,104 @@ func (s *session) skip(ctx context.Context, parts []offer) {
 	}
 }
 
-// handUrgent hands urgent messages to a busy session's tool hook and returns the bundle.
-func (s *session) handUrgent(ctx context.Context) string {
+// MidTurnLimit is the most text, in bytes, one tool boundary adds to a busy turn.
+// Claude Code takes at most 10,000 characters of context from a hook and moves anything
+// longer to a file, so the limit stays under that with room for the notice.
+const MidTurnLimit = 9000
+
+// previewLimit is how much of a message too long for a tool boundary is shown.
+const previewLimit = 2000
+
+// midTurnFrame is Aboard's line before the owner's messages handed mid-turn.
+const midTurnFrame = "Aboard: your owner sent this while you were working; the text inside the tags is theirs.\n"
+
+// boundary answers a busy session's tool hook: the owner's waiting messages, handed
+// over, and a notice naming other messages that arrived since the last notice. Each
+// message is claimed by one hook, since the session answers one request at a time.
+func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if !s.open {
-		return ""
+		return "", ""
 	}
-	c := compose(s.offers(urgentOnly), BundleLimit)
-	s.skip(ctx, c.tooLarge)
-	if len(c.parts) == 0 {
-		return ""
+	c := compose(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame))
+	text := c.text
+	if len(c.parts) > 0 {
+		// Confirmed like a bundle: by the session's next event of this turn.
+		s.record(ctx, c.parts, StateHanded)
 	}
-	st := StateHanded
-	if !s.adapter.WaitsForIdle() {
-		// A harness with no stop hook sends no later event to confirm with; the hook's
-		// output reaching it is the confirmation.
-		st = StateConfirmed
+	for _, o := range c.tooLarge {
+		a := s.agents[o.agent]
+		m := o.msgs[0]
+		if a.previewed[m.Seq] {
+			continue
+		}
+		preview := previewText(m)
+		if len(text)+len(preview)+len(midTurnFrame) > MidTurnLimit {
+			break
+		}
+		a.previewed[m.Seq] = true
+		text = strings.TrimSpace(text + "\n\n" + preview)
 	}
-	s.record(ctx, c.parts, st)
-	for _, p := range c.parts {
-		s.maybeAck(s.agents[p.agent])
+	if text != "" {
+		bundle = midTurnFrame + text
 	}
-	return c.text
+	var announced []int
+	for _, ref := range s.agentRefs() {
+		a := s.agents[ref]
+		if n, seqs := s.noticeFor(a); n != "" && len(bundle)+len(notice)+len(n) < MidTurnLimit {
+			notice += n
+			announced = append(announced, seqs...)
+		}
+	}
+	if bundle != "" || notice != "" {
+		s.d.log.Info("tool boundary", "session", s.key.String(), "seqs", partSeqs(c.parts), "announced", announced, "bytes", len(bundle)+len(notice))
+	}
+	return bundle, notice
+}
+
+// partSeqs lists the sequence numbers in a bundle's parts, for the log.
+func partSeqs(parts []offer) []int {
+	var seqs []int
+	for _, p := range parts {
+		seqs = append(seqs, seqsOf(p.msgs)...)
+	}
+	return seqs
+}
+
+// previewText shows the start of a message too long for a tool boundary, and where the
+// rest is.
+func previewText(m Message) string {
+	cut := m
+	cut.Body, cut.Truncated, cut.ExpectsReply = strings.ToValidUTF8(m.Body[:min(previewLimit, len(m.Body))], ""), true, false
+	return deliverytext.Bundle(m.Board, []Message{cut}) +
+		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run aboard inbox to read it now.", m.Seq)
+}
+
+// noticeFor names the agent's waiting messages, other than its owner's, that no notice
+// has named yet; empty when there are none, or the agent's mode delivers nothing.
+func (s *session) noticeFor(a *agentState) (notice string, seqs []int) {
+	if a.adopting || !a.fetched || a.problem != "" || s.d.mode(a.ref) == ModeOff {
+		return "", nil
+	}
+	t := taken(a)
+	var fresh []Message
+	for _, m := range a.unread {
+		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) {
+			continue
+		}
+		fresh = append(fresh, m)
+	}
+	if len(fresh) == 0 {
+		return "", nil
+	}
+	for _, m := range fresh {
+		a.announced[m.Seq] = true
+	}
+	return deliverytext.Notice(a.ref.Board, fresh), seqsOf(fresh)
+}
+
+func newAgentState(ref AgentRef, adopting bool) *agentState {
+	return &agentState{
+		ref: ref, adopting: adopting, deliveries: map[int64]*Delivery{},
+		announced: map[int]bool{}, previewed: map[int]bool{},
+	}
 }

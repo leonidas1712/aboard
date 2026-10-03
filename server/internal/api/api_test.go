@@ -754,3 +754,36 @@ func TestOperationsThisServerDoesNotProvideReturnNotImplemented(t *testing.T) {
 		t.Fatalf("replies: %s", code)
 	}
 }
+
+// An agent that has seen its unread messages can wait for the next one with after,
+// without acknowledging the ones before it.
+func TestInboxWaitAfterSkipsMessagesAlreadySeen(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	boardName, writer, reviewer := s.pair("starter")
+	first := say(s, writer, boardName, []string{"role:reviewer"}, "first")
+	mustStatus(t, first, nil, 201)
+	wait, after := 30, first.JSON201.Seq
+	got := make(chan *api.GetInboxResponse, 1)
+	go func() {
+		r, err := s.client(reviewer).GetInboxWithResponse(ctx, &api.GetInboxParams{Wait: &wait, After: &after})
+		if err != nil {
+			t.Error(err)
+		}
+		got <- r
+	}()
+	mustStatus(t, say(s, writer, boardName, []string{"role:reviewer"}, "second"), nil, 201)
+	r := <-got
+	mustStatus(t, r, nil, 200)
+	if len(r.JSON200.Messages) != 1 || r.JSON200.Messages[0].Body != "second" {
+		t.Fatalf("inbox after %d: %+v", after, r.JSON200.Messages)
+	}
+	if r.JSON200.Cursor >= first.JSON201.Seq {
+		t.Fatalf("waiting after a message moved the cursor to %d", r.JSON200.Cursor)
+	}
+	all, err := s.client(reviewer).GetInboxWithResponse(ctx, nil)
+	mustStatus(t, all, err, 200)
+	if len(all.JSON200.Messages) != 2 {
+		t.Fatalf("the inbox without after holds %d messages, want both", len(all.JSON200.Messages))
+	}
+}

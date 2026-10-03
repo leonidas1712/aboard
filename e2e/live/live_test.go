@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -588,12 +589,15 @@ func (l *lab) say(agent string, args ...string) message {
 }
 
 // writerInbox is what writer's inbox holds, without acknowledging it.
-func (l *lab) writerInbox() []message {
+func (l *lab) writerInbox() []message { return l.inbox("writer") }
+
+// inbox is what agent's inbox holds, without acknowledging it.
+func (l *lab) inbox(agent string) []message {
 	l.t.Helper()
 	var inbox struct {
 		Messages []message `json:"messages"`
 	}
-	l.decode(l.human, &inbox, "inbox", "--peek", "--as", "writer")
+	l.decode(l.human, &inbox, "inbox", "--peek", "--as", agent)
 	return inbox.Messages
 }
 
@@ -693,6 +697,42 @@ type handover struct {
 	Msg     string    `json:"msg"`
 	Session string    `json:"session"`
 	Error   string    `json:"error"`
+	// Seqs are the messages handed, claimed or added at a tool boundary.
+	Seqs []int `json:"seqs"`
+	// Announced are the messages a tool boundary's notice named.
+	Announced []int `json:"announced"`
+}
+
+// logged lists the daemon log lines with message msg, oldest first: "bundle handed",
+// "tool boundary" (the owner's messages and the waiting notice added to a busy turn) or
+// "claimed by a command" (aboard say --wait-reply showed them).
+func (l *lab) logged(msg string) []handover {
+	raw, err := os.ReadFile(filepath.Join(l.stateDir(), "daemon.log"))
+	if err != nil {
+		return nil
+	}
+	var out []handover
+	for _, line := range strings.Split(string(raw), "\n") {
+		var h handover
+		if json.Unmarshal([]byte(line), &h) == nil && h.Msg == msg {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// reached returns when the message seq first reached its recipient's session, from the
+// daemon's log: handed in a bundle, added at a tool boundary, or shown by aboard say
+// --wait-reply. ok is false if it hasn't.
+func (l *lab) reached(seq int) (at time.Time, how string, ok bool) {
+	for _, msg := range []string{"bundle handed", "tool boundary", "claimed by a command"} {
+		for _, h := range l.logged(msg) {
+			if slices.Contains(h.Seqs, seq) && h.Error == "" && (!ok || h.Time.Before(at)) {
+				at, how, ok = h.Time, msg, true
+			}
+		}
+	}
+	return at, how, ok
 }
 
 // handed lists every bundle the daemon handed to a session, oldest first.

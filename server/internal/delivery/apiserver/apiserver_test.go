@@ -151,7 +151,7 @@ func TestRejectedAgentTokenIsUnauthorized(t *testing.T) {
 	if err := srv.Ack(context.Background(), to, 1); !errors.Is(err, delivery.ErrUnauthorized) {
 		t.Fatalf("Ack with a bad token = %v, want ErrUnauthorized", err)
 	}
-	if err := srv.SetPresence(context.Background(), to, delivery.PresenceIdle); !errors.Is(err, delivery.ErrUnauthorized) {
+	if err := srv.SetPresence(context.Background(), to, delivery.PresenceIdle, delivery.ModeAuto); !errors.Is(err, delivery.ErrUnauthorized) {
 		t.Fatalf("SetPresence with a bad token = %v, want ErrUnauthorized", err)
 	}
 }
@@ -163,7 +163,7 @@ func TestReportedPresenceShowsOnTheBoard(t *testing.T) {
 	board, _, reviewerToken := pairedAgents(t, url, owner)
 	to := delivery.AgentRef{Server: url, Board: board, Name: "reviewer"}
 	srv := New(url, tokens{agents: map[delivery.AgentRef]string{to: reviewerToken}}, rand.Reader)
-	if err := srv.SetPresence(ctx, to, delivery.PresenceWorking); err != nil {
+	if err := srv.SetPresence(ctx, to, delivery.PresenceWorking, delivery.ModeHumans); err != nil {
 		t.Fatal(err)
 	}
 	r, err := apiClient(t, url, owner).ListMembersWithResponse(ctx, board)

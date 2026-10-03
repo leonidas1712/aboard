@@ -304,7 +304,7 @@ function Kind({ m }: { m: Message }) {
   const glyph = "inline size-3.5 shrink-0 -translate-y-px";
   if (m.urgent) {
     return (
-      <span title="Urgent: delivered into sessions at once">
+      <span title="Urgent: first in each recipient's next delivery">
         <Zap className={cn(glyph, "text-ink")} strokeWidth={1.75} aria-label="Urgent" />
       </span>
     );

@@ -85,12 +85,14 @@ func (a *app) setupFiles(harness, scope string) harnessFiles {
 	}
 }
 
-// installedScopes returns the scopes in which every one of a harness's Aboard hooks is
-// installed, with the hook file of each.
+// installedScopes returns the scopes in which a harness's Aboard hooks are installed,
+// with the hook file of each: those where the session-start hook, which every other hook
+// relies on, is there. Whether the rest match this aboard is checkHooksCurrent's job.
 func (a *app) installedScopes(harness string, specs []hookSpec) (scopes, files []string, err error) {
+	start := slices.DeleteFunc(slices.Clone(specs), func(s hookSpec) bool { return s.arg != "session-start" })
 	for _, scope := range a.scopes() {
 		path := a.setupFiles(harness, scope).hooks
-		missing, err := hooksMissing(path, harness, specs)
+		missing, err := hooksMissing(path, harness, start)
 		if err != nil {
 			return nil, nil, err
 		}

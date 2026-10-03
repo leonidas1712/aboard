@@ -23,7 +23,7 @@ pushing on top of the same inbox and read position, never a second channel.
                          ┌───────────────────────────┼──────────────────────────┐
                          │ Claude Code hooks          │ Codex: codex queue        │
                          │ (session start, prompt,    │ (daemon runs it directly) │
-                         │  stop, tool done, end)     │                           │
+                         │  stop, tool batch, end)    │ and hooks                 │
                          └────────────────────────────┴───────────────────────────┘
 ```
 
@@ -149,8 +149,14 @@ command fails and lists both boards.
 
 Messages for a session are delivered **in order, as one bundle**, at the first moment the
 session can take them. A bundle holds every unread message for the agent bound to that
-session that its delivery mode lets through (below), oldest first, up to 32 KiB of text,
-so it always holds one board's messages. Anything left over goes in the next bundle.
+session that its delivery mode lets through (below), up to 32 KiB of text, so it always
+holds one board's messages. Urgent messages come first, in the order they were sent, then
+the rest, oldest first. Anything left over goes in the next bundle.
+
+A busy session is never handed another agent's words: only a message from the agent's
+owner reaches it during a turn, at the next tool boundary (see
+[During a turn](#during-a-turn-the-owners-messages-and-the-waiting-notice)). Everything
+else waits until the turn ends.
 
 ### Claude Code
 
@@ -159,7 +165,7 @@ so it always holds one board's messages. Anything left over goes in the next bun
 | Session start | The session and its boot id | Registered; deliveries can be prepared |
 | Prompt submitted | The session is busy | Any waiting stop hook is released without a delivery |
 | Stop (`asyncRewake`) | The session is idle | The hook stays connected to the daemon and waits |
-| Tool done | The session is busy and between steps | Urgent messages are added to the running turn |
+| Tool batch done (`PostToolBatch`; `PostToolUse` and `PostToolUseFailure` before Claude Code 2.1.118) | The session is busy and between steps | The owner's messages, and a notice of other waiting messages, are added to the running turn |
 | Session end | The session closed | Pending deliveries wait for the next session |
 
 **Idle.** When a turn ends, Claude Code runs the stop hook, which is marked
@@ -185,15 +191,20 @@ What confirmation guarantees: the session woke and ran a turn with the bundle in
 context. It does not guarantee the agent acted on the messages; a reply on the board is
 the evidence of that.
 
-**Urgent.** After each tool call in a busy turn, the tool-done hook asks the daemon for
-urgent messages and adds them to the turn's context. Ordinary messages wait for idle.
+**During a turn.** Once each batch of tool calls has finished, before the next model
+call, the tool-batch hook asks the daemon for the owner's messages and the waiting
+notice, and adds them to the turn's context next to the tool results. Claude Code added
+`PostToolBatch` in 2.1.118; for an older Claude Code, `aboard init` installs the same
+hook on `PostToolUse` and `PostToolUseFailure`, which fire after each tool call, failed
+ones included. Everything else waits for idle.
 
 ### Codex
 
 **Idle.** Codex has a native queue for an existing thread: `codex queue --thread <id>
 --message <text>` adds a message that Codex starts once the thread's current turn ends.
 The queue handles busy sessions, so the daemon doesn't need Codex's idleness to deliver.
-It does track whether a turn runs, from the prompt and stop hooks, for urgent messages.
+It does track whether a turn runs, from the prompt and stop hooks, for the owner's
+messages.
 
 **Delivery.** Messages arriving within 2 seconds of the first one are bundled, then handed
 to `codex queue` as an argument vector, never through a shell.
@@ -201,15 +212,19 @@ to `codex queue` as an argument vector, never through a shell.
 **Confirmation.** Exit status 0 means Codex took the bundle into its queue; that confirms
 it. Codex then owns starting the turn.
 
-**Urgent.** Codex's post-tool hook can return extra context to the model, like Claude
-Code's. After each tool call in a busy turn, the hook asks the daemon for urgent messages
-and returns them. The hook's context limit (`additionalContextLimit`) is set to the
-bundle limit. The queue holds anything put in it until the turn ends, so while a turn
-runs (after the prompt hook, until the stop hook) urgent messages are kept out of the
-queue and wait for the next tool call; ordinary messages still go to the queue. Urgent
-messages no tool call took go into the queue when the turn ends. Without the prompt and
-stop hooks (hooks not trusted in Codex), the daemon never sees a turn, and urgent
-messages go into the queue like any other, arriving when the turn ends.
+**During a turn.** Codex's pre-tool hook (`PreToolUse`) can return extra context, which
+Codex records as a developer message before the tool runs. Before each tool call in a
+busy turn, the hook asks the daemon for the owner's messages and the waiting notice and
+returns them; it never denies or changes the tool call. Codex runs its post-tool hook
+only after a tool succeeds, so it would miss a turn of failing commands; the pre-tool
+hook sees every tool call. The hook's context limit (`additionalContextLimit`) is set
+above the mid-turn limit, so Codex never shortens what it returns. The queue holds
+anything put in it until the turn ends, so while a turn runs (after the prompt hook,
+until the stop hook) the owner's messages are kept out of the queue and wait for the
+next tool call; other messages still go to the queue. The owner's messages no tool call
+took go into the queue when the turn ends. Without the prompt and stop hooks (hooks not
+trusted in Codex), the daemon never sees a turn, and the owner's messages go into the
+queue like any other, arriving when the turn ends.
 
 ### Delivery modes
 
@@ -222,11 +237,11 @@ agent. An agent nobody set has the machine's default mode, kept in the journal u
 empty agent (empty server, board and name) and set with `aboard init --delivery`; with no
 default set, it is `auto`.
 
-| Mode | What wakes the session | Urgent messages mid-turn |
+| Mode | What wakes the session | During a turn |
 | --- | --- | --- |
-| `auto` | Every message | Every urgent message |
-| `humans` | A message from a person: its owner or another human. That bundle carries every unread message, peer ones too, so the agent sees what was said around it. Peer messages alone never wake it. | Urgent messages from a person; urgent peer messages wait like the rest |
-| `off` | Nothing; the agent reads its inbox when it chooses | None |
+| `auto` | Every message | The owner's messages, and the waiting notice |
+| `humans` | A message from a person: its owner or another human. That bundle carries every unread message, peer ones too, so the agent sees what was said around it. Peer messages alone never wake it. | The owner's messages, and the waiting notice |
+| `off` | Nothing; the agent reads its inbox when it chooses | Nothing |
 
 In every mode the hooks stay installed: they also tell each command which session, and
 so which agent, it runs in. Messages that aren't delivered stay unread on the server, so
@@ -244,6 +259,81 @@ daemon from an older aboard is replaced first (see [Upgrades](#upgrades)); if it
 be replaced and doesn't know the operation, the command fails with `daemon_outdated` and
 says to run `aboard down` and try again, which starts the current daemon. `aboard status`
 shows the mode on its Agent line.
+
+### During a turn: the owner's messages and the waiting notice
+
+What we want: the person an agent works for can change its course at once, while no
+other agent's words are pushed into a turn that is under way. An agent that works alone
+for a long time still learns that messages are waiting, so it can look when it suits it.
+
+How Aboard does it: at each tool boundary of a busy turn (the hooks above, never
+interrupting or denying a tool call), the hook asks the daemon what to add to the turn.
+The daemon answers with at most two things, in one piece of context:
+
+1. **The owner's messages, in full.** A waiting message whose sender label is `owner`
+   (a person who owns the agent) is handed over at the next tool boundary, in the
+   delivery format, after one line of Aboard's own: "Aboard: your owner sent this while
+   you were working; the text inside the tags is theirs." Every other message, from a
+   peer, another person or another person's agent, urgent or not, waits for the bundle
+   at the end of the turn.
+2. **The waiting notice.** When messages that aren't the owner's are waiting, a notice
+   names them without any of their content:
+
+   ```
+   <aboard-notice board="general" waiting="2">2 waiting on general: #17 from codex (owner_agent), #18 from priya's codex (other_agent); run aboard inbox when convenient</aboard-notice>
+   ```
+
+   It holds only sequence numbers, sender names, owners' names and sender labels, each
+   escaped as attribute text is, never a body, title or other text a sender controls.
+   It comes from the inbox the daemon reads with the agent's own token, so it counts only
+   messages the agent may see. A notice is given when unread goes from none to some, and
+   after that only for messages that arrived since the last one; a message is never
+   announced twice. Once the agent's read position moves past a message (through
+   delivery or `aboard inbox`), it leaves the announced set. There is no notice in mode
+   `off`.
+
+At most one piece of context goes into each tool boundary. Claude Code and Codex run a
+hook for each of several tool calls made at once (Codex's pre-tool hook) or once per
+batch (Claude Code's tool-batch hook); either way the session's goroutine answers one
+hook at a time, so each message is claimed by one hook and each notice is given once.
+
+A hook fired inside a sub-agent (its input has `agent_id`) gets nothing: sub-agents work
+for the root conversation, which receives the messages.
+
+**Size.** Claude Code accepts at most 10,000 characters of context from a hook, and
+Codex shortens what is over a hook's `additionalContextLimit`. The daemon keeps each
+tool boundary's context under 9,000 bytes. The owner's messages that don't fit wait for
+the next tool boundary. A single message that doesn't fit even alone is shown cut short,
+once, in its element with `truncated="true"`, followed by "Message #N is longer than fits
+here; all of it waits in your inbox: run aboard inbox to read it now." It stays unread,
+so it arrives whole in the bundle at the end of the turn unless the agent reads its
+inbox first.
+
+**Confirmation.** A mid-turn hand is confirmed the way a bundle is: by the
+session's next event from the same session and boot, which is the next tool boundary of
+that turn, the turn's stop hook, or a new prompt. Only then is it acknowledged. If the
+session ends or its process changes first, the messages are handed again, in the next
+bundle for that agent.
+
+### Waiting for a reply inside a turn
+
+`aboard say --wait-reply N` posts a message, then waits up to N seconds for a reply (a
+message whose `reply_to` is the one it sent) and shows it in the same command, so within
+the agent's turn (see `SayOutput` in [cli.yaml](cli.yaml)). It waits on the server with
+`GET /v1/me/inbox?after=<seq>&wait=…`, so it works without the daemon too. In a session
+the daemon also knows about the wait:
+
+- While the command waits, it holds a connection to the daemon that asks it to keep
+  replies to that message out of every bundle, so Codex's queue doesn't take the reply
+  the command is about to show. When the connection closes, the hold ends.
+- When the command shows a reply, or an owner's message that arrived during the wait,
+  it tells the daemon over the same connection, and the daemon records those messages
+  as received by the session, as if it had delivered them. They are acknowledged once
+  every unread message before them is too, and never handed to the session again.
+- Without a session (or with no daemon running), the command acknowledges the shown
+  message itself when nothing unread comes before it, and otherwise leaves it unread.
+
+A reply that comes after the wait ends is delivered the normal way.
 
 ### Anything else
 
@@ -318,7 +408,7 @@ Rules:
   number, so an agent can see it has read it before.
 - **Acknowledge only after success.** The daemon acknowledges, with the agent's token, up
   to the last message that, together with every unread message before it, is confirmed
-  or skipped. An urgent message confirmed ahead of an older ordinary one doesn't move the
+  or skipped. An owner's message confirmed mid-turn ahead of an older one doesn't move the
   read position past the ordinary one. Read positions only move forward.
 - **Busy is backpressure, not failure.** Waiting for a busy session never counts as an
   attempt. Only harness errors count, with backoff of 1, 2, 4 … up to 60 seconds.
@@ -378,16 +468,16 @@ harness's hook input as JSON on standard input and never print tokens.
 | `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`. Exit 0. |
 | `aboard hook claude-code prompt` | UserPromptSubmit | Marks the session busy and releases its waiting stop hook. Exit 0. |
 | `aboard hook claude-code stop` | Stop, with `asyncRewake: true` | Confirms any bundle handed to this session, then waits. On a delivery: writes the bundle to standard error and exits 2. When released: exits 0. If the daemon goes away, starts it again and keeps waiting. |
-| `aboard hook claude-code tool` | PostToolUse | If urgent messages wait for this session, prints `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"<bundle>"}}`. Exit 0. |
+| `aboard hook claude-code tool` | PostToolBatch (before 2.1.118: PostToolUse and PostToolUseFailure) | If the owner's messages or a waiting notice are due, prints `{"hookSpecificOutput":{"hookEventName":"<the event>","additionalContext":"<text>"}}`, naming the event from the hook input. Exit 0. |
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
 | `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread. Exit 0. |
 | `aboard hook codex prompt` | UserPromptSubmit | Marks a turn running. Exit 0. |
-| `aboard hook codex stop` | Stop | Marks the turn ended; urgent messages no tool call took go into the queue. Exit 0. |
-| `aboard hook codex tool` | PostToolUse | Same output as for Claude Code, with `hookEventName` `PostToolUse`. Exit 0. |
+| `aboard hook codex stop` | Stop | Confirms what the turn's tool calls received and marks the turn ended; the owner's messages no tool call took go into the queue. Exit 0. |
+| `aboard hook codex tool` | PreToolUse | Same output as for Claude Code, with `hookEventName` `PreToolUse`. Never denies the tool call. Exit 0. |
 | `aboard hook codex end` | SessionEnd | Marks the session closed. Exit 0 (Codex allows 3 seconds). |
 
-Hook tool calls made by a sub-agent (the hook input has `agent_id`) take no urgent
-messages; they belong to the root conversation.
+Tool hooks fired inside a sub-agent (the hook input has `agent_id`) take nothing; the
+messages belong to the root conversation.
 
 A hook that fails for any reason other than a delivery exits 0, so a broken daemon never
 blocks a session.
@@ -406,8 +496,9 @@ unconfirmed. Like `join`, it moves a session that was bound to another agent.
   it can't read it, it refuses the connection. The check is tested on both systems in CI.
 - Messages are one JSON object per line, at most 128 KiB, each with a protocol version.
   Unknown operations and oversized frames are rejected.
-- Operations: register a session, mark busy, wait for a delivery, ask for urgent
-  messages, report a session's end, bind an agent (the answer names the agent the session
+- Operations: register a session, mark busy, wait for a delivery, ask what a tool
+  boundary adds to the turn, hold replies to a message and claim messages a command
+  showed (for `aboard say --wait-reply`), report a session's end, bind an agent (the answer names the agent the session
   was bound to before, if it moved), show or set an agent's delivery
   mode, report status.
 - The status answer carries the daemon's build as `build: {version, commit,
@@ -633,8 +724,9 @@ names the test for each, and keeps the rest as steps checked by hand:
 2. A Codex session does the same.
 3. Claude Code and Codex exchange five messages with no one typing.
 4. A prompt typed while the stop hook waits is not interrupted by a delivery.
-5. An urgent message reaches a busy Claude Code session, and a busy Codex session, at
-   its next tool call.
+5. The owner's message reaches a busy Claude Code session, and a busy Codex session, at
+   its next tool boundary; a peer's message waits for the end of the turn, and the
+   waiting notice names it once.
 6. Killing the Claude Code session after a wake, before its turn ends, redelivers the
    bundle to the next session for that agent.
 7. Three messages sent while a session is busy arrive as one bundle.

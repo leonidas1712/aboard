@@ -34,8 +34,12 @@ const hookInputLimit = 1 << 20
 type hookInput struct {
 	SessionID string `json:"session_id"`
 	Source    string `json:"source"`
-	// AgentID is set by Codex when a sub-agent thread fires the hook.
+	// AgentID is set when a hook fires inside a sub-agent (Claude Code's subagents and
+	// Codex's sub-agent threads).
 	AgentID string `json:"agent_id"`
+	// HookEventName is the event the harness ran the hook for; a tool hook's output
+	// names it back.
+	HookEventName string `json:"hook_event_name"`
 	// Prompt is the prompt text, on Claude Code's UserPromptSubmit.
 	Prompt string `json:"prompt"`
 }
@@ -169,14 +173,25 @@ func newBootID(rnd io.Reader) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// tool prints urgent messages for a busy session as context for the model.
+// tool adds to a busy turn, at a tool boundary, the owner's messages and a notice of the
+// other messages waiting. It never blocks or changes the tool call.
 func (h hookCall) tool(ctx context.Context) error {
 	if h.in.AgentID != "" {
-		return nil // a Codex sub-agent's tool call; messages go to the root conversation
+		return nil // a sub-agent's tool call; messages go to the root conversation
 	}
-	resp, err := h.call(ctx, delivery.OpUrgent)
-	if err != nil || resp.Bundle == "" {
+	req := h.request(delivery.OpBoundary)
+	req.Started = h.started
+	resp, err := h.a.callDaemon(ctx, req)
+	if err != nil {
 		return err
+	}
+	text := strings.TrimSpace(resp.Bundle + "\n\n" + resp.Notice)
+	if text == "" {
+		return nil
+	}
+	event := h.in.HookEventName
+	if event == "" {
+		event = "PostToolUse"
 	}
 	var out struct {
 		HookSpecificOutput struct {
@@ -184,8 +199,8 @@ func (h hookCall) tool(ctx context.Context) error {
 			AdditionalContext string `json:"additionalContext"`
 		} `json:"hookSpecificOutput"`
 	}
-	out.HookSpecificOutput.HookEventName = "PostToolUse"
-	out.HookSpecificOutput.AdditionalContext = resp.Bundle
+	out.HookSpecificOutput.HookEventName = event
+	out.HookSpecificOutput.AdditionalContext = text
 	enc := json.NewEncoder(h.a.env.Stdout)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(out); err != nil {

@@ -29,7 +29,10 @@ const (
 	OpReceived = "received"
 	// OpTurnEnd reports a turn ended, for a harness whose stop hook doesn't wait.
 	OpTurnEnd = "turn_end"
-	// OpUrgent asks for urgent messages for a busy session.
+	// OpBoundary asks what a busy session's tool hook adds to the turn: the owner's
+	// messages and the waiting notice.
+	OpBoundary = "boundary"
+	// OpUrgent is OpBoundary's name in earlier builds, still answered the same way.
 	OpUrgent = "urgent"
 	// OpEnd reports the session closed.
 	OpEnd = "end"
@@ -41,6 +44,12 @@ const (
 	OpMode = "mode"
 	// OpStatus reports the daemon's state for aboard doctor.
 	OpStatus = "status"
+	// OpHold keeps replies to one of an agent's messages out of every bundle while the
+	// connection stays open, for a command that waits for the reply itself.
+	OpHold = "hold"
+	// OpClaim, sent on a hold's connection, records messages the command showed as
+	// received, so they are acknowledged and never handed to a session.
+	OpClaim = "claim"
 )
 
 // Events sent back on a waiting connection.
@@ -77,6 +86,10 @@ type Request struct {
 	Mode Mode `json:"mode,omitempty"`
 	// Process is the harness process the request came from, when the caller found it.
 	Process *Process `json:"process,omitempty"`
+	// ReplyTo is the sequence number whose replies an OpHold keeps out of bundles.
+	ReplyTo int `json:"reply_to,omitempty"`
+	// Seqs are the messages an OpClaim records as received.
+	Seqs []int `json:"seqs,omitempty"`
 }
 
 // Key returns the session the request is about.
@@ -84,9 +97,11 @@ func (r Request) Key() SessionKey { return SessionKey{Harness: r.Harness, ID: r.
 
 // Response is one message from the daemon.
 type Response struct {
-	V      int        `json:"v"`
-	Event  string     `json:"event,omitempty"`
-	Bundle string     `json:"bundle,omitempty"`
+	V      int    `json:"v"`
+	Event  string `json:"event,omitempty"`
+	Bundle string `json:"bundle,omitempty"`
+	// Notice names waiting messages without their content, in answer to OpBoundary.
+	Notice string     `json:"notice,omitempty"`
 	Boot   string     `json:"boot,omitempty"`
 	Agents []AgentRef `json:"agents,omitempty"`
 	Status *Status    `json:"status,omitempty"`
@@ -96,8 +111,12 @@ type Response struct {
 	Changed bool `json:"changed,omitempty"`
 	// Previous is the agent the session was bound to before an OpBind moved it to
 	// another one; nil when the session had no agent or keeps the same one.
-	Previous *AgentRef  `json:"previous,omitempty"`
-	Error    *WireError `json:"error,omitempty"`
+	Previous *AgentRef `json:"previous,omitempty"`
+	// Held says an OpHold took effect: the agent is bound to an open session here.
+	Held bool `json:"held,omitempty"`
+	// Claimed are the messages an OpClaim recorded; one already handed to a session isn't.
+	Claimed []int      `json:"claimed,omitempty"`
+	Error   *WireError `json:"error,omitempty"`
 }
 
 // WireError is an error reported over the control socket, in the shape the CLI prints.

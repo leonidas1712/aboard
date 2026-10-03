@@ -241,6 +241,12 @@ func (r *rig) post(to delivery.AgentRef, body string, urgent bool) int {
 	return r.server.Post(to, delivery.Message{Body: body, Urgent: urgent})
 }
 
+// postFromOwner posts a message from the agent's owner, the one sender that reaches a
+// busy session mid-turn.
+func (r *rig) postFromOwner(to delivery.AgentRef, body string) int {
+	return r.server.Post(to, delivery.Message{Body: body, FromHuman: true, FromName: "alex", Sender: "owner"})
+}
+
 func TestIdleSessionGetsOneBundleAndAcksOnlyAfterConfirmation(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
@@ -271,17 +277,17 @@ func TestPromptReleasesTheWaitingHookWithoutADelivery(t *testing.T) {
 	}
 }
 
-func TestUrgentMessageGoesToTheToolHookAndOrdinaryOnesWaitForIdle(t *testing.T) {
+func TestOwnersMessageGoesToTheToolHookAndOthersWaitForIdle(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
 	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
 	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
-	ordinary := r.post(reviewer, "ordinary", false)
-	urgent := r.post(reviewer, "build broken", true)
+	ordinary := r.post(reviewer, "ordinary", true)
+	urgent := r.postFromOwner(reviewer, "build broken")
 
 	var got string
-	r.eventually("the urgent message", 0, func() bool {
-		got = r.ok(delivery.Request{Op: delivery.OpUrgent, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"}).Bundle
+	r.eventually("the owner's message", 0, func() bool {
+		got = r.ok(delivery.Request{Op: delivery.OpBoundary, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"}).Bundle
 		return got != ""
 	})
 	if !strings.Contains(got, "build broken") || strings.Contains(got, "ordinary") {
@@ -407,10 +413,10 @@ func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
 	r.eventually("the acknowledgement", 0, func() bool { return r.server.Cursor(reviewer) == person })
 }
 
-// While a Codex turn runs (between its prompt and stop hooks), urgent messages are kept
-// out of Codex's queue, where they would wait for the turn to end, and go to the next
-// tool hook instead. Ordinary messages still go to the queue.
-func TestUrgentMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
+// While a Codex turn runs (between its prompt and stop hooks), the owner's messages are
+// kept out of Codex's queue, where they would wait for the turn to end, and go to the
+// next tool hook instead. Other messages, urgent ones too, still go to the queue.
+func TestOwnersMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
 	r := newRig(t)
 	codexReq := func(op string) delivery.Request {
 		return delivery.Request{Op: op, Harness: delivery.HarnessCodex, Session: "t1"}
@@ -419,23 +425,23 @@ func TestUrgentMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
 	r.bind(delivery.HarnessCodex, "t1", reviewer)
 	r.ok(codexReq(delivery.OpPrompt))
 
-	r.post(reviewer, "ordinary note", false)
-	r.post(reviewer, "stop: the build is broken", true)
+	r.post(reviewer, "ordinary note", true)
+	r.postFromOwner(reviewer, "stop: the build is broken")
 	r.eventually("the ordinary message in the queue", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
 	r.clock.Advance(time.Second)
 	for _, b := range r.codex.Handed("t1") {
 		if strings.Contains(b, "the build is broken") {
-			t.Fatalf("an urgent message went into the queue during a turn:\n%s", b)
+			t.Fatalf("the owner's message went into the queue during a turn:\n%s", b)
 		}
 	}
-	if b := r.ok(codexReq(delivery.OpUrgent)).Bundle; !strings.Contains(b, "the build is broken") {
-		t.Fatalf("the tool hook should get the urgent message, got %q", b)
+	if b := r.ok(codexReq(delivery.OpBoundary)).Bundle; !strings.Contains(b, "the build is broken") {
+		t.Fatalf("the tool hook should get the owner's message, got %q", b)
 	}
 }
 
-// An urgent message held for a tool call that never came goes into the queue when the
+// The owner's message held for a tool call that never came goes into the queue when the
 // turn ends.
-func TestHeldUrgentMessageIsQueuedWhenTheCodexTurnEnds(t *testing.T) {
+func TestHeldOwnersMessageIsQueuedWhenTheCodexTurnEnds(t *testing.T) {
 	r := newRig(t)
 	codexReq := func(op string) delivery.Request {
 		return delivery.Request{Op: op, Harness: delivery.HarnessCodex, Session: "t1"}
@@ -443,13 +449,13 @@ func TestHeldUrgentMessageIsQueuedWhenTheCodexTurnEnds(t *testing.T) {
 	r.ok(codexReq(delivery.OpRegister))
 	r.bind(delivery.HarnessCodex, "t1", reviewer)
 	r.ok(codexReq(delivery.OpPrompt))
-	r.post(reviewer, "urgent but late", true)
+	r.postFromOwner(reviewer, "urgent but late")
 	r.clock.Advance(5 * time.Second)
 	if n := len(r.codex.Handed("t1")); n != 0 {
 		t.Fatalf("queued during the turn: %q", r.codex.Handed("t1"))
 	}
 	r.ok(codexReq(delivery.OpTurnEnd))
-	r.eventually("the urgent message in the queue", 500*time.Millisecond, func() bool {
+	r.eventually("the owner's message in the queue", 500*time.Millisecond, func() bool {
 		h := r.codex.Handed("t1")
 		return len(h) == 1 && strings.Contains(h[0], "urgent but late")
 	})

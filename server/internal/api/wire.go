@@ -34,6 +34,8 @@ type wireMember struct {
 	// Presence and PresenceSince are null for people.
 	Presence      *string `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
+	// Delivery is the agent's delivery mode as last reported; null for people.
+	Delivery *string `json:"delivery"`
 }
 
 type wireBoard struct {
@@ -112,7 +114,7 @@ func memberOf(m board.Member, boardName string) wireMember {
 		if state == "" {
 			state = board.PresenceNoSession
 		}
-		w.Presence, w.PresenceSince = &state, nullable(m.Presence.Since)
+		w.Presence, w.PresenceSince, w.Delivery = &state, nullable(m.Presence.Since), nullable(m.Presence.Delivery)
 	}
 	return w
 }

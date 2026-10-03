@@ -216,9 +216,10 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 	return r, err
 }
 
-// Inbox returns the agent's unread messages addressed to it. If there are none and wait
-// is positive, it waits up to wait for one to arrive. It never moves the cursor.
-func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, limit int) (Reading, bool, error) {
+// Inbox returns the agent's unread messages addressed to it, leaving out those up to
+// after. If there are none and wait is positive, it waits up to wait for one to arrive.
+// It never moves the cursor.
+func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, after int64, limit int) (Reading, bool, error) {
 	if p.Agent == nil {
 		return Reading{}, false, apierr.AgentRequired()
 	}
@@ -236,7 +237,9 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, li
 			if err != nil {
 				return err
 			}
-			msgs, err := tx.Inbox(me, limit+1)
+			from := me
+			from.Cursor = max(me.Cursor, after)
+			msgs, err := tx.Inbox(from, limit+1)
 			if err != nil {
 				return err
 			}

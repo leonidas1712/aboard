@@ -27,6 +27,7 @@ type srvMsg struct {
 	// presence reports an agent's presence.
 	presence *AgentRef
 	state    Presence
+	mode     Mode
 }
 
 // serverConn follows one server. Its watched agents are changed only by run; the
@@ -106,7 +107,7 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 // fails is only logged: the session reports again within PresenceRenew, and until then
 // the server keeps the last presence it had.
 func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
-	latest := map[AgentRef]Presence{}
+	latest := map[AgentRef]srvMsg{}
 	var order []AgentRef
 	for _, m := range batch {
 		if m.presence == nil {
@@ -115,14 +116,15 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 		if _, seen := latest[*m.presence]; !seen {
 			order = append(order, *m.presence)
 		}
-		latest[*m.presence] = m.state
+		latest[*m.presence] = m
 	}
 	for _, agent := range order {
+		m := latest[agent]
 		pctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
-		err := c.srv.SetPresence(pctx, agent, latest[agent])
+		err := c.srv.SetPresence(pctx, agent, m.state, m.mode)
 		cancel()
 		if err != nil {
-			c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", latest[agent], "error", err)
+			c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", m.state, "error", err)
 		}
 	}
 }

@@ -138,7 +138,7 @@
       "description": "How the delivery daemon puts messages into a session that is already open.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["method", "urgent"],
+      "required": ["method", "mid_turn"],
       "properties": {
         "method": {
           "description": "stop-hook: a hook waits while the session is idle and wakes it. queue: the harness's own queue takes the bundle. none: the agent runs aboard inbox --wait itself.",
@@ -155,13 +155,19 @@
             "properties": {
               "event": { "type": "string", "description": "The harness's name for the hook event." },
               "run": { "type": "string", "description": "The argument to aboard hook <harness>." },
+              "since": { "type": "string", "description": "The first version of the harness with this hook event. aboard init installs it when the harness reports this version or later, or no version, and the fallback events otherwise." },
+              "fallback": { "type": "array", "items": { "type": "string" }, "description": "With since: the hook events that run the same command on older versions." },
               "why": { "type": "string" }
             }
           }
         },
-        "urgent": {
-          "description": "post-tool-hook: urgent messages reach a busy session after its next tool call. idle: they wait for the next idle, first in their bundle.",
-          "enum": ["post-tool-hook", "idle"]
+        "mid_turn": {
+          "description": "tool-hook: a message from the agent's owner reaches a busy session at its next tool boundary, through a tool hook that adds context. idle: it waits for the end of the turn like any other message.",
+          "enum": ["tool-hook", "idle"]
+        },
+        "waiting_notice": {
+          "description": "True when the tool hook also tells a busy session which other messages are waiting, by sequence number, sender name and sender label only.",
+          "type": "boolean"
         }
       }
     },

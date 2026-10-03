@@ -115,22 +115,24 @@ func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
-	var access, presence, since, at sql.NullString
+	var access, presence, since, at, mode sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&presence, &since, &at)
+		&presence, &since, &at, &mode)
 	m.Access = access.String
-	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String}
+	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
 	return m, notFound(err)
 }
 
-// SetPresence records an agent's presence, when it began and when it was reported.
+// SetPresence records an agent's presence, when it began and when it was reported, and
+// its delivery mode.
 func (t *tx) SetPresence(memberID string, p board.Presence) error {
-	return t.exec("UPDATE members SET presence = ?, presence_since = ?, presence_at = ? WHERE id = ?", p.State, p.Since, p.At, memberID)
+	return t.exec("UPDATE members SET presence = ?, presence_since = ?, presence_at = ?, delivery = ? WHERE id = ?",
+		p.State, p.Since, p.At, sql.NullString{String: p.Delivery, Valid: p.Delivery != ""}, memberID)
 }
 
 // InsertMember adds a member.

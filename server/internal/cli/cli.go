@@ -69,6 +69,8 @@ type app struct {
 	localReplaced  *replacement
 	// homeAddr is the local server address read from ABOARD_HOME, once looked up.
 	homeAddr string
+	// claudeBatch says whether Claude Code has the PostToolBatch hook, once looked up.
+	claudeBatch *bool
 }
 
 type command struct {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // cliMessage is a message in the CLI's --json output: the API's message without its
@@ -31,13 +32,14 @@ func cliMessages(ms []api.Message) []cliMessage {
 
 // runSay posts a message as an agent.
 func runSay(ctx context.Context, a *app, args []string) error {
-	const use = `aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]`
+	const use = `aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]`
 	fs := a.flags("say")
 	var to listFlag
 	fs.Var(&to, "to", "who to address: all, @name or role:R; comma-separated or repeated")
 	reply := fs.String("reply", "", "the message this replies to: msg_…, 6, #6 or board-name#6")
-	urgent := fs.Bool("urgent", false, "mark the message urgent")
+	urgent := fs.Bool("urgent", false, "mark the message urgent: first in each recipient's next delivery")
 	expectReply := fs.Bool("expect-reply", false, "ask the recipients to reply")
+	waitFor := fs.Int("wait-reply", 0, "ask for a reply and wait up to this many seconds for it")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board to post on")
 	pos, err := a.parse(fs, args, use, 1, -1)
@@ -47,6 +49,12 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	body := strings.Join(pos, " ")
 	if strings.TrimSpace(body) == "" {
 		return usageError("The message text is empty.", use)
+	}
+	if *waitFor < 0 || *waitFor > 3600 {
+		return usageError("--wait-reply takes from 1 to 3600 seconds.", use)
+	}
+	if *waitFor > 0 {
+		*expectReply = true
 	}
 	var ref messageRef
 	if *reply != "" {
@@ -91,11 +99,46 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		return apiError(r.StatusCode(), r.Body)
 	}
 	m := r.JSON201
-	a.emit(struct {
-		Message cliMessage `json:"message"`
-	}{cliMessage{Message: *m}}, fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board))
+	unread, recipients := unreadAfterSay(ctx, c), recipientsOf(ctx, c, m)
+	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients}
+	text := fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board) + unreadText(m.Board, unread) + recipientsText(recipients)
+	if *waitFor > 0 {
+		wc, err := a.client(ctx, t.server, cred.Token, time.Duration(*waitFor)*time.Second+requestTimeout)
+		if err != nil {
+			return err
+		}
+		wctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(*waitFor)*time.Second+requestTimeout)
+		defer cancel()
+		ref := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
+		w, err := a.waitForReply(wctx, wc, ref, m, time.Duration(*waitFor)*time.Second)
+		if err != nil {
+			return err
+		}
+		out.Outcome, out.OwnerMessages, out.TimedOut = &w.outcome, ptrTo(cliMessages(w.owner)), ptrTo(w.outcome == waitTimeout)
+		out.Reply = new(*cliMessage)
+		if w.reply != nil {
+			reply := cliMessage{Message: *w.reply}
+			*out.Reply = &reply
+		}
+		text += waitedText(m, *waitFor, w)
+	}
+	a.emit(out, text)
 	return nil
 }
+
+// sayOutput is aboard say's --json output (SayOutput in spec/cli.yaml).
+type sayOutput struct {
+	Message    cliMessage      `json:"message"`
+	Unread     *unreadNote     `json:"unread"`
+	Recipients []recipientNote `json:"recipients"`
+	// The rest are set only with --wait-reply.
+	Outcome       *string       `json:"outcome,omitempty"`
+	Reply         **cliMessage  `json:"reply,omitempty"`
+	OwnerMessages *[]cliMessage `json:"owner_messages,omitempty"`
+	TimedOut      *bool         `json:"timed_out,omitempty"`
+}
+
+func ptrTo[T any](v T) *T { return &v }
 
 // runInbox prints an agent's unread messages and acknowledges them.
 func runInbox(ctx context.Context, a *app, args []string) error {

@@ -33,6 +33,8 @@ type Message struct {
 	// ReplyToSeq is the sequence number of the message this one replies to, or 0.
 	ReplyToSeq int
 	Body       string
+	// Truncated marks a body cut short to fit where it is shown.
+	Truncated bool
 }
 
 // attrEscaper escapes text for an attribute value.
@@ -72,6 +74,9 @@ func Format(m Message) string {
 	}
 	if m.ReplyToSeq > 0 {
 		attrs = append(attrs, [2]string{"reply-to", strconv.Itoa(m.ReplyToSeq)})
+	}
+	if m.Truncated {
+		attrs = append(attrs, [2]string{"truncated", "true"})
 	}
 	var b strings.Builder
 	b.WriteString("<aboard-message")
@@ -143,4 +148,21 @@ func BundleSize(groups []Group) int {
 		n += 2 * (nonEmpty - 1)
 	}
 	return n
+}
+
+// Notice writes the content-free notice that tells a busy agent which messages are
+// waiting for it: each one's sequence number, sender name, the sender's owner when shown,
+// and sender label, all escaped. It never holds a body or anything else a sender wrote.
+func Notice(board string, ms []Message) string {
+	parts := make([]string, 0, len(ms))
+	for _, m := range ms {
+		from := m.FromName
+		if !m.FromHuman && m.Owner != "" {
+			from = m.Owner + "'s " + from
+		}
+		parts = append(parts, fmt.Sprintf("#%d from %s (%s)", m.Seq, from, m.Sender))
+	}
+	text := fmt.Sprintf("%d waiting on %s: %s; run aboard inbox when convenient", len(ms), board, strings.Join(parts, ", "))
+	return `<aboard-notice board="` + attrEscaper.Replace(board) + `" waiting="` + strconv.Itoa(len(ms)) + `">` +
+		attrEscaper.Replace(text) + "</aboard-notice>"
 }

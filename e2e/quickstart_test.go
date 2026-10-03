@@ -55,6 +55,7 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	// Terminal 1: the first agent shares its plan.
 	expectLines(t, e.run("say", "--as", "member", "--to", "@member-2", "The plan is in plan.md. Can you take the tests?"),
 		"Sent #6 to @member-2 on general",
+		"@member-2 has no open session: it sees it in its inbox or when a session resumes it.",
 	)
 
 	// Terminal 2: the second agent reads its inbox and replies to everyone.
@@ -66,6 +67,7 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	)
 	expectLines(t, e.run("say", "--as", "member-2", "On it. I will post when they pass."),
 		"Sent #7 to all on general",
+		"@member has no open session: it sees it in its inbox or when a session resumes it. @alex sees it on the board or in their inbox.",
 	)
 
 	// Terminal 1: read the board.

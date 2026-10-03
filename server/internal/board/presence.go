@@ -34,7 +34,12 @@ type Presence struct {
 	State string // one of the Presence* states; empty for a person, or never reported
 	Since string // when State began
 	At    string // when it was last reported
+	// Delivery is the agent's delivery mode (auto, humans or off) as last reported, or
+	// empty if none was. It doesn't run out with the presence.
+	Delivery string
 }
+
+var deliveryModes = []string{"auto", "humans", "off"}
 
 // presenceKey is the Notifier key that changes when an agent's presence on the board
 // changes. Board ids start with "brd_", so it never names a board.
@@ -49,24 +54,28 @@ func (m Member) CurrentPresence(now time.Time) Presence {
 	}
 	p := m.Presence
 	if p.State == "" {
-		return Presence{State: PresenceNoSession}
+		return Presence{State: PresenceNoSession, Delivery: p.Delivery}
 	}
 	at, err := time.Parse(time.RFC3339Nano, p.At)
 	if err != nil || !now.Before(at.Add(PresenceTTL)) {
-		return Presence{State: PresenceNoSession, Since: p.At, At: p.At}
+		return Presence{State: PresenceNoSession, Since: p.At, At: p.At, Delivery: p.Delivery}
 	}
 	return p
 }
 
-// SetPresence records the calling agent's presence and returns its board and its
-// membership with the new presence. Only agents report presence, each its own.
-// Reporting the presence it already has renews it and keeps when it began.
-func (s *Service) SetPresence(ctx context.Context, p Principal, state string) (Board, Member, error) {
+// SetPresence records the calling agent's presence and, unless mode is empty, its
+// delivery mode, and returns its board and its membership with the new presence. Only
+// agents report presence, each its own. Reporting the presence it already has renews it
+// and keeps when it began.
+func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode string) (Board, Member, error) {
 	if p.Agent == nil {
 		return Board{}, Member{}, apierr.AgentRequired()
 	}
 	if !slices.Contains(presenceStates, state) {
 		return Board{}, Member{}, invalid(fmt.Sprintf("%q is not a presence.", state), "Use working, idle, waiting or no_session.")
+	}
+	if mode != "" && !slices.Contains(deliveryModes, mode) {
+		return Board{}, Member{}, invalid(fmt.Sprintf("%q is not a delivery mode.", mode), "Use auto, humans or off.")
 	}
 	now := s.clk.Now()
 	var b Board
@@ -81,7 +90,10 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state string) (B
 			return err
 		}
 		cur := me.CurrentPresence(now)
-		next := Presence{State: state, Since: cur.Since, At: stamp(now)}
+		next := Presence{State: state, Since: cur.Since, At: stamp(now), Delivery: me.Presence.Delivery}
+		if mode != "" {
+			next.Delivery = mode
+		}
 		if cur.State != state || cur.Since == "" {
 			next.Since = next.At
 		}

@@ -64,22 +64,25 @@ delivery:
       why: registers the thread
     - event: UserPromptSubmit
       run: prompt
-      why: marks a turn running, so urgent messages wait for a tool call instead of the queue
+      why: marks a turn running, so the owner's messages wait for a tool call instead of the queue
     - event: Stop
       run: stop
-      why: marks the turn ended; urgent messages no tool call took go into the queue
-    - event: PostToolUse
+      why: confirms what the turn's tool calls received and marks the turn ended; the owner's messages no tool call took go into the queue
+    - event: PreToolUse
       run: tool
-      why: returns urgent messages as additionalContext
+      why: before each tool call, adds the owner's messages and the waiting notice as additionalContext; never denies
     - event: SessionEnd
       run: end
       why: closes the session (Codex allows 3 seconds)
-  urgent: post-tool-hook
+  mid_turn: tool-hook
+  waiting_notice: true
 
 notes:
   - The queue holds a bundle until the thread's current turn ends, so busy sessions need no tracking for ordinary messages.
   - Before binding, the daemon reads the exact thread through codex app-server (thread/read) and refuses sub-agent threads.
-  - Hooks run only once trusted. Codex asks ("Hooks need review") when the first prompt is sent, or the person trusts them in /hooks; Codex asks again whenever a hook's command changes. Until then no hook runs, session start included; delivery still works through the queue but urgent messages wait for the end of the turn.
+  - Hooks run only once trusted. Codex asks ("Hooks need review") when the first prompt is sent, or the person trusts them in /hooks; Codex asks again whenever a hook's command changes. Until then no hook runs, session start included; delivery still works through the queue but the owner's messages wait for the end of the turn.
   - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
   - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so a sandboxed command never starts one.
-  - "Verified live with Codex 0.159.3: idle wake through the queue, urgent at the next tool call, sub-agent refusal."
+  - "Verified live with Codex 0.159.3: idle wake through the queue, a message added at the next tool call, sub-agent refusal."
+  - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. PostToolUse runs only after a tool succeeds, so it would miss failed tool calls; the tool hook is on PreToolUse.
+  - Hook input carries session_id, turn_id and cwd, and agent_id and agent_type in a thread-spawned sub-agent; the tool hook ignores sub-agents.

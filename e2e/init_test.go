@@ -214,3 +214,60 @@ func TestInitAsksToTrustOnlyChangedHooks(t *testing.T) {
 		t.Fatalf("init that updated only Codex's hooks:\n%s", out)
 	}
 }
+
+// Hooks installed by an earlier aboard, with the tool hook on the events it used then,
+// are reported out of date until aboard init --yes moves them, leaving no Aboard entry
+// on the old events.
+func TestDoctorReportsHooksFromBeforeTheToolHookMoved(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.harnessHome()
+	e.run("init", "--yes")
+	claude, codex := filepath.Join(e.home, ".claude", "settings.json"), filepath.Join(e.home, ".codex", "hooks.json")
+	for path, from := range map[string]string{claude: `"PostToolBatch"`, codex: `"PreToolUse"`} {
+		old := strings.Replace(readFile(t, path), from, `"PostToolUse"`, 1)
+		if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checks := func() map[string]string {
+		got := map[string]string{}
+		for _, c := range field(t, e.runExit("doctor", "--json").json(t), "checks").([]any) {
+			m := c.(map[string]any)
+			code, _ := m["code"].(string)
+			got[m["name"].(string)] = code
+		}
+		return got
+	}
+	if got := checks(); got["claude_hooks"] != "hooks_outdated" || got["codex_hooks"] != "hooks_outdated" {
+		t.Fatalf("doctor with the earlier hooks: %v", got)
+	}
+	e.run("init", "--yes")
+	if got := checks(); got["claude_hooks"] != "" || got["codex_hooks"] != "" {
+		t.Fatalf("doctor after init --yes: %v", got)
+	}
+	for _, path := range []string{claude, codex} {
+		if text := readFile(t, path); strings.Contains(text, `"PostToolUse"`) {
+			t.Fatalf("an Aboard hook stayed on PostToolUse in %s:\n%s", path, text)
+		}
+	}
+}
+
+// A Claude Code older than the PostToolBatch hook gets the tool hook on PostToolUse and
+// PostToolUseFailure instead, which together fire after every tool call.
+func TestInitFallsBackForAnOlderClaudeCode(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.harnessHome()
+	e.vars = append(e.vars, "FAKE_CLAUDE_VERSION=2.1.110")
+	e.run("init", "--yes", "--harness", "claude-code")
+	settings := readFile(t, filepath.Join(e.home, ".claude", "settings.json"))
+	for _, want := range []string{`"PostToolUse"`, `"PostToolUseFailure"`} {
+		if !strings.Contains(settings, want) {
+			t.Fatalf("settings lack %s:\n%s", want, settings)
+		}
+	}
+	if strings.Contains(settings, "PostToolBatch") {
+		t.Fatalf("an older Claude Code got PostToolBatch:\n%s", settings)
+	}
+}
