@@ -18,6 +18,8 @@ const requestTimeout = 30 * time.Second
 type client struct {
 	api    *api.ClientWithResponses
 	server serverRef
+	// sandbox is the harness whose sandbox blocks this command's network access, if any.
+	sandbox string
 }
 
 // client returns an API client for srv that sends token, and a fresh Idempotency-Key
@@ -56,7 +58,8 @@ func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*cl
 		return nil, newError("invalid_request", "The server address "+srv.URL+" is not a valid URL.",
 			"Fix the server URL in the project's .aboard file.")
 	}
-	return &client{api: c, server: srv}, nil
+	sandbox, _ := a.networkBlocked()
+	return &client{api: c, server: srv, sandbox: sandbox}, nil
 }
 
 func idempotencyKey(rnd io.Reader) (string, error) {
@@ -69,6 +72,11 @@ func idempotencyKey(rnd io.Reader) (string, error) {
 
 // unreachable reports a request that got no answer from the server.
 func (c *client) unreachable(err error) *Error {
+	if c.sandbox != "" {
+		e := sandboxBlocksNetwork(c.sandbox, "the Aboard server at "+c.server.URL)
+		e.Err = err
+		return e
+	}
 	return &Error{
 		Code:    "server_unreachable",
 		Message: "Couldn't reach the Aboard server at " + c.server.URL + ".",

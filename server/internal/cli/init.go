@@ -315,7 +315,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		Delivery      *initDelivery  `json:"delivery"`
 		AllowCommands bool           `json:"allow_commands"`
 		Harnesses     []harnessSetup `json:"harnesses"`
-	}{apply, c.scope, modeChange, c.allow, setups}, list+initEnding(c, setups, pending, apply))
+	}{apply, c.scope, modeChange, c.allow, setups}, list+a.codexAllowLine(c, setups, interactive)+initEnding(c, setups, pending, apply))
 	return nil
 }
 
@@ -615,6 +615,26 @@ func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home str
 		}
 	}
 	return b.String(), pending
+}
+
+// codexAllowLine recommends --allow-commands when init sets up Codex without it and no
+// rule Codex reads here allows aboard yet. In a terminal the question already said why.
+func (a *app) codexAllowLine(c initChoices, setups []harnessSetup, interactive bool) string {
+	if c.allow || interactive {
+		return ""
+	}
+	for _, s := range setups {
+		if s.Name != "codex" || len(s.Changes) == 0 {
+			continue
+		}
+		for _, scope := range []string{scopeGlobal, c.scope} {
+			if _, ok := codexAllows(filepath.Dir(a.setupFiles("codex", scope).allow)); ok {
+				return ""
+			}
+		}
+		return codexAllowAdvice
+	}
+	return ""
 }
 
 // harnessTitles are the harnesses' names as people know them.
