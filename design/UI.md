@@ -59,6 +59,18 @@ The default screen of every board.
   mockup's Record tab is not part of v0.1: an audit view of the event log
   needs the maintainer's approval first.
 
+### Board details (D143)
+
+The board's title in the header is a button that opens Board details, a dialog: the
+title, name, id, server address, policy, when and by whom the board was made, and how
+many agents and people are on it, with "Copy details" for the same facts as plain text.
+Below them, "Add an agent" makes a join code as the person and shows the prompt to paste
+into the agent's session (the join line and one sentence, the same as `aboard invite`),
+with "Copy prompt", the role it joins as (a picker when the board has more than one
+role; it starts on `member`) and when the code stops working. A copy says "Copied" beside
+the button, which fades after a moment. Escape closes the dialog and returns focus to
+the title.
+
 ### The "Now:" line
 
 What we want: one line that tells you the state of the board, and is always true.
