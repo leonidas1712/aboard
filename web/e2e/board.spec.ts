@@ -50,7 +50,7 @@ test.afterAll(() => {
 });
 
 test("the board view shows the timeline live, the crew and the starter badge", async ({ page }) => {
-  const pair = JSON.parse(aboard("pair", "--json"));
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--json"));
   aboard("join", pair.join.line);
   aboard("say", "--as", "writer", "--to", "@reviewer", "Draft is in notes.md. <b>not bold</b>");
 
