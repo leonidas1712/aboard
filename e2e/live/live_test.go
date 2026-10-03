@@ -95,7 +95,7 @@ func command(ctx context.Context, name string, args ...string) *exec.Cmd {
 func configSums() map[string]string {
 	home, _ := os.UserHomeDir()
 	sums := map[string]string{}
-	for _, f := range []string{".claude/settings.json", ".codex/config.toml", ".codex/hooks.json"} {
+	for _, f := range []string{".claude/settings.json", ".codex/config.toml", ".codex/hooks.json", ".omp/agent/config.yml"} {
 		path := filepath.Join(home, f)
 		raw, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
@@ -116,7 +116,10 @@ func configSums() map[string]string {
 	// Harnesses install their commands into ~/.local/bin and keep versions beside it, so
 	// every entry there and every installed Claude Code version must stay as it was: a
 	// link must point where it pointed, a file keep its size and time.
-	for _, d := range []string{".local/bin", ".local/share/claude/versions"} {
+	// omp's login is in ~/.omp/agent/agent.db, which omp itself changes as the person uses
+	// it, so what is checked are the folders a test could write into: its extensions and
+	// skills.
+	for _, d := range []string{".local/bin", ".local/share/claude/versions", ".omp/agent/extensions", ".omp/agent/skills"} {
 		entries, err := os.ReadDir(filepath.Join(home, d))
 		if err != nil {
 			continue
@@ -167,7 +170,7 @@ func configDiff(before, after map[string]string) string {
 // suite starts must not inherit them from the session that runs the suite: they would
 // make aboard think it runs inside that session, and in a remote Claude Code container
 // they make the nested Claude Code take over the outer session's id.
-var harnessMarkers = regexp.MustCompile(`^(CLAUDE|CODEX|ABOARD|TMUX)[A-Z0-9_]*=`)
+var harnessMarkers = regexp.MustCompile(`^(CLAUDE|CODEX|ABOARD|TMUX|OMP|PI_)[A-Z0-9_]*=`)
 
 // cleanEnv is this process's environment without harness markers, keeping what the
 // harnesses need for their login (HOME, ANTHROPIC_*, OPENAI_*, CLAUDE_CONFIG_DIR, and
@@ -262,6 +265,8 @@ func newLabWith(t *testing.T, binary string) *lab {
 		// Aboard's global setup follows these (D92), so every command the lab runs, aboard
 		// doctor and init included, looks in the test's own folders and never the person's.
 		"CODEX_HOME="+filepath.Join(dir, "codex-home"),
+		// omp's agent folder in the lab's scratch home for omp, never the person's ~/.omp.
+		"PI_CODING_AGENT_DIR="+filepath.Join(dir, "omp-home", ".omp", "agent"),
 	)
 	if err := os.MkdirAll(filepath.Join(dir, "codex-home"), 0o700); err != nil {
 		t.Fatal(err)

@@ -39,7 +39,7 @@ const pongBound = 30 * time.Second
 func checkWake(t *testing.T, d *driver, posted message, wake handover) {
 	t.Helper()
 	bound := wakeBound
-	if !d.waitsForIdle() {
+	if !d.p.HoldsWhileBusy() {
 		bound += queueGather
 	}
 	if dur := wake.Time.Sub(posted.At); dur > bound {
@@ -290,7 +290,7 @@ func TestRepliesReachPromptly(t *testing.T) {
 // one with its own queue holds them there until it does.
 func TestOwnerReachesBusy(t *testing.T) {
 	eachHarness(t, "OwnerReachesBusy", func(t *testing.T, d *driver, rec *recorder) {
-		if !d.p.Has("tool-boundary") {
+		if !d.p.Has("tool-boundary") && !d.p.Has("extension") {
 			rec.notApplicable("the harness has no tool boundary hook: the owner's messages wait for the turn's end")
 		}
 		l := newLab(t)
@@ -333,7 +333,7 @@ func TestOwnerReachesBusy(t *testing.T) {
 				t.Errorf("a peer's message was added to the busy turn at %s", h.Time)
 			}
 		}
-		if d.waitsForIdle() {
+		if d.p.HoldsWhileBusy() {
 			// The agent may also act on the waiting notice and fetch the peers' messages
 			// itself; then nothing is handed. Otherwise one bundle, after the turn ended.
 			var bundles int
@@ -362,7 +362,7 @@ func TestPeerWaitsButNoticeArrives(t *testing.T) {
 		switch {
 		case !d.p.Delivery.WaitingNotice:
 			rec.notApplicable("the profile declares no waiting notice")
-		case !d.waitsForIdle():
+		case !d.p.HoldsWhileBusy():
 			rec.notApplicable("the harness's own queue takes a peer's message as it comes, so nothing waits to be named")
 		}
 		l := newLab(t)
@@ -431,6 +431,8 @@ func TestPeerWaitsButNoticeArrives(t *testing.T) {
 func TestKilledSessionRedelivers(t *testing.T) {
 	eachHarness(t, "KilledSessionRedelivers", func(t *testing.T, d *driver, rec *recorder) {
 		switch {
+		case d.p.Has("extension"):
+			rec.notApplicable("the harness's extension confirms a bundle as it adds it, so a killed session has none unconfirmed; the fast kit proves a dropped connection's unconfirmed bundle goes again")
 		case !d.waitsForIdle():
 			rec.notApplicable("the harness's own queue confirms a bundle when it takes it, so a killed session has none unconfirmed")
 		case d.p.Lifecycle.Liveness != "process":
@@ -529,17 +531,28 @@ func TestProjectScopeSetup(t *testing.T) {
 		l := newLab(t)
 		d.setUp(l)
 		proj := l.project("project", d.p.Harness)
-		var hooksFile string
+		// The file doctor names for the harness's setup: its hooks file, or, for a harness
+		// reached through an extension, that file.
+		var hooksFile, setupFile string
+		setupCheck := d.p.CheckName + "_hooks"
 		for _, it := range d.p.Install {
 			if it.Project == "" {
 				continue
 			}
 			path := filepath.Join(proj, filepath.FromSlash(it.Project))
 			raw := readFile(t, path)
-			if it.Kind == "hooks" {
-				hooksFile = path
+			switch it.Kind {
+			case "hooks":
+				hooksFile, setupFile = path, path
 				if !strings.Contains(string(raw), l.bin+" hook "+d.p.Harness+" ") {
 					t.Errorf("%s doesn't run %s", path, l.bin)
+				}
+			case "file":
+				if len(d.p.Delivery.Hooks) == 0 {
+					setupFile, setupCheck = path, d.p.CheckName+"_extension"
+				}
+				if !strings.Contains(string(raw), l.bin) {
+					t.Errorf("%s doesn't name %s", path, l.bin)
 				}
 			}
 		}
@@ -564,8 +577,8 @@ func TestProjectScopeSetup(t *testing.T) {
 		for _, c := range l.doctor(proj) {
 			checks[c.Name] = c
 		}
-		if c := checks[d.p.CheckName+"_hooks"]; c.Level != "ok" || !strings.Contains(c.Message, hooksFile) {
-			t.Errorf("doctor in the project should find the hooks in %s: %+v", hooksFile, c)
+		if c := checks[setupCheck]; c.Level != "ok" || !strings.Contains(c.Message, setupFile) {
+			t.Errorf("doctor in the project should find the setup in %s: %+v", setupFile, c)
 		}
 		if c := checks[d.p.CheckName+"_skill"]; c.Level != "ok" {
 			t.Errorf("doctor in the project should find the skill: %+v", c)
@@ -627,7 +640,7 @@ func TestResumeReconnects(t *testing.T) {
 			}
 		}
 		l.provesReconnect(writer, d.p.Harness, "writer", "reviewer", closeSession, func(id string) {
-			writer.respawn(l.vars, d.resumeArgv(l, id))
+			writer.respawn(d.env(l), d.resumeArgv(l, id))
 			d.ready(writer)
 		})
 	})

@@ -24,9 +24,10 @@ the harnesses. Tests run in parallel, each with its own scratch directory, port 
 server.
 
 **Prerequisites.** Go, tmux, and the harnesses logged in: Claude Code through
-`CLAUDE_CODE_OAUTH_TOKEN` (below) and Codex (`codex login status` succeeds, and `codex
-queue` exists). A harness that isn't installed is skipped with the reason; Codex logged
-out is skipped too.
+`CLAUDE_CODE_OAUTH_TOKEN` (below), Codex (`codex login status` succeeds, and `codex
+queue` exists), and omp 18.5.1 or later, which logs in with the same
+`CLAUDE_CODE_OAUTH_TOKEN`. A harness that isn't installed is skipped with the reason;
+Codex logged out is skipped too.
 
 Run `claude setup-token` once and export the token it prints as
 `CLAUDE_CODE_OAUTH_TOKEN` before `make live`. Claude Code then logs in with a scratch
@@ -41,6 +42,7 @@ Code test fails with that instruction: the suite never falls back to your own co
 | `LIVE_KEEP=1` | Save artifacts for passing tests too |
 | `LIVE_ARTIFACTS=<dir>` | Where artifacts go (default `e2e/live/artifacts/`, git-ignored) |
 | `LIVE_CLAUDE_MODEL=<model>` | Pass `--model` to Claude Code |
+| `LIVE_OMP_MODEL=<model>` | The model omp runs with (default `anthropic/claude-sonnet-4-6`, so omp never picks a local model) |
 
 **Artifacts.** When a test fails, it writes each pane's full scrollback, Claude Code's
 transcripts (every command an agent ran and its output), `daemon.log`, `server.log`,
@@ -138,11 +140,19 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
   trusted. Each hook command carries the scratch variables and writes its event to
   `codex-hooks.log` in the test's directory, so tests see which hooks ran. Teardown also
   stops the app server Codex starts from the scratch `CODEX_HOME`.
+- **omp** runs with a scratch `HOME`, so its `~/.omp` (the `agent.db` with logins, its
+  settings and sessions) is the test's own, past first-run setup and with update checks
+  off; aboard's own omp setup follows `PI_CODING_AGENT_DIR`, set to the same scratch
+  folder for every command. It logs in to Anthropic from `ANTHROPIC_OAUTH_TOKEN`, set to
+  `CLAUDE_CODE_OAUTH_TOKEN`; an OAuth token from the environment has no refresh token, so
+  nothing can rotate it. Your own `~/.omp` is never read or written.
 - **Checksums.** Before the run, the suite records `~/.claude/settings.json`,
   `~/.codex/config.toml` and `~/.codex/hooks.json`, and whether `~/.local/state/aboard`,
-  `~/.local/share/aboard` and `~/.config/aboard` exist. Every test checks them in its
-  cleanup, and the run fails if any changed.
-- **Harness markers.** Every variable starting `CLAUDE`, `CODEX`, `ABOARD` or `TMUX` is
+  `~/.local/share/aboard` and `~/.config/aboard` exist, `~/.omp/agent/config.yml`, and
+  every entry in `~/.omp/agent/extensions` and `~/.omp/agent/skills` (omp's `agent.db`
+  changes whenever you use omp, so the folders a test could write to stand for it).
+  Every test checks them in its cleanup, and the run fails if any changed.
+- **Harness markers.** Every variable starting `CLAUDE`, `CODEX`, `ABOARD`, `TMUX`, `OMP` or `PI_` is
   removed from what harnesses and aboard commands inherit (except `CLAUDE_CONFIG_DIR`).
   Run from inside a Claude Code session, aboard would otherwise think it runs in that
   session; in a remote Claude Code container the remote session's variables even make
@@ -228,6 +238,26 @@ Codex 0.159.3 (the earlier proofs by hand, and the suite):
   now" and "Once the command has run, reply only OK".
 - The project's `.codex/config.toml` allows the network in the sandbox
   (`[sandbox_workspace_write] network_access = true`).
+
+omp 18.5.1, driven by hand in tmux with a scratch `HOME`, no login and a model that
+doesn't exist, so no model ran (the suite's driver comes from this):
+
+- With no settings it opens a five-step setup ("Sign in to your providers"); `startup:
+  setupWizard: false` in the agent folder's `config.yml` skips it, and `startup:
+  checkUpdate: false` turns update checks off.
+- Its terminal title (`#{pane_title}`) is `π > <folder>` while it waits for the person,
+  an animated spinner in place of `>` while a turn runs, and `!` while it waits for an
+  answer. The prompt box is the last line starting `╰─`; typed text shows there.
+- Ctrl-C twice within a moment quits; one Ctrl-C a second apart doesn't.
+- Without a usable model omp picked a local model it found on the machine, so the suite
+  always passes `--model`.
+- Aboard's extension in the project's `.omp/extensions` connected as omp opened (`session
+  started` with `"connection":"extension"` in the daemon's log). `!aboard join <line>`
+  typed in omp's prompt runs in omp's shell without the model, and bound the session:
+  `aboard status` there showed the agent from the session. A message for the agent was
+  handed and confirmed within 3 ms (`bundle handed`, `bundle confirmed`); omp then
+  reported that it had no model to run the turn with. Quitting said goodbye, and the agent
+  showed no session.
 
 ### Codex urgent messages, by hand
 
