@@ -22,7 +22,7 @@ export const presenceWords: Record<Presence, string> = {
   working: "working",
   idle: "idle",
   waiting: "waiting",
-  no_session: "no session",
+  no_session: "disconnected",
 };
 
 /** boardLabel is what people call a board: its title, else its name. */
@@ -218,7 +218,7 @@ export function nowLine(f: Facts, now: number): NowPart[] {
     const away = by("no_session");
     if (working > 0) parts.push({ text: `${count(working, "agent", "agents")} working` });
     if (idle > 0) parts.push({ text: `${count(idle, "agent", "agents")} idle` });
-    if (away > 0) parts.push({ text: `${count(away, "agent", "agents")} with no session` });
+    if (away > 0) parts.push({ text: `${count(away, "agent", "agents")} disconnected` });
   }
   const waiting = f.agents.filter((a) => a.presence === "waiting");
   for (const a of waiting) parts.push({ text: `${a.name} is waiting for you in its session`, attention: true });

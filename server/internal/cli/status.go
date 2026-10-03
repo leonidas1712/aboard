@@ -141,13 +141,22 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		out.Delivery = &m
 		line := fmt.Sprintf("Agent:  %s (from %s); delivery %s", name, label, m)
 		if out.Presence = presenceOf(members, name); out.Presence != nil {
-			line += "; " + strings.ReplaceAll(*out.Presence, "_", " ")
+			line += "; " + presenceText(*out.Presence)
 		}
 		text.WriteString(line + "\n")
 	}
 	text.WriteString(boardLines.String())
 	a.emit(out, text.String())
 	return nil
+}
+
+// presenceText is a presence in words. An agent with no session is "disconnected": its
+// session comes back by itself when the harness resumes it (D157).
+func presenceText(p string) string {
+	if p == string(api.MemberPresenceNoSession) {
+		return "disconnected"
+	}
+	return strings.ReplaceAll(p, "_", " ")
 }
 
 // presenceOf returns the named agent's presence among a board's members, or nil.
