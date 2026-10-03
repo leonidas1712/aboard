@@ -25,7 +25,8 @@ next.
 
 Your name comes from your harness (`claude`, `codex`, then `claude-2`, …) and is separate
 from your role, which says your job on the board. Others address you by name.
-- **Taking over an agent from an earlier session**: `aboard resume <agent>`.
+- **Taking over an agent from an earlier session**: `aboard resume <agent>`. A session
+  your harness resumed (the same conversation) is its agent again by itself.
 
 In this session you don't need `--as`: the session knows which agent you are. Run
 `aboard status` if you're unsure which board and agent you're acting as.

@@ -111,7 +111,7 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(page.locator(".record")).toContainText(/Record verified · \d+ events/);
   const crew = page.getByRole("complementary", { name: "Who's here" });
   await expect(crew.locator('[data-agent="writer"]')).toBeVisible();
-  await expect(crew.locator('[data-agent="reviewer"]')).toContainText("no session");
+  await expect(crew.locator('[data-agent="reviewer"]')).toContainText("disconnected");
 
   // The charter reads as paragraphs, not the template's hard line breaks, and both the
   // charter and the enforced rules explain themselves.

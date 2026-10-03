@@ -23,6 +23,8 @@ type session struct {
 	harness string // "claude-code" or "codex"
 	id      string
 	vars    []string
+	// started is what the session-start hook printed.
+	started result
 }
 
 // claudeSession starts a Claude Code session the way Claude Code does: it runs the
@@ -30,12 +32,22 @@ type session struct {
 // every later command the variables the hook wrote there.
 func (e *env) claudeSession(id string) *session {
 	e.t.Helper()
+	return e.claudeSessionFrom(id, "startup")
+}
+
+// claudeSessionFrom starts a Claude Code session with the session-start source Claude
+// Code reports: "startup" for a new session, "resume" for claude --resume or --continue,
+// which keep the session id. Each start gets a fresh environment file, as in Claude Code.
+func (e *env) claudeSessionFrom(id, source string) *session {
+	e.t.Helper()
 	envFile := filepath.Join(e.home, "claude-env-"+id)
+	_ = os.Remove(envFile)
 	s := &session{e: e, harness: "claude-code", id: id}
-	r := e.exec([]string{"CLAUDE_ENV_FILE=" + envFile}, hookInput(id, "SessionStart", `"source":"startup"`), "hook", "claude-code", "session-start")
+	r := e.exec([]string{"CLAUDE_ENV_FILE=" + envFile}, hookInput(id, "SessionStart", `"source":"`+source+`"`), "hook", "claude-code", "session-start")
 	if r.code != 0 {
 		e.t.Fatalf("session-start hook failed\n%s", r)
 	}
+	s.started = r
 	raw, err := os.ReadFile(envFile)
 	if err != nil {
 		e.t.Fatalf("session-start hook wrote no environment file: %v", err)
@@ -92,10 +104,19 @@ func (e *env) claudeSessionIn(id string) (*session, *exec.Cmd) {
 // agent runs, and calls the session-start hook.
 func (e *env) codexSession(threadID string) *session {
 	e.t.Helper()
+	return e.codexSessionFrom(threadID, "startup")
+}
+
+// codexSessionFrom starts a Codex session with the session-start source Codex reports:
+// "startup", or "resume" for codex resume, which keeps the thread id.
+func (e *env) codexSessionFrom(threadID, source string) *session {
+	e.t.Helper()
 	s := &session{e: e, harness: "codex", id: threadID, vars: []string{"CODEX_THREAD_ID=" + threadID}}
-	if r := s.hook("session-start", `"source":"startup"`); r.code != 0 {
+	r := s.hook("session-start", `"source":"`+source+`"`)
+	if r.code != 0 {
 		e.t.Fatalf("codex session-start hook failed\n%s", r)
 	}
+	s.started = r
 	return s
 }
 

@@ -82,8 +82,13 @@ type session struct {
 
 	boot string
 	open bool
+	// started is true once the session has been open, so a register that opens it again
+	// is a resume, not a new session.
+	started bool
 	// proc is the harness process the session runs in, or nil if it isn't known.
 	proc *Process
+	// lost is the agent another session resumed while this one held it, or nil.
+	lost *AgentRef
 	// busyAt is when the session last showed it was in a turn: a prompt or a tool call.
 	busyAt time.Time
 	// inTurn is true while a queueing harness runs a turn, as its prompt and stop hooks
@@ -207,6 +212,10 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	s.noteProcess(ctx, req)
 	switch req.Op {
 	case OpRegister:
+		// A session that closed and starts again with the same id (the harness resumed it)
+		// is still bound to the agent it filled, unless another session resumed that
+		// agent meanwhile; then it starts with none, and the answer names the agent.
+		reopened := s.started && !s.open
 		s.inTurn, s.working = false, false
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
@@ -214,7 +223,12 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			s.confirm(ctx)
 		}
 		s.setOpen(ctx, true)
-		ok.Boot = s.boot
+		ok.Boot, ok.Reopened, ok.Agents = s.boot, reopened, s.agentRefs()
+		if len(ok.Agents) == 0 {
+			ok.Lost = s.lost
+		}
+		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
+			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt:
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()
@@ -370,6 +384,7 @@ func (s *session) unhand(ctx context.Context) {
 
 func (s *session) setOpen(ctx context.Context, open bool) {
 	s.open = open
+	s.started = s.started || open
 	s.saveSession(ctx)
 	s.d.setOpen(s.key, open)
 	for _, a := range s.agents {
@@ -388,7 +403,7 @@ func (s *session) setOpen(ctx context.Context, open bool) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -454,6 +469,10 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 // bind makes the session the one the agent's messages go to. A session fills one seat
 // at a time, so an agent it held before is let go; bind returns that agent.
 func (s *session) bind(ctx context.Context, agent AgentRef) *AgentRef {
+	if s.lost != nil {
+		s.lost = nil
+		s.saveSession(ctx)
+	}
 	var previous *AgentRef
 	for _, ref := range s.agentRefs() {
 		if ref != agent {
@@ -511,6 +530,10 @@ func (s *session) onRelease(ctx context.Context, agent AgentRef, to *session) {
 		}
 		delete(s.agents, agent)
 		s.leavePresence(agent)
+		// Kept so that, if this session starts again, it says the agent went elsewhere
+		// rather than silently having none.
+		s.lost = &agent
+		s.saveSession(ctx)
 	}
 	to.mail.put(sessionMsg{adopt: &agent})
 }

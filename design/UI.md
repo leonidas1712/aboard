@@ -199,8 +199,10 @@ and `aboard audit verify` runs the same check.
 - **Agents:** each agent's name with its presence in plain words, then labelled fields.
   - Presence (D120) is one of **working** (a turn is running), **idle** (its session is
     open and waiting for messages), **waiting** (its harness is waiting for a person in
-    the session, such as a permission prompt) or **no session**. The owner's delivery
-    daemon reports it; it is bookkeeping, never part of the record.
+    the session, such as a permission prompt) or **disconnected** (no session is open
+    for it; the API's `no_session`). A disconnected agent's session comes back by itself
+    when its harness resumes it (D157). The owner's delivery daemon reports it; it is
+    bookkeeping, never part of the record.
   - Fields: Owner (only with a second person), Role (opens to the role's one-line
     description), Harness (Claude Code, Codex), and Delivery (every message, people's
     messages only, or off), which only the agent's owner can change.

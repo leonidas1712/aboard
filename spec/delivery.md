@@ -110,7 +110,7 @@ holds a whole copy of Aboard and its daemon (see "Files and addresses" in
 
 | Where | What | Never |
 | --- | --- | --- |
-| `<state>/aboard/delivery.db` (0600) | Sessions with their harness process, bindings, each agent's delivery mode, deliveries, attempts, reason codes, timestamps | Tokens, message bodies, prompts, transcripts |
+| `<state>/aboard/delivery.db` (0600) | Sessions with their harness process (and the agent another session took from one), bindings, each agent's delivery mode, deliveries, attempts, reason codes, timestamps | Tokens, message bodies, prompts, transcripts |
 | `<config>/aboard/credentials.json` (0600) | Agent tokens; human logins per server | Read by hooks |
 | `<state>/aboard/daemon.sock` (0600, in a 0700 directory) | The control socket | A TCP port |
 | `/tmp/aboard-<uid>/<hash>.sock` (0600, in a 0700 directory) | The control socket instead, when the state path is too long for a socket path (macOS allows 104 bytes) | |
@@ -151,6 +151,35 @@ agent. The command says so in one line: "This session was claude on writer-revie
 is now codex-2 on research-sweep." Binding an agent that another session holds moves the
 agent instead: that session is left with no agent.
 
+**A session that comes back.** A session that closes (its end hook ran, or its harness
+process died) keeps its binding. When the harness resumes it with the same session id
+(`claude --resume <id>` or `--continue`, `codex resume <id>`), its session-start hook
+registers that id again, and the session is bound to the agent it filled, with no
+`aboard resume`: presence goes back from `no_session` to `idle`, the new boot id makes
+any bundle it never confirmed go again, and what waited for the agent is delivered as
+usual, which is when the session's first turn ends: Claude Code's stop hook waits only
+after a turn, and Codex runs no hook in a resumed thread until a turn starts. The hook
+adds one line to the session's context, "Aboard: this session is reviewer on
+writer-reviewer again, as it was before it closed; messages that waited for reviewer
+arrive when this turn ends." Only that exact session id is matched: a new session, a
+forked one (`claude --resume <id> --fork-session`) or `/clear` has a new id and starts
+with no agent.
+
+Codex runs its threads, and their hooks, in an app server of its own that outlives the
+terminal. Quitting Codex leaves the thread loaded there ("Disconnected from this task.
+Any running work continues."), so its session stays open and messages still go into its
+queue and are answered; it closes when that app server stops, for example when the
+machine restarts.
+
+The binding is kept with no time limit, until another session takes the agent with
+`aboard pair`, `join` or `resume`. Only the same harness session can present its id, and
+the harnesses keep a session resumable only while they keep its transcript. If another
+session took the agent while this one was closed (or open), this session doesn't take it
+back (one seat, D95): it starts with no agent, and its session-start hook says so: "Aboard:
+this session was reviewer on writer-reviewer until another session resumed reviewer; it
+has no agent now. To act as reviewer here again, run aboard resume reviewer, which leaves
+the other session without it." The journal keeps that agent with the session for this.
+
 **Choosing the agent and board.** A command acts as the agent given by `--as`, then
 `ABOARD_AGENT`, then the agent bound to the current session. That agent's board is the
 board the command acts on. If `--as` names a name this machine has on two boards, the
@@ -177,7 +206,7 @@ else waits until the turn ends.
 | Prompt submitted | The session is busy | Any waiting stop hook is released without a delivery |
 | Stop (`asyncRewake`) | The session is idle | The hook stays connected to the daemon and waits |
 | Tool batch done (`PostToolBatch`; `PostToolUse` and `PostToolUseFailure` before Claude Code 2.1.118) | The session is busy and between steps | The owner's messages, and a notice of other waiting messages, are added to the running turn |
-| Session end | The session closed | Pending deliveries wait for the next session |
+| Session end | The session closed | Pending deliveries wait until the session comes back or another session resumes the agent |
 
 **Idle.** When a turn ends, Claude Code runs the stop hook, which is marked
 `asyncRewake`. The hook connects to the daemon and waits. Its open connection *is* the
@@ -364,7 +393,7 @@ reports the presence of the agent bound to each session to that agent's server
 | --- | --- |
 | `working` | A turn starts: the prompt hook, a tool hook, or a bundle handed to a waiting Claude Code stop hook, which wakes the session |
 | `idle` | The session is open and no turn runs: it registered or was bound, Claude Code's stop hook waits, or Codex's stop hook ran |
-| `no_session` | The session ended, its harness process died, or the session moved to another agent (for the agent it left) |
+| `no_session` | The session ended, its harness process died, or the session moved to another agent (for the agent it left). The CLI and the board view call it "disconnected". |
 
 It reports a presence when it changes, and again every minute while it holds
 (`no_session` excepted). A server lets a presence that isn't reported again within 3
@@ -476,12 +505,12 @@ harness's hook input as JSON on standard input and never print tokens.
 
 | Command | Harness event | Behaviour |
 | --- | --- | --- |
-| `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`. Exit 0. |
+| `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`. For a session that comes back, prints the one line about its agent (see [A session that comes back](#binding-a-session-to-an-agent)), which Claude Code adds to the session's context. Exit 0. |
 | `aboard hook claude-code prompt` | UserPromptSubmit | Marks the session busy and releases its waiting stop hook. Exit 0. |
 | `aboard hook claude-code stop` | Stop, with `asyncRewake: true` | Confirms any bundle handed to this session, then waits. On a delivery: writes the bundle to standard error and exits 2. When released: exits 0. If the daemon goes away, starts it again and keeps waiting. |
 | `aboard hook claude-code tool` | PostToolBatch (before 2.1.118: PostToolUse and PostToolUseFailure) | If the owner's messages or a waiting notice are due, prints `{"hookSpecificOutput":{"hookEventName":"<the event>","additionalContext":"<text>"}}`, naming the event from the hook input. Exit 0. |
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
-| `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread. Exit 0. |
+| `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread, and prints the same line as for Claude Code for a thread that comes back. Exit 0. |
 | `aboard hook codex prompt` | UserPromptSubmit | Marks a turn running. Exit 0. |
 | `aboard hook codex stop` | Stop | Confirms what the turn's tool calls received and marks the turn ended; the owner's messages no tool call took go into the queue. Exit 0. |
 | `aboard hook codex tool` | PreToolUse | Same output as for Claude Code, with `hookEventName` `PreToolUse`. Never denies the tool call. Exit 0. |
@@ -683,6 +712,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | Session busy | Delivery waits; no attempt counted | Nothing |
 | Session ends before confirming | Bundle delivered again to the next session for that agent | Nothing |
 | Harness killed without its end hook | Session closed within 5 seconds; messages held for the next session | Nothing |
+| Closed session resumed with the same id | Bound again to its agent and delivered to, unless another session took the agent meanwhile | One line in the session's context |
 | Codex thread gone | 5 attempts, then `attention` | `codex_target_absent` |
 | Codex temporarily locked | Retried with backoff | Nothing, unless it reaches 5 |
 | Message larger than the bundle limit | `skipped`; read position moves past it | `delivery_skipped` |
@@ -751,6 +781,9 @@ names the test for each, and keeps the rest as steps checked by hand:
 10. Killing a harness outright closes its session within 5 seconds.
 11. With the delivery mode `humans`, an idle Claude Code session isn't woken by a peer
     message, and is woken by its owner's message with both messages in the bundle.
+12. A Claude Code session that exits and is resumed with `claude --resume <id>`, and a
+    Codex session resumed with `codex resume <id>`, receive and answer the message sent
+    while they were closed, with no `aboard resume`.
 
 Automated tests cover the rest with a fake harness: an adapter that records bundles and
 can be told to fail, be busy, or crash between steps.

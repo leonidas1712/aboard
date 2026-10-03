@@ -27,12 +27,12 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 	t.Run("SessionsAreSavedAndUpdated", func(t *testing.T) {
 		j := open(t)
 		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "b1", Open: true, UpdatedAt: t0}))
-		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "b2", Open: false, UpdatedAt: t0.Add(time.Minute)}))
+		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "b2", Open: false, Lost: &review, UpdatedAt: t0.Add(time.Minute)}))
 		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeB, Boot: "c1", Open: true, Process: &delivery.Process{PID: 4182, Start: 1759320000}, UpdatedAt: t0}))
 		got, err := j.Sessions(ctx)
 		must(t, err)
 		want := []delivery.SessionRecord{
-			{Key: claudeA, Boot: "b2", Open: false, UpdatedAt: t0.Add(time.Minute)},
+			{Key: claudeA, Boot: "b2", Open: false, Lost: &review, UpdatedAt: t0.Add(time.Minute)},
 			{Key: claudeB, Boot: "c1", Open: true, Process: &delivery.Process{PID: 4182, Start: 1759320000}, UpdatedAt: t0},
 		}
 		if !slices.EqualFunc(got, want, sameSession) {
@@ -165,7 +165,8 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 
 func sameSession(a, b delivery.SessionRecord) bool {
 	return a.Key == b.Key && a.Boot == b.Boot && a.Open == b.Open && a.UpdatedAt.Equal(b.UpdatedAt) &&
-		(a.Process == nil) == (b.Process == nil) && (a.Process == nil || *a.Process == *b.Process)
+		(a.Process == nil) == (b.Process == nil) && (a.Process == nil || *a.Process == *b.Process) &&
+		(a.Lost == nil) == (b.Lost == nil) && (a.Lost == nil || *a.Lost == *b.Lost)
 }
 
 func must(t *testing.T, err error) {
