@@ -78,6 +78,20 @@ is not taken while a variable in its `identity.yields_to` is set: Claude Code yi
 `OMPCODE`, and its `ABOARD_SESSION` is then ignored too. A command whose only markers
 belong to a harness that yielded runs in a session of a harness Aboard doesn't know: it
 still refuses people's commands, and its agent comes from `--as` or `ABOARD_AGENT`.
+Claude Code also yields to `CODEX_THREAD_ID`: a Codex started inside a Claude Code
+session inherits its `ABOARD_SESSION`, and the marker Codex sets for every command is the
+more specific one. For the reverse, a Claude Code started inside a Codex command, the
+session-start hook writes `unset CODEX_THREAD_ID` (each variable of `yields_to` it finds
+set) into the environment file, since those can only come from an outer session.
+
+**Subagents** (`subagent_identity`): a subagent runs its commands in its parent's
+session and inherits the parent's variables, so without a mark its `aboard` commands act
+as the parent. `none`: Aboard can't tell them apart, and the harness's page states the
+risk. `marked`: a subagent's `aboard` commands carry `ABOARD_SUBAGENT=<subagent id>`,
+and the CLI lets them only read (`read`, `status`, `inbox --peek`, `doctor`, `audit`,
+`help`, `version`); every other command fails with `subagent_without_seat`. Claude Code
+is marked through its `PreToolUse` hook (below). `seats`: marked, and a subagent can
+have a seat of its own (not built yet).
 
 **Delivery** (`delivery.capabilities`):
 
@@ -264,6 +278,7 @@ else waits until the turn ends.
 | Prompt submitted | The session is busy | Any waiting stop hook is released without a delivery |
 | Stop (`asyncRewake`) | The session is idle | The hook stays connected to the daemon and waits |
 | Tool batch done (`PostToolBatch`; `PostToolUse` and `PostToolUseFailure` before Claude Code 2.1.118) | The session is busy and between steps | The owner's messages, and a notice of other waiting messages, are added to the running turn |
+| Before a Bash command (`PreToolUse`, matcher `Bash`) | Nothing | Inside a subagent, an `aboard` command is marked as the subagent's (below); the daemon isn't asked |
 | Session end | The session closed | Pending deliveries wait until the session comes back or another session resumes the agent |
 
 **Idle.** When a turn ends, Claude Code runs the stop hook, which is marked
@@ -295,6 +310,16 @@ notice, and adds them to the turn's context next to the tool results. Claude Cod
 `PostToolBatch` in 2.1.118; for an older Claude Code, `aboard init` installs the same
 hook on `PostToolUse` and `PostToolUseFailure`, which fire after each tool call, failed
 ones included. Everything else waits for idle.
+
+**Subagents.** Hooks fire inside a subagent too, with `agent_id` in their input. The
+tool-batch hook ignores them: messages belong to the main conversation. Before each Bash
+command a subagent runs, the pre-tool hook checks whether the command mentions `aboard`;
+if so it returns the tool input with the command prefixed by `export
+ABOARD_SUBAGENT=<agent_id>; ` as `updatedInput`, keeping the input's other fields, and no
+permission decision, so Claude Code's own permission rules still decide. `export`
+covers every part of a compound command. Claude Code's allow rules don't match past an
+assignment of a variable they don't know, so in a mode that asks, Claude Code asks
+before a subagent's `aboard` command runs.
 
 ### Codex
 
@@ -563,10 +588,11 @@ harness's hook input as JSON on standard input and never print tokens.
 
 | Command | Harness event | Behaviour |
 | --- | --- | --- |
-| `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`. For a session that comes back, prints the one line about its agent (see [A session that comes back](#binding-a-session-to-an-agent)), which Claude Code adds to the session's context. Exit 0. |
+| `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`, and `unset CODEX_THREAD_ID` when Claude Code was started with it set (from a Codex command). For a session that comes back, prints the one line about its agent (see [A session that comes back](#binding-a-session-to-an-agent)), which Claude Code adds to the session's context. Exit 0. |
 | `aboard hook claude-code prompt` | UserPromptSubmit | Marks the session busy and releases its waiting stop hook. Exit 0. |
 | `aboard hook claude-code stop` | Stop, with `asyncRewake: true` | Confirms any bundle handed to this session, then waits. On a delivery: writes the bundle to standard error and exits 2. When released: exits 0. If the daemon goes away, starts it again and keeps waiting. |
 | `aboard hook claude-code tool` | PostToolBatch (before 2.1.118: PostToolUse and PostToolUseFailure) | If the owner's messages or a waiting notice are due, prints `{"hookSpecificOutput":{"hookEventName":"<the event>","additionalContext":"<text>"}}`, naming the event from the hook input. Exit 0. |
+| `aboard hook claude-code pre-tool` | PreToolUse, matcher `Bash` | Inside a subagent (`agent_id` set) and for a command that mentions `aboard`, prints `{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":<tool_input with command "export ABOARD_SUBAGENT=<agent_id>; <command>">}}`. Prints nothing otherwise. Never denies; never contacts the daemon. Exit 0. |
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
 | `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread, and prints the same line as for Claude Code for a thread that comes back. Exit 0. |
 | `aboard hook codex prompt` | UserPromptSubmit | Marks a turn running. Exit 0. |
