@@ -101,14 +101,37 @@ func (l *lab) startClaude(name, dir string) *pane {
 	if setup.isolated {
 		l.trustInClaude(dir)
 	}
+	p := l.start(name, dir, env, claudeArgv())
+	p.waitClaudeReady()
+	return p
+}
+
+// claudeArgv is how the suite runs Claude Code, followed by args (such as --resume and
+// a session id).
+func claudeArgv(args ...string) []string {
 	// The slow task is how tests keep a turn busy; aboard itself is allowed by aboard init.
 	argv := []string{"claude", "--allowedTools", "Bash(./" + slowTask + ")"}
 	if model := os.Getenv("LIVE_CLAUDE_MODEL"); model != "" {
 		argv = append(argv, "--model", model)
 	}
-	p := l.start(name, dir, env, argv)
-	p.waitClaudeReady()
-	return p
+	return append(argv, args...)
+}
+
+// quit exits the harness the way a person does, with Ctrl-C twice, and waits until it
+// has exited. The pane stays, so the harness can run there again.
+func (p *pane) quit() {
+	p.l.t.Helper()
+	p.l.waitFor(30*time.Second, p.name+": the harness to exit", func() bool {
+		if strings.TrimSpace(p.l.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_dead}")) == "1" {
+			return true
+		}
+		p.keys("C-c")
+		time.Sleep(300 * time.Millisecond) // the second Ctrl-C must come after the first shows its hint
+		p.keys("C-c")
+		return waitQuietly(3*time.Second, func() bool {
+			return strings.TrimSpace(p.l.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_dead}")) == "1"
+		})
+	})
 }
 
 // trustInClaude records, in the scratch config directory, that first-run setup is done
@@ -503,18 +526,37 @@ func (l *lab) startCodex(name, dir string) *pane {
 	env := slices.Clone(l.vars) // newLab added CODEX_HOME
 	l.scopeCodexHooks(dir, env)
 	l.trustCodexHooks(dir, home, env)
-	argv := []string{
+	p := l.start(name, dir, env, l.codexArgv())
+	p.waitCodexReady()
+	return p
+}
+
+// codexArgv is how the suite runs Codex, followed by args (such as resume and a thread
+// id).
+func (l *lab) codexArgv(args ...string) []string {
+	return append([]string{
 		"codex", "-s", "workspace-write",
 		"--add-dir", filepath.Join(l.dir, "state"), "--add-dir", fmt.Sprintf("/tmp/aboard-%d", os.Getuid()),
 		"-a", "on-request",
-	}
-	p := l.start(name, dir, env, argv)
+	}, args...)
+}
+
+// waitCodexReady answers Codex's trust questions and waits for its prompt.
+func (p *pane) waitCodexReady() {
+	p.l.t.Helper()
+	name := p.name
 	p.l.waitFor(90*time.Second, name+": Codex to show its prompt", func() bool {
 		s := p.screen()
 		switch {
 		case strings.Contains(s, "trust") && strings.Contains(s, "1. Yes"):
 			p.keys("1")
 			p.keys("Enter")
+			return false
+		case strings.Contains(s, "Update available") && strings.Contains(s, "esc skip"):
+			// Codex offers to update itself when it starts again; the suite never updates it.
+			p.keys("2") // Skip
+			p.keys("Enter")
+			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Update available") })
 			return false
 		case strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue"):
 			// trustCodexHooks should have made this unnecessary. Trusting records the hooks in
@@ -525,9 +567,9 @@ func (l *lab) startCodex(name, dir string) *pane {
 			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Hooks need review") })
 			return false
 		}
-		return p.idle()
+		// Codex shows its prompt box while it is still loading a resumed session.
+		return p.idle() && !strings.Contains(s, "Resuming session")
 	})
-	return p
 }
 
 // scopeCodexHooks puts the lab's variables into each hook command in the project's
