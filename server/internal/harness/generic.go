@@ -2,13 +2,16 @@ package harness
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/leonidas1712/aboard/adapters"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/delivery/extension"
 	"github.com/leonidas1712/aboard/server/internal/delivery/idlehook"
 	skill "github.com/leonidas1712/aboard/skills/aboard"
 )
@@ -132,6 +135,8 @@ func (g *Generic) Items(e Env, scope string) []Item {
 			it.Data = skill.Skill
 		case s.Kind == ItemAllowRule && it.Path != "":
 			it.Data = RulesFile(s.Rule)
+		case s.Kind == ItemFile:
+			it.Data = FillFile(s.Source, e)
 		}
 		items = append(items, it)
 	}
@@ -184,8 +189,28 @@ func (g *Generic) Fix(string) string { return "" }
 
 // Adapter returns the shared adapter for the harness's delivery mechanism, or nil.
 func (g *Generic) Adapter(string) delivery.Adapter {
-	if g.profile.HasCapability("idle-hook") {
+	switch {
+	case g.profile.HasCapability("idle-hook"):
 		return idlehook.Adapter{Name: g.profile.Harness}
+	case g.profile.HasCapability("extension"):
+		return extension.Adapter{Name: g.profile.Harness}
 	}
 	return nil
+}
+
+// FillFile returns a file built into aboard for installing inside a harness, with this
+// machine's aboard binary and ABOARD_HOME written where the file says {aboard_binary}
+// and {aboard_home}. Each is written as the inside of a JSON string, which reads the same
+// in a JavaScript or TypeScript string literal. A file aboard doesn't have is empty;
+// LoadProfile has checked that every profile's files are there.
+func FillFile(source string, e Env) []byte {
+	raw, err := adapters.Files.ReadFile(source)
+	if err != nil {
+		return nil
+	}
+	inside := func(s string) string {
+		q, _ := json.Marshal(s)
+		return string(q[1 : len(q)-1])
+	}
+	return []byte(strings.NewReplacer("{aboard_binary}", inside(e.Aboard), "{aboard_home}", inside(e.AboardHome)).Replace(string(raw)))
 }

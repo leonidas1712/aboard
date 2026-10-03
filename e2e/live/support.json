@@ -6,63 +6,81 @@
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         },
         "KilledSessionRedelivers": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestKilledSessionRedelivers/claude-code"
         },
         "OwnerReachesBusy": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestOwnerReachesBusy/claude-code"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestPeerWaitsButNoticeArrives/claude-code"
         },
         "PingPong": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestPingPong/claude-code"
         },
         "PingPongAcrossHarnesses": {
-          "result": "pass",
+          "result": "fail",
           "date": "2026-10-04",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+          "version": "2.1.288 (Claude Code)",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestProjectScopeSetup/claude-code"
         },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestRepliesReachPromptly/claude-code"
         },
         "RestartsLoseNothing": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestRestartsLoseNothing/claude-code"
         },
         "ResumeReconnects": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestResumeReconnects/claude-code"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestSubagentCannotActAsItsParent/claude-code"
         },
         "WakesAndReplies": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "2.1.288 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         }
+      },
+      "handover": {
+        "aboard_ms": 465,
+        "harness_ms": 2626,
+        "deliveries": 3,
+        "date": "2026-10-04"
       }
     },
     "codex": {
@@ -76,68 +94,170 @@
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestWakesAndReplies/codex"
         },
         "KilledSessionRedelivers": {
           "result": "n/a",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestKilledSessionRedelivers/codex"
         },
         "OwnerReachesBusy": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestOwnerReachesBusy/codex"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "n/a",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestPeerWaitsButNoticeArrives/codex"
         },
         "PingPong": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestPingPong/codex"
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
           "date": "2026-10-04",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+          "version": "codex-cli 0.160.0",
+          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestProjectScopeSetup/codex"
         },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestRepliesReachPromptly/codex"
         },
         "RestartsLoseNothing": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestRestartsLoseNothing/codex"
         },
         "ResumeReconnects": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestResumeReconnects/codex"
         },
         "SandboxNeedsTheAllowRule": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestCodexSandboxNeedsTheAllowRule"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestSubagentCannotActAsItsParent/codex"
         },
         "WakesAndReplies": {
           "result": "pass",
           "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
           "test": "TestWakesAndReplies/codex"
         }
+      },
+      "handover": {
+        "aboard_ms": 2006,
+        "harness_ms": 95,
+        "deliveries": 5,
+        "date": "2026-10-04"
+      }
+    },
+    "omp": {
+      "version": "omp/18.5.1",
+      "scenarios": {
+        "JoinsAndTalks": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestWakesAndReplies/omp"
+        },
+        "KilledSessionRedelivers": {
+          "result": "n/a",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestKilledSessionRedelivers/omp"
+        },
+        "OwnerReachesBusy": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestOwnerReachesBusy/omp"
+        },
+        "PeerWaitsButNoticeArrives": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestPeerWaitsButNoticeArrives/omp"
+        },
+        "PingPong": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestPingPong/omp"
+        },
+        "PingPongAcrossHarnesses": {
+          "result": "fail",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
+        },
+        "ProjectScopeSetup": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestProjectScopeSetup/omp"
+        },
+        "RepliesReachPromptly": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestRepliesReachPromptly/omp"
+        },
+        "RestartsLoseNothing": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestRestartsLoseNothing/omp"
+        },
+        "ResumeReconnects": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestResumeReconnects/omp"
+        },
+        "SubagentCannotActAsItsParent": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestSubagentCannotActAsItsParent/omp"
+        },
+        "WakesAndReplies": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestWakesAndReplies/omp"
+        }
+      },
+      "handover": {
+        "aboard_ms": 4,
+        "harness_ms": 1,
+        "deliveries": 2,
+        "date": "2026-10-04"
       }
     }
   }

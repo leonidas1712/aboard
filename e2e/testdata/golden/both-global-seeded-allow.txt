@@ -20,6 +20,7 @@ codex, everywhere:
   create    ~/.codex/rules/aboard.rules (permissions)
             prefix_rule(pattern=["aboard"], decision="allow")
             (Codex runs the commands it allows outside its sandbox.)
+omp: not found on this machine
 Run aboard init --yes --allow-commands to make these changes.
 ==== aboard init --yes --allow-commands --json ====
 {
@@ -70,6 +71,11 @@ Run aboard init --yes --allow-commands to make these changes.
           ]
         }
       ]
+    },
+    {
+      "name": "omp",
+      "detected": false,
+      "changes": []
     }
   ]
 }
@@ -81,6 +87,7 @@ codex, everywhere:
   unchanged ~/.agents/skills/aboard/SKILL.md (skill)
   unchanged ~/.codex/hooks.json (hooks)
   unchanged ~/.codex/rules/aboard.rules (permissions)
+omp: not found on this machine
 Nothing to change.
 ==== file .agents/skills/aboard/SKILL.md ====
 (the Aboard skill this aboard installs, byte for byte)
@@ -258,6 +265,7 @@ prefix_rule(pattern=["git", "status"], decision="allow")
       "scope": "global",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -267,6 +275,7 @@ prefix_rule(pattern=["git", "status"], decision="allow")
       "scope": "global",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": false,
       "allow_added": true
@@ -277,6 +286,7 @@ prefix_rule(pattern=["git", "status"], decision="allow")
       "scope": "global",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -286,6 +296,7 @@ prefix_rule(pattern=["git", "status"], decision="allow")
       "scope": "global",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": false
     },
@@ -295,6 +306,7 @@ prefix_rule(pattern=["git", "status"], decision="allow")
       "scope": "global",
       "kind": "permissions",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     }
@@ -339,6 +351,13 @@ Setup:  claude-code everywhere, codex everywhere
     "level": "ok",
     "message": "codex: aboard commands run outside Codex's sandbox (allowed in {HOME}/.codex/rules/aboard.rules)",
     "name": "codex_allow"
+  },
+  {
+    "code": "omp_not_installed",
+    "fix": "install omp, or ignore this if you don't use it",
+    "level": "warning",
+    "message": "omp: not installed",
+    "name": "omp"
   },
   {
     "code": null,

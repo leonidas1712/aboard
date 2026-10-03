@@ -210,10 +210,14 @@ agent names the default for agents without a mode of their own.
 
 For `aboard doctor`, `status` and `down`. `build` is the daemon's build, the same fields
 as the server's `GET /v1/info`; a daemon whose status has none is from an older aboard.
+`stalled` lists deliveries handed to an idle session that started no turn within 10
+seconds (reason `no_turn_started`), until a turn starts or the session closes; they are
+never handed again because of it. A daemon from before stalls were tracked leaves the
+field out.
 
 ```json
 {"v":1,"op":"status"}
-{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001"}]}}
+{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"stalled":[{"id":14,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"},"seqs":[11],"reason":"no_turn_started"}],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001"}]}}
 ```
 
 ## Connections that stay open
@@ -300,10 +304,9 @@ How Aboard does it: the extension holds one connection to the control socket per
 session, for as long as the session runs. Over it the extension registers the session,
 the daemon pushes bundles and the extension confirms them, and the extension reports
 when turns start and end. A profile declares it with identity kind `extension`,
-delivery method and capability `extension`, and lifecycle liveness `connection`.
-
-This section is specified and not yet answered by the daemon: today's daemon answers
-`hello` with `invalid_request`, which the extension handles as below.
+delivery method and capability `extension`, and lifecycle liveness `connection`. The
+daemon serves it for any harness whose delivery adapter has that capability; omp's
+extension (`adapters/omp/aboard.ts`) is the first client.
 
 ### Opening: `hello` and `welcome`
 
@@ -323,12 +326,14 @@ process to another session. Its first message is `hello`:
 | `boot` | Required. A random id the extension makes once per harness process, so bundles handed to an earlier process go again |
 | `source` | `startup` for a new session; `resume` when the harness reopened an earlier session with the same id. A resumed session is bound again to the agent it filled, as with `register` |
 | `resumed` | True when the extension reconnects after the connection dropped, with the same session and boot |
-| `process` | Required. The harness process (`pid` and its start time). The daemon logs it; the connection, not the process table, is the session's liveness |
-| `cwd`, `harness_version`, `extension_version` | Recommended. Logged by the daemon and shown by `aboard doctor` |
+| `process` | Required. The harness process: `pid`, and `start` when the extension can read it in the system's own units. When `start` is left out the daemon reads it from the process table as the hello arrives. The connection is the session's liveness; the process is what tells the daemon, after it restarted, that a session whose extension never came back has ended |
+| `cwd`, `harness_version`, `extension_version` | Recommended. The daemon logs them with the session's start, for debugging a setup |
 | `subagent` | Set only by an extension running inside a subagent. The daemon refuses it with `subagent_session`: messages go to the root conversation |
 
 `welcome` carries what `register` answers: `boot`, `agents`, and `reopened` or `lost`
-for a session that comes back. An error closes the connection.
+for a session that comes back. An error closes the connection. The daemon logs the hello
+as `session started`, with the connection's `pid`, `cwd`, `harness_version` and
+`extension_version`.
 
 ### While the session runs
 

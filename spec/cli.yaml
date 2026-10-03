@@ -276,9 +276,9 @@ $defs:
           required: [path, harness, scope, kind, action, reason, written_by]
           properties:
             path: { type: string }
-            harness: { enum: [claude-code, codex] }
+            harness: { enum: [claude-code, codex, omp] }
             scope: { enum: [global, project] }
-            kind: { enum: [skill, hooks, permissions] }
+            kind: { enum: [skill, hooks, permissions, file] }
             action:
               enum: [delete, edit, keep]
               description: |
@@ -960,7 +960,7 @@ $defs:
           type: object
           required: [name, detected, changes]
           properties:
-            name: { enum: [claude-code, codex, opencode, pi, openclaw, hermes] }
+            name: { enum: [claude-code, codex, omp, opencode, pi, openclaw, hermes] }
             detected: { type: boolean }
             changes:
               type: array
@@ -971,8 +971,8 @@ $defs:
                 properties:
                   path: { type: string }
                   kind:
-                    enum: [skill, hooks, permissions]
-                    description: "permissions: a file that holds only the allow rule (Codex)."
+                    enum: [skill, hooks, permissions, file]
+                    description: "permissions: a file that holds only the allow rule (Codex). file: a file inside the harness that Aboard owns, such as omp's extension."
                   action: { enum: [create, update, unchanged] }
                   allow:
                     type: array
@@ -999,7 +999,12 @@ $defs:
       differ from the ones aboard 0.2.0 installs"), or when the manifest has no record of
       them; skill_edited or hooks_edited when they were changed after an aboard wrote
       them ("claude-code: the skill in ~/.claude/skills/aboard/SKILL.md was edited after
-      aboard 0.1.0 wrote it").
+      aboard 0.1.0 wrote it"). Two builds of the same version are named with their
+      commits ("written by aboard 0.1.0+dev.1d0e798ab12c and differs from the one aboard
+      0.1.0+dev.3f9a0c1e2b4d installs"). A harness reached through a file Aboard installs
+      inside it rather than hooks (omp's extension) has a check named <check>_extension
+      instead of <check>_hooks: <check>_extension_missing (an error), extension_outdated
+      or extension_edited.
     type: object
     required: [checks]
     properties:
@@ -1104,8 +1109,8 @@ $defs:
         description: The harnesses whose Aboard hooks are all installed, in each scope (see InitOutput).
         required: [global, project]
         properties:
-          global: { type: array, items: { enum: [claude-code, codex] } }
-          project: { type: array, items: { enum: [claude-code, codex] } }
+          global: { type: array, items: { enum: [claude-code, codex, omp] } }
+          project: { type: array, items: { enum: [claude-code, codex, omp] } }
       server_running:
         type: boolean
         description: Whether the server answers.
@@ -1119,6 +1124,12 @@ $defs:
           replaced:
             $ref: "#/$defs/Replaced"
             description: The older daemon this command replaced, or null.
+          stalled:
+            type: integer
+            description: |
+              Deliveries handed to an idle session that started no turn within 10 seconds,
+              until a turn starts or the session closes. aboard doctor names each
+              (delivery_stalled). They are never handed again because of it.
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]

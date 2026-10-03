@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -64,6 +65,8 @@ type Daemon struct {
 	problems map[AgentRef]string
 	// modes holds each agent's delivery mode; an agent not in it is auto.
 	modes map[AgentRef]Mode
+	// stalled are the deliveries handed to an idle session that started no turn, by id.
+	stalled map[int64]StatusItem
 	// openChanged fires when a session opens or closes.
 	openChanged chan struct{}
 }
@@ -77,7 +80,7 @@ func Run(ctx context.Context, cfg Config) error {
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		sessions: map[SessionKey]*session{}, owners: map[AgentRef]*session{},
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, problems: map[AgentRef]string{},
-		modes: map[AgentRef]Mode{}, openChanged: make(chan struct{}, 1),
+		modes: map[AgentRef]Mode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -308,6 +311,20 @@ func (d *Daemon) openCount() int {
 	return n
 }
 
+// ReasonNoTurn is why a delivery stalled: its idle session started no turn.
+const ReasonNoTurn = "no_turn_started"
+
+// setStalled records that a delivery stalled, or no longer has, for status.
+func (d *Daemon) setStalled(dl *Delivery, stalled bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if !stalled {
+		delete(d.stalled, dl.ID)
+		return
+	}
+	d.stalled[dl.ID] = StatusItem{ID: dl.ID, Agent: dl.Agent, Seqs: slices.Clone(dl.Seqs), Reason: ReasonNoTurn}
+}
+
 func (d *Daemon) setProblem(agent AgentRef, reason string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -471,6 +488,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveWait(ctx, conn, r, req)
 	case OpHold:
 		d.serveHold(ctx, conn, r, req)
+	case OpHello:
+		d.serveExtension(ctx, conn, r, req)
 	case OpRegister, OpPrompt, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
@@ -609,8 +628,9 @@ type waiter struct {
 	gone     chan struct{}
 }
 
-// Deliver sends the bundle and waits for the hook to say it has it.
-func (w *waiter) Deliver(ctx context.Context, bundle string) error {
+// Deliver sends the bundle and waits for the hook to say it has it. A hook names no
+// delivery, so the id isn't sent.
+func (w *waiter) Deliver(ctx context.Context, _ int64, bundle string) error {
 	err := w.write(Response{V: ProtocolVersion, Event: EventDeliver, Bundle: bundle})
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrBusy, err)
@@ -656,9 +676,13 @@ func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: Eve
 func (d *Daemon) status(ctx context.Context) Response {
 	st := &Status{
 		PID: d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
-		Attention: []StatusItem{}, Skipped: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
+		Attention: []StatusItem{}, Skipped: []StatusItem{}, Stalled: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
 	}
 	d.mu.Lock()
+	for _, item := range d.stalled {
+		st.Stalled = append(st.Stalled, item)
+	}
+	slices.SortFunc(st.Stalled, func(a, b StatusItem) int { return cmp.Compare(a.ID, b.ID) })
 	for url, c := range d.servers {
 		connected, problem := c.snapshot()
 		st.Servers = append(st.Servers, ServerStatus{URL: url, Connected: connected, Problem: problem})

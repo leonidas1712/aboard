@@ -36,9 +36,20 @@ func (a *app) henv() harness.Env {
 	return harness.Env{Getenv: a.env.Getenv, Dir: a.env.Dir}
 }
 
+// installEnv is henv with what aboard init writes into the files it installs inside a
+// harness: this binary's absolute path and the ABOARD_HOME it runs with.
+func (a *app) installEnv() harness.Env {
+	e := a.henv()
+	e.Aboard = a.hookExe()
+	if p, err := a.paths(); err == nil {
+		e.AboardHome = p.home
+	}
+	return e
+}
+
 // item returns where a harness's item of a kind goes in a scope.
 func (a *app) item(h harness.Harness, scope string, kind harness.ItemKind) (harness.Item, bool) {
-	return harness.Find(h.Items(a.henv(), scope), kind)
+	return harness.Find(h.Items(a.installEnv(), scope), kind)
 }
 
 // hooksFile returns the file that holds a harness's hooks in a scope, or "".
@@ -49,8 +60,20 @@ func (a *app) hooksFile(h harness.Harness, scope string) string {
 
 // installedScopes returns the scopes in which a harness's Aboard hooks are installed,
 // with the hook file of each: those where the session-start hook, which every other hook
-// relies on, is there. Whether the rest match this aboard is checkHooksCurrent's job.
+// relies on, is there. Whether the rest match this aboard is checkHooksCurrent's job. A
+// harness without hooks, reached through a file Aboard installs inside it such as an
+// extension, is installed where that file is.
 func (a *app) installedScopes(h harness.Harness, specs []harness.Hook) (scopes, files []string, err error) {
+	if len(h.Profile().Delivery.Hooks) == 0 {
+		for _, scope := range a.scopes() {
+			if it, ok := a.item(h, scope, harness.ItemFile); ok && it.Path != "" {
+				if _, err := os.Stat(it.Path); err == nil {
+					scopes, files = append(scopes, scope), append(files, it.Path)
+				}
+			}
+		}
+		return scopes, files, nil
+	}
 	start := sessionStartHooks(h, specs)
 	for _, scope := range a.scopes() {
 		path := a.hooksFile(h, scope)

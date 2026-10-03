@@ -54,7 +54,7 @@ func (e *env) runExample(script string) result {
 	cmd := exec.Command("sh", path)
 	cmd.Dir = e.dir
 	cmd.Env = append(append([]string{}, e.vars...),
-		"PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+		"PATH="+filepath.Dir(binary)+string(os.PathListSeparator)+fakeBin+string(os.PathListSeparator)+systemPath)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	r := result{args: []string{"(example)", script}}

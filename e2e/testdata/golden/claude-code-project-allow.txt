@@ -10,6 +10,7 @@ claude-code, in this project:
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
             allow: Bash(aboard *)
 codex: not chosen
+omp: not found on this machine
 Run aboard init --yes --scope project --harness claude-code --allow-commands to make these changes.
 ==== aboard init --yes --harness claude-code --scope project --allow-commands --json ====
 {
@@ -41,6 +42,11 @@ Run aboard init --yes --scope project --harness claude-code --allow-commands to 
       "name": "codex",
       "detected": true,
       "changes": []
+    },
+    {
+      "name": "omp",
+      "detected": false,
+      "changes": []
     }
   ]
 }
@@ -49,6 +55,7 @@ claude-code, in this project:
   unchanged ~/project/.claude/skills/aboard/SKILL.md (skill)
   unchanged ~/project/.claude/settings.local.json (hooks)
 codex: not chosen
+omp: not found on this machine
 Nothing to change.
 ==== file project/.claude/settings.local.json ====
 {
@@ -139,6 +146,7 @@ Nothing to change.
       "scope": "project",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -148,6 +156,7 @@ Nothing to change.
       "scope": "project",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true,
       "allow_added": true
@@ -192,6 +201,13 @@ Setup:  claude-code in this project
     "level": "warning",
     "message": "codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
     "name": "codex_allow"
+  },
+  {
+    "code": "omp_not_installed",
+    "fix": "install omp, or ignore this if you don't use it",
+    "level": "warning",
+    "message": "omp: not installed",
+    "name": "omp"
   },
   {
     "code": null,

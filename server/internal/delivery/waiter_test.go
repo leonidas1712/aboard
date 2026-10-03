@@ -17,7 +17,7 @@ func TestHookThatTookTheBundleAndLeftHasIt(t *testing.T) {
 		w := &waiter{conn: daemonEnd, received: make(chan struct{}, 1), gone: make(chan struct{})}
 		w.received <- struct{}{}
 		close(w.gone)
-		err := w.Deliver(context.Background(), "the bundle")
+		err := w.Deliver(context.Background(), 1, "the bundle")
 		_ = daemonEnd.Close()
 		_ = hookEnd.Close()
 		if err != nil {

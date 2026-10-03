@@ -116,6 +116,22 @@ rotate or invalidate it. Each harness's docs page says the same.
   it, never copied, so a token Codex refreshes is written to the person's own file, not
   to a copy that would leave theirs with a spent refresh token. Nothing else of theirs
   is read.
+- **omp.** Each test runs omp with a scratch `HOME`, so omp's `~/.omp` (its `agent.db`
+  with logins, settings and sessions) is the test's own, and the person's is never read
+  or written. omp logs in to Anthropic from `ANTHROPIC_OAUTH_TOKEN`, which the suite
+  sets to `CLAUDE_CODE_OAUTH_TOKEN`, the token it already uses for Claude Code; an OAuth
+  token from the environment has no refresh token, so nothing can rotate it. Without
+  the token, the omp tests fail with a message saying to set it; they never skip and
+  never fall back to the person's own login. `LIVE_OMP_MODEL` picks the model.
+
+### Extension tests
+
+Code Aboard installs inside a harness (omp's extension, `adapters/omp/aboard.ts`) is
+TypeScript the harness's own Bun runs. Its tests (`adapters/<harness>/*.test.ts`) run it
+with Bun against a stand-in for the harness's extension API and a fake delivery daemon
+on a real socket, speaking spec/control.md. `make extension-test` runs them, and fails,
+saying how to install Bun, when Bun isn't installed; `make check` and
+`make conformance` run them too.
 
 ### Integration tests
 

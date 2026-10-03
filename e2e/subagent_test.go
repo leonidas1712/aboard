@@ -42,7 +42,7 @@ func (s *session) shell(line string) result {
 	s.e.t.Helper()
 	cmd := exec.Command("sh", "-c", line)
 	cmd.Dir = s.e.dir
-	cmd.Env = append(append(slices.Clone(s.e.vars), s.vars...), "PATH="+filepath.Dir(s.e.bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	cmd.Env = append(append(slices.Clone(s.e.vars), s.vars...), "PATH="+filepath.Dir(s.e.bin)+string(os.PathListSeparator)+systemPath)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()

@@ -35,6 +35,8 @@ type driver struct {
 	startPlain func(l *lab, name, dir string) *pane
 	// argv is how the suite runs the harness, followed by args.
 	argv func(l *lab, args ...string) []string
+	// env is the environment the harness runs with in a lab.
+	env func(l *lab) []string
 	// ready waits until the pane shows the harness's prompt, answering the questions it
 	// asks on the way.
 	ready func(p *pane)
@@ -114,6 +116,8 @@ func newDriver(p support.Profile) *driver {
 		return claudeDriver(p)
 	case "codex":
 		return codexDriver(p)
+	case "omp":
+		return ompDriver(p)
 	}
 	return nil
 }
@@ -156,6 +160,7 @@ func claudeDriver(p support.Profile) *driver {
 			return l.startClaude(name, dir)
 		},
 		argv:  func(_ *lab, args ...string) []string { return claudeArgv(args...) },
+		env:   func(l *lab) []string { return slices.Clone(l.vars) },
 		ready: func(p *pane) { p.waitClaudeReady() },
 		idle:  func(p *pane) bool { s := p.screen(); return claudeReady(s) && !claudeBusy(s) },
 		taken: func(p *pane, prefix string) bool {
@@ -191,6 +196,7 @@ func codexDriver(p support.Profile) *driver {
 			return p
 		},
 		argv:  func(l *lab, args ...string) []string { return l.codexArgv(args...) },
+		env:   func(l *lab) []string { return slices.Clone(l.vars) },
 		ready: func(p *pane) { p.waitCodexReady() },
 		idle:  codexIdle,
 		taken: func(p *pane, prefix string) bool { return !strings.Contains(codexInput(p.screen()), prefix) },
@@ -219,6 +225,31 @@ func codexDriver(p support.Profile) *driver {
 			})
 			return out
 		},
+	}
+}
+
+// ompDriver runs omp with a scratch home folder of the lab's own, logged in from
+// CLAUDE_CODE_OAUTH_TOKEN (omp_test.go). Aboard's extension in the project connects as
+// omp opens, so the session starts at open, and omp asks nothing before running a command.
+func ompDriver(p support.Profile) *driver {
+	return &driver{
+		p:       p,
+		require: func(t *testing.T) { t.Helper(); requireOmp(t, p) },
+		setUp:   func(l *lab) { l.ompHome() },
+		start:   func(l *lab, name, dir string) *pane { return l.startOmp(name, dir) },
+		// Without the project's setup there is no extension: omp's agent folder in the
+		// scratch home has none.
+		startPlain: func(l *lab, name, dir string) *pane { return l.startOmp(name, dir) },
+		argv:       func(_ *lab, args ...string) []string { return ompArgv(args...) },
+		env:        func(l *lab) []string { return l.ompEnv() },
+		ready:      func(p *pane) { p.waitOmpReady() },
+		idle:       ompIdle,
+		taken:      func(p *pane, prefix string) bool { return !strings.Contains(ompInput(p.screen()), prefix) },
+		afterBind:  func(*pane) {},
+		approve:    func(*pane) bool { return false },
+		subagentPrompt: "Use your task tool to start one subagent with this task: \"Run %s, and report the exact output of each.\" " +
+			"Don't run those commands yourself. When the subagent has reported, run: aboard say \"SUBAGENT-DONE\".",
+		transcripts: func(l *lab) []string { return l.ompTranscripts() },
 	}
 }
 
@@ -255,7 +286,12 @@ var liveResults = struct {
 	sync.Mutex
 	r        *support.Results
 	versions map[string]string
-}{r: &support.Results{Harnesses: map[string]*support.HarnessResults{}}, versions: map[string]string{}}
+	// handovers are the deliveries measured, by harness (handover_test.go).
+	handovers map[string][]handSample
+}{
+	r:        &support.Results{Harnesses: map[string]*support.HarnessResults{}},
+	versions: map[string]string{}, handovers: map[string][]handSample{},
+}
 
 // record starts recording a scenario for a harness: pass or fail when the test ends, or
 // n/a when the scenario doesn't apply. A test skipped because the harness can't run
@@ -297,7 +333,7 @@ func (rec *recorder) save(scenario, result string) {
 	liveResults.Lock()
 	defer liveResults.Unlock()
 	liveResults.r.Record(rec.d.p.Harness, scenario, support.Result{
-		Result: result, Date: time.Now().Format(time.DateOnly), Test: rec.t.Name(),
+		Result: result, Date: time.Now().Format(time.DateOnly), Version: version, Test: rec.t.Name(),
 	})
 	if version != "" {
 		liveResults.versions[rec.d.p.Harness] = version
@@ -336,7 +372,7 @@ func harnessVersion(d *driver) string {
 func saveResults() error {
 	liveResults.Lock()
 	defer liveResults.Unlock()
-	if len(liveResults.r.Harnesses) == 0 {
+	if len(liveResults.r.Harnesses) == 0 && len(liveResults.handovers) == 0 {
 		return nil
 	}
 	path := filepath.Join(repoRoot, support.ResultsFile)
@@ -351,6 +387,12 @@ func saveResults() error {
 		if v := liveResults.versions[harness]; v != "" {
 			all.Harnesses[harness].Version = v
 		}
+	}
+	for harness, samples := range liveResults.handovers {
+		if all.Harnesses[harness] == nil {
+			all.Harnesses[harness] = &support.HarnessResults{Scenarios: map[string]support.Result{}}
+		}
+		all.Harnesses[harness].Handover = typicalHandover(samples)
 	}
 	return all.Save(path)
 }

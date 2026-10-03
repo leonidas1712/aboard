@@ -339,10 +339,12 @@ func (j *Journal) AddDelivery(ctx context.Context, d delivery.Delivery) (int64, 
 	var id int64
 	err := j.write(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			INSERT INTO deliveries (server, board, agent, harness, session_id, boot, state, attempts, reason, retry_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			INSERT INTO deliveries (server, board, agent, harness, session_id, boot, state, attempts, reason, retry_at, created_at, updated_at,
+			                        accepted_at, turn_started_at, stalled)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			d.Agent.Server, d.Agent.Board, d.Agent.Name, d.Session.Harness, d.Session.ID, d.Boot, string(d.State),
-			d.Attempts, d.Reason, formatTime(d.RetryAt), formatTime(d.CreatedAt), formatTime(d.UpdatedAt))
+			d.Attempts, d.Reason, formatTime(d.RetryAt), formatTime(d.CreatedAt), formatTime(d.UpdatedAt),
+			formatTime(d.AcceptedAt), formatTime(d.TurnStartedAt), d.Stalled)
 		if err != nil {
 			return fmt.Errorf("add delivery: %w", err)
 		}
@@ -362,14 +364,17 @@ func (j *Journal) AddDelivery(ctx context.Context, d delivery.Delivery) (int64, 
 // ErrNoDelivery means there is no delivery with the given id.
 var ErrNoDelivery = errors.New("no such delivery")
 
-// UpdateDelivery saves a delivery's state, session, attempts, reason and retry time.
+// UpdateDelivery saves a delivery's state, session, attempts, reason, retry time and how
+// far it got in its session.
 func (j *Journal) UpdateDelivery(ctx context.Context, d delivery.Delivery) error {
 	return j.write(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `
-			UPDATE deliveries SET harness = ?, session_id = ?, boot = ?, state = ?, attempts = ?, reason = ?, retry_at = ?, updated_at = ?
+			UPDATE deliveries SET harness = ?, session_id = ?, boot = ?, state = ?, attempts = ?, reason = ?, retry_at = ?, updated_at = ?,
+			                      accepted_at = ?, turn_started_at = ?, stalled = ?
 			WHERE id = ?`,
 			d.Session.Harness, d.Session.ID, d.Boot, string(d.State), d.Attempts, d.Reason,
-			formatTime(d.RetryAt), formatTime(d.UpdatedAt), d.ID)
+			formatTime(d.RetryAt), formatTime(d.UpdatedAt),
+			formatTime(d.AcceptedAt), formatTime(d.TurnStartedAt), d.Stalled, d.ID)
 		if err != nil {
 			return fmt.Errorf("update delivery %d: %w", d.ID, err)
 		}
@@ -400,7 +405,7 @@ func (j *Journal) Deliveries(ctx context.Context, states ...delivery.State) ([]d
 func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]delivery.Delivery, error) {
 	rows, err := j.db.QueryContext(ctx, `
 		SELECT d.id, d.server, d.board, d.agent, d.harness, d.session_id, d.boot, d.attempts, d.reason,
-		       d.retry_at, d.created_at, d.updated_at, m.seq
+		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, m.seq
 		FROM deliveries d JOIN delivery_messages m ON m.delivery_id = d.id
 		WHERE d.state = ?
 		ORDER BY d.id, m.seq`, string(state))
@@ -411,10 +416,10 @@ func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]del
 	var out []delivery.Delivery
 	for rows.Next() {
 		d := delivery.Delivery{State: state}
-		var retry, created, updated string
+		var retry, created, updated, accepted, turnStarted string
 		var seq int
 		if err := rows.Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Session.Harness, &d.Session.ID,
-			&d.Boot, &d.Attempts, &d.Reason, &retry, &created, &updated, &seq); err != nil {
+			&d.Boot, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &turnStarted, &d.Stalled, &seq); err != nil {
 			return nil, fmt.Errorf("read delivery: %w", err)
 		}
 		if n := len(out); n > 0 && out[n-1].ID == d.ID {
@@ -429,6 +434,12 @@ func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]del
 			return nil, err
 		}
 		if d.UpdatedAt, err = parseTime(updated); err != nil {
+			return nil, err
+		}
+		if d.AcceptedAt, err = parseTime(accepted); err != nil {
+			return nil, err
+		}
+		if d.TurnStartedAt, err = parseTime(turnStarted); err != nil {
 			return nil, err
 		}
 		out = append(out, d)

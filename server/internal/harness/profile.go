@@ -131,6 +131,14 @@ func LoadProfile(name string) (*Profile, error) {
 	if p.CheckName == "" {
 		p.CheckName = strings.ReplaceAll(p.Harness, "-", "_")
 	}
+	for _, it := range p.Install {
+		if it.Kind != ItemFile {
+			continue
+		}
+		if _, err := adapters.Files.ReadFile(it.Source); err != nil {
+			return nil, fmt.Errorf("the %s profile installs %q, which isn't built into aboard: %w", name, it.Source, err)
+		}
+	}
 	return &p, nil
 }
 

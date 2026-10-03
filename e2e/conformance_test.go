@@ -26,7 +26,9 @@ import (
 // in-process half is server/internal/harness/registry/conformance_test.go. Both run for
 // every harness with a profile in adapters/, with make conformance, or for one with
 // make conformance HARNESS=<name>. Nothing here names a harness: what a test does comes
-// from the profile, and the only per-harness code is the fakes in kitFakes.
+// from the profile, a harness reached through an extension is played by a client of the
+// extension connection (extension_test.go), and the only per-harness code is the fakes
+// in kitFakes.
 
 // kitFake stands in for what a harness does outside Aboard's hooks.
 type kitFake struct {
@@ -182,14 +184,30 @@ type kitSession struct {
 	p support.Profile
 	// seen is how many bundles of the harness's queue the test has taken.
 	seen int
+	// ext is the session's extension connection, for a harness whose identity and
+	// delivery come from Aboard's extension inside it, and welcome the daemon's answer to
+	// its hello.
+	ext     *extClient
+	welcome extFrame
 }
 
 // kitStart starts a session the way the harness does, with base as the environment it
-// was started with: the session-start hook runs with the session's id in its input, and
-// later commands carry the session's variables. source is startup or resume.
+// was started with: the session-start hook runs with the session's id in its input, or
+// the harness's extension connects with it, and later commands carry the session's
+// variables. source is startup or resume.
 func (e *env) kitStart(p support.Profile, id, source string, base []string) *kitSession {
 	e.t.Helper()
 	s := &kitSession{session: &session{e: e, harness: p.Harness, id: id, vars: slices.Clone(base)}, p: p}
+	if p.Identity.Kind == "extension" {
+		// The extension sets ABOARD_SESSION for the session's commands, and connects with a
+		// boot id of its process.
+		s.ext, s.welcome = e.extConnect(p.Harness, id, fmt.Sprintf("%016x", kitIDs.Add(1)), source)
+		if s.welcome.Event != "welcome" {
+			e.t.Fatalf("the daemon didn't welcome the extension's hello: %+v", s.welcome)
+		}
+		s.vars = append(s.vars, "ABOARD_SESSION="+p.Harness+":"+id)
+		return s
+	}
 	h, ok := p.Hook("session-start")
 	if !ok {
 		e.t.Fatalf("%s has no hook of op session-start: the kit needs one to start a session", p.Harness)
@@ -284,9 +302,21 @@ func applyEnvFile(t *testing.T, path string, vars []string) []string {
 	return vars
 }
 
-// op runs the session's hook of an operation, such as "prompt", with extra hook input.
+// extOps are what an extension sends on its connection for a hook's operation.
+var extOps = map[string]string{"prompt": "prompt", "turn-end": "turn_end", "end": "goodbye"}
+
+// op runs the session's hook of an operation, such as "prompt", with extra hook input,
+// or, for a session an extension connected, sends what the extension sends for it.
 func (s *kitSession) op(op, extra string) result {
 	s.e.t.Helper()
+	if s.ext != nil {
+		msg, ok := extOps[op]
+		if !ok {
+			s.e.t.Fatalf("an extension has no message for the operation %s", op)
+		}
+		s.ext.send(map[string]any{"op": msg})
+		return result{}
+	}
 	h, ok := s.p.Hook(op)
 	if !ok {
 		s.e.t.Fatalf("%s has no hook of op %s", s.p.Harness, op)
@@ -320,6 +350,10 @@ func (s *kitSession) startOp(op string) *proc {
 // waits (returned, so the test can see what it is given), or its turn-end hook runs.
 func (s *kitSession) idle() *proc {
 	s.e.t.Helper()
+	if s.ext != nil {
+		s.op("turn-end", "")
+		return nil
+	}
 	if s.p.WaitsForIdle() {
 		return s.startOp("wait")
 	}
@@ -336,6 +370,9 @@ func (s *kitSession) idle() *proc {
 // the harness's own queue.
 func (s *kitSession) nextBundle(w *proc, within time.Duration) string {
 	s.e.t.Helper()
+	if s.ext != nil {
+		return s.ext.deliver(within, true).Bundle
+	}
 	if s.p.WaitsForIdle() {
 		r := w.wait(within)
 		if r.code != 2 || !strings.Contains(r.stderr, "<aboard-messages") {
@@ -484,6 +521,12 @@ func kitInit(t *testing.T, p support.Profile, scope string) {
 	if hooksRel != "" {
 		kitCheckHooksFile(t, e, p, after[hooksRel])
 	}
+	if it, ok := p.Item("file"); ok {
+		// A file inside the harness, such as an extension, runs this aboard by its path.
+		if rel := kitItemPath(p, it, scope); !strings.Contains(after[rel], e.bin) {
+			t.Errorf("%s doesn't name this aboard, %s", rel, e.bin)
+		}
+	}
 
 	again := e.run(args...).json(t)
 	for _, h := range field(t, again, "harnesses").([]any) {
@@ -587,6 +630,10 @@ func kitCheckHooksFile(t *testing.T, e *env, p support.Profile, content string) 
 // init, installed after it, edited once the person changes an entry, and outdated when
 // an older aboard at another path wrote them.
 func kitDoctor(t *testing.T, p support.Profile) {
+	if _, ok := p.Item("file"); ok && len(p.Delivery.Hooks) == 0 {
+		kitDoctorFile(t, p)
+		return
+	}
 	if len(p.Delivery.Hooks) == 0 {
 		t.Skip("the harness has no hooks")
 	}
@@ -640,6 +687,50 @@ func kitDoctor(t *testing.T, p support.Profile) {
 	e.run("init", "--yes", "--harness", p.Harness, "--allow-commands")
 	e.bin = binary
 	check("hooks_outdated")
+}
+
+// kitDoctorFile checks what aboard doctor reports about the file Aboard installs inside a
+// harness without hooks, such as an extension: missing before init, installed after it,
+// edited once the person changes it, and outdated when an older aboard at another path
+// wrote it.
+func kitDoctorFile(t *testing.T, p support.Profile) {
+	e := kitEnv(t, p)
+	name := p.CheckName + "_extension"
+	check := func(want string) map[string]any {
+		t.Helper()
+		c := e.doctorChecks()[name]
+		if code, _ := c["code"].(string); code != want {
+			t.Fatalf("doctor's %s check: %v, want code %q", name, c, want)
+		}
+		return c
+	}
+	if c := check(p.CheckName + "_extension_missing"); c["level"] != "error" {
+		t.Errorf("a missing extension is reported at level %v, want error: the harness's sessions get no agent", c["level"])
+	}
+	e.run("init", "--yes", "--harness", p.Harness)
+	if c := check(""); c["level"] != "ok" {
+		t.Fatalf("doctor after aboard init: %v", c)
+	}
+	if c := e.doctorChecks()[p.CheckName+"_skill"]; c["level"] != "ok" {
+		t.Errorf("doctor's %s_skill check after aboard init: %v", p.CheckName, c)
+	}
+	it, _ := p.Item("file")
+	path := filepath.Join(e.home, kitItemPath(p, it, "global"))
+	if err := os.WriteFile(path, []byte(readFile(t, path)+"\n// the person's own line\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	check("extension_edited")
+	e.run("init", "--yes", "--harness", p.Harness)
+	check("")
+
+	older := filepath.Join(e.home, "old", "aboard")
+	installAt(t, oldBinary, older)
+	e.bin = older
+	e.run("init", "--yes", "--harness", p.Harness)
+	e.bin = binary
+	if c := check("extension_outdated"); !strings.Contains(c["message"].(string), "written by aboard "+oldVersion) {
+		t.Errorf("an outdated extension's message should name the aboard that wrote it: %v", c["message"])
+	}
 }
 
 // kitIdentity checks a command finds its session where the profile says, and that a
@@ -699,6 +790,17 @@ func kitHooks(t *testing.T, p support.Profile) {
 	s := e.kitStart(p, kitID(), "startup", nil)
 	kitPair(t, e, s)
 	e.presenceIs("writer-reviewer", "reviewer", "idle", "")
+	if s.ext != nil {
+		// The extension reports turns and the session's end on its connection.
+		s.op("prompt", "")
+		e.presenceIs("writer-reviewer", "reviewer", "working", "")
+		s.idle()
+		e.presenceIs("writer-reviewer", "reviewer", "idle", "")
+		s.op("end", "")
+		s.ext.closed()
+		e.presenceIs("writer-reviewer", "reviewer", "no_session", "")
+		return
+	}
 	if _, ok := p.Hook("prompt"); ok {
 		var w *proc
 		if p.WaitsForIdle() {
@@ -757,12 +859,17 @@ func kitSubagents(t *testing.T, p support.Profile) {
 	kitPair(t, e, s)
 	// asSubagent runs an aboard command line as one of the session's subagents.
 	var asSubagent func(line string) result
-	if p.Identity.RootEnv != "" {
+	switch {
+	case p.Identity.Kind == "extension":
+		// The extension marks a subagent's shell command that runs aboard (its own tests
+		// prove it does); the command then runs in the session's environment.
+		asSubagent = func(line string) result { return s.shell("export ABOARD_SUBAGENT=0-Explore; " + line) }
+	case p.Identity.RootEnv != "":
 		sub := slices.DeleteFunc(slices.Clone(s.vars), func(kv string) bool { return strings.HasPrefix(kv, p.Identity.Env+"=") })
 		sub = append(sub, p.Identity.Env+"="+kitID())
 		subSession := &kitSession{session: &session{e: e, harness: p.Harness, id: s.id, vars: sub}, p: p}
 		asSubagent = subSession.shell
-	} else {
+	default:
 		if _, ok := p.Hook("mark-subagent"); !ok {
 			t.Fatal("subagent_identity marked, but neither identity.root_env nor a hook of op mark-subagent marks subagents")
 		}
@@ -839,7 +946,7 @@ func kitIdle(t *testing.T, p support.Profile) {
 // queue, which holds them until the turn ends, for one that queues.
 func kitTurnEnd(t *testing.T, p support.Profile) {
 	kitDelivers(t, p)
-	if _, ok := p.Hook("prompt"); !ok {
+	if _, ok := p.Hook("prompt"); !ok && !p.Has("extension") {
 		t.Skip("no prompt hook: the daemon can't tell a turn runs")
 	}
 	e := kitEnv(t, p)
@@ -851,7 +958,7 @@ func kitTurnEnd(t *testing.T, p support.Profile) {
 	for _, body := range []string{"one", "two", "three"} {
 		writerSays(t, e, "peer note "+body)
 	}
-	if p.WaitsForIdle() {
+	if p.HoldsWhileBusy() {
 		if n := s.unread(); n != 3 {
 			t.Fatalf("%d unread while the turn runs; want all 3 waiting", n)
 		}
@@ -879,6 +986,9 @@ func kitTurnEnd(t *testing.T, p support.Profile) {
 // checking it names the hook's own event and never decides on the tool call.
 func (s *kitSession) toolContext(t *testing.T) string {
 	t.Helper()
+	if s.ext != nil {
+		return s.ext.boundary()
+	}
 	h, _ := s.p.Hook("tool")
 	r := s.op("tool", "")
 	if r.code != 0 {
@@ -894,7 +1004,7 @@ func (s *kitSession) toolContext(t *testing.T) string {
 // kitOwnerAtToolBoundary checks the owner's message reaches a busy turn at the next tool
 // boundary, in full, while a peer's message never enters the turn.
 func kitOwnerAtToolBoundary(t *testing.T, p support.Profile) {
-	if !p.Has("tool-boundary") {
+	if !p.Has("tool-boundary") && !p.Has("extension") {
 		t.Skip("no tool-boundary capability: the owner's messages wait for the turn's end")
 	}
 	e := kitEnv(t, p)
@@ -926,7 +1036,7 @@ func kitWaitingNotice(t *testing.T, p support.Profile) {
 	if !p.Delivery.WaitingNotice {
 		t.Skip("the profile declares no waiting notice")
 	}
-	if !p.WaitsForIdle() {
+	if !p.HoldsWhileBusy() {
 		t.Skip("a peer's message goes straight into the harness's queue, so nothing waits to be named")
 	}
 	e := kitEnv(t, p)
@@ -952,8 +1062,13 @@ func kitWaitingNotice(t *testing.T, p support.Profile) {
 // bundle the killed session never confirmed goes to the next session for its agent.
 func kitKilledSession(t *testing.T, p support.Profile) {
 	kitDelivers(t, p)
-	if p.Lifecycle.Liveness != "process" {
-		t.Skipf("liveness %q: the kit kills only a harness process", p.Lifecycle.Liveness)
+	switch p.Lifecycle.Liveness {
+	case "process":
+	case "connection":
+		kitKilledConnection(t, p)
+		return
+	default:
+		t.Skipf("liveness %q: the kit has no way to kill such a session", p.Lifecycle.Liveness)
 	}
 	e := kitEnv(t, p)
 	first := e.kitStart(p, kitID(), "startup", nil)
@@ -977,6 +1092,26 @@ func kitKilledSession(t *testing.T, p support.Profile) {
 		t.Log("the harness's queue confirms a bundle when it takes it, so there is nothing to hand again")
 		return
 	}
+	next := e.kitStart(p, kitID(), "startup", nil)
+	next.run("resume", "reviewer")
+	bundle := next.nextBundle(next.idle(), 10*time.Second)
+	if !strings.Contains(bundle, "please review") || !strings.Contains(bundle, `seq="`+strconv.Itoa(seq)+`"`) {
+		t.Fatalf("the unconfirmed bundle should go to the next session, with the same seq:\n%s", bundle)
+	}
+}
+
+// kitKilledConnection checks, for a harness whose session lives as long as its
+// extension's connection, that the connection closing without a goodbye (the harness
+// killed) closes the session, and that a bundle sent on it and never confirmed goes to
+// the next session for its agent, with the same seq.
+func kitKilledConnection(t *testing.T, p support.Profile) {
+	e := kitEnv(t, p)
+	first := e.kitStart(p, kitID(), "startup", nil)
+	kitPair(t, e, first)
+	seq := writerSays(t, e, "please review")
+	first.ext.deliver(10*time.Second, false)
+	_ = first.ext.conn.Close()
+	e.presenceIs("writer-reviewer", "reviewer", "no_session", "")
 	next := e.kitStart(p, kitID(), "startup", nil)
 	next.run("resume", "reviewer")
 	bundle := next.nextBundle(next.idle(), 10*time.Second)
@@ -1009,7 +1144,12 @@ func kitResume(t *testing.T, p support.Profile) {
 	}
 	back := e.kitStart(p, s.id, "resume", nil)
 	back.seen = s.seen
-	if !strings.Contains(back.started.stdout, "this session is reviewer on writer-reviewer again") {
+	switch {
+	case back.ext != nil:
+		if w := back.welcome; !w.Reopened || len(w.Agents) != 1 || w.Agents[0].Name != "reviewer" {
+			t.Fatalf("the daemon's welcome doesn't say the session is reviewer again: %+v", w)
+		}
+	case !strings.Contains(back.started.stdout, "this session is reviewer on writer-reviewer again"):
 		t.Fatalf("the session-start hook didn't say the session is reviewer again\n%s", back.started)
 	}
 	if got := field(t, back.run("status", "--json").json(t), "agent"); got != "reviewer" {

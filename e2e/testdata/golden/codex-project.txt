@@ -8,6 +8,7 @@ codex, in this project:
             Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
             PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+omp: not found on this machine
 Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
 Run aboard init --yes --scope project --harness codex to make these changes.
 ==== aboard init --yes --harness codex --scope project --json ====
@@ -37,6 +38,11 @@ Run aboard init --yes --scope project --harness codex to make these changes.
           "action": "create"
         }
       ]
+    },
+    {
+      "name": "omp",
+      "detected": false,
+      "changes": []
     }
   ]
 }
@@ -45,6 +51,7 @@ claude-code: not chosen
 codex, in this project:
   unchanged ~/project/.agents/skills/aboard/SKILL.md (skill)
   unchanged ~/project/.codex/hooks.json (hooks)
+omp: not found on this machine
 Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
 Nothing to change.
 ==== file project/.agents/skills/aboard/SKILL.md ====
@@ -119,6 +126,7 @@ Nothing to change.
       "scope": "project",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -128,6 +136,7 @@ Nothing to change.
       "scope": "project",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     }
@@ -171,6 +180,13 @@ Setup:  codex in this project
     "level": "warning",
     "message": "codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
     "name": "codex_allow"
+  },
+  {
+    "code": "omp_not_installed",
+    "fix": "install omp, or ignore this if you don't use it",
+    "level": "warning",
+    "message": "omp: not installed",
+    "name": "omp"
   },
   {
     "code": null,

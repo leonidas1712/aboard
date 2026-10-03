@@ -159,10 +159,13 @@ One command runs everything CI runs, in this order:
 6. `go test -race ./...`
 7. the e2e tests in `/e2e` (`go test -race -tags e2e ./e2e/...`), the harness
    conformance kit among them
-8. `govulncheck ./...`
+8. the tests of the code Aboard installs inside harnesses (`make extension-test`: omp's
+   extension, with Bun)
+9. `govulncheck ./...`
 
 Tools are pinned in the Makefile and installed into `.bin/` on first use; nothing global
-is needed beyond Go. CI (`.github/workflows/check.yml`) runs `make check` on Linux and
+is needed beyond Go and Bun (omp's extension is TypeScript that omp's Bun runs, so its
+tests run with Bun; `make` says how to install it when it's missing). CI (`.github/workflows/check.yml`) runs `make check` on Linux and
 macOS, because some code, such as the socket peer check, differs per system.
 
 A change isn't done until `make check` passes locally. Don't add lint exclusions to get

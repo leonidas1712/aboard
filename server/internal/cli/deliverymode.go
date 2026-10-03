@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
@@ -20,6 +21,14 @@ func (a *app) inSession() (harness string, ok bool) {
 	return title, ok
 }
 
+// withArticle puts "a" or "an" before a harness's name: "a Codex", "an omp".
+func withArticle(name string) string {
+	if name != "" && strings.ContainsRune("aeiouAEIOU", rune(name[0])) {
+		return "an " + name
+	}
+	return "a " + name
+}
+
 // refuseInSession refuses a command that is up to a person (it acts or reads with the
 // human login, or changes a delivery mode) when it runs inside a harness session, where
 // an allow rule for aboard would let an agent run it without asking. what says what the
@@ -30,7 +39,7 @@ func (a *app) refuseInSession(what, command string) error {
 		return nil
 	}
 	return newError("human_command_in_session",
-		what+" is up to a person, and this command runs inside a "+harness+" session.",
+		what+" is up to a person, and this command runs inside "+withArticle(harness)+" session.",
 		"Give your human this command to run in their own terminal, outside any agent session: "+command)
 }
 

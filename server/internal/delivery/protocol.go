@@ -52,7 +52,6 @@ const (
 	OpClaim = "claim"
 	// OpHello opens an extension connection: a harness extension registers its session
 	// and keeps the connection open for as long as the session runs (spec/control.md).
-	// This daemon answers it with invalid_request, as it does any operation it lacks.
 	OpHello = "hello"
 	// OpGoodbye, sent on an extension connection, reports the session closed.
 	OpGoodbye = "goodbye"
@@ -170,13 +169,16 @@ type Status struct {
 	PID int `json:"pid"`
 	// Build is the daemon's build; a daemon from before builds were reported leaves it
 	// empty.
-	Build        Build           `json:"build"`
-	OpenSessions int             `json:"open_sessions"`
-	Servers      []ServerStatus  `json:"servers"`
-	Attention    []StatusItem    `json:"attention"`
-	Skipped      []StatusItem    `json:"skipped"`
-	Agents       []AgentProblem  `json:"agents"`
-	Bindings     []BindingStatus `json:"bindings"`
+	Build        Build          `json:"build"`
+	OpenSessions int            `json:"open_sessions"`
+	Servers      []ServerStatus `json:"servers"`
+	Attention    []StatusItem   `json:"attention"`
+	Skipped      []StatusItem   `json:"skipped"`
+	// Stalled are deliveries handed to an idle session that started no turn within
+	// StallAfter, reason no_turn_started. They aren't handed again.
+	Stalled  []StatusItem    `json:"stalled"`
+	Agents   []AgentProblem  `json:"agents"`
+	Bindings []BindingStatus `json:"bindings"`
 }
 
 // ServerStatus is one server connection.

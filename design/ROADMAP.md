@@ -14,11 +14,10 @@ after the plan, with the pull request that merged it.
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), the per-harness feature matrix the README's table is generated from, and the control socket as a versioned contract (`spec/control.md`) | done (#33) | D130, D164, D167 |
-| omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | building | D160, D164 |
+| omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | in review | D160, D164, D168 |
+| Delivery stages (accepted, turn started) and stalled deliveries; hand-over times and per-version live evidence in the harness table | in review | D169 |
+| Version-gate every hook event a profile installs, with only the safe set for an unknown or old version, and doctor naming what is missing | next | D137 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
-| Every hook event `aboard init` installs carries the first harness version that supports it; an older or unknown version gets only the safe set (some Claude Code versions discard the whole settings file over one unknown hook event) | building, with omp | D164 |
-| Delivery stages in the daemon journal (accepted, turn started), "stalled" when no turn starts soon after a wake, and hand-over timings per harness | building, with omp | D129, D167 |
-| Evidence for each cell of the support matrix: the harness version and date it was proven live | building, with omp | D167 |
 
 ## Next: team mode
 

@@ -1,0 +1,88 @@
+# How Aboard works with omp (oh-my-pi). Schema: spec/harness-profile.schema.json.
+harness: omp
+name: omp
+drives: real
+command: omp
+check_name: omp
+
+# omp has no command that says whether it is logged in without printing a credential or
+# calling a provider, so this only checks that omp runs; Aboard never reads its logins.
+checks:
+  installed:
+    run: [omp, --version]
+  logged_in:
+    run: [omp, --version]
+  # 18.5.1 is the first omp that passes environment an extension sets as a session
+  # starts or switches to the commands that session runs.
+  min_version: 18.5.1
+
+# omp gives every shell command it runs OMPCODE=1, and CLAUDECODE=1 too, so OMPCODE is
+# checked before Claude Code's markers (identity.precedence, and Claude Code's yields_to).
+session_env: [OMPCODE]
+
+# omp's agent folder: ~/.omp/agent, or PI_CODING_AGENT_DIR when it is set. A named omp
+# profile (omp --profile, OMP_PROFILE) uses ~/.omp/profiles/<name>/agent instead.
+config_dir:
+  env: PI_CODING_AGENT_DIR
+  default: .omp/agent
+
+# omp loads every .ts file in the agent folder's extensions and in a project's
+# .omp/extensions as it starts, with no trust question, and finds skills in skills/.
+install:
+  - kind: skill
+    global: "{config_dir}/skills/aboard/SKILL.md"
+    project: .omp/skills/aboard/SKILL.md
+  - kind: file
+    source: omp/aboard.ts
+    global: "{config_dir}/extensions/aboard.ts"
+    project: .omp/extensions/aboard.ts
+
+interactive:
+  start: [omp, "{prompt}"]
+  resume: [omp, --resume, "{session}"]
+
+# omp's own ACP agent runs the real omp, with the person's settings and extensions.
+headless:
+  via: acp
+
+acp:
+  command: [omp, acp]
+  drives: real
+
+identity:
+  session: >-
+    Aboard's extension sets ABOARD_SESSION=omp:<session id> in omp's environment when the
+    main agent's session starts, switches or branches, and omp passes it to every shell
+    command it runs afterwards.
+  launched: ABOARD_AGENT in the environment omp is started with, which its commands inherit.
+  kind: extension
+  precedence: 1
+  # A Codex started from omp's shell inherits ABOARD_SESSION; its own variable wins.
+  yields_to: [CODEX_THREAD_ID]
+
+# A subagent's extension binding sees ctx.agent.kind "sub": it never connects, and it
+# prefixes a bash command that runs aboard with export ABOARD_SUBAGENT=<agent id>, so the
+# command may only read.
+subagent_identity: marked
+
+lifecycle:
+  liveness: connection
+  resume_keeps_id: true
+  resume_start: at-open
+
+delivery:
+  method: extension
+  capabilities: [extension]
+  mid_turn: tool-hook
+  waiting_notice: true
+
+notes:
+  - "Requires omp 18.5.1 or later: earlier versions captured the shell environment before an extension's session_start handler ran, so commands didn't carry ABOARD_SESSION (omp's commit afcb43e)."
+  - The session id is omp's own (ctx.sessionManager.getSessionId(), a UUIDv7 kept in the session file's header), not a model provider's; omp --resume <id> and /resume keep it.
+  - A session counts as resumed when its file already holds messages as it starts.
+  - omp loads extensions at start only; a session running before aboard init has no identity until omp starts again.
+  - "Bundles at idle go in with sendMessage(…, {triggerTurn: true}). The owner's messages mid-turn go in with deliverAs: aside, which omp injects at the next step boundary without interrupting the tool batch; a tool_call handler's additionalContext is discarded when the call fails or is denied, so it isn't used."
+  - The extension asks for the owner's messages after each omp turn (one model response and its tools) that ran tools, and reports a turn's end on agent_end, unless omp continues by itself (willContinue).
+  - Subagents run in omp's own process and share its environment, so they inherit ABOARD_SESSION; only the marking keeps them from acting as the main agent. Advisor tool calls reach the extension as a subagent's too.
+  - omp loads foreign project skill folders (.claude/skills, .agents/skills) by default; the same Aboard skill there collapses into one, and a different version shows under a namespaced name.
+  - omp's default approval mode runs commands without asking, and it has no sandbox, so aboard needs no allow rule.

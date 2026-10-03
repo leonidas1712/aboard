@@ -40,6 +40,22 @@ var fakeBin string
 // fakeHarness is a stand-in harness process that runs one hook and then stays up.
 var fakeHarness string
 
+// systemPath is this machine's PATH without the folders that hold a harness the tests
+// leave out unless they ask for it: omp.
+var systemPath string
+
+// withoutCommand returns a PATH without the folders that hold an executable name.
+func withoutCommand(path, name string) string {
+	var keep []string
+	for _, dir := range filepath.SplitList(path) {
+		if info, err := os.Stat(filepath.Join(dir, name)); err == nil && !info.IsDir() {
+			continue
+		}
+		keep = append(keep, dir)
+	}
+	return strings.Join(keep, string(os.PathListSeparator))
+}
+
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "aboard-e2e-bin-")
 	if err != nil {
@@ -93,6 +109,10 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "write fake claude:", err)
 		os.Exit(1)
 	}
+	// A test's machine has no omp unless the test puts one there (the conformance kit
+	// does, with a stand-in that only reports its version), so no test runs the person's
+	// own omp or finds it installed.
+	systemPath = withoutCommand(os.Getenv("PATH"), "omp")
 	fakeHarness = filepath.Join(dir, "fakeharness")
 	fakeBin = filepath.Join(dir, "fakebin")
 	code := m.Run()
@@ -128,7 +148,7 @@ func newEnv(t *testing.T) *env {
 	e.vars = []string{
 		"HOME=" + home,
 		"USER=alex",
-		"PATH=" + fakeBin + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"PATH=" + fakeBin + string(os.PathListSeparator) + systemPath,
 		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
 		"FAKE_CODEX_THREADS=" + filepath.Join(home, "fake-codex-threads.json"),
 		"ABOARD_HOME=" + filepath.Join(home, "aboard"),

@@ -1,0 +1,470 @@
+==== aboard init --allow-commands ====
+claude-code, everywhere:
+  create    ~/.claude/skills/aboard/SKILL.md (skill)
+  create    ~/.claude/settings.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop
+            PostToolBatch: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
+            allow: Bash(aboard *)
+codex, everywhere:
+  create    ~/.agents/skills/aboard/SKILL.md (skill)
+  create    ~/.codex/hooks.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+  create    ~/.codex/rules/aboard.rules (permissions)
+            prefix_rule(pattern=["aboard"], decision="allow")
+            (Codex runs the commands it allows outside its sandbox.)
+omp, everywhere:
+  create    ~/.omp/agent/skills/aboard/SKILL.md (skill)
+  create    ~/.omp/agent/extensions/aboard.ts (file)
+Run aboard init --yes --allow-commands to make these changes.
+==== aboard init --yes --allow-commands --json ====
+{
+  "applied": true,
+  "scope": "global",
+  "delivery": null,
+  "allow_commands": true,
+  "harnesses": [
+    {
+      "name": "claude-code",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/.claude/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/.claude/settings.json",
+          "kind": "hooks",
+          "action": "create",
+          "allow": [
+            "Bash(aboard *)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "codex",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/.codex/hooks.json",
+          "kind": "hooks",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/.codex/rules/aboard.rules",
+          "kind": "permissions",
+          "action": "create",
+          "allow": [
+            "prefix_rule(pattern=[\"aboard\"], decision=\"allow\")"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "omp",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/.omp/agent/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/.omp/agent/extensions/aboard.ts",
+          "kind": "file",
+          "action": "create"
+        }
+      ]
+    }
+  ]
+}
+==== aboard init --yes --allow-commands (again) ====
+claude-code, everywhere:
+  unchanged ~/.claude/skills/aboard/SKILL.md (skill)
+  unchanged ~/.claude/settings.json (hooks)
+codex, everywhere:
+  unchanged ~/.agents/skills/aboard/SKILL.md (skill)
+  unchanged ~/.codex/hooks.json (hooks)
+  unchanged ~/.codex/rules/aboard.rules (permissions)
+omp, everywhere:
+  unchanged ~/.omp/agent/skills/aboard/SKILL.md (skill)
+  unchanged ~/.omp/agent/extensions/aboard.ts (file)
+Nothing to change.
+==== file .agents/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file .claude/settings.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop",
+            "timeout": 86400,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(aboard *)"
+    ]
+  }
+}
+==== file .claude/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file .codex/hooks.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "timeout": 30,
+            "additionalContextLimit": 8192
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+==== file .codex/rules/aboard.rules ====
+# Added by aboard init: run aboard commands without asking.
+prefix_rule(pattern=["aboard"], decision="allow")
+==== file .omp/agent/extensions/aboard.ts ====
+(adapters/omp/aboard.ts as built into aboard, byte for byte, with these lines filled in)
+const INSTALLED_ABOARD = "{ABOARD}";
+const INSTALLED_HOME = "{ABOARD_HOME}";
+==== file .omp/agent/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== install manifest ====
+{
+  "files": [
+    {
+      "path": "{HOME}/.claude/skills/aboard/SKILL.md",
+      "harness": "claude-code",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.claude/settings.json",
+      "harness": "claude-code",
+      "scope": "global",
+      "kind": "hooks",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true,
+      "allow_added": true
+    },
+    {
+      "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.codex/hooks.json",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "hooks",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.codex/rules/aboard.rules",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "permissions",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.omp/agent/skills/aboard/SKILL.md",
+      "harness": "omp",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.omp/agent/extensions/aboard.ts",
+      "harness": "omp",
+      "scope": "global",
+      "kind": "file",
+      "version": "{version}",
+      "commit": "{commit}",
+      "sha256": "{sha256}",
+      "created": true
+    }
+  ]
+}
+==== aboard status --json: setup ====
+{
+  "global": [
+    "claude-code",
+    "codex",
+    "omp"
+  ],
+  "project": []
+}
+==== aboard status: setup line ====
+Setup:  claude-code everywhere, codex everywhere, omp everywhere
+==== aboard doctor --json: harness checks ====
+[
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "claude-code: hooks installed everywhere ({HOME}/.claude/settings.json)",
+    "name": "claude_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex-cli 0.159.3: queue available",
+    "name": "codex"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: hooks installed everywhere ({HOME}/.codex/hooks.json)",
+    "name": "codex_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: aboard commands run outside Codex's sandbox (allowed in {HOME}/.codex/rules/aboard.rules)",
+    "name": "codex_allow"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "omp: extension installed everywhere ({HOME}/.omp/agent/extensions/aboard.ts)",
+    "name": "omp_extension"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "claude-code: skill installed in {HOME}/.claude/skills/aboard/SKILL.md",
+    "name": "claude_skill"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: skill installed in {HOME}/.agents/skills/aboard/SKILL.md",
+    "name": "codex_skill"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "omp: skill installed in {HOME}/.omp/agent/skills/aboard/SKILL.md",
+    "name": "omp_skill"
+  }
+]
+==== aboard uninstall --json: files ====
+[
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "skill",
+    "path": "{HOME}/.claude/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "hooks",
+    "path": "{HOME}/.claude/settings.json",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "skill",
+    "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "hooks",
+    "path": "{HOME}/.codex/hooks.json",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "permissions",
+    "path": "{HOME}/.codex/rules/aboard.rules",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "omp",
+    "kind": "skill",
+    "path": "{HOME}/.omp/agent/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "omp",
+    "kind": "file",
+    "path": "{HOME}/.omp/agent/extensions/aboard.ts",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  }
+]

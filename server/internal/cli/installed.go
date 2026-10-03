@@ -52,21 +52,80 @@ func (a *app) checkSkill(h harness.Harness) []doctorCheck {
 		case stateEdited:
 			return []doctorCheck{problem(name, levelWarning, "skill_edited",
 				harnessName+": the skill in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
-				initFix(scope)+" to replace it with the one aboard "+version+" installs, which discards your edits; or keep it as it is")}
+				initFix(scope)+" to replace it with the one aboard "+s.Current+" installs, which discards your edits; or keep it as it is")}
 		}
 		if s.WrittenBy != "" {
 			return []doctorCheck{problem(name, levelWarning, "skill_outdated",
-				harnessName+": the skill in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+version+" installs",
+				harnessName+": the skill in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+s.Current+" installs",
 				initFix(scope))}
 		}
 		return []doctorCheck{problem(name, levelWarning, "skill_outdated",
-			harnessName+": the skill in "+s.Path+" differs from the one aboard "+version+" installs",
+			harnessName+": the skill in "+s.Path+" differs from the one aboard "+s.Current+" installs",
 			initFix(scope))}
 	}
 	if len(installed) == 0 {
 		return nil
 	}
 	return []doctorCheck{okCheck(name, harnessName+": skill installed in "+strings.Join(installed, " and "))}
+}
+
+// checkExtension reports the file Aboard installs inside a harness that has no hooks,
+// such as omp's extension: not installed in any scope, or, in a scope that has it,
+// different from the one this aboard installs. Without it the harness's sessions have no
+// identity and get no messages.
+func (a *app) checkExtension(h harness.Harness) []doctorCheck {
+	p := h.Profile()
+	if _, ok := a.item(h, scopeGlobal, harness.ItemFile); !ok {
+		return nil
+	}
+	name := p.CheckName + "_extension"
+	var installed []string
+	for _, scope := range a.scopes() {
+		s := a.ownedFileState(h, scope)
+		switch s.State {
+		case stateMissing:
+			continue
+		case stateCurrent:
+			installed = append(installed, scopeText(scope)+" ("+s.Path+")")
+			continue
+		case stateEdited:
+			return []doctorCheck{problem(name, levelWarning, "extension_edited",
+				p.Harness+": the extension in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
+				initFix(scope)+" to replace it with the one aboard "+s.Current+" installs, which discards your edits; or keep it as it is")}
+		}
+		if s.WrittenBy != "" {
+			return []doctorCheck{problem(name, levelWarning, "extension_outdated",
+				p.Harness+": the extension in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+s.Current+" installs",
+				initFix(scope))}
+		}
+		return []doctorCheck{problem(name, levelWarning, "extension_outdated",
+			p.Harness+": the extension in "+s.Path+" differs from the one aboard "+s.Current+" installs",
+			initFix(scope))}
+	}
+	if len(installed) == 0 {
+		return []doctorCheck{problem(name, levelError, p.CheckName+"_extension_missing",
+			p.Harness+": Aboard's extension isn't installed, so its sessions have no agent and get no messages", "run aboard init")}
+	}
+	return []doctorCheck{okCheck(name, p.Harness+": extension installed "+strings.Join(installed, " and "))}
+}
+
+// ownedFileState compares the file Aboard installs inside a harness, in a scope, with
+// the one this aboard installs.
+func (a *app) ownedFileState(h harness.Harness, scope string) fileState {
+	it, _ := a.item(h, scope, harness.ItemFile)
+	s := fileState{Path: it.Path, State: stateMissing}
+	if it.Path == "" {
+		return s
+	}
+	data, err := os.ReadFile(filepath.Clean(it.Path))
+	switch {
+	case err != nil:
+		return s
+	case bytes.Equal(data, it.Data):
+		s.State = stateCurrent
+		return s
+	}
+	return a.origin(s, "file", h.Profile().Harness, data)
 }
 
 // checkHooksCurrent reports Aboard hook entries, in each of the scopes given, that
@@ -85,11 +144,11 @@ func (a *app) checkHooksCurrent(name string, h harness.Harness, scopes []string,
 		}
 		if s.WrittenBy != "" {
 			return problem(name, levelWarning, "hooks_outdated",
-				harnessName+": the Aboard hooks in "+s.Path+" were written by aboard "+s.WrittenBy+" and differ from the ones aboard "+version+" installs",
+				harnessName+": the Aboard hooks in "+s.Path+" were written by aboard "+s.WrittenBy+" and differ from the ones aboard "+s.Current+" installs",
 				initFix(scope))
 		}
 		return problem(name, levelWarning, "hooks_outdated",
-			harnessName+": the Aboard hooks in "+s.Path+" differ from the ones aboard "+version+" installs",
+			harnessName+": the Aboard hooks in "+s.Path+" differ from the ones aboard "+s.Current+" installs",
 			initFix(scope))
 	}
 	return ok
@@ -103,10 +162,11 @@ const (
 	stateEdited   = "edited"   // changed after an aboard wrote it
 )
 
-// fileState is the state of one installed file. WrittenBy is the version of aboard the
-// install manifest says last wrote it, or "" when it has no record.
+// fileState is the state of one installed file. WrittenBy names the aboard the install
+// manifest says last wrote it, or is "" when it has no record; Current names this aboard
+// in the same terms, so two builds of one version read differently.
 type fileState struct {
-	Path, State, WrittenBy string
+	Path, State, WrittenBy, Current string
 }
 
 // skillState compares a harness's skill in a scope with the one this aboard installs.
@@ -154,13 +214,15 @@ func (a *app) installedHooksState(path, harnessName string, specs []harness.Hook
 // origin marks a file that differs from what this aboard writes as edited or outdated,
 // with the version that wrote it, from the install manifest.
 func (a *app) origin(s fileState, kind, harnessName string, data []byte) fileState {
-	by, edited, known := a.loadManifest().fileOrigin(s.Path, kind, harnessName, data)
-	s.State = stateOutdated
+	m := a.loadManifest()
+	_, edited, known := m.fileOrigin(s.Path, kind, harnessName, data)
+	s.State, s.Current = stateOutdated, buildName(currentBuild())
 	if edited {
 		s.State = stateEdited
 	}
 	if known {
-		s.WrittenBy = by
+		r, _ := m.find(s.Path, kind)
+		s.WrittenBy, s.Current = buildNames(r, currentBuild())
 	}
 	return s
 }

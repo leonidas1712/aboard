@@ -25,18 +25,23 @@ type Adapter interface {
 // Handover is one bundle for one session.
 type Handover struct {
 	SessionID string
-	Bundle    string
-	// Waiter is the hook waiting for this session to be given a bundle, or nil.
+	// ID is the first delivery the bundle carries, which a harness extension names when
+	// it confirms the bundle.
+	ID     int64
+	Bundle string
+	// Waiter is the hook or extension connection waiting for this session to be given a
+	// bundle, or nil.
 	Waiter Waiter
 }
 
-// Waiter is a hook connection waiting while its session is idle. Its open connection is
-// the idle signal.
+// Waiter is a connection waiting while its session is idle: a stop hook's, or a harness
+// extension's. Its open connection is the idle signal.
 type Waiter interface {
-	// Deliver sends the bundle to the hook and returns once the hook has it. It
-	// returns ErrBusy if the hook went away first.
-	Deliver(ctx context.Context, bundle string) error
-	// Release tells the hook to exit without a bundle.
+	// Deliver sends the bundle, the delivery id first in it, and returns once the other
+	// end has it. It returns ErrBusy if the connection went away first.
+	Deliver(ctx context.Context, id int64, bundle string) error
+	// Release tells a hook to exit without a bundle. An extension's connection stays
+	// open, so it is told nothing.
 	Release()
 }
 
@@ -85,4 +90,7 @@ type Control interface {
 // died without running its end hook is closed.
 type Processes interface {
 	Alive(p Process) bool
+	// StartTime returns when a running process started, in the system's own units, for
+	// a client that names only its process id. ok is false when it can't be read.
+	StartTime(pid int) (start int64, ok bool)
 }

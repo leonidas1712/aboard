@@ -190,7 +190,7 @@ func (a *app) planUninstall(m installManifest) ([]uninstallFile, error) {
 	}
 	for _, h := range a.registry() {
 		for _, scope := range a.scopes() {
-			for _, it := range h.Items(a.henv(), scope) {
+			for _, it := range h.Items(a.installEnv(), scope) {
 				kind := changeKind(it.Kind)
 				if it.Path == "" || it.Kind == harness.ItemConsent || known(it.Path, kind) {
 					continue
@@ -320,7 +320,7 @@ func (a *app) ownedData(name, scope, kind string) []byte {
 	if !ok {
 		return nil
 	}
-	for _, it := range h.Items(a.henv(), scope) {
+	for _, it := range h.Items(a.installEnv(), scope) {
 		if changeKind(it.Kind) == kind && it.Path != "" {
 			return it.Data
 		}

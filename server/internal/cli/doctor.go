@@ -198,6 +198,10 @@ func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck
 		return checks
 	}
 	p := h.Profile()
+	if len(p.Delivery.Hooks) == 0 {
+		// Reached through a file Aboard installs inside it, such as an extension.
+		return append(append(checks, a.checkExtension(h)...), a.checkAllow(h, nil)...)
+	}
 	name := p.CheckName + "_hooks"
 	newest := h.Hooks("aboard", "")
 	scopes, files, err := a.installedScopes(h, newest)
@@ -293,6 +297,11 @@ func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 		checks = append(checks, problem("delivery", levelError, "delivery_attention",
 			fmt.Sprintf("1 delivery needs attention: #%s on %s for %s (%s)", seqList(d.Seqs), d.Agent.Board, d.Agent.Name, d.Reason),
 			a.fixFor(d.Reason)))
+	}
+	for _, d := range st.Stalled {
+		checks = append(checks, problem("delivery", levelWarning, "delivery_stalled",
+			fmt.Sprintf("#%s on %s for %s was handed to its idle session, which started no turn within %s", seqList(d.Seqs), d.Agent.Board, d.Agent.Name, delivery.StallAfter),
+			"look at the session: it may be waiting for an answer, or its harness didn't wake; the message isn't sent again, so read it there with aboard read"))
 	}
 	if n := len(st.Skipped); n > 0 {
 		var where []string

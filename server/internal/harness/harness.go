@@ -1,7 +1,7 @@
 // Package harness is what Aboard knows about each harness it sets up and delivers to,
 // behind one interface. A harness's profile (adapters/<harness>/profile.yaml) holds the
 // data: names, variables, files, hooks, checks. Generic reads the profile for the jobs
-// every harness shares, and a harness's own package (claudecode, codex) overrides only
+// every harness shares, and a harness's own package (claudecode, codex, omp) overrides only
 // what the profile can't say. The CLI and the delivery daemon reach harnesses only
 // through this package and the registry, so they name none.
 package harness
@@ -62,6 +62,9 @@ type Env struct {
 	Getenv func(string) string
 	// Dir is the working directory, the project of a project setup.
 	Dir string
+	// Aboard is the aboard binary that hooks and installed files run, by absolute path,
+	// and AboardHome the ABOARD_HOME aboard runs with, or "".
+	Aboard, AboardHome string
 }
 
 // Home is the home directory.
