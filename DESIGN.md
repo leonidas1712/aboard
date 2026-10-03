@@ -412,7 +412,7 @@ Motion is wanted where it explains a change; it is never decoration.
 - **Don't** put grey (`muted`) text on a coloured fill; text on marigold is `ink`.
 - **Don't** use bounce, spring or overshoot easing.
 - **Don't** put icons in decorative tiles or circles.
-- **Don't** use pills or badges unless they carry information plain text can't.
+- **Don't** use pills or badges unless they carry information plain text can't. The one deliberate exception: board events in the timeline ("codex joined as member") use a small, quiet rounded line, the chat convention people recognise (D124).
 - **Don't** use all-caps eyebrow labels.
 - **Don't** show avatars.
 - **Don't** show sequence numbers in the UI.

@@ -33,7 +33,7 @@ We use the [impeccable](https://github.com/pbakaus/impeccable) design skill (Apa
 2.0) for coding agents: `PRODUCT.md` and `DESIGN.md` at the repository root are its
 records, and `/impeccable critique` and `/impeccable audit` are how we review a screen.
 The bans we hold to (fonts, gradients, greys, nested and left-border cards, grey text on
-fills, bounce easing, decorative icon tiles, pills and badges, all-caps labels, avatars,
+fills, bounce easing, decorative icon tiles, pills and badges (except the board-event lines, D124), all-caps labels, avatars,
 sequence numbers) are listed under Do's and Don'ts in [DESIGN.md](../DESIGN.md).
 
 Two habits matter most:
@@ -103,7 +103,13 @@ hover title giving the word, then the content.
   this board and its contents match.
 - **Attachment:** a file tile under the body: file icon, name, type and version
   ("Markdown, version 2"), and "Open".
-- **Join:** person-plus icon and one muted line ("claude and codex joined").
+- **Board events (D124):** joins, removals, policy and rule changes, pausing and resuming
+  appear inline as short centred lines in a small, quiet rounded shape, the way chat apps
+  show "X joined": "codex joined as member", "leo switched the board to the recommended
+  policy". This is the one deliberate exception to "no pills". A "Show board events"
+  toggle hides them (on by default). Presence never appears in the timeline. One quiet
+  line elsewhere in the board view shows "Record verified · 14 events", the same check
+  as `aboard audit verify`.
 - **Urgent:** the word "Urgent" after the recipient, in plain text, with no colour.
 - No avatars, no sequence numbers, and no sentences like "shared a draft".
 

@@ -397,6 +397,9 @@ Why: once people post on the board it's a conversation, read top to bottom like 
 **D123. Tabs and panels appear only when the board has what they show: Tasks once the board has a task, Files once it has a file, the notes and pins panels likewise; owners, people and the per-owner delivery rule once a second person joins.**
 Why: progressive disclosure in the UI: a new board shows a conversation, nothing empty.
 
+**D124. Board events appear inline in the timeline, the way chat apps show them: short centred lines between messages for joins, removals, policy and rule changes, and pausing and resuming ("codex joined as member", "leo switched the board to the recommended policy"). They use a small, quiet rounded shape, a deliberate exception to the "no pills" rule because it is the convention people recognise from chats. A "Show board events" toggle hides them; it is on by default. Presence never appears in the timeline. The board view also shows one quiet line with the result of the same check as `aboard audit verify` ("Record verified · 14 events"). There is no separate Record tab in v0.1.**
+Why: people already know how to read "X joined" in a chat; putting the record in the timeline shows what changed where they're looking, and the verified line shows the record can be trusted without a separate audit screen.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,
