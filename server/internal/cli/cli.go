@@ -96,6 +96,7 @@ func commands() []command {
 		{"read", runRead},
 		{"watch", runWatch},
 		{"open", runOpen},
+		{"logout", runLogout},
 		{"status", runStatus},
 		{"delivery", runDelivery},
 		{"board", runBoard},

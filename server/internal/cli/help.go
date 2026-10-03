@@ -166,7 +166,23 @@ func helpText(templates string) []commandHelp {
 				{"aboard open", "Open this directory's board"},
 				{"aboard open --board general", "Open another board"},
 			},
-			SeeAlso: []string{"watch", "status"},
+			SeeAlso: []string{"watch", "status", "logout"},
+		},
+		{
+			Name: "logout", Group: groupStart,
+			Summary: "Log every browser out of the board view",
+			Usage:   []string{logoutUsage},
+			Description: "Ends every browser login you made with aboard open. A browser login otherwise lasts 30 days, " +
+				"across restarts and upgrades of the server. A logged-out browser is told to run aboard open again.\n\n" +
+				"Starts the local server if it isn't running. It refuses inside an agent's session, since logging you out is your call.",
+			Flags: []helpFlag{
+				{"--browsers", "", "Log every browser out. Required."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard logout --browsers", "End every browser login"},
+			},
+			SeeAlso: []string{"open"},
 		},
 		{
 			Name: "say", Group: groupTalk,

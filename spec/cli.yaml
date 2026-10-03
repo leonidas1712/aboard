@@ -23,11 +23,11 @@
 #   another agent moves the session to the new one (see PreviousAgent). With no agent:
 #   agent_not_selected (details.choices). Agent commands (say, inbox, read)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
-#   use the human login unless --as is given, and open and invite always use it.
+#   use the human login unless --as is given, and open, invite and logout always use it.
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board title, invite, watch, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, board title, invite, watch, logout --browsers, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
 #   joins as an agent, audit verify prints only counts and hashes, and open never shows
 #   its login link.
@@ -765,8 +765,8 @@ $defs:
       gives the command for the person to run in their own terminal.
 
       Either way the text starts with "Started local Aboard at http://127.0.0.1:7400" when
-      it started the server. The browser stays logged in for 30 days or until the server
-      stops (aboard down).
+      it started the server. The browser stays logged in for 30 days, across restarts and
+      upgrades of the server, or until aboard logout --browsers.
     type: object
     required: [server, server_started, board, ui_url, url, opened, expires_at]
     properties:
@@ -785,6 +785,24 @@ $defs:
         examples: ["http://127.0.0.1:7400/#code=abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl&board=writer-reviewer"]
       opened: { type: boolean, description: "False when no browser could be started." }
       expires_at: { type: string, format: date-time }
+
+  # ---------- aboard logout --browsers ----------
+  LogoutOutput:
+    description: |
+      Logs every browser of the local owner out at once (DELETE /v1/browser-tokens with
+      the human login), starting the local server if it isn't running. Each of those
+      browsers gets 401 on its next request, and the board view says to run aboard open.
+      Without --browsers it fails with invalid_request (exit 2). Inside a harness session
+      it refuses with human_command_in_session. Text output:
+        Logged out 2 browsers. Run aboard open to log in again.
+        No browser was logged in.
+      preceded by "Started local Aboard at http://127.0.0.1:7400" when it started the server.
+    type: object
+    required: [server, server_started, ended]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      server_started: { type: boolean }
+      ended: { type: integer, minimum: 0, description: "How many browser logins were ended; expired ones aren't counted." }
 
   # ---------- aboard resume <agent> [--board NAME] ----------
   ResumeOutput:

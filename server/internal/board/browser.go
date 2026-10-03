@@ -2,6 +2,8 @@ package board
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -20,29 +22,28 @@ const BrowserTokenTTL = 30 * 24 * time.Hour
 // and agent tokens.
 const browserTokenPrefix = "abb_"
 
-// browserLogins keeps login codes and browser tokens in memory, by digest. They are
-// bookkeeping, not part of the record: none of them is an event, and all of them end
-// when the server stops, which is how a person logs every browser out.
-type browserLogins struct {
-	mu     sync.Mutex
-	codes  map[string]browserLogin // digest of a login code → who it logs in
-	tokens map[string]browserLogin // digest of a browser token → who it acts as
+// loginCodes keeps one-time login codes in memory, by digest. A code lasts a minute, so
+// one lost to a restart costs only running aboard open again. Browser tokens, which last
+// much longer, are kept in the store.
+type loginCodes struct {
+	mu    sync.Mutex
+	codes map[string]loginCode // digest of a login code → who it logs in
 }
 
-type browserLogin struct {
+type loginCode struct {
 	human   Human
 	expires time.Time
 }
 
-func newBrowserLogins() *browserLogins {
-	return &browserLogins{codes: map[string]browserLogin{}, tokens: map[string]browserLogin{}}
+func newLoginCodes() *loginCodes {
+	return &loginCodes{codes: map[string]loginCode{}}
 }
 
-// prune drops expired entries, so the maps stay as small as the logins in use.
-func prune(m map[string]browserLogin, now time.Time) {
-	for k, l := range m {
+// prune drops expired codes, so the map stays as small as the codes in use.
+func (c *loginCodes) prune(now time.Time) {
+	for k, l := range c.codes {
 		if !now.Before(l.expires) {
-			delete(m, k)
+			delete(c.codes, k)
 		}
 	}
 }
@@ -71,10 +72,10 @@ func (s *Service) CreateLoginCode(_ context.Context, p Principal) (LoginCode, er
 	}
 	now := s.clk.Now()
 	expires := now.Add(LoginCodeTTL)
-	s.logins.mu.Lock()
-	defer s.logins.mu.Unlock()
-	prune(s.logins.codes, now)
-	s.logins.codes[ids.Digest(s.key, code)] = browserLogin{human: *p.Human, expires: expires}
+	s.codes.mu.Lock()
+	defer s.codes.mu.Unlock()
+	s.codes.prune(now)
+	s.codes.codes[ids.Digest(s.key, code)] = loginCode{human: *p.Human, expires: expires}
 	return LoginCode{Code: code, ExpiresAt: stamp(expires)}, nil
 }
 
@@ -87,14 +88,15 @@ func loginCodeInvalid() *apierr.Error {
 
 // CreateBrowserToken uses up a login code and returns a new browser token for its
 // human, and when the token ends. A browser token acts as its human, with the human's
-// permissions. A code works only once, even if this call fails.
-func (s *Service) CreateBrowserToken(_ context.Context, code string) (token string, expires time.Time, err error) {
+// permissions. A code works only once, even if this call fails. The store keeps only the
+// token's digest, so the login lasts BrowserTokenTTL across restarts of the server.
+func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token string, expires time.Time, err error) {
 	digest := ids.Digest(s.key, code)
 	now := s.clk.Now()
-	s.logins.mu.Lock()
-	defer s.logins.mu.Unlock()
-	l, ok := s.logins.codes[digest]
-	delete(s.logins.codes, digest)
+	s.codes.mu.Lock()
+	l, ok := s.codes.codes[digest]
+	delete(s.codes.codes, digest)
+	s.codes.mu.Unlock()
 	if !ok || !now.Before(l.expires) {
 		return "", time.Time{}, loginCodeInvalid()
 	}
@@ -102,21 +104,70 @@ func (s *Service) CreateBrowserToken(_ context.Context, code string) (token stri
 		return "", time.Time{}, err
 	}
 	expires = now.Add(BrowserTokenTTL)
-	prune(s.logins.tokens, now)
-	s.logins.tokens[ids.Digest(s.key, token)] = browserLogin{human: l.human, expires: expires}
+	err = s.st.Write(ctx, func(tx Tx) error {
+		if err := tx.DeleteExpiredBrowserLogins(stamp(now)); err != nil {
+			return err
+		}
+		return tx.InsertBrowserLogin(BrowserLogin{
+			TokenDigest: ids.Digest(s.key, token), HumanID: l.human.ID, CreatedAt: stamp(now), ExpiresAt: stamp(expires),
+		})
+	})
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("save browser login: %w", err)
+	}
 	return token, expires, nil
 }
 
+// browserLoginEnded is the error for a browser token that is wrong, expired or ended.
+func browserLoginEnded() *apierr.Error {
+	return apierr.New(http.StatusUnauthorized, "unauthorized",
+		"This browser isn't logged in to Aboard, or its login has ended.",
+		"Run aboard open in a terminal to log in again.")
+}
+
 // authenticateBrowser resolves a browser token to the human it acts as.
-func (s *Service) authenticateBrowser(token string) (Principal, error) {
-	s.logins.mu.Lock()
-	defer s.logins.mu.Unlock()
-	l, ok := s.logins.tokens[ids.Digest(s.key, token)]
-	if !ok || !s.clk.Now().Before(l.expires) {
-		return Principal{}, apierr.New(http.StatusUnauthorized, "unauthorized",
-			"This browser isn't logged in to Aboard, or its login has ended.",
-			"Run aboard open in a terminal to log in again.")
+func (s *Service) authenticateBrowser(ctx context.Context, token string) (Principal, error) {
+	var h Human
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		l, err := tx.BrowserLoginByDigest(ids.Digest(s.key, token))
+		if err != nil {
+			return err
+		}
+		if l.ExpiresAt <= stamp(s.clk.Now()) {
+			return ErrNotFound
+		}
+		h, err = tx.HumanByID(l.HumanID)
+		return err
+	})
+	if errors.Is(err, ErrNotFound) {
+		return Principal{}, browserLoginEnded()
 	}
-	h := l.human
+	if err != nil {
+		return Principal{}, fmt.Errorf("authenticate browser: %w", err)
+	}
 	return Principal{Human: &h, Browser: true}, nil
+}
+
+// EndBrowserLogins ends every browser login of the calling human and returns how many
+// had not yet expired. Only the human's own login can: a browser that could would log
+// the person's other browsers out.
+func (s *Service) EndBrowserLogins(ctx context.Context, p Principal) (int, error) {
+	if err := requireHuman(p); err != nil {
+		return 0, err
+	}
+	if p.Browser {
+		return 0, apierr.New(http.StatusForbidden, "human_token_required",
+			"A browser can't log browsers out; only your own login can.",
+			"Run aboard logout --browsers in a terminal.")
+	}
+	var n int
+	err := s.st.Write(ctx, func(tx Tx) error {
+		var err error
+		n, err = tx.DeleteBrowserLogins(p.Human.ID, stamp(s.clk.Now()))
+		return err
+	})
+	if err != nil {
+		return 0, fmt.Errorf("end browser logins: %w", err)
+	}
+	return n, nil
 }

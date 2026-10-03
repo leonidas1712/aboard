@@ -24,6 +24,43 @@ func (t *tx) HumanByTokenDigest(digest string) (board.Human, error) {
 	return h, notFound(err)
 }
 
+// HumanByID finds a human by id.
+func (t *tx) HumanByID(id string) (board.Human, error) {
+	var h board.Human
+	err := t.queryRow("SELECT id, name, token_digest, created_at FROM humans WHERE id = ?", id).
+		Scan(&h.ID, &h.Name, &h.TokenDigest, &h.CreatedAt)
+	return h, notFound(err)
+}
+
+// InsertBrowserLogin adds a browser login.
+func (t *tx) InsertBrowserLogin(l board.BrowserLogin) error {
+	return t.exec("INSERT INTO browser_logins (token_digest, human_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+		l.TokenDigest, l.HumanID, l.CreatedAt, l.ExpiresAt)
+}
+
+// BrowserLoginByDigest finds a browser login by the digest of its token.
+func (t *tx) BrowserLoginByDigest(digest string) (board.BrowserLogin, error) {
+	var l board.BrowserLogin
+	err := t.queryRow("SELECT token_digest, human_id, created_at, expires_at FROM browser_logins WHERE token_digest = ?", digest).
+		Scan(&l.TokenDigest, &l.HumanID, &l.CreatedAt, &l.ExpiresAt)
+	return l, notFound(err)
+}
+
+// DeleteBrowserLogins removes every browser login of a human and returns how many had
+// not expired at now.
+func (t *tx) DeleteBrowserLogins(humanID, now string) (int, error) {
+	var n int
+	if err := t.queryRow("SELECT count(*) FROM browser_logins WHERE human_id = ? AND expires_at > ?", humanID, now).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, t.exec("DELETE FROM browser_logins WHERE human_id = ?", humanID)
+}
+
+// DeleteExpiredBrowserLogins removes the browser logins that ended at or before now.
+func (t *tx) DeleteExpiredBrowserLogins(now string) error {
+	return t.exec("DELETE FROM browser_logins WHERE expires_at <= ?", now)
+}
+
 // HumanCount returns how many humans exist.
 func (t *tx) HumanCount() (int, error) {
 	var n int

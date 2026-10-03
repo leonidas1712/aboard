@@ -88,4 +88,4 @@ Run with a binary from `make install` (or a release).
 - [ ] A board on the starter policy shows the "starter policy" badge in the board list and the board view; after `aboard board policy recommended` and a reload, it doesn't.
 - [ ] With the system set to dark mode, the UI is dark and every text stays readable; back in light mode, it is light.
 - [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
-- [ ] After `aboard down` and `aboard up`, reloading the UI says the browser isn't logged in and to run `aboard open`.
+- [ ] After `aboard down` and `aboard up`, reloading the UI still shows the board, logged in. After `aboard logout --browsers`, reloading it says the browser isn't logged in and to run `aboard open`.

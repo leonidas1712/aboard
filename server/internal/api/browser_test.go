@@ -149,28 +149,85 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 	}
 }
 
-func TestBrowserTokensEndWithTheServer(t *testing.T) {
-	s := newTestServer(t)
-	token := s.browserToken(s.owner)
-
-	// A new server process on the same database: browser tokens lived only in the old
-	// one's memory.
+// restart serves the same database from a new server process: a new Service with
+// nothing in memory, as after aboard down and up or an upgrade.
+func (s *testServer) restart() {
+	s.t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := board.New(s.st, notify.NewInProcess(), s.clock, ids.New(rand.Reader), s.key, board.Config{ServerID: "srv_TEST", Mode: "local"}, log)
 	h, err := api.NewHandler(api.Options{Service: svc, Responses: s.st, Clock: s.clock, Log: log, Version: "test"})
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 	restarted := httptest.NewServer(h)
-	t.Cleanup(restarted.Close)
+	s.t.Cleanup(restarted.Close)
 	s.url = restarted.URL
+}
 
-	r, err := s.client(token).ListBoardsWithResponse(context.Background())
-	if code := errorCode(t, r, err, 401); code != "unauthorized" {
-		t.Fatalf("browser token after a restart: %s", code)
+func TestBrowserTokensSurviveARestartUntilTheyExpire(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	token := s.browserToken(s.owner)
+	code := s.loginCode(s.owner)
+
+	s.clock.Advance(29 * 24 * time.Hour)
+	s.restart()
+	r, err := s.client(token).ListBoardsWithResponse(ctx)
+	mustStatus(t, r, err, 200)
+	// Login codes last a minute and are kept in memory only: a restart ends them.
+	lost, err := s.exchange(code)
+	if c := errorCode(t, lost, err, 404); c != "login_code_invalid" {
+		t.Fatalf("login code after a restart: %s", c)
 	}
-	if r, err := s.client(s.owner).ListBoardsWithResponse(context.Background()); err != nil || r.StatusCode() != 200 {
-		t.Fatalf("owner token after a restart: %v %v", r.StatusCode(), err)
+
+	s.clock.Advance(24*time.Hour + time.Second)
+	s.restart()
+	ended, err := s.client(token).ListBoardsWithResponse(ctx)
+	if c := errorCode(t, ended, err, 401); c != "unauthorized" || !strings.Contains(ended.JSON401.Error.Hint, "aboard open") {
+		t.Fatalf("browser token 30 days after it was made: %s", bodyOf(ended))
+	}
+}
+
+// Ending browser logins logs out every browser of the person who asks, and no one
+// else's; only the person's own login can ask.
+func TestEndBrowserTokensLogsThePersonsBrowsersOut(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	_, writer, _ := s.pair("starter")
+	first, second := s.browserToken(s.owner), s.browserToken(s.owner)
+	priya := s.addHuman("priya")
+	theirs := s.browserToken(priya)
+
+	agent, err := s.client(writer).EndBrowserTokensWithResponse(ctx, nil)
+	if c := errorCode(t, agent, err, 403); c != "human_token_required" {
+		t.Fatalf("an agent ending browser logins: %s", c)
+	}
+	browser, err := s.client(first).EndBrowserTokensWithResponse(ctx, nil)
+	if c := errorCode(t, browser, err, 403); c != "human_token_required" || !strings.Contains(browser.JSON403.Error.Hint, "aboard logout --browsers") {
+		t.Fatalf("a browser ending browser logins: %s", bodyOf(browser))
+	}
+
+	r, err := s.client(s.owner).EndBrowserTokensWithResponse(ctx, nil)
+	mustStatus(t, r, err, 200)
+	if r.JSON200.Ended != 2 {
+		t.Fatalf("ended %d browser logins, want 2", r.JSON200.Ended)
+	}
+	for _, token := range []string{first, second} {
+		got, err := s.client(token).ListBoardsWithResponse(ctx)
+		if c := errorCode(t, got, err, 401); c != "unauthorized" {
+			t.Fatalf("a browser after logout: %s", c)
+		}
+	}
+	got, err := s.client(theirs).ListBoardsWithResponse(ctx)
+	mustStatus(t, got, err, 200)
+
+	again, err := s.client(s.owner).EndBrowserTokensWithResponse(ctx, nil)
+	mustStatus(t, again, err, 200)
+	if again.JSON200.Ended != 0 {
+		t.Fatalf("ending again ended %d, want 0", again.JSON200.Ended)
+	}
+	if fresh := s.browserToken(s.owner); fresh == "" {
+		t.Fatal("aboard open after logout gave no token")
 	}
 }
 

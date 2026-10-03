@@ -169,8 +169,8 @@ the API's own (`from`, `role`, `to_me`), so paging back stays correct.
   and codex"). Replying from an entry fills in the recipient and links the reply.
 - The browser acts as you (D121): it posts, replies and, for an admin, pauses the board
   or changes its rules, with exactly the permissions your CLI has. It logs in only
-  through the one-time `aboard open` link, and the login expires after 30 days or when
-  the server stops.
+  through the one-time `aboard open` link, and the login expires after 30 days, across
+  server restarts, or at `aboard logout --browsers` (D163).
 
 ### Who you are
 

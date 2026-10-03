@@ -25,6 +25,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 	}{
 		{"MissingRecordsAreNotFound", missingRecordsAreNotFound},
 		{"HumansRoundTrip", humansRoundTrip},
+		{"BrowserLoginsRoundTripAndEnd", browserLoginsRoundTripAndEnd},
 		{"BoardRoundTripsEveryField", boardRoundTripsEveryField},
 		{"BoardNameTaken", boardNameTaken},
 		{"SetBoardPolicyReplacesPolicy", setBoardPolicyReplacesPolicy},
@@ -165,15 +166,17 @@ func missingRecordsAreNotFound(t *testing.T, st board.Store) {
 		return err
 	})
 	lookups := map[string]func(board.ReadTx) error{
-		"HumanByTokenDigest":  func(tx board.ReadTx) error { _, err := tx.HumanByTokenDigest("nope"); return err },
-		"BoardByName":         func(tx board.ReadTx) error { _, err := tx.BoardByName("nope"); return err },
-		"BoardByID":           func(tx board.ReadTx) error { _, err := tx.BoardByID("nope"); return err },
-		"MemberByTokenDigest": func(tx board.ReadTx) error { _, err := tx.MemberByTokenDigest("nope"); return err },
-		"HumanMember":         func(tx board.ReadTx) error { _, err := tx.HumanMember("brd_docs", "hum_nope"); return err },
-		"MemberByName":        func(tx board.ReadTx) error { _, err := tx.MemberByName("brd_docs", "nope"); return err },
-		"JoinCodeByDigest":    func(tx board.ReadTx) error { _, err := tx.JoinCodeByDigest("nope"); return err },
-		"JoinCodeByID":        func(tx board.ReadTx) error { _, err := tx.JoinCodeByID("nope"); return err },
-		"MessageByID":         func(tx board.ReadTx) error { _, err := tx.MessageByID("nope"); return err },
+		"HumanByTokenDigest":   func(tx board.ReadTx) error { _, err := tx.HumanByTokenDigest("nope"); return err },
+		"HumanByID":            func(tx board.ReadTx) error { _, err := tx.HumanByID("hum_nope"); return err },
+		"BrowserLoginByDigest": func(tx board.ReadTx) error { _, err := tx.BrowserLoginByDigest("nope"); return err },
+		"BoardByName":          func(tx board.ReadTx) error { _, err := tx.BoardByName("nope"); return err },
+		"BoardByID":            func(tx board.ReadTx) error { _, err := tx.BoardByID("nope"); return err },
+		"MemberByTokenDigest":  func(tx board.ReadTx) error { _, err := tx.MemberByTokenDigest("nope"); return err },
+		"HumanMember":          func(tx board.ReadTx) error { _, err := tx.HumanMember("brd_docs", "hum_nope"); return err },
+		"MemberByName":         func(tx board.ReadTx) error { _, err := tx.MemberByName("brd_docs", "nope"); return err },
+		"JoinCodeByDigest":     func(tx board.ReadTx) error { _, err := tx.JoinCodeByDigest("nope"); return err },
+		"JoinCodeByID":         func(tx board.ReadTx) error { _, err := tx.JoinCodeByID("nope"); return err },
+		"MessageByID":          func(tx board.ReadTx) error { _, err := tx.MessageByID("nope"); return err },
 	}
 	for name, lookup := range lookups {
 		err := st.Read(context.Background(), lookup)
@@ -208,8 +211,89 @@ func humansRoundTrip(t *testing.T, st board.Store) {
 		if n, err := tx.HumanCount(); err != nil || n != 2 {
 			t.Errorf("HumanCount = %d, %v; want 2", n, err)
 		}
+		byID, err := tx.HumanByID(want.ID)
+		if err != nil {
+			return err
+		}
+		if byID != want {
+			t.Errorf("HumanByID = %+v, want %+v", byID, want)
+		}
 		return nil
 	})
+}
+
+func browserLoginsRoundTripAndEnd(t *testing.T, st board.Store) {
+	const before, now, later = "2026-10-01T15:00:00.000Z", "2026-10-01T16:00:00.000Z", "2026-10-31T16:00:00.000Z"
+	login := func(digest, humanID, expires string) board.BrowserLogin {
+		return board.BrowserLogin{TokenDigest: digest, HumanID: humanID, CreatedAt: before, ExpiresAt: expires}
+	}
+	alexA, alexB, alexOld := login("b-alex-a", "hum_alex", later), login("b-alex-b", "hum_alex", later), login("b-alex-old", "hum_alex", now)
+	blair := login("b-blair", "hum_blair", later)
+	write(t, st, func(tx board.Tx) error {
+		for _, h := range []string{"hum_alex", "hum_blair"} {
+			if err := tx.InsertHuman(human(h)); err != nil {
+				return err
+			}
+		}
+		for _, l := range []board.BrowserLogin{alexA, alexB, alexOld, blair} {
+			if err := tx.InsertBrowserLogin(l); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	found := func(digest string) bool {
+		var ok bool
+		read(t, st, func(tx board.ReadTx) error {
+			_, err := tx.BrowserLoginByDigest(digest)
+			if errors.Is(err, board.ErrNotFound) {
+				return nil
+			}
+			ok = err == nil
+			return err
+		})
+		return ok
+	}
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.BrowserLoginByDigest(alexA.TokenDigest)
+		if err != nil {
+			return err
+		}
+		if got != alexA {
+			t.Errorf("BrowserLoginByDigest = %+v, want %+v", got, alexA)
+		}
+		return nil
+	})
+
+	// A login whose ExpiresAt is now has ended; the rest stay.
+	write(t, st, func(tx board.Tx) error { return tx.DeleteExpiredBrowserLogins(now) })
+	if found(alexOld.TokenDigest) {
+		t.Error("DeleteExpiredBrowserLogins kept a login that ended at now")
+	}
+	if !found(alexA.TokenDigest) || !found(blair.TokenDigest) {
+		t.Error("DeleteExpiredBrowserLogins removed a login that hasn't ended")
+	}
+
+	var n int
+	write(t, st, func(tx board.Tx) error {
+		if err := tx.InsertBrowserLogin(alexOld); err != nil {
+			return err
+		}
+		var err error
+		n, err = tx.DeleteBrowserLogins("hum_alex", now)
+		return err
+	})
+	if n != 2 {
+		t.Errorf("DeleteBrowserLogins counted %d logins, want 2: the expired one isn't counted", n)
+	}
+	for _, l := range []board.BrowserLogin{alexA, alexB, alexOld} {
+		if found(l.TokenDigest) {
+			t.Errorf("DeleteBrowserLogins kept %s", l.TokenDigest)
+		}
+	}
+	if !found(blair.TokenDigest) {
+		t.Error("DeleteBrowserLogins removed another human's login")
+	}
 }
 
 func boardRoundTripsEveryField(t *testing.T, st board.Store) {
