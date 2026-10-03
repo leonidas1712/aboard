@@ -143,7 +143,7 @@ func TestReadShowsWhatEachMessageAsks(t *testing.T) {
 
 	expectLines(t, e.asAgent("reviewer", "read"),
 		"writer-reviewer · 3 messages",
-		fmt.Sprintf("#%d  @writer → @reviewer · asks for a reply", ask),
+		fmt.Sprintf("#%d  @writer → @reviewer · asks for a reply · 1 reply", ask),
 		"    writer · owner_agent",
 		"    Can you take the tests?",
 		fmt.Sprintf("#%d  @reviewer → all · reply to #%d · urgent", reply, ask),
@@ -185,7 +185,7 @@ func TestReadMarkdownTranscript(t *testing.T) {
 	expectLines(t, e.run("read", "--as", "writer", "--markdown"),
 		"# writer-reviewer · #6–#7",
 		"",
-		"**#6 @writer** (writer, self) → @reviewer · asks for a reply",
+		"**#6 @writer** (writer, self) → @reviewer · asks for a reply · 1 reply",
 		"",
 		"> Draft is in notes.md. Please review it.",
 		"",

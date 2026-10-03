@@ -199,6 +199,8 @@ export type Facts = {
   agents: Member[];
   /** questions are messages to the person that ask for a reply and have none from them yet. */
   questions: Message[];
+  /** newReplies counts replies the person hasn't seen in closed threads; target is the first. */
+  newReplies?: { count: number; threads: number; target: string } | null;
   lastActivity: string | null;
 };
 
@@ -235,6 +237,13 @@ export function nowLine(f: Facts, now: number): NowPart[] {
     });
   }
   if (waiting.length === 0 && f.questions.length === 0) parts.push({ text: "nothing waiting on you" });
+  if (f.newReplies) {
+    const n = f.newReplies;
+    parts.push({
+      text: `${count(n.count, "new reply", "new replies")} in ${n.threads === 1 ? "a thread" : `${n.threads} threads`}`,
+      target: n.target,
+    });
+  }
   if (f.lastActivity) parts.push({ text: `last message ${relativeTime(f.lastActivity, now)}` });
   return parts;
 }

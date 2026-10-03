@@ -231,9 +231,14 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "read", Group: groupTalk,
 			Summary: "Show a board's messages without marking them read",
-			Usage:   []string{"aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] [--as AGENT] [--board NAME] [--json]"},
+			Usage: []string{
+				"aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] [--as AGENT] [--board NAME] [--json]",
+				"aboard read --thread MSG [--markdown] [--as AGENT] [--board NAME] [--json]",
+			},
 			Description: "Shows the board's messages that the agent may see, newest last, without moving its read position. " +
-				"Use it to look back; use aboard inbox to catch up.",
+				"Use it to look back; use aboard inbox to catch up.\n\n" +
+				"A message that has replies says how many (\"2 replies\"). Replies form a thread under the first message: " +
+				"a reply to a reply joins the same thread. --thread shows one whole thread, from any message in it.",
 			Flags: []helpFlag{
 				{"--after", "SEQ", "The oldest messages after this number."},
 				{"--before", "SEQ", "The newest messages before this number."},
@@ -242,12 +247,14 @@ func helpText(templates string) []commandHelp {
 				{"--role", "R", "Only messages from members with this role."},
 				{"--to-me", "", "Only messages addressed to the agent that it didn't send."},
 				{"--limit", "N", "Show at most this many messages. Default: 50."},
+				{"--thread", "MSG", "Show the thread this message is in: its first message and every reply, oldest first. MSG is msg_…, 6 or #6."},
 				{"--markdown", "", "Print a Markdown transcript to paste into a session."},
 				flagAs, flagBoard, flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard read", "The latest messages"},
 				{"aboard read --around 42 --limit 10", "What was said around #42"},
+				{"aboard read --thread 42", "The thread #42 is in, replies to replies included"},
 				{"aboard read --from @reviewer --markdown", "A transcript of one member's messages"},
 			},
 			SeeAlso: []string{"inbox", "watch", "say"},

@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -22,8 +23,8 @@ func (t *tx) InsertMessage(m board.Message) error {
 	if err != nil {
 		return fmt.Errorf("encode redactions: %w", err)
 	}
-	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, urgent, expects_reply, redactions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.Urgent, m.ExpectsReply, string(red)); err != nil {
+	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red)); err != nil {
 		return err
 	}
 	return t.exec("UPDATE boards SET message_count = message_count + 1, last_message_at = ? WHERE id = ?", m.At, m.BoardID)
@@ -31,8 +32,10 @@ func (t *tx) InsertMessage(m board.Message) error {
 
 const messageSelect = `SELECT m.id, m.board_id, m.seq, m.at, m.sender_id, m.to_json, m.body, m.reply_to,
 	m.urgent, m.expects_reply, m.redactions_json, s.name, s.kind, s.role, s.owner, s.human_id, s.harness, r.seq,
+	m.thread_root, tr.seq,
 	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent')
-	FROM messages m JOIN members s ON s.id = m.sender_id LEFT JOIN messages r ON r.id = m.reply_to`
+	FROM messages m JOIN members s ON s.id = m.sender_id LEFT JOIN messages r ON r.id = m.reply_to
+	LEFT JOIN messages tr ON tr.id = m.thread_root`
 
 // addressedTo is a SQL condition matching messages whose targets include all, @name or
 // role:R. It takes the @name and role:R strings as parameters.
@@ -49,7 +52,8 @@ func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 		var m board.Message
 		var to, red string
 		if err := rows.Scan(&m.ID, &m.BoardID, &m.Seq, &m.At, &m.SenderID, &to, &m.Body, &m.ReplyTo,
-			&m.Urgent, &m.ExpectsReply, &red, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq, &m.AgentOwners); err != nil {
+			&m.Urgent, &m.ExpectsReply, &red, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq,
+			&m.ThreadRoot, &m.ThreadRootSeq, &m.AgentOwners); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(to), &m.To); err != nil {
@@ -109,6 +113,54 @@ func (t *tx) Inbox(reader board.Member, limit int) ([]board.Message, error) {
 	name, role := targetsOf(reader)
 	return t.queryMessages("m.board_id = ? AND m.seq > ? AND m.sender_id <> ? AND "+addressedTo+" ORDER BY m.seq LIMIT ?",
 		reader.BoardID, reader.Cursor, reader.ID, name, role, limit)
+}
+
+// visibleTo returns the condition and arguments that keep the messages reader may see.
+func visibleTo(reader board.Member, readAll bool) (cond string, args []any) {
+	if readAll {
+		return "1", nil
+	}
+	name, role := targetsOf(reader)
+	return "(m.sender_id = ? OR " + addressedTo + ")", []any{reader.ID, name, role}
+}
+
+// countReplies counts the replies matching where in each thread, with the newest time.
+func (t *tx) countReplies(where string, args ...any) (*sql.Rows, error) {
+	return t.tx.QueryContext(t.ctx, "SELECT m.thread_root, COUNT(*), MAX(m.at) FROM messages m WHERE "+where+" GROUP BY m.thread_root", args...)
+}
+
+// Thread returns the replies in a thread that reader may see, oldest first.
+func (t *tx) Thread(rootID string, reader board.Member, readAll bool, after int64, limit int) ([]board.Message, error) {
+	visible, args := visibleTo(reader, readAll)
+	return t.queryMessages("m.thread_root = ? AND m.seq > ? AND "+visible+" ORDER BY m.seq LIMIT ?",
+		append(append([]any{rootID, after}, args...), limit)...)
+}
+
+// ThreadCounts counts the replies reader may see in each of the threads rootIDs start.
+func (t *tx) ThreadCounts(reader board.Member, readAll bool, rootIDs []string) (map[string]board.ThreadCount, error) {
+	out := map[string]board.ThreadCount{}
+	if len(rootIDs) == 0 {
+		return out, nil
+	}
+	visible, vargs := visibleTo(reader, readAll)
+	args := make([]any, 0, len(rootIDs)+len(vargs))
+	for _, id := range rootIDs {
+		args = append(args, id)
+	}
+	rows, err := t.countReplies("m.thread_root IN (?"+strings.Repeat(", ?", len(rootIDs)-1)+") AND "+visible, append(args, vargs...)...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }() // rows.Err is checked below
+	for rows.Next() {
+		var root string
+		var c board.ThreadCount
+		if err := rows.Scan(&root, &c.Replies, &c.LastAt); err != nil {
+			return nil, err
+		}
+		out[root] = c
+	}
+	return out, rows.Err()
 }
 
 // MessageByID finds a message.

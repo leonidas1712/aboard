@@ -610,12 +610,25 @@ paths:
     get:
       tags: [messages]
       operationId: listReplies
-      summary: List or wait for replies to a message
+      summary: Read or wait for a message's thread
       description: |
-        Replies the caller may see, oldest first. If there are none after `after` and
-        `wait` > 0, holds the request until one is posted or `wait` seconds pass, then
-        returns (possibly empty). Replies are ordinary messages and also reach their
-        recipients' inboxes.
+        The thread `message` belongs to: its first message (`root`) and the replies in it
+        that the caller may see, oldest first. A thread starts at a message that replies
+        to nothing, and every reply joins the thread of the message it answers, so a
+        reply to a reply is in the same thread as the reply it answers. `message` may be
+        any message in the thread: the first one or any reply.
+
+        `root` is null when the caller may not see the thread's first message, as under
+        `addressed` visibility when it was addressed to someone else. Replies are ordinary
+        messages and also reach their recipients' inboxes. Reading never moves a read
+        position.
+
+        If there are no replies after `after` and `wait` > 0, holds the request until one
+        is posted or `wait` seconds pass, then returns (possibly empty). Returns 404
+        `message_not_found` when the caller may not see `message`.
+
+        Example: #6 asks something, #7 replies to #6 and #8 replies to #7. Reading the
+        thread of #6, #7 or #8 returns root #6 and replies #7 and #8.
       parameters:
         - $ref: "#/components/parameters/After"
         - $ref: "#/components/parameters/Limit"
@@ -1250,7 +1263,7 @@ components:
         count: { type: integer, minimum: 1 }
     Message:
       type: object
-      required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, urgent, expects_reply, sender, show_owner, trust, redactions]
+      required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, thread_root, thread_root_seq, reply_count, last_reply_at, urgent, expects_reply, sender, show_owner, trust, redactions]
       properties:
         id: { type: string, pattern: "^msg_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
@@ -1266,6 +1279,32 @@ components:
           type: integer
           nullable: true
           description: The sequence number of the message this one replies to.
+        thread_root:
+          type: string
+          nullable: true
+          description: |
+            The id of the first message of the thread this message is in, found by
+            following `reply_to` back to a message that replies to nothing; a reply to a
+            reply is in the same thread as the reply it answers. Null for a message that
+            replies to nothing: it starts its own thread. `GET
+            /v1/messages/{message}/replies` reads the whole thread.
+        thread_root_seq:
+          type: integer
+          nullable: true
+          description: The sequence number of `thread_root`.
+        reply_count:
+          type: integer
+          minimum: 0
+          description: |
+            For a message that starts a thread, how many replies in the thread the reader
+            may see, replies to replies included. 0 for a reply.
+        last_reply_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When the newest reply the reader may see in the thread this message starts
+            was posted. Null when `reply_count` is 0.
         urgent: { type: boolean }
         expects_reply: { type: boolean }
         sender:
@@ -1337,17 +1376,26 @@ components:
           items: { $ref: "#/components/schemas/RecipientStatus" }
     ReplyPage:
       type: object
-      required: [message_id, replies, next_after]
+      required: [message_id, root, replies, next_after]
       properties:
-        message_id: { type: string }
+        message_id:
+          type: string
+          description: The message whose thread was asked for, as given.
+        root:
+          allOf: [{ $ref: "#/components/schemas/Message" }]
+          nullable: true
+          description: The thread's first message; null when the caller may not see it.
         replies:
           type: array
+          description: The thread's replies the caller may see after `after`, oldest first.
           items: { $ref: "#/components/schemas/Message" }
         next_after:
           type: integer
           minimum: 0
           nullable: true
-          description: Pass as `after` to get or wait for later replies.
+          description: |
+            Pass as `after` to read the replies after this page. Null when no reply comes
+            after it; to wait for the next one, pass the last reply's `seq` with `wait`.
     Inbox:
       type: object
       required: [board, agent, messages, cursor, more]

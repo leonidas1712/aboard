@@ -55,21 +55,25 @@ type wireBoard struct {
 }
 
 type wireMessage struct {
-	ID           string            `json:"id"`
-	Board        string            `json:"board"`
-	Seq          int64             `json:"seq"`
-	At           string            `json:"at"`
-	From         wireMemberRef     `json:"from"`
-	To           []string          `json:"to"`
-	Body         string            `json:"body"`
-	ReplyTo      *string           `json:"reply_to"`
-	ReplyToSeq   *int64            `json:"reply_to_seq"`
-	Urgent       bool              `json:"urgent"`
-	ExpectsReply bool              `json:"expects_reply"`
-	Sender       string            `json:"sender"`
-	ShowOwner    bool              `json:"show_owner"`
-	Trust        string            `json:"trust"`
-	Redactions   []board.Redaction `json:"redactions"`
+	ID            string            `json:"id"`
+	Board         string            `json:"board"`
+	Seq           int64             `json:"seq"`
+	At            string            `json:"at"`
+	From          wireMemberRef     `json:"from"`
+	To            []string          `json:"to"`
+	Body          string            `json:"body"`
+	ReplyTo       *string           `json:"reply_to"`
+	ReplyToSeq    *int64            `json:"reply_to_seq"`
+	ThreadRoot    *string           `json:"thread_root"`
+	ThreadRootSeq *int64            `json:"thread_root_seq"`
+	ReplyCount    int               `json:"reply_count"`
+	LastReplyAt   *string           `json:"last_reply_at"`
+	Urgent        bool              `json:"urgent"`
+	ExpectsReply  bool              `json:"expects_reply"`
+	Sender        string            `json:"sender"`
+	ShowOwner     bool              `json:"show_owner"`
+	Trust         string            `json:"trust"`
+	Redactions    []board.Redaction `json:"redactions"`
 }
 
 type wireJoinCode struct {
@@ -168,7 +172,9 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 	return wireMessage{
 		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
-		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply,
+		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq,
+		ThreadRoot: m.ThreadRoot, ThreadRootSeq: m.ThreadRootSeq, ReplyCount: m.ReplyCount, LastReplyAt: m.LastReplyAt,
+		Urgent: m.Urgent, ExpectsReply: m.ExpectsReply,
 		Sender: sender(m, reader), ShowOwner: m.AgentOwners > 1, Trust: trust(m, reader), Redactions: m.Redactions,
 	}
 }
