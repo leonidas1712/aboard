@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -30,6 +31,8 @@ type Capability struct {
 	// Scenarios are the live scenarios that prove it. A capability with none is proven
 	// by the fast kit alone.
 	Scenarios []string
+	// liveIf says whether the live scenarios apply to a harness; nil means they do.
+	liveIf func(p Profile) bool
 	// declare says what the profile declares, with a note when it isn't plainly yes.
 	declare func(p Profile) (Status, string)
 }
@@ -127,15 +130,21 @@ var Capabilities = []Capability{
 	{ID: "launcher", Label: "Started by a launcher", declare: func(Profile) (Status, string) {
 		return Unsupported, "no launcher starts sessions in this aboard"
 	}},
-	{ID: "sandbox", Label: "Sandbox check", Scenarios: []string{"SandboxNeedsTheAllowRule"}, declare: func(p Profile) (Status, string) {
-		switch {
-		case len(p.SandboxNetworkEnv) > 0:
-			return Supported, ""
-		case len(p.SandboxEnv) > 0:
-			return Supported, ""
-		}
-		return NotApplicable, ""
-	}},
+	{
+		ID: "sandbox", Label: "Sandbox check", Scenarios: []string{"SandboxNeedsTheAllowRule"},
+		// Only a sandbox that blocks the network has a live scenario; detecting one that
+		// doesn't is proven by the fast kit.
+		liveIf: func(p Profile) bool { return len(p.SandboxNetworkEnv) > 0 },
+		declare: func(p Profile) (Status, string) {
+			switch {
+			case len(p.SandboxNetworkEnv) > 0:
+				return Supported, ""
+			case len(p.SandboxEnv) > 0:
+				return Supported, ""
+			}
+			return NotApplicable, ""
+		},
+	},
 }
 
 // Result is one live scenario's latest outcome for a harness.
@@ -224,7 +233,8 @@ func Matrix(p Profile, r *HarnessResults) []Cell {
 	cells := make([]Cell, 0, len(Capabilities))
 	for _, c := range Capabilities {
 		status, note := c.declare(p)
-		if status == Supported || status == Partial {
+		live := c.liveIf == nil || c.liveIf(p)
+		if live && (status == Supported || status == Partial) {
 			var passed, failed []string
 			for _, s := range c.Scenarios {
 				switch res := r.Scenarios[s]; res.Result {
@@ -313,7 +323,11 @@ func Table(profiles []Profile, results *Results) string {
 	var versions []string
 	for _, p := range profiles {
 		if h := results.Harnesses[p.Harness]; h != nil && h.Version != "" {
-			versions = append(versions, p.Name+" "+h.Version)
+			v := h.Version
+			if n := versionNumber.FindString(v); n != "" {
+				v = n
+			}
+			versions = append(versions, p.Name+" "+v)
 		}
 	}
 	sort.Strings(versions)
@@ -322,6 +336,8 @@ func Table(profiles []Profile, results *Results) string {
 	}
 	return b.String()
 }
+
+var versionNumber = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
 
 // ScenarioCapabilities lists the capabilities a live scenario proves.
 func ScenarioCapabilities(scenario string) []string {

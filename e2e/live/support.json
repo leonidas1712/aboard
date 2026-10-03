@@ -1,0 +1,89 @@
+{
+  "harnesses": {
+    "claude-code": {
+      "version": "2.1.287 (Claude Code)",
+      "scenarios": {
+        "JoinsAndTalks": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestIdleClaudeWakesAndReplies"
+        },
+        "KilledSessionRedelivers": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestKilledSessionRedelivers"
+        },
+        "OwnerReachesBusy": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestUrgentReachesBusyClaude"
+        },
+        "PeerWaitsButNoticeArrives": {
+          "result": "pass",
+          "date": "2026-10-03",
+          "test": "TestPeerWaitsButNoticeArrives"
+        },
+        "PingPong": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestClaudeExchangesFiveMessages"
+        },
+        "ProjectScopeSetup": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestProjectScopeInit"
+        },
+        "RestartsLoseNothing": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestRestartsLoseNothing"
+        },
+        "ResumeReconnects": {
+          "result": "pass",
+          "date": "2026-10-03",
+          "test": "TestResumedClaudeSessionReconnects"
+        },
+        "WakesAndReplies": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestIdleClaudeWakesAndReplies"
+        }
+      }
+    },
+    "codex": {
+      "version": "codex-cli 0.159.3",
+      "notes": {
+        "baseline": "needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it",
+        "owner_mid_turn": "once Aboard's hooks are trusted in /hooks; until then the owner's messages wait for the turn's end",
+        "reconnect": "quitting Codex leaves its session open in Codex's app server, which still takes messages"
+      },
+      "scenarios": {
+        "OwnerReachesBusy": {
+          "result": "pass",
+          "date": "2026-10-03",
+          "test": "TestOwnerReachesBusyCodex"
+        },
+        "RepliesReachPromptly": {
+          "result": "pass",
+          "date": "2026-10-03",
+          "test": "TestCodexStartsPingPong"
+        },
+        "ResumeReconnects": {
+          "result": "pass",
+          "date": "2026-10-03",
+          "test": "TestResumedCodexSessionReconnects"
+        },
+        "SandboxNeedsTheAllowRule": {
+          "result": "pass",
+          "date": "2026-10-03",
+          "test": "TestCodexSandboxNeedsTheAllowRule"
+        },
+        "WakesAndReplies": {
+          "result": "pass",
+          "date": "2026-10-02",
+          "test": "TestIdleCodexWakesAndReplies"
+        }
+      }
+    }
+  }
+}

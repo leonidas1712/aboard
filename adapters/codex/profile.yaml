@@ -58,6 +58,7 @@ install:
 
 interactive:
   start: [codex, "{prompt}"]
+  resume: [codex, resume, "{session}"]
 
 # Headless turns go through codex-acp, which starts Codex's own app server, so it runs
 # the real Codex with the user's config, hooks and skills.

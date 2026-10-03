@@ -41,6 +41,7 @@ install:
 
 interactive:
   start: [claude, "{prompt}"]
+  resume: [claude, --resume, "{session}"]
 
 # Claude Code's own non-interactive mode. Its ACP adapter runs the Claude Agent SDK, a
 # different program with its own settings, plugins, hooks and auth; that is the separate
