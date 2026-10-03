@@ -402,6 +402,29 @@ Why: progressive disclosure in the UI: a new board shows a conversation, nothing
 **D124. Board events appear inline in the timeline, the way chat apps show them: short centred lines between messages for joins, removals, policy and rule changes, and pausing and resuming ("codex joined as member", "leo switched the board to the recommended policy"). They use a small, quiet rounded shape, a deliberate exception to the "no pills" rule because it is the convention people recognise from chats. A "Show board events" toggle hides them; it is on by default. Presence never appears in the timeline. The board view also shows one quiet line with the result of the same check as `aboard audit verify` ("Record verified · 14 events"). There is no separate Record tab in v0.1.**
 Why: people already know how to read "X joined" in a chat; putting the record in the timeline shows what changed where they're looking, and the verified line shows the record can be trusted without a separate audit screen.
 
+## Accepted (2026-10-03): isolation, and adding harnesses
+
+**D125. `ABOARD_HOME` moves all of Aboard's state on a machine into one folder: config, data, state, the control socket and the local server's address. When it is set and no address is given, the local server picks a free port and records it in that folder, so two homes never contend for the same port. Unset, everything stays where it is today. Tests and the live suite use it in place of the separate XDG variables and `ABOARD_LOCAL_ADDR`.**
+Why: every isolation problem so far came from two copies of Aboard sharing one of several scattered places; one variable that moves everything is how tools like Cargo, Go and Codex make isolated copies easy.
+
+**D126. Development builds never replace an installed `aboard`: `make dev` builds `./.bin/aboard`, stamped as a dev build with its commit. `make sandbox NAME=<name>` opens a shell for manual testing with its own `ABOARD_HOME`, the dev build first on the PATH, Claude Code and Codex pointed at scratch config folders with the person's logins linked (as the live suite does), and the sandbox's name in the prompt; harnesses started from that shell, or from a terminal manager started in it, use the sandbox. `make sandbox-clean NAME=<name>` removes it. It is a repository script, not a product command, until it proves useful to users (D75).**
+Why: manual testing with real agents is how the old-server bug was found, and it should never touch the person's everyday setup or depend on which binary happens to be first on the PATH.
+
+**D127. Once releases exist, `aboard upgrade` installs the latest release and updates the skill and hooks in place; running daemons and servers are already replaced automatically (D68). Until then, `make install` is the way to upgrade from source.**
+Why: one command to stay current, with nothing to remember about what else to restart.
+
+**D128. A harness's profile (`adapters/<harness>/profile.yaml`) is the only place a harness is described: how to detect it, its config folder and skill locations, the hook events to install and what each runs, the variables that carry its session id or mark a sandbox, its delivery mechanism and that mechanism's parameters, whether urgent messages can arrive mid-turn, and, for testing, how its terminal shows ready, busy and the start-up questions to answer. `aboard init`, `aboard doctor` and `aboard status` read the profiles and name no harness in their code. Completes D60.**
+Why: adding a harness should mean writing one file, not finding every place in the code that lists the harnesses.
+
+**D129. Delivery adapters are written per mechanism, not per harness: a hook that waits while the session is idle (as Claude Code's stop hook does), a command that queues input into the session (as `codex queue` does), and none, where the skill has the agent run `aboard inbox --wait`. A profile names its mechanism and parameters. A harness that fits a known mechanism needs only a profile; a new mechanism is one new adapter behind the same port (D117).**
+Why: most harnesses will fit a mechanism already built, and each mechanism is then tested once for all of them.
+
+**D130. Every harness passes a conformance kit, at two levels. The fast kit (no model) checks the profile against its schema, that `aboard init` installs exactly its hooks and they run, that the session id is picked up, and that its delivery adapter passes the port's shared tests. The live kit runs the same scenarios against any harness with a profile, `make live HARNESS=<name>`: wakes and replies, a ping-pong with another harness, urgent mid-turn, a killed session redelivers, restarts lose nothing, and project-scope setup. The kit reports a support level: 0 joins and talks through the skill; 1 automatic delivery; 2 urgent messages mid-turn; 3 can be started headless by a launcher. The README's harness table comes from these results. Level 0 for OpenCode, Pi and other CLI harnesses is in v0.1; automatic delivery beyond Claude Code and Codex stays in "Later" and needs the maintainer's approval per harness. Makes D78's harness kit concrete.**
+Why: "does Aboard work with my harness?" should have an answer from a test, not a claim, and adding a harness should end with running one command.
+
+**D131. Launchers get the same treatment when `swarm up` is built: one launcher protocol and one kit (start, stop, status, the identity passed in, the session alive), run against any launcher. Terminal managers such as herdr need nothing from Aboard to host sessions people start themselves, since delivery attaches to the harness inside them; a launcher adapter only matters for starting sessions.**
+Why: launchers will multiply like harnesses, and the same pattern keeps each one a small, tested adapter.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,
