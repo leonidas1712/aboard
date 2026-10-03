@@ -639,7 +639,7 @@ func TestAgentsCannotSeeOtherBoardsOrDoHumanOnlyThings(t *testing.T) {
 		t.Fatalf("other board: %s", code)
 	}
 	preset := api.PolicyPreset("recommended")
-	u, err := c.UpdateBoardWithResponse(ctx, first, nil, api.UpdateBoardRequest{Policy: api.PolicyChange{Preset: &preset}})
+	u, err := c.UpdateBoardWithResponse(ctx, first, nil, api.UpdateBoardRequest{Policy: &api.PolicyChange{Preset: &preset}})
 	if code := errorCode(t, u, err, 403); code != "human_token_required" {
 		t.Fatalf("policy change by agent: %s", code)
 	}
@@ -660,7 +660,7 @@ func TestPolicyChangeIsRecordedAndApplied(t *testing.T) {
 	boardName, _, _ := s.pair("starter")
 	human := s.client(s.owner)
 	preset := api.PolicyPreset("recommended")
-	u, err := human.UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{Policy: api.PolicyChange{Preset: &preset}})
+	u, err := human.UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{Policy: &api.PolicyChange{Preset: &preset}})
 	mustStatus(t, u, err, 200)
 	if u.JSON200.Policy.Visibility != "addressed" || u.JSON200.Policy.Broadcast != "granted" || u.JSON200.Policy.Urgent != "granted" {
 		t.Fatalf("policy %+v", u.JSON200.Policy)

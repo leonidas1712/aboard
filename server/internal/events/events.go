@@ -18,6 +18,7 @@ var GenesisHash = "sha256:" + strings.Repeat("0", 64)
 const (
 	BoardCreated       = "board.created"
 	BoardPolicyChanged = "board.policy_changed"
+	BoardTitled        = "board.titled"
 	MemberJoined       = "member.joined"
 	JoinCodeCreated    = "joincode.created"
 	JoinCodeRevoked    = "joincode.revoked"

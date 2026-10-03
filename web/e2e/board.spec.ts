@@ -60,7 +60,7 @@ function agentToken(name: string): string {
 }
 
 test("the board view shows the room live, posts as the person and verifies the record", async ({ page }) => {
-  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--json"));
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--title", "Docs review", "--json"));
   aboard("join", pair.join.line);
 
   const open = JSON.parse(aboard("open", "--json"));
@@ -74,6 +74,26 @@ test("the board view shows the room live, posts as the person and verifies the r
   expect(await page.evaluate(() => document.cookie)).toBe("");
   expect((await page.context().cookies()).length).toBe(0);
 
+  // The header shows the board's title with its name beside it.
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Docs review");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("writer-reviewer");
+
+  // The top bar says who you are, on which server, and keeps this browser's theme.
+  const account = page.getByRole("button", { name: /^You are alex/ });
+  await expect(account).toContainText("alex");
+  await account.click();
+  const menu = page.locator(".account-menu");
+  await expect(menu).toContainText("This computer (local)");
+  await expect(menu).not.toContainText("Admin");
+  await page.getByRole("menuitemradio", { name: "Dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await page.getByRole("menuitemradio", { name: "Same as this computer" }).click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", /./);
+  await page.keyboard.press("Escape");
+
   // A new board says what to do next, shows the starter policy and its verified record.
   await expect(page.getByText("Nothing has been said on this board yet.")).toBeVisible();
   await expect(page.getByRole("banner").getByText("Starter policy")).toBeVisible();
@@ -82,12 +102,33 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(crew.locator('[data-agent="writer"]')).toBeVisible();
   await expect(crew.locator('[data-agent="reviewer"]')).toContainText("no session");
 
-  // Joins show inline as board events, and the toggle hides them.
+  // The charter reads as paragraphs, not the template's hard line breaks, and both the
+  // charter and the enforced rules explain themselves.
+  const charter = page.locator(".charter");
+  await expect(charter.locator("p").first()).toContainText("one document together. The writer drafts");
+  await page.getByRole("button", { name: "About Charter" }).hover();
+  await expect(page.locator(".help-text").first()).toContainText("Every agent reads it when it joins");
+  await page.mouse.move(0, 0);
+  await page.getByRole("button", { name: "About Rules Aboard enforces" }).focus();
+  await expect(page.locator(".help-text").first()).toContainText("checked by the server on every message");
+
+  // The message box is one field, marked focused while any part of it has focus.
+  const field = page.locator(".composer-field");
+  await expect(field).not.toHaveAttribute("data-focused", /./);
+  await page.getByRole("textbox", { name: "Message everyone" }).focus();
+  await expect(field).toHaveAttribute("data-focused", "true");
+  await page.getByRole("textbox", { name: "Message everyone" }).blur();
+  await expect(field).not.toHaveAttribute("data-focused", /./);
+
+  // Joins show inline as board events; the Filter panel hides them, a chip says so, and
+  // removing the chip shows them again.
   const joins = page.locator(".board-event", { hasText: "reviewer joined as reviewer" });
   await expect(joins).toBeVisible();
-  await page.getByRole("switch").click();
+  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Show board events" }).click();
+  await page.keyboard.press("Escape");
   await expect(joins).toHaveCount(0);
-  await page.getByRole("switch").click();
+  await page.getByRole("button", { name: "Remove filter: Board events hidden" }).click();
   await expect(joins).toBeVisible();
 
   // A message from the CLI arrives live, as text, never HTML.
@@ -114,10 +155,60 @@ test("the board view shows the room live, posts as the person and verifies the r
   expect(mine.to).toEqual(["all"]);
   await expect(page.locator(".record")).toContainText(/Record verified · \d+ events/);
 
+  // Messages from one sender in a row share one header; another sender starts a new one.
+  aboard("say", "--as", "writer", "--to", "@reviewer", "Second thought: the intro needs a diagram.");
+  aboard("say", "--as", "writer", "--to", "@reviewer", "And the glossary link is broken.");
+  aboard("say", "--as", "reviewer", "--to", "@writer", "Agreed, I'll sketch one.");
+  await expect(page.locator(".message", { hasText: "Second thought" })).not.toHaveAttribute("data-grouped", "true");
+  await expect(page.locator(".message", { hasText: "And the glossary link" })).toHaveAttribute("data-grouped", "true");
+  await expect(page.locator(".message", { hasText: "Agreed, I'll sketch one." })).not.toHaveAttribute("data-grouped", "true");
+
+  // Clicking a member in Who's here filters the timeline to them; the chip removes it.
+  const writerSays = page.locator(".message", { hasText: "Draft is in notes.md." });
+  const reviewerSays = page.locator(".message", { hasText: "Agreed, I'll sketch one." });
+  await crew.locator('[data-agent="reviewer"] .member-filter').click();
+  await expect(page.getByRole("button", { name: "Remove filter: From reviewer" })).toBeVisible();
+  await expect(writerSays).toHaveCount(0);
+  await expect(reviewerSays).toBeVisible();
+  await page.getByRole("button", { name: "Remove filter: From reviewer" }).click();
+  await expect(writerSays).toBeVisible();
+
+  // The Filter panel does the same, with the API's filters.
+  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByRole("menuitem", { name: /^From/ }).click();
+  await page.getByRole("menuitemradio", { name: "writer" }).click();
+  await page.keyboard.press("Escape");
+  const chip = page.getByRole("button", { name: "Remove filter: From writer" });
+  await expect(chip).toBeVisible();
+  await expect(reviewerSays).toHaveCount(0);
+  await expect(writerSays).toBeVisible();
+  await chip.click();
+  await expect(chip).toHaveCount(0);
+  await expect(reviewerSays).toBeVisible();
+
+  // A side panel collapsed to its strip stays collapsed after a reload, and opens again.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.getByRole("button", { name: "Hide Who's here" }).click();
+  await expect(crew.locator('[data-agent="writer"]')).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Show Who's here" })).toBeVisible();
+  await expect(crew.locator('[data-agent="writer"]')).toBeHidden();
+  await page.getByRole("button", { name: "Show Who's here" }).click();
+  await expect(crew.locator('[data-agent="writer"]')).toBeVisible();
+
   await page.screenshot({ path: process.env.ABOARD_SCREENSHOT ?? "test-results/board-view.png", fullPage: true });
 
+  // The list of boards shows the title, the name beside it, and the board's facts.
   await page.getByRole("link", { name: "Aboard" }).click();
-  await expect(page.getByRole("link", { name: /writer-reviewer/ })).toBeVisible();
+  const row = page.locator(".board-row", { hasText: "Docs review" });
+  await expect(row.getByRole("link", { name: "Docs review" })).toBeVisible();
+  await expect(row).toContainText("writer-reviewer");
+  await expect(row).toContainText("2 agents");
+  await expect(row).toContainText("Starter policy");
+  // The count comes from the board itself: five messages were posted above.
+  await expect(row.locator(".messages")).toContainText("5");
+  aboard("say", "--as", "reviewer", "--to", "@writer", "One more.");
+  await expect(row.locator(".messages")).toContainText("6");
 
   // The token lasts until the server stops; after that the page says to log in again.
   aboard("down");

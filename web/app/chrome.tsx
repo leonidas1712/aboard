@@ -4,19 +4,36 @@ import { MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import { ApiError } from "./api";
 
-export function Header({ board, starter }: { board?: string; starter?: boolean }) {
+/**
+ * Header shows the product name and, on a board, its title with its name beside it, and
+ * who you are at the right once the browser is logged in.
+ */
+export function Header({
+  board,
+  title,
+  starter,
+  account,
+}: { board?: string; title?: string | null; starter?: boolean; account?: ReactNode }) {
   return (
-    <header className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 border-b border-rule bg-surface px-4 py-3 sm:px-6">
+    <header className="border-b border-rule bg-surface">
+      <div className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-5">
       <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
         <MessagesSquare className="size-[22px]" strokeWidth={1.5} aria-hidden />
         Aboard
       </a>
-      {board && <h1 className="text-title font-bold break-all">{board}</h1>}
+      {board && (
+        <h1 className="flex min-w-0 flex-wrap items-baseline gap-x-2.5">
+          <span className="text-title font-bold break-words">{title?.trim() || board}</span>
+          {title?.trim() && <span className="text-meta break-all text-muted">{board}</span>}
+        </h1>
+      )}
       {starter && (
         <a href="#rules" className="text-meta text-link" title="Every member reads everything. See the rules for how to tighten them.">
           Starter policy
         </a>
       )}
+      {account}
+      </div>
     </header>
   );
 }

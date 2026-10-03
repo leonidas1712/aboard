@@ -1,44 +1,84 @@
 "use client";
 
-// BoardList shows every board the person is on, live: a board made in a terminal
-// appears here without a reload.
+// BoardList shows every board the person is on, live, with a few facts to tell them
+// apart: who is on each, how much has been said and when, and its policy. A board made
+// in a terminal appears here without a reload.
 
 import { ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
-import { type Board, follow, get } from "./api";
+import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { type Board, type Member, follow, get } from "./api";
+import { Account } from "./account";
 import { Header, Problem } from "./chrome";
+import { boardLabel, count, exactTime, policyName, relativeTime } from "./words";
+
+/** Facts are what the list says about one board's members, read from the public API. */
+type Facts = { agents: number; working: number; people: number };
+
+async function factsOf(b: Board): Promise<Facts> {
+  const { members } = await get<{ members: Member[] }>(`/v1/boards/${encodeURIComponent(b.name)}/members`);
+  const agents = members.filter((m) => m.kind === "agent");
+  return {
+    agents: agents.length,
+    working: agents.filter((a) => a.presence === "working").length,
+    people: members.filter((m) => m.kind === "human").length,
+  };
+}
 
 export default function BoardList() {
   const [boards, setBoards] = useState<Board[] | null>(null);
+  const [facts, setFacts] = useState<Record<string, Facts>>({});
   const [error, setError] = useState<unknown>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const listed = useRef<Board[]>([]);
+
   useEffect(() => {
     let live = true;
+    const loadFacts = (b: Board) =>
+      factsOf(b).then(
+        (f) => live && setFacts((all) => ({ ...all, [b.name]: f })),
+        () => {}, // the row shows without facts
+      );
     const load = () =>
       get<{ boards: Board[] }>("/v1/boards").then(
-        (r) => live && setBoards(r.boards),
+        (r) => {
+          if (!live) return;
+          listed.current = r.boards;
+          setBoards(r.boards);
+          setNow(Date.now());
+          for (const b of r.boards) void loadFacts(b);
+        },
         (e) => live && setError(e),
       );
-    load();
+    void load();
     const known = new Map<string, number>();
     const stop = follow({
       head: (b, seq) => {
         if (known.get(b) !== seq) {
           known.set(b, seq);
-          load();
+          void load();
         }
+      },
+      presence: (p) => {
+        const b = listed.current.find((x) => x.name === p.board);
+        if (b) void loadFacts(b);
       },
       error: (e) => live && setError(e),
     });
+    const tick = setInterval(() => setNow(Date.now()), 30_000);
     return () => {
       live = false;
       stop();
+      clearInterval(tick);
     };
   }, []);
 
+  const showPeople = Object.values(facts).some((f) => f.people > 1);
+
   return (
     <div className="flex min-h-dvh flex-col">
-      <Header />
-      <main className="mx-auto w-full max-w-[640px] px-4 py-8 sm:px-6">
+      <Header account={<Account />} />
+      <main className="mx-auto w-full max-w-[960px] px-4 py-8 sm:px-6">
         <h1 className="mb-4 text-headline font-bold">Your boards</h1>
         {error !== null && <Problem error={error} />}
         {boards === null && error === null && (
@@ -50,25 +90,93 @@ export default function BoardList() {
           </p>
         )}
         {boards && boards.length > 0 && (
-          <ul className="boards flex flex-col border-t border-rule">
-            {boards.map((b) => (
-              <li key={b.id} className="border-b border-rule">
-                <a
-                  href={`/?board=${encodeURIComponent(b.name)}`}
-                  className="group flex min-h-11 items-center gap-3 rounded-control px-2 py-3 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-bold break-all">{b.name}</span>
-                    {b.charter && <span className="line-clamp-2 block text-muted">{b.charter}</span>}
-                    {b.policy.preset === "starter" && <span className="block text-meta text-muted">Starter policy</span>}
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-muted" strokeWidth={1.5} aria-hidden />
-                </a>
-              </li>
-            ))}
-          </ul>
+          <table className="boards w-full border-collapse text-left max-md:block">
+            <thead className="max-md:sr-only">
+              <tr className="border-b border-rule text-meta text-muted">
+                <th scope="col" className="py-2 pr-4 pl-2 font-bold">
+                  Board
+                </th>
+                <th scope="col" className="py-2 pr-4 font-bold">
+                  Agents
+                </th>
+                {showPeople && (
+                  <th scope="col" className="py-2 pr-4 font-bold">
+                    People
+                  </th>
+                )}
+                <th scope="col" className="py-2 pr-4 text-right font-bold">
+                  Messages
+                </th>
+                <th scope="col" className="py-2 pr-4 font-bold">
+                  Last message
+                </th>
+                <th scope="col" className="py-2 pr-2 font-bold">
+                  Policy
+                </th>
+              </tr>
+            </thead>
+            <tbody className="max-md:block">
+              {boards.map((b) => (
+                <BoardRow key={b.id} board={b} facts={facts[b.name]} showPeople={showPeople} now={now} />
+              ))}
+            </tbody>
+          </table>
         )}
       </main>
     </div>
+  );
+}
+
+function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts?: Facts; showPeople: boolean; now: number }) {
+  const href = `/?board=${encodeURIComponent(b.name)}`;
+  const cell = "py-3 pr-4 align-top max-md:inline max-md:p-0";
+  const sep = <span className="text-muted md:hidden"> · </span>;
+  return (
+    <tr className="board-row group relative border-b border-rule transition-colors duration-[140ms] ease-out hover:bg-selected max-md:block max-md:py-3">
+      <td className="py-3 pr-4 pl-2 align-top max-md:block max-md:p-0 max-md:pr-8">
+        {/* The whole row is the link's target; the link itself is the board's title. */}
+        <a href={href} className="font-bold text-ink no-underline after:absolute after:inset-0 after:content-['']">
+          {boardLabel(b)}
+        </a>
+        {b.title && <span className="ml-2 text-meta break-all text-muted">{b.name}</span>}
+        {b.charter && <p className="line-clamp-1 max-w-[42ch] text-meta text-muted">{b.charter}</p>}
+        <ChevronRight className="absolute top-4 right-2 size-4 text-muted md:hidden" strokeWidth={1.5} aria-hidden />
+      </td>
+      {f ? (
+        <>
+          <td className={cn(cell, "tabular-nums")}>
+            {count(f.agents, "agent", "agents")}
+            {f.working > 0 && <span className="text-muted">, {f.working} working</span>}
+          </td>
+          {showPeople && (
+            <td className={cn(cell, "tabular-nums")}>
+              {sep}
+              {count(f.people, "person", "people")}
+            </td>
+          )}
+        </>
+      ) : (
+        <td colSpan={showPeople ? 2 : 1} className="py-3 pr-4 align-top max-md:inline max-md:p-0">
+          <span className="inline-block h-4 w-24 rounded-[4px] bg-selected motion-safe:animate-pulse" aria-label="Loading" />
+        </td>
+      )}
+      <td className={cn(cell, "messages tabular-nums md:text-right")}>
+        {sep}
+        <span className="md:hidden">{count(b.message_count ?? 0, "message", "messages")}</span>
+        <span className="max-md:hidden">{b.message_count ?? 0}</span>
+      </td>
+      <td className={cell}>
+        {sep}
+        {b.last_message_at ? (
+          <time dateTime={b.last_message_at} title={exactTime(b.last_message_at)}>
+            <span className="md:hidden">last </span>
+            {relativeTime(b.last_message_at, now)}
+          </time>
+        ) : (
+          <span className="text-muted">none yet</span>
+        )}
+      </td>
+      <td className="py-3 pr-2 align-top max-md:block max-md:p-0 max-md:text-meta max-md:text-muted">{policyName(b.policy)}</td>
+    </tr>
   );
 }

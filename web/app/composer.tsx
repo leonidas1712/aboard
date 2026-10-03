@@ -31,6 +31,7 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
   const [to, setTo] = useState("all");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [problem, setProblem] = useState<ApiError | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   // One key per message being written, so a retried post after a dropped response
@@ -63,7 +64,11 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
     try {
       await post<Message>(
         `/v1/boards/${encodeURIComponent(board)}/messages`,
-        { body: text, to: target.split(","), ...(replyTo ? { reply_to: replyTo.id } : {}) },
+        {
+          body: text,
+          to: target.split(","),
+          ...(replyTo ? { reply_to: replyTo.id } : {}),
+        },
         key.current,
       );
       key.current = "";
@@ -92,7 +97,8 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
       {replyTo && (
         <div className="mb-2 flex items-center gap-2 text-meta text-muted">
           <p className="min-w-0 flex-1 truncate">
-            Replying to <strong className="text-ink">{replyTo.sender === "self" ? "your message" : replyTo.from.name}</strong>: {replyTo.body}
+            Replying to <strong className="text-ink">{replyTo.sender === "self" ? "your message" : replyTo.from.name}</strong>:{" "}
+            {replyTo.body}
           </p>
           <button
             type="button"
@@ -105,64 +111,71 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
           </button>
         </div>
       )}
-      <div className="flex items-end gap-2">
-        <div className="flex min-w-0 flex-1 items-end rounded-control border border-field-border bg-surface transition-colors duration-[140ms] ease-out focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
-          {!replyTo && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className="m-1 inline-flex h-9 shrink-0 items-center gap-1 rounded-[6px] px-2 text-meta text-ink hover:bg-selected focus-visible:outline-2"
-                aria-label={`Recipients: ${recipient(to)}. Change`}
-              >
-                To {recipient(to)}
-                <ChevronDown className="size-3.5" strokeWidth={1.5} aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup value={to} onValueChange={setTo}>
-                  <DropdownMenuRadioItem value="all">Everyone</DropdownMenuRadioItem>
-                  {agents.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel>Agents</DropdownMenuLabel>
-                      {agents.map((a) => (
-                        <DropdownMenuRadioItem key={a.id} value={`@${a.name}`}>
-                          {a.name}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </>
-                  )}
-                  {roles.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel>Roles</DropdownMenuLabel>
-                      {roles.map((r) => (
-                        <DropdownMenuRadioItem key={r} value={`role:${r}`}>
-                          Every {r}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </>
-                  )}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <label htmlFor="message-body" className="sr-only">
-            {label}
-          </label>
-          <textarea
-            id="message-body"
-            ref={field}
-            rows={1}
-            value={body}
-            onChange={(e) => {
-              setBody(e.target.value);
-              key.current = "";
-            }}
-            onKeyDown={onKeyDown}
-            placeholder={label}
-            className="min-h-[42px] min-w-0 flex-1 resize-none bg-transparent px-3 py-[9px] text-body text-ink outline-none placeholder:text-muted"
-          />
-        </div>
-        <Button type="submit" disabled={busy || body.trim() === ""}>
+      {/* One field holds the recipients, the text and Post. Focus changes the field
+          once, softly; only a control reached by keyboard gets its own ring. */}
+      <div
+        className="composer-field flex min-w-0 items-end gap-1 rounded-box border border-field-border bg-surface p-1 transition-[border-color,box-shadow] duration-[140ms] ease-out data-[focused]:border-[var(--field-focus)] data-[focused]:shadow-[0_0_0_3px_var(--focus-glow)]"
+        data-focused={focused || undefined}
+        onFocusCapture={() => setFocused(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+        }}
+      >
+        {!replyTo && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-11 shrink-0 items-center gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-selected focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent"
+              aria-label={`Recipients: ${recipient(to)}. Change`}
+            >
+              To {recipient(to)}
+              <ChevronDown className="size-3.5" strokeWidth={1.5} aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup value={to} onValueChange={setTo}>
+                <DropdownMenuRadioItem value="all">Everyone</DropdownMenuRadioItem>
+                {agents.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Agents</DropdownMenuLabel>
+                    {agents.map((a) => (
+                      <DropdownMenuRadioItem key={a.id} value={`@${a.name}`}>
+                        {a.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </>
+                )}
+                {roles.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Roles</DropdownMenuLabel>
+                    {roles.map((r) => (
+                      <DropdownMenuRadioItem key={r} value={`role:${r}`}>
+                        Role {r}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <label htmlFor="message-body" className="sr-only">
+          {label}
+        </label>
+        <textarea
+          id="message-body"
+          ref={field}
+          rows={1}
+          value={body}
+          onChange={(e) => {
+            setBody(e.target.value);
+            key.current = "";
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={label}
+          className="min-h-11 min-w-0 flex-1 resize-none bg-transparent px-2.5 py-[10px] text-body text-ink outline-none placeholder:text-muted"
+        />
+        <Button type="submit" disabled={busy || body.trim() === ""} className="focus-visible:outline-offset-0">
           {busy ? "Posting…" : "Post"}
         </Button>
       </div>

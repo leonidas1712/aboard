@@ -31,12 +31,12 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by"
+const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at"
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -58,8 +58,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		b.ID, b.Name, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy)
+	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
+		b.MessageCount, b.LastMessageAt)
 }
 
 // SetBoardPolicy replaces a board's policy.
@@ -69,6 +70,11 @@ func (t *tx) SetBoardPolicy(boardID string, p rules.Policy) error {
 		return fmt.Errorf("encode policy: %w", err)
 	}
 	return t.exec("UPDATE boards SET policy_json = ? WHERE id = ?", string(policy), boardID)
+}
+
+// SetBoardTitle replaces a board's title; nil removes it.
+func (t *tx) SetBoardTitle(boardID string, title *string) error {
+	return t.exec("UPDATE boards SET title = ? WHERE id = ?", title, boardID)
 }
 
 // BoardByName finds a board by name.

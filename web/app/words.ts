@@ -25,16 +25,106 @@ export const presenceWords: Record<Presence, string> = {
   no_session: "no session",
 };
 
+/** boardLabel is what people call a board: its title, else its name. */
+export function boardLabel(b: Pick<Board, "name" | "title">): string {
+  return b.title?.trim() || b.name;
+}
+
+/** identities is how many identity colours there are (--id-1 to --id-8 in globals.css). */
+export const identities = 8;
+
+/**
+ * identityOf picks a member's identity colour, 1 to identities, from its id. The same
+ * member always gets the same colour; the colour only tells senders apart.
+ */
+export function identityOf(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ((h >>> 0) % identities) + 1;
+}
+
+/**
+ * identitiesOf gives each agent of a board its identity colour: the one its id picks,
+ * or, when a person or an earlier agent already has that colour, the next free one.
+ * Agents keep their join order, so each keeps its colour; past eight senders colours
+ * repeat. taken holds the people's colours, which never move.
+ */
+export function identitiesOf(ids: string[], taken: Set<number> = new Set()): Map<string, number> {
+  const out = new Map<string, number>();
+  const used = new Set(taken);
+  for (const id of ids) {
+    let n = identityOf(id);
+    if (used.size < identities) {
+      while (used.has(n)) n = (n % identities) + 1;
+    }
+    used.add(n);
+    out.set(id, n);
+  }
+  return out;
+}
+
+/**
+ * personIdentity is a person's identity colour, the same on every board and page: from
+ * their id when it is you (GET /v1/me), else from their name, which is unique on a server.
+ */
+export function personIdentity(name: string, me: { id: string; name: string } | null): number {
+  return identityOf(me && me.name === name ? me.id : `human:${name}`);
+}
+
+// Names agents get from their harness, and the two letters their marks show.
+const harnessMarks: Record<string, string> = {
+  claude: "CL",
+  codex: "CX",
+  opencode: "OC",
+  openclaw: "OW",
+  hermes: "HE",
+  pi: "PI",
+};
+
+/**
+ * markOf is the one or two characters a sender mark shows. An agent named after its
+ * harness shows the harness's two letters (claude CL, codex CX); a later seat shows the
+ * harness's first letter and its number (claude-2 C2, agent-3 A3). Any other name shows
+ * the initials of its first two words (docs-bot DB), or its first two letters (scout
+ * SC). A person shows their initials: one letter for a one-word name (leo L).
+ */
+export function markOf(name: string, kind: "agent" | "human"): string {
+  const words = name.split(/[-_.\s]+/).filter(Boolean);
+  const first = (w: string) => (w.match(/[a-z0-9]/i)?.[0] ?? "?").toUpperCase();
+  if (kind === "human") return words.slice(0, 2).map(first).join("") || "?";
+  const [base, seat] = words;
+  if (words.length === 1 && harnessMarks[base]) return harnessMarks[base];
+  if (words.length === 2 && /^\d+$/.test(seat)) return first(base) + seat;
+  if (words.length >= 2) return first(words[0]) + first(words[1]);
+  return (base ?? "?").replace(/[^a-z0-9]/gi, "").slice(0, 2).toUpperCase() || "?";
+}
+
+/** clockTime is a time of day, as in a chat's gutter ("14:05"). */
+export function clockTime(at: string): string {
+  return new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** policyName names a policy preset as the board view says it. */
+export function policyName(p: Policy): string {
+  return p.preset === "starter" ? "Starter policy" : "Recommended policy";
+}
+
 /** displayName is a member's name, with its owner once a second owner is on the board. */
 export function displayName(m: MemberRef, showOwner: boolean): string {
   return showOwner && m.kind === "agent" && m.owner ? `${m.name} · ${m.owner}` : m.name;
 }
 
-/** recipient turns a target into words: all is "everyone", @claude is "claude". */
+/**
+ * recipient turns a target into words: all is "everyone", @claude is "claude", and
+ * role:member is "role member", so a role never reads like everyone.
+ */
 export function recipient(t: string): string {
   if (t === "all") return "everyone";
   if (t.startsWith("@")) return t.slice(1);
-  if (t.startsWith("role:")) return `every ${t.slice(5)}`;
+  if (t.startsWith("role:")) return `role ${t.slice(5)}`;
   return t;
 }
 
@@ -63,7 +153,7 @@ export function exactTime(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "medium" });
 }
 
-function count(n: number, one: string, many: string): string {
+export function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
@@ -184,7 +274,62 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
         ? `${who} changed the rules: ${changed.map((k) => `${k.replace("_", " ")} is now ${String(after[k])}`).join(", ")}`
         : `${who} changed the rules`;
     }
+    case "board.titled": {
+      const after = d.after as string | null;
+      return after ? `${who} titled the board “${after}”` : `${who} removed the board's title`;
+    }
     default:
       return null;
   }
+}
+
+/**
+ * eventMatches says whether a board event belongs in a timeline filtered to one sender
+ * or role: the member's own actions and its join.
+ */
+export function eventMatches(e: BoardEvent, from: string | undefined, role: string | undefined): boolean {
+  const d = (e.data ?? {}) as Record<string, unknown>;
+  if (from) return e.actor.name === from || (e.type === "member.joined" && d.name === from);
+  if (role) return e.type === "member.joined" && d.role === role;
+  return true;
+}
+
+/** A charter block: a paragraph, or a list of the lines that start with "- ". */
+export type CharterBlock = { kind: "paragraph"; text: string } | { kind: "list"; items: string[] };
+
+/**
+ * charterBlocks reads a charter the way its author wrote it in YAML: single line
+ * breaks inside a paragraph join with a space, a blank line starts a new paragraph,
+ * and lines starting with "- " are list items.
+ */
+export function charterBlocks(text: string): CharterBlock[] {
+  const out: CharterBlock[] = [];
+  for (const chunk of text.replace(/\r\n?/g, "\n").split(/\n\s*\n/)) {
+    let words: string[] = [];
+    let items: string[] = [];
+    const flushWords = () => {
+      if (words.length) out.push({ kind: "paragraph", text: words.join(" ") });
+      words = [];
+    };
+    const flushItems = () => {
+      if (items.length) out.push({ kind: "list", items });
+      items = [];
+    };
+    for (const raw of chunk.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (/^[-*] /.test(line)) {
+        flushWords();
+        items.push(line.slice(2).trim());
+      } else if (items.length && /^\s{2,}/.test(raw)) {
+        items[items.length - 1] += ` ${line}`;
+      } else {
+        flushItems();
+        words.push(line);
+      }
+    }
+    flushWords();
+    flushItems();
+  }
+  return out;
 }

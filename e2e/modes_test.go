@@ -204,6 +204,7 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 			command string
 		}{
 			{[]string{"board", "policy", "recommended", "--json"}, "aboard board policy recommended --board writer-reviewer"},
+			{[]string{"board", "title", "Docs review", "--json"}, "aboard board title 'Docs review' --board writer-reviewer"},
 			{[]string{"watch", "--json"}, "aboard watch --board writer-reviewer"},
 		} {
 			r := s.runExit(c.args...)

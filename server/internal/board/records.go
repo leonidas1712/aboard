@@ -19,16 +19,22 @@ type Human struct {
 
 // Board is a board's current state.
 type Board struct {
-	ID        string
-	Name      string
-	Template  *string
-	Charter   string
-	Roles     map[string]rules.Role
-	Policy    rules.Policy
-	HeadSeq   int64
-	HeadHash  string
-	CreatedAt string
-	CreatedBy string // member id of the creating human
+	ID   string
+	Name string
+	// Title is free text people read beside the name; nil when the board has none.
+	Title    *string
+	Template *string
+	Charter  string
+	Roles    map[string]rules.Role
+	Policy   rules.Policy
+	HeadSeq  int64
+	HeadHash string
+	// MessageCount and LastMessageAt describe the board's messages; the store keeps
+	// them as messages are inserted. LastMessageAt is nil before the first message.
+	MessageCount  int64
+	LastMessageAt *string
+	CreatedAt     string
+	CreatedBy     string // member id of the creating human
 }
 
 // Member is a human or agent on a board.

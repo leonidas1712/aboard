@@ -19,13 +19,21 @@ export type MemberRef = { name: string; kind: "agent" | "human"; role: string | 
 export type Board = {
   id: string;
   name: string;
+  /** title is free text people read beside the name; null when the board has none. */
+  title: string | null;
   charter: string;
   roles: Record<string, Role>;
   policy: Policy;
   head_seq: number;
+  /** message_count and last_message_at are null for a reader who may not see them. */
+  message_count: number | null;
+  last_message_at: string | null;
   created_at: string;
   created_by: MemberRef;
 };
+
+/** Me is who the browser's token acts as: always a person for a browser. */
+export type Me = { id: string; kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };
 
 export type Presence = "working" | "idle" | "waiting" | "no_session";
 

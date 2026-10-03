@@ -2,13 +2,14 @@
 
 // The timeline: messages and board events in chat order, oldest at the top. It opens at
 // the newest entry, holds still while you read further up, and offers a way back down.
+// Messages from one sender in a row are grouped under one header, the way chats do.
 
-import { ArrowDown, ArrowRight, MessageSquare, Reply } from "lucide-react";
+import { ArrowDown, ArrowRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { BoardEvent, Message } from "./api";
-import { displayName, exactTime, recipients, relativeTime } from "./words";
+import type { BoardEvent, Message, MemberRef } from "./api";
+import { clockTime, displayName, exactTime, markOf, recipients, relativeTime } from "./words";
 
 export type Entry = { kind: "message"; seq: number; m: Message } | { kind: "event"; seq: number; e: BoardEvent; line: string };
 
@@ -20,6 +21,10 @@ type Props = {
   loadEarlier: () => void;
   /** quote finds the message a reply answers, if it is loaded. */
   quote: (m: Message) => string | null;
+  /** answer finds the first reply to a message that asks for one, if it is loaded. */
+  answer: (m: Message) => Message | null;
+  /** identity is the sender's identity colour, 1 to 8. */
+  identity: (from: MemberRef) => number;
   /** waiting holds the ids of questions waiting for the person's reply. */
   waiting: Set<string>;
   onReply: (m: Message) => void;
@@ -27,12 +32,53 @@ type Props = {
   onSeen: (seq: number) => void;
   /** stick asks the timeline to scroll to the newest entry once, as after posting. */
   stick: number;
+  /** resetKey changes when the timeline shows something else, such as a new filter. */
+  resetKey: string;
   empty: ReactNode;
+  /** column is the class of the centred reading column inside the scrolling area. */
+  column: string;
 };
 
 const nearBottom = 48;
+// Messages from one sender within this long of the one before share its header.
+const groupWindow = 5 * 60_000;
 
-export function Timeline({ entries, dividerSeq, hasEarlier, loadEarlier, quote, waiting, onReply, onSeen, stick, empty }: Props) {
+/** standsAlone is true for messages that keep their own header and outline. */
+function standsAlone(m: Message): boolean {
+  return m.urgent || m.expects_reply;
+}
+
+/** continues says whether b is shown under a's header. */
+function continues(a: Entry | undefined, b: Entry): boolean {
+  if (!a || a.kind !== "message" || b.kind !== "message") return false;
+  const x = a.m;
+  const y = b.m;
+  return (
+    x.from.name === y.from.name &&
+    x.from.kind === y.from.kind &&
+    x.to.join() === y.to.join() &&
+    !standsAlone(x) &&
+    !standsAlone(y) &&
+    new Date(y.at).getTime() - new Date(x.at).getTime() < groupWindow
+  );
+}
+
+export function Timeline({
+  entries,
+  dividerSeq,
+  hasEarlier,
+  loadEarlier,
+  quote,
+  answer,
+  identity,
+  waiting,
+  onReply,
+  onSeen,
+  stick,
+  resetKey,
+  empty,
+  column,
+}: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const [showJump, setShowJump] = useState(false);
@@ -52,6 +98,14 @@ export function Timeline({ entries, dividerSeq, hasEarlier, loadEarlier, quote, 
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   }, []);
 
+  // A new filter shows another set of entries: start again at the newest.
+  useLayoutEffect(() => {
+    atBottom.current = true;
+    lastCount.current = { first: 0, last: 0, height: 0, messages: 0 };
+    setUnseen(0);
+    setShowJump(false);
+  }, [resetKey]);
+
   // Keep the reading position: at the bottom, follow new entries; further up, hold still
   // and count what arrived; when earlier entries are added above, keep the same ones in view.
   useLayoutEffect(() => {
@@ -66,7 +120,12 @@ export function Timeline({ entries, dividerSeq, hasEarlier, loadEarlier, quote, 
     } else if (messageCount > prev.messages && newestSeq > prev.last) {
       setUnseen((n) => n + entries.filter((e) => e.kind === "message" && e.seq > prev.last).length);
     }
-    lastCount.current = { first, last: newestSeq, height: el.scrollHeight, messages: messageCount };
+    lastCount.current = {
+      first,
+      last: newestSeq,
+      height: el.scrollHeight,
+      messages: messageCount,
+    };
   }, [entries, newestSeq, messageCount]);
 
   useEffect(() => {
@@ -80,9 +139,14 @@ export function Timeline({ entries, dividerSeq, hasEarlier, loadEarlier, quote, 
     if (atBottom.current && newestSeq > 0) onSeen(newestSeq);
   }, [newestSeq, onSeen]);
 
+  // The scrollbar shows while the timeline scrolls, then fades back out.
+  const scrolling = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onScroll = () => {
     const el = scroller.current;
     if (!el) return;
+    el.dataset.scrolling = "";
+    if (scrolling.current) clearTimeout(scrolling.current);
+    scrolling.current = setTimeout(() => delete el.dataset.scrolling, 900);
     const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < nearBottom;
     atBottom.current = bottom;
     setShowJump(!bottom);
@@ -98,41 +162,52 @@ export function Timeline({ entries, dividerSeq, hasEarlier, loadEarlier, quote, 
       <div
         ref={scroller}
         onScroll={onScroll}
-        className="timeline h-full overflow-y-auto [overflow-anchor:none]"
+        className="timeline quiet-scroll h-full overflow-y-auto [overflow-anchor:none]"
         role="log"
         aria-label="Timeline"
         aria-live="polite"
         aria-relevant="additions"
         tabIndex={0}
       >
-        {hasEarlier && (
-          <div className="flex justify-center pt-3">
-            <Button variant="quiet" onClick={loadEarlier}>
-              Show earlier messages
-            </Button>
-          </div>
-        )}
-        <ol className="flex flex-col pb-4">
-          {entries.map((x, i) => (
-            <Fragment key={x.kind === "message" ? x.m.id : x.e.id}>
-              {dividerSeq !== null && x.seq === dividerSeq && i > 0 && <NewDivider />}
-              {x.kind === "message" ? (
-                <MessageEntry
-                  m={x.m}
-                  now={now}
-                  quote={quote(x.m)}
-                  waiting={waiting.has(x.m.id)}
-                  onReply={() => onReply(x.m)}
-                  afterEvent={i > 0 && entries[i - 1].kind === "event"}
-                  arrived={x.seq > openedAt.current!}
-                />
-              ) : (
-                <EventLine e={x.e} line={x.line} now={now} arrived={x.seq > openedAt.current!} />
-              )}
-            </Fragment>
-          ))}
-        </ol>
-        {messageCount === 0 && empty}
+        <div className={column}>
+          {hasEarlier && (
+            <div className="flex justify-center pt-3">
+              <Button variant="quiet" onClick={loadEarlier}>
+                Show earlier messages
+              </Button>
+            </div>
+          )}
+          <ol className="flex flex-col pb-4">
+            {entries.map((x, i) => {
+              const divider = dividerSeq !== null && x.seq === dividerSeq && i > 0;
+              const next = entries[i + 1];
+              const nextDivider = next !== undefined && dividerSeq !== null && next.seq === dividerSeq;
+              return (
+                <Fragment key={x.kind === "message" ? x.m.id : x.e.id}>
+                  {divider && <NewDivider />}
+                  {x.kind === "message" ? (
+                    <MessageEntry
+                      m={x.m}
+                      now={now}
+                      quote={quote(x.m)}
+                      answer={x.m.expects_reply ? answer(x.m) : null}
+                      identity={identity(x.m.from)}
+                      waiting={waiting.has(x.m.id)}
+                      onReply={() => onReply(x.m)}
+                      grouped={!divider && continues(entries[i - 1], x)}
+                      groupGoesOn={!nextDivider && next !== undefined && continues(x, next)}
+                      ruled={i > 0 && !divider && entries[i - 1].kind === "message"}
+                      arrived={x.seq > openedAt.current!}
+                    />
+                  ) : (
+                    <EventLine e={x.e} line={x.line} now={now} arrived={x.seq > openedAt.current!} />
+                  )}
+                </Fragment>
+              );
+            })}
+          </ol>
+          {messageCount === 0 && empty}
+        </div>
       </div>
       <div
         className={cn(
@@ -165,6 +240,16 @@ function useNow(): number {
   return now;
 }
 
+/** show scrolls to a message and marks it briefly, as when following "answered by". */
+function show(id: string) {
+  const el = document.querySelector<HTMLElement>(`[data-id="${id}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+}
+
 function NewDivider() {
   return (
     <li className="new-divider flex items-center gap-3 py-1" aria-label="New since you last looked">
@@ -183,67 +268,181 @@ function Time({ at, now }: { at: string; now: number }) {
   );
 }
 
+/** SenderMark is a sender's one or two letters on its identity colour. */
+export function SenderMark({
+  name,
+  kind,
+  identity,
+  className,
+}: {
+  name: string;
+  kind: "agent" | "human";
+  identity: number;
+  className?: string;
+}) {
+  const mark = markOf(name, kind);
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "sender-mark flex size-8 shrink-0 items-center justify-center rounded-control font-bold tracking-[0.02em] select-none",
+        mark.length > 1 ? "text-[13px]" : "text-body",
+        className,
+      )}
+      style={{
+        background: `var(--id-${identity}-bg)`,
+        color: `var(--id-${identity}-fg)`,
+      }}
+    >
+      {mark}
+    </span>
+  );
+}
+
+/** Kind is the small glyph beside the sender's name that says what sort of message it is. */
+function Kind({ m }: { m: Message }) {
+  const glyph = "inline size-3.5 shrink-0 -translate-y-px";
+  if (m.urgent) {
+    return (
+      <span title="Urgent: delivered into sessions at once">
+        <Zap className={cn(glyph, "text-ink")} strokeWidth={1.75} aria-label="Urgent" />
+      </span>
+    );
+  }
+  if (m.expects_reply) {
+    return (
+      <span title="Asks for a reply">
+        <CircleQuestionMark className={cn(glyph, "text-ink")} strokeWidth={1.75} aria-label="Asks for a reply" />
+      </span>
+    );
+  }
+  if (m.reply_to) {
+    return (
+      <span title="Reply">
+        <Reply className={cn(glyph, "text-accent")} strokeWidth={1.75} aria-label="Reply" />
+      </span>
+    );
+  }
+  return (
+    <span title="Message">
+      <MessageSquare className={cn(glyph, "text-muted")} strokeWidth={1.5} aria-label="Message" />
+    </span>
+  );
+}
+
 function MessageEntry({
   m,
   now,
   quote,
+  answer,
+  identity,
   waiting,
   onReply,
-  afterEvent,
+  grouped,
+  groupGoesOn,
+  ruled,
   arrived,
 }: {
   m: Message;
   now: number;
   quote: string | null;
+  answer: Message | null;
+  identity: number;
   waiting: boolean;
   onReply: () => void;
-  afterEvent: boolean;
+  /** grouped is true when the message shows under the header of the one before. */
+  grouped: boolean;
+  /** groupGoesOn is true when the next message shows under this one's header. */
+  groupGoesOn: boolean;
+  /** ruled is true when a rule separates this entry from the message before it. */
+  ruled: boolean;
   arrived: boolean;
 }) {
-  const isReply = m.reply_to !== null;
   const self = m.sender === "self";
   const sender = self ? "You" : displayName(m.from, m.show_owner);
-  const about = m.from.kind === "agent" ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ") : undefined;
+  const about =
+    m.from.kind === "agent"
+      ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ")
+      : undefined;
+  const outlined = standsAlone(m) && !answer;
+  const replyButton = !waiting && (
+    <button
+      type="button"
+      onClick={onReply}
+      className="reply-button h-7 shrink-0 rounded-[6px] px-2 text-meta text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+      aria-label={`Reply to ${self ? "your message" : m.from.name}`}
+    >
+      Reply
+    </button>
+  );
   return (
     <li
-      className={cn("message group grid grid-cols-[24px_minmax(0,1fr)] gap-x-2.5 py-3.5", !afterEvent && "border-t border-rule", arrived && "animate-arrive")}
+      className={cn(
+        "message group relative grid grid-cols-[32px_minmax(0,1fr)] gap-x-3 px-2.5 transition-colors duration-200 ease-out",
+        grouped ? "pt-0.5" : "pt-3",
+        groupGoesOn ? "pb-0.5" : "pb-3",
+        ruled && !grouped && "border-t border-rule",
+        self && "own bg-own",
+        self && !grouped && "rounded-t-box",
+        self && !groupGoesOn && "rounded-b-box",
+        outlined && "my-1.5 rounded-box border",
+        outlined && (m.urgent ? "urgent border-[var(--outline-strong)]" : "asks border-[var(--outline-faint)]"),
+        arrived && "animate-arrive",
+      )}
       data-seq={m.seq}
       data-id={m.id}
+      data-sender={m.from.name}
+      data-grouped={grouped || undefined}
     >
-      <span className="pt-[3px]" title={isReply ? "Reply" : "Message"}>
-        {isReply ? (
-          <Reply className="size-4 text-accent" strokeWidth={1.5} aria-label="Reply" />
+      <span>
+        {grouped ? (
+          <time
+            dateTime={m.at}
+            title={exactTime(m.at)}
+            className="-ml-2.5 block text-right text-[12px] leading-[22px] whitespace-nowrap text-muted tabular-nums opacity-0 transition-opacity duration-[140ms] ease-out group-hover:opacity-100 group-focus-within:opacity-100"
+          >
+            {clockTime(m.at)}
+          </time>
         ) : (
-          <MessageSquare className="size-4 text-muted" strokeWidth={1.5} aria-label="Message" />
+          <SenderMark name={m.from.name} kind={m.from.kind} identity={identity} />
         )}
       </span>
       <div className="min-w-0">
-        <div className="flex items-baseline gap-3">
-          <p className="min-w-0 flex-1 break-words">
-            <strong title={about}>{sender}</strong>
-            <ArrowRight className="mx-1 inline size-3.5 -translate-y-px text-muted" strokeWidth={1.5} aria-label="to" />
-            <span>{recipients(m.to)}</span>
-            {m.urgent && <span className="ml-2 text-meta text-muted">Urgent</span>}
-            {m.expects_reply && <span className="ml-2 text-meta text-muted">Asks for a reply</span>}
-          </p>
-          {!waiting && (
-            <button
-              type="button"
-              onClick={onReply}
-              className="reply-button h-7 shrink-0 rounded-[6px] px-2 text-meta text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
-              aria-label={`Reply to ${self ? "your message" : m.from.name}`}
-            >
-              Reply
-            </button>
-          )}
-          <Time at={m.at} now={now} />
-        </div>
-        {isReply && (
-          <p className="truncate text-meta text-muted" title={quote ?? undefined}>
-            {quote ?? "Replying to an earlier message"}
+        {!grouped && (
+          <div className="flex items-baseline gap-3">
+            <p className="min-w-0 flex-1 break-words">
+              <strong title={about} className="sender">
+                {sender}
+              </strong>{" "}
+              <Kind m={m} />
+              <ArrowRight className="mx-1 inline size-3.5 -translate-y-px text-muted" strokeWidth={1.5} aria-label="to" />
+              <span>{recipients(m.to)}</span>
+              {m.urgent && <span className="ml-2 text-meta text-muted">Urgent</span>}
+              {m.expects_reply &&
+                (answer ? (
+                  <button
+                    type="button"
+                    className="answered ml-2 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
+                    onClick={() => show(answer.id)}
+                  >
+                    Answered by {answer.sender === "self" ? "you" : answer.from.name}
+                  </button>
+                ) : (
+                  <span className="ml-2 text-meta text-muted">Asks for a reply</span>
+                ))}
+            </p>
+            {replyButton}
+            <Time at={m.at} now={now} />
+          </div>
+        )}
+        {m.reply_to !== null && (
+          <p className="flex items-center gap-1.5 text-meta text-muted" title={quote ?? undefined}>
+            {grouped && <Reply className="size-3.5 shrink-0 text-accent" strokeWidth={1.75} aria-label="Reply" />}
+            <span className="truncate">{quote ?? "Replying to an earlier message"}</span>
           </p>
         )}
-        <p className="body mt-0.5 whitespace-pre-wrap break-words">{m.body}</p>
+        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-16")}>{m.body}</p>
+        {grouped && <div className="absolute top-0 right-2.5">{replyButton}</div>}
         {waiting && (
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
             <p>{m.from.name} is waiting for your reply.</p>

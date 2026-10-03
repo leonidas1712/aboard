@@ -123,6 +123,14 @@ func stamp(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:05.000Z
 
 func ptr[T any](v T) *T { return &v }
 
+// deref returns the string p points to, or "" for nil.
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 func actorOf(m Member) events.Actor {
 	return events.Actor{Kind: m.Kind, MemberID: ptr(m.ID), Name: ptr(m.Name), Owner: m.Owner}
 }
