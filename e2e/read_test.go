@@ -155,6 +155,24 @@ func TestReadShowsWhatEachMessageAsks(t *testing.T) {
 	)
 }
 
+// The CLI's --json messages carry the sender label and never the deprecated trust field
+// the API keeps for older daemons.
+func TestCLIMessagesCarrySenderNotTrust(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
+	for name, msg := range map[string]any{
+		"say":   field(t, e.run("say", "--as", "writer", "--to", "@reviewer", "hello", "--json").json(t), "message"),
+		"read":  field(t, e.run("read", "--as", "writer", "--json").json(t), "messages.0"),
+		"inbox": field(t, e.run("inbox", "--as", "reviewer", "--json").json(t), "messages.0"),
+	} {
+		m := msg.(map[string]any)
+		if _, ok := m["trust"]; ok || m["sender"] == nil {
+			t.Fatalf("%s --json message: want sender and no trust, got %v", name, m)
+		}
+	}
+}
+
 // TestReadMarkdownTranscript prints the quickstart conversation as the Markdown transcript
 // spec/cli.yaml shows.
 func TestReadMarkdownTranscript(t *testing.T) {
@@ -340,11 +358,15 @@ func TestWatchJSONLinesWithAFilter(t *testing.T) {
 			var v struct {
 				Board   string `json:"board"`
 				Message struct {
-					Body string `json:"body"`
+					Body  string  `json:"body"`
+					Trust *string `json:"trust"`
 				} `json:"message"`
 			}
 			if err := json.Unmarshal([]byte(line), &v); err != nil || v.Board != "writer-reviewer" {
 				t.Fatalf("not a WatchOutput line (%v): %s", err, line)
+			}
+			if v.Message.Trust != nil {
+				t.Fatalf("watch --json passes on the deprecated trust field: %s", line)
 			}
 			return v.Message.Body
 		case <-time.After(20 * time.Second):

@@ -443,6 +443,9 @@ Why: filters are how a busy board stays readable, and keeping every view setting
 **D135. `aboard read` and `aboard watch` show each message as a line saying who wrote it, to whom and what it asks for, then a line saying who the sender is, then the body: `#36  @codex → @claude · asks for a reply`, then `member · codex · owner_agent`, then the body, all indented four spaces under the seq. The first line carries the markers the board view shows, in the order `reply to #N`, `urgent`, `asks for a reply`; the second line holds an agent's role, harness and owner (`owner priya`, once agents of more than one person are on the board) and the sender label, or for a person only the label. `read --markdown` adds the same markers to each heading. Supersedes the bracketed header in D110's settled notes (`#6  @writer (writer, self) → @reviewer`).**
 Why: an agent catching up in the terminal couldn't tell which messages wanted an answer, what a reply answered or what was urgent, which the board view shows at a glance; and a bracket of three comma-separated words was hard to scan. Putting the routing and the asks on the first line and the sender's details on their own line keeps each message compact and readable.
 
+**D136. The CLI's `--json` messages (`say`, `inbox`, `read`, `watch`) leave out the deprecated `trust` field; the API keeps it. A deliberate exception to D68's "`--json` output only grows": `trust` was replaced by `sender` in D110 and kept only for delivery daemons from older builds, which read it from the API, never from the CLI.**
+Why: agents reading `--json` saw `"sender": "owner_agent"` beside `"trust": "peer"`, two labels that seem to disagree, and the skill only teaches `sender`; nothing reads `trust` from the CLI.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,

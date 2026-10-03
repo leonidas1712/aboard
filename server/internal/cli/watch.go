@@ -142,9 +142,9 @@ func (w *watchRun) print(page *api.MessagePage) {
 			enc := json.NewEncoder(w.a.env.Stdout)
 			enc.SetEscapeHTML(false)
 			_ = enc.Encode(struct {
-				Board   string      `json:"board"`
-				Message api.Message `json:"message"`
-			}{page.Board, m})
+				Board   string     `json:"board"`
+				Message cliMessage `json:"message"`
+			}{page.Board, cliMessage{Message: m}})
 		} else {
 			_, _ = io.WriteString(w.a.env.Stdout, timelineText([]api.Message{m}))
 		}

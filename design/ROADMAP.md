@@ -47,6 +47,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | --- | --- |
 | One coherent picture: seats, owners, roles, admins, positioning | D93–D109 |
 | Sender labels `owner`, `owner_agent`, `other_person`, `other_agent`, `self` | D110 |
+| The CLI's `--json` messages carry `sender` only, without the deprecated `trust` | D136 |
 | Names from the harness, `show_harness` | D98 |
 | Admins and members | D97 |
 | One session fills one seat | D95 |

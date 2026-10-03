@@ -130,6 +130,29 @@ $defs:
     properties:
       name: { type: string, examples: [claude] }
       board: { type: string, examples: [writer-reviewer] }
+  Message:
+    description: |
+      A message in the CLI's --json output: the API's Message without its deprecated
+      `trust`. Read `sender` for who sent it. The API keeps `trust` for delivery daemons
+      from older builds, which read it from the API; the CLI never passes it on.
+    type: object
+    required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, urgent, expects_reply, sender, show_owner, redactions]
+    not: { required: [trust] }
+    properties:
+      id: { $ref: openapi.yaml#/components/schemas/Message/properties/id }
+      board: { $ref: openapi.yaml#/components/schemas/Message/properties/board }
+      seq: { $ref: openapi.yaml#/components/schemas/Message/properties/seq }
+      at: { $ref: openapi.yaml#/components/schemas/Message/properties/at }
+      from: { $ref: openapi.yaml#/components/schemas/Message/properties/from }
+      to: { $ref: openapi.yaml#/components/schemas/Message/properties/to }
+      body: { $ref: openapi.yaml#/components/schemas/Message/properties/body }
+      reply_to: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to }
+      reply_to_seq: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to_seq }
+      urgent: { $ref: openapi.yaml#/components/schemas/Message/properties/urgent }
+      expects_reply: { $ref: openapi.yaml#/components/schemas/Message/properties/expects_reply }
+      sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
+      show_owner: { $ref: openapi.yaml#/components/schemas/Message/properties/show_owner }
+      redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -253,11 +276,11 @@ $defs:
     type: object
     required: [message]
     properties:
-      message: { $ref: openapi.yaml#/components/schemas/Message }
+      message: { $ref: "#/$defs/Message" }
       reply:
         description: Present with --wait-reply. The first reply, or null on timeout.
         oneOf:
-          - $ref: openapi.yaml#/components/schemas/Message
+          - $ref: "#/$defs/Message"
           - type: "null"
       timed_out:
         description: Present with --wait-reply.
@@ -272,14 +295,16 @@ $defs:
       message_id: { type: string }
       replies:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/Message }
+        items: { $ref: "#/$defs/Message" }
       timed_out:
         type: boolean
         description: True when --wait was given and no reply arrived in time.
 
   # ---------- aboard message MSG ----------
   MessageOutput:
-    description: The message and each addressed agent's status (pending, received, replied).
+    description: |
+      The message and each addressed agent's status (pending, received, replied). Its
+      message is shaped like Message here, without `trust`.
     $ref: openapi.yaml#/components/schemas/MessageStatus
 
   # ---------- aboard inbox [--wait SECONDS] [--peek] [--limit N] ----------
@@ -295,7 +320,7 @@ $defs:
       agent: { type: string }
       messages:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/Message }
+        items: { $ref: "#/$defs/Message" }
       acked_up_to:
         type: [integer, "null"]
         description: The cursor after this call's ack. Null with --peek or when no messages.
@@ -410,7 +435,7 @@ $defs:
       visibility: { enum: [open, addressed] }
       messages:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/Message }
+        items: { $ref: "#/$defs/Message" }
       next_after: { type: [integer, "null"] }
       prev_before: { type: [integer, "null"] }
 
@@ -433,7 +458,7 @@ $defs:
     required: [board, message]
     properties:
       board: { type: string }
-      message: { $ref: openapi.yaml#/components/schemas/Message }
+      message: { $ref: "#/$defs/Message" }
 
   # ---------- aboard open [--board NAME] ----------
   OpenOutput:
