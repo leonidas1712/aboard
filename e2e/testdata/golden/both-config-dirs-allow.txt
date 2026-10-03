@@ -1,0 +1,371 @@
+==== aboard init --allow-commands ====
+claude-code, everywhere:
+  create    ~/claude-config/skills/aboard/SKILL.md (skill)
+  create    ~/claude-config/settings.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop
+            PostToolBatch: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
+            allow: Bash(aboard *)
+codex, everywhere:
+  create    ~/.agents/skills/aboard/SKILL.md (skill)
+  create    ~/codex-home/hooks.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+  create    ~/codex-home/rules/aboard.rules (permissions)
+            prefix_rule(pattern=["aboard"], decision="allow")
+            (Codex runs the commands it allows outside its sandbox.)
+Run aboard init --yes --allow-commands to make these changes.
+==== aboard init --yes --allow-commands --json ====
+{
+  "applied": true,
+  "scope": "global",
+  "delivery": null,
+  "allow_commands": true,
+  "harnesses": [
+    {
+      "name": "claude-code",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/claude-config/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/claude-config/settings.json",
+          "kind": "hooks",
+          "action": "create",
+          "allow": [
+            "Bash(aboard *)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "codex",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/codex-home/hooks.json",
+          "kind": "hooks",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/codex-home/rules/aboard.rules",
+          "kind": "permissions",
+          "action": "create",
+          "allow": [
+            "prefix_rule(pattern=[\"aboard\"], decision=\"allow\")"
+          ]
+        }
+      ]
+    }
+  ]
+}
+==== aboard init --yes --allow-commands (again) ====
+claude-code, everywhere:
+  unchanged ~/claude-config/skills/aboard/SKILL.md (skill)
+  unchanged ~/claude-config/settings.json (hooks)
+codex, everywhere:
+  unchanged ~/.agents/skills/aboard/SKILL.md (skill)
+  unchanged ~/codex-home/hooks.json (hooks)
+  unchanged ~/codex-home/rules/aboard.rules (permissions)
+Nothing to change.
+==== file .agents/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file claude-config/settings.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop",
+            "timeout": 86400,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(aboard *)"
+    ]
+  }
+}
+==== file claude-config/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file codex-home/hooks.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "timeout": 30,
+            "additionalContextLimit": 8192
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+==== file codex-home/rules/aboard.rules ====
+# Added by aboard init: run aboard commands without asking.
+prefix_rule(pattern=["aboard"], decision="allow")
+==== install manifest ====
+{
+  "files": [
+    {
+      "path": "{HOME}/claude-config/skills/aboard/SKILL.md",
+      "harness": "claude-code",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/claude-config/settings.json",
+      "harness": "claude-code",
+      "scope": "global",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true,
+      "allow_added": true
+    },
+    {
+      "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/codex-home/hooks.json",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/codex-home/rules/aboard.rules",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "permissions",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    }
+  ]
+}
+==== aboard status --json: setup ====
+{
+  "global": [
+    "claude-code",
+    "codex"
+  ],
+  "project": []
+}
+==== aboard status: setup line ====
+Setup:  claude-code everywhere, codex everywhere
+==== aboard doctor --json: harness checks ====
+[
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "claude-code: hooks installed everywhere ({HOME}/claude-config/settings.json)",
+    "name": "claude_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex-cli 0.159.3: queue available",
+    "name": "codex"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: hooks installed everywhere ({HOME}/codex-home/hooks.json)",
+    "name": "codex_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: aboard commands run outside Codex's sandbox (allowed in {HOME}/codex-home/rules/aboard.rules)",
+    "name": "codex_allow"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "claude-code: skill installed in {HOME}/claude-config/skills/aboard/SKILL.md",
+    "name": "claude_skill"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: skill installed in {HOME}/.agents/skills/aboard/SKILL.md",
+    "name": "codex_skill"
+  }
+]
+==== aboard uninstall --json: files ====
+[
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "skill",
+    "path": "{HOME}/claude-config/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "hooks",
+    "path": "{HOME}/claude-config/settings.json",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "skill",
+    "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "hooks",
+    "path": "{HOME}/codex-home/hooks.json",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "permissions",
+    "path": "{HOME}/codex-home/rules/aboard.rules",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  }
+]

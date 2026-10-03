@@ -1,0 +1,203 @@
+==== aboard init --harness codex --scope project ====
+claude-code: not chosen
+codex, in this project:
+  create    ~/project/.agents/skills/aboard/SKILL.md (skill)
+  create    ~/project/.codex/hooks.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
+Run aboard init --yes --scope project --harness codex to make these changes.
+==== aboard init --yes --harness codex --scope project --json ====
+{
+  "applied": true,
+  "scope": "project",
+  "delivery": null,
+  "allow_commands": false,
+  "harnesses": [
+    {
+      "name": "claude-code",
+      "detected": true,
+      "changes": []
+    },
+    {
+      "name": "codex",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/project/.codex/hooks.json",
+          "kind": "hooks",
+          "action": "create"
+        }
+      ]
+    }
+  ]
+}
+==== aboard init --yes --harness codex --scope project (again) ====
+claude-code: not chosen
+codex, in this project:
+  unchanged ~/project/.agents/skills/aboard/SKILL.md (skill)
+  unchanged ~/project/.codex/hooks.json (hooks)
+Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
+Nothing to change.
+==== file project/.agents/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file project/.codex/hooks.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "timeout": 30,
+            "additionalContextLimit": 8192
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+==== install manifest ====
+{
+  "files": [
+    {
+      "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.codex/hooks.json",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    }
+  ]
+}
+==== aboard status --json: setup ====
+{
+  "global": [],
+  "project": [
+    "codex"
+  ]
+}
+==== aboard status: setup line ====
+Setup:  codex in this project
+==== aboard doctor --json: harness checks ====
+[
+  {
+    "code": "claude_hooks_missing",
+    "fix": "run aboard init",
+    "level": "error",
+    "message": "claude-code: hooks not installed (SessionStart, UserPromptSubmit, Stop, PostToolBatch, SessionEnd)",
+    "name": "claude_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex-cli 0.159.3: queue available",
+    "name": "codex"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: hooks installed in this project ({HOME}/project/.codex/hooks.json)",
+    "name": "codex_hooks"
+  },
+  {
+    "code": "codex_aboard_not_allowed",
+    "fix": "run aboard init --yes --scope project --allow-commands in this project",
+    "level": "warning",
+    "message": "codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
+    "name": "codex_allow"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: skill installed in {HOME}/project/.agents/skills/aboard/SKILL.md",
+    "name": "codex_skill"
+  }
+]
+==== aboard uninstall --json: files ====
+[
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "skill",
+    "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "hooks",
+    "path": "{HOME}/project/.codex/hooks.json",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  }
+]

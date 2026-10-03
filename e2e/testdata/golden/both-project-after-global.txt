@@ -1,0 +1,535 @@
+==== aboard init --scope project ====
+claude-code, in this project:
+  (its hooks are also set up everywhere; with both, it may run each hook twice)
+  create    ~/project/.claude/skills/aboard/SKILL.md (skill)
+  create    ~/project/.claude/settings.local.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop
+            PostToolBatch: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
+codex, in this project:
+  (its hooks are also set up everywhere; with both, it may run each hook twice)
+  create    ~/project/.agents/skills/aboard/SKILL.md (skill)
+  create    ~/project/.codex/hooks.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
+Run aboard init --yes --scope project to make these changes.
+==== aboard init --yes --scope project --json ====
+{
+  "applied": true,
+  "scope": "project",
+  "delivery": null,
+  "allow_commands": false,
+  "harnesses": [
+    {
+      "name": "claude-code",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/project/.claude/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/project/.claude/settings.local.json",
+          "kind": "hooks",
+          "action": "create"
+        }
+      ]
+    },
+    {
+      "name": "codex",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/project/.codex/hooks.json",
+          "kind": "hooks",
+          "action": "create"
+        }
+      ]
+    }
+  ]
+}
+==== aboard init --yes --scope project (again) ====
+claude-code, in this project:
+  (its hooks are also set up everywhere; with both, it may run each hook twice)
+  unchanged ~/project/.claude/skills/aboard/SKILL.md (skill)
+  unchanged ~/project/.claude/settings.local.json (hooks)
+codex, in this project:
+  (its hooks are also set up everywhere; with both, it may run each hook twice)
+  unchanged ~/project/.agents/skills/aboard/SKILL.md (skill)
+  unchanged ~/project/.codex/hooks.json (hooks)
+Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
+Nothing to change.
+==== file .agents/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file .claude/settings.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop",
+            "timeout": 86400,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+==== file .claude/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file .codex/hooks.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "timeout": 30,
+            "additionalContextLimit": 8192
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+==== file project/.agents/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file project/.claude/settings.local.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop",
+            "timeout": 86400,
+            "asyncRewake": true
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+==== file project/.claude/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file project/.codex/hooks.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "timeout": 30,
+            "additionalContextLimit": 8192
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+==== install manifest ====
+{
+  "files": [
+    {
+      "path": "{HOME}/.claude/skills/aboard/SKILL.md",
+      "harness": "claude-code",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.claude/settings.json",
+      "harness": "claude-code",
+      "scope": "global",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/.codex/hooks.json",
+      "harness": "codex",
+      "scope": "global",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.claude/skills/aboard/SKILL.md",
+      "harness": "claude-code",
+      "scope": "project",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.claude/settings.local.json",
+      "harness": "claude-code",
+      "scope": "project",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.codex/hooks.json",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    }
+  ]
+}
+==== aboard status --json: setup ====
+{
+  "global": [
+    "claude-code",
+    "codex"
+  ],
+  "project": [
+    "claude-code",
+    "codex"
+  ]
+}
+==== aboard status: setup line ====
+Setup:  claude-code everywhere and in this project, codex everywhere and in this project
+==== aboard doctor --json: harness checks ====
+[
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "claude-code: hooks installed everywhere ({HOME}/.claude/settings.json) and in this project ({HOME}/project/.claude/settings.local.json)",
+    "name": "claude_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex-cli 0.159.3: queue available",
+    "name": "codex"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: hooks installed everywhere ({HOME}/.codex/hooks.json) and in this project ({HOME}/project/.codex/hooks.json)",
+    "name": "codex_hooks"
+  },
+  {
+    "code": "codex_aboard_not_allowed",
+    "fix": "run aboard init --yes --allow-commands",
+    "level": "warning",
+    "message": "codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
+    "name": "codex_allow"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "claude-code: skill installed in {HOME}/.claude/skills/aboard/SKILL.md and {HOME}/project/.claude/skills/aboard/SKILL.md",
+    "name": "claude_skill"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: skill installed in {HOME}/.agents/skills/aboard/SKILL.md and {HOME}/project/.agents/skills/aboard/SKILL.md",
+    "name": "codex_skill"
+  }
+]
+==== aboard uninstall --json: files ====
+[
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "skill",
+    "path": "{HOME}/.claude/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "hooks",
+    "path": "{HOME}/.claude/settings.json",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "skill",
+    "path": "{HOME}/project/.claude/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "claude-code",
+    "kind": "hooks",
+    "path": "{HOME}/project/.claude/settings.local.json",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "skill",
+    "path": "{HOME}/.agents/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "hooks",
+    "path": "{HOME}/.codex/hooks.json",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "skill",
+    "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "hooks",
+    "path": "{HOME}/project/.codex/hooks.json",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  }
+]
