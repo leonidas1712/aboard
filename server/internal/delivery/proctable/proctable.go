@@ -42,6 +42,15 @@ func (Table) Alive(p delivery.Process) bool {
 	return !in.exited && in.start == p.Start
 }
 
+// StartTime returns when a running process started, in the units Alive compares.
+func (Table) StartTime(pid int) (int64, bool) {
+	in, err := lookup(pid)
+	if err != nil || in.exited {
+		return 0, false
+	}
+	return in.start, true
+}
+
 // passThrough are programs that sit between a harness and the commands it runs: shells,
 // and wrappers that start one command. The harness is the first ancestor not among them.
 var passThrough = map[string]bool{

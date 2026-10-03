@@ -300,10 +300,9 @@ How Aboard does it: the extension holds one connection to the control socket per
 session, for as long as the session runs. Over it the extension registers the session,
 the daemon pushes bundles and the extension confirms them, and the extension reports
 when turns start and end. A profile declares it with identity kind `extension`,
-delivery method and capability `extension`, and lifecycle liveness `connection`.
-
-This section is specified and not yet answered by the daemon: today's daemon answers
-`hello` with `invalid_request`, which the extension handles as below.
+delivery method and capability `extension`, and lifecycle liveness `connection`. The
+daemon serves it for any harness whose delivery adapter has that capability; omp's
+extension (`adapters/omp/aboard.ts`) is the first client.
 
 ### Opening: `hello` and `welcome`
 
@@ -323,12 +322,14 @@ process to another session. Its first message is `hello`:
 | `boot` | Required. A random id the extension makes once per harness process, so bundles handed to an earlier process go again |
 | `source` | `startup` for a new session; `resume` when the harness reopened an earlier session with the same id. A resumed session is bound again to the agent it filled, as with `register` |
 | `resumed` | True when the extension reconnects after the connection dropped, with the same session and boot |
-| `process` | Required. The harness process (`pid` and its start time). The daemon logs it; the connection, not the process table, is the session's liveness |
-| `cwd`, `harness_version`, `extension_version` | Recommended. Logged by the daemon and shown by `aboard doctor` |
+| `process` | Required. The harness process: `pid`, and `start` when the extension can read it in the system's own units. When `start` is left out the daemon reads it from the process table as the hello arrives. The connection is the session's liveness; the process is what tells the daemon, after it restarted, that a session whose extension never came back has ended |
+| `cwd`, `harness_version`, `extension_version` | Recommended. The daemon logs them with the session's start, for debugging a setup |
 | `subagent` | Set only by an extension running inside a subagent. The daemon refuses it with `subagent_session`: messages go to the root conversation |
 
 `welcome` carries what `register` answers: `boot`, `agents`, and `reopened` or `lost`
-for a session that comes back. An error closes the connection.
+for a session that comes back. An error closes the connection. The daemon logs the hello
+as `session started`, with the connection's `pid`, `cwd`, `harness_version` and
+`extension_version`.
 
 ### While the session runs
 

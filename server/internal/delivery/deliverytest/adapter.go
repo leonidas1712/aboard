@@ -24,6 +24,9 @@ type AdapterFixture struct {
 	// Received returns the bundles a harness that queues took for a session, in order.
 	// It is unused for a harness that waits for idle.
 	Received func(t *testing.T, sessionID string) []string
+	// ConfirmsOnHand is set for a harness that waits for idle but whose waiter confirms
+	// each bundle as it takes it: a harness extension, which answers received.
+	ConfirmsOnHand bool
 }
 
 // trickyBundle has text a shell would act on, so the suite proves no shell sees it.
@@ -80,8 +83,9 @@ func RunAdapter(t *testing.T, f AdapterFixture) {
 		if !slices.Equal(got, []string{trickyBundle}) {
 			t.Fatalf("the harness got %q, want the bundle unchanged", got)
 		}
-		if confirmed == a.WaitsForIdle() {
-			t.Fatalf("confirmed = %v: a harness that waits for idle confirms later; one that queues confirms on acceptance", confirmed)
+		if want := !a.WaitsForIdle() || f.ConfirmsOnHand; confirmed != want {
+			t.Fatalf("confirmed = %v: a harness that waits for a hook confirms later; one that queues, or an extension that "+
+				"answers received, confirms as it takes the bundle", confirmed)
 		}
 	})
 
@@ -128,7 +132,7 @@ type RecordingWaiter struct {
 }
 
 // Deliver records the bundle, or returns ErrBusy when the hook is gone.
-func (w *RecordingWaiter) Deliver(_ context.Context, bundle string) error {
+func (w *RecordingWaiter) Deliver(_ context.Context, _ int64, bundle string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.Gone {

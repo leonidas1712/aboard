@@ -471,6 +471,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveWait(ctx, conn, r, req)
 	case OpHold:
 		d.serveHold(ctx, conn, r, req)
+	case OpHello:
+		d.serveExtension(ctx, conn, r, req)
 	case OpRegister, OpPrompt, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
@@ -609,8 +611,9 @@ type waiter struct {
 	gone     chan struct{}
 }
 
-// Deliver sends the bundle and waits for the hook to say it has it.
-func (w *waiter) Deliver(ctx context.Context, bundle string) error {
+// Deliver sends the bundle and waits for the hook to say it has it. A hook names no
+// delivery, so the id isn't sent.
+func (w *waiter) Deliver(ctx context.Context, _ int64, bundle string) error {
 	err := w.write(Response{V: ProtocolVersion, Event: EventDeliver, Bundle: bundle})
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrBusy, err)

@@ -15,6 +15,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/deliverytest"
+	"github.com/leonidas1712/aboard/server/internal/delivery/extension"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
 )
 
@@ -69,7 +70,7 @@ func (r *rig) start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	r.cancel, r.done = cancel, make(chan error, 1)
 	cfg := delivery.Config{
-		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex},
+		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex, extension.Adapter{Name: "omp"}},
 		Connect: func(string) delivery.Server { return r.server },
 		Control: r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
 	}

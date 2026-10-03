@@ -52,7 +52,6 @@ const (
 	OpClaim = "claim"
 	// OpHello opens an extension connection: a harness extension registers its session
 	// and keeps the connection open for as long as the session runs (spec/control.md).
-	// This daemon answers it with invalid_request, as it does any operation it lacks.
 	OpHello = "hello"
 	// OpGoodbye, sent on an extension connection, reports the session closed.
 	OpGoodbye = "goodbye"

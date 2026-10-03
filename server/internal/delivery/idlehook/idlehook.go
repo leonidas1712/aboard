@@ -40,5 +40,5 @@ func (Adapter) Hand(ctx context.Context, h delivery.Handover) (bool, error) {
 	if h.Waiter == nil {
 		return false, delivery.ErrBusy
 	}
-	return false, h.Waiter.Deliver(ctx, h.Bundle)
+	return false, h.Waiter.Deliver(ctx, h.ID, h.Bundle)
 }

@@ -80,7 +80,7 @@ func (f *FakeAdapter) Hand(ctx context.Context, h delivery.Handover) (bool, erro
 		if h.Waiter == nil {
 			return false, delivery.ErrBusy
 		}
-		if err := h.Waiter.Deliver(ctx, h.Bundle); err != nil {
+		if err := h.Waiter.Deliver(ctx, h.ID, h.Bundle); err != nil {
 			return false, err
 		}
 	}
@@ -402,6 +402,9 @@ func (f *FakeProcesses) Alive(p delivery.Process) bool {
 	defer f.mu.Unlock()
 	return !f.dead[p]
 }
+
+// StartTime returns the start time a fake process with any id has: 1.
+func (f *FakeProcesses) StartTime(int) (int64, bool) { return 1, true }
 
 // Kill makes p dead.
 func (f *FakeProcesses) Kill(p delivery.Process) {

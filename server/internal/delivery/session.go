@@ -42,6 +42,10 @@ type sessionMsg struct {
 	hold, unhold *hold
 	// claim records messages a command showed as received, answered on reply.
 	claim *claimRequest
+	// ext is a harness extension's connection, set with its hello in req; from is the
+	// connection a later report in req came on; extGone reports a connection closed
+	// without a goodbye.
+	ext, from, extGone *extConn
 }
 
 // hold keeps replies to one of an agent's messages out of its bundles and notices, while
@@ -99,8 +103,12 @@ type session struct {
 	working bool
 	// reported is the presence and delivery mode last reported for each agent.
 	reported map[AgentRef]reportedPresence
-	waiter   *waiter
-	agents   map[AgentRef]*agentState
+	// waiter is the connection waiting while the session is idle: its stop hook's, or
+	// its extension's.
+	waiter Waiter
+	// ext is the harness extension's connection, for a session an extension registered.
+	ext    *extConn
+	agents map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
 	restored bool
 	// refreshing holds refreshes whose results a waiting hook should see before a
@@ -202,6 +210,12 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		}
 	case m.claim != nil:
 		m.reply <- Response{V: ProtocolVersion, Claimed: s.onClaim(ctx, *m.claim)}
+	case m.ext != nil:
+		s.onHello(ctx, m.req, m.ext)
+	case m.from != nil:
+		s.onExtension(ctx, m.req, m.from)
+	case m.extGone != nil:
+		s.onExtensionGone(ctx, m.extGone)
 	default:
 		m.reply <- s.onRequest(ctx, m.req)
 	}
@@ -273,11 +287,13 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	return ok
 }
 
-// noteProcess records the harness process a request came from. A register is a harness
-// starting, so it replaces the process; anything else only fills it in when it is
-// unknown, so a command run from elsewhere can't keep a dead session open.
+// noteProcess records the harness process a request came from. A register or an
+// extension's hello is a harness starting, so it replaces the process; anything else
+// only fills it in when it is unknown, so a command run from elsewhere can't keep a dead
+// session open.
 func (s *session) noteProcess(ctx context.Context, req Request) {
-	if req.Process == nil || (s.proc != nil && (req.Op != OpRegister || *s.proc == *req.Process)) {
+	starting := req.Op == OpRegister || req.Op == OpHello
+	if req.Process == nil || (s.proc != nil && (!starting || *s.proc == *req.Process)) {
 		return
 	}
 	p := *req.Process
@@ -417,14 +433,17 @@ func (s *session) confirm(ctx context.Context) { s.confirmBefore(ctx, time.Time{
 // hook running at the same moment (parallel tool calls) doesn't show that the session
 // received it.
 func (s *session) confirmBefore(ctx context.Context, t time.Time) {
+	var confirmed []*Delivery
 	for _, a := range s.agents {
 		for _, dl := range a.deliveries {
 			if dl.State == StateHanded && dl.Session == s.key && (t.IsZero() || dl.UpdatedAt.Before(t)) {
 				s.setState(ctx, dl, StateConfirmed)
+				confirmed = append(confirmed, dl)
 			}
 		}
 		s.maybeAck(a)
 	}
+	s.logConfirmed(confirmed)
 }
 
 func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
@@ -925,7 +944,12 @@ func (s *session) tryDeliver(ctx context.Context) {
 		return
 	}
 	handed := s.record(ctx, c.parts, StateHanded)
-	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, Bundle: c.text, Waiter: s.waiterOrNil()})
+	var first int64
+	if len(handed) > 0 {
+		first = handed[0].ID
+	}
+	began := s.now()
+	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, Bundle: c.text, Waiter: s.waiter})
 	if s.adapter.WaitsForIdle() {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
 	}
@@ -937,6 +961,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 		for _, dl := range handed {
 			s.setState(ctx, dl, StateConfirmed)
 		}
+		s.logConfirmed(handed)
 	case err == nil:
 	case errors.Is(err, ErrBusy):
 		for _, dl := range handed {
@@ -956,7 +981,31 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.gatherUntil = s.now()
 	}
 	s.scheduleRetry()
-	s.d.log.Info("bundle handed", "session", s.key.String(), "deliveries", len(handed), "seqs", partSeqs(c.parts), "bytes", len(c.text), "error", errText(err))
+	s.d.log.Info("bundle handed", "session", s.key.String(), "board", partBoard(c.parts), "deliveries", len(handed), "seqs", partSeqs(c.parts),
+		"bytes", len(c.text), "began", began, "error", errText(err))
+}
+
+// partBoard is the board of a bundle's messages, for the log: a session holds one agent,
+// so one board.
+func partBoard(parts []offer) string {
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0].agent.Board
+}
+
+// logConfirmed logs deliveries the session just confirmed, so the time a harness took to
+// take a bundle can be read from the log.
+func (s *session) logConfirmed(ds []*Delivery) {
+	var seqs []int
+	board := ""
+	for _, dl := range ds {
+		seqs = append(seqs, dl.Seqs...)
+		board = dl.Agent.Board
+	}
+	if len(seqs) > 0 {
+		s.d.log.Info("bundle confirmed", "session", s.key.String(), "board", board, "seqs", seqs)
+	}
 }
 
 // hand calls the harness. The call isn't cut off the moment the daemon starts stopping:
@@ -973,13 +1022,6 @@ func (s *session) hand(ctx context.Context, h Handover) (bool, error) {
 	})
 	defer stop()
 	return s.adapter.Hand(hctx, h)
-}
-
-func (s *session) waiterOrNil() Waiter {
-	if s.waiter == nil {
-		return nil
-	}
-	return s.waiter
 }
 
 func errText(err error) string {
