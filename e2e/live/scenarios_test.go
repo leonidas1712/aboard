@@ -270,8 +270,17 @@ func TestRepliesReachPromptly(t *testing.T) {
 			var how string
 			l.waitFor(2*time.Minute, fmt.Sprintf("PONG %d to reach the session", n), func() bool {
 				var ok bool
-				at, how, ok = l.reached(pong.Seq)
-				return ok
+				if at, how, ok = l.reached(pong.Seq); ok {
+					return true
+				}
+				// The agent may also read it with aboard inbox, which goes to the server, not
+				// the daemon, so nothing logs it; it has reached the session once it is no
+				// longer unread.
+				if !slices.ContainsFunc(l.inbox("reviewer"), func(m message) bool { return m.Seq == pong.Seq }) {
+					at, how = time.Now(), "read by the agent with aboard inbox"
+					return true
+				}
+				return false
 			})
 			t.Logf("measured: PONG %d reached the session %s after it was posted (%s)", n, at.Sub(pong.At), how)
 			if dur := at.Sub(pong.At); dur > pongBound {
