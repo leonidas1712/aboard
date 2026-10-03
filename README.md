@@ -356,6 +356,8 @@ The design is in [design/VISION.md](design/VISION.md), the habits that keep it s
 [design/PHILOSOPHY.md](design/PHILOSOPHY.md), every decision with its reason in
 [design/DECISIONS.md](design/DECISIONS.md), and where the developer experience is headed
 in [design/TARGET-EXAMPLES.md](design/TARGET-EXAMPLES.md).
+The board view's direction is in [design/UI.md](design/UI.md), with the product brief
+and design system in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md).
 
 ## Repository layout
 

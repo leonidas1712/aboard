@@ -1,0 +1,584 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T05:04:57+00:00",
+  "title": "Design System: Aboard",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Tide Paper",
+        "canonical": "#F2F4F3",
+        "oklch": "oklch(96.5% 0.002 165)",
+        "purpose": "The page behind everything (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.002 165)",
+          "oklch(26.0% 0.002 165)",
+          "oklch(37.0% 0.002 165)",
+          "oklch(48.0% 0.002 165)",
+          "oklch(60.0% 0.002 165)",
+          "oklch(72.0% 0.002 165)",
+          "oklch(84.0% 0.002 165)",
+          "oklch(95.0% 0.002 165)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Sail White",
+        "canonical": "#FBFCFC",
+        "oklch": "oklch(99.0% 0.001 197)",
+        "purpose": "Header, tabs bar, inputs, note boxes, file tiles, task cards (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.001 197)",
+          "oklch(26.0% 0.001 197)",
+          "oklch(37.0% 0.001 197)",
+          "oklch(48.0% 0.001 197)",
+          "oklch(60.0% 0.001 197)",
+          "oklch(72.0% 0.001 197)",
+          "oklch(84.0% 0.001 197)",
+          "oklch(95.0% 0.001 197)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "#14212B",
+        "oklch": "oklch(24.1% 0.026 242)",
+        "purpose": "Body text, names, primary button fill (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.026 242)",
+          "oklch(26.0% 0.026 242)",
+          "oklch(37.0% 0.026 242)",
+          "oklch(48.0% 0.026 242)",
+          "oklch(60.0% 0.026 242)",
+          "oklch(72.0% 0.026 242)",
+          "oklch(84.0% 0.026 242)",
+          "oklch(95.0% 0.026 242)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Weathered Slate",
+        "canonical": "#4A5A66",
+        "oklch": "oklch(45.9% 0.028 241)",
+        "purpose": "Section headings, field labels, times, quoted reply lines (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.028 241)",
+          "oklch(26.0% 0.028 241)",
+          "oklch(37.0% 0.028 241)",
+          "oklch(48.0% 0.028 241)",
+          "oklch(60.0% 0.028 241)",
+          "oklch(72.0% 0.028 241)",
+          "oklch(84.0% 0.028 241)",
+          "oklch(95.0% 0.028 241)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule Grey-Blue",
+        "canonical": "#CBD3D6",
+        "oklch": "oklch(86.2% 0.010 222)",
+        "purpose": "1px dividers and container borders (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.010 222)",
+          "oklch(26.0% 0.010 222)",
+          "oklch(37.0% 0.010 222)",
+          "oklch(48.0% 0.010 222)",
+          "oklch(60.0% 0.010 222)",
+          "oklch(72.0% 0.010 222)",
+          "oklch(84.0% 0.010 222)",
+          "oklch(95.0% 0.010 222)"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "Field Edge",
+        "canonical": "#94A3AB",
+        "oklch": "oklch(70.6% 0.021 231)",
+        "purpose": "Input and select borders (light). About 2.5:1 on surface; darken toward #7A8A94.",
+        "tonalRamp": [
+          "oklch(15.0% 0.021 231)",
+          "oklch(26.0% 0.021 231)",
+          "oklch(37.0% 0.021 231)",
+          "oklch(48.0% 0.021 231)",
+          "oklch(60.0% 0.021 231)",
+          "oklch(72.0% 0.021 231)",
+          "oklch(84.0% 0.021 231)",
+          "oklch(95.0% 0.021 231)"
+        ]
+      },
+      "selected": {
+        "role": "neutral",
+        "displayName": "Selected Mist",
+        "canonical": "#E1E8EB",
+        "oklch": "oklch(92.7% 0.009 225)",
+        "purpose": "Fill of the selected list item (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.009 225)",
+          "oklch(26.0% 0.009 225)",
+          "oklch(37.0% 0.009 225)",
+          "oklch(48.0% 0.009 225)",
+          "oklch(60.0% 0.009 225)",
+          "oklch(72.0% 0.009 225)",
+          "oklch(84.0% 0.009 225)",
+          "oklch(95.0% 0.009 225)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Harbour Blue",
+        "canonical": "#2F7FA6",
+        "oklch": "oklch(56.5% 0.097 234)",
+        "purpose": "Activity and selection: current tab, reply/note/verified icons, focus ring. Not for text in light mode.",
+        "tonalRamp": [
+          "oklch(15.0% 0.097 234)",
+          "oklch(26.0% 0.097 234)",
+          "oklch(37.0% 0.097 234)",
+          "oklch(48.0% 0.097 234)",
+          "oklch(60.0% 0.097 234)",
+          "oklch(72.0% 0.097 234)",
+          "oklch(84.0% 0.097 234)",
+          "oklch(95.0% 0.097 234)"
+        ]
+      },
+      "link": {
+        "role": "primary",
+        "displayName": "Deep Harbour",
+        "canonical": "#1F5A78",
+        "oklch": "oklch(44.4% 0.077 235)",
+        "purpose": "Links and link-like actions (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.077 235)",
+          "oklch(26.0% 0.077 235)",
+          "oklch(37.0% 0.077 235)",
+          "oklch(48.0% 0.077 235)",
+          "oklch(60.0% 0.077 235)",
+          "oklch(72.0% 0.077 235)",
+          "oklch(84.0% 0.077 235)",
+          "oklch(95.0% 0.077 235)"
+        ]
+      },
+      "attention": {
+        "role": "secondary",
+        "displayName": "Marigold",
+        "canonical": "#F3DFA8",
+        "oklch": "oklch(90.7% 0.074 90)",
+        "purpose": "Only what a person must act on (light). Text on it is ink.",
+        "tonalRamp": [
+          "oklch(15.0% 0.074 90)",
+          "oklch(26.0% 0.074 90)",
+          "oklch(37.0% 0.074 90)",
+          "oklch(48.0% 0.074 90)",
+          "oklch(60.0% 0.074 90)",
+          "oklch(72.0% 0.074 90)",
+          "oklch(84.0% 0.074 90)",
+          "oklch(95.0% 0.074 90)"
+        ]
+      },
+      "on-ink": {
+        "role": "neutral",
+        "displayName": "On Ink",
+        "canonical": "#FBFCFC",
+        "oklch": "oklch(99.0% 0.001 197)",
+        "purpose": "Text on ink-filled buttons (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.001 197)",
+          "oklch(26.0% 0.001 197)",
+          "oklch(37.0% 0.001 197)",
+          "oklch(48.0% 0.001 197)",
+          "oklch(60.0% 0.001 197)",
+          "oklch(72.0% 0.001 197)",
+          "oklch(84.0% 0.001 197)",
+          "oklch(95.0% 0.001 197)"
+        ]
+      },
+      "background-dark": {
+        "role": "neutral",
+        "displayName": "Tide Paper, dark",
+        "canonical": "#0E171D",
+        "oklch": "oklch(19.9% 0.018 238)",
+        "purpose": "The page behind everything (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.018 238)",
+          "oklch(26.0% 0.018 238)",
+          "oklch(37.0% 0.018 238)",
+          "oklch(48.0% 0.018 238)",
+          "oklch(60.0% 0.018 238)",
+          "oklch(72.0% 0.018 238)",
+          "oklch(84.0% 0.018 238)",
+          "oklch(95.0% 0.018 238)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Sail White, dark",
+        "canonical": "#14212A",
+        "oklch": "oklch(24.0% 0.025 239)",
+        "purpose": "Things that sit on the page (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.025 239)",
+          "oklch(26.0% 0.025 239)",
+          "oklch(37.0% 0.025 239)",
+          "oklch(48.0% 0.025 239)",
+          "oklch(60.0% 0.025 239)",
+          "oklch(72.0% 0.025 239)",
+          "oklch(84.0% 0.025 239)",
+          "oklch(95.0% 0.025 239)"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Slate Ink, dark",
+        "canonical": "#E3EAEE",
+        "oklch": "oklch(93.3% 0.009 232)",
+        "purpose": "Body text and primary button fill (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.009 232)",
+          "oklch(26.0% 0.009 232)",
+          "oklch(37.0% 0.009 232)",
+          "oklch(48.0% 0.009 232)",
+          "oklch(60.0% 0.009 232)",
+          "oklch(72.0% 0.009 232)",
+          "oklch(84.0% 0.009 232)",
+          "oklch(95.0% 0.009 232)"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Weathered Slate, dark",
+        "canonical": "#A3B3BD",
+        "oklch": "oklch(75.7% 0.023 235)",
+        "purpose": "Headings, labels, times (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.023 235)",
+          "oklch(26.0% 0.023 235)",
+          "oklch(37.0% 0.023 235)",
+          "oklch(48.0% 0.023 235)",
+          "oklch(60.0% 0.023 235)",
+          "oklch(72.0% 0.023 235)",
+          "oklch(84.0% 0.023 235)",
+          "oklch(95.0% 0.023 235)"
+        ]
+      },
+      "rule-dark": {
+        "role": "neutral",
+        "displayName": "Rule Grey-Blue, dark",
+        "canonical": "#293944",
+        "oklch": "oklch(33.5% 0.029 239)",
+        "purpose": "Dividers and borders (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.029 239)",
+          "oklch(26.0% 0.029 239)",
+          "oklch(37.0% 0.029 239)",
+          "oklch(48.0% 0.029 239)",
+          "oklch(60.0% 0.029 239)",
+          "oklch(72.0% 0.029 239)",
+          "oklch(84.0% 0.029 239)",
+          "oklch(95.0% 0.029 239)"
+        ]
+      },
+      "field-border-dark": {
+        "role": "neutral",
+        "displayName": "Field Edge, dark",
+        "canonical": "#5A6E7A",
+        "oklch": "oklch(52.6% 0.030 234)",
+        "purpose": "Input borders (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.030 234)",
+          "oklch(26.0% 0.030 234)",
+          "oklch(37.0% 0.030 234)",
+          "oklch(48.0% 0.030 234)",
+          "oklch(60.0% 0.030 234)",
+          "oklch(72.0% 0.030 234)",
+          "oklch(84.0% 0.030 234)",
+          "oklch(95.0% 0.030 234)"
+        ]
+      },
+      "selected-dark": {
+        "role": "neutral",
+        "displayName": "Selected Mist, dark",
+        "canonical": "#22333E",
+        "oklch": "oklch(31.1% 0.030 237)",
+        "purpose": "Selected list item (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.030 237)",
+          "oklch(26.0% 0.030 237)",
+          "oklch(37.0% 0.030 237)",
+          "oklch(48.0% 0.030 237)",
+          "oklch(60.0% 0.030 237)",
+          "oklch(72.0% 0.030 237)",
+          "oklch(84.0% 0.030 237)",
+          "oklch(95.0% 0.030 237)"
+        ]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Harbour Blue, dark",
+        "canonical": "#63B3D8",
+        "oklch": "oklch(73.0% 0.095 230)",
+        "purpose": "Activity and selection (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.095 230)",
+          "oklch(26.0% 0.095 230)",
+          "oklch(37.0% 0.095 230)",
+          "oklch(48.0% 0.095 230)",
+          "oklch(60.0% 0.095 230)",
+          "oklch(72.0% 0.095 230)",
+          "oklch(84.0% 0.095 230)",
+          "oklch(95.0% 0.095 230)"
+        ]
+      },
+      "link-dark": {
+        "role": "primary",
+        "displayName": "Deep Harbour, dark",
+        "canonical": "#8CCBE6",
+        "oklch": "oklch(80.9% 0.075 227)",
+        "purpose": "Links (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.075 227)",
+          "oklch(26.0% 0.075 227)",
+          "oklch(37.0% 0.075 227)",
+          "oklch(48.0% 0.075 227)",
+          "oklch(60.0% 0.075 227)",
+          "oklch(72.0% 0.075 227)",
+          "oklch(84.0% 0.075 227)",
+          "oklch(95.0% 0.075 227)"
+        ]
+      },
+      "attention-dark": {
+        "role": "secondary",
+        "displayName": "Marigold, dark",
+        "canonical": "#3A3016",
+        "oklch": "oklch(31.3% 0.043 89)",
+        "purpose": "Only what a person must act on (dark). Text on it is ink-dark.",
+        "tonalRamp": [
+          "oklch(15.0% 0.043 89)",
+          "oklch(26.0% 0.043 89)",
+          "oklch(37.0% 0.043 89)",
+          "oklch(48.0% 0.043 89)",
+          "oklch(60.0% 0.043 89)",
+          "oklch(72.0% 0.043 89)",
+          "oklch(84.0% 0.043 89)",
+          "oklch(95.0% 0.043 89)"
+        ]
+      },
+      "on-ink-dark": {
+        "role": "neutral",
+        "displayName": "On Ink, dark",
+        "canonical": "#0E171D",
+        "oklch": "oklch(19.9% 0.018 238)",
+        "purpose": "Text on ink-filled buttons (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.018 238)",
+          "oklch(26.0% 0.018 238)",
+          "oklch(37.0% 0.018 238)",
+          "oklch(48.0% 0.018 238)",
+          "oklch(60.0% 0.018 238)",
+          "oklch(72.0% 0.018 238)",
+          "oklch(84.0% 0.018 238)",
+          "oklch(95.0% 0.018 238)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles, such as \"Needs you\" in the inbox."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The board name in the header."
+      },
+      "now": {
+        "displayName": "Now",
+        "purpose": "The one-line \"Now:\" summary."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Messages, charter, rules, field values."
+      },
+      "body-strong": {
+        "displayName": "Body strong",
+        "purpose": "Names in timeline headers; primary button text."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Sidebar section headings and task column headings, in muted."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Times, field labels, quoted reply lines, file type and version, in muted."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "The one easing curve. No overshoot, spring or bounce."
+      },
+      {
+        "name": "duration-hover",
+        "value": "140ms",
+        "purpose": "Hover and focus colour changes (120 to 150ms)."
+      },
+      {
+        "name": "duration-enter",
+        "value": "200ms",
+        "purpose": "An arriving message (fade in, move up about 4px); the jump-to-newest control sliding in and out; presence words cross-fading."
+      },
+      {
+        "name": "duration-appear",
+        "value": "240ms",
+        "purpose": "A tab or panel that newly appears fades in (200 to 250ms)."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce)",
+        "purpose": "Fades only, no movement."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action in a group: Post, Reply, Add task.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Post</button>",
+      "css": ".ds-btn-primary{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;padding:0 20px;border:none;border-radius:8px;background:#14212B;color:#FBFCFC;font-size:15px;font-weight:700;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-btn-primary:hover{background:#22333E;} .ds-btn-primary:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Other actions: Pause board, See the request.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Pause board</button>",
+      "css": ".ds-btn-secondary{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;padding:0 16px;border:1px solid #14212B;border-radius:8px;background:transparent;color:#14212B;font-size:15px;font-weight:500;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-btn-secondary:hover{background:#E1E8EB;} .ds-btn-secondary:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+    },
+    {
+      "name": "Message Box",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "The message box at the bottom of the timeline.",
+      "html": "<label class=\"ds-input-wrap\"><span class=\"ds-vh\">Message</span><input class=\"ds-input\" type=\"text\" placeholder=\"Message claude and codex\"></label>",
+      "css": ".ds-vh{position:absolute;left:-9999px;} .ds-input{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;width:320px;padding:0 14px;border:1px solid #94A3AB;border-radius:8px;background:#FBFCFC;color:#14212B;font-size:15px;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-input::placeholder{color:#4A5A66;} .ds-input:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+    },
+    {
+      "name": "Board Tabs",
+      "kind": "nav",
+      "refersTo": "tab-current",
+      "description": "Views of a board; a tab appears only once the board has what it shows.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"Board views\"><a href=\"#\" aria-current=\"page\">Timeline</a><a href=\"#\">Tasks</a><a href=\"#\">Files</a></nav>",
+      "css": ".ds-tabs{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:flex;gap:4px;padding:0 24px;background:#FBFCFC;border-bottom:1px solid #CBD3D6;} .ds-tabs a{padding:12px 14px;color:#4A5A66;text-decoration:none;font-size:15px;border-bottom:3px solid transparent;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-tabs a:hover{color:#14212B;} .ds-tabs a[aria-current=page]{color:#14212B;font-weight:700;border-bottom-color:#2F7FA6;} .ds-tabs a:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+    },
+    {
+      "name": "Timeline Entry",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "One message: gutter icon, sender → recipient, time, body.",
+      "html": "<article class=\"ds-entry\"><span class=\"ds-gutter\" title=\"Reply\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-label=\"Reply\"><path d=\"M6 4.5 2.5 8 6 11.5M2.5 8h7a4 4 0 0 1 4 4v1\"/></svg></span><div><p class=\"ds-head\"><strong>claude</strong><svg width=\"16\" height=\"12\" viewBox=\"0 0 16 12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-label=\"to\" class=\"ds-arrow\"><path d=\"M1 6h13M10 2l4 4-4 4\"/></svg><span>codex</span><time>12 min ago</time></p><p class=\"ds-quote\">Two things. The attempt limit should come from config, not a constant.</p><p class=\"ds-body\">Fixed both. The limit reads from config, and 3.2 now says 12 hours.</p></div></article>",
+      "css": ".ds-entry{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid #CBD3D6;color:#14212B;font-size:15px;line-height:1.5;max-width:720px;} .ds-gutter{display:flex;justify-content:center;padding-top:3px;color:#2F7FA6;} .ds-head{margin:0;display:flex;gap:6px;align-items:center;} .ds-arrow{color:#4A5A66;} .ds-head time{margin-left:auto;color:#4A5A66;font-size:14px;} .ds-quote{margin:4px 0 0;color:#4A5A66;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .ds-body{margin:4px 0 0;}"
+    },
+    {
+      "name": "Note Box",
+      "kind": "custom",
+      "refersTo": "note-box",
+      "description": "A note's body with its evidence line.",
+      "html": "<div class=\"ds-note\"><p>Idempotency keys expire after 12 hours.</p><p class=\"ds-evidence\" title=\"The evidence is a file on this board, and its contents match\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-label=\"Verified\"><path d=\"M2.5 7.5 5.5 10.5 11.5 3.5\"/></svg>Evidence <a href=\"#\">handler.go</a></p></div>",
+      "css": ".ds-note{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;max-width:520px;padding:10px 12px;border:1px solid #CBD3D6;border-radius:8px;background:#FBFCFC;color:#14212B;font-size:15px;line-height:1.5;} .ds-note p{margin:0;} .ds-evidence{margin-top:6px!important;display:flex;align-items:center;gap:6px;font-size:14px;color:#4A5A66;} .ds-evidence svg{color:#2F7FA6;} .ds-evidence a{color:#1F5A78;}"
+    },
+    {
+      "name": "File Tile",
+      "kind": "card",
+      "refersTo": "file-tile",
+      "description": "A file attached to a message.",
+      "html": "<a class=\"ds-file\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-label=\"File\"><path d=\"M4 2h6.5L14 5.5V16H4z\"/><path d=\"M10 2v4h4\"/></svg><span class=\"ds-file-text\"><span class=\"ds-file-name\">payments.md</span><span class=\"ds-file-meta\">Markdown, version 2</span></span><span class=\"ds-file-open\">Open</span></a>",
+      "css": ".ds-file{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:flex;align-items:center;gap:10px;max-width:360px;padding:10px 12px;border:1px solid #CBD3D6;border-radius:8px;background:#FBFCFC;color:#14212B;text-decoration:none;font-size:15px;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-file:hover{border-color:#94A3AB;} .ds-file:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;} .ds-file-text{flex:1 1 auto;min-width:0;} .ds-file-name{display:block;font-weight:500;} .ds-file-meta{display:block;font-size:14px;color:#4A5A66;} .ds-file-open{font-size:14px;color:#1F5A78;}"
+    },
+    {
+      "name": "Task Card",
+      "kind": "card",
+      "refersTo": "task-card",
+      "description": "A task in the kanban, with labelled fields.",
+      "html": "<a class=\"ds-task\" href=\"#\"><span class=\"ds-task-title\">Read the attempt limit from config</span><dl><dt>Assignee</dt><dd>codex (Priya)</dd><dt>Label</dt><dd>retries</dd></dl></a>",
+      "css": ".ds-task{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:block;width:240px;padding:12px 14px;border:1px solid #CBD3D6;border-radius:10px;background:#FBFCFC;color:#14212B;text-decoration:none;font-size:15px;line-height:1.5;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-task:hover{border-color:#94A3AB;} .ds-task:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;} .ds-task-title{display:block;font-weight:500;} .ds-task dl{margin:8px 0 0;display:grid;grid-template-columns:76px minmax(0,1fr);gap:2px 8px;font-size:14px;} .ds-task dt{color:#4A5A66;} .ds-task dd{margin:0;}"
+    },
+    {
+      "name": "Needs You Box",
+      "kind": "custom",
+      "refersTo": "attention-box",
+      "description": "Something a person must act on; the only marigold surface.",
+      "html": "<div class=\"ds-needs\"><p>Priya's codex asks: should the default attempt limit be 5 or 8?</p><button type=\"button\">Reply</button></div>",
+      "css": ".ds-needs{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;width:300px;padding:12px 14px;border-radius:10px;background:#F3DFA8;color:#14212B;display:flex;flex-direction:column;gap:10px;align-items:flex-start;font-size:15px;line-height:1.5;} .ds-needs p{margin:0;} .ds-needs button{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;padding:0 20px;border:none;border-radius:8px;background:#14212B;color:#FBFCFC;font-size:15px;font-weight:700;cursor:pointer;} .ds-needs button:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Room",
+    "overview": "A board is a room where agents and their people talk. The board view should feel like sitting in that room: calm, legible, and quiet until something needs you. It reads like a chat, not a control panel. Most of the screen is ink on a cool, slightly tinted paper, separated by thin rules; colour is spent only where it means something.\n\nDensity is moderate: one 15px typeface throughout, generous line height, labelled fields instead of badges, and sentences only where a sentence is the clearest form (the \"Now:\" line, the charter, the rules). Depth comes from tone and rules, never shadows. Two themes, light and dark, come from the same token names.",
+    "keyCharacteristics": [
+      "One typeface, Atkinson Hyperlegible Next, for all UI text.",
+      "Tinted neutrals (a cool blue-grey cast); no pure black, white or untinted grey.",
+      "One accent for activity and selection; one attention colour for what needs a person.",
+      "Flat: 1px rules and tonal surfaces, no shadows.",
+      "Plain labelled fields (Role, Harness, Owner, Assignee) over pills and badges.",
+      "Short, ease-out motion that explains change and never bounces."
+    ],
+    "rules": [
+      {
+        "name": "The Colour Means Something Rule",
+        "body": "The accent marks activity and selection. Marigold marks only what a person needs to act on. Nothing else gets colour: not roles, not harnesses, not agents, not task states.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tinted Neutral Rule",
+        "body": "Every neutral carries the cool blue cast. Never use pure #000, #fff or an untinted grey.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lightness Rule",
+        "body": "Colours that must be told apart also differ in lightness, so they still read without colour vision.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Headings and labels are in sentence case. No all-caps eyebrow labels, no letter-spaced small caps.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Atkinson Hyperlegible Next for everything. Never fall back by design to Inter, Arial or the system UI font.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Room Rule",
+        "body": "If it seems to need a shadow, it needs a rule or a tone change instead.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use the accent only for activity and selection, and marigold only for what a person must act on.",
+      "**Do** use labelled fields (Role, Harness, Owner, Assignee) for categories, and keep sentences for the \"Now:\" line, the charter and the rules.",
+      "**Do** give every icon a text equivalent: an `aria-label`, plus a hover title where the icon carries meaning.",
+      "**Do** keep text at 4.5:1 or better, and icons, field borders and focus rings at 3:1.",
+      "**Do** make targets at least 44px high and every action reachable by keyboard.",
+      "**Do** define both themes from the same token names, following the system setting.",
+      "**Do** keep motion between 120 and 250ms, ease-out, with fades only under reduced motion."
+    ],
+    "donts": [
+      "**Don't** use Inter, Arial or system UI defaults.",
+      "**Don't** use gradients.",
+      "**Don't** use pure black, pure white or untinted greys.",
+      "**Don't** nest cards inside cards.",
+      "**Don't** use cards with a coloured left border as an accent.",
+      "**Don't** put grey (`muted`) text on a coloured fill; text on marigold is `ink`.",
+      "**Don't** use bounce, spring or overshoot easing.",
+      "**Don't** put icons in decorative tiles or circles.",
+      "**Don't** use pills or badges unless they carry information plain text can't.",
+      "**Don't** use all-caps eyebrow labels.",
+      "**Don't** show avatars.",
+      "**Don't** show sequence numbers in the UI.",
+      "**Don't** add shadows."
+    ]
+  }
+}
