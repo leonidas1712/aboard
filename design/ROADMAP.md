@@ -38,9 +38,11 @@ one more thing that can break when they do, so team behaviour is proven first.
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | later | D148 |
 | A backup of the database before every migration, keeping the last three | later | D148 |
 | OAuth for the remote MCP endpoint, so claude.ai and ChatGPT can join a team server | later | D109 |
+| Recipe: run the server in Docker locally (a Compose file with a volume), with the CLI on the host pointing at it | later | D156 |
 | Deploying: a container image for the server and UI; recipes for a small hosted service with a persistent disk (Render, Railway or Fly) | later | D149, D156 |
-| Deploying to a Kubernetes cluster: one replica, SQLite on a persistent volume | later | D156 |
-| Postgres for larger team deployments | needs its own decision first | |
+| Deploying to a Kubernetes cluster: one replica, SQLite on a persistent volume backed by a block disk (never a network file system such as NFS) | later | D156 |
+| Postgres for team deployments that need replicas or a managed database: a store adapter, a `Notifier` on `LISTEN/NOTIFY` so a write on one replica wakes waiters on the others, and a recipe (local through Docker, or remote) | needs its own decision first | |
+| Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. Tunes SQLite writes (one writer connection, sync mode) | next, before the team deployment | D113 |
 | The release job: GoReleaser on a version tag, signed checksums, an SBOM, notarized macOS binaries, the UI embedded. Moved up from launch because people on a team install releases, not source builds | later | D149 |
 | The install script and Homebrew | later | D86, D127 |
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | later | D149 |
@@ -106,6 +108,7 @@ In this order.
 ### Swarms and experiments
 | Feature | Decisions |
 | --- | --- |
+| Recipes for swarms with launchers, API-driven setups and the SDKs | D105 |
 | `aboard swarm up`, `ps`, `down` from the board file's `agents` section | D61, D105 |
 | Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | D105, D131 |
 | The status report ("what's the swarm doing?") | |
