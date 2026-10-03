@@ -7,7 +7,7 @@ colors:
   ink: "#14212B"
   muted: "#4A5A66"
   rule: "#CBD3D6"
-  field-border: "#94A3AB"
+  field-border: "#7A8A94"
   selected: "#E1E8EB"
   accent: "#2F7FA6"
   link: "#1F5A78"
@@ -197,9 +197,8 @@ reserved for people.
   list (the current board, "Needs you" in the inbox list).
 - **On Ink** (`on-ink`, `on-ink-dark`): text on an ink-filled button.
 
-Known gap: light `field-border` measures about 2.5:1 against the surface, under the
-3:1 that WCAG asks of a field's boundary. Darken it (around `#7A8A94`, 3.5:1) when the
-tokens move into `/web`.
+Light `field-border` is `#7A8A94`, about 3.5:1 against the surface, to meet the 3:1 WCAG
+asks of a field's boundary (the mockup's `#94A3AB` was about 2.5:1).
 
 ### Named Rules
 
