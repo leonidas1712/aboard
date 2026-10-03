@@ -38,7 +38,7 @@ func TestHooksNameAboardHome(t *testing.T) {
 		}
 	}
 	delete(env, "ABOARD_HOME")
-	if got := a.withHome(claudeHooks("/bin/aboard"))[0].handler.Command; got != "/bin/aboard hook claude-code session-start" {
+	if got := a.withHome(claudeHooks("/bin/aboard", true))[0].handler.Command; got != "/bin/aboard hook claude-code session-start" {
 		t.Fatalf("without ABOARD_HOME: %q", got)
 	}
 }

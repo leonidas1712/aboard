@@ -35,7 +35,7 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	installed := map[string][]hookSpec{"claude-code": claudeHooks("aboard"), "codex": codexHooks("aboard")}
+	installed := map[string][]hookSpec{"claude-code": claudeHooks("aboard", true), "codex": codexHooks("aboard")}
 	for harness, specs := range installed {
 		t.Run(harness, func(t *testing.T) {
 			data, err := adapters.Profiles.ReadFile(harness + "/profile.yaml")
@@ -80,8 +80,10 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 				Delivery struct {
 					HooksFile string `yaml:"hooks_file"`
 					Hooks     []struct {
-						Event string `yaml:"event"`
-						Run   string `yaml:"run"`
+						Event    string   `yaml:"event"`
+						Run      string   `yaml:"run"`
+						Since    string   `yaml:"since"`
+						Fallback []string `yaml:"fallback"`
 					} `yaml:"hooks"`
 				} `yaml:"delivery"`
 			}
@@ -102,6 +104,21 @@ func TestProfilesMatchTheSchemaAndTheInstalledHooks(t *testing.T) {
 			slices.Sort(want)
 			if !slices.Equal(listed, want) {
 				t.Fatalf("profile hooks %v, aboard init installs %v", listed, want)
+			}
+			for _, h := range p.Delivery.Hooks {
+				if h.Since == "" {
+					continue
+				}
+				// The fallback events are what aboard init installs for an older version.
+				var older []string
+				for _, s := range claudeHooks("aboard", false) {
+					if s.arg == h.Run {
+						older = append(older, s.event)
+					}
+				}
+				if harness != "claude-code" || h.Since != claudeBatchSince || !slices.Equal(h.Fallback, older) {
+					t.Fatalf("profile hook %s since %s falls back to %v; aboard init uses %s and %v", h.Event, h.Since, h.Fallback, claudeBatchSince, older)
+				}
 			}
 
 			// Global setup follows the harness's config variable, and its default without it.

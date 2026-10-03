@@ -29,7 +29,10 @@ const (
 	OpReceived = "received"
 	// OpTurnEnd reports a turn ended, for a harness whose stop hook doesn't wait.
 	OpTurnEnd = "turn_end"
-	// OpUrgent asks for urgent messages for a busy session.
+	// OpBoundary asks what a busy session's tool hook adds to the turn: the owner's
+	// messages and the waiting notice.
+	OpBoundary = "boundary"
+	// OpUrgent is OpBoundary's name in earlier builds, still answered the same way.
 	OpUrgent = "urgent"
 	// OpEnd reports the session closed.
 	OpEnd = "end"
@@ -87,6 +90,8 @@ type Response struct {
 	V      int        `json:"v"`
 	Event  string     `json:"event,omitempty"`
 	Bundle string     `json:"bundle,omitempty"`
+	// Notice names waiting messages without their content, in answer to OpBoundary.
+	Notice string `json:"notice,omitempty"`
 	Boot   string     `json:"boot,omitempty"`
 	Agents []AgentRef `json:"agents,omitempty"`
 	Status *Status    `json:"status,omitempty"`

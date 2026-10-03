@@ -34,7 +34,7 @@ const oldVersion = "0.0.1"
 // playing a build from before servers reported their commit.
 var unstampedBinary string
 
-// fakeBin holds the fake codex binary, first on every test's PATH.
+// fakeBin holds the fake codex and claude binaries, first on every test's PATH.
 var fakeBin string
 
 // fakeHarness is a stand-in harness process that runs one hook and then stays up.
@@ -84,6 +84,13 @@ func TestMain(m *testing.M) {
 	harness.Stdout, harness.Stderr = os.Stderr, os.Stderr
 	if err := harness.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build fake harness:", err)
+		os.Exit(1)
+	}
+	// A stand-in claude that only reports its version, so no test runs the person's own
+	// Claude Code. FAKE_CLAUDE_VERSION plays an older one.
+	fakeClaude := "#!/bin/sh\necho \"${FAKE_CLAUDE_VERSION:-2.1.288} (Claude Code)\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "fakebin", "claude"), []byte(fakeClaude), 0o755); err != nil { //nolint:gosec // a test program
+		fmt.Fprintln(os.Stderr, "write fake claude:", err)
 		os.Exit(1)
 	}
 	fakeHarness = filepath.Join(dir, "fakeharness")

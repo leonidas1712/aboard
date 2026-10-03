@@ -211,7 +211,7 @@ func (a *app) setupStatus() (r setupReport, line string) {
 	for _, h := range []struct {
 		name  string
 		specs []hookSpec
-	}{{"claude-code", claudeHooks("aboard")}, {"codex", codexHooks("aboard")}} {
+	}{{"claude-code", claudeHooks("aboard", true)}, {"codex", codexHooks("aboard")}} {
 		scopes, _, err := a.installedScopes(h.name, h.specs)
 		if err != nil || len(scopes) == 0 {
 			continue

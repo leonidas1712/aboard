@@ -36,7 +36,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	var to listFlag
 	fs.Var(&to, "to", "who to address: all, @name or role:R; comma-separated or repeated")
 	reply := fs.String("reply", "", "the message this replies to: msg_…, 6, #6 or board-name#6")
-	urgent := fs.Bool("urgent", false, "mark the message urgent")
+	urgent := fs.Bool("urgent", false, "mark the message urgent: first in each recipient's next delivery")
 	expectReply := fs.Bool("expect-reply", false, "ask the recipients to reply")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board to post on")

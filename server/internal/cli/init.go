@@ -16,7 +16,9 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	skill "github.com/leonidas1712/aboard/skills/aboard"
@@ -44,33 +46,103 @@ type hookHandler struct {
 	AdditionalContextLimit int `json:"additionalContextLimit,omitempty"`
 }
 
-// codexContextLimit lets a Codex hook add a whole bundle: 32 KiB is about 8,192 tokens.
+// codexContextLimit is how much context, in tokens, Codex takes from the tool hook before
+// shortening it: well above the 9,000 bytes the daemon adds at one tool boundary.
 const codexContextLimit = 8192
 
 // stopHookTimeout is the stop hook's timeout in seconds. The hook waits for as long as
 // the session is idle.
 const stopHookTimeout = 86400
 
-func claudeHooks(exe string) []hookSpec {
+// claudeBatchSince is the first Claude Code version with the PostToolBatch hook, which
+// fires once each batch of tool calls is done, failed ones included.
+const claudeBatchSince = "2.1.118"
+
+// claudeHooks returns Claude Code's hooks. With batch, the tool hook runs on
+// PostToolBatch; without it, for a Claude Code older than claudeBatchSince, on
+// PostToolUse and PostToolUseFailure, which together fire after every tool call.
+func claudeHooks(exe string, batch bool) []hookSpec {
 	cmd := func(arg string) string { return shellWord(exe) + " hook claude-code " + arg }
-	return []hookSpec{
+	tool := hookHandler{Type: "command", Command: cmd("tool"), Timeout: 10}
+	specs := []hookSpec{
 		{"SessionStart", "session-start", hookHandler{Type: "command", Command: cmd("session-start"), Timeout: 30}},
 		{"UserPromptSubmit", "prompt", hookHandler{Type: "command", Command: cmd("prompt"), Timeout: 10}},
 		{"Stop", "stop", hookHandler{Type: "command", Command: cmd("stop"), Timeout: stopHookTimeout, AsyncRewake: true}},
-		{"PostToolUse", "tool", hookHandler{Type: "command", Command: cmd("tool"), Timeout: 10}},
-		{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 10}},
 	}
+	if batch {
+		specs = append(specs, hookSpec{"PostToolBatch", "tool", tool})
+	} else {
+		specs = append(specs, hookSpec{"PostToolUse", "tool", tool}, hookSpec{"PostToolUseFailure", "tool", tool})
+	}
+	return append(specs, hookSpec{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 10}})
 }
+
+// claudeHasBatch reports whether the Claude Code on the PATH has the PostToolBatch hook:
+// true when its version is claudeBatchSince or later, or can't be read, since a Claude
+// Code installed later will be a current one.
+func (a *app) claudeHasBatch(ctx context.Context) bool {
+	if a.claudeBatch == nil {
+		v := ""
+		if path := a.lookPath("claude"); path != "" {
+			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			cmd := exec.CommandContext(cctx, path, "--version") //nolint:gosec // the claude on this command's PATH
+			cmd.Env = append(os.Environ(), "HOME="+a.env.Getenv("HOME"), "PATH="+a.env.Getenv("PATH"))
+			if out, err := cmd.Output(); err == nil {
+				v = string(out)
+			}
+			cancel()
+		}
+		batch := versionAtLeast(v, claudeBatchSince)
+		a.claudeBatch = &batch
+	}
+	return *a.claudeBatch
+}
+
+// lookPath finds a program on this command's PATH, or returns "".
+func (a *app) lookPath(name string) string {
+	for _, dir := range filepath.SplitList(a.env.Getenv("PATH")) {
+		p := filepath.Join(dir, name)
+		if info, err := os.Stat(p); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
+			return p
+		}
+	}
+	return ""
+}
+
+// versionAtLeast reports whether the first dotted version number in text, such as
+// "2.1.288 (Claude Code)", is at least min. Text without one counts as new enough.
+func versionAtLeast(text, minimum string) bool {
+	found := versionNumber.FindString(text)
+	if found == "" {
+		return true
+	}
+	have, want := strings.Split(found, "."), strings.Split(minimum, ".")
+	for i := range want {
+		h, w := 0, 0
+		if i < len(have) {
+			h, _ = strconv.Atoi(have[i])
+		}
+		w, _ = strconv.Atoi(want[i])
+		if h != w {
+			return h > w
+		}
+	}
+	return true
+}
+
+var versionNumber = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
 
 func codexHooks(exe string) []hookSpec {
 	cmd := func(arg string) string { return shellWord(exe) + " hook codex " + arg }
 	return []hookSpec{
 		{"SessionStart", "session-start", hookHandler{Type: "command", Command: cmd("session-start"), Timeout: 30}},
-		// The prompt and stop hooks mark when a turn runs, so urgent messages go to the
+		// The prompt and stop hooks mark when a turn runs, so the owner's messages go to the
 		// next tool call rather than the queue, which holds them until the turn ends.
 		{"UserPromptSubmit", "prompt", hookHandler{Type: "command", Command: cmd("prompt"), Timeout: 10}},
 		{"Stop", "stop", hookHandler{Type: "command", Command: cmd("stop"), Timeout: 10}},
-		{"PostToolUse", "tool", hookHandler{Type: "command", Command: cmd("tool"), Timeout: 30, AdditionalContextLimit: codexContextLimit}},
+		// Before each tool call, so failed tool calls don't keep the owner's messages out of
+		// the turn: Codex runs PostToolUse only after a tool succeeds. It never denies.
+		{"PreToolUse", "tool", hookHandler{Type: "command", Command: cmd("tool"), Timeout: 30, AdditionalContextLimit: codexContextLimit}},
 		// Codex caps SessionEnd hooks at 3 seconds; closing a session is one socket call.
 		{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 3}},
 	}
@@ -104,6 +176,19 @@ func shellWord(s string) string {
 // isAboardHook reports whether a hook command runs "aboard hook <harness> <arg>".
 func isAboardHook(command, harness, arg string) bool {
 	return strings.Contains(command, "aboard") && strings.HasSuffix(strings.TrimSpace(command), " hook "+harness+" "+arg)
+}
+
+// aboardHookArg returns the <arg> of a command that runs "aboard hook <harness> <arg>".
+func aboardHookArg(command, harness string) (string, bool) {
+	if !strings.Contains(command, "aboard") {
+		return "", false
+	}
+	fields := strings.Fields(command)
+	n := len(fields)
+	if n < 3 || fields[n-3] != "hook" || fields[n-2] != harness {
+		return "", false
+	}
+	return fields[n-1], true
 }
 
 // harnessSetup is what aboard init does for one harness.
@@ -193,7 +278,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		}
 	}
 
-	setups, err := a.planInit(c, known, exe)
+	setups, err := a.planInit(ctx, c, known, exe)
 	if err != nil {
 		return err
 	}
@@ -264,8 +349,8 @@ func (a *app) checkInitChoices(c initChoices, use string) error {
 }
 
 // planInit works out every file change for the chosen harnesses, without writing.
-func (a *app) planInit(c initChoices, known []harnessSetup, exe string) ([]harnessSetup, error) {
-	specs := map[string][]hookSpec{"claude-code": a.withHome(claudeHooks(exe)), "codex": a.withHome(codexHooks(exe))}
+func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup, exe string) ([]harnessSetup, error) {
+	specs := map[string][]hookSpec{"claude-code": a.withHome(claudeHooks(exe, a.claudeHasBatch(ctx))), "codex": a.withHome(codexHooks(exe))}
 	setups := slices.Clone(known)
 	for i := range setups {
 		s := &setups[i]
@@ -466,6 +551,11 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 			changed = true
 		}
 	}
+	removed, err := removeStaleHooks(hooks, harness, specs)
+	if err != nil {
+		return nil, false, err
+	}
+	changed = changed || removed
 	if !changed {
 		return data, false, nil
 	}
@@ -586,4 +676,80 @@ func initCommand(c initChoices) string {
 		cmd += " --allow-commands"
 	}
 	return cmd
+}
+
+// removeStaleHooks takes out Aboard's hook entries for harness that specs no longer
+// have, such as the tool hook on an event this aboard moved it from, and any group or
+// event left empty by that. Other hooks are kept as they were.
+func removeStaleHooks(hooks *jsonObject, harness string, specs []hookSpec) (bool, error) {
+	wanted := map[string]bool{}
+	for _, s := range specs {
+		wanted[s.event+" "+s.arg] = true
+	}
+	changed := false
+	for _, event := range slices.Clone(hooks.keys) {
+		raw, _ := hooks.get(event)
+		var groups []json.RawMessage
+		if json.Unmarshal(raw, &groups) != nil {
+			continue
+		}
+		var keptGroups []json.RawMessage
+		eventChanged := false
+		for _, g := range groups {
+			group, err := parseJSONObject(g)
+			if err != nil {
+				keptGroups = append(keptGroups, g)
+				continue
+			}
+			var handlers []json.RawMessage
+			if raw, ok := group.get("hooks"); !ok || json.Unmarshal(raw, &handlers) != nil {
+				keptGroups = append(keptGroups, g)
+				continue
+			}
+			kept := handlers[:0:0]
+			for _, h := range handlers {
+				var have struct {
+					Command string `json:"command"`
+				}
+				if json.Unmarshal(h, &have) == nil {
+					if arg, ok := aboardHookArg(have.Command, harness); ok && !wanted[event+" "+arg] {
+						continue
+					}
+				}
+				kept = append(kept, h)
+			}
+			if len(kept) == len(handlers) {
+				keptGroups = append(keptGroups, g)
+				continue
+			}
+			eventChanged = true
+			if len(kept) == 0 {
+				continue
+			}
+			raw, err := json.Marshal(kept)
+			if err != nil {
+				return false, fmt.Errorf("encode hooks: %w", err)
+			}
+			group.set("hooks", raw)
+			out, err := json.Marshal(group)
+			if err != nil {
+				return false, fmt.Errorf("encode hooks: %w", err)
+			}
+			keptGroups = append(keptGroups, out)
+		}
+		if !eventChanged {
+			continue
+		}
+		changed = true
+		if len(keptGroups) == 0 {
+			hooks.remove(event)
+			continue
+		}
+		raw, err := json.Marshal(keptGroups)
+		if err != nil {
+			return false, fmt.Errorf("encode hooks: %w", err)
+		}
+		hooks.set(event, raw)
+	}
+	return changed, nil
 }

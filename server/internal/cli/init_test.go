@@ -23,7 +23,7 @@ func TestMergeHooksKeepsEverythingElse(t *testing.T) {
   },
   "zeta": 1
 }`
-	out, changed, err := mergeHooks([]byte(settings), "claude-code", claudeHooks(exe))
+	out, changed, err := mergeHooks([]byte(settings), "claude-code", claudeHooks(exe, true))
 	if err != nil || !changed {
 		t.Fatalf("merge: changed %v, %v", changed, err)
 	}
@@ -52,7 +52,7 @@ func TestMergeHooksKeepsEverythingElse(t *testing.T) {
 		t.Fatalf("stop hook %+v", stop)
 	}
 
-	again, changed, err := mergeHooks(out, "claude-code", claudeHooks(exe))
+	again, changed, err := mergeHooks(out, "claude-code", claudeHooks(exe, true))
 	if err != nil || changed || string(again) != text {
 		t.Fatalf("a second merge changed the file (changed %v, %v)", changed, err)
 	}
@@ -76,7 +76,7 @@ func TestMergeHooksUpdatesAMovedBinaryInPlace(t *testing.T) {
 }
 
 func TestMergeHooksRefusesAFileThatIsNotAnObject(t *testing.T) {
-	if _, _, err := mergeHooks([]byte(`["not", "settings"]`), "claude-code", claudeHooks(exe)); err == nil {
+	if _, _, err := mergeHooks([]byte(`["not", "settings"]`), "claude-code", claudeHooks(exe, true)); err == nil {
 		t.Fatal("merged into a JSON array")
 	}
 }
@@ -207,14 +207,14 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 		t.Fatalf("exit %d\n%s", code, out)
 	}
 	a := &app{env: env}
-	scopes, _, err := a.installedScopes("claude-code", claudeHooks("aboard"))
+	scopes, _, err := a.installedScopes("claude-code", claudeHooks("aboard", true))
 	if err != nil || !slices.Equal(scopes, []string{scopeProject}) {
 		t.Fatalf("scopes %v, %v", scopes, err)
 	}
 	if c := a.checkSkill("claude_skill", "claude-code"); len(c) != 1 || c[0].Level != levelOK {
 		t.Fatalf("current skill: %+v", c)
 	}
-	if c := a.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(a.hookExe()), okCheck("claude_hooks", "ok")); c.Level != levelOK {
+	if c := a.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(a.hookExe(), true), okCheck("claude_hooks", "ok")); c.Level != levelOK {
 		t.Fatalf("current hooks: %+v", c)
 	}
 
@@ -227,7 +227,62 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	if c := a.checkSkill("claude_skill", "claude-code"); len(c) != 1 || deref(c[0].Code) != "skill_outdated" || deref(c[0].Fix) != fix {
 		t.Fatalf("outdated skill: %+v", c)
 	}
-	if c := moved.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(moved.hookExe()), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
+	if c := moved.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(moved.hookExe(), true), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
 		t.Fatalf("outdated hooks: %+v", c)
+	}
+}
+
+func TestVersionAtLeast(t *testing.T) {
+	tests := []struct {
+		text string
+		want bool
+	}{
+		{"2.1.288 (Claude Code)", true},
+		{"2.1.118 (Claude Code)", true},
+		{"2.1.117 (Claude Code)", false},
+		{"2.0.999", false},
+		{"3.0", true},
+		{"1.9.200 (Claude Code)", false},
+		{"", true},
+		{"not a version", true},
+	}
+	for _, tt := range tests {
+		if got := versionAtLeast(tt.text, claudeBatchSince); got != tt.want {
+			t.Errorf("versionAtLeast(%q, %s) = %v, want %v", tt.text, claudeBatchSince, got, tt.want)
+		}
+	}
+}
+
+// Moving a hook to another event takes Aboard's old entry out and keeps everyone else's.
+func TestMergeHooksRemovesAboardsStaleEntries(t *testing.T) {
+	old := `{"hooks": {
+  "PostToolUse": [
+    {"hooks": [{"type": "command", "command": "/usr/local/bin/aboard hook codex tool"}, {"type": "command", "command": "fmt-on-save"}]},
+    {"hooks": [{"type": "command", "command": "/usr/local/bin/aboard hook codex tool"}]}
+  ]
+}}`
+	out, changed, err := mergeHooks([]byte(old), "codex", codexHooks(exe))
+	if err != nil || !changed {
+		t.Fatalf("changed %v, %v", changed, err)
+	}
+	var parsed struct {
+		Hooks map[string][]struct {
+			Hooks []hookHandler `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	post := parsed.Hooks["PostToolUse"]
+	if len(post) != 1 || len(post[0].Hooks) != 1 || post[0].Hooks[0].Command != "fmt-on-save" {
+		t.Fatalf("PostToolUse after the merge: %+v", post)
+	}
+	if pre := parsed.Hooks["PreToolUse"]; len(pre) != 1 || !isAboardHook(pre[0].Hooks[0].Command, "codex", "tool") {
+		t.Fatalf("PreToolUse after the merge: %+v", pre)
+	}
+	old = `{"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": "/usr/local/bin/aboard hook claude-code tool"}]}]}}`
+	out, _, err = mergeHooks([]byte(old), "claude-code", claudeHooks(exe, true))
+	if err != nil || strings.Contains(string(out), `"PostToolUse"`) {
+		t.Fatalf("an event left empty should go: %v\n%s", err, out)
 	}
 }

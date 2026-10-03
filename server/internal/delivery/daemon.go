@@ -141,7 +141,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 		if s == nil {
 			continue
 		}
-		a := &agentState{ref: b.Agent, deliveries: map[int64]*Delivery{}}
+		a := newAgentState(b.Agent, false)
 		for i := range deliveries {
 			if deliveries[i].Agent == b.Agent {
 				dl := deliveries[i]
@@ -468,7 +468,7 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		_ = WriteFrame(conn, d.setMode(ctx, req))
 	case OpWait:
 		d.serveWait(ctx, conn, r, req)
-	case OpRegister, OpPrompt, OpTurnEnd, OpUrgent, OpEnd, OpBind, OpAgents:
+	case OpRegister, OpPrompt, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),

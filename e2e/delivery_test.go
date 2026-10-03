@@ -81,41 +81,6 @@ func TestBusyClaudeSessionGetsOneBundleWhenIdle(t *testing.T) {
 	}
 }
 
-// An urgent message reaches a busy session at its next tool call; ordinary ones wait.
-func TestUrgentMessageReachesBusyClaudeSessionAtNextToolCall(t *testing.T) {
-	t.Parallel()
-	e := newEnv(t)
-	writer, reviewer := pairedClaudeSessions(t, e)
-	reviewer.hook("prompt", `"prompt":"long task"`)
-
-	writer.run("say", "--to", "@reviewer", "ordinary note")
-	writer.run("say", "--to", "@reviewer", "--urgent", "stop: the build is broken")
-
-	var out struct {
-		HookSpecificOutput struct {
-			HookEventName     string `json:"hookEventName"`
-			AdditionalContext string `json:"additionalContext"`
-		} `json:"hookSpecificOutput"`
-	}
-	eventually(t, 5*time.Second, "the tool hook to return the urgent message", func() bool {
-		r := reviewer.hook("tool", `"tool_name":"Bash"`)
-		return r.code == 0 && json.Unmarshal([]byte(r.stdout), &out) == nil && out.HookSpecificOutput.AdditionalContext != ""
-	})
-	ctx := out.HookSpecificOutput.AdditionalContext
-	if out.HookSpecificOutput.HookEventName != "PostToolUse" || !strings.Contains(ctx, "the build is broken") || !strings.Contains(ctx, `urgent="true"`) {
-		t.Fatalf("tool hook output: %+v", out)
-	}
-	if strings.Contains(ctx, "ordinary note") {
-		t.Fatalf("an ordinary message was delivered mid-turn:\n%s", ctx)
-	}
-
-	// At idle the ordinary message arrives, and the urgent one isn't repeated.
-	woke := reviewer.startHook("stop").wait(5 * time.Second)
-	if woke.code != 2 || !strings.Contains(woke.stderr, "ordinary note") || strings.Contains(woke.stderr, "the build is broken") {
-		t.Fatalf("idle bundle should hold only the ordinary message\n%s", woke)
-	}
-}
-
 // A bundle the session never confirmed is delivered again to the next session that
 // takes over the agent.
 func TestUnconfirmedBundleGoesToTheNextSession(t *testing.T) {
@@ -247,41 +212,6 @@ func TestCodexSessionReceivesMessagesThroughItsQueue(t *testing.T) {
 		}
 	}
 	eventually(t, 5*time.Second, "acknowledgement after codex accepted", func() bool { return codex.unread() == 0 })
-}
-
-// During a Codex turn, an urgent message goes to the next tool call instead of Codex's
-// queue, where it would wait for the turn to end; ordinary messages still go to the queue.
-func TestUrgentMessageReachesBusyCodexSessionAtNextToolCall(t *testing.T) {
-	t.Parallel()
-	e := newEnv(t)
-	writer := e.claudeSession("s-writer")
-	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
-	codex := e.codexSession("019a0000-0000-7000-8000-000000000003")
-	codex.run("join", line, "--name", "reviewer")
-	if r := codex.hook("prompt", `"prompt":"long task"`); r.code != 0 {
-		t.Fatalf("codex prompt hook failed\n%s", r)
-	}
-
-	writer.run("say", "--to", "@reviewer", "ordinary note")
-	writer.run("say", "--to", "@reviewer", "--urgent", "stop: the build is broken")
-	var context string
-	eventually(t, 5*time.Second, "the tool hook to return the urgent message", func() bool {
-		r := codex.hook("tool", `"tool_name":"Bash"`)
-		context = r.stdout
-		return strings.Contains(r.stdout, "the build is broken")
-	})
-	if strings.Contains(context, "ordinary note") {
-		t.Fatalf("an ordinary message was delivered mid-turn:\n%s", context)
-	}
-	eventually(t, 5*time.Second, "the ordinary message in the queue", func() bool { return len(e.fakeCodexCalls()) > 0 })
-	for _, c := range e.fakeCodexCalls() {
-		if strings.Contains(c["message"], "the build is broken") {
-			t.Fatalf("the urgent message also went into the queue:\n%s", c["message"])
-		}
-	}
-	if r := codex.hook("stop", ""); r.code != 0 {
-		t.Fatalf("codex stop hook failed\n%s", r)
-	}
 }
 
 // A Codex sub-agent thread can't join: messages must go to the root conversation.

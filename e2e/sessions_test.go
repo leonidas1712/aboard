@@ -109,7 +109,16 @@ func hookInput(id, event, extra string) string {
 
 var hookEvents = map[string]string{
 	"session-start": "SessionStart", "prompt": "UserPromptSubmit", "stop": "Stop",
-	"tool": "PostToolUse", "end": "SessionEnd",
+	"tool": "PostToolBatch", "end": "SessionEnd",
+}
+
+// eventName is the harness's name for one of its hook events: Codex's tool hook runs
+// before each tool call, Claude Code's after each batch of them.
+func (s *session) eventName(event string) string {
+	if s.harness == "codex" && event == "tool" {
+		return "PreToolUse"
+	}
+	return hookEvents[event]
 }
 
 // run runs an aboard command inside the session and fails unless it exits 0.
@@ -131,7 +140,7 @@ func (s *session) runExit(args ...string) result {
 // hook calls one of the session's hook commands and waits for it.
 func (s *session) hook(event, extra string) result {
 	s.e.t.Helper()
-	return s.e.exec(s.vars, hookInput(s.id, hookEvents[event], extra), "hook", s.harness, event)
+	return s.e.exec(s.vars, hookInput(s.id, s.eventName(event), extra), "hook", s.harness, event)
 }
 
 // proc is a command running in the background, such as a waiting stop hook.
@@ -149,7 +158,7 @@ func (s *session) startHook(event string) *proc {
 	cmd := exec.Command(s.e.bin, "hook", s.harness, event)
 	cmd.Dir = s.e.dir
 	cmd.Env = append(append([]string{}, s.e.vars...), s.vars...)
-	cmd.Stdin = strings.NewReader(hookInput(s.id, hookEvents[event], ""))
+	cmd.Stdin = strings.NewReader(hookInput(s.id, s.eventName(event), ""))
 	p := &proc{t: s.e.t, cmd: cmd, out: &bytes.Buffer{}, errb: &bytes.Buffer{}, done: make(chan error, 1)}
 	cmd.Stdout, cmd.Stderr = p.out, p.errb
 	if err := cmd.Start(); err != nil {
@@ -180,7 +189,7 @@ func (s *session) startHookHeld(event string) (*proc, func()) {
 	go func() { p.done <- cmd.Wait() }()
 	s.e.t.Cleanup(func() { _ = cmd.Process.Kill() })
 	release := func() {
-		_, _ = io.WriteString(in, hookInput(s.id, hookEvents[event], ""))
+		_, _ = io.WriteString(in, hookInput(s.id, s.eventName(event), ""))
 		_ = in.Close()
 	}
 	return p, release

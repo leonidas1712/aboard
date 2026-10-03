@@ -70,7 +70,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	}
 	status, daemonCheck := a.checkDaemon(ctx, p)
 	checks = append(checks, daemonCheck...)
-	checks = append(checks, a.checkClaudeHooks())
+	checks = append(checks, a.checkClaudeHooks(ctx))
 	checks = append(checks, a.checkCodex(ctx)...)
 	checks = append(checks, a.checkSkill("claude_skill", "claude-code")...)
 	checks = append(checks, a.checkSkill("codex_skill", "codex")...)
@@ -179,17 +179,17 @@ func hooksMissing(path, harness string, specs []hookSpec) ([]string, error) {
 	return missing, nil
 }
 
-func (a *app) checkClaudeHooks() doctorCheck {
+func (a *app) checkClaudeHooks(ctx context.Context) doctorCheck {
 	if !detected(a.configDir("claude-code"), "claude") {
 		return problem("claude_hooks", levelWarning, "claude_code_not_installed",
 			"claude-code: not installed", "install Claude Code, or ignore this if you don't use it")
 	}
-	scopes, files, err := a.installedScopes("claude-code", claudeHooks("aboard"))
+	scopes, files, err := a.installedScopes("claude-code", claudeHooks("aboard", true))
 	if err == nil && len(scopes) > 0 {
-		return a.checkHooksCurrent("claude_hooks", "claude-code", scopes, a.withHome(claudeHooks(a.hookExe())),
+		return a.checkHooksCurrent("claude_hooks", "claude-code", scopes, a.withHome(claudeHooks(a.hookExe(), a.claudeHasBatch(ctx))),
 			okCheck("claude_hooks", "claude-code: "+installedText(scopes, files)))
 	}
-	missing, err2 := hooksMissing(a.setupFiles("claude-code", scopeGlobal).hooks, "claude-code", claudeHooks("aboard"))
+	missing, err2 := hooksMissing(a.setupFiles("claude-code", scopeGlobal).hooks, "claude-code", claudeHooks("aboard", true))
 	switch {
 	case err != nil || err2 != nil:
 		return problem("claude_hooks", levelError, "claude_hooks_missing", "claude-code: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init")
@@ -237,7 +237,7 @@ func (a *app) checkCodex(ctx context.Context) []doctorCheck {
 		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing", "codex: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
 	default:
 		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing",
-			"codex: hooks not installed ("+strings.Join(missing, ", ")+"), so urgent messages wait for the end of a turn",
+			"codex: hooks not installed ("+strings.Join(missing, ", ")+"), so your messages wait for the end of a turn",
 			"run aboard init"))
 	}
 	return checks

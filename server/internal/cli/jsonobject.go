@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // jsonObject is a JSON object that keeps its keys in order and its values as written,
@@ -61,6 +62,14 @@ func (o *jsonObject) set(key string, v json.RawMessage) {
 		o.keys = append(o.keys, key)
 	}
 	o.vals[key] = v
+}
+
+func (o *jsonObject) remove(key string) {
+	if _, ok := o.vals[key]; !ok {
+		return
+	}
+	delete(o.vals, key)
+	o.keys = slices.DeleteFunc(o.keys, func(k string) bool { return k == key })
 }
 
 // MarshalJSON writes the keys in their order.

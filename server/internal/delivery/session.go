@@ -4,9 +4,13 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
@@ -65,7 +69,7 @@ type session struct {
 	// busyAt is when the session last showed it was in a turn: a prompt or a tool call.
 	busyAt time.Time
 	// inTurn is true while a queueing harness runs a turn, as its prompt and stop hooks
-	// report. Urgent messages then wait for a tool hook instead of the queue.
+	// report. The owner's messages then wait for a tool hook instead of the queue.
 	inTurn bool
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
@@ -101,6 +105,11 @@ type agentState struct {
 	// problem stops deliveries for the agent, such as a revoked token.
 	problem    string
 	deliveries map[int64]*Delivery
+	// announced are the waiting messages a notice has named, so none is named twice.
+	announced map[int]bool
+	// previewed are the owner's messages too long for a tool boundary that were shown cut
+	// short once; they stay unread until the end of the turn or the agent's inbox.
+	previewed map[int]bool
 }
 
 func (s *session) now() time.Time { return s.d.cfg.Clock.Now() }
@@ -184,12 +193,17 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			s.waiter.Release()
 			s.waiter = nil
 		}
-	case OpUrgent:
+	case OpBoundary, OpUrgent:
 		s.busyAt = s.now()
 		s.working = true
-		s.event(ctx, req.Boot)
-		ok.Bundle = s.handUrgent(ctx)
+		if req.Boot != "" && req.Boot != s.boot {
+			s.newBoot(ctx, req.Boot)
+		} else {
+			s.confirmBefore(ctx, req.Started)
+		}
+		ok.Bundle, ok.Notice = s.boundary(ctx)
 	case OpTurnEnd:
+		s.event(ctx, req.Boot)
 		s.inTurn, s.working = false, false
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
 			s.gatherUntil = s.now()
@@ -348,10 +362,16 @@ func (s *session) saveSession(ctx context.Context) {
 }
 
 // confirm marks every bundle handed to this session as received.
-func (s *session) confirm(ctx context.Context) {
+func (s *session) confirm(ctx context.Context) { s.confirmBefore(ctx, time.Time{}) }
+
+// confirmBefore marks every bundle handed to this session before t as received, or every
+// one when t is zero. A tool hook that started before a bundle was handed to another
+// hook running at the same moment (parallel tool calls) doesn't show that the session
+// received it.
+func (s *session) confirmBefore(ctx context.Context, t time.Time) {
 	for _, a := range s.agents {
 		for _, dl := range a.deliveries {
-			if dl.State == StateHanded && dl.Session == s.key {
+			if dl.State == StateHanded && dl.Session == s.key && (t.IsZero() || dl.UpdatedAt.Before(t)) {
 				s.setState(ctx, dl, StateConfirmed)
 			}
 		}
@@ -414,7 +434,7 @@ func (s *session) bind(ctx context.Context, agent AgentRef) *AgentRef {
 	if err := s.d.cfg.Journal.Bind(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now()}); err != nil {
 		s.d.log.Error("bind agent", "agent", agent.Name, "board", agent.Board, "error", err)
 	}
-	s.agents[agent] = &agentState{ref: agent, adopting: true, deliveries: map[int64]*Delivery{}}
+	s.agents[agent] = newAgentState(agent, true)
 	if prev := s.d.setOwner(agent, s); prev != nil {
 		prev.mail.put(sessionMsg{release: &agent, adopter: s})
 		return previous
@@ -556,9 +576,12 @@ func (s *session) setProblem(a *agentState, reason string) {
 }
 
 // movedTo records that the agent's read position is at cursor: deliveries entirely
-// behind it are done, whoever acknowledged them.
+// behind it are done, whoever acknowledged them, and messages behind it leave the
+// announced and previewed sets.
 func (s *session) movedTo(ctx context.Context, a *agentState, cursor int) {
 	a.ackedUpTo = cursor
+	maps.DeleteFunc(a.announced, func(seq int, _ bool) bool { return seq <= cursor })
+	maps.DeleteFunc(a.previewed, func(seq int, _ bool) bool { return seq <= cursor })
 	for id, dl := range a.deliveries {
 		if slices.Max(append([]int{0}, dl.Seqs...)) > cursor {
 			continue
@@ -586,26 +609,37 @@ type filter int
 
 const (
 	allMessages filter = iota
-	urgentOnly
-	notUrgent
+	// ownerOnly is what a tool boundary in a busy turn may carry: only the agent's
+	// owner reaches it mid-turn.
+	ownerOnly
+	notOwner
 )
+
+// fromOwner reports whether the agent's owner sent m. Only the owner's messages reach a
+// busy session; a peer's, another person's or another person's agent's wait for the
+// end of the turn, urgent or not.
+func fromOwner(m Message) bool { return m.Sender == senderOwner }
+
+// senderOwner is the sender label of a message from the reader's owner.
+const senderOwner = "owner"
 
 func (f filter) allows(m Message) bool {
 	switch f {
-	case urgentOnly:
-		return m.Urgent
-	case notUrgent:
-		return !m.Urgent
+	case ownerOnly:
+		return fromOwner(m)
+	case notOwner:
+		return !fromOwner(m)
 	case allMessages:
 	}
 	return true
 }
 
-// queueFilter is what may go into a queueing harness's queue now: during a turn, urgent
-// messages wait for a tool hook, since the queue would hold them until the turn ends.
+// queueFilter is what may go into a queueing harness's queue now: during a turn, the
+// owner's messages wait for a tool hook, since the queue would hold them until the turn
+// ends.
 func (s *session) queueFilter() filter {
 	if s.inTurn {
-		return notUrgent
+		return notOwner
 	}
 	return allMessages
 }
@@ -711,7 +745,7 @@ func (s *session) offers(f filter) []offer {
 			continue
 		}
 		if again != nil {
-			if f == urgentOnly {
+			if f == ownerOnly {
 				continue
 			}
 			msgs := s.messagesFor(a, again.Seqs)
@@ -735,12 +769,12 @@ func (s *session) offers(f filter) []offer {
 }
 
 // forHumansMode narrows new messages for an agent that wakes only for people: nothing
-// unless a person sent one of them. A bundle at idle then carries them all, peer ones too;
-// urgent messages mid-turn are only the people's.
+// unless a person sent one of them. A bundle at idle then carries them all, peer ones
+// too. Mid-turn only the owner's messages go, and the owner is a person.
 func forHumansMode(msgs []Message, f filter) []Message {
 	fromHuman := func(m Message) bool { return m.FromHuman }
-	if f == urgentOnly {
-		return slices.DeleteFunc(msgs, func(m Message) bool { return !fromHuman(m) })
+	if f == ownerOnly {
+		return msgs
 	}
 	if !slices.ContainsFunc(msgs, fromHuman) {
 		return nil
@@ -928,25 +962,90 @@ func (s *session) skip(ctx context.Context, parts []offer) {
 	}
 }
 
-// handUrgent hands urgent messages to a busy session's tool hook and returns the bundle.
-func (s *session) handUrgent(ctx context.Context) string {
+// MidTurnLimit is the most text, in bytes, one tool boundary adds to a busy turn.
+// Claude Code takes at most 10,000 characters of context from a hook and moves anything
+// longer to a file, so the limit stays under that with room for the notice.
+const MidTurnLimit = 9000
+
+// previewLimit is how much of a message too long for a tool boundary is shown.
+const previewLimit = 2000
+
+// midTurnFrame is Aboard's line before the owner's messages handed mid-turn.
+const midTurnFrame = "Aboard: your owner sent this while you were working; the text inside the tags is theirs.\n"
+
+// boundary answers a busy session's tool hook: the owner's waiting messages, handed
+// over, and a notice naming other messages that arrived since the last notice. Each
+// message is claimed by one hook, since the session answers one request at a time.
+func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if !s.open {
+		return "", ""
+	}
+	c := compose(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame))
+	text := c.text
+	if len(c.parts) > 0 {
+		// Confirmed like a bundle: by the session's next event of this turn.
+		s.record(ctx, c.parts, StateHanded)
+	}
+	for _, o := range c.tooLarge {
+		a := s.agents[o.agent]
+		m := o.msgs[0]
+		if a.previewed[m.Seq] {
+			continue
+		}
+		preview := previewText(m)
+		if len(text)+len(preview)+len(midTurnFrame) > MidTurnLimit {
+			break
+		}
+		a.previewed[m.Seq] = true
+		text = strings.TrimSpace(text + "\n\n" + preview)
+	}
+	if text != "" {
+		bundle = midTurnFrame + text
+	}
+	for _, ref := range s.agentRefs() {
+		a := s.agents[ref]
+		if n := s.noticeFor(a); n != "" && len(bundle)+len(notice)+len(n) < MidTurnLimit {
+			notice += n
+		}
+	}
+	return bundle, notice
+}
+
+// previewText shows the start of a message too long for a tool boundary, and where the
+// rest is.
+func previewText(m Message) string {
+	cut := m
+	cut.Body, cut.Truncated, cut.ExpectsReply = strings.ToValidUTF8(m.Body[:min(previewLimit, len(m.Body))], ""), true, false
+	return deliverytext.Bundle(m.Board, []Message{cut}) +
+		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run aboard inbox to read it now.", m.Seq)
+}
+
+// noticeFor names the agent's waiting messages, other than its owner's, that no notice
+// has named yet; empty when there are none, or the agent's mode delivers nothing.
+func (s *session) noticeFor(a *agentState) string {
+	if a.adopting || !a.fetched || a.problem != "" || s.d.mode(a.ref) == ModeOff {
 		return ""
 	}
-	c := compose(s.offers(urgentOnly), BundleLimit)
-	s.skip(ctx, c.tooLarge)
-	if len(c.parts) == 0 {
+	t := taken(a)
+	var fresh []Message
+	for _, m := range a.unread {
+		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] {
+			continue
+		}
+		fresh = append(fresh, m)
+	}
+	if len(fresh) == 0 {
 		return ""
 	}
-	st := StateHanded
-	if !s.adapter.WaitsForIdle() {
-		// A harness with no stop hook sends no later event to confirm with; the hook's
-		// output reaching it is the confirmation.
-		st = StateConfirmed
+	for _, m := range fresh {
+		a.announced[m.Seq] = true
 	}
-	s.record(ctx, c.parts, st)
-	for _, p := range c.parts {
-		s.maybeAck(s.agents[p.agent])
+	return deliverytext.Notice(a.ref.Board, fresh)
+}
+
+func newAgentState(ref AgentRef, adopting bool) *agentState {
+	return &agentState{
+		ref: ref, adopting: adopting, deliveries: map[int64]*Delivery{},
+		announced: map[int]bool{}, previewed: map[int]bool{},
 	}
-	return c.text
 }
