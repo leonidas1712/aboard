@@ -36,6 +36,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Agent         *string      `json:"agent"`
 		AgentSource   string       `json:"agent_source"`
 		Delivery      *string      `json:"delivery"`
+		Presence      *string      `json:"presence"`
 		Agents        []string     `json:"agents"`
 		Policy        *api.Policy  `json:"policy"`
 		People        []person     `json:"people"`
@@ -91,6 +92,29 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, t.server)
 	text.WriteString(setupLine)
 	fmt.Fprintf(&text, "Board:  %s on %s (%s)\n", t.board, t.server.URL, sourceText(t.source))
+	// The board's lines come from the server, read first so the Agent line can show the
+	// agent's presence.
+	var boardLines strings.Builder
+	var members []api.Member
+	if c, err := a.humanClient(ctx, t); err == nil {
+		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+		defer cancel()
+		if b, err := c.board(ctx, t.board); err == nil {
+			out.Policy = &b.Policy
+			line := string(b.Policy.Preset)
+			if b.Policy.Preset == "starter" {
+				line += " (a starting point; tighten with aboard board policy recommended)"
+			}
+			fmt.Fprintf(&boardLines, "Policy: %s\n", line)
+		}
+		if r, err := c.api.ListMembersWithResponse(ctx, t.board); err == nil && r.JSON200 != nil {
+			members = r.JSON200.Members
+			if out.People = peopleOf(members); out.People != nil {
+				fmt.Fprintf(&boardLines, "People: %s\n", peopleText(out.People))
+			}
+		}
+	}
+
 	switch _, known := creds.find(t.server.URL, t.board, name); {
 	case name == "":
 		fmt.Fprintf(&text, "Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: %s)\n", namesText(out.Agents))
@@ -105,27 +129,25 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		}
 		m := string(mode)
 		out.Delivery = &m
-		fmt.Fprintf(&text, "Agent:  %s (from %s); delivery %s\n", name, label, m)
-	}
-
-	if c, err := a.humanClient(ctx, t); err == nil {
-		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
-		defer cancel()
-		if b, err := c.board(ctx, t.board); err == nil {
-			out.Policy = &b.Policy
-			line := string(b.Policy.Preset)
-			if b.Policy.Preset == "starter" {
-				line += " (a starting point; tighten with aboard board policy recommended)"
-			}
-			fmt.Fprintf(&text, "Policy: %s\n", line)
+		line := fmt.Sprintf("Agent:  %s (from %s); delivery %s", name, label, m)
+		if out.Presence = presenceOf(members, name); out.Presence != nil {
+			line += "; " + strings.ReplaceAll(*out.Presence, "_", " ")
 		}
-		if r, err := c.api.ListMembersWithResponse(ctx, t.board); err == nil && r.JSON200 != nil {
-			if out.People = peopleOf(r.JSON200.Members); out.People != nil {
-				fmt.Fprintf(&text, "People: %s\n", peopleText(out.People))
-			}
-		}
+		text.WriteString(line + "\n")
 	}
+	text.WriteString(boardLines.String())
 	a.emit(out, text.String())
+	return nil
+}
+
+// presenceOf returns the named agent's presence among a board's members, or nil.
+func presenceOf(members []api.Member, name string) *string {
+	for _, m := range members {
+		if m.Name == name && m.Kind == api.MemberKindAgent && m.Presence != nil {
+			p := string(*m.Presence)
+			return &p
+		}
+	}
 	return nil
 }
 

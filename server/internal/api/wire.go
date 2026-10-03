@@ -31,6 +31,9 @@ type wireMember struct {
 	Access   *string `json:"access"`
 	Status   string  `json:"status"`
 	JoinedAt string  `json:"joined_at"`
+	// Presence and PresenceSince are null for people.
+	Presence      *string `json:"presence"`
+	PresenceSince *string `json:"presence_since"`
 }
 
 type wireBoard struct {
@@ -99,6 +102,13 @@ func memberOf(m board.Member, boardName string) wireMember {
 	}
 	if m.Access != "" {
 		w.Access = &m.Access
+	}
+	if m.Kind == "agent" {
+		state := m.Presence.State
+		if state == "" {
+			state = board.PresenceNoSession
+		}
+		w.Presence, w.PresenceSince = &state, nullable(m.Presence.Since)
 	}
 	return w
 }

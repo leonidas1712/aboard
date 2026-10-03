@@ -107,19 +107,29 @@ func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
 	return out, rows.Err()
 }
 
-const memberColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
+const (
+	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at"
+)
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
-	var access sql.NullString
-	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt)
+	var access, presence, since, at sql.NullString
+	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt,
+		&presence, &since, &at)
 	m.Access = access.String
+	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String}
 	return m, notFound(err)
+}
+
+// SetPresence records an agent's presence, when it began and when it was reported.
+func (t *tx) SetPresence(memberID string, p board.Presence) error {
+	return t.exec("UPDATE members SET presence = ?, presence_since = ?, presence_at = ? WHERE id = ?", p.State, p.Since, p.At, memberID)
 }
 
 // InsertMember adds a member.
 func (t *tx) InsertMember(m board.Member) error {
-	return t.exec("INSERT INTO members ("+memberColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
+	return t.exec("INSERT INTO members ("+memberInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
 		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.Access, m.Status, m.Cursor, m.JoinedAt)
 }
 

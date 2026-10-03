@@ -46,6 +46,8 @@ type Member struct {
 	Status      string
 	Cursor      int64
 	JoinedAt    string
+	// Presence is what was last reported for an agent; read it with CurrentPresence.
+	Presence Presence
 }
 
 // Rules returns what the rules package needs to know about the member.

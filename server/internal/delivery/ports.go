@@ -49,6 +49,8 @@ type Server interface {
 	Inbox(ctx context.Context, agent AgentRef) (msgs []Message, cursor int, err error)
 	// Ack moves the agent's read position up to seq.
 	Ack(ctx context.Context, agent AgentRef, upTo int) error
+	// SetPresence reports what the agent's session is doing.
+	SetPresence(ctx context.Context, agent AgentRef, p Presence) error
 }
 
 // Journal records sessions, bindings and every delivery durably. It never stores

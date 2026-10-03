@@ -86,7 +86,10 @@ func TestOnlyHumansGetLoginCodes(t *testing.T) {
 	}
 }
 
-func TestBrowserTokenReadsButCannotWrite(t *testing.T) {
+// A browser token acts as the person who logged it in, with that person's permissions:
+// it reads and posts like their CLI, an admin's changes the board's policy and a
+// member's is refused, and it can't make another browser login.
+func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -111,18 +114,38 @@ func TestBrowserTokenReadsButCannotWrite(t *testing.T) {
 	}
 
 	post, err := b.PostMessageWithResponse(ctx, boardName, nil, api.PostMessageRequest{Body: "from the browser"})
-	if code := errorCode(t, post, err, 403); code != "browser_read_only" {
-		t.Fatalf("post with the browser token: %s", code)
+	mustStatus(t, post, err, 201)
+	if from := post.JSON201.From; from.Name != "alex" || from.Kind != api.MemberRefKindHuman {
+		t.Fatalf("a post from the browser is from %s (%s), want alex (human)", from.Name, from.Kind)
 	}
+	preset := api.PolicyPreset("recommended")
+	change := api.UpdateBoardRequest{Policy: api.PolicyChange{Preset: &preset}}
+	policy, err := b.UpdateBoardWithResponse(ctx, boardName, nil, change)
+	mustStatus(t, policy, err, 200)
+
+	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
+	mustStatus(t, code, err, 201)
+	priya := s.addHuman("priya")
+	j, err := s.client(priya).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
+	mustStatus(t, j, err, 201)
+	refused, err := s.client(s.browserToken(priya)).UpdateBoardWithResponse(ctx, boardName, nil, change)
+	if c := errorCode(t, refused, err, 403); c != "admin_required" {
+		t.Fatalf("policy change from a member's browser: %s", c)
+	}
+
 	created, err := b.CreateLoginCodeWithResponse(ctx, nil)
-	if code := errorCode(t, created, err, 403); code != "browser_read_only" {
-		t.Fatalf("login code with the browser token: %s", code)
+	if c := errorCode(t, created, err, 403); c != "human_token_required" || !strings.Contains(created.JSON403.Error.Hint, "aboard open") {
+		t.Fatalf("login code with the browser token: %s", bodyOf(created))
 	}
 
 	s.clock.Advance(30*24*time.Hour + time.Second)
 	ended, err := b.ListBoardsWithResponse(ctx)
 	if code := errorCode(t, ended, err, 401); code != "unauthorized" || !strings.Contains(ended.JSON401.Error.Hint, "aboard open") {
 		t.Fatalf("after 30 days: %s", bodyOf(ended))
+	}
+	late, err := b.PostMessageWithResponse(ctx, boardName, nil, api.PostMessageRequest{Body: "too late"})
+	if code := errorCode(t, late, err, 401); code != "unauthorized" {
+		t.Fatalf("post after 30 days: %s", code)
 	}
 }
 
