@@ -58,8 +58,14 @@ identity:
   launched: ABOARD_AGENT in the session's environment, which its hooks also see.
   kind: hook
   env_file: CLAUDE_ENV_FILE
-  # omp sets CLAUDECODE=1 in every command too, and OMPCODE=1.
-  yields_to: [OMPCODE]
+  # omp sets CLAUDECODE=1 in every command too, and OMPCODE=1. A Codex started inside a
+  # Claude Code session inherits ABOARD_SESSION, and CODEX_THREAD_ID is the more
+  # specific marker; the session-start hook unsets an inherited CODEX_THREAD_ID.
+  yields_to: [OMPCODE, CODEX_THREAD_ID]
+
+# Hooks fired inside a subagent carry agent_id; the pre-tool hook marks a subagent's
+# aboard commands with ABOARD_SUBAGENT, so they may only read.
+subagent_identity: marked
 
 lifecycle:
   liveness: process
@@ -95,6 +101,13 @@ delivery:
       since: 2.1.118
       fallback: [PostToolUse, PostToolUseFailure]
       why: once a batch of tool calls is done, adds the owner's messages and the waiting notice as additionalContext
+    # Only shell commands, and only inside a subagent; it never contacts the daemon.
+    - event: PreToolUse
+      run: pre-tool
+      op: mark-subagent
+      matcher: Bash
+      timeout: 10
+      why: inside a subagent, prefixes an aboard command with export ABOARD_SUBAGENT=<agent_id> through updatedInput, so it can't act as the parent; never denies
     - event: SessionEnd
       run: end
       op: end
@@ -111,5 +124,7 @@ notes:
   - PostToolBatch first appears in Claude Code 2.1.118 (checked in the published builds); it fires once per batch of parallel tool calls, failed ones included, before the next model call. Older versions get the tool hook on PostToolUse and PostToolUseFailure instead.
   - Claude Code takes at most 10,000 characters of additionalContext from a hook; longer text goes to a file with a preview, so the daemon keeps a tool boundary's context under 9,000 bytes.
   - Hooks fired inside a subagent carry agent_id; the tool hook ignores them.
+  - "PreToolUse's updatedInput replaces the tool's whole input, and without a permissionDecision Claude Code's permission rules still apply to it (documented for 2.1.288). An allow rule doesn't match past an assignment of a variable Claude Code doesn't know, so Bash(aboard *) doesn't pre-approve a marked command."
+  - SubagentStart and SubagentStop hooks exist, with agent_id, agent_type and parent_agent_id; SubagentStop adds last_assistant_message and stop_reason. Aboard doesn't install them yet.
   - "claude --resume <id>, --continue and /resume keep the session id (2.1.288's --help: --fork-session is what gives a resumed session a new one), and SessionStart runs as the session opens, with source resume. The session-start hook registers the same id again, which binds it again to its agent (D157). No turn has run yet, so no stop hook waits: waiting messages arrive when the first turn ends. TestResumedClaudeSessionReconnects proves it live."
   - Quitting (Ctrl-C twice, /exit) runs SessionEnd, which closes the session; a killed one is closed when the daemon sees its process gone.

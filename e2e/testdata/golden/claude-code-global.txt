@@ -6,6 +6,7 @@ claude-code, everywhere:
             UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt
             Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop
             PostToolBatch: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
 codex: not chosen
 Run aboard init --yes --harness claude-code to make these changes.
@@ -88,6 +89,18 @@ Nothing to change.
           {
             "type": "command",
             "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool",
             "timeout": 10
           }
         ]

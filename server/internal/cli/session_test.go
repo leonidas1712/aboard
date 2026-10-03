@@ -57,17 +57,19 @@ func TestAgentByName(t *testing.T) {
 	}
 }
 
-func TestSessionKeyPrefersAboardSession(t *testing.T) {
+// A Codex started inside a Claude Code session inherits its ABOARD_SESSION, and is
+// taken for Codex: the variable Codex sets for each command is the more specific one.
+func TestSessionKeyPrefersTheMostSpecificMarker(t *testing.T) {
 	env := map[string]string{"ABOARD_SESSION": "claude-code:5f1c", "CODEX_THREAD_ID": "019a"}
 	a := &app{env: Env{Getenv: func(k string) string { return env[k] }}}
-	if k, ok := a.sessionKey(); !ok || k.String() != "claude-code:5f1c" {
-		t.Fatalf("got %v %v", k, ok)
-	}
-	delete(env, "ABOARD_SESSION")
 	if k, ok := a.sessionKey(); !ok || k.String() != "codex:019a" {
 		t.Fatalf("got %v %v", k, ok)
 	}
 	delete(env, "CODEX_THREAD_ID")
+	if k, ok := a.sessionKey(); !ok || k.String() != "claude-code:5f1c" {
+		t.Fatalf("got %v %v", k, ok)
+	}
+	delete(env, "ABOARD_SESSION")
 	if _, ok := a.sessionKey(); ok {
 		t.Fatal("found a session in a plain terminal")
 	}
