@@ -10,6 +10,25 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
+// cliMessage is a message in the CLI's --json output: the API's message without its
+// deprecated trust field, which only delivery daemons from older builds read, and they
+// read it from the API.
+type cliMessage struct {
+	api.Message
+	// Trust hides the embedded field of the same name (encoding/json prefers the
+	// shallower one), and omitempty leaves it out.
+	Trust *struct{} `json:"trust,omitempty"`
+}
+
+// cliMessages returns ms as the CLI's --json output shows them.
+func cliMessages(ms []api.Message) []cliMessage {
+	out := make([]cliMessage, 0, len(ms))
+	for _, m := range ms {
+		out = append(out, cliMessage{Message: m})
+	}
+	return out
+}
+
 // runSay posts a message as an agent.
 func runSay(ctx context.Context, a *app, args []string) error {
 	const use = `aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]`
@@ -73,8 +92,8 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	}
 	m := r.JSON201
 	a.emit(struct {
-		Message *api.Message `json:"message"`
-	}{m}, fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board))
+		Message cliMessage `json:"message"`
+	}{cliMessage{Message: *m}}, fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board))
 	return nil
 }
 
@@ -151,14 +170,14 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		text = fmt.Sprintf("%s · %d new\n", in.Board, len(msgs)) + strings.Join(wrapped, "\n\n") + "\n"
 	}
 	a.emit(struct {
-		Board     string        `json:"board"`
-		Agent     string        `json:"agent"`
-		Messages  []api.Message `json:"messages"`
-		AckedUpTo *int          `json:"acked_up_to"`
-		More      bool          `json:"more"`
-		Wrapped   []string      `json:"wrapped"`
-		Bundle    *string       `json:"bundle"`
-	}{in.Board, in.Agent, msgs, acked, in.More, wrapped, bundle}, text)
+		Board     string       `json:"board"`
+		Agent     string       `json:"agent"`
+		Messages  []cliMessage `json:"messages"`
+		AckedUpTo *int         `json:"acked_up_to"`
+		More      bool         `json:"more"`
+		Wrapped   []string     `json:"wrapped"`
+		Bundle    *string      `json:"bundle"`
+	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle}, text)
 	return nil
 }
 
@@ -263,12 +282,12 @@ func runRead(ctx context.Context, a *app, args []string) error {
 		text += fmt.Sprintf("Later: aboard read --after %d%s\n", *page.NextAfter, rest)
 	}
 	a.emit(struct {
-		Board      string        `json:"board"`
-		Visibility string        `json:"visibility"`
-		Messages   []api.Message `json:"messages"`
-		NextAfter  *int          `json:"next_after"`
-		PrevBefore *int          `json:"prev_before"`
-	}{page.Board, string(b.Policy.Visibility), msgs, page.NextAfter, page.PrevBefore}, text)
+		Board      string       `json:"board"`
+		Visibility string       `json:"visibility"`
+		Messages   []cliMessage `json:"messages"`
+		NextAfter  *int         `json:"next_after"`
+		PrevBefore *int         `json:"prev_before"`
+	}{page.Board, string(b.Policy.Visibility), cliMessages(msgs), page.NextAfter, page.PrevBefore}, text)
 	return nil
 }
 

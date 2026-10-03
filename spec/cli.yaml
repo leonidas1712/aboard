@@ -130,6 +130,29 @@ $defs:
     properties:
       name: { type: string, examples: [claude] }
       board: { type: string, examples: [writer-reviewer] }
+  Message:
+    description: |
+      A message in the CLI's --json output: the API's Message without its deprecated
+      `trust`. Read `sender` for who sent it. The API keeps `trust` for delivery daemons
+      from older builds, which read it from the API; the CLI never passes it on.
+    type: object
+    required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, urgent, expects_reply, sender, show_owner, redactions]
+    not: { required: [trust] }
+    properties:
+      id: { $ref: openapi.yaml#/components/schemas/Message/properties/id }
+      board: { $ref: openapi.yaml#/components/schemas/Message/properties/board }
+      seq: { $ref: openapi.yaml#/components/schemas/Message/properties/seq }
+      at: { $ref: openapi.yaml#/components/schemas/Message/properties/at }
+      from: { $ref: openapi.yaml#/components/schemas/Message/properties/from }
+      to: { $ref: openapi.yaml#/components/schemas/Message/properties/to }
+      body: { $ref: openapi.yaml#/components/schemas/Message/properties/body }
+      reply_to: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to }
+      reply_to_seq: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to_seq }
+      urgent: { $ref: openapi.yaml#/components/schemas/Message/properties/urgent }
+      expects_reply: { $ref: openapi.yaml#/components/schemas/Message/properties/expects_reply }
+      sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
+      show_owner: { $ref: openapi.yaml#/components/schemas/Message/properties/show_owner }
+      redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -167,15 +190,35 @@ $defs:
       commit: { type: string }
       commit_time: { type: string, format: date-time }
 
+  Replaced:
+    description: |
+      A running delivery daemon or local server from an older build that this command
+      replaced with its own (spec/delivery.md, Upgrades): the build it stopped and the
+      build it started, each shaped like VersionOutput. Null when nothing was replaced.
+    type: [object, "null"]
+    required: [from, to]
+    properties:
+      from: { $ref: "#/$defs/VersionOutput" }
+      to: { $ref: "#/$defs/VersionOutput" }
+
   # ---------- aboard up ----------
   UpOutput:
+    description: |
+      Starts the local server in the background, or replaces one from an older build.
+      Text output, one line:
+        Started local Aboard at http://127.0.0.1:7400
+        Local Aboard is already running at http://127.0.0.1:7400
+        Replaced local Aboard at http://127.0.0.1:7400: it ran aboard 0.1.0 (commit 3f9a0c1e2b4d), an older build
     type: object
-    required: [server, started, pid, ui_url, data_dir]
+    required: [server, started, replaced, pid, ui_url, data_dir]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       started:
         type: boolean
-        description: False if a local server was already running.
+        description: False if a local server was already running, from this build or a replaced older one.
+      replaced:
+        $ref: "#/$defs/Replaced"
+        description: The older local server this command replaced, or null.
       pid: { type: integer }
       ui_url: { type: string, format: uri }
       data_dir: { type: string, examples: ["~/.local/share/aboard"] }
@@ -233,11 +276,11 @@ $defs:
     type: object
     required: [message]
     properties:
-      message: { $ref: openapi.yaml#/components/schemas/Message }
+      message: { $ref: "#/$defs/Message" }
       reply:
         description: Present with --wait-reply. The first reply, or null on timeout.
         oneOf:
-          - $ref: openapi.yaml#/components/schemas/Message
+          - $ref: "#/$defs/Message"
           - type: "null"
       timed_out:
         description: Present with --wait-reply.
@@ -252,14 +295,16 @@ $defs:
       message_id: { type: string }
       replies:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/Message }
+        items: { $ref: "#/$defs/Message" }
       timed_out:
         type: boolean
         description: True when --wait was given and no reply arrived in time.
 
   # ---------- aboard message MSG ----------
   MessageOutput:
-    description: The message and each addressed agent's status (pending, received, replied).
+    description: |
+      The message and each addressed agent's status (pending, received, replied). Its
+      message is shaped like Message here, without `trust`.
     $ref: openapi.yaml#/components/schemas/MessageStatus
 
   # ---------- aboard inbox [--wait SECONDS] [--peek] [--limit N] ----------
@@ -275,7 +320,7 @@ $defs:
       agent: { type: string }
       messages:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/Message }
+        items: { $ref: "#/$defs/Message" }
       acked_up_to:
         type: [integer, "null"]
         description: The cursor after this call's ack. Null with --peek or when no messages.
@@ -347,11 +392,23 @@ $defs:
       a member name with or without @. Filters and window flags are passed to the API.
 
       Text output: the header line "<board> · <n> messages" (or "<board> · no messages"
-      with a filter, "<board> · no messages yet" without one), then each message as
-      "#6  @writer (writer, self) → @reviewer" followed by its body indented four spaces.
-      In the brackets: an agent's role, its harness when known and shown, then the
-      message's `sender`; for a person only the `sender`. Once agents of more than one
-      person are on the board, an agent's owner follows its name: "@codex · priya".
+      with a filter, "<board> · no messages yet" without one), then each message in
+      three or more lines, with no blank lines between messages:
+        #6  @writer → @reviewer · asks for a reply
+            writer · self
+            Draft is in notes.md. Can you review it?
+        #7  @reviewer → all · reply to #6 · urgent
+            reviewer · codex · owner_agent
+            Reviewed. Approved.
+        #8  @alex → @reviewer
+            owner
+            Thanks.
+      The first line: the seq, the sender, its targets, then the markers that apply, in
+      this order: "reply to #<seq>" (reply_to_seq), "urgent", "asks for a reply"
+      (expects_reply). The second line, indented four spaces: an agent's role, its harness
+      when known and shown, its owner once agents of more than one person are on the
+      board ("owner priya"), then the message's `sender`; for a person only the
+      `sender`. The body follows, every line indented four spaces.
       When more matching messages exist, a last line names the command for them:
         Earlier: aboard read --before 6 --from @writer
         Later: aboard read --after 12 --from @writer
@@ -359,15 +416,18 @@ $defs:
       --markdown prints a transcript to paste into a session as context instead:
         # writer-reviewer · #6–#7
 
-        **#6 @writer** (writer, self) → @reviewer
+        **#6 @writer** (writer, self) → @reviewer · asks for a reply
 
         > Draft is in notes.md. Please review it.
 
         **#7 @reviewer** (reviewer, owner_agent) → all · reply to #6
 
         > Reviewed. Approved.
-      Each body is a Markdown blockquote, so text in a message can't pass for another
-      message's heading. --markdown and --json can't be combined (usage error).
+      Each heading carries the same markers as the text output. In the brackets: an
+      agent's role, its harness when known and shown, then the `sender`; for a person
+      only the `sender`; an agent's owner, when shown, follows its name ("@codex ·
+      priya"). Each body is a Markdown blockquote, so text in a message can't pass for
+      another message's heading. --markdown and --json can't be combined (usage error).
     type: object
     required: [board, visibility, messages, next_after, prev_before]
     properties:
@@ -375,7 +435,7 @@ $defs:
       visibility: { enum: [open, addressed] }
       messages:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/Message }
+        items: { $ref: "#/$defs/Message" }
       next_after: { type: [integer, "null"] }
       prev_before: { type: [integer, "null"] }
 
@@ -398,7 +458,7 @@ $defs:
     required: [board, message]
     properties:
       board: { type: string }
-      message: { $ref: openapi.yaml#/components/schemas/Message }
+      message: { $ref: "#/$defs/Message" }
 
   # ---------- aboard open [--board NAME] ----------
   OpenOutput:
@@ -474,6 +534,11 @@ $defs:
       with applied false; with --yes it makes them. Running it again changes nothing.
       A file that differs from what this aboard would write is listed as update; init
       --yes rewrites only Aboard's own parts of it, and leaves identical files untouched.
+      Text output lists one line per file, then ends with "Nothing to change.", "Run
+      aboard init --yes … to make these changes." or, once applied, "Done." followed by a
+      reminder to trust the hooks in /hooks naming only the harnesses whose hook files
+      were added or updated ("Done. Codex asks you to trust new hooks before they run:
+      review them in /hooks."); rewriting only a skill asks for no trust.
 
       Run in a terminal (stdin and stdout are terminals) without --yes or --json, it asks
       which harnesses, the scope, the delivery mode and whether to allow aboard commands,
@@ -603,7 +668,11 @@ $defs:
   StatusOutput:
     description: |
       Which board and agent commands run here would use, and where each came from, and
-      whether the server and the delivery daemon are running. It never starts either.
+      whether the server and the delivery daemon are running. It never starts either,
+      but like any command that uses them it replaces a running local server or daemon
+      from an older build first (spec/delivery.md, Upgrades), and then says so on its
+      line: "Server: http://127.0.0.1:7400 running; replaced aboard 0.1.0 (commit
+      3f9a0c1e2b4d), an older build", and likewise at the end of the Daemon line.
       Text output, one line each:
         Server: http://127.0.0.1:7400 running
         Daemon: running (pid 4182), 2 open sessions
@@ -620,9 +689,12 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
+    required: [server, server_running, server_replaced, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      server_replaced:
+        $ref: "#/$defs/Replaced"
+        description: The older local server this command replaced, or null.
       setup:
         type: object
         description: The harnesses whose Aboard hooks are all installed, in each scope (see InitOutput).
@@ -635,11 +707,14 @@ $defs:
         description: Whether the server answers.
       daemon:
         type: object
-        required: [running, pid, open_sessions]
+        required: [running, pid, open_sessions, replaced]
         properties:
           running: { type: boolean }
           pid: { type: [integer, "null"] }
           open_sessions: { type: integer }
+          replaced:
+            $ref: "#/$defs/Replaced"
+            description: The older daemon this command replaced, or null.
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]

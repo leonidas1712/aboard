@@ -209,7 +209,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 	if interactive {
 		_, _ = io.WriteString(a.env.Stdout, "\n"+list)
 		if pending == 0 {
-			_, _ = io.WriteString(a.env.Stdout, initEnding(c, 0, false))
+			_, _ = io.WriteString(a.env.Stdout, initEnding(c, nil, 0, false))
 			return nil
 		}
 		if apply = p.yes("Make these changes?"); !apply {
@@ -230,7 +230,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		Delivery      *initDelivery  `json:"delivery"`
 		AllowCommands bool           `json:"allow_commands"`
 		Harnesses     []harnessSetup `json:"harnesses"`
-	}{apply, c.scope, modeChange, c.allow, setups}, list+initEnding(c, pending, apply))
+	}{apply, c.scope, modeChange, c.allow, setups}, list+initEnding(c, setups, pending, apply))
 	return nil
 }
 
@@ -527,20 +527,47 @@ func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home str
 	return b.String(), pending
 }
 
-// initEnding says what happened, or what to run to make the changes.
-func initEnding(c initChoices, pending int, applied bool) string {
+// harnessTitles are the harnesses' names as people know them.
+var harnessTitles = map[string]string{"claude-code": "Claude Code", "codex": "Codex"}
+
+// initEnding says what happened, or what to run to make the changes. Only the harnesses
+// whose hook files were added or updated ask the person to trust the hooks again.
+func initEnding(c initChoices, setups []harnessSetup, pending int, applied bool) string {
 	switch {
 	case pending == 0:
 		return "Nothing to change.\n"
 	case !applied:
 		return "Run " + initCommand(c) + " to make these changes.\n"
 	}
-	end := "Done. Claude Code and Codex ask you to trust new hooks before they run: review them in /hooks in each.\n"
-	if c.scope == scopeProject {
-		end += "Codex reads a project's .codex folder only once you trust the project.\n" +
-			"The hook files name this machine's aboard binary; keep them out of version control.\n"
+	var trust []string
+	for _, s := range setups {
+		for _, ch := range s.Changes {
+			if ch.Kind == "hooks" && ch.Action != actionUnchanged {
+				trust = append(trust, harnessTitles[s.Name])
+				break
+			}
+		}
 	}
-	return end
+	switch len(trust) {
+	case 0:
+		return "Done.\n"
+	case 1:
+		return "Done. " + trust[0] + " asks you to trust new hooks before they run: review them in /hooks.\n" + projectEnding(c, trust)
+	}
+	return "Done. " + strings.Join(trust, " and ") +
+		" ask you to trust new hooks before they run: review them in /hooks in each.\n" + projectEnding(c, trust)
+}
+
+// projectEnding is what a project setup that changed hook files adds to init's ending.
+func projectEnding(c initChoices, trust []string) string {
+	if c.scope != scopeProject {
+		return ""
+	}
+	var end string
+	if slices.Contains(trust, harnessTitles["codex"]) {
+		end = "Codex reads a project's .codex folder only once you trust the project.\n"
+	}
+	return end + "The hook files name this machine's aboard binary; keep them out of version control.\n"
 }
 
 // initCommand is the aboard init command that makes the changes c describes.

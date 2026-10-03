@@ -16,6 +16,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Board view, round 4: full-width layout, gentler composer focus, Charter and "Rules Aboard enforces", charter paragraphs, stable mark colours | building | D118, D133 |
 | Merge #10 (everything since #5) and update the maintainer's install | next | |
 | Manual QA in a sandbox with real Claude Code and Codex, and the next UI round from it | next | D126 |
+| Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 
 ## Done
 
@@ -31,9 +32,12 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Feature | Decisions |
 | --- | --- |
 | Filtered reading, `read --markdown`, `aboard watch` | D69, D83 |
+| `aboard read` and `watch` show what the board view shows: "asks for a reply", "reply to #N", "urgent", and the role, harness and sender label on a line of their own | D36, D110, D135 |
 | Delivery modes `auto`, `humans`, `off` | D71, D84, D99 |
 | Guided `aboard init`, global or project scope; following `CLAUDE_CONFIG_DIR` and `CODEX_HOME` | D72, D92 |
 | Upgrades replace an older daemon or server; `doctor` flags outdated setup | D68 |
+| `aboard status` replaces an older server or daemon like any command, and it and `aboard up` say what they replaced | D68 |
+| `aboard init --yes` asks to trust hooks only in the harnesses whose hooks it changed | D68 |
 | Commands that use a person's login refuse inside agent sessions and hand over the exact command | D85, D114 |
 | Web UI and `aboard open`, with a read-only browser token (now acting as the person, in #10) | D70, D86, D89 |
 | `make live`: real Claude Code and Codex in tmux | D90 |
@@ -43,6 +47,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | --- | --- |
 | One coherent picture: seats, owners, roles, admins, positioning | D93–D109 |
 | Sender labels `owner`, `owner_agent`, `other_person`, `other_agent`, `self` | D110 |
+| The CLI's `--json` messages carry `sender` only, without the deprecated `trust` | D136 |
 | Names from the harness, `show_harness` | D98 |
 | Admins and members | D97 |
 | One session fills one seat | D95 |

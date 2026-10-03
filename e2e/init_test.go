@@ -184,3 +184,33 @@ func TestGlobalSetupFollowsTheHarnessConfigVariables(t *testing.T) {
 		t.Fatalf("status without the variables:\n%s", status)
 	}
 }
+
+// aboard init --yes asks the person to trust hooks only in the harnesses whose hook files
+// it added or updated: rewriting only the skill needs no new trust.
+func TestInitAsksToTrustOnlyChangedHooks(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.harnessHome()
+	const both = "Done. Claude Code and Codex ask you to trust new hooks before they run: review them in /hooks in each."
+	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, both+"\n") {
+		t.Fatalf("first init:\n%s", out)
+	}
+
+	skill := filepath.Join(e.home, ".claude", "skills", "aboard", "SKILL.md")
+	if err := os.WriteFile(skill, []byte(readFile(t, skill)+"\nAn older paragraph.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, "\nDone.\n") || strings.Contains(out, "trust") {
+		t.Fatalf("init that rewrote only the skill:\n%s", out)
+	}
+
+	hooks := filepath.Join(e.home, ".codex", "hooks.json")
+	edited := strings.Replace(readFile(t, hooks), `"timeout": 30`, `"timeout": 31`, 1)
+	if err := os.WriteFile(hooks, []byte(edited), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	const codex = "Done. Codex asks you to trust new hooks before they run: review them in /hooks."
+	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, codex+"\n") {
+		t.Fatalf("init that updated only Codex's hooks:\n%s", out)
+	}
+}

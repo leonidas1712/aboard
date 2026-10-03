@@ -429,8 +429,9 @@ Global setup follows each harness's config folder: `$CLAUDE_CONFIG_DIR` in place
 and status alike. Codex's skill stays in `~/.agents/skills`, which `CODEX_HOME` doesn't
 move. A harness counts as detected when its config folder exists or its command is on
 the PATH. Both
-harnesses ask the person to trust new hooks (in `/hooks`) before running them; that step
-stays with the person.
+harnesses ask the person to trust new or changed hooks (in `/hooks`) before running them;
+that step stays with the person, and `aboard init` reminds them only for the harnesses
+whose hooks it added or updated.
 
 In a terminal, `aboard init` asks which harnesses, the scope, the delivery mode for agents
 without their own, and whether to allow `aboard` commands without a permission prompt,
@@ -490,8 +491,10 @@ twice: a bundle the old daemon handed to a Claude Code session is confirmed by t
 session's next event, even when that event comes from the new aboard's hooks; anything
 else not confirmed goes back to `pending` and is handed again (see
 [The journal](#the-journal)). A command inside a harness's sandbox never replaces the
-daemon, because it couldn't start the new one. `aboard down` and `aboard doctor`'s
-reading of the local server never replace anything. If replacing fails, the command uses
+daemon, because it couldn't start the new one. `aboard status` replaces both, as any
+command does, but never starts one that isn't running; it and `aboard up` say what they
+replaced. `aboard down` and `aboard doctor`'s reading of the local server never replace
+anything. If replacing fails, the command uses
 the old one, and `aboard doctor` reports `daemon_outdated` or `server_outdated` with the
 fix `aboard down`.
 

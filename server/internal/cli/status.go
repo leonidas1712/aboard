@@ -26,21 +26,30 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
 	}
+	// Like any command that uses them, status first replaces a local server or daemon
+	// from an older build, so what it reports is what the next command will use.
+	if err := a.replaceOutdatedLocal(ctx); err != nil {
+		return err
+	}
+	if p, err := a.paths(); err == nil {
+		a.replaceOutdatedDaemon(ctx, p)
+	}
 	out := struct {
-		Server        serverRef    `json:"server"`
-		ServerRunning bool         `json:"server_running"`
-		Daemon        daemonReport `json:"daemon"`
-		Setup         setupReport  `json:"setup"`
-		Board         *string      `json:"board"`
-		BoardSource   string       `json:"board_source"`
-		Agent         *string      `json:"agent"`
-		AgentSource   string       `json:"agent_source"`
-		Delivery      *string      `json:"delivery"`
-		Presence      *string      `json:"presence"`
-		Agents        []string     `json:"agents"`
-		Policy        *api.Policy  `json:"policy"`
-		People        []person     `json:"people"`
-	}{Server: a.localServer(), BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
+		Server         serverRef    `json:"server"`
+		ServerRunning  bool         `json:"server_running"`
+		ServerReplaced *replacement `json:"server_replaced"`
+		Daemon         daemonReport `json:"daemon"`
+		Setup          setupReport  `json:"setup"`
+		Board          *string      `json:"board"`
+		BoardSource    string       `json:"board_source"`
+		Agent          *string      `json:"agent"`
+		AgentSource    string       `json:"agent_source"`
+		Delivery       *string      `json:"delivery"`
+		Presence       *string      `json:"presence"`
+		Agents         []string     `json:"agents"`
+		Policy         *api.Policy  `json:"policy"`
+		People         []person     `json:"people"`
+	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
 
@@ -226,19 +235,20 @@ func (a *app) setupStatus() (r setupReport, line string) {
 
 // daemonReport is the delivery daemon's part of aboard status.
 type daemonReport struct {
-	Running      bool `json:"running"`
-	PID          *int `json:"pid"`
-	OpenSessions int  `json:"open_sessions"`
+	Running      bool         `json:"running"`
+	PID          *int         `json:"pid"`
+	OpenSessions int          `json:"open_sessions"`
+	Replaced     *replacement `json:"replaced"`
 }
 
-// runningLines writes the Server and Daemon lines of aboard status. It checks both
-// without starting either.
+// runningLines writes the Server and Daemon lines of aboard status, saying what the
+// command replaced. It checks both without starting either.
 func (a *app) runningLines(ctx context.Context, text *strings.Builder, running *bool, d *daemonReport, srv serverRef) {
 	*running = a.serverAnswers(ctx, srv)
 	local := srv.URL == a.localServer().URL
 	switch {
 	case *running && local:
-		fmt.Fprintf(text, "Server: %s running\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s running%s\n", srv.URL, a.localReplaced.text())
 	case *running:
 		fmt.Fprintf(text, "Server: %s reachable\n", srv.URL)
 	case local:
@@ -252,6 +262,7 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running *
 		return
 	}
 	pid := st.PID
-	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions}
-	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s\n", pid, st.OpenSessions, plural(st.OpenSessions, "session", "sessions"))
+	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions, Replaced: a.daemonReplaced}
+	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s%s\n", pid, st.OpenSessions,
+		plural(st.OpenSessions, "session", "sessions"), a.daemonReplaced.text())
 }

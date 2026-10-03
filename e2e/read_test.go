@@ -47,7 +47,7 @@ func entry(seq int, from, role, to, body string) []string {
 	if from == "reviewer" {
 		sender = "self"
 	}
-	return []string{fmt.Sprintf("#%d  @%s (%s, %s) → %s", seq, from, role, sender, to), "    " + body}
+	return []string{fmt.Sprintf("#%d  @%s → %s", seq, from, to), "    " + role + " · " + sender, "    " + body}
 }
 
 func lines(parts ...any) []string {
@@ -131,19 +131,61 @@ func TestReadFiltersAndPagesWithHints(t *testing.T) {
 	}
 }
 
+// TestReadShowsWhatEachMessageAsks shows, as the board view does, which messages ask for
+// a reply, what a reply answers, which are urgent, and a person's label on its own.
+func TestReadShowsWhatEachMessageAsks(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
+	ask := e.sayAs("writer", "--to", "@reviewer", "--expect-reply", "Can you take the tests?")
+	reply := e.sayAs("reviewer", "--reply", fmt.Sprint(ask), "--urgent", "Yes. The build is broken first.")
+	e.postAsOwner("writer-reviewer", "Thanks, both.", false)
+
+	expectLines(t, e.asAgent("reviewer", "read"),
+		"writer-reviewer · 3 messages",
+		fmt.Sprintf("#%d  @writer → @reviewer · asks for a reply", ask),
+		"    writer · owner_agent",
+		"    Can you take the tests?",
+		fmt.Sprintf("#%d  @reviewer → all · reply to #%d · urgent", reply, ask),
+		"    reviewer · self",
+		"    Yes. The build is broken first.",
+		fmt.Sprintf("#%d  @alex → @reviewer", reply+1),
+		"    owner",
+		"    Thanks, both.",
+	)
+}
+
+// The CLI's --json messages carry the sender label and never the deprecated trust field
+// the API keeps for older daemons.
+func TestCLIMessagesCarrySenderNotTrust(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
+	for name, msg := range map[string]any{
+		"say":   field(t, e.run("say", "--as", "writer", "--to", "@reviewer", "hello", "--json").json(t), "message"),
+		"read":  field(t, e.run("read", "--as", "writer", "--json").json(t), "messages.0"),
+		"inbox": field(t, e.run("inbox", "--as", "reviewer", "--json").json(t), "messages.0"),
+	} {
+		m := msg.(map[string]any)
+		if _, ok := m["trust"]; ok || m["sender"] == nil {
+			t.Fatalf("%s --json message: want sender and no trust, got %v", name, m)
+		}
+	}
+}
+
 // TestReadMarkdownTranscript prints the quickstart conversation as the Markdown transcript
 // spec/cli.yaml shows.
 func TestReadMarkdownTranscript(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.run("join", field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string))
-	e.run("say", "--as", "writer", "--to", "@reviewer", "Draft is in notes.md. Please review it.")
+	e.run("say", "--as", "writer", "--to", "@reviewer", "--expect-reply", "Draft is in notes.md. Please review it.")
 	e.run("say", "--as", "reviewer", "--reply", "6", "Reviewed. Approved.\n\nShip it.")
 
 	expectLines(t, e.run("read", "--as", "writer", "--markdown"),
 		"# writer-reviewer · #6–#7",
 		"",
-		"**#6 @writer** (writer, self) → @reviewer",
+		"**#6 @writer** (writer, self) → @reviewer · asks for a reply",
 		"",
 		"> Draft is in notes.md. Please review it.",
 		"",
@@ -284,11 +326,11 @@ func TestWatchFollowsTheBoardLive(t *testing.T) {
 	e.run("say", "--as", "writer", "--to", "@reviewer", "first")
 
 	w := e.watch()
-	w.expect(w.stdout, "#6  @writer (writer, owner_agent) → @reviewer", "    first")
+	w.expect(w.stdout, "#6  @writer → @reviewer", "    writer · owner_agent", "    first")
 	w.expect(w.stderr, "Watching writer-reviewer. Stop with Ctrl-C.")
 
-	e.run("say", "--as", "reviewer", "second")
-	w.expect(w.stdout, "#7  @reviewer (reviewer, owner_agent) → all", "    second")
+	e.run("say", "--as", "reviewer", "--reply", "6", "--urgent", "second")
+	w.expect(w.stdout, "#7  @reviewer → all · reply to #6 · urgent", "    reviewer · owner_agent", "    second")
 
 	// The stream drops when the server stops. Once it is back, watch reconnects and
 	// prints what it missed.
@@ -296,7 +338,7 @@ func TestWatchFollowsTheBoardLive(t *testing.T) {
 	w.waitFor(w.stderr, "Lost the connection")
 	e.run("up")
 	e.run("say", "--as", "writer", "third")
-	w.expect(w.stdout, "#8  @writer (writer, owner_agent) → all", "    third")
+	w.expect(w.stdout, "#8  @writer → all", "    writer · owner_agent", "    third")
 	w.stop()
 }
 
@@ -316,11 +358,15 @@ func TestWatchJSONLinesWithAFilter(t *testing.T) {
 			var v struct {
 				Board   string `json:"board"`
 				Message struct {
-					Body string `json:"body"`
+					Body  string  `json:"body"`
+					Trust *string `json:"trust"`
 				} `json:"message"`
 			}
 			if err := json.Unmarshal([]byte(line), &v); err != nil || v.Board != "writer-reviewer" {
 				t.Fatalf("not a WatchOutput line (%v): %s", err, line)
+			}
+			if v.Message.Trust != nil {
+				t.Fatalf("watch --json passes on the deprecated trust field: %s", line)
 			}
 			return v.Message.Body
 		case <-time.After(20 * time.Second):
