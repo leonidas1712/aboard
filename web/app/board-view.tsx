@@ -12,6 +12,7 @@ import { Composer } from "./composer";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
+import { BoardDetails } from "./board-details";
 import { readStored, store, usePref } from "./prefs";
 import { AboutBoard, WhosHere } from "./sidebars";
 import { type Entry, Timeline } from "./timeline";
@@ -175,6 +176,7 @@ export default function BoardView({ name }: { name: string }) {
         <Header
           board={name}
           title={s.board?.title}
+          heading={s.board && s.me?.kind === "human" ? <BoardDetails board={s.board} agents={agents.length} people={people.length} /> : undefined}
           starter={s.board?.policy.preset === "starter"}
           account={<Account admin={people.length > 1 && myAccess === "admin"} />}
         />

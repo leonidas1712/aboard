@@ -3,7 +3,11 @@
 package live
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -156,4 +160,88 @@ func TestCodexWaitsForReplyInItsTurn(t *testing.T) {
 		}
 	}
 	l.waitFor(30*time.Second, "the reply to be acknowledged", func() bool { return len(l.inbox("reviewer")) == 0 })
+}
+
+// Codex's sandbox blocks network access by default, so without the allow rule an aboard
+// command Codex runs can't reach the running server or daemon, and says so; with the
+// rule aboard init --allow-commands adds, Codex runs it outside the sandbox and it
+// reaches both. The outcome is read from the command's own output in Codex's event
+// stream, never from what the model writes.
+func TestCodexSandboxNeedsTheAllowRule(t *testing.T) {
+	setup := requireCodex(t)
+	t.Parallel()
+	l := newLab(t)
+	home := l.codexHome(setup)
+	l.run("up")
+	dir := filepath.Join(l.dir, "project")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	// Trusted so Codex reads the project's rules; no network_access setting, so the
+	// sandbox keeps Codex's default and blocks the network.
+	appendFile(t, filepath.Join(home, "config.toml"), fmt.Sprintf("[projects.%q]\ntrust_level = \"trusted\"\n", dir))
+	const prompt = "Run the shell command `aboard status` exactly once, then reply DONE. Don't run anything else."
+
+	blocked := l.codexExec(dir, prompt)
+	if !strings.Contains(blocked, "can't be reached from Codex's sandbox") || strings.Contains(blocked, "not running") {
+		t.Fatalf("without the rule, aboard status inside Codex should name the sandbox:\n%s", blocked)
+	}
+	var doctor struct {
+		Checks []struct {
+			Name string  `json:"name"`
+			Code *string `json:"code"`
+		} `json:"checks"`
+	}
+	// Doctor exits 3 here, since Claude Code isn't set up in the lab.
+	if r := l.exec(t.Context(), dir, "doctor", "--json"); json.Unmarshal([]byte(r.stdout), &doctor) != nil {
+		t.Fatalf("doctor:\n%s", r)
+	}
+	warned := false
+	for _, c := range doctor.Checks {
+		warned = warned || (c.Name == "codex_allow" && c.Code != nil && *c.Code == "codex_aboard_not_allowed")
+	}
+	if !warned {
+		t.Fatalf("doctor should warn that aboard isn't allowed: %+v", doctor.Checks)
+	}
+
+	l.project("project", "codex") // aboard init --yes --scope project --allow-commands
+	env := slices.Clone(l.vars)
+	l.scopeCodexHooks(dir, env)
+	l.trustCodexHooks(dir, home, env)
+	allowed := l.codexExec(dir, prompt)
+	if !strings.Contains(allowed, "Server: http://"+l.addr+" running") || !strings.Contains(allowed, "Daemon: running") {
+		t.Fatalf("with the rule, aboard status inside Codex should reach the server and daemon:\n%s", allowed)
+	}
+}
+
+// codexExec runs one Codex turn with codex exec in dir, in Codex's workspace-write
+// sandbox, and returns the output of the aboard commands it ran, from its event stream.
+func (l *lab) codexExec(dir, prompt string) string {
+	l.t.Helper()
+	l.typed++
+	ctx, cancel := context.WithTimeout(l.t.Context(), 4*time.Minute)
+	defer cancel()
+	cmd := command(ctx, "codex", "exec", "--json", "--skip-git-repo-check", "-s", "workspace-write", "-C", dir, prompt)
+	cmd.Dir, cmd.Env = dir, l.vars
+	raw, err := cmd.Output()
+	if err != nil {
+		l.t.Fatalf("codex exec: %v\n%s", err, raw)
+	}
+	var out strings.Builder
+	for _, line := range strings.Split(string(raw), "\n") {
+		var ev struct {
+			Item struct {
+				Type    string `json:"type"`
+				Command string `json:"command"`
+				Output  string `json:"aggregated_output"`
+			} `json:"item"`
+		}
+		if json.Unmarshal([]byte(line), &ev) == nil && ev.Item.Type == "command_execution" && strings.Contains(ev.Item.Command, "aboard") {
+			out.WriteString(ev.Item.Output)
+		}
+	}
+	if out.Len() == 0 {
+		l.t.Fatalf("Codex ran no aboard command:\n%s", raw)
+	}
+	return out.String()
 }

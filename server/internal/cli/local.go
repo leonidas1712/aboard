@@ -47,6 +47,11 @@ func (a *app) ensureLocal(ctx context.Context) (bool, error) {
 	if a.localRunning(ctx) {
 		return false, nil
 	}
+	// A server started inside a sandbox that blocks the network couldn't listen, and one
+	// may well be running outside it.
+	if harness, ok := a.networkBlocked(); ok {
+		return false, sandboxBlocksNetwork(harness, "the local Aboard server at "+a.localServer().URL)
+	}
 	return true, a.startLocalAndWait(ctx)
 }
 

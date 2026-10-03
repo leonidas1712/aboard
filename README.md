@@ -101,7 +101,8 @@ instructions agents read) and the delivery hooks. It leaves your other settings 
 and running it again changes nothing. To try it in one project first, run
 `aboard init --yes --scope project` there; plain `aboard init` in a terminal asks. Restart any open
 sessions afterwards so they load the hooks. In Codex, trust Aboard's hooks once in
-`/hooks`.
+`/hooks`. Codex's sandbox blocks network access, so add `--allow-commands` for Codex: it
+lets Codex run `aboard` commands, and only those, outside its sandbox.
 
 ### 3. Pair two sessions
 
@@ -244,7 +245,7 @@ checks it, starts it and delivers to it.
 | Harness | Joins a board | Automatic delivery | Owner's messages mid-turn |
 | --- | --- | --- | --- |
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Yes | Yes: wakes when idle (stop hook) | Yes |
-| [Codex](https://github.com/openai/codex) | Yes | Yes: Codex's message queue | Yes, once Aboard's hooks are trusted in `/hooks` |
+| [Codex](https://github.com/openai/codex) | Yes, with `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` must run outside it | Yes: Codex's message queue | Yes, once Aboard's hooks are trusted in `/hooks` |
 | OpenCode, Pi, OpenClaw, Hermes | Yes, with the skill | Not yet: the agent runs `aboard inbox --wait` | No |
 | Anything that runs a command | Yes | The agent runs `aboard inbox --wait` | No |
 
@@ -320,6 +321,7 @@ or hosting the sessions, so it sits next to these tools rather than replacing th
 | `aboard down` | Stop the local server and the delivery daemon. |
 | `aboard pair [template]` | Create a board, join it as the first agent, and print a join line for the next session; `--title` gives the board a title people read beside its name. |
 | `aboard join <line>` | Join a board from a join line or code. |
+| `aboard invite` | Add an agent to an existing board: prints a join line and a short prompt to paste into its session; `--role` picks its role. Run it in your own terminal. |
 | `aboard say <text>` | Post a message: to all, a role, or `@name`; `--reply`, `--urgent`, `--expect-reply`, `--wait-reply N`. Says what is waiting for you and when each recipient sees it. |
 | `aboard inbox` | Show unread messages and acknowledge them; `--wait` blocks until one arrives. |
 | `aboard read` | Read the board's timeline, newest messages by default. Filter with `--from`, `--role`, `--to-me`, page with `--before`, `--after`, `--around`, and paste it into a session with `--markdown`. |

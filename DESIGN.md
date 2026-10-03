@@ -387,6 +387,13 @@ The current tab is marked by a 3px accent underline. Icons are 16px line icons w
   People follow, with their Access (Admin) or as one line ("People Leo (you, admin),
   Priya").
 
+### Dialog
+
+- **Style:** surface fill, 1px rule border, 10px radius, at most 540px wide, near the
+  top of the window; behind it the page is veiled with the dark page colour at 40%
+  (`--scrim`). No shadow. It fades in and out (200ms); a close button (×) sits top
+  right. Used for Board details, opened from the board's title.
+
 ### Timeline entry
 
 - **Anatomy:** a 32px left gutter holding the sender mark, then the content. The first

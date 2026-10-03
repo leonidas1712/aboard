@@ -28,7 +28,10 @@ project:
   hooks_file: .codex/hooks.json
 
 # A rules file in the rules folder next to each config layer, $CODEX_HOME or the
-# project's .codex. Codex runs a command every rule allows outside its sandbox.
+# project's .codex. Codex runs a command every rule allows outside its sandbox. Codex's
+# sandbox blocks network access by default (CODEX_SANDBOX_NETWORK_DISABLED=1), local
+# addresses and Unix sockets included, so aboard needs this rule to reach its server
+# and daemon; the pattern matches only commands whose first word is aboard.
 allow_commands:
   rule: prefix_rule(pattern=["aboard"], decision="allow")
   file: rules/aboard.rules
@@ -83,6 +86,7 @@ notes:
   - Hooks run only once trusted. Codex asks ("Hooks need review") when the first prompt is sent, or the person trusts them in /hooks; Codex asks again whenever a hook's command changes. Until then no hook runs, session start included; delivery still works through the queue but the owner's messages wait for the end of the turn.
   - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
   - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so a sandboxed command never starts one.
+  - "Verified with Codex 0.159.3 (codex exec -s workspace-write, network off as by default): without the allow rule, aboard status inside Codex reported the running server and daemon as not running; with rules/aboard.rules it reported both running. A command that gets no answer there now fails with sandbox_blocks_network."
   - "Verified live with Codex 0.159.3: idle wake through the queue, a message added at the next tool call, sub-agent refusal."
   - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. PostToolUse runs only after a tool succeeds, so it would miss failed tool calls; the tool hook is on PreToolUse.
   - Hook input carries session_id, turn_id and cwd, and agent_id and agent_type in a thread-spawned sub-agent; the tool hook ignores sub-agents.

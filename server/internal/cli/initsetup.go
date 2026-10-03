@@ -240,6 +240,31 @@ func (p *prompter) yes(question string) bool {
 	return false
 }
 
+// yesByDefault asks a yes-or-no question whose empty answer is yes; anything but no is
+// yes.
+func (p *prompter) yesByDefault(question string) bool {
+	switch strings.ToLower(p.ask(question+" [Y/n] ", "y")) {
+	case "n", "no":
+		return false
+	}
+	return true
+}
+
+// codexAllowWhy says in one line why Codex needs aboard commands allowed.
+const codexAllowWhy = "Codex's sandbox blocks network access; aboard needs to reach its local server."
+
+// codexAllowAdvice is the line init adds when it sets up Codex without the allow rule.
+const codexAllowAdvice = "Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; " +
+	"add --allow-commands to let Codex run them outside its sandbox.\n"
+
+// choosesCodex reports whether c sets up Codex, given the harnesses found.
+func choosesCodex(c initChoices, found []string) bool {
+	if c.harnesses == nil {
+		return slices.Contains(found, "codex")
+	}
+	return slices.Contains(c.harnesses, "codex")
+}
+
 // askInit asks the questions no flag answered. set holds the flags that were given.
 func (a *app) askInit(p *prompter, c *initChoices, found []string, set map[string]bool, current delivery.Mode) {
 	if !set["harness"] && len(found) > 1 {
@@ -260,7 +285,15 @@ func (a *app) askInit(p *prompter, c *initChoices, found []string, set map[strin
 		c.delivery = delivery.Mode(p.choose(fmt.Sprintf("Delivery for agents on this machine? auto/humans/off [%s] ", current),
 			string(current), []string{"auto", "humans", "off"}))
 	}
-	if !set["allow-commands"] {
-		c.allow = p.yes("Let agents run aboard commands without a permission prompt?")
+	if set["allow-commands"] {
+		return
 	}
+	const question = "Let agents run aboard commands without a permission prompt?"
+	if choosesCodex(*c, found) {
+		// Without the rule, Codex runs aboard in its sandbox, where it can't reach the server.
+		_, _ = fmt.Fprintln(p.out, codexAllowWhy)
+		c.allow = p.yesByDefault(question)
+		return
+	}
+	c.allow = p.yes(question)
 }

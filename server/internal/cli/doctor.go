@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -64,6 +65,10 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 		} else {
 			checks = append(checks, okCheck("local_server", "local server running at "+srv.URL))
 		}
+	} else if sandbox, ok := a.networkBlocked(); ok {
+		checks = append(checks, problem("local_server", levelError, "sandbox_blocks_network",
+			"local server at "+srv.URL+" can't be reached from "+sandbox+"'s sandbox, which blocks network access",
+			"run "+allowFix+" in a terminal, or approve this command outside the sandbox"))
 	} else {
 		checks = append(checks, problem("local_server", levelWarning, "server_unreachable",
 			"local server not running at "+srv.URL, "run aboard up, or any command that needs it starts it"))
@@ -123,7 +128,7 @@ func (a *app) checkDaemon(ctx context.Context, p paths) (*delivery.Status, []doc
 	defer cancel()
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpStatus})
 	if err != nil {
-		if e := asError(err); e.Code == "daemon_in_sandbox" {
+		if e := asError(err); e.Code == "daemon_in_sandbox" || e.Code == "sandbox_blocks_network" {
 			return nil, []doctorCheck{problem("daemon", levelError, e.Code, strings.TrimSuffix(e.Message, "."), e.Hint)}
 		}
 	}
@@ -228,8 +233,10 @@ func (a *app) checkCodex(ctx context.Context) []doctorCheck {
 	checks := []doctorCheck{okCheck("codex", ver+": queue available")}
 	scopes, files, err := a.installedScopes("codex", codexHooks("aboard"))
 	if err == nil && len(scopes) > 0 {
-		return append(checks, a.checkHooksCurrent("codex_hooks", "codex", scopes, a.withHome(codexHooks(a.hookExe())),
-			okCheck("codex_hooks", "codex: "+installedText(scopes, files))))
+		return append(checks,
+			a.checkHooksCurrent("codex_hooks", "codex", scopes, a.withHome(codexHooks(a.hookExe())),
+				okCheck("codex_hooks", "codex: "+installedText(scopes, files))),
+			a.checkCodexAllow(scopes))
 	}
 	missing, err2 := hooksMissing(a.setupFiles("codex", scopeGlobal).hooks, "codex", codexHooks("aboard"))
 	switch {
@@ -240,7 +247,45 @@ func (a *app) checkCodex(ctx context.Context) []doctorCheck {
 			"codex: hooks not installed ("+strings.Join(missing, ", ")+"), so your messages wait for the end of a turn",
 			"run aboard init"))
 	}
-	return checks
+	return append(checks, a.checkCodexAllow(nil))
+}
+
+// checkCodexAllow checks that a Codex rules file allows the aboard command, here or
+// everywhere. Without it, Codex runs aboard commands in its sandbox, which by default
+// blocks network access, so they can't reach the local server or the daemon. scopes are
+// where Codex's hooks are installed, which picks the fix.
+func (a *app) checkCodexAllow(scopes []string) doctorCheck {
+	for _, scope := range a.scopes() {
+		if file, ok := codexAllows(filepath.Dir(a.setupFiles("codex", scope).allow)); ok {
+			return okCheck("codex_allow", "codex: aboard commands run outside Codex's sandbox (allowed in "+file+")")
+		}
+	}
+	fix := "run " + allowFix
+	if slices.Equal(scopes, []string{scopeProject}) {
+		fix = "run aboard init --yes --scope project --allow-commands in this project"
+	}
+	return problem("codex_allow", levelWarning, "codex_aboard_not_allowed",
+		"codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
+		fix)
+}
+
+// codexAllows returns the rules file in dir that holds Codex's allow rule for aboard,
+// spaces aside, if any. Codex reads every .rules file there.
+func codexAllows(dir string) (string, bool) {
+	files, _ := filepath.Glob(filepath.Join(dir, "*.rules"))
+	want := strings.Join(strings.Fields(codexAllowRule), "")
+	for _, f := range files {
+		raw, err := os.ReadFile(filepath.Clean(f))
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			if strings.Join(strings.Fields(line), "") == want {
+				return f, true
+			}
+		}
+	}
+	return "", false
 }
 
 // statusChecks reports the daemon's servers and the deliveries that need a person.

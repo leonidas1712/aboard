@@ -145,7 +145,9 @@ func TestInitAsksThenWritesTheProjectSetup(t *testing.T) {
 	for _, want := range []string{
 		"Set up which harnesses? claude-code, codex [all] ",
 		"Install everywhere, or only in this project (" + project + ")?",
-		"Let agents run aboard commands without a permission prompt? [y/N] ",
+		// With Codex among the harnesses, the question says why and suggests yes.
+		"Codex's sandbox blocks network access; aboard needs to reach its local server.\n" +
+			"Let agents run aboard commands without a permission prompt? [Y/n] ",
 		"create    ~/project/.claude/settings.local.json (hooks)",
 		"allow: Bash(aboard *)",
 		"create    ~/project/.codex/rules/aboard.rules (permissions)",

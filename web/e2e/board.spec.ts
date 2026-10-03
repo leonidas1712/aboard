@@ -216,3 +216,60 @@ test("the board view shows the room live, posts as the person and verifies the r
   await page.reload();
   await expect(page.locator(".problem")).toContainText("Run aboard open again");
 });
+
+test("Board details shows the board and adds an agent with a prompt the CLI can join with", async ({ page, context }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Invite check", "--json"));
+  const board: string = pair.board.name;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(open.url).origin });
+  await page.goto(open.url);
+
+  // The board's title opens Board details, a dialog with the board's facts.
+  const trigger = page.getByRole("button", { name: /Invite check.*board details/ });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Board details" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(board);
+  await expect(dialog).toContainText(pair.board.id);
+  await expect(dialog).toContainText(new URL(open.url).origin);
+  await expect(dialog).toContainText("Starter policy");
+
+  // Copy details puts the facts on the clipboard as plain text.
+  await dialog.getByRole("button", { name: "Copy details" }).click();
+  await expect(dialog.locator(".copy-status").first()).toContainText("Copied");
+  const details = await page.evaluate(() => navigator.clipboard.readText());
+  expect(details).toContain(`Board: Invite check (${board})`);
+  expect(details).toContain(`ID: ${pair.board.id}`);
+  expect(details).toContain("Agents: 1\nPeople: 1");
+
+  // Add an agent: pick a role (the board has several), make a code, copy the prompt.
+  await dialog.getByLabel("Joins as").selectOption("reviewer");
+  await dialog.getByRole("button", { name: "Add an agent" }).click();
+  await expect(dialog.locator(".invite-prompt")).toContainText(`Join Aboard board ${board} on `);
+  await expect(dialog).toContainText("Joins as reviewer. Works until");
+  if (process.env.ABOARD_SCREENSHOT_DIR) {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await dialog.screenshot({ path: `${process.env.ABOARD_SCREENSHOT_DIR}/board-details-light.png` });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await dialog.screenshot({ path: `${process.env.ABOARD_SCREENSHOT_DIR}/board-details-dark.png` });
+    await page.emulateMedia({ colorScheme: "light" });
+  }
+  await dialog.getByRole("button", { name: "Copy prompt" }).click();
+  await expect(dialog.locator(".copy-status").last()).toContainText("Copied");
+  const prompt = await page.evaluate(() => navigator.clipboard.readText());
+  const [line, sentence] = prompt.split("\n");
+  expect(line).toMatch(new RegExp(`^Join Aboard board ${board} on localhost:\\d+ as reviewer with code [0-9A-Z]{3}-[0-9A-Z]{3}$`));
+  expect(sentence).toBe("You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board.");
+  await expect(dialog.locator(".copy-status").last()).toBeEmpty();
+
+  // Escape closes it and puts focus back on the title.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+
+  // The copied prompt joins a new agent from the CLI, and it shows up on the board.
+  const joined = JSON.parse(aboard("join", line, "--name", "invited", "--json"));
+  expect(joined.board.name).toBe(board);
+  expect(joined.agent.role).toBe("reviewer");
+  await expect(page.getByRole("complementary", { name: "Who's here" }).locator('[data-agent="invited"]')).toBeVisible();
+});

@@ -65,6 +65,7 @@ Code 2.1.287 with its default model.
 | `TestCodexStartsPingPong` | Codex starts the wiring check itself; each PONG reaches Codex within 30 seconds of being posted, measured from the daemon's log (handed, added at a tool boundary or shown by `say --wait-reply`), so Codex never keeps its turn busy waiting. | 4 |
 | `TestOwnerReachesBusyCodex` | While Codex runs a slow task twice, the owner's message reaches the turn at the next tool call (Codex's pre-tool hook), is acted on in that turn, and never goes into Codex's queue. | 2 |
 | `TestCodexWaitsForReplyInItsTurn` | From inside its sandbox, Codex asks with `aboard say --wait-reply` and gets the reply in the same command: the daemon records it as shown and never queues it. | 2 |
+| `TestCodexSandboxNeedsTheAllowRule` | With Codex's default sandbox (network off) and no allow rule, `aboard status` run by `codex exec` says the server can't be reached from Codex's sandbox, not that it stopped, and doctor warns `codex_aboard_not_allowed`; after `aboard init --scope project --allow-commands`, the same command reaches the running server and daemon. Read from the command's output in Codex's event stream. | 2 |
 
 A full run with Claude Code only is about 34 turns; the Codex tests add about 10.
 

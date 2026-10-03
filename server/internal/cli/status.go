@@ -38,6 +38,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Server         serverRef    `json:"server"`
 		ServerRunning  bool         `json:"server_running"`
 		ServerReplaced *replacement `json:"server_replaced"`
+		SandboxBlocks  bool         `json:"sandbox_blocks_network"`
 		Daemon         daemonReport `json:"daemon"`
 		Setup          setupReport  `json:"setup"`
 		Board          *string      `json:"board"`
@@ -88,7 +89,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 		var text strings.Builder
-		a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, out.Server)
+		a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, out.Server)
 		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
 		a.emit(out, text.String())
@@ -98,7 +99,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	out.Agents = creds.names(t.server.URL, t.board)
 
 	var text strings.Builder
-	a.runningLines(ctx, &text, &out.ServerRunning, &out.Daemon, t.server)
+	a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, t.server)
 	text.WriteString(setupLine)
 	fmt.Fprintf(&text, "Board:  %s on %s (%s)\n", t.board, t.server.URL, sourceText(t.source))
 	// The board's lines come from the server, read first so the Agent line can show the
@@ -242,11 +243,18 @@ type daemonReport struct {
 }
 
 // runningLines writes the Server and Daemon lines of aboard status, saying what the
-// command replaced. It checks both without starting either.
-func (a *app) runningLines(ctx context.Context, text *strings.Builder, running *bool, d *daemonReport, srv serverRef) {
+// command replaced. It checks both without starting either. Inside a sandbox that
+// blocks the network, one that doesn't answer may still run, so it says that instead
+// of "not running" and sets blocked.
+func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, blocked *bool, d *daemonReport, srv serverRef) {
 	*running = a.serverAnswers(ctx, srv)
 	local := srv.URL == a.localServer().URL
+	sandbox, noNetwork := a.networkBlocked()
 	switch {
+	case !*running && noNetwork:
+		*blocked = true
+		fmt.Fprintf(text, "Server: %s can't be reached from %s's sandbox, which blocks network access; "+
+			"run %s in a terminal, or approve this command outside the sandbox\n", srv.URL, sandbox, allowFix)
 	case *running && local:
 		fmt.Fprintf(text, "Server: %s running%s\n", srv.URL, a.localReplaced.text())
 	case *running:
@@ -257,6 +265,11 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running *
 		fmt.Fprintf(text, "Server: %s unreachable\n", srv.URL)
 	}
 	st, _ := a.daemonStatus(ctx)
+	if st == nil && noNetwork {
+		*blocked = true
+		fmt.Fprintf(text, "Daemon: can't be reached from %s's sandbox\n", sandbox)
+		return
+	}
 	if st == nil {
 		text.WriteString("Daemon: not running; it starts when a session or command needs it\n")
 		return
