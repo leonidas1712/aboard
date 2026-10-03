@@ -269,21 +269,98 @@ $defs:
   # ---------- aboard ask "text" …  (exactly `aboard say --expect-reply`) ----------
   SayOutput:
     description: |
-      Returns as soon as the message is stored. With --wait-reply N (which implies
-      --expect-reply) the command then waits up to N seconds for the first reply and
-      includes it. A timeout is not an error: exit 0 with `reply` null and `timed_out`
-      true. Text output prints the message id and seq so the sender can check on it.
+      Returns as soon as the message is stored, with two advisory notes that never fail
+      or hold up the post (each is null when it couldn't be worked out):
+
+      - `unread`: the sender's own unread messages on the board, whatever the message's
+        target, so it doesn't post without knowing what is waiting for it.
+      - `recipients`: when each recipient will see the message, from its presence and
+        delivery mode as the board's members list shows them. `outcome` is `now` (its
+        session is idle and delivery wakes it), `turn_end` (its session is working; it
+        gets the message when its turn ends), `not_woken` (its delivery mode is `off`, or
+        `humans` and the sender is an agent; it sees the message when it checks its
+        inbox), `no_session` (no session is open for it; it sees the message in its
+        inbox or when a session resumes it) or `person` (a person; they see it on the
+        board or in their inbox).
+
+      Text output: "Sent #<seq> to <targets> on <board>", then a line about the sender's
+      unread messages when there are any, then one line about the recipients, grouped by
+      outcome in the order above, naming up to five per group and counting the rest:
+        Sent #8 to all on general
+        2 unread on general: #6, #7; run aboard inbox
+        @reviewer gets it now. @codex, @claude-2 get it when their turn ends. @alex sees it on the board or in their inbox.
+      The other groups read "@bot won't be woken: it sees it when it checks its inbox."
+      and "@old has no open session: it sees it in its inbox or when a session resumes
+      it.", with "they … their" for several.
+
+      --wait-reply N (which implies --expect-reply) then waits up to N seconds, inside the
+      same command, for a reply: a message whose `reply_to` is this one. The command
+      shows what came, acknowledges it so it is never delivered again (spec/delivery.md,
+      "Waiting for a reply inside a turn"), and says which outcome happened in `outcome`:
+      - `reply`: the first reply, in `reply`. Text: "Reply from @reviewer:" and the reply
+        in delivery format.
+      - `owner_message`: the agent's owner sent something during the wait, in
+        `owner_messages`, in full; a reply that comes later is delivered the normal way.
+        If a reply came at the same moment, it is in `reply` too. Text: "Your owner sent
+        this while you waited; a reply to #<seq> will reach you later:" and the messages
+        in delivery format.
+      - `timeout`: no reply within N seconds. Not an error: exit 0. Text: "Sent #<seq>; no
+        reply within <N> s. Don't send it again; a reply will reach you later."
+      Messages from anyone else that arrive during the wait are left for normal delivery.
     type: object
-    required: [message]
+    required: [message, unread, recipients]
     properties:
       message: { $ref: "#/$defs/Message" }
+      unread:
+        description: The sender's unread messages on the board, oldest first; null if they couldn't be read.
+        type: [object, "null"]
+        required: [count, seqs, from]
+        properties:
+          count: { type: integer, minimum: 0 }
+          seqs:
+            type: array
+            items: { type: integer }
+          from:
+            description: Who sent them, once per sender, in the order of their first message.
+            type: array
+            items:
+              type: object
+              required: [name, sender]
+              properties:
+                name: { type: string }
+                sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
+      recipients:
+        description: Every member the message is addressed to, except the sender; null if the members couldn't be read.
+        type: [array, "null"]
+        items:
+          type: object
+          required: [name, presence, delivery, outcome]
+          properties:
+            name: { type: string }
+            presence:
+              type: [string, "null"]
+              enum: [working, idle, waiting, no_session, null]
+              description: Null for a person.
+            delivery:
+              type: [string, "null"]
+              enum: [auto, humans, off, null]
+              description: The agent's delivery mode as last reported; null for a person or when never reported (treated as auto).
+            outcome:
+              enum: [now, turn_end, not_woken, no_session, person]
+      outcome:
+        description: Present with --wait-reply.
+        enum: [reply, owner_message, timeout]
       reply:
-        description: Present with --wait-reply. The first reply, or null on timeout.
+        description: Present with --wait-reply. The first reply, or null.
         oneOf:
           - $ref: "#/$defs/Message"
           - type: "null"
+      owner_messages:
+        description: Present with --wait-reply. The owner's messages that arrived during the wait, oldest first.
+        type: array
+        items: { $ref: "#/$defs/Message" }
       timed_out:
-        description: Present with --wait-reply.
+        description: Present with --wait-reply. True exactly when `outcome` is `timeout`.
         type: boolean
 
   # ---------- aboard replies MSG [--wait SECONDS] ----------

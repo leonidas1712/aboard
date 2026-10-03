@@ -204,6 +204,7 @@ func (d *Daemon) newSessionLocked(key SessionKey) *session {
 	s := &session{
 		d: d, key: key, adapter: ad, mail: newMailbox[sessionMsg](),
 		agents: map[AgentRef]*agentState{}, refreshing: map[int64]bool{}, forward: map[AgentRef]*session{},
+		holds:    map[*hold]bool{},
 		reported: map[AgentRef]reportedPresence{},
 	}
 	d.sessions[key] = s
@@ -468,6 +469,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		_ = WriteFrame(conn, d.setMode(ctx, req))
 	case OpWait:
 		d.serveWait(ctx, conn, r, req)
+	case OpHold:
+		d.serveHold(ctx, conn, r, req)
 	case OpRegister, OpPrompt, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
@@ -674,4 +677,47 @@ func compareAgents(a, b AgentRef) int {
 		return c
 	}
 	return strings.Compare(a.Name, b.Name)
+}
+
+// serveHold keeps replies to one of an agent's messages out of its bundles while the
+// connection stays open, and records the messages the command claims on it.
+func (d *Daemon) serveHold(ctx context.Context, conn net.Conn, r *bufio.Reader, req Request) {
+	if req.Agent == nil || req.ReplyTo <= 0 {
+		_ = WriteFrame(conn, errorResponse("invalid_request", "A hold needs an agent and the message whose replies to hold.",
+			"Send the agent's server, board and name, and reply_to."))
+		return
+	}
+	s := d.owner(*req.Agent)
+	if s == nil {
+		_ = WriteFrame(conn, Response{V: ProtocolVersion})
+		return
+	}
+	h := &hold{agent: *req.Agent, replyTo: req.ReplyTo}
+	ask := func(m sessionMsg) Response {
+		reply := make(chan Response, 1)
+		m.reply = reply
+		s.mail.put(m)
+		select {
+		case resp := <-reply:
+			return resp
+		case <-ctx.Done():
+			return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again.")
+		}
+	}
+	defer s.mail.put(sessionMsg{unhold: h})
+	if err := WriteFrame(conn, ask(sessionMsg{hold: h})); err != nil {
+		return
+	}
+	for {
+		var m Request
+		if err := ReadFrame(r, &m); err != nil {
+			return
+		}
+		if m.Op != OpClaim {
+			continue
+		}
+		if err := WriteFrame(conn, ask(sessionMsg{claim: &claimRequest{agent: h.agent, seqs: m.Seqs}})); err != nil {
+			return
+		}
+	}
 }

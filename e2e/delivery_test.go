@@ -35,7 +35,7 @@ func TestIdleClaudeSessionWakesWithMessage(t *testing.T) {
 		t.Fatalf("stop hook returned without a message\n%s", stop.wait(time.Second))
 	}
 	// No --as: each session's bound agent decides who is speaking.
-	expectLines(t, writer.run("say", "--to", "@reviewer", "Draft is in notes.md."), "Sent #6 to @reviewer on writer-reviewer")
+	expectLines(t, writer.run("say", "--to", "@reviewer", "Draft is in notes.md."), "Sent #6 to @reviewer on writer-reviewer", "@reviewer gets it now.")
 
 	woke := stop.wait(5 * time.Second)
 	if woke.code != 2 {
@@ -257,7 +257,7 @@ func TestAgentNameOnTwoBoardsMustBeDisambiguated(t *testing.T) {
 	if len(boards) != 2 {
 		t.Fatalf("details.boards %v", boards)
 	}
-	expectLines(t, e.run("say", "--as", "writer", "--board", "writer-reviewer-2", "hello"), "Sent #5 to all on writer-reviewer-2")
+	expectLines(t, e.run("say", "--as", "writer", "--board", "writer-reviewer-2", "hello"), "Sent #5 to all on writer-reviewer-2", "@alex sees it on the board or in their inbox.")
 }
 
 // aboard init, with --yes, installs the skill and hooks for detected harnesses, and a

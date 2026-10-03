@@ -37,6 +37,24 @@ type sessionMsg struct {
 	modeChanged bool
 	// renewPresence asks the session to report its agents' presence again.
 	renewPresence bool
+	// hold starts keeping replies to a message out of bundles, answered on reply;
+	// unhold ends it.
+	hold, unhold *hold
+	// claim records messages a command showed as received, answered on reply.
+	claim *claimRequest
+}
+
+// hold keeps replies to one of an agent's messages out of its bundles and notices, while
+// a command waits for the reply itself.
+type hold struct {
+	agent   AgentRef
+	replyTo int
+}
+
+// claimRequest names messages a command showed to the agent.
+type claimRequest struct {
+	agent AgentRef
+	seqs  []int
 }
 
 type inboxResult struct {
@@ -89,6 +107,8 @@ type session struct {
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
 	forward map[AgentRef]*session
+	// holds are the replies commands are waiting for themselves.
+	holds map[*hold]bool
 }
 
 // agentState is what a session knows about one of its agents.
@@ -164,6 +184,19 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 	case m.modeChanged:
 		s.refreshAll(false)
 	case m.renewPresence:
+	case m.hold != nil:
+		_, ok := s.agents[m.hold.agent]
+		if ok && s.open {
+			s.holds[m.hold] = true
+		}
+		m.reply <- Response{V: ProtocolVersion, Held: ok && s.open}
+	case m.unhold != nil:
+		delete(s.holds, m.unhold)
+		if !s.adapter.WaitsForIdle() && s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
+			s.gatherUntil = s.now()
+		}
+	case m.claim != nil:
+		m.reply <- Response{V: ProtocolVersion, Claimed: s.onClaim(ctx, *m.claim)}
 	default:
 		m.reply <- s.onRequest(ctx, m.req)
 	}
@@ -644,12 +677,54 @@ func (s *session) queueFilter() filter {
 	return allMessages
 }
 
+// held reports whether a command is waiting itself for m, a reply it asked for.
+func (s *session) held(agent AgentRef, m Message) bool {
+	for h := range s.holds {
+		if h.agent == agent && m.ReplyToSeq == h.replyTo {
+			return true
+		}
+	}
+	return false
+}
+
+// onClaim records messages a command showed to the agent as received, as if a session
+// had confirmed them, so they are acknowledged in turn and never handed over. A message
+// already in a delivery is left as it is.
+func (s *session) onClaim(ctx context.Context, c claimRequest) []int {
+	a, ok := s.agents[c.agent]
+	if !ok || a.adopting {
+		return nil
+	}
+	t := taken(a)
+	var seqs []int
+	for _, seq := range c.seqs {
+		if _, in := t[seq]; !in && seq > a.ackedUpTo {
+			seqs = append(seqs, seq)
+		}
+	}
+	if len(seqs) == 0 {
+		return nil
+	}
+	now := s.now()
+	dl := &Delivery{Agent: c.agent, Session: s.key, Boot: s.boot, State: StateConfirmed, Seqs: seqs, CreatedAt: now, UpdatedAt: now}
+	id, err := s.d.cfg.Journal.AddDelivery(ctx, *dl)
+	if err != nil {
+		s.d.log.Error("record claimed messages", "agent", c.agent.Name, "error", err)
+		return nil
+	}
+	dl.ID = id
+	a.deliveries[id] = dl
+	s.maybeAck(a)
+	s.refresh(a, false)
+	return seqs
+}
+
 // newMessages returns unread messages that are in no delivery yet.
 func (s *session) newMessages(a *agentState, f filter) []Message {
 	t := taken(a)
 	var out []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || !f.allows(m) {
+		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) {
 			continue
 		}
 		out = append(out, m)
@@ -1029,7 +1104,7 @@ func (s *session) noticeFor(a *agentState) string {
 	t := taken(a)
 	var fresh []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] {
+		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) {
 			continue
 		}
 		fresh = append(fresh, m)
