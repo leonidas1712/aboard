@@ -200,9 +200,31 @@ func TestPeerWaitsButNoticeArrives(t *testing.T) {
 	if len(notices) != 1 {
 		t.Fatalf("%d tool boundaries named the peer's message; want exactly one notice", len(notices))
 	}
-	// A bundle is handed only to a waiting stop hook, so only once the busy turn ended.
-	if how != "bundle handed" || at.Before(notices[0].Time) {
-		t.Errorf("the peer's message reached the session by %q at %s; want a bundle after the notice (%s)", how, at, notices[0].Time)
+	// Two outcomes are right. The agent acts on the notice and fetches the message
+	// itself with aboard inbox, which acknowledges it, so it is never handed at all; or
+	// it waits, and the message is handed in a bundle once the busy turn ends, after the
+	// notice. Either way it must never be handed twice.
+	switch how {
+	case "":
+		if inbox := l.writerInbox(); len(inbox) != 0 {
+			t.Errorf("the peer's message was neither handed nor acknowledged: the writer's inbox still holds %v", inbox)
+		}
+		t.Logf("the writer fetched the message itself after the notice")
+	case "bundle handed":
+		if at.Before(notices[0].Time) {
+			t.Errorf("the peer's message was handed at %s, before the notice (%s); want it only after the turn ended", at, notices[0].Time)
+		}
+	default:
+		t.Errorf("the peer's message reached the session by %q at %s; want a bundle after the notice, or the writer's own aboard inbox", how, at)
+	}
+	handedTimes := 0
+	for _, h := range l.handed() {
+		if h.Error == "" && slices.Contains(h.Seqs, peer.Seq) {
+			handedTimes++
+		}
+	}
+	if handedTimes > 1 {
+		t.Errorf("the peer's message was handed %d times; want at most once", handedTimes)
 	}
 }
 
