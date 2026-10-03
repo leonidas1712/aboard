@@ -70,8 +70,8 @@ type session struct {
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
 	working bool
-	// reported is the presence last reported for each agent.
-	reported map[AgentRef]Presence
+	// reported is the presence and delivery mode last reported for each agent.
+	reported map[AgentRef]reportedPresence
 	waiter   *waiter
 	agents   map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
@@ -251,20 +251,28 @@ func (s *session) presence() Presence {
 	}
 }
 
-// reportPresence reports the presence of each agent the session holds when it changed,
-// or, with renew, again while it isn't no_session, so the server doesn't let it run
-// out. no_session isn't renewed: an unrenewed presence becomes it anyway.
+// reportedPresence is what was last reported for an agent.
+type reportedPresence struct {
+	state Presence
+	mode  Mode
+}
+
+// reportPresence reports the presence and delivery mode of each agent the session holds
+// when either changed, or, with renew, again while it isn't no_session, so the server
+// doesn't let it run out. no_session isn't renewed: an unrenewed presence becomes it
+// anyway.
 func (s *session) reportPresence(renew bool) {
 	p := s.presence()
 	for ref, a := range s.agents {
 		if a.adopting {
 			continue
 		}
-		if last, ok := s.reported[ref]; ok && last == p && (!renew || p == PresenceNoSession) {
+		now := reportedPresence{state: p, mode: s.d.mode(ref)}
+		if last, ok := s.reported[ref]; ok && last == now && (!renew || p == PresenceNoSession) {
 			continue
 		}
-		s.reported[ref] = p
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: p})
+		s.reported[ref] = now
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: now.state, mode: now.mode})
 	}
 }
 
@@ -272,8 +280,8 @@ func (s *session) reportPresence(renew bool) {
 // that is already what was reported. The session that takes the agent next reports
 // after this, through the same server connection, so its report wins.
 func (s *session) leavePresence(ref AgentRef) {
-	if last, ok := s.reported[ref]; ok && last != PresenceNoSession {
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession})
+	if last, ok := s.reported[ref]; ok && last.state != PresenceNoSession {
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession, mode: last.mode})
 	}
 	delete(s.reported, ref)
 }

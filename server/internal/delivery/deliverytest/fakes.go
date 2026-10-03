@@ -182,6 +182,7 @@ type FakeServer struct {
 	acks      []int
 	failAcks  bool
 	presence  map[delivery.AgentRef][]delivery.Presence
+	modes     map[delivery.AgentRef]delivery.Mode
 }
 
 var _ delivery.Server = (*FakeServer)(nil)
@@ -191,19 +192,29 @@ func NewFakeServer() *FakeServer {
 	return &FakeServer{
 		heads: map[string]int{}, inboxes: map[delivery.AgentRef][]delivery.Message{},
 		cursors: map[delivery.AgentRef]int{}, revoked: map[delivery.AgentRef]bool{}, followers: map[chan delivery.Head]bool{},
-		presence: map[delivery.AgentRef][]delivery.Presence{},
+		presence: map[delivery.AgentRef][]delivery.Presence{}, modes: map[delivery.AgentRef]delivery.Mode{},
 	}
 }
 
 // SetPresence records the agent's presence.
-func (s *FakeServer) SetPresence(_ context.Context, agent delivery.AgentRef, p delivery.Presence) error {
+func (s *FakeServer) SetPresence(_ context.Context, agent delivery.AgentRef, p delivery.Presence, mode delivery.Mode) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.revoked[agent] {
 		return delivery.ErrUnauthorized
 	}
 	s.presence[agent] = append(s.presence[agent], p)
+	if mode != "" {
+		s.modes[agent] = mode
+	}
 	return nil
+}
+
+// Mode is the agent's delivery mode as last reported with its presence, or "".
+func (s *FakeServer) Mode(agent delivery.AgentRef) delivery.Mode {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.modes[agent]
 }
 
 // Presence is the agent's latest reported presence, or "" if none was reported.

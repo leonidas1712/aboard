@@ -250,7 +250,7 @@ func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (Get
 	if req.Params.Wait != nil {
 		wait = time.Duration(*req.Params.Wait) * time.Second
 	}
-	r, more, err := h.svc.Inbox(ctx, principal(ctx), wait, limitOr(req.Params.Limit))
+	r, more, err := h.svc.Inbox(ctx, principal(ctx), wait, afterOr(req.Params.After), limitOr(req.Params.Limit))
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,11 @@ func (h *handlers) AckInbox(ctx context.Context, req AckInboxRequestObject) (Ack
 }
 
 func (h *handlers) SetPresence(ctx context.Context, req SetPresenceRequestObject) (SetPresenceResponseObject, error) {
-	b, me, err := h.svc.SetPresence(ctx, principal(ctx), string(req.Body.Presence))
+	mode := ""
+	if req.Body.Delivery != nil {
+		mode = string(*req.Body.Delivery)
+	}
+	b, me, err := h.svc.SetPresence(ctx, principal(ctx), string(req.Body.Presence), mode)
 	if err != nil {
 		return nil, err
 	}

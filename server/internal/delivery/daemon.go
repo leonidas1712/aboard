@@ -204,7 +204,7 @@ func (d *Daemon) newSessionLocked(key SessionKey) *session {
 	s := &session{
 		d: d, key: key, adapter: ad, mail: newMailbox[sessionMsg](),
 		agents: map[AgentRef]*agentState{}, refreshing: map[int64]bool{}, forward: map[AgentRef]*session{},
-		reported: map[AgentRef]Presence{},
+		reported: map[AgentRef]reportedPresence{},
 	}
 	d.sessions[key] = s
 	return s

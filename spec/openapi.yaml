@@ -354,9 +354,12 @@ paths:
         post. Secrets in `body` are redacted before the event is written. Returns as soon
         as the message is stored; delivery happens separately.
 
-        `urgent` messages are delivered into a recipient's session without waiting for it
-        to be idle. Sending one needs the `urgent` permission, or board policy
-        `urgent: everyone`; otherwise returns 403 `urgent_not_allowed`. Humans always may. `expects_reply` marks the message as asking for an answer: it shows as
+        An `urgent` message goes first in each recipient's next delivery, ahead of
+        ordinary ones, in the order urgent messages were sent; it doesn't interrupt a
+        recipient that is busy. Only a message from an agent's owner reaches the agent
+        during a turn, whether urgent or not. Sending one needs the `urgent` permission,
+        or board policy `urgent: everyone`; otherwise returns 403 `urgent_not_allowed`.
+        Humans always may. `expects_reply` marks the message as asking for an answer: it shows as
         unanswered in the board report until a recipient replies (a message whose
         `reply_to` is this message's id).
       parameters:
@@ -438,6 +441,10 @@ paths:
         If there are none and `wait` > 0, holds the request until one arrives or `wait`
         seconds pass, then returns (possibly empty). Does not move the cursor.
 
+        `after` leaves out unread messages up to that sequence number, so a client that
+        has seen them can wait for the next one without moving the cursor: with
+        `after=12&wait=30` the request returns as soon as a message after 12 arrives.
+
         A new agent's cursor starts at the board's head when it joins, so its inbox holds
         only messages posted after that; earlier ones are in the timeline.
       parameters:
@@ -445,6 +452,7 @@ paths:
           in: query
           description: Seconds to wait for a message when none is unread.
           schema: { type: integer, minimum: 0, maximum: 600, default: 0 }
+        - $ref: "#/components/parameters/After"
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
@@ -511,6 +519,10 @@ paths:
         whose machine went away doesn't stay `working`. Reporting the same presence
         again only renews it: `presence_since` stays when the presence began.
 
+        `delivery` is the agent's delivery mode on its owner's machine (see
+        `DeliveryMode`), reported with the presence so a sender can tell when a message
+        will reach the agent. Leaving it out keeps the mode last reported.
+
         Presence is bookkeeping, like the read position: it is never an event and never
         in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
       parameters:
@@ -525,6 +537,7 @@ paths:
               additionalProperties: false
               properties:
                 presence: { $ref: "#/components/schemas/Presence" }
+                delivery: { $ref: "#/components/schemas/DeliveryMode" }
       responses:
         "200":
           description: The agent's presence after the report
@@ -1087,7 +1100,7 @@ components:
     # ---------- members ----------
     Member:
       type: object
-      required: [id, board, name, kind, role, owner, harness, access, status, joined_at, presence, presence_since]
+      required: [id, board, name, kind, role, owner, harness, access, status, joined_at, presence, presence_since, delivery]
       properties:
         id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
@@ -1129,6 +1142,24 @@ components:
           description: |
             When the presence began. For `no_session` after a presence ran out, when it was
             last reported. Null for people and for an agent no session ever reported.
+        delivery:
+          type: string
+          enum: [auto, humans, off, null]
+          nullable: true
+          description: |
+            The agent's delivery mode, as its owner's delivery daemon last reported it
+            (see `DeliveryMode`). Null for people, and for an agent whose mode was never
+            reported, such as one with no delivery daemon.
+    DeliveryMode:
+      type: string
+      enum: [auto, humans, off]
+      description: |
+        How messages reach an agent's open session, chosen by its owner. `auto`: every
+        message wakes an idle session. `humans`: only a message from a person wakes it,
+        and peer messages arrive with it. `off`: nothing is delivered; the agent reads its
+        inbox when it chooses. In every mode a message from the agent's owner reaches a
+        busy session at its next tool call, except in `off`; other messages wait until
+        the turn ends.
     Presence:
       type: string
       enum: [working, idle, waiting, no_session]
