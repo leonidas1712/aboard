@@ -317,13 +317,17 @@ func (a *app) refuseIfLinked(newBoard bool) error {
 		return err
 	}
 	agents := creds.names(p.Server.URL, p.Board)
-	hint := "To create another board and link this directory to it instead, run aboard pair --new."
+	addAgent := "aboard invite --board " + shellWord(p.Board)
+	hint := "To add an agent to " + p.Board + ", a person runs " + addAgent +
+		" in a terminal and pastes what it prints into the agent's session. To start another board, run aboard pair --new."
 	if len(agents) > 0 {
-		hint = "To keep working there, act as one of your agents on it with --as (" + strings.Join(agents, ", ") +
-			"). " + hint
+		hint += " To keep working on " + p.Board + ", act as one of your agents there with --as (" + strings.Join(agents, ", ") + ")."
 	}
 	e := newError("board_already_linked",
 		"This directory is already linked to board "+p.Board+" on "+p.Server.URL+".", hint)
-	e.Details = map[string]any{"board": p.Board, "server": p.Server.URL, "agents": agents}
+	e.Details = map[string]any{
+		"board": p.Board, "server": p.Server.URL, "agents": agents,
+		"add_agent": addAgent, "new_board": "aboard pair --new",
+	}
 	return e
 }

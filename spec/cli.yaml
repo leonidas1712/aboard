@@ -82,7 +82,9 @@ $defs:
       it in a terminal) · browser_unavailable (aboard open inside a harness session
       couldn't start a browser; the person runs it in their own terminal) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
-      board; details.board, details.server, details.agents) · join_line_invalid ·
+      board; details.board, details.server, details.agents, and the two ways on:
+      details.add_agent, the command a person runs to add an agent to that board, and
+      details.new_board, the command that starts another board) · join_line_invalid ·
       message_ref_invalid · check_failed.
   ServerRef:
     type: object
@@ -226,7 +228,8 @@ $defs:
 
   # ---------- aboard pair [template] [--new] [--board NAME] [--title TEXT] [--name NAME] ----------
   # In a directory already linked to a board, pair fails with board_already_linked
-  # unless --new is given. --title sets the board's title (Board.title).
+  # unless --new is given; its hint names both ways on: aboard invite to add an agent to
+  # that board, and aboard pair --new to start another. --title sets the board's title (Board.title).
   PairOutput:
     type: object
     required: [server, server_started, board, agent, use, join, policy_notice]
