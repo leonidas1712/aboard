@@ -169,13 +169,16 @@ type Status struct {
 	PID int `json:"pid"`
 	// Build is the daemon's build; a daemon from before builds were reported leaves it
 	// empty.
-	Build        Build           `json:"build"`
-	OpenSessions int             `json:"open_sessions"`
-	Servers      []ServerStatus  `json:"servers"`
-	Attention    []StatusItem    `json:"attention"`
-	Skipped      []StatusItem    `json:"skipped"`
-	Agents       []AgentProblem  `json:"agents"`
-	Bindings     []BindingStatus `json:"bindings"`
+	Build        Build          `json:"build"`
+	OpenSessions int            `json:"open_sessions"`
+	Servers      []ServerStatus `json:"servers"`
+	Attention    []StatusItem   `json:"attention"`
+	Skipped      []StatusItem   `json:"skipped"`
+	// Stalled are deliveries handed to an idle session that started no turn within
+	// StallAfter, reason no_turn_started. They aren't handed again.
+	Stalled  []StatusItem    `json:"stalled"`
+	Agents   []AgentProblem  `json:"agents"`
+	Bindings []BindingStatus `json:"bindings"`
 }
 
 // ServerStatus is one server connection.

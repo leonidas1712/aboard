@@ -298,6 +298,11 @@ func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 			fmt.Sprintf("1 delivery needs attention: #%s on %s for %s (%s)", seqList(d.Seqs), d.Agent.Board, d.Agent.Name, d.Reason),
 			a.fixFor(d.Reason)))
 	}
+	for _, d := range st.Stalled {
+		checks = append(checks, problem("delivery", levelWarning, "delivery_stalled",
+			fmt.Sprintf("#%s on %s for %s was handed to its idle session, which started no turn within %s", seqList(d.Seqs), d.Agent.Board, d.Agent.Name, delivery.StallAfter),
+			"look at the session: it may be waiting for an answer, or its harness didn't wake; the message isn't sent again, so read it there with aboard read"))
+	}
 	if n := len(st.Skipped); n > 0 {
 		var where []string
 		for _, d := range st.Skipped {

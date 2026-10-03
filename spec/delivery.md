@@ -568,6 +568,17 @@ when it builds a bundle.
 | `attention` | Stopped after 5 failed attempts; shown by `aboard doctor` | Unchanged |
 | `skipped` | Can't be delivered automatically (too large); readable with `aboard read` | Moved past it |
 
+Each delivery also records how far it got in its session: when the harness **accepted**
+it (a waiting hook took it, the harness's queue took it, or its extension added it), and
+when the session's next **turn started** after that (a prompt, or a tool boundary). A
+delivery handed to an idle session whose turns the daemon has seen before (it reported
+a prompt, a turn's end, a waiting hook or an extension's hello) that starts no turn
+within 10 seconds is marked **stalled**: the harness took it and didn't wake. A stalled
+delivery is never handed again because of it, since the harness has it; `aboard status`
+counts it and `aboard doctor` names it (`delivery_stalled`) until a turn starts or the
+session closes. A session whose turns the daemon never sees, such as Codex with
+untrusted hooks, never stalls.
+
 Rules:
 
 - **At least once, no silent duplicates.** A message's read position moves only after its
@@ -833,6 +844,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `login_missing` | No human login for a server with bound agents | `aboard connect` |
 | `delivery_attention` | Deliveries stopped after repeated failures | Per delivery, from its reason |
 | `delivery_skipped` | Messages too large for automatic delivery | Read them with `aboard read` |
+| `delivery_stalled` | A delivery handed to an idle session that started no turn within 10 seconds (warning); it isn't sent again | Look at the session; read the message there with `aboard read` |
 | `daemon_outdated` | The running daemon is from an older aboard and couldn't be replaced (warning) | `aboard down` |
 | `server_outdated` | The local server is from an older aboard (warning); the next command that uses it replaces it | Run any command, or `aboard down` |
 | `skill_outdated` | An installed skill differs from the one this aboard installs and is unchanged since an aboard wrote it, or has no record in the install manifest (warning). The message names the version that wrote it when the manifest records it | `aboard init --yes`, with `--scope project` for a project's skill |

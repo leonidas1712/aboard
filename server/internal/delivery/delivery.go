@@ -87,6 +87,14 @@ type Delivery struct {
 	RetryAt   time.Time
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// AcceptedAt is when the harness accepted the delivery: a waiting hook took it, its
+	// queue took it, or its extension added it. TurnStartedAt is when the session's next
+	// turn started after that. Both are zero until then.
+	AcceptedAt    time.Time
+	TurnStartedAt time.Time
+	// Stalled is set when the delivery was handed to an idle session that started no
+	// turn within StallAfter. It is reported, never handed again because of it.
+	Stalled bool
 }
 
 // SessionRecord is what the journal keeps of a session.
@@ -193,6 +201,10 @@ const (
 	// PresenceRenew is how often the daemon reports an agent's presence again while it
 	// holds. A server lets a presence run out after 3 minutes without a report.
 	PresenceRenew = time.Minute
+	// StallAfter is how long a session handed a bundle while idle may take to start a
+	// turn before the delivery counts as stalled. Waking takes the harnesses about a
+	// second.
+	StallAfter = 10 * time.Second
 )
 
 // Presence is what an agent's session is doing, as the daemon reports it to the

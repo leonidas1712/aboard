@@ -174,3 +174,33 @@ func (c *extClient) closed() {
 		c.t.Fatal("the daemon kept the extension's connection open")
 	}
 }
+
+// A bundle the harness took while idle, after which its session started no turn, shows
+// in aboard status and doctor as stalled, and stops showing once a turn starts. The
+// extension connection plays the harness, since it reports turns as they happen.
+func TestStalledDeliveryShowsInStatusAndDoctor(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	id := "019a0000-0000-7000-8000-0000000c0ffe"
+	ext, welcome := e.extConnect("omp", id, "0000000000000b01", "startup")
+	if welcome.Event != "welcome" {
+		t.Fatalf("hello: %+v", welcome)
+	}
+	s := &session{e: e, harness: "omp", id: id, vars: []string{"ABOARD_SESSION=omp:" + id}}
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
+	s.run("join", line, "--name", "reviewer")
+	seq := writerSays(t, e, "are you awake?")
+	ext.deliver(10*time.Second, true)
+
+	stalled := func() float64 {
+		v, _ := field(t, e.run("status", "--json").json(t), "daemon.stalled").(float64)
+		return v
+	}
+	eventually(t, 20*time.Second, "the delivery to stall", func() bool { return stalled() == 1 })
+	c := e.doctorChecks()["delivery"]
+	if c["code"] != "delivery_stalled" || !strings.Contains(c["message"].(string), "#"+strconv.Itoa(seq)) {
+		t.Fatalf("doctor's delivery check: %v", c)
+	}
+	ext.send(map[string]any{"op": "prompt"})
+	eventually(t, 10*time.Second, "the stall to clear once a turn starts", func() bool { return stalled() == 0 })
+}

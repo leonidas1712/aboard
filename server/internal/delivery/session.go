@@ -107,8 +107,16 @@ type session struct {
 	// its extension's.
 	waiter Waiter
 	// ext is the harness extension's connection, for a session an extension registered.
-	ext    *extConn
-	agents map[AgentRef]*agentState
+	ext *extConn
+	// seenTurns is true once the session has reported a turn starting or ending, so the
+	// daemon can tell a session that started no turn from one whose turns it can't see
+	// (Codex with untrusted hooks).
+	seenTurns bool
+	// awaitingTurn are deliveries handed to the session while it was idle, waiting for
+	// the turn they should start; stallAt is when they count as stalled.
+	awaitingTurn []*Delivery
+	stallAt      time.Time
+	agents       map[AgentRef]*agentState
 	// restored is set for sessions loaded from the journal at start.
 	restored bool
 	// refreshing holds refreshes whose results a waiting hook should see before a
@@ -156,8 +164,8 @@ func (s *session) run(ctx context.Context) error {
 	}
 	for {
 		var timer <-chan time.Time
-		if !s.gatherUntil.IsZero() {
-			timer = s.d.cfg.Clock.After(s.gatherUntil.Sub(s.now()))
+		if next := s.nextTimer(); !next.IsZero() {
+			timer = s.d.cfg.Clock.After(next.Sub(s.now()))
 		}
 		select {
 		case <-ctx.Done():
@@ -171,6 +179,7 @@ func (s *session) run(ctx context.Context) error {
 			s.tryDeliver(ctx)
 			s.reportPresence(renew)
 		case <-timer:
+			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
 		}
 	}
@@ -247,6 +256,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true
+		s.turnStarted(ctx)
 		if !req.Wake {
 			s.event(ctx, req.Boot)
 		}
@@ -257,6 +267,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	case OpBoundary, OpUrgent:
 		s.busyAt = s.now()
 		s.working = true
+		s.turnStarted(ctx)
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
 		} else {
@@ -266,6 +277,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	case OpTurnEnd:
 		s.event(ctx, req.Boot)
 		s.inTurn, s.working = false, false
+		s.seenTurns = true
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
 			s.gatherUntil = s.now()
 		}
@@ -399,6 +411,10 @@ func (s *session) unhand(ctx context.Context) {
 }
 
 func (s *session) setOpen(ctx context.Context, open bool) {
+	if !open {
+		// A session that closed starts no turn; what it was handed isn't stalled.
+		s.forgetAwaiting()
+	}
 	s.open = open
 	s.started = s.started || open
 	s.saveSession(ctx)
@@ -478,6 +494,7 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	}
 	s.waiter = w
 	s.working = false
+	s.seenTurns = true
 	w.accepted()
 	if !s.open {
 		s.setOpen(ctx, true)
@@ -949,7 +966,11 @@ func (s *session) tryDeliver(ctx context.Context) {
 		first = handed[0].ID
 	}
 	began := s.now()
+	idle := s.adapter.WaitsForIdle() || !s.inTurn
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, Bundle: c.text, Waiter: s.waiter})
+	if err == nil {
+		s.accepted(ctx, handed, idle)
+	}
 	if s.adapter.WaitsForIdle() {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
 	}
@@ -983,6 +1004,89 @@ func (s *session) tryDeliver(ctx context.Context) {
 	s.scheduleRetry()
 	s.d.log.Info("bundle handed", "session", s.key.String(), "board", partBoard(c.parts), "deliveries", len(handed), "seqs", partSeqs(c.parts),
 		"bytes", len(c.text), "began", began, "error", errText(err))
+}
+
+// accepted records that the harness took the deliveries of a bundle. Handed to an idle
+// session whose turns the daemon sees, they wait for the turn they should start, and
+// count as stalled after StallAfter without one.
+func (s *session) accepted(ctx context.Context, ds []*Delivery, idle bool) {
+	now := s.now()
+	for _, dl := range ds {
+		dl.AcceptedAt = now
+		s.saveDelivery(ctx, dl)
+	}
+	if !idle || !s.seenTurns || len(ds) == 0 {
+		return
+	}
+	s.awaitingTurn = append(s.awaitingTurn, ds...)
+	if s.stallAt.IsZero() {
+		s.stallAt = now.Add(StallAfter)
+	}
+}
+
+// turnStarted records that a turn started: every delivery waiting for one has it, and
+// one that had stalled no longer has.
+func (s *session) turnStarted(ctx context.Context) {
+	s.seenTurns = true
+	now := s.now()
+	for _, dl := range s.awaitingTurn {
+		dl.TurnStartedAt = now
+		if dl.Stalled {
+			dl.Stalled = false
+			s.d.setStalled(dl, false)
+			s.d.log.Info("stalled delivery's turn started", "session", s.key.String(), "delivery", dl.ID, "seqs", dl.Seqs)
+		}
+		s.saveDelivery(ctx, dl)
+	}
+	s.awaitingTurn, s.stallAt = nil, time.Time{}
+}
+
+// checkStalls marks the deliveries still waiting for a turn once StallAfter has passed.
+// A stalled delivery is reported, never handed again because of it: the harness has it.
+func (s *session) checkStalls(ctx context.Context) {
+	if s.stallAt.IsZero() || s.now().Before(s.stallAt) {
+		return
+	}
+	s.stallAt = time.Time{}
+	for _, dl := range s.awaitingTurn {
+		if dl.Stalled || !dl.TurnStartedAt.IsZero() {
+			continue
+		}
+		dl.Stalled = true
+		s.saveDelivery(ctx, dl)
+		s.d.setStalled(dl, true)
+		s.d.log.Warn("delivery stalled: the session started no turn", "session", s.key.String(), "delivery", dl.ID,
+			"seqs", dl.Seqs, "after", StallAfter)
+	}
+}
+
+// forgetAwaiting drops the deliveries waiting for a turn, and their stalls.
+func (s *session) forgetAwaiting() {
+	for _, dl := range s.awaitingTurn {
+		if dl.Stalled {
+			s.d.setStalled(dl, false)
+		}
+	}
+	s.awaitingTurn, s.stallAt = nil, time.Time{}
+}
+
+// nextTimer is when the session next has something to do on its own: hand a bundle to a
+// queueing harness, or check for stalls; zero for nothing.
+func (s *session) nextTimer() time.Time {
+	switch {
+	case s.gatherUntil.IsZero():
+		return s.stallAt
+	case s.stallAt.IsZero() || s.gatherUntil.Before(s.stallAt):
+		return s.gatherUntil
+	}
+	return s.stallAt
+}
+
+// saveDelivery writes a delivery to the journal as it is, without moving its state.
+func (s *session) saveDelivery(ctx context.Context, dl *Delivery) {
+	if err := s.d.cfg.Journal.UpdateDelivery(ctx, *dl); err != nil {
+		s.d.log.Error("update delivery", "delivery", dl.ID, "error", err)
+	}
 }
 
 // partBoard is the board of a bundle's messages, for the log: a session holds one agent,
@@ -1124,8 +1228,13 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	c := compose(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame))
 	text := c.text
 	if len(c.parts) > 0 {
-		// Confirmed like a bundle: by the session's next event of this turn.
-		s.record(ctx, c.parts, StateHanded)
+		// Confirmed like a bundle: by the session's next event of this turn. The hook
+		// takes it into a turn that is running.
+		now := s.now()
+		for _, dl := range s.record(ctx, c.parts, StateHanded) {
+			dl.AcceptedAt, dl.TurnStartedAt = now, now
+			s.saveDelivery(ctx, dl)
+		}
 	}
 	for _, o := range c.tooLarge {
 		a := s.agents[o.agent]

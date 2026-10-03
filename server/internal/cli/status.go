@@ -247,6 +247,8 @@ type daemonReport struct {
 	PID          *int         `json:"pid"`
 	OpenSessions int          `json:"open_sessions"`
 	Replaced     *replacement `json:"replaced"`
+	// Stalled counts deliveries handed to an idle session that started no turn.
+	Stalled int `json:"stalled"`
 }
 
 // runningLines writes the Server and Daemon lines of aboard status, saying what the
@@ -282,7 +284,11 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 		return
 	}
 	pid := st.PID
-	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions, Replaced: a.daemonReplaced}
-	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s%s\n", pid, st.OpenSessions,
-		plural(st.OpenSessions, "session", "sessions"), a.daemonReplaced.text())
+	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions, Replaced: a.daemonReplaced, Stalled: len(st.Stalled)}
+	stalled := ""
+	if n := len(st.Stalled); n > 0 {
+		stalled = fmt.Sprintf("; %d %s stalled: handed to an idle session that started no turn (see aboard doctor)", n, plural(n, "delivery", "deliveries"))
+	}
+	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s%s%s\n", pid, st.OpenSessions,
+		plural(st.OpenSessions, "session", "sessions"), stalled, a.daemonReplaced.text())
 }

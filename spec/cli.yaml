@@ -1124,6 +1124,12 @@ $defs:
           replaced:
             $ref: "#/$defs/Replaced"
             description: The older daemon this command replaced, or null.
+          stalled:
+            type: integer
+            description: |
+              Deliveries handed to an idle session that started no turn within 10 seconds,
+              until a turn starts or the session closes. aboard doctor names each
+              (delivery_stalled). They are never handed again because of it.
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]

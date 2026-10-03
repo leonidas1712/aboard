@@ -173,6 +173,8 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 	reopened := s.started && !s.open
 	s.noteProcess(ctx, req)
 	s.inTurn, s.working = false, false
+	// The extension reports every turn, so a bundle that starts none can be told.
+	s.seenTurns = true
 	if req.Boot != s.boot {
 		s.newBoot(ctx, req.Boot)
 	} else {

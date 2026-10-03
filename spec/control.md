@@ -210,10 +210,14 @@ agent names the default for agents without a mode of their own.
 
 For `aboard doctor`, `status` and `down`. `build` is the daemon's build, the same fields
 as the server's `GET /v1/info`; a daemon whose status has none is from an older aboard.
+`stalled` lists deliveries handed to an idle session that started no turn within 10
+seconds (reason `no_turn_started`), until a turn starts or the session closes; they are
+never handed again because of it. A daemon from before stalls were tracked leaves the
+field out.
 
 ```json
 {"v":1,"op":"status"}
-{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001"}]}}
+{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"stalled":[{"id":14,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"},"seqs":[11],"reason":"no_turn_started"}],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001"}]}}
 ```
 
 ## Connections that stay open

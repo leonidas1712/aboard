@@ -126,6 +126,22 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 		}
 	})
 
+	t.Run("UpdateKeepsHowFarADeliveryGot", func(t *testing.T) {
+		j := open(t)
+		id, err := j.AddDelivery(ctx, delivery.Delivery{Agent: review, Session: claudeA, State: delivery.StateHanded, Seqs: []int{6}, CreatedAt: t0, UpdatedAt: t0})
+		must(t, err)
+		accepted, started := t0.Add(time.Second), t0.Add(2*time.Second)
+		must(t, j.UpdateDelivery(ctx, delivery.Delivery{
+			ID: id, Agent: review, Session: claudeA, State: delivery.StateConfirmed, UpdatedAt: started,
+			AcceptedAt: accepted, TurnStartedAt: started, Stalled: true,
+		}))
+		got, err := j.Deliveries(ctx, delivery.StateConfirmed)
+		must(t, err)
+		if len(got) != 1 || !got[0].AcceptedAt.Equal(accepted) || !got[0].TurnStartedAt.Equal(started) || !got[0].Stalled {
+			t.Fatalf("got %+v", got)
+		}
+	})
+
 	t.Run("DeliveriesFiltersByStateOldestFirst", func(t *testing.T) {
 		j := open(t)
 		var ids []int64
