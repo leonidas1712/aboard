@@ -331,10 +331,13 @@ func (p *pane) bind(agent string) {
 	p.waitIdle(3 * time.Minute)
 	if p.harness == "codex" {
 		// Without its hooks, Codex still gets ordinary messages through its queue, but the
-		// daemon never sees its turns; the suite proves the hooks as Codex runs them.
-		p.l.waitFor(10*time.Second, p.name+": Codex to run its session start, prompt and stop hooks", func() bool {
+		// daemon never sees its turns; the suite proves the hooks as Codex runs them. Codex
+		// 0.160 can show no "Working" line for a moment between steps, so the screen alone
+		// can look idle mid-turn; the stop hook is what ends the turn.
+		p.l.waitFor(3*time.Minute, p.name+": Codex to run its session start, prompt and stop hooks", func() bool {
 			return p.l.codexHooksRan("session-start", "prompt", "stop")
 		})
+		p.waitIdle(time.Minute)
 	}
 }
 
