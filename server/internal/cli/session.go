@@ -205,7 +205,7 @@ func movedText(prev *previousAgent, name, board string) string {
 // runResume binds the current session to an existing agent on this machine, so its
 // unread messages, and any bundle left unconfirmed, are delivered here.
 func runResume(ctx context.Context, a *app, args []string) error {
-	const use = "aboard resume <agent> [--board NAME] [--json]"
+	use := usageOf("resume")
 	fs := a.flags("resume")
 	boardFlag := fs.String("board", "", "the board, when the agent's name is used on several")
 	pos, err := a.parse(fs, args, use, 1, 1)

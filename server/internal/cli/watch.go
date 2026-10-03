@@ -20,7 +20,7 @@ import (
 )
 
 // watchUsage is the usage line of aboard watch.
-const watchUsage = "aboard watch [--from @NAME] [--role R] [--limit N] [--board NAME] [--json]"
+var watchUsage = usageOf("watch")
 
 // defaultWatchLimit is how many earlier messages aboard watch shows before following.
 const defaultWatchLimit = 20

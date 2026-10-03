@@ -26,6 +26,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | `aboard uninstall` and the install manifest; docs page "Install, update and remove" | done (#22) | D145, D159 |
 | Board view tab icon: a room holding two lines of conversation, as SVG (light and dark) with PNG fallbacks and an Apple touch icon | done (#21) | |
 | Board view layout: left panel is the board list only (with message counts); right panel is this board (Agents with "Add an agent", Charter, Rules Aboard enforces, Details with the record check); the header shows Aboard's mark and the title opens Details; "disconnected" for agents with no session | review | D143, D157, D161 |
+| The CLI for people: per-command help (`aboard help <command>`, `--help`, `--json`), color and selectors only for a person at a terminal, a guided `aboard init` that shows what is already set up | review | D162 |
 
 ## Done
 

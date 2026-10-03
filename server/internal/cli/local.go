@@ -135,7 +135,7 @@ func localPID(p paths) int {
 // runServe runs the local server in the foreground until interrupted.
 func runServe(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("serve")
-	if _, err := a.parse(fs, args, "aboard serve", 0, 0); err != nil {
+	if _, err := a.parse(fs, args, usageOf("serve"), 0, 0); err != nil {
 		return err
 	}
 	p, err := a.paths()
@@ -175,7 +175,7 @@ func runServe(ctx context.Context, a *app, args []string) error {
 
 // runUp starts the local server in the background.
 func runUp(ctx context.Context, a *app, args []string) error {
-	const use = "aboard up [--json]"
+	use := usageOf("up")
 	fs := a.flags("up")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
@@ -189,12 +189,13 @@ func runUp(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	srv := a.localServer()
-	text := "Local Aboard is already running at " + srv.URL + "\n"
+	url := a.out().code(srv.URL)
+	text := "Local Aboard is already running at " + url + "\n"
 	switch r := a.localReplaced; {
 	case started:
-		text = "Started local Aboard at " + srv.URL + "\n"
+		text = "Started local Aboard at " + url + "\n"
 	case r != nil:
-		text = "Replaced local Aboard at " + srv.URL + ": it ran aboard " + buildLabel(r.From) + ", an older build\n"
+		text = "Replaced local Aboard at " + url + ": it ran aboard " + buildLabel(r.From) + ", an older build\n"
 	}
 	a.emit(map[string]any{
 		"server": srv, "started": started, "replaced": a.localReplaced, "pid": localPID(p),

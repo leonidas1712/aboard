@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -97,9 +96,9 @@ func TestShellWordQuotesOnlyWhenNeeded(t *testing.T) {
 	}
 }
 
-// initEnv is a terminal in a fresh home directory with Claude Code and Codex installed,
-// in a project directory inside it, answering the questions with answers.
-func initEnv(t *testing.T, home, answers string) (Env, *strings.Builder, string) {
+// initEnv is a fresh home directory with Claude Code and Codex installed, and a project
+// directory inside it to run in.
+func initEnv(t *testing.T, home string) (Env, *strings.Builder, string) {
 	t.Helper()
 	project := filepath.Join(home, "project")
 	for _, d := range []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex"), project} {
@@ -109,104 +108,17 @@ func initEnv(t *testing.T, home, answers string) (Env, *strings.Builder, string)
 	}
 	out := &strings.Builder{}
 	return Env{
-		Stdin: strings.NewReader(answers), Stdout: out, Stderr: out, Dir: project, Terminal: true,
+		Stdin: strings.NewReader(""), Stdout: out, Stderr: out, Dir: project,
 		Getenv:     func(k string) string { return map[string]string{"HOME": home}[k] },
 		Executable: func() (string, error) { return exe, nil },
 	}, out, project
-}
-
-// files lists every file under dir, relative to it.
-func files(t *testing.T, dir string) []string {
-	t.Helper()
-	var got []string
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			rel, _ := filepath.Rel(dir, p)
-			got = append(got, rel)
-		}
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	slices.Sort(got)
-	return got
-}
-
-// In a terminal, aboard init asks its questions, shows the changes and writes them only
-// once the person agrees; a project setup writes only under the project.
-func TestInitAsksThenWritesTheProjectSetup(t *testing.T) {
-	home := t.TempDir()
-	// Every harness, this project, the current delivery mode, allow commands, confirm.
-	env, out, project := initEnv(t, home, "\nproject\n\ny\ny\n")
-	if code := Run(context.Background(), []string{"init"}, env); code != exitOK {
-		t.Fatalf("exit %d\n%s", code, out)
-	}
-	for _, want := range []string{
-		"Set up which harnesses? claude-code, codex [all] ",
-		"Install everywhere, or only in this project (" + project + ")?",
-		// With Codex among the harnesses, the question says why and suggests yes.
-		"Codex's sandbox blocks network access; aboard needs to reach its local server.\n" +
-			"Let agents run aboard commands without a permission prompt? [Y/n] ",
-		"create    ~/project/.claude/settings.local.json (hooks)",
-		"allow: Bash(aboard *)",
-		"create    ~/project/.codex/rules/aboard.rules (permissions)",
-		"Make these changes? [y/N] ",
-		"Done. ",
-	} {
-		if !strings.Contains(out.String(), want) {
-			t.Fatalf("output lacks %q:\n%s", want, out)
-		}
-	}
-	want := []string{
-		".agents/skills/aboard/SKILL.md", ".claude/settings.local.json", ".claude/skills/aboard/SKILL.md",
-		".codex/hooks.json", ".codex/rules/aboard.rules",
-	}
-	if got := files(t, project); !slices.Equal(got, want) {
-		t.Fatalf("project files %v, want %v", got, want)
-	}
-	// Aboard's own state folder holds the install manifest; nothing else is written.
-	outside := slices.DeleteFunc(files(t, home), func(f string) bool { return strings.HasPrefix(f, "project/") })
-	if !slices.Equal(outside, []string{".local/state/aboard/installs.json"}) {
-		t.Fatalf("files outside the project: %v", outside)
-	}
-	settings, err := os.ReadFile(filepath.Clean(filepath.Join(project, ".claude", "settings.local.json")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{exe + " hook claude-code stop", `"Bash(aboard *)"`} {
-		if !strings.Contains(string(settings), want) {
-			t.Fatalf("settings lack %s:\n%s", want, settings)
-		}
-	}
-
-	// Given the same answers again, there is nothing to do.
-	env, out, _ = initEnv(t, home, "\nproject\n\ny\n")
-	if code := Run(context.Background(), []string{"init"}, env); code != exitOK || !strings.HasSuffix(out.String(), "Nothing to change.\n") {
-		t.Fatalf("exit %d\n%s", code, out)
-	}
-}
-
-// Declining the confirmation writes nothing.
-func TestInitWritesNothingWhenDeclined(t *testing.T) {
-	home := t.TempDir()
-	env, out, _ := initEnv(t, home, "\n\n\n\nn\n")
-	if code := Run(context.Background(), []string{"init"}, env); code != exitOK {
-		t.Fatalf("exit %d\n%s", code, out)
-	}
-	if !strings.Contains(out.String(), "create    ~/.claude/settings.json (hooks)") || !strings.HasSuffix(out.String(), "Nothing changed.\n") {
-		t.Fatalf("output:\n%s", out)
-	}
-	if got := files(t, home); len(got) != 0 {
-		t.Fatalf("declining wrote %v", got)
-	}
 }
 
 // Doctor compares the files of the scope they are installed in: a project's outdated
 // skill and hooks are reported, with the project fix.
 func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	home := t.TempDir()
-	env, out, project := initEnv(t, home, "")
+	env, out, project := initEnv(t, home)
 	if code := Run(context.Background(), []string{"init", "--yes", "--scope", "project"}, env); code != exitOK {
 		t.Fatalf("exit %d\n%s", code, out)
 	}

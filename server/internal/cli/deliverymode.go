@@ -54,7 +54,7 @@ var modeText = map[delivery.Mode]string{
 // runDelivery shows the acting agent's delivery mode, or changes it. Changing it is a
 // person's decision, so it refuses inside a harness session, where an agent runs it.
 func runDelivery(ctx context.Context, a *app, args []string) error {
-	const use = "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]"
+	use := usageOf("delivery")
 	fs := a.flags("delivery")
 	as := fs.String("as", "", "the agent whose delivery mode to show or change")
 	boardFlag := fs.String("board", "", "the agent's board, when its name is used on several")

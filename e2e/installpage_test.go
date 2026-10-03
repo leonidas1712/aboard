@@ -28,7 +28,8 @@ func TestInstallPageCommands(t *testing.T) {
 		t.Fatalf("version: %v", v)
 	}
 
-	// Set up your harnesses: aboard init --yes, then aboard doctor --json.
+	// Set up your harnesses: aboard init --yes, then aboard doctor --json. The guided
+	// aboard init in a terminal is TestInitGuidesAPersonThroughSetup.
 	e.run("init", "--yes")
 	doctor := e.runExit("doctor", "--json").json(t)
 	matchesCLISpec(t, "DoctorOutput", doctor)
