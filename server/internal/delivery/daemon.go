@@ -593,13 +593,22 @@ func (w *waiter) Deliver(ctx context.Context, bundle string) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrBusy, err)
 	}
+	var stopped error
 	select {
 	case <-w.received:
 		return nil
 	case <-w.gone:
-		return ErrBusy
+		stopped = ErrBusy
 	case <-ctx.Done():
-		return fmt.Errorf("wait for the hook to take the bundle: %w", ctx.Err())
+		stopped = fmt.Errorf("wait for the hook to take the bundle: %w", ctx.Err())
+	}
+	// A hook says it has the bundle and exits at once, so it can be both received and
+	// gone by now; it has the bundle all the same.
+	select {
+	case <-w.received:
+		return nil
+	default:
+		return stopped
 	}
 }
 
