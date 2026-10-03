@@ -20,7 +20,8 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | What reaches a busy agent: owner messages mid-turn at the next tool boundary (Claude Code `PostToolBatch`, Codex `PreToolUse`), peer urgent first in the next bundle, `say` advisories (unread, recipient outcomes), `--wait-reply` outcomes, the skill's checkpoint baseline; live tests including Codex starting the ping-pong | next | D137–D141 |
 | The content-free "messages waiting" notice at tool boundaries for Claude Code and Codex | next | D142 |
 | Board details panel with "Add an agent" and "Copy details"; `aboard invite` | next | D143 |
-| Investigate Codex's sandboxed `aboard` commands failing with `daemon_in_sandbox` while the daemon was running | next | D66 |
+| `aboard pair` in a folder already linked to a board offers both paths: add an agent to that board (`aboard invite`) or start another (`aboard pair --new`) | next | D44, D143 |
+| Codex's sandbox blocks network access by default, so sandboxed `aboard` commands can't reach the local server: `status` reports the server as stopped and some commands fail with `daemon_in_sandbox` (seen in QA). Fix in setup: `aboard init` explains and offers `--allow-commands` for Codex (runs `aboard` outside the sandbox); `doctor` detects the missing rule; a command that can't reach the server from inside a Codex sandbox says so and names the fix instead of reporting the server stopped | next | D66, D72 |
 
 ## Done
 
