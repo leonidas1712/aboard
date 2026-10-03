@@ -33,7 +33,8 @@
 #   its login link.
 # - Inside a subagent of a harness session (ABOARD_SUBAGENT is set, which Claude Code's
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
-#   marker says the command runs elsewhere), only reading commands run: read, status,
+#   marker says the command runs elsewhere; or CODEX_THREAD_ID differs from
+#   CODEX_SESSION_ID, as in a Codex sub-agent), only reading commands run: read, status,
 #   inbox --peek, doctor, audit, help, version and hook. Every other command refuses with
 #   subagent_without_seat and exits 1 before it does anything, whatever --as or
 #   ABOARD_AGENT name.

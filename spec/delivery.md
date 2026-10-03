@@ -81,8 +81,9 @@ still refuses people's commands, and its agent comes from `--as` or `ABOARD_AGEN
 Claude Code also yields to `CODEX_THREAD_ID`: a Codex started inside a Claude Code
 session inherits its `ABOARD_SESSION`, and the marker Codex sets for every command is the
 more specific one. For the reverse, a Claude Code started inside a Codex command, the
-session-start hook writes `unset CODEX_THREAD_ID` (each variable of `yields_to` it finds
-set) into the environment file, since those can only come from an outer session.
+session-start hook writes `unset CODEX_THREAD_ID` (each variable of `yields_to` that is
+another harness's session variable and is set) into the environment file, since it can
+only come from an outer session.
 
 **Subagents** (`subagent_identity`): a subagent runs its commands in its parent's
 session and inherits the parent's variables, so without a mark its `aboard` commands act
@@ -90,8 +91,15 @@ as the parent. `none`: Aboard can't tell them apart, and the harness's page stat
 risk. `marked`: a subagent's `aboard` commands carry `ABOARD_SUBAGENT=<subagent id>`,
 and the CLI lets them only read (`read`, `status`, `inbox --peek`, `doctor`, `audit`,
 `help`, `version`); every other command fails with `subagent_without_seat`. Claude Code
-is marked through its `PreToolUse` hook (below). `seats`: marked, and a subagent can
-have a seat of its own (not built yet).
+is marked through its `PreToolUse` hook (below). Codex marks them itself: a sub-agent's
+commands carry its own thread id in `CODEX_THREAD_ID` and the root's in
+`CODEX_SESSION_ID` (`identity.root_env`), and a command whose two ids differ is a
+sub-agent's. `seats`: marked, and a subagent can have a seat of its own (not built yet).
+
+Every hook whose input has `agent_id` fired inside a subagent and takes nothing and
+changes nothing, except Claude Code's pre-tool hook, which marks commands. Codex gives
+such hooks the root's `session_id`, so they would otherwise count as the root's prompt,
+tool boundary or turn end.
 
 **Delivery** (`delivery.capabilities`):
 
@@ -600,8 +608,9 @@ harness's hook input as JSON on standard input and never print tokens.
 | `aboard hook codex tool` | PreToolUse | Same output as for Claude Code, with `hookEventName` `PreToolUse`. Never denies the tool call. Exit 0. |
 | `aboard hook codex end` | SessionEnd | Marks the session closed. Exit 0 (Codex allows 3 seconds). |
 
-Tool hooks fired inside a sub-agent (the hook input has `agent_id`) take nothing; the
-messages belong to the root conversation.
+Hooks fired inside a sub-agent (the hook input has `agent_id`) take nothing and change
+nothing, except `aboard hook claude-code pre-tool`; the messages and the session's state
+belong to the root conversation.
 
 A hook that fails for any reason other than a delivery exits 0, so a broken daemon never
 blocks a session.
