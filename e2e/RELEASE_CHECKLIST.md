@@ -59,6 +59,14 @@ trusted in each harness.
 - [ ] `aboard doctor` shows every check green on this machine.
 - [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. **Automated**, `TestHumansModeWakesOnlyForPeople`. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`: covered by e2e.
 
+## Install, update and remove ([docs/install.mdx](../docs/install.mdx))
+
+The page's `aboard` commands and their checks are **automated**, `TestInstallPageCommands`;
+removing Aboard is covered by the tests in `e2e/uninstall_test.go`.
+
+- [ ] On a clean machine with Go and Node, the page's "From source" steps (`git clone`, `make install`) install `aboard`, and `aboard version --json` shows the checkout's commit.
+- [ ] On a machine with real Claude Code and Codex set up by `aboard init --yes --allow-commands`, plus a hook and a permission of your own in `~/.claude/settings.json` and a hook of your own in `~/.codex/hooks.json`: `aboard uninstall` removes only Aboard's entries and files, both harnesses still start and run your own hooks, and neither asks about Aboard's hooks again. Then the printed `rm <path>` removes the binary, and an open session carries on without errors from the missing hooks.
+
 ## Upgrading ([README.md](../README.md#upgrading), [spec/delivery.md](../spec/delivery.md#upgrades))
 
 On a machine set up with the previous release, with a Claude Code session and a Codex
@@ -66,7 +74,7 @@ session paired and idle (their stop hooks waiting):
 
 - [ ] Install the new binary over the old one at the same path. Without restarting either session, send a message from Claude Code to Codex and back: both arrive, and `aboard doctor` shows the daemon and local server running, with no `daemon_outdated` or `server_outdated`. **Automated** for a Claude Code session, `TestUpgradeWithSessionOpen`; with Codex, by hand.
 - [ ] When the release doesn't change the hooks, `aboard init --yes` reports every file unchanged, and neither Claude Code nor Codex asks to trust the hooks again; new sessions in both still get deliveries. The unchanged files: **automated**, `TestUpgradeWithSessionOpen`; the rest by hand.
-- [ ] When the release does change the skill or hooks, `aboard doctor` reports `skill_outdated` or `hooks_outdated` with the fix `aboard init --yes`; after running it, those checks are green, and nothing else in `~/.claude/settings.json` or `~/.codex/hooks.json` changed.
+- [ ] When the release does change the skill or hooks, `aboard doctor` reports `skill_outdated` or `hooks_outdated`, naming the release that wrote them, with the fix `aboard init --yes`; after running it, those checks are green, and nothing else in `~/.claude/settings.json` or `~/.codex/hooks.json` changed.
 - [ ] A message sent while the Claude Code session was busy during the upgrade is delivered when its turn ends.
 
 ## Web UI ([README.md](../README.md#watch-the-board-in-your-browser))
