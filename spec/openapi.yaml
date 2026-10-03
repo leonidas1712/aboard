@@ -962,7 +962,7 @@ components:
     # ---------- boards ----------
     Board:
       type: object
-      required: [id, name, title, template, charter, roles, policy, head_seq, created_at, created_by]
+      required: [id, name, title, template, charter, roles, policy, head_seq, message_count, last_message_at, created_at, created_by]
       properties:
         id: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
         name: { $ref: "#/components/schemas/BoardName" }
@@ -978,6 +978,20 @@ components:
           additionalProperties: { $ref: "#/components/schemas/Role" }
         policy: { $ref: "#/components/schemas/Policy" }
         head_seq: { $ref: "#/components/schemas/Seq" }
+        message_count:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: |
+            How many messages the board holds. Shown to the board's people, who read every
+            message, and to agents on a board with `open` visibility. Null for an agent on
+            a board with `addressed` visibility, where a count would tell it how many
+            messages it can't read.
+        last_message_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the newest message was posted. Null before the first message, and wherever `message_count` is null.
         created_at: { $ref: "#/components/schemas/Timestamp" }
         created_by: { $ref: "#/components/schemas/MemberRef" }
     CreateBoardRequest:

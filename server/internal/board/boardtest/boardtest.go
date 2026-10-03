@@ -47,6 +47,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"InboxSkipsOwnAndAlreadyReadMessages", inboxSkipsOwnAndAlreadyReadMessages},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},
+		{"InsertMessageCountsItOnItsBoard", insertMessageCountsItOnItsBoard},
 		{"ReadSeesCommittedWritesOnly", readSeesCommittedWritesOnly},
 	}
 	for _, tt := range tests {
@@ -1026,4 +1027,31 @@ func readSeesCommittedWritesOnly(t *testing.T, st board.Store) {
 	if n := count(); n != 1 {
 		t.Errorf("HumanCount after a failed write = %d, want 1", n)
 	}
+}
+
+func insertMessageCountsItOnItsBoard(t *testing.T, st board.Store) {
+	var empty board.Board
+	write(t, st, func(tx board.Tx) error {
+		var err error
+		empty, _, err = newBoard(tx, "quiet")
+		return err
+	})
+	c := newConversation(t, st)
+	read(t, st, func(tx board.ReadTx) error {
+		b, err := tx.BoardByName("docs")
+		if err != nil {
+			return err
+		}
+		if b.MessageCount != int64(len(c.messages)) || b.LastMessageAt == nil || *b.LastMessageAt != at {
+			t.Errorf("docs: %d messages, last %v; want %d, %s", b.MessageCount, b.LastMessageAt, len(c.messages), at)
+		}
+		q, err := tx.BoardByID(empty.ID)
+		if err != nil {
+			return err
+		}
+		if q.MessageCount != 0 || q.LastMessageAt != nil {
+			t.Errorf("a board without messages: %d messages, last %v", q.MessageCount, q.LastMessageAt)
+		}
+		return nil
+	})
 }

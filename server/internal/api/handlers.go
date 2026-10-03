@@ -71,7 +71,7 @@ func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject
 	if err != nil {
 		return nil, err
 	}
-	return convert[CreateBoard201JSONResponse](boardOf(v))
+	return convert[CreateBoard201JSONResponse](boardOf(v, principal(ctx)))
 }
 
 func (h *handlers) ListBoards(ctx context.Context, _ ListBoardsRequestObject) (ListBoardsResponseObject, error) {
@@ -83,7 +83,7 @@ func (h *handlers) ListBoards(ctx context.Context, _ ListBoardsRequestObject) (L
 		Boards []wireBoard `json:"boards"`
 	}{Boards: []wireBoard{}}
 	for _, v := range views {
-		out.Boards = append(out.Boards, boardOf(v))
+		out.Boards = append(out.Boards, boardOf(v, principal(ctx)))
 	}
 	return convert[ListBoards200JSONResponse](out)
 }
@@ -93,7 +93,7 @@ func (h *handlers) GetBoard(ctx context.Context, req GetBoardRequestObject) (Get
 	if err != nil {
 		return nil, err
 	}
-	return convert[GetBoard200JSONResponse](boardOf(v))
+	return convert[GetBoard200JSONResponse](boardOf(v, principal(ctx)))
 }
 
 func (h *handlers) UpdateBoard(ctx context.Context, req UpdateBoardRequestObject) (UpdateBoardResponseObject, error) {
@@ -108,7 +108,7 @@ func (h *handlers) UpdateBoard(ctx context.Context, req UpdateBoardRequestObject
 	if err != nil {
 		return nil, err
 	}
-	return convert[UpdateBoard200JSONResponse](boardOf(v))
+	return convert[UpdateBoard200JSONResponse](boardOf(v, principal(ctx)))
 }
 
 func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponseObject, error) {
@@ -190,7 +190,7 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 		Agent wireMember `json:"agent"`
 		Token string     `json:"token"`
 		Board wireBoard  `json:"board"`
-	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View)})
+	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, principal(ctx))})
 }
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {

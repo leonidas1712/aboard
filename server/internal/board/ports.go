@@ -98,7 +98,8 @@ type Tx interface {
 	// AppendEvent adds the next event to its board's log and moves the board's head. It
 	// fails, storing nothing, unless the event's seq is exactly one past the head.
 	AppendEvent(e events.Event) error
-	// InsertMessage adds a message.
+	// InsertMessage adds a message and counts it on its board (MessageCount,
+	// LastMessageAt).
 	InsertMessage(m Message) error
 }
 

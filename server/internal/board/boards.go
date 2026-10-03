@@ -22,6 +22,13 @@ type View struct {
 	Creator Member
 }
 
+// ShowsCounts reports whether p may see how many messages the board holds: people read
+// every message, and so do agents while visibility is open. Under addressed visibility
+// a count would tell an agent how many messages it can't read.
+func (v View) ShowsCounts(p Principal) bool {
+	return p.Agent == nil || v.Board.Policy.Visibility == rules.VisibilityOpen
+}
+
 // NewBoard is a request to create a board.
 type NewBoard struct {
 	Name     string
