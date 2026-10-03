@@ -17,6 +17,15 @@ type Human struct {
 	CreatedAt   string
 }
 
+// BrowserLogin is a browser token, kept by the digest of the token and never the token
+// itself. Like a read cursor it is bookkeeping, not part of any board's record.
+type BrowserLogin struct {
+	TokenDigest string
+	HumanID     string
+	CreatedAt   string
+	ExpiresAt   string
+}
+
 // Board is a board's current state.
 type Board struct {
 	ID   string

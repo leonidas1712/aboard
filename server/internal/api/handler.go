@@ -135,7 +135,7 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 // POST /v1/browser-tokens, and rate limits join attempts by client address.
 func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/info" || r.URL.Path == "/v1/browser-tokens" {
+		if r.URL.Path == "/v1/info" || (r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) {
 			next.ServeHTTP(w, r)
 			return
 		}

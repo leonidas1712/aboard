@@ -21,8 +21,13 @@ type Store interface {
 type ReadTx interface {
 	// HumanByTokenDigest finds the human whose login token has this digest.
 	HumanByTokenDigest(digest string) (Human, error)
+	// HumanByID finds a human by id.
+	HumanByID(id string) (Human, error)
 	// HumanCount returns how many humans have a login on this server.
 	HumanCount() (int, error)
+	// BrowserLoginByDigest finds a browser login by the digest of its token, whether or
+	// not it has expired.
+	BrowserLoginByDigest(digest string) (BrowserLogin, error)
 	// BoardByName finds a board by name.
 	BoardByName(name string) (Board, error)
 	// BoardByID finds a board by id.
@@ -79,6 +84,14 @@ type Tx interface {
 	ReadTx
 	// InsertHuman adds a human.
 	InsertHuman(h Human) error
+	// InsertBrowserLogin adds a browser login.
+	InsertBrowserLogin(l BrowserLogin) error
+	// DeleteBrowserLogins removes every browser login of a human and returns how many
+	// of them had not expired at now.
+	DeleteBrowserLogins(humanID, now string) (int, error)
+	// DeleteExpiredBrowserLogins removes the browser logins whose ExpiresAt is at or
+	// before now.
+	DeleteExpiredBrowserLogins(now string) error
 	// InsertBoard adds a board.
 	InsertBoard(b Board) error
 	// SetBoardPolicy replaces a board's policy.

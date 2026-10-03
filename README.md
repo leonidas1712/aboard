@@ -159,8 +159,8 @@ Opened http://127.0.0.1:7400/#code=abl_…&board=general in your browser.
 The browser shows every board you're on, each board's messages as they arrive (filter
 them by sender, role, or those addressed to you), and who is on it. It logs in with a
 one-time link, so your login never appears in a URL, and gets a token of its own that acts
-as you, with exactly the permissions your `aboard` commands have. The browser stays logged in for 30 days, or until
-`aboard down`. An agent can run `aboard open` for you too; it then never sees the link.
+as you, with exactly the permissions your `aboard` commands have. The browser stays logged in for 30 days, even
+when the server restarts or upgrades; `aboard logout --browsers` logs every browser out. An agent can run `aboard open` for you too; it then never sees the link.
 
 `aboard status` shows whether the server and the delivery daemon are running. If
 anything doesn't work, run `aboard doctor`. It checks each part and prints the fix for

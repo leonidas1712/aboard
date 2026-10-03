@@ -91,6 +91,7 @@ func commands() []command {
 		{"read", readUsage, runRead},
 		{"watch", watchUsage, runWatch},
 		{"open", openUsage, runOpen},
+		{"logout", logoutUsage, runLogout},
 		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
 		{"delivery", "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]", runDelivery},
 		{"board", boardUsage, runBoard},

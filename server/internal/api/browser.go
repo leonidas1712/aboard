@@ -30,6 +30,15 @@ func (h *handlers) CreateBrowserToken(ctx context.Context, req CreateBrowserToke
 	return CreateBrowserToken201JSONResponse{Token: token, ExpiresAt: expires.UTC()}, nil
 }
 
+// EndBrowserTokens logs every browser of the calling person out.
+func (h *handlers) EndBrowserTokens(ctx context.Context, _ EndBrowserTokensRequestObject) (EndBrowserTokensResponseObject, error) {
+	n, err := h.svc.EndBrowserLogins(ctx, principal(ctx))
+	if err != nil {
+		return nil, err
+	}
+	return EndBrowserTokens200JSONResponse{Ended: n}, nil
+}
+
 // checkHost refuses requests whose Host header isn't one of hosts, so a web page that
 // points its own domain name at this address (DNS rebinding) can't reach the server
 // through the browser. An empty hosts list allows every host.

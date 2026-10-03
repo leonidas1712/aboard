@@ -108,8 +108,9 @@ paths:
         A browser token starts with `abb_` and acts as that human, with exactly the
         permissions the human's own token has: it reads, follows `GET /v1/stream`, posts
         and replies, and an admin's changes the board's policy. The one thing it can't do
-        is ask for another login code. It lasts 30 days or until the server stops (`aboard down`),
-        whichever comes first; the server keeps only its digest, in memory. A code that is
+        is ask for another login code. It lasts 30 days, across server restarts and
+        upgrades, or until the person ends it with `DELETE /v1/browser-tokens`. The server
+        stores only a digest of it, never the token, and never writes it to the event log. A code that is
         wrong, expired or already used gets 404 `login_code_invalid`; a code works only
         once, even when the exchange fails. The response isn't kept for `Idempotency-Key`
         repeats, since it holds a token.
@@ -127,6 +128,30 @@ paths:
               schema: { $ref: "#/components/schemas/BrowserToken" }
         "400": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [server]
+      operationId: endBrowserTokens
+      summary: Log every browser out
+      description: |
+        Humans only, with a human token. Ends every browser token of the calling person,
+        on every browser, at once; each of those browsers gets 401 `unauthorized` on its
+        next request and logs in again with `aboard open`. Returns how many were ended
+        (0 when there were none). `aboard logout --browsers` calls this. An agent token or
+        a browser token gets 403 `human_token_required`: only the person's own login ends
+        browser logins, so one browser can't log the others out. Nothing is written to the event
+        log: browser logins are not part of a board's record.
+      security:
+        - bearer: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Ended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserTokensEnded" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
 
   /v1/boards:
     post:
@@ -884,6 +909,16 @@ components:
           description: "A bearer token that acts as the human who asked for the code. Send it as `Authorization: Bearer <token>`."
           example: abb_r4Kd8Wq2Zx7Lm1Np5Tv9Bc3Hf6Jy0Gs2Ae8Uo4Ri7Xw
         expires_at: { $ref: "#/components/schemas/Timestamp" }
+
+    BrowserTokensEnded:
+      type: object
+      required: [ended]
+      properties:
+        ended:
+          type: integer
+          minimum: 0
+          description: How many browser tokens were ended, counting only those that hadn't expired.
+          example: 2
 
     Me:
       type: object

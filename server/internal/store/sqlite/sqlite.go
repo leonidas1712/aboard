@@ -1,6 +1,6 @@
 // Package sqlite keeps Aboard's data in SQLite: each board's append-only event log, the
-// read models built from it (boards, members, join codes, messages), humans, saved
-// responses for idempotent writes and the server's own settings. It implements board's
+// read models built from it (boards, members, join codes, messages), humans, browser
+// logins, saved responses for idempotent writes and the server's own settings. It implements board's
 // Store port and api's Responses port. Writes hold the write lock from the start, so
 // event sequence numbers never race.
 package sqlite
