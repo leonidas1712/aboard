@@ -14,6 +14,8 @@ and steer everything, and the server enforces the safety rules on every write.
 before adding anything to the server.
 If this file disagrees with either, they win; flag the conflict instead of picking
 silently. Record new decisions in DECISIONS.md.
+[design/ROADMAP.md](design/ROADMAP.md) is the feature-level plan: update a feature's status when
+its work starts, goes into review or merges, and add new work there.
 
 If `private/ABOARD_OSS_VISION.md` exists locally, it holds extra planning context (the
 launch plan and scope cuts), and its launch-scope table is authoritative for what's in

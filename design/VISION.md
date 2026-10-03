@@ -1377,6 +1377,9 @@ into something that doesn't work from scratch.
 
 ## Build order
 
+The steps below are the outline; [ROADMAP.md](ROADMAP.md) tracks each feature's status and
+the current order.
+
 v0.1 is built in ten steps. Each one works end to end before the next starts, and the
 quickstart stays green throughout.
 
