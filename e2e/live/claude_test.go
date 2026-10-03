@@ -48,10 +48,17 @@ func TestIdleClaudeWakesAndReplies(t *testing.T) {
 	// Agents are named after their harness: the writer is claude, the reviewer claude-2.
 	l.waitMessage("claude-2", time.Time{}, "", 3*time.Minute) // its hello
 	l.waitQuiet(4*time.Minute, "claude-2", writer, reviewer)
+	l.waitPresence("claude", "idle", 30*time.Second)
 
+	seen := l.watchPresence("claude")
 	ping := l.say("claude-2", "--to", "@claude", "--expect-reply", "Reply to this message with exactly PONG-1.")
 	wake := l.waitHanded(ping.At)
 	reply := l.waitMessage("claude", ping.At, "PONG-1", 2*time.Minute)
+	writer.waitIdle(2 * time.Minute)
+	l.waitPresence("claude", "idle", 30*time.Second)
+	if states := seen(); !slices.Contains(states, "working") {
+		t.Errorf("the writer's presence during its reply turn went %v; want working on the way", states)
+	}
 	t.Logf("measured: handed %s after posting, reply on the board %s after posting",
 		wake.Time.Sub(ping.At), reply.At.Sub(ping.At))
 	checkWake(t, ping, wake)

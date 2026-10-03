@@ -356,6 +356,48 @@ func (l *lab) waitMessage(sender string, since time.Time, text string, timeout t
 	return found
 }
 
+// presence is agent's presence as aboard status shows it, or "" if it can't be read.
+func (l *lab) presence(agent string) string {
+	r := l.exec(l.t.Context(), l.human, "status", "--as", agent, "--json")
+	var out struct {
+		Presence string `json:"presence"`
+	}
+	if r.code != 0 || json.Unmarshal([]byte(r.stdout), &out) != nil {
+		return ""
+	}
+	return out.Presence
+}
+
+// waitPresence waits until agent's presence is want.
+func (l *lab) waitPresence(agent, want string, timeout time.Duration) {
+	l.t.Helper()
+	l.waitFor(timeout, agent+" to be "+want, func() bool { return l.presence(agent) == want })
+}
+
+// watchPresence polls agent's presence in the background until the returned function
+// is called, which returns each presence seen, in order, without repeats.
+func (l *lab) watchPresence(agent string) func() []string {
+	stop, done := make(chan struct{}), make(chan []string)
+	go func() {
+		var seen []string
+		for {
+			if p := l.presence(agent); p != "" && (len(seen) == 0 || seen[len(seen)-1] != p) {
+				seen = append(seen, p)
+			}
+			select {
+			case <-stop:
+				done <- seen
+				return
+			case <-time.After(250 * time.Millisecond):
+			}
+		}
+	}()
+	return func() []string {
+		close(stop)
+		return <-done
+	}
+}
+
 // waitHanded waits up to 30 seconds for the first bundle the daemon hands over at or
 // after since.
 func (l *lab) waitHanded(since time.Time) handover {
