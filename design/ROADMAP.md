@@ -23,7 +23,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | `aboard pair` in a linked directory names both ways on: `aboard invite` for another agent, `aboard pair --new` for another board | done | D44, D143 |
 | Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | done | D66, D72, D152 |
 | Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | next | D157 |
-| `aboard uninstall` and the install manifest; docs page "Install, update and remove" | building | D145, D159 |
+| `aboard uninstall` and the install manifest; docs page "Install, update and remove" | review (#22) | D145, D159 |
 
 ## Done
 
@@ -87,7 +87,7 @@ release is in engineering/testing.md and engineering/release.md.
 | Dependabot pull requests for Go modules, npm and GitHub Actions | next | |
 | Every `--json` output in tests validated against its schema in `spec/cli.yaml` | next | D147 |
 | Accessibility checks (axe) in the Playwright test, in both themes | next | |
-| The install manifest: `aboard init` records what it wrote; `doctor` tells outdated from edited | building | D145, D159 |
+| The install manifest: `aboard init` records what it wrote; `doctor` tells outdated from edited | review (#22) | D145, D159 |
 | A cleanup pass every few weeks: dead code, near-duplicate helpers, weak tests | next, repeating | D144 |
 
 ### Harnesses
