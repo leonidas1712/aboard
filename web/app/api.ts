@@ -1,19 +1,44 @@
-// The few parts of Aboard's public API the UI reads (spec/openapi.yaml). The page logs
-// in with the one-time code `aboard open` puts in the address's fragment, keeps the
-// browser token it gets for it, which acts as that person, and sends it with every request. No
-// cookie is involved.
+// The parts of Aboard's public API the UI uses (spec/openapi.yaml). The page logs in
+// with the one-time code `aboard open` puts in the address's fragment, keeps the browser
+// token it gets for it, which acts as that person, and sends it in a header with every
+// request. No cookie is involved.
 
-export type Board = {
-  name: string;
-  charter: string;
-  roles: Record<string, unknown>;
-  policy: { preset: "starter" | "recommended" };
-  head_seq: number;
+export type Policy = {
+  preset: "starter" | "recommended";
+  visibility: "open" | "addressed";
+  broadcast: "everyone" | "granted";
+  urgent: "everyone" | "granted";
+  show_harness?: boolean;
+  overrides: string[];
 };
 
-export type MemberRef = { name: string; kind: "agent" | "human"; role: string | null; owner: string | null };
+export type Role = { charter?: string; can: (string | { claim_tasks: string[] })[] };
 
-export type Member = MemberRef & { harness: string | null; status: string };
+export type MemberRef = { name: string; kind: "agent" | "human"; role: string | null; owner: string | null; harness?: string | null };
+
+export type Board = {
+  id: string;
+  name: string;
+  charter: string;
+  roles: Record<string, Role>;
+  policy: Policy;
+  head_seq: number;
+  created_at: string;
+  created_by: MemberRef;
+};
+
+export type Presence = "working" | "idle" | "waiting" | "no_session";
+
+export type Member = MemberRef & {
+  id: string;
+  harness: string | null;
+  access: "admin" | "member" | null;
+  joined_at: string;
+  presence: Presence | null;
+  presence_since: string | null;
+};
+
+export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
 
 export type Message = {
   id: string;
@@ -22,11 +47,34 @@ export type Message = {
   from: MemberRef;
   to: string[];
   body: string;
+  reply_to: string | null;
   reply_to_seq: number | null;
   urgent: boolean;
+  expects_reply: boolean;
+  sender: Sender;
+  show_owner: boolean;
 };
 
 export type MessagePage = { messages: Message[]; next_after: number | null; prev_before: number | null };
+
+export type Actor = { kind: "agent" | "human" | "system"; member_id: string | null; name: string | null; owner: string | null };
+
+/** BoardEvent is one entry of a board's event log, with its hashes (spec/events.md). */
+export type BoardEvent = {
+  id: string;
+  board_id: string;
+  seq: number;
+  type: string;
+  at: string;
+  actor: Actor;
+  data?: unknown;
+  data_withheld?: boolean;
+  data_hash: string;
+  prev_hash: string;
+  hash: string;
+};
+
+export type EventPage = { events: BoardEvent[]; head_seq: number; next_after: number | null };
 
 /** ApiError is an error response: {"error":{code,message,hint}}. */
 export class ApiError extends Error {
@@ -110,17 +158,44 @@ export async function get<T>(path: string, query: Record<string, string | number
   throw await failure(resp);
 }
 
+/**
+ * post sends a write as the person, with an Idempotency-Key so a retried request
+ * never posts twice.
+ */
+export async function post<T>(path: string, body: unknown, key: string = crypto.randomUUID()): Promise<T> {
+  const resp = await fetch(path, {
+    method: "POST",
+    credentials: "omit",
+    headers: { ...headers(), "Content-Type": "application/json", "Idempotency-Key": key },
+    body: JSON.stringify(body),
+  });
+  if (resp.ok) return (await resp.json()) as T;
+  throw await failure(resp);
+}
+
 // The server sends a keepalive comment every 25 seconds; a stream silent for longer
 // than this is taken as dead and reopened.
 const silentLimit = 60_000;
 
+export type PresenceEvent = { board: string; agent: string; presence: Presence; presence_since: string | null };
+
+export type StreamHandlers = {
+  /** head runs each time a board's head moves, and for every board when the stream (re)opens. */
+  head: (board: string, seq: number) => void;
+  /** presence runs each time an agent's presence changes. */
+  presence?: (p: PresenceEvent) => void;
+  /** open runs each time the stream connects, so a reader can reread what it may have missed. */
+  open?: () => void;
+  /** error gets a rejected token; following then ends. */
+  error: (e: ApiError) => void;
+};
+
 /**
- * followHeads calls onHead each time a board's head moves, from the server's event
- * stream, read with fetch so it can send the token. It reconnects when the stream ends
- * or goes silent; the server then sends every head again, so nothing is missed. A
- * rejected token goes to onError and ends following. It returns a function that stops.
+ * follow reads the server's event stream with fetch, so it can send the token. It
+ * reconnects when the stream ends or goes silent; the server then sends every head
+ * again, so nothing is missed. It returns a function that stops.
  */
-export function followHeads(onHead: (board: string, seq: number) => void, onError: (e: ApiError) => void): () => void {
+export function follow(on: StreamHandlers): () => void {
   const stopped = new AbortController();
   (async () => {
     for (let wait = 1000; !stopped.signal.aborted; wait = Math.min(wait * 2, 30_000)) {
@@ -131,18 +206,22 @@ export function followHeads(onHead: (board: string, seq: number) => void, onErro
       try {
         const resp = await fetch("/v1/stream", { credentials: "omit", headers: headers(), signal: conn.signal });
         if (resp.status === 401 || resp.status === 403) {
-          onError(await failure(resp));
+          on.error(await failure(resp));
           return;
         }
         if (resp.ok && resp.body) {
           wait = 500; // connected: the next retry starts short again
+          on.open?.();
           await readEvents(resp.body, () => {
             clearTimeout(silence);
             silence = setTimeout(stop, silentLimit);
           }, (event, data) => {
-            if (event !== "head") return;
-            const head = JSON.parse(data) as { board: string; seq: number };
-            onHead(head.board, head.seq);
+            if (event === "head") {
+              const head = JSON.parse(data) as { board: string; seq: number };
+              on.head(head.board, head.seq);
+            } else if (event === "presence") {
+              on.presence?.(JSON.parse(data) as PresenceEvent);
+            }
           });
         }
       } catch {

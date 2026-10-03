@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { login } from "./api";
 import BoardList from "./board-list";
 import BoardView from "./board-view";
-import Problem from "./problem";
+import { Header, Problem } from "./chrome";
 
 // The UI is one static page: /?board=NAME shows a board, / the list of boards. aboard
 // open lands on /#code=…[&board=NAME]; the page logs in with the code first.
@@ -19,11 +19,14 @@ export default function Page() {
   }, []);
   if (error !== null) {
     return (
-      <main>
-        <Problem error={error} />
-      </main>
+      <div className="flex min-h-dvh flex-col">
+        <Header />
+        <main className="mx-auto w-full max-w-[640px] px-4 py-8">
+          <Problem error={error} />
+        </main>
+      </div>
     );
   }
   if (board === undefined) return null;
-  return <main>{board ? <BoardView name={board} /> : <BoardList />}</main>;
+  return board ? <BoardView name={board} /> : <BoardList />;
 }
