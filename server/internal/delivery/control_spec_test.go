@@ -16,7 +16,7 @@ import (
 
 var (
 	// specJSONBlock is a fenced JSON block in spec/control.md, possibly indented in a list.
-	specJSONBlock = regexp.MustCompile("(?ms)^[ \t]*```json\n(.*?)^[ \t]*```")
+	specJSONBlock = regexp.MustCompile("(?s)```json\n(.*?)```")
 	// specInlineFrame is a whole message written inline, as in the extension's table.
 	specInlineFrame = regexp.MustCompile("`(\\{\"v\":[^`]*\\})`")
 )
@@ -95,7 +95,10 @@ func protocolNames(t *testing.T) map[string]string {
 			continue
 		}
 		for _, spec := range gen.Specs {
-			vs := spec.(*ast.ValueSpec)
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
 			for i, name := range vs.Names {
 				if !strings.HasPrefix(name.Name, "Op") && !strings.HasPrefix(name.Name, "Event") {
 					continue
