@@ -77,7 +77,7 @@ func commands() []command {
 	return []command{
 		{"up", "aboard up [--json]", runUp},
 		{"down", "aboard down [--json]", runDown},
-		{"pair", "aboard pair [template] [--new] [--board NAME] [--name NAME] [--json]", runPair},
+		{"pair", pairUsage, runPair},
 		{"join", "aboard join <join-line|code> [--name NAME] [--harness H] [--json]", runJoin},
 		{"say", "aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]", runSay},
 		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
@@ -86,7 +86,7 @@ func commands() []command {
 		{"open", openUsage, runOpen},
 		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
 		{"delivery", "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]", runDelivery},
-		{"board", "aboard board policy <starter|recommended> [--board NAME] [--json]", runBoard},
+		{"board", boardUsage, runBoard},
 		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
 		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},
 		{"init", "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]", runInit},

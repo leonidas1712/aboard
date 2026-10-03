@@ -39,6 +39,7 @@ type wireMember struct {
 type wireBoard struct {
 	ID        string                `json:"id"`
 	Name      string                `json:"name"`
+	Title     *string               `json:"title"`
 	Template  *string               `json:"template"`
 	Charter   string                `json:"charter"`
 	Roles     map[string]rules.Role `json:"roles"`
@@ -116,7 +117,7 @@ func memberOf(m board.Member, boardName string) wireMember {
 func boardOf(v board.View) wireBoard {
 	b := v.Board
 	return wireBoard{
-		ID: b.ID, Name: b.Name, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
+		ID: b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
 		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator),
 	}
 }

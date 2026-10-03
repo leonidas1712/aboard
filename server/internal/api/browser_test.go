@@ -119,7 +119,7 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 		t.Fatalf("a post from the browser is from %s (%s), want alex (human)", from.Name, from.Kind)
 	}
 	preset := api.PolicyPreset("recommended")
-	change := api.UpdateBoardRequest{Policy: api.PolicyChange{Preset: &preset}}
+	change := api.UpdateBoardRequest{Policy: &api.PolicyChange{Preset: &preset}}
 	policy, err := b.UpdateBoardWithResponse(ctx, boardName, nil, change)
 	mustStatus(t, policy, err, 200)
 

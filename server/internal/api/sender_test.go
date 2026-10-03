@@ -131,7 +131,7 @@ func TestHidingHarnessesNamesAgentsNeutrally(t *testing.T) {
 	boardName := s.newBoard()
 
 	hide := false
-	u, err := human.UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{Policy: api.PolicyChange{ShowHarness: &hide}})
+	u, err := human.UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{Policy: &api.PolicyChange{ShowHarness: &hide}})
 	mustStatus(t, u, err, 200)
 	if p := u.JSON200.Policy; p.ShowHarness == nil || *p.ShowHarness || p.Overrides == nil || len(*p.Overrides) != 1 || (*p.Overrides)[0] != "show_harness" {
 		t.Fatalf("policy after hiding harnesses: %+v", p)

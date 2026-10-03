@@ -28,6 +28,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"BoardRoundTripsEveryField", boardRoundTripsEveryField},
 		{"BoardNameTaken", boardNameTaken},
 		{"SetBoardPolicyReplacesPolicy", setBoardPolicyReplacesPolicy},
+		{"SetBoardTitleReplacesTitle", setBoardTitleReplacesTitle},
 		{"BoardsOfHumanListsOnlyHumanMemberships", boardsOfHumanListsOnlyHumanMemberships},
 		{"AppendEventMovesHead", appendEventMovesHead},
 		{"AppendEventRefusesGapsAndRepeats", appendEventRefusesGapsAndRepeats},
@@ -215,7 +216,7 @@ func boardRoundTripsEveryField(t *testing.T, st board.Store) {
 	policy.Urgent = rules.Everyone
 	policy.Overrides = []string{"urgent"}
 	want := board.Board{
-		ID: "brd_review", Name: "review", Template: ptr("code-review"), Charter: "Review every change.",
+		ID: "brd_review", Name: "review", Title: ptr("Review every change"), Template: ptr("code-review"), Charter: "Review every change.",
 		Roles: map[string]rules.Role{
 			rules.MemberRole: rules.DefaultMemberRole(),
 			"reviewer": {Charter: "Read diffs.", Can: []rules.Grant{
@@ -289,6 +290,34 @@ func setBoardPolicyReplacesPolicy(t *testing.T, st board.Store) {
 		}
 		return nil
 	})
+}
+
+func setBoardTitleReplacesTitle(t *testing.T, st board.Store) {
+	var id string
+	write(t, st, func(tx board.Tx) error {
+		b, _, err := newBoard(tx, "docs")
+		id = b.ID
+		if err != nil || b.Title != nil {
+			return fmt.Errorf("new board title %v, err %w", b.Title, err)
+		}
+		return tx.SetBoardTitle(b.ID, ptr("Docs review"))
+	})
+	title := func() *string {
+		var got *string
+		read(t, st, func(tx board.ReadTx) error {
+			b, err := tx.BoardByID(id)
+			got = b.Title
+			return err
+		})
+		return got
+	}
+	if got := title(); got == nil || *got != "Docs review" {
+		t.Errorf("title after SetBoardTitle = %v, want Docs review", got)
+	}
+	write(t, st, func(tx board.Tx) error { return tx.SetBoardTitle(id, nil) })
+	if got := title(); got != nil {
+		t.Errorf("title after removing = %q, want none", *got)
+	}
 }
 
 func boardsOfHumanListsOnlyHumanMemberships(t *testing.T, st board.Store) {

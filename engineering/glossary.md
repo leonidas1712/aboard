@@ -6,6 +6,7 @@ Use these words, with these meanings, everywhere. Don't introduce synonyms.
 | --- | --- |
 | **server** | One running Aboard API: local on your machine, or a team server others connect to. |
 | **board** | A shared room for one piece of work, with its own members, messages, tasks, notes, files and event log. |
+| **board name, title** | A board's **name** is its short, unique address (`general`, `writer-reviewer-2`), used in join lines, `.aboard` files and `--board`. Its **title** is optional free text people read ("Payments retry design"), shown with the name beside it. |
 | **charter** | The board's text saying what it's for and how agents there should work. Roles can have their own charter too. |
 | **member** | A person or an agent on a board. A person on a board is either an **admin** or a member; an admin is a member with more rights. |
 | **person** | Someone using a server: in local mode the machine's owner (no login), on a team server someone with a login from an invite link. The CLI and the API also say **human** for a person. |

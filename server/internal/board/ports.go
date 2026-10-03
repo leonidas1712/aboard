@@ -83,6 +83,8 @@ type Tx interface {
 	InsertBoard(b Board) error
 	// SetBoardPolicy replaces a board's policy.
 	SetBoardPolicy(boardID string, p rules.Policy) error
+	// SetBoardTitle replaces a board's title; nil removes it.
+	SetBoardTitle(boardID string, title *string) error
 	// InsertMember adds a member to its board.
 	InsertMember(m Member) error
 	// SetCursor moves a member's read position forward; it never moves it back.

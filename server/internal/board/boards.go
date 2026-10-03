@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/boardfile"
@@ -22,6 +25,7 @@ type View struct {
 // NewBoard is a request to create a board.
 type NewBoard struct {
 	Name     string
+	Title    string
 	Template string
 	Charter  string
 	Preset   string
@@ -33,9 +37,12 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	if err := requireHuman(p); err != nil {
 		return View{}, err
 	}
+	title, err := cleanTitle(in.Title)
+	if err != nil {
+		return View{}, err
+	}
 	var tf boardfile.File
 	if in.Template != "" {
-		var err error
 		tf, err = boardfile.Template(in.Template)
 		if errors.Is(err, boardfile.ErrNoTemplate) {
 			return View{}, apierr.New(http.StatusUnprocessableEntity, "template_not_found", err.Error(),
@@ -112,7 +119,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 			template = ptr(in.Template)
 		}
 		b := Board{
-			ID: boardID, Name: name, Template: template, Charter: charter, Roles: roles, Policy: policy,
+			ID: boardID, Name: name, Title: title, Template: template, Charter: charter, Roles: roles, Policy: policy,
 			HeadHash: events.GenesisHash, CreatedAt: stamp(now), CreatedBy: memberID,
 		}
 		if err := tx.InsertBoard(b); err != nil {
@@ -122,9 +129,13 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 			ID: memberID, BoardID: boardID, Name: p.Human.Name, Kind: "human", HumanID: p.Human.ID,
 			Access: rules.AccessAdmin, Status: "active", JoinedAt: stamp(now),
 		}
-		if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, map[string]any{
+		created := map[string]any{
 			"board_id": b.ID, "name": b.Name, "template": b.Template, "charter": b.Charter, "roles": b.Roles, "policy": b.Policy,
-		}); err != nil {
+		}
+		if title != nil {
+			created["title"] = *title
+		}
+		if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, created); err != nil {
 			return err
 		}
 		if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now); err != nil {
@@ -238,10 +249,44 @@ func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Memb
 	return out, err
 }
 
-// UpdatePolicy changes a board's policy. Only the board's admins may.
-func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, change rules.PolicyChange) (View, error) {
+// maxTitle is the longest title a board may have, in characters.
+const maxTitle = 80
+
+// cleanTitle trims a title and checks it is one line of at most maxTitle characters.
+// An empty title is no title: nil.
+func cleanTitle(title string) (*string, error) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil, nil
+	}
+	if utf8.RuneCountInString(title) > maxTitle {
+		return nil, invalid(fmt.Sprintf("A board's title can be at most %d characters.", maxTitle), "Shorten the title.")
+	}
+	if strings.IndexFunc(title, unicode.IsControl) >= 0 {
+		return nil, invalid("A board's title must be one line of text.", "Remove the line breaks and tabs from the title.")
+	}
+	return &title, nil
+}
+
+// Change is what an admin changes on a board. Nil fields stay as they are.
+type Change struct {
+	// Title is the new title; an empty string removes it.
+	Title  *string
+	Policy *rules.PolicyChange
+}
+
+// UpdateBoard changes a board's title, policy or both. Only the board's admins may.
+// Each change appends its own event; a title that doesn't change appends nothing.
+func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, change Change) (View, error) {
 	if err := requireHuman(p); err != nil {
 		return View{}, err
+	}
+	var title *string
+	if change.Title != nil {
+		var err error
+		if title, err = cleanTitle(*change.Title); err != nil {
+			return View{}, err
+		}
 	}
 	var v View
 	err := s.st.Write(ctx, func(tx Tx) error {
@@ -249,27 +294,44 @@ func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, ch
 		if err != nil {
 			return err
 		}
-		if err := requireAdmin(tx, b, me, "change its policy"); err != nil {
+		what := "change its policy"
+		if change.Policy == nil {
+			what = "change its title"
+		}
+		if err := requireAdmin(tx, b, me, what); err != nil {
 			return err
-		}
-		after, err := b.Policy.Apply(change)
-		if err != nil {
-			return invalid(err.Error(), "Use aboard board policy starter or aboard board policy recommended.")
-		}
-		var applied *string
-		if change.Preset != "" {
-			applied = ptr(change.Preset)
 		}
 		now := s.clk.Now()
-		if _, err := s.append(tx, &b, events.BoardPolicyChanged, actorOf(me), now, map[string]any{
-			"before": b.Policy, "after": after, "preset_applied": applied,
-		}); err != nil {
-			return err
+		if change.Title != nil && deref(title) != deref(b.Title) {
+			if _, err := s.append(tx, &b, events.BoardTitled, actorOf(me), now, map[string]any{
+				"before": b.Title, "after": title,
+			}); err != nil {
+				return err
+			}
+			if err := tx.SetBoardTitle(b.ID, title); err != nil {
+				return err
+			}
+			b.Title = title
 		}
-		if err := tx.SetBoardPolicy(b.ID, after); err != nil {
-			return err
+		if change.Policy != nil {
+			after, err := b.Policy.Apply(*change.Policy)
+			if err != nil {
+				return invalid(err.Error(), "Use aboard board policy starter or aboard board policy recommended.")
+			}
+			var applied *string
+			if change.Policy.Preset != "" {
+				applied = ptr(change.Policy.Preset)
+			}
+			if _, err := s.append(tx, &b, events.BoardPolicyChanged, actorOf(me), now, map[string]any{
+				"before": b.Policy, "after": after, "preset_applied": applied,
+			}); err != nil {
+				return err
+			}
+			if err := tx.SetBoardPolicy(b.ID, after); err != nil {
+				return err
+			}
+			b.Policy = after
 		}
-		b.Policy = after
 		v, err = viewOf(tx, b)
 		return err
 	})
@@ -278,4 +340,27 @@ func (s *Service) UpdatePolicy(ctx context.Context, p Principal, name string, ch
 	}
 	s.notify.Changed(v.Board.ID)
 	return v, nil
+}
+
+// Me is who a token acts as. Board is set for an agent.
+type Me struct {
+	Human   *Human
+	Agent   *Member
+	Board   string
+	Browser bool
+}
+
+// WhoAmI returns who the caller is: a person (through their login or a browser), or an
+// agent with its board.
+func (s *Service) WhoAmI(ctx context.Context, p Principal) (Me, error) {
+	me := Me{Human: p.Human, Agent: p.Agent, Browser: p.Browser}
+	if p.Agent == nil {
+		return me, nil
+	}
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		b, err := tx.BoardByID(p.Agent.BoardID)
+		me.Board = b.Name
+		return err
+	})
+	return me, err
 }

@@ -59,6 +59,7 @@ func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoRespon
 func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject) (CreateBoardResponseObject, error) {
 	in, err := convert[struct {
 		Name     string `json:"name"`
+		Title    string `json:"title"`
 		Template string `json:"template"`
 		Charter  string `json:"charter"`
 		Preset   string `json:"preset"`
@@ -66,7 +67,7 @@ func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.CreateBoard(ctx, principal(ctx), board.NewBoard{Name: in.Name, Template: in.Template, Charter: in.Charter, Preset: in.Preset})
+	v, err := h.svc.CreateBoard(ctx, principal(ctx), board.NewBoard{Name: in.Name, Title: in.Title, Template: in.Template, Charter: in.Charter, Preset: in.Preset})
 	if err != nil {
 		return nil, err
 	}
@@ -97,16 +98,37 @@ func (h *handlers) GetBoard(ctx context.Context, req GetBoardRequestObject) (Get
 
 func (h *handlers) UpdateBoard(ctx context.Context, req UpdateBoardRequestObject) (UpdateBoardResponseObject, error) {
 	in, err := convert[struct {
-		Policy rules.PolicyChange `json:"policy"`
+		Title  *string             `json:"title"`
+		Policy *rules.PolicyChange `json:"policy"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.UpdatePolicy(ctx, principal(ctx), req.Board, in.Policy)
+	v, err := h.svc.UpdateBoard(ctx, principal(ctx), req.Board, board.Change{Title: in.Title, Policy: in.Policy})
 	if err != nil {
 		return nil, err
 	}
 	return convert[UpdateBoard200JSONResponse](boardOf(v))
+}
+
+func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponseObject, error) {
+	me, err := h.svc.WhoAmI(ctx, principal(ctx))
+	if err != nil {
+		return nil, err
+	}
+	out := struct {
+		Kind    string  `json:"kind"`
+		Name    string  `json:"name"`
+		Board   *string `json:"board"`
+		Owner   *string `json:"owner"`
+		Browser bool    `json:"browser"`
+	}{Browser: me.Browser}
+	if me.Agent != nil {
+		out.Kind, out.Name, out.Board, out.Owner = "agent", me.Agent.Name, &me.Board, me.Agent.Owner
+	} else {
+		out.Kind, out.Name = "human", me.Human.Name
+	}
+	return convert[GetMe200JSONResponse](out)
 }
 
 func (h *handlers) ListMembers(ctx context.Context, req ListMembersRequestObject) (ListMembersResponseObject, error) {
