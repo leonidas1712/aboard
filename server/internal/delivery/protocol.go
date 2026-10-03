@@ -50,6 +50,12 @@ const (
 	// OpClaim, sent on a hold's connection, records messages the command showed as
 	// received, so they are acknowledged and never handed to a session.
 	OpClaim = "claim"
+	// OpHello opens an extension connection: a harness extension registers its session
+	// and keeps the connection open for as long as the session runs (spec/control.md).
+	// This daemon answers it with invalid_request, as it does any operation it lacks.
+	OpHello = "hello"
+	// OpGoodbye, sent on an extension connection, reports the session closed.
+	OpGoodbye = "goodbye"
 )
 
 // Events sent back on a waiting connection.
@@ -60,6 +66,8 @@ const (
 	EventDeliver = "deliver"
 	// EventRelease tells the hook to exit without a bundle.
 	EventRelease = "release"
+	// EventWelcome answers OpHello once the session is registered.
+	EventWelcome = "welcome"
 )
 
 // Request is one message from a hook or the CLI to the daemon.
@@ -90,6 +98,16 @@ type Request struct {
 	ReplyTo int `json:"reply_to,omitempty"`
 	// Seqs are the messages an OpClaim records as received.
 	Seqs []int `json:"seqs,omitempty"`
+	// ID is the delivery an extension's OpReceived confirms.
+	ID int64 `json:"id,omitempty"`
+	// Cwd, HarnessVersion and ExtensionVersion describe an extension's session in its
+	// OpHello, for the daemon's log and aboard doctor.
+	Cwd              string `json:"cwd,omitempty"`
+	HarnessVersion   string `json:"harness_version,omitempty"`
+	ExtensionVersion string `json:"extension_version,omitempty"`
+	// Subagent is the harness's id for the subagent an OpHello comes from, or empty for
+	// the session's own conversation.
+	Subagent string `json:"subagent,omitempty"`
 }
 
 // Key returns the session the request is about.
@@ -100,6 +118,9 @@ type Response struct {
 	V      int    `json:"v"`
 	Event  string `json:"event,omitempty"`
 	Bundle string `json:"bundle,omitempty"`
+	// ID is the delivery an EventDeliver on an extension connection carries, which the
+	// extension names when it confirms it.
+	ID int64 `json:"id,omitempty"`
 	// Notice names waiting messages without their content, in answer to OpBoundary.
 	Notice string     `json:"notice,omitempty"`
 	Boot   string     `json:"boot,omitempty"`
