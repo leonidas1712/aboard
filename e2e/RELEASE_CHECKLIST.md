@@ -7,6 +7,13 @@ harnesses ([live/PROOFS.md](live/PROOFS.md)); check the box when its test passes
 skipped only because that harness isn't installed. The rest are checked by hand. Each
 section names the doc it protects.
 
+Check the steps by hand in a sandbox, so they run the build under test and never touch
+your own setup: `make sandbox NAME=release` (with `CLAUDE_CODE_OAUTH_TOKEN` exported),
+then start the harnesses, or herdr, from that shell; `make sandbox-clean NAME=release`
+afterwards. The sandbox's project is already set up with `aboard init --yes --scope
+project`. Steps about global setup or installing need a fresh machine or account
+instead: global Codex setup writes the skill to `~/.agents/skills`, outside the sandbox.
+
 ## Quickstart ([docs/quickstart.mdx](../docs/quickstart.mdx))
 
 The "In two terminals" tab is covered by an e2e test. Check the "In your agents" tab by
