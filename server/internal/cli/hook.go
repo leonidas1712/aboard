@@ -259,13 +259,19 @@ func (h hookCall) tool(ctx context.Context) error {
 	return nil
 }
 
-// mentionsAboard matches a shell command that runs aboard, or at least names it.
-var mentionsAboard = regexp.MustCompile(`(^|[^A-Za-z0-9_-])aboard($|[^A-Za-z0-9_-])`)
+// runsAboard matches a shell command that runs aboard as a command: at the start, or
+// after a separator, a pipe, a subshell or a command substitution, optionally behind
+// variable assignments, a wrapper such as env, or a path ending in /aboard. A command
+// that only names aboard, such as a path to a project folder called aboard, doesn't
+// match, so the harness's allow rules keep applying to it.
+var runsAboard = regexp.MustCompile("(^|[;&|(`\\n]|\\$\\()\\s*" +
+	`(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S*|env|command|exec|nohup|time)\s+)*` +
+	`(?:\S*/)?aboard(?:$|[\s;&|)])`)
 
 // envName is what a variable name written into an environment file may be.
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-// markSubagent marks a shell command a subagent is about to run, when it mentions
+// markSubagent marks a shell command a subagent is about to run, when it runs
 // aboard, by prefixing it with "export ABOARD_SUBAGENT=<agent id>; ", so aboard knows
 // the command isn't the parent's and refuses to act as the parent. The tool's other
 // input is kept, and no permission decision is given, so the harness's own permission
@@ -277,7 +283,7 @@ func (h hookCall) markSubagent() error {
 	readable := h.in.AgentID != "" && len(h.in.ToolInput) > 0 &&
 		json.Unmarshal(h.in.ToolInput, &input) == nil && input["command"] != nil &&
 		json.Unmarshal(input["command"], &command) == nil
-	if !readable || !mentionsAboard.MatchString(command) {
+	if !readable || !runsAboard.MatchString(command) {
 		return nil
 	}
 	prefix := "export " + harness.SubagentEnv + "=" + harness.ShellWord(h.in.AgentID) + "; "

@@ -321,7 +321,7 @@ ones included. Everything else waits for idle.
 
 **Subagents.** Hooks fire inside a subagent too, with `agent_id` in their input. The
 tool-batch hook ignores them: messages belong to the main conversation. Before each Bash
-command a subagent runs, the pre-tool hook checks whether the command mentions `aboard`;
+command a subagent runs, the pre-tool hook checks whether the command runs `aboard` as a command (a path that only names it, such as a folder called aboard, doesn't count);
 if so it returns the tool input with the command prefixed by `export
 ABOARD_SUBAGENT=<agent_id>; ` as `updatedInput`, keeping the input's other fields, and no
 permission decision, so Claude Code's own permission rules still decide. `export`
@@ -600,7 +600,7 @@ harness's hook input as JSON on standard input and never print tokens.
 | `aboard hook claude-code prompt` | UserPromptSubmit | Marks the session busy and releases its waiting stop hook. Exit 0. |
 | `aboard hook claude-code stop` | Stop, with `asyncRewake: true` | Confirms any bundle handed to this session, then waits. On a delivery: writes the bundle to standard error and exits 2. When released: exits 0. If the daemon goes away, starts it again and keeps waiting. |
 | `aboard hook claude-code tool` | PostToolBatch (before 2.1.118: PostToolUse and PostToolUseFailure) | If the owner's messages or a waiting notice are due, prints `{"hookSpecificOutput":{"hookEventName":"<the event>","additionalContext":"<text>"}}`, naming the event from the hook input. Exit 0. |
-| `aboard hook claude-code pre-tool` | PreToolUse, matcher `Bash` | Inside a subagent (`agent_id` set) and for a command that mentions `aboard`, prints `{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":<tool_input with command "export ABOARD_SUBAGENT=<agent_id>; <command>">}}`. Prints nothing otherwise. Never denies; never contacts the daemon. Exit 0. |
+| `aboard hook claude-code pre-tool` | PreToolUse, matcher `Bash` | Inside a subagent (`agent_id` set) and for a command that runs `aboard`, prints `{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":<tool_input with command "export ABOARD_SUBAGENT=<agent_id>; <command>">}}`. Prints nothing otherwise. Never denies; never contacts the daemon. Exit 0. |
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |
 | `aboard hook codex session-start` | SessionStart | Registers the thread (`session_id`) after checking it is a root thread, and prints the same line as for Claude Code for a thread that comes back. Exit 0. |
 | `aboard hook codex prompt` | UserPromptSubmit | Marks a turn running. Exit 0. |
