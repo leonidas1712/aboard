@@ -353,8 +353,8 @@ func readFile(t *testing.T, path string) string {
 
 // Upgrading aboard at the same path leaves the installed skill and hooks byte for byte
 // as they were, so the harnesses don't ask to trust the hooks again. An installed file
-// that differs from what aboard init writes is reported by doctor, and aboard init
-// --yes rewrites only Aboard's own parts.
+// the person edited is reported by doctor, and aboard init --yes rewrites only Aboard's
+// own parts.
 func TestInitLeavesUnchangedHooksAloneAndDoctorFlagsChangedOnes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -409,12 +409,13 @@ func TestInitLeavesUnchangedHooksAloneAndDoctorFlagsChangedOnes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// The install manifest shows they changed after aboard wrote them.
 	checks = e.doctorChecks()
 	for name, code := range map[string]string{
-		"claude_hooks": "hooks_outdated", "codex_hooks": "hooks_outdated",
-		"claude_skill": "skill_outdated", "codex_skill": "skill_outdated",
+		"claude_hooks": "hooks_edited", "codex_hooks": "hooks_edited",
+		"claude_skill": "skill_edited", "codex_skill": "skill_edited",
 	} {
-		if c := checks[name]; c["code"] != code || c["fix"] != "run aboard init --yes" {
+		if c := checks[name]; c["code"] != code || !strings.HasPrefix(c["fix"].(string), "run aboard init --yes") {
 			t.Fatalf("doctor's %s check: %v, want %s with the fix aboard init --yes", name, c, code)
 		}
 	}

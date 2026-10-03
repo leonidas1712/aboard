@@ -23,15 +23,30 @@ func runDown(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
 	}
-	p, err := a.paths()
+	serverStopped, daemonStopped, err := a.stopAll(ctx)
 	if err != nil {
 		return err
 	}
 	srv := a.localServer()
-	serverStopped := false
+	a.emit(struct {
+		Server        serverRef `json:"server"`
+		ServerStopped bool      `json:"server_stopped"`
+		DaemonStopped bool      `json:"daemon_stopped"`
+	}{srv, serverStopped, daemonStopped}, stoppedText(srv, serverStopped, daemonStopped))
+	return nil
+}
+
+// stopAll stops the local server and the delivery daemon, if they run, and waits until
+// both have stopped. It reports which it stopped.
+func (a *app) stopAll(ctx context.Context) (serverStopped, daemonStopped bool, err error) {
+	p, err := a.paths()
+	if err != nil {
+		return false, false, err
+	}
+	srv := a.localServer()
 	if a.localRunning(ctx) {
 		if err := stopAboard(ctx, localPID(p), func() bool { return !a.localRunning(ctx) }); err != nil {
-			return &Error{
+			return false, false, &Error{
 				Code:    "server_not_running",
 				Message: "Something answers at " + srv.URL + ", but it isn't a local Aboard server this machine started: " + err.Error(),
 				Hint:    "Stop that program yourself, or set ABOARD_LOCAL_ADDR to another address.",
@@ -39,32 +54,29 @@ func runDown(ctx context.Context, a *app, args []string) error {
 		}
 		serverStopped = true
 	}
-	daemonStopped := false
 	if st, _ := a.daemonStatus(ctx); st != nil {
 		if err := stopAboard(ctx, st.PID, func() bool { st, _ := a.daemonStatus(ctx); return st == nil }); err != nil {
-			return &Error{
+			return serverStopped, false, &Error{
 				Code: "daemon_not_running", Message: "Couldn't stop the delivery daemon: " + err.Error(),
 				Hint: "Look at the daemon log at " + p.daemonLog() + ".",
 			}
 		}
 		daemonStopped = true
 	}
+	return serverStopped, daemonStopped, nil
+}
 
-	text := "Local Aboard and the delivery daemon weren't running.\n"
+// stoppedText says what aboard down stopped.
+func stoppedText(srv serverRef, serverStopped, daemonStopped bool) string {
 	switch {
 	case serverStopped && daemonStopped:
-		text = "Stopped local Aboard at " + srv.URL + " and the delivery daemon.\n"
+		return "Stopped local Aboard at " + srv.URL + " and the delivery daemon.\n"
 	case serverStopped:
-		text = "Stopped local Aboard at " + srv.URL + ". The delivery daemon wasn't running.\n"
+		return "Stopped local Aboard at " + srv.URL + ". The delivery daemon wasn't running.\n"
 	case daemonStopped:
-		text = "Stopped the delivery daemon. Local Aboard wasn't running.\n"
+		return "Stopped the delivery daemon. Local Aboard wasn't running.\n"
 	}
-	a.emit(struct {
-		Server        serverRef `json:"server"`
-		ServerStopped bool      `json:"server_stopped"`
-		DaemonStopped bool      `json:"daemon_stopped"`
-	}{srv, serverStopped, daemonStopped}, text)
-	return nil
+	return "Local Aboard and the delivery daemon weren't running.\n"
 }
 
 // stopAboard sends SIGTERM to pid, but only if it is an aboard process, then waits
