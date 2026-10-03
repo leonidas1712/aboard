@@ -175,8 +175,8 @@ func recipientsText(rs []recipientNote) string {
 			parts = append(parts, list+pick(" won't be woken: it sees it when it checks its inbox.",
 				" won't be woken: they see it when they check their inbox."))
 		case outcomeNoSession:
-			parts = append(parts, list+pick(" has no open session: it sees it in its inbox or when a session resumes it.",
-				" have no open session: they see it in their inbox or when a session resumes them."))
+			parts = append(parts, list+pick(" is disconnected: it sees it in its inbox or when its session reconnects.",
+				" are disconnected: they see it in their inbox or when their sessions reconnect."))
 		case outcomePerson:
 			parts = append(parts, list+pick(" sees it on the board or in their inbox.", " see it on the board or in their inbox."))
 		}

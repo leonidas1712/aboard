@@ -511,7 +511,8 @@ paths:
         - `idle`: the session is open and waiting for messages.
         - `waiting`: the harness is waiting for a person in the session, such as a
           permission prompt.
-        - `no_session`: no session is open for the agent.
+        - `no_session`: no session is open for the agent. The CLI and the board view call
+          it "disconnected".
 
         The delivery daemon on the agent's owner's machine reports it as sessions start,
         run turns, wait and end, and reports it again every minute while it holds. A

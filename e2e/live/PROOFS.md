@@ -59,15 +59,17 @@ Code 2.1.287 with its default model.
 | `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
 | `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. | 4 |
 | `TestSessionMovesBetweenBoards` | A session that joins one board and then another moves: a message on the new board is handed within 2 seconds and answered there, while a message to its old agent wakes nothing for 20 seconds and stays unread for whichever session resumes that agent. | 3 |
+| `TestResumedClaudeSessionReconnects` | A session that quits (its end hook closes it, and the agent shows as disconnected) and is resumed with `claude --resume <id>` in the same pane keeps its session id and is its agent again with no `aboard resume`: the message sent while it was closed, which wakes nothing, is handed when its first turn ends and answered. | 3 |
 | `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
 | `TestIdleCodexWakesAndReplies` | Codex runs the project's hooks (session start, prompt, tool, stop). An idle Codex session is woken through `codex queue` within 2 seconds plus Codex's 2-second gather, and answers on the board. | 2 |
 | `TestClaudeAndCodexExchange` | Claude Code and Codex run the wiring check to PING 3 with no one typing. | about 9 |
 | `TestCodexStartsPingPong` | Codex starts the wiring check itself; each PONG reaches Codex within 30 seconds of being posted, measured from the daemon's log (handed, added at a tool boundary or shown by `say --wait-reply`), so Codex never keeps its turn busy waiting. | 4 |
 | `TestOwnerReachesBusyCodex` | While Codex runs a slow task twice, the owner's message reaches the turn at the next tool call (Codex's pre-tool hook), is acted on in that turn, and never goes into Codex's queue. | 2 |
 | `TestCodexWaitsForReplyInItsTurn` | From inside its sandbox, Codex asks with `aboard say --wait-reply` and gets the reply in the same command: the daemon records it as shown and never queues it. | 2 |
+| `TestResumedCodexSessionReconnects` | Quitting Codex leaves its thread loaded in Codex's own app server, so the session stays open; once that app server stops, the agent is disconnected and a message wakes nothing. `codex resume <id>` keeps the thread id; its session-start hook (run when the first turn starts) binds it again with no `aboard resume`, and the message goes into its queue and is answered. | 3 |
 | `TestCodexSandboxNeedsTheAllowRule` | With Codex's default sandbox (network off) and no allow rule, `aboard status` run by `codex exec` says the server can't be reached from Codex's sandbox, not that it stopped, and doctor warns `codex_aboard_not_allowed`; after `aboard init --scope project --allow-commands`, the same command reaches the running server and daemon. Read from the command's output in Codex's event stream. | 2 |
 
-A full run with Claude Code only is about 34 turns; the Codex tests add about 10.
+A full run with Claude Code only is about 37 turns; the Codex tests add about 13.
 
 ## Checked by hand
 

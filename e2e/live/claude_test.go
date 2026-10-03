@@ -502,7 +502,7 @@ func TestSessionMovesBetweenBoards(t *testing.T) {
 		} `json:"join"`
 	}
 	var first, second paired
-	l.decode(l.human, &first, "pair")
+	l.decode(l.human, &first, "pair", "writer-reviewer")
 	session := l.startClaude("mover", l.project("project", "claude-code"))
 	session.submit(first.Join.Line)
 	l.waitMessage("claude", time.Time{}, "", 3*time.Minute) // its hello on the first board
@@ -511,7 +511,7 @@ func TestSessionMovesBetweenBoards(t *testing.T) {
 	// The person's terminal now defaults to the second board, so writer and claude there
 	// need no --board.
 	moving := time.Now()
-	l.decode(l.human, &second, "pair", "--new")
+	l.decode(l.human, &second, "pair", "writer-reviewer", "--new")
 	session.submit(second.Join.Line)
 	l.waitMessage("claude", moving, "", 3*time.Minute) // its hello on the second board
 	l.waitQuiet(3*time.Minute, "writer", session)

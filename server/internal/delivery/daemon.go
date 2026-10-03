@@ -133,7 +133,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 		if s == nil {
 			continue
 		}
-		s.boot, s.open, s.proc = r.Boot, r.Open, r.Process
+		s.boot, s.open, s.proc, s.lost, s.started = r.Boot, r.Open, r.Process, r.Lost, true
 		d.open[r.Key] = r.Open
 	}
 	for _, b := range bindings {

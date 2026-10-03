@@ -22,8 +22,8 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Board details panel with "Add an agent" and "Copy details"; `aboard invite` | done | D143 |
 | `aboard pair` in a linked directory names both ways on: `aboard invite` for another agent, `aboard pair --new` for another board | done | D44, D143 |
 | Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | done | D66, D72, D152 |
-| Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | next | D157 |
-| `aboard uninstall` and the install manifest; docs page "Install, update and remove" | review (#22) | D145, D159 |
+| Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | review | D157 |
+| `aboard uninstall` and the install manifest; docs page "Install, update and remove" | done (#22) | D145, D159 |
 | Board view tab icon: a room holding two lines of conversation, as SVG (light and dark) with PNG fallbacks and an Apple touch icon | done (#21) | |
 | Board view layout: left panel is the board list only (with message counts); right panel is this board (Agents with "Add an agent", Charter, Rules Aboard enforces, Details with the record check); the header shows Aboard's mark and the title opens Details; "disconnected" for agents with no session | review | D143, D157, D161 |
 

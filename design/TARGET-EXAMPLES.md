@@ -119,7 +119,7 @@ Sent #4 to all on hello
 ```
 
 `say` adds a line saying when each recipient will see the message (now, when its
-turn ends, not woken, no open session, or a person), and a line about the sender's
+turn ends, not woken, disconnected, or a person), and a line about the sender's
 own unread messages when there are any. `say --wait-reply 60` waits for the reply
 inside the same command.
 

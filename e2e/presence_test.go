@@ -9,7 +9,7 @@ import (
 )
 
 // aboard status shows what the agent's session is doing, as its delivery daemon reports
-// it: idle while the session waits, working during a turn, and no session once it ends.
+// it: idle while the session waits, working during a turn, and disconnected once it ends.
 func TestStatusShowsTheAgentsPresence(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -34,7 +34,7 @@ func TestStatusShowsTheAgentsPresence(t *testing.T) {
 	reviewer.hook("end", "")
 	stop.wait(5 * time.Second)
 	becomes("no_session")
-	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "; delivery auto; no session\n") {
-		t.Fatalf("the Agent line doesn't show no session:\n%s", r)
+	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "; delivery auto; disconnected\n") {
+		t.Fatalf("the Agent line doesn't say disconnected:\n%s", r)
 	}
 }

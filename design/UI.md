@@ -223,8 +223,9 @@ In the Agents section:
 - **Agents:** each agent's name with its presence in plain words, then labelled fields.
   - Presence (D120) is one of **working** (a turn is running), **idle** (its session is
     open and waiting for messages), **waiting** (its harness is waiting for a person in
-    the session, such as a permission prompt) or **disconnected** (no session fills the
-    seat; the API says `no_session`, D157), and the "Now:" line counts them the same way
+    the session, such as a permission prompt) or **disconnected** (no session is open
+    for it; the API's `no_session`). A disconnected agent's session comes back by itself
+    when its harness resumes it (D157). The "Now:" line counts them the same way
     ("2 agents disconnected"). The owner's delivery daemon reports it; it is
     bookkeeping, never part of the record.
   - Fields: Owner (only with a second person), Role (opens to the role's one-line

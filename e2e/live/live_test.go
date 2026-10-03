@@ -328,6 +328,10 @@ func (l *lab) teardown() {
 			_ = syscall.Kill(pid, syscall.SIGKILL)
 		}
 	}
+	// Codex runs its hooks from an app server of its own, started from the test's
+	// CODEX_HOME, which outlives the session; stopping it runs the session-end hook,
+	// which can start a daemon, so it stops before aboard does.
+	l.stopProcesses(filepath.Join(l.dir, "codex-home"))
 	// A stop hook that loses its daemon starts another, so stop every process running
 	// this lab's binary until none is left.
 	deadline := time.Now().Add(15 * time.Second)
@@ -347,9 +351,6 @@ func (l *lab) teardown() {
 	if pids := l.aboardPIDs(); len(pids) > 0 {
 		t.Errorf("aboard processes still running after the test: %v", pids)
 	}
-	// Codex starts an app server of its own from the test's CODEX_HOME, which outlives
-	// the session.
-	l.stopProcesses(filepath.Join(l.dir, "codex-home"))
 	if diff := configDiff(realConfig, configSums()); diff != "" {
 		t.Errorf("the real harness config or Aboard state changed:\n%s", diff)
 	}
@@ -721,6 +722,37 @@ func (l *lab) logged(msg string) []handover {
 	return out
 }
 
+// sessionStart is one "session started" line in the daemon's log: a session-start hook
+// registered a session.
+type sessionStart struct {
+	Time    time.Time `json:"time"`
+	Session string    `json:"session"`
+	Source  string    `json:"source"`
+	// Reopened is true when the session had closed and its harness resumed it.
+	Reopened bool `json:"reopened"`
+	// Agents is how many agents the session is bound to once registered.
+	Agents int `json:"agents"`
+}
+
+// starts lists every session start in the daemon's log, oldest first.
+func (l *lab) starts() []sessionStart {
+	raw, err := os.ReadFile(filepath.Join(l.stateDir(), "daemon.log"))
+	if err != nil {
+		return nil
+	}
+	var out []sessionStart
+	for _, line := range strings.Split(string(raw), "\n") {
+		var s struct {
+			Msg string `json:"msg"`
+			sessionStart
+		}
+		if json.Unmarshal([]byte(line), &s) == nil && s.Msg == "session started" {
+			out = append(out, s.sessionStart)
+		}
+	}
+	return out
+}
+
 // reached returns when the message seq first reached its recipient's session, from the
 // daemon's log: handed in a bundle, added at a tool boundary, or shown by aboard say
 // --wait-reply. ok is false if it hasn't.
@@ -839,9 +871,37 @@ func (l *lab) tmuxRun(args ...string) string {
 func (l *lab) start(name, dir string, env, argv []string) *pane {
 	l.t.Helper()
 	l.started++
+	path := l.launchScript(name, env, argv)
+	if len(l.panes) == 0 {
+		l.tmuxRun("new-session", "-d", "-s", "live", "-x", "220", "-y", "50", "-n", name, "-c", dir, path)
+		l.tmuxRun("set-option", "-g", "remain-on-exit", "on")
+	} else {
+		l.tmuxRun("new-window", "-t", "live:", "-n", name, "-c", dir, path)
+	}
+	p := &pane{l: l, name: name, dir: dir, harness: argv[0]}
+	l.panes = append(l.panes, p)
+	return p
+}
+
+// respawn runs argv in the pane again, in its directory, once the harness that ran there
+// has exited (panes stay open after their command exits), the way a person runs the
+// harness again in the same terminal.
+func (p *pane) respawn(env, argv []string) {
+	p.l.t.Helper()
+	path := p.l.launchScript(p.name+"-again", env, argv)
+	p.l.tmuxRun("respawn-pane", "-t", p.target(), "-c", p.dir, path)
+	p.l.waitFor(10*time.Second, p.name+": the pane to run again", func() bool { return !strings.Contains(p.screen(), "Pane is dead") })
+}
+
+// launchScript writes a script that runs argv with exactly the environment env, and
+// returns its path.
+func (l *lab) launchScript(name string, env, argv []string) string {
+	l.t.Helper()
 	var script strings.Builder
-	// The harness runs in tmux, whatever terminal runs the suite.
-	script.WriteString("#!/bin/sh\nexec env -i TERM=tmux-256color")
+	// The harness runs in tmux, whatever terminal runs the suite. A pane run again still
+	// shows what the harness before it left on the screen, which would look like the new
+	// one is ready, so the screen is cleared first.
+	script.WriteString("#!/bin/sh\nprintf '\\033[2J\\033[H'\nexec env -i TERM=tmux-256color")
 	for _, kv := range env {
 		if !strings.HasPrefix(kv, "TERM=") {
 			script.WriteString(" " + shellQuote(kv))
@@ -855,15 +915,7 @@ func (l *lab) start(name, dir string, env, argv []string) *pane {
 	if err := os.WriteFile(path, []byte(script.String()), 0o700); err != nil { //nolint:gosec // the launch script must be executable
 		l.t.Fatal(err)
 	}
-	if len(l.panes) == 0 {
-		l.tmuxRun("new-session", "-d", "-s", "live", "-x", "220", "-y", "50", "-n", name, "-c", dir, path)
-		l.tmuxRun("set-option", "-g", "remain-on-exit", "on")
-	} else {
-		l.tmuxRun("new-window", "-t", "live:", "-n", name, "-c", dir, path)
-	}
-	p := &pane{l: l, name: name, dir: dir, harness: argv[0]}
-	l.panes = append(l.panes, p)
-	return p
+	return path
 }
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
