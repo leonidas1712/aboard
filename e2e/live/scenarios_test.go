@@ -116,7 +116,6 @@ func (l *lab) agents(board string) []string {
 // plain words, the second gets the join line it gives, joins and says hello, which
 // proves the baseline. Then a message to the first, sitting idle, wakes it, its presence
 // goes working and back to idle, and it replies on the board with no one typing.
-// Was TestIdleClaudeWakesAndReplies and TestIdleCodexWakesAndReplies.
 func TestWakesAndReplies(t *testing.T) {
 	eachHarness(t, "WakesAndReplies", func(t *testing.T, d *driver, rec *recorder) {
 		rec.expect("JoinsAndTalks")
@@ -168,7 +167,6 @@ const wiringCheck = "Run the Aboard wiring check with @reviewer now, going up to
 
 // After one prompt, two sessions of the harness run the skill's wiring check to PING 3:
 // six messages go back and forth with no one typing, and then they stop.
-// Was TestClaudeExchangesFiveMessages.
 func TestPingPong(t *testing.T) {
 	eachHarness(t, "PingPong", func(t *testing.T, d *driver, _ *recorder) {
 		l := newLab(t)
@@ -192,7 +190,6 @@ func TestPingPong(t *testing.T) {
 
 // After one prompt to a session of one harness, it and a session of another run the
 // wiring check to PING 3 with no one typing. Each pair of harnesses runs once.
-// Was TestClaudeAndCodexExchange.
 func TestPingPongAcrossHarnesses(t *testing.T) {
 	all := drivers(t)
 	for i, a := range all {
@@ -256,7 +253,6 @@ func exchangedAlone(t *testing.T, msgs []message, start time.Time, least, most i
 // Each PONG must reach the session promptly, measured from the daemon's log, not only
 // be posted: the session either waits for it with aboard say --wait-reply or ends its
 // turn so delivery can bring it, and never keeps its turn busy polling.
-// Was TestCodexStartsPingPong.
 func TestRepliesReachPromptly(t *testing.T) {
 	eachHarness(t, "RepliesReachPromptly", func(t *testing.T, d *driver, _ *recorder) {
 		l := newLab(t)
@@ -292,7 +288,6 @@ func TestRepliesReachPromptly(t *testing.T) {
 // turn. Two peer messages sent at the same time, one urgent, never enter the turn: a
 // harness whose hook waits for idle is handed them in one bundle once the turn ends, and
 // one with its own queue holds them there until it does.
-// Was TestOwnerReachesBusyClaude and TestOwnerReachesBusyCodex.
 func TestOwnerReachesBusy(t *testing.T) {
 	eachHarness(t, "OwnerReachesBusy", func(t *testing.T, d *driver, rec *recorder) {
 		if !d.p.Has("tool-boundary") {
@@ -433,7 +428,6 @@ func TestPeerWaitsButNoticeArrives(t *testing.T) {
 // A session killed (SIGKILL) after a wake, before its turn ends, never confirms the
 // bundle: the message stays unread, the daemon closes the session within 5 seconds, and
 // the next session that resumes the agent receives it and acts on it.
-// Was TestKilledSessionRedelivers, for Claude Code.
 func TestKilledSessionRedelivers(t *testing.T) {
 	eachHarness(t, "KilledSessionRedelivers", func(t *testing.T, d *driver, rec *recorder) {
 		switch {
@@ -484,7 +478,6 @@ func TestKilledSessionRedelivers(t *testing.T) {
 // server, loses nothing: the daemon starts again (a waiting hook starts it, or the next
 // command that needs it), the server comes back with aboard up, and each message sent
 // afterwards gets its answer.
-// Was TestRestartsLoseNothing, for Claude Code.
 func TestRestartsLoseNothing(t *testing.T) {
 	eachHarness(t, "RestartsLoseNothing", func(t *testing.T, d *driver, rec *recorder) {
 		if !d.p.Delivers() {
@@ -531,7 +524,6 @@ func TestRestartsLoseNothing(t *testing.T) {
 // project path is there, a session started there runs Aboard's hooks and one started
 // elsewhere doesn't, doctor and status name the project's setup, and the person's own
 // config is untouched.
-// Was TestProjectScopeInit, for Claude Code.
 func TestProjectScopeSetup(t *testing.T) {
 	eachHarness(t, "ProjectScopeSetup", func(t *testing.T, d *driver, _ *recorder) {
 		l := newLab(t)
@@ -616,7 +608,6 @@ func TestProjectScopeSetup(t *testing.T) {
 // wakes nothing, is delivered when the resumed session's first turn ends, and answered,
 // with no aboard resume. A harness whose sessions outlive the terminal (Codex's app
 // server) has what keeps them stopped as well, as when the machine restarts.
-// Was TestResumedClaudeSessionReconnects and TestResumedCodexSessionReconnects.
 func TestResumeReconnects(t *testing.T) {
 	eachHarness(t, "ResumeReconnects", func(t *testing.T, d *driver, rec *recorder) {
 		if !d.p.Lifecycle.ResumeKeepsID {
@@ -703,7 +694,6 @@ func (l *lab) provesReconnect(p *pane, harness, agent, sender string, closeSessi
 // parent. Asked to run aboard status and aboard say, the subagent's commands are marked
 // and refused: nothing reaches the board, and the refusal is in the harness's
 // transcripts, which shows the subagent did run aboard.
-// Was TestClaudeSubagentCannotActAsItsParent.
 func TestSubagentCannotActAsItsParent(t *testing.T) {
 	eachHarness(t, "SubagentCannotActAsItsParent", func(t *testing.T, d *driver, rec *recorder) {
 		if d.p.SubagentIdentity != "marked" && d.p.SubagentIdentity != "seats" {

@@ -27,9 +27,9 @@ them where they protect the most, in this order.
 
 | Layer | What it proves | Runs | Today |
 | --- | --- | --- | --- |
-| Contract suites | Every adapter of a port behaves the same | `make quick`, `make check` | Store (`board/boardtest`), delivery adapter, journal and server (`delivery/deliverytest`); launcher and monitor suites come with those ports |
+| Contract suites | Every adapter of a port behaves the same | `make quick`, `make check` | Store (`board/boardtest`), delivery adapter, journal and server (`delivery/deliverytest`), the control socket's messages against spec/control.md, every harness (`make conformance`); launcher and monitor suites come with those ports |
 | End-to-end (`/e2e`) | Features work through the real binary, as documented | `make check` | Yes |
-| Live (`e2e/live`) | Delivery, setup and upgrades work in real Claude Code and Codex | `make live`, before each release and after any change to delivery, setup or upgrades | Yes |
+| Live (`e2e/live`) | Delivery, setup and upgrades work in the real harnesses; the support matrix in the README comes from its results | `make live` (`HARNESS=<name>` for one), before each release and after any change to delivery, setup or upgrades | Yes |
 | Integration | API behaviour, permissions, error codes, OpenAPI conformance, concurrency | `make quick`, `make check` | Yes |
 | Unit | Pure logic with real edge cases | `make quick`, `make check` | Yes |
 | Docs as tests | Every command the docs show still works, with the output they show | `make check` | The quickstart; the rest as pages are written |
@@ -47,6 +47,28 @@ it too.
 Extension points used from outside the repository (harness profiles, launchers, monitor
 hooks) ship their suites as public test kits, so a third party can run them without
 reading our code.
+
+### The harness conformance kits
+
+Every harness with a profile passes two kits, written once and driven by its profile;
+[adding-a-harness.md](adding-a-harness.md) is the step-by-step for a new one.
+
+- **The fast kit**, `make conformance` (`HARNESS=<name>` for one harness), needs no
+  model and runs in `make check`. Its in-process half
+  (`server/internal/harness/registry/conformance_test.go`) checks the profile against
+  its schema, that every capability it declares has code behind it, the delivery
+  adapter against the delivery port's contract, and identity markers among all the
+  harnesses. Its other half (`e2e/conformance_test.go`) drives the real binary with a
+  session played from the profile: init and uninstall in each scope, doctor, identity,
+  each hook, subagents, and delivery when idle, at a turn's end, at a tool boundary,
+  after a killed session and on resume. The only per-harness code is a fake of what the
+  harness does outside Aboard's hooks (`kitFakes`, `adapterFixtures`).
+- **The live kit**, `make live HARNESS=<name>`, runs the scenarios in
+  `e2e/live/scenarios_test.go` in the real harness, with a small driver per harness for
+  its screen ([e2e/live/PROOFS.md](../e2e/live/PROOFS.md)). Each scenario's result is
+  saved in `e2e/live/support.json`, and `make harness-table` writes the README's
+  support matrix from those results and the profiles; `make check` fails when the table
+  is out of date.
 
 ### End-to-end tests
 
@@ -140,7 +162,8 @@ violation. (The accessibility check is not added yet.)
   instead of waiting.
 - **The fake harness.** `e2e/fakeharness` plays a harness process that runs one hook
   and stays up, and `e2e/fakecodex` plays Codex's queue command, so delivery is tested
-  end to end on every change without a model.
+  end to end on every change without a model. The conformance kit plays any harness
+  from its profile with them.
 - **Fixtures recorded from real harnesses.** The live suite saves the hook payloads and
   queue requests real Claude Code and Codex send, and the fake harness replays them, so
   the tests that run on every change use what harnesses really send, not what we assume

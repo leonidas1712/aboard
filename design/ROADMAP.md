@@ -103,9 +103,10 @@ release is in engineering/testing.md and engineering/release.md.
 | Subagents are marked: a subagent's `aboard` commands may read but not act as its parent (Claude Code's `PreToolUse` hook marks them); the `subagent_identity` capability in profiles; a Codex marker wins over an inherited Claude Code session | review | D165, D166 |
 | omp as the first new harness, with automatic delivery | next, after the kit | D160 |
 | Subagent seats: `aboard sub new` and `aboard sub claim`, a seat linked to its parent, finished when the subagent stops, nested in the board view | next, after omp | D165 |
-| Harness conformance kit: fast kit, `make live HARNESS=<name>`, support levels 0–3, README table from results | next | D130, D164 |
+| Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), and the README's support matrix from their results (`make harness-table`) | review | D130, D164, D167 |
+| The control socket as a versioned contract (`spec/control.md`), with the extension connection specified for omp | review | D167 |
 | A docs page per harness (`docs/harnesses/<harness>.mdx`) and the checklist in `engineering/adding-a-harness.md` | review | D164 |
-| Profiles at level 0 for OpenCode, Pi, OpenClaw, Hermes, Antigravity and others | next | D130 |
+| Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, OpenClaw, Hermes, Antigravity and others | next | D130, D167 |
 | Automatic delivery for a harness beyond Claude Code and Codex | needs approval per harness | D130 |
 
 ### Team mode

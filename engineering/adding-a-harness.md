@@ -7,7 +7,9 @@ How Aboard does it: a harness is data first. Its profile says what it can do; a
 generic implementation reads the profile for every job harnesses share; a small Go
 package overrides only what the profile can't say; and one registry lists the
 harnesses, so `init`, `doctor`, `status`, `uninstall`, the hooks, session detection and
-the delivery daemon pick it up without a change. This page is the checklist, in order.
+the delivery daemon pick it up without a change. Two conformance kits, one without a
+model and one live, say whether it works and fill in its row of the README's support
+matrix. This page is the checklist, in order.
 
 The pieces, all under `server/internal/harness`:
 
@@ -20,7 +22,30 @@ The pieces, all under `server/internal/harness`:
 | `harness/registry` | `Harnesses()`, the one list. Order is the order `aboard init` shows. |
 
 Automatic delivery for a harness beyond Claude Code and Codex needs the maintainer's
-approval first, per harness. A harness with only the skill (level 0) doesn't.
+approval first, per harness. A harness with only the baseline (below) doesn't.
+
+## What "supported" means
+
+A harness is supported when it has **the baseline**: it joins a board with a join line,
+its sessions have an identity so a command run in one acts as that session's agent, it
+posts and reads, `aboard init` installs the skill and `aboard init` then `aboard
+uninstall` leave every file of the harness as it was, and it has a docs page. That is
+the minimum; everything else is a capability it has or doesn't, and the README's matrix
+shows each one per harness, with a note where it is partial:
+
+| Capability | Declared in the profile by | Measured by |
+| --- | --- | --- |
+| Baseline | `identity`, `session_env`, an install item of kind `skill` | Fast kit: init, uninstall, doctor, identity, docs page. Live: `TestWakesAndReplies` (pairing in plain words) |
+| Wakes when idle | `delivery.capabilities`: `idle-hook`, `queue` or `extension` | Fast kit: idle delivery, a killed session, resume. Live: `TestWakesAndReplies`, `TestPingPong`, `TestRepliesReachPromptly`, `TestKilledSessionRedelivers`, `TestRestartsLoseNothing` |
+| Peers at turn end, bundled | Automatic delivery | Fast kit: a busy turn. Live: `TestOwnerReachesBusy` |
+| Owner mid-turn | `tool-boundary` (or `turn-start`, `extension`) | Fast kit: a tool boundary. Live: `TestOwnerReachesBusy` |
+| Waiting notice | `delivery.waiting_notice` | Fast kit and live: `TestPeerWaitsButNoticeArrives` |
+| Presence | Hooks of op `prompt`, `wait` or `turn-end`, and `end` | Fast kit: hooks. Live: `TestWakesAndReplies` |
+| Reconnects on resume | `lifecycle.resume_keeps_id`, `interactive.resume` | Fast kit: resume. Live: `TestResumeReconnects` |
+| Subagents | `subagent_identity` | Fast kit: a marked subagent may only read. Live: `TestSubagentCannotActAsItsParent` |
+| Project setup | A `project` path on each install item | Fast kit: init in the project scope. Live: `TestProjectScopeSetup` |
+| Started by a launcher | `headless` | Not yet: no launcher starts sessions |
+| Sandbox check | `sandbox_env`, `sandbox_network_env` | Fast kit (e2e sandbox tests); live where the sandbox blocks the network |
 
 ## 1. The profile
 
@@ -124,7 +149,8 @@ entry's text changes.
 
 **Lifecycle.** How the daemon knows a session is alive, whether it outlives the
 terminal, whether resuming keeps the id, when a resumed session's start reaches Aboard,
-and the hook-input field that marks a subagent.
+and the hook-input field that marks a subagent. `interactive.resume` is the command
+that opens a session again by its id, which the live kit uses.
 
 **Subagents.** `subagent_identity` says whether Aboard can tell a subagent's commands
 from its parent's. A subagent inherits its parent's session, so without that its
@@ -172,17 +198,65 @@ adapter behind `delivery.Adapter`, which passes `deliverytest.RunAdapter`.
 
 Code that runs inside the harness, such as an extension or plugin, lives in
 `adapters/<harness>/`, is built into the binary, and is installed by an install item of
-kind `file`. An extension that delivers uses the extension connection in
-[spec/delivery.md](../spec/delivery.md#harness-capabilities).
+kind `file`. An extension that delivers holds the extension connection to the delivery
+daemon, specified in [spec/control.md](../spec/control.md#the-extension-connection):
+`hello` with its session, bundles it confirms with `received`, `prompt` and
+`turn_end` for presence, and `goodbye`.
 
-## 4. The kits
+## 4. Pass the kits
 
-Today: `make check` validates every profile against the schema and checks the registry
-lists exactly the profiles in `adapters/` (`harness/registry`), and the golden e2e test
-pins every file `aboard init` writes for the harnesses it covers (`e2e/golden_test.go`;
-add your harness's cases, then `ABOARD_UPDATE_GOLDEN=1` writes them). The fast
-conformance kit and `make live HARNESS=<name>` are to be built; a harness is supported
-when both pass.
+**The fast kit, without a model.** Run it for the new harness until it passes:
+
+```bash
+make conformance HARNESS=<name>
+```
+
+It runs two halves, both driven by the profile, so nothing in them names a harness:
+
+- `server/internal/harness/registry/conformance_test.go`, in process: the profile
+  matches the schema; every capability, identity kind, liveness, install item and
+  subagent level it declares has code behind it (declaring `turn-start`, `extension` or
+  `seats` today fails, naming what is missing); its delivery adapter passes the
+  delivery port's contract (`deliverytest.RunAdapter`); its markers find its sessions,
+  a harness started inside one of its sessions is taken for itself, and two harnesses
+  that set the same marker are told apart.
+- `e2e/conformance_test.go`, through the real binary: the docs page; `aboard init` in
+  each scope installs exactly the profile's items, keeps the person's own hooks,
+  changes nothing the second time, and `aboard uninstall` leaves every file byte for
+  byte as before; doctor reports the hooks missing, installed, edited and outdated; a
+  command finds its session from where the profile says; what each hook does, and that
+  a hook fired inside a subagent changes nothing; a marked subagent may read but not
+  act as its parent; and delivery when idle, at a turn's end, the owner's messages at a
+  tool boundary, the waiting notice, a killed session, and a resumed session.
+
+It ends with a line per harness of what it measured. The per-harness code it may need:
+
+- A delivery adapter of a new kind (not the idle hook) needs a fixture in
+  `adapterFixtures` in the registry's `conformance_test.go`, with a fake of the
+  harness's command in `e2e/` (as `e2e/fakecodex` is Codex's).
+- Delivery that doesn't go through Aboard's own hooks needs a fake in `kitFakes` in
+  `e2e/conformance_test.go`, saying what the harness received.
+- An identity kind the kit has no driver for fails in `kitStart`, saying so.
+
+Then add the harness's cases to the golden test (`e2e/golden_test.go`), which pins every
+file `aboard init` writes, and write them with `ABOARD_UPDATE_GOLDEN=1 go test -tags e2e
+-run TestInitWritesExactlyTheGoldenFiles ./e2e/`. `make check` runs both halves of the
+kit and the golden test.
+
+**The live kit, in the real harness.** Add a driver to `newDriver` in
+`e2e/live/drivers_test.go` (how its screen shows a prompt and a running turn, the
+questions it asks at start, what it leaves running after its terminal quits, how to ask
+it for a subagent; [e2e/live/PROOFS.md](../e2e/live/PROOFS.md) says more), then:
+
+```bash
+make live HARNESS=<name>
+make harness-table
+```
+
+Every scenario runs for the harness, or records n/a with the reason its profile gives.
+The results go to `e2e/live/support.json`, and `make harness-table` writes the harness's
+row in the README; add notes to `support.json` for what the profile can't say, such as a
+flag the harness needs. Commit both files.
 
 Live tests follow rule 13 of AGENTS.md: every run has its own `HOME`, `ABOARD_HOME` and
 harness config folder, and never writes to the person's real config. Record a checksum
@@ -216,12 +290,13 @@ with a separate test login, and its page says so.
 Copy this section for the new harness in the pull request that adds it.
 
 - [ ] Profile in `adapters/<harness>/profile.yaml`, valid against the schema
-- [ ] `subagent_identity` declared, and a test that a subagent's `aboard say` is refused (or the risk on the docs page, for `none`)
+- [ ] `subagent_identity` declared (for `none`, the risk on the docs page)
 - [ ] In `harness/registry`
 - [ ] Go package, only for quirks, each override saying why
 - [ ] Harness-side code in `adapters/<harness>/`, if any
-- [ ] Golden cases for what `aboard init` writes, and `aboard uninstall` restores the files
-- [ ] The fast kit and `make live HARNESS=<name>` pass
-- [ ] `docs/harnesses/<harness>.mdx`, linked from the quickstart and the README
+- [ ] `make conformance HARNESS=<harness>` passes, with any fixture or fake it needs
+- [ ] Golden cases for what `aboard init` writes
+- [ ] A live driver, and `make live HARNESS=<harness>` passes or says n/a for each scenario
+- [ ] `make harness-table`, with notes in `e2e/live/support.json` where a capability is partial
+- [ ] `docs/harnesses/<harness>.mdx`, linked from the quickstart
 - [ ] The live suite's use of the login is written on the page and in testing.md
-- [ ] The README's harness table shows its support level
