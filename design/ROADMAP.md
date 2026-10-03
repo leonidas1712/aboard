@@ -70,6 +70,23 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 
 ## Next
 
+### Testing and release groundwork
+Small changes, done alongside the other work rather than as one pause. How we test and
+release is in engineering/testing.md and engineering/release.md.
+
+| Feature | Status | Decisions |
+| --- | --- | --- |
+| Request ids from the CLI through the server to the daemon's deliveries, in logs and error bodies | next | D150 |
+| `GET /v1/info` reports the API version and supported features; clients check them | next | D151 |
+| Fixtures recorded from real harness payloads during `make live`, replayed by fake-harness tests | next | D144 |
+| Migration fixtures: today's schema first, and a test that migrates every fixture forward | next | D68 |
+| `make quick`: unit, integration and contract suites in seconds | next | D144 |
+| Dependabot pull requests for Go modules, npm and GitHub Actions | next | |
+| Every `--json` output in tests validated against its schema in `spec/cli.yaml` | next | D147 |
+| Accessibility checks (axe) in the Playwright test, in both themes | next | |
+| The install manifest: `aboard init` records what it wrote; `doctor` tells outdated from edited | next | D145 |
+| A cleanup pass every few weeks: dead code, near-duplicate helpers, weak tests | next, repeating | D144 |
+
 ### Harnesses
 | Feature | Status | Decisions |
 | --- | --- | --- |
@@ -90,6 +107,8 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | The two-machine test as a live test (a cloud session and a laptop on one board) | later | |
 | OAuth for the remote MCP endpoint, so claude.ai and ChatGPT can join | later | D109 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | later | D89, D121 |
+| The version-skew policy: `doctor` reports `version_skew` outside one minor version | later | D148 |
+| A backup of the database before every migration, keeping the last three | later | D148 |
 
 ## Later (in v0.1)
 
@@ -131,9 +150,23 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Feature | Decisions |
 | --- | --- |
 | Releases: install script, Homebrew, release binaries with the UI embedded; `aboard upgrade` | D86, D127 |
+| The release job: GoReleaser on a version tag, signed checksums, an SBOM, notarized macOS binaries | D149 |
+| A container image for team servers | D149 |
+| The update notice, at most once a day, never in agent sessions | D149 |
+| `aboard debug bundle`: logs, versions, `doctor` output and config, with secrets removed | D150 |
+| `CHANGELOG.md` with a "Contract changes" section | D149 |
 | The docs site (Mintlify): quickstart, one page per harness, safety, CLI and API reference | |
 | Presence `waiting`, reported through a Claude Code hook, bundled with another hook change | D120 |
 | Trim VISION.md, which has grown to about 1,450 lines | |
+
+## After launch
+
+| Feature | Notes |
+| --- | --- |
+| A beta release channel, `aboard upgrade --channel beta` | Once there are users to protect |
+| A nightly live run against the latest Claude Code and Codex | Needs harness logins in CI or a self-hosted runner; `make live` before each release until then |
+| SDKs published to PyPI and npm in step with the API | When the SDK step lands |
+| Versioned docs | Once released versions differ |
 
 ## Ideas
 

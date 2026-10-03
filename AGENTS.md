@@ -55,7 +55,9 @@ ONLY allowed scope for v0.1.
 
 1. **Docs before code.** The quickstart (`/docs`) is the acceptance test. It must keep
    working from scratch on a fresh machine after every change.
-2. **Contracts before code.** Change the contract in `/spec` first, then the code:
+2. **Contracts before code.** Change the contract in `/spec` first, then the code, and
+   follow the contract-change checklist in [spec/README.md](spec/README.md): contracts
+   only grow, and the commit says what changes, who is affected and whether it's additive.
    - `spec/openapi.yaml`: hand-written, the source of truth and the published spec.
      Go types and handler stubs are generated from it (oapi-codegen); a conformance test
      checks the server against it. Never hand-edit generated code.
@@ -152,7 +154,9 @@ Read the relevant guide before writing that kind of thing; they override habit.
 
 - [engineering/architecture.md](engineering/architecture.md): domain, ports and adapters; dependencies point inward.
 - [engineering/go.md](engineering/go.md): how we write Go, and what `make check` runs.
-- [engineering/testing.md](engineering/testing.md): e2e first, no mocks of our own code, no sleeps.
+- [engineering/testing.md](engineering/testing.md): be intentional about tests: contract suites for every adapter, e2e and live tests for real features, unit tests only where they earn it; no mocks of our own code, no sleeps, no skipped flakes.
+- [engineering/release.md](engineering/release.md): packaging, signed releases, what updates and how, the version-skew policy.
+- [spec/README.md](spec/README.md): the contracts, how each is versioned and checked, and the change checklist.
 - [engineering/writing.md](engineering/writing.md): comments, API text, errors, docs, commits.
 - [engineering/glossary.md](engineering/glossary.md): the product vocabulary; use it exactly.
 

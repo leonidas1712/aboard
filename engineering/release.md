@@ -1,0 +1,145 @@
+# How we package, release and update Aboard
+
+What we want: a person installs one thing, trusts what they installed, and upgrades
+while their sessions are open without anything breaking. Teammates who upgrade on
+different days keep working together.
+
+How Aboard does it: one binary per platform carries everything (the CLI, the delivery
+daemon, the server and the web UI), and everything Aboard installs elsewhere is written
+by that binary, so the pieces on one machine can't drift apart. Each section below says
+what exists today and what is still to build; [design/ROADMAP.md](../design/ROADMAP.md)
+tracks the work.
+
+## Packaging
+
+- **One static binary per platform**: macOS and Linux, on ARM and Intel, built with
+  `CGO_ENABLED=0` and the `ui` tag, so the web UI's static build is embedded. A build
+  stamps its version with `-ldflags -X`; Go adds the commit and commit time.
+  *Today:* `make install` builds and installs from source with the UI, and `make dev`
+  builds `./.bin/aboard` as a dev build (`0.1.0+dev.<commit>`) that never replaces an
+  installed one.
+- **Built by one automated job.** Pushing a version tag runs GoReleaser in CI, which
+  builds every platform, writes a `checksums.txt`, signs it, generates a software bill
+  of materials (SBOM) per archive, and publishes them with the release. Nothing is
+  built or uploaded by hand. *To build.*
+- **Signed.** The checksums file is signed with Sigstore's cosign using the release
+  job's identity, so anyone can check a download came from this repository's release
+  job. macOS binaries are also signed and notarized, so Gatekeeper accepts them.
+  People run Aboard with agents acting on their machines; what they install must be
+  checkable. *To build.*
+
+## Install paths
+
+| Path | For | Today |
+| --- | --- | --- |
+| `curl -fsSL <install URL> \| sh` | Anyone on macOS or Linux | To build. The script picks the platform's archive, verifies it against the signed checksums, installs `aboard` to `~/.local/bin` (or a directory given with `ABOARD_INSTALL_DIR`) and says if that directory isn't on the `PATH`. |
+| `brew install <tap>/aboard` | macOS and Linux with Homebrew | To build. A tap the release job updates. |
+| A container image | Team servers | To build. Runs `aboard serve` with its data on a mounted volume. |
+| `make install` | Building from source | Yes. Needs Go and Node. |
+
+All of them install the same binary. The skill published for `npx skills` is generated
+from the same templates `aboard init` writes, so the two can't differ.
+
+## What updates, and the rules for each
+
+Three things update separately. Each has a rule so that an upgrade never breaks a
+session that is already running.
+
+| What | How it updates | Rule | Today |
+| --- | --- | --- | --- |
+| The binary (CLI, daemon, local server) | A package manager, the install script, or `aboard upgrade` | Never installed silently. A command in a terminal says once a day that a newer release exists. A running daemon or local server from an older build is replaced by the first newer command or hook that reaches it. | Replacement: yes. Notice and `aboard upgrade`: to build |
+| Files installed into harnesses (the skill, hook entries, allow rules) | `aboard init --yes` | Hooks run the installed binary by its path, so a new binary takes effect without rewriting them. `aboard doctor` reports a file that differs from what this build would write; the install manifest tells an outdated file from one the person edited. | Content check: yes. Manifest: to build |
+| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, after a backup of the database. A binary older than its data refuses to start. | Forward-only and refusal: yes. Backup: to build, in the team step |
+
+### No silent installs
+
+Aboard never downloads and runs new code on its own. The update notice is one line on
+standard error, shown only to a person in a terminal: never in `--json` output, in
+hooks or inside a harness session, and not at all with `ABOARD_NO_UPDATE_CHECK=1`. It
+checks for a release at most once a day. `aboard upgrade` installs the latest release
+the way it was first installed (it defers to Homebrew for a Homebrew install), then
+runs `aboard init --yes` to update the skill and hooks in place.
+
+### Installed files are compared by content, not stamped
+
+Aboard doesn't write a version into the files it installs. A version mark would change
+every hook entry on every upgrade, and Claude Code and Codex ask the person to trust
+hooks again whenever an entry changes. Instead:
+
+- `aboard doctor` compares each installed file, or Aboard's entries in a file it shares
+  with the person (such as `.claude/settings.json`), with what this build's
+  `aboard init` would write, and reports a difference as a warning. *Today.*
+- `aboard init` records what it wrote in an install manifest in Aboard's own state
+  (`$ABOARD_HOME/state/installs.json`, or the state folder): each file's path, the
+  harness, the version of `aboard` that wrote it, and a SHA-256 of the content it
+  wrote. Doctor then says which version wrote a file, and tells an outdated file
+  (unchanged since an older `aboard` wrote it; `init --yes` updates it) from one the
+  person edited (`init` shows the difference and asks before replacing it). *To build.*
+
+### Migrations
+
+The database schema is a sequence of numbered SQL migrations embedded in the binary
+(`server/internal/store/sqlite/migrations`). They run forward only, on start. There are
+no down migrations: going back means restoring a backup. Data written by a newer
+schema is refused with `data_newer`, so an older binary never misreads it.
+
+Before applying any migration, the server copies the database with SQLite's online
+backup to `backups/aboard-<schema>-<time>.db` next to it and keeps the last three. A
+failed migration leaves the original untouched and says where the backup is. The local
+server does the same; it is a team server with one person. *To build, in the team
+step.*
+
+Every released schema keeps a fixture database, and a test migrates each one forward
+([testing.md](testing.md#practices)).
+
+## Version skew
+
+Teammates won't upgrade on the same day, and a team server lags behind its clients. The
+policy, written for `0.x` where the minor number is the release step (after `1.0` it
+becomes the major number):
+
+- **A CLI, daemon or SDK works with a server one minor version older or newer.** A
+  `0.4` CLI works with `0.3`, `0.4` and `0.5` servers. Within that window every
+  operation both sides know works, because contracts only grow ([spec/README.md](../spec/README.md)).
+- **Newer client, older server:** the client reads the server's API version and
+  features from `GET /v1/info`, uses only what the server lists, and for anything else
+  fails with `server_outdated`, naming the feature and the fix. *Today:* the client
+  reports `server_outdated` when an older server answers `not_found` or
+  `not_implemented` for an operation in the spec; the feature list is to build.
+- **Outside the window**, `aboard doctor` reports `version_skew` as a warning in plain
+  words ("this server runs 0.2; aboard 0.5 supports 0.4 to 0.6; upgrade the server or
+  ask its admin"), and commands still run, failing with named errors rather than
+  silently. *To build, in the team step.*
+- **On one machine there is no skew:** the daemon and local server are replaced by the
+  newest binary that reaches them.
+- **Installed harness files:** a binary accepts hook entries written by the previous
+  minor version, so an upgrade works before `aboard init --yes` runs.
+
+## Release channels
+
+After launch: a stable channel and a beta channel, chosen with
+`aboard upgrade --channel beta`, so people who opt in meet problems before everyone
+else. Until then, every release is stable.
+
+## Changelog
+
+`CHANGELOG.md` has one section per release, with a draft written from the commit
+messages and then edited for readers: **Added**, **Changed**, **Fixed**, and
+**Contract changes**. Contract changes lists every change under `/spec`, each saying
+what changed, who is affected (CLI scripts, API clients, delivery daemons, harness
+adapters) and whether it is additive. *To build, with the first release.*
+
+## Cutting a release
+
+1. `make check` and `make web-check` pass on `main`.
+2. `make live` passes on a machine with Claude Code and Codex logged in
+   ([e2e/live/PROOFS.md](../e2e/live/PROOFS.md)), and the steps by hand in
+   [e2e/RELEASE_CHECKLIST.md](../e2e/RELEASE_CHECKLIST.md) are checked in a sandbox.
+3. The changelog's section for the version is written, including contract changes.
+4. Bump `version` in `server/internal/cli/build.go`, commit, and push a `vX.Y.Z` tag.
+   The release job builds, signs and publishes everything.
+5. Install from the published script on a clean machine and run the quickstart.
+
+After launch, a nightly job runs the live suite against the latest Claude Code and
+Codex releases, so a harness update that breaks delivery shows up before a person
+meets it. It needs harness logins in CI or a self-hosted runner.

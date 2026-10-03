@@ -1,24 +1,68 @@
 # How we prove things work
 
-A test exists to prove a feature works the way a user or agent would use it. Coverage
-numbers are not a goal.
+A test exists to prove that something a person, an agent or another part of Aboard
+relies on keeps working. Coverage numbers are not a goal, and a test is not free: it
+has to be read, run and kept up to date. So we are intentional about tests, and write
+them where they protect the most, in this order.
 
-## Three levels, in priority order
+1. **Contracts over internals.** The code follows ports and adapters
+   ([architecture.md](architecture.md)): the domain depends on ports, never on a
+   concrete store, harness or launcher. Every adapter of a port (store, notifier,
+   harness delivery, launcher, monitor, login provider) passes that port's shared
+   contract suite. Adding or swapping an adapter is done with confidence by running
+   the suite, not by reading the other adapters.
+2. **End-to-end tests for real features.** The real binary, driven the way a person
+   or an agent drives it, and live tests with real harnesses (`make live`). The real
+   world is messy: many harnesses, each with its own hooks and quirks, running in
+   tmux, herdr and other terminal managers. That is where most bugs live, so
+   end-to-end tests carry the most weight.
+3. **Unit and integration tests only where they add value.** Stable logic that is easy
+   to get subtly wrong (the rules engine, the hash chain, redaction, name allocation,
+   join-line parsing) and server behaviour under concurrency (one winner for a task
+   claim, no duplicate delivery, races that `-race` and CI find). Don't write tests
+   that mirror the code or pin implementation details: a test that doesn't protect a
+   behaviour someone relies on is a cost.
 
-### 1. End-to-end tests (`/e2e`)
+## The layers
+
+| Layer | What it proves | Runs | Today |
+| --- | --- | --- | --- |
+| Contract suites | Every adapter of a port behaves the same | `make quick`, `make check` | Store (`board/boardtest`), delivery adapter, journal and server (`delivery/deliverytest`); launcher and monitor suites come with those ports |
+| End-to-end (`/e2e`) | Features work through the real binary, as documented | `make check` | Yes |
+| Live (`e2e/live`) | Delivery, setup and upgrades work in real Claude Code and Codex | `make live`, before each release and after any change to delivery, setup or upgrades | Yes |
+| Integration | API behaviour, permissions, error codes, OpenAPI conformance, concurrency | `make quick`, `make check` | Yes |
+| Unit | Pure logic with real edge cases | `make quick`, `make check` | Yes |
+| Docs as tests | Every command the docs show still works, with the output they show | `make check` | The quickstart; the rest as pages are written |
+| UI (Playwright) | The board view renders and its flows work, in both themes, with no accessibility violations | `make web-check`, CI | Smoke test; accessibility checks to add |
+
+### Contract suites
+
+A port's contract suite is a function any adapter's tests call with a way to build that
+adapter. It checks what the domain relies on, not how the adapter does it: for the
+store, that one task claim wins, that events append in one sequence, that "name taken"
+comes back as the domain's error. A new adapter is done when the suite passes; a bug
+found in one adapter becomes a case in the suite, so every other adapter is checked for
+it too.
+
+Extension points used from outside the repository (harness profiles, launchers, monitor
+hooks) ship their suites as public test kits, so a third party can run them without
+reading our code.
+
+### End-to-end tests
 
 Build the real `aboard` binary and drive it exactly as a user or agent would: CLI
 commands and HTTP calls against a real server, with real SQLite in a temp directory and
-a temp `HOME`.
+its own `ABOARD_HOME`.
 
 - Every command in `docs/quickstart.mdx` runs in an e2e test, with the same arguments,
   and the test checks the output the page shows.
 - Every feature in scope has at least one e2e test showing it works.
-- Steps that need a real harness login go in `e2e/RELEASE_CHECKLIST.md` instead.
+- Steps that need a real harness login are live tests, or, when they need a judgment
+  call, steps in `e2e/RELEASE_CHECKLIST.md`.
 
 ```go
 func TestQuickstartTwoTerminalPair(t *testing.T) {
-	env := e2e.NewEnv(t) // temp HOME, built binary, free port
+	env := e2e.NewEnv(t) // its own ABOARD_HOME, the built binary, a free port
 	pair := env.Run("pair", "--json")
 	line := pair.JSON("join.line")
 	env.Run("join", line)
@@ -31,14 +75,19 @@ func TestQuickstartTwoTerminalPair(t *testing.T) {
 }
 ```
 
-### 2. Integration tests
+The live suite ([e2e/live/PROOFS.md](../e2e/live/PROOFS.md)) drives real harnesses in
+tmux and decides pass or fail from the board, the daemon's log and `aboard doctor`,
+never from what a model writes. It spends model turns, so it is not part of
+`make check`.
+
+### Integration tests
 
 Start the server in-process with `httptest.NewServer`, real storage in a temp
 directory, and call it through the client generated from `spec/openapi.yaml`. Use these
 for API behaviour: permissions, visibility, idempotency, every error code, long-poll
-and ack semantics.
+and ack semantics, and what happens when many requests race.
 
-### 3. Unit tests
+### Unit tests
 
 Only for pure logic with real edge cases: the hash chain, secret-redaction patterns,
 name allocation, permission checks, rate limits, join-line parsing. Table-driven.
@@ -59,11 +108,49 @@ func TestParseJoinLine(t *testing.T) {
 Don't write unit tests that restate the code, test getters and setters, or assert that
 a mock was called.
 
+### UI tests
+
+The Playwright test builds `aboard` with the UI embedded, on its own home directory and
+port, and drives a board in Chromium. It runs each screen in the light and the dark
+theme, and runs an automated accessibility check (axe) on each, failing on any
+violation. (The accessibility check is not added yet.)
+
+## Practices
+
+- **Hermetic.** Every test gets its own `ABOARD_HOME`, temp `HOME`, scratch harness
+  config folders and a free port. Nothing reads or writes the real config, and tests
+  run in parallel.
+- **Injected clock and ids.** Behaviour that depends on time or randomness takes a
+  `clock.Clock` and a reader for randomness ([go.md](go.md)). Tests move the fake clock
+  instead of waiting.
+- **The fake harness.** `e2e/fakeharness` plays a harness process that runs one hook
+  and stays up, and `e2e/fakecodex` plays Codex's queue command, so delivery is tested
+  end to end on every change without a model.
+- **Fixtures recorded from real harnesses.** The live suite saves the hook payloads and
+  queue requests real Claude Code and Codex send, and the fake harness replays them, so
+  the tests that run on every change use what harnesses really send, not what we assume
+  they send. Refresh them when a harness changes its payloads. (Not built yet.)
+- **CLI output is checked against its contract.** Documented commands are pinned byte
+  for byte by e2e tests. Every `--json` output a test sees is validated against its
+  command's schema in `spec/cli.yaml`, and a command with no schema fails the test.
+  Golden files only for the human output of main commands that no e2e test already
+  pins. (The schema check is not built yet.)
+- **Two entry points.** `make quick` runs unit, integration and contract suites in
+  seconds, for the inner loop. `make check` runs everything CI runs, and nothing is done
+  until it passes. (`make quick` is not built yet.)
+- **Migration fixtures.** Each released schema version keeps a small database fixture,
+  and a test migrates every fixture forward to the current schema and checks the board
+  reads back the same and its chain still verifies. (Not built yet; the first fixture
+  is the schema of the first release.)
+- **Bugs start as failing tests,** at the highest level that's practical: e2e if a
+  person or agent saw it, a contract suite if an adapter got it wrong, integration if
+  it's API behaviour.
+
 ## Rules
 
 - **Don't mock our own components.** Use the real store, real events, real rules. Fakes
-  are allowed only at true outside boundaries: harness processes (a fake harness binary
-  for delivery tests), the Jev or LLM API, and the clock.
+  are allowed only at true outside boundaries: harness processes (the fake harness),
+  monitors and model APIs, and the clock.
 - **No sleeps.** Wait for a condition with a deadline:
   ```go
   // Do
@@ -75,14 +162,24 @@ a mock was called.
 - **Always `-race`.** `make check` runs `go test -race ./...`.
 - **Conformance.** A test runs the server and checks every response against
   `spec/openapi.yaml`, including error responses.
-- **Every bug fix comes with a test** that fails before the fix, at the highest level
-  that's practical (e2e if the user saw it, integration if it's API behaviour).
 - **Test names describe behaviour** in plain words:
   `TestAgentCannotBroadcastWhenRoleLacksPermission`, not `TestPostMessage2`.
 - **Tests are independent.** Each one gets its own temp directory, port and server. No
   shared state, no required order, `t.Parallel()` where possible.
 - **Failures explain themselves.** On failure, print the command, its exit code, stdout
   and stderr, and the server log.
+
+## Flaky tests
+
+A red build is never normal. A test that fails without a code change is fixed, never
+skipped, disabled, loosened or quarantined: a longer timeout or a retry hides the race
+it found, and agents quickly learn to ignore failures that are "usually fine".
+
+Reproduce it first (run it many times, under `-race`, on fewer CPUs, in Docker on the
+other OS), find the cause and fix it, with a test that fails before the fix. If it
+can't be reproduced within a time box, keep the test as it is and record the failure
+below with the evidence, so the next failure is compared against it rather than
+retried.
 
 ## Known intermittent failures
 
