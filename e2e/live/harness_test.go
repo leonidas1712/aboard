@@ -730,6 +730,10 @@ func (l *lab) codexHome(setup codexSetup) string {
 			l.t.Fatal(err)
 		}
 	}
+	// Codex never offers to update itself here: the offer can appear in the middle of a
+	// test, where a typed Enter would run npm install -g on the person's own Codex. The
+	// key comes first, since TOML puts keys after a table inside that table.
+	appendFile(l.t, filepath.Join(home, "config.toml"), "check_for_update_on_startup = false\n")
 	// The daemon runs codex app-server and codex queue, so it must start outside Codex's
 	// sandbox, with this CODEX_HOME.
 	l.run("daemon", "start")
