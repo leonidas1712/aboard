@@ -158,10 +158,12 @@ func runServe(ctx context.Context, a *app, args []string) error {
 		return dataNewer(p.data, err)
 	}
 	if err != nil {
-		return &Error{
-			Code: "server_not_running", Message: "The local server stopped: " + err.Error(),
-			Hint: "If another program uses the address, set ABOARD_LOCAL_ADDR to a free one.", Err: err,
+		hint := "If another program uses the address, set ABOARD_LOCAL_ADDR to a free one."
+		if p.home != "" && a.env.Getenv("ABOARD_LOCAL_ADDR") == "" {
+			hint = "If another program uses the address, delete " + p.addrFile() +
+				" so the next start picks a free port, or set ABOARD_LOCAL_ADDR to a free one."
 		}
+		return &Error{Code: "server_not_running", Message: "The local server stopped: " + err.Error(), Hint: hint, Err: err}
 	}
 	return nil
 }

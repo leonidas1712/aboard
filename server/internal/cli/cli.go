@@ -63,6 +63,8 @@ type app struct {
 	// delivery daemon and local server for an older build, so it checks each only once.
 	daemonChecked bool
 	localChecked  bool
+	// homeAddr is the local server address read from ABOARD_HOME, once looked up.
+	homeAddr string
 }
 
 type command struct {
