@@ -15,8 +15,12 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Fix the Linux-only races CI found: duplicate wake after an upgrade, two daemons after racing commands | review (#10) | D68, D91 |
 | Board view, round 4: full-width layout, gentler composer focus, Charter and "Rules Aboard enforces", charter paragraphs, stable mark colours | building | D118, D133 |
 | Merge #10 (everything since #5) and update the maintainer's install | next | |
-| Manual QA in a sandbox with real Claude Code and Codex, and the next UI round from it | next | D126 |
+| Manual QA with real Claude Code and Codex: pairing, a ping-pong, a shared review task, and a design discussion with the agents (led to D137–D143) | done | D126 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
+| What reaches a busy agent: owner messages mid-turn at the next tool boundary (Claude Code `PostToolBatch`, Codex `PreToolUse`), peer urgent first in the next bundle, `say` advisories (unread, recipient outcomes), `--wait-reply` outcomes, the skill's checkpoint baseline; live tests including Codex starting the ping-pong | next | D137–D141 |
+| The content-free "messages waiting" notice at tool boundaries for Claude Code and Codex | next | D142 |
+| Board details panel with "Add an agent" and "Copy details"; `aboard invite` | next | D143 |
+| Investigate Codex's sandboxed `aboard` commands failing with `daemon_in_sandbox` while the daemon was running | next | D66 |
 
 ## Done
 
