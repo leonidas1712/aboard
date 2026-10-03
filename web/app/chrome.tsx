@@ -1,51 +1,94 @@
-// The parts every screen shares: the header, section headings, and the problem box.
+// The parts every screen shares: the header with Aboard's mark, and the problem box.
 
-import { MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError } from "./api";
 
 /**
- * Header shows the product name and, on a board, its title with its name beside it, and
- * who you are at the right once the browser is logged in. heading, when given, takes the
- * title's place: the board view passes the title as a button that opens Board details.
+ * Mark is Aboard's mark, the same drawing as the tab icon (icon.svg): a room, and inside
+ * it two lines of conversation, the later one in the accent. It is drawn with the
+ * theme's colours, so it follows the theme this browser chose as well as the system's.
  */
-export function Header({
-  board,
-  title,
-  heading,
-  starter,
-  account,
-}: { board?: string; title?: string | null; heading?: ReactNode; starter?: boolean; account?: ReactNode }) {
+export function Mark({ className }: { className?: string }) {
   return (
-    <header className="border-b border-rule bg-surface">
-      <div className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-5">
-      <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
-        <MessagesSquare className="size-[22px]" strokeWidth={1.5} aria-hidden />
-        Aboard
-      </a>
-      {heading ??
-        (board && (
-          <h1 className="flex min-w-0 flex-wrap items-baseline gap-x-2.5">
-            <span className="text-title font-bold break-words">{title?.trim() || board}</span>
-            {title?.trim() && <span className="text-meta break-all text-muted">{board}</span>}
-          </h1>
-        ))}
-      {starter && (
-        <a href="#rules" className="text-meta text-link" title="Every member reads everything. See the rules for how to tighten them.">
-          Starter policy
-        </a>
-      )}
-      {account}
-      </div>
-    </header>
+    <svg viewBox="0 0 32 32" className={className} aria-hidden focusable="false">
+      <rect x="2" y="2" width="28" height="28" rx="7" strokeWidth="4" className="fill-surface stroke-ink" />
+      <rect x="8" y="10" width="10" height="4" rx="2" className="fill-ink" />
+      <rect x="14" y="18" width="10" height="4" rx="2" className="fill-accent" />
+    </svg>
   );
 }
 
-export function SectionHeading({ id, children }: { id?: string; children: ReactNode }) {
+type HeaderProps = {
+  board?: string;
+  title?: string | null;
+  starter?: boolean;
+  account?: ReactNode;
+  /** onTitle, when given, makes the board's title a button that shows the board's details. */
+  onTitle?: () => void;
+  /** onStarter, when given, makes "Starter policy" a button that shows the board's rules. */
+  onStarter?: () => void;
+};
+
+/**
+ * Header shows Aboard's mark and name and, on a board, its title with its name beside
+ * it, whether it is on the starter policy, and who you are at the right once the
+ * browser is logged in.
+ */
+export function Header({ board, title, starter, account, onTitle, onStarter }: HeaderProps) {
+  const label = title?.trim();
+  const words = board && (
+    <>
+      <span className="text-title font-bold break-words">{label || board}</span>
+      {label && <span className="text-meta break-all text-muted">{board}</span>}
+    </>
+  );
   return (
-    <h2 id={id} className="mb-2 text-meta font-bold text-muted">
-      {children}
-    </h2>
+    <header className="border-b border-rule bg-surface">
+      <div className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-5">
+        <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
+          <Mark className="size-[22px]" />
+          Aboard
+        </a>
+        {board && (
+          <h1 className="min-w-0">
+            {onTitle ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onTitle}
+                    className="board-title -mx-2 flex min-h-11 min-w-0 flex-wrap items-baseline gap-x-2.5 rounded-control px-2 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected"
+                  >
+                    {words}
+                    <span className="sr-only">, board details</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start">
+                  Board details
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5">{words}</span>
+            )}
+          </h1>
+        )}
+        {starter &&
+          (onStarter ? (
+            <button
+              type="button"
+              onClick={onStarter}
+              className="starter min-h-11 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
+              title="Every member reads everything. See the rules for how to tighten them."
+            >
+              Starter policy
+            </button>
+          ) : (
+            <span className="starter text-meta text-muted">Starter policy</span>
+          ))}
+        {account}
+      </div>
+    </header>
   );
 }
 
