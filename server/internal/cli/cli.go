@@ -98,6 +98,7 @@ func commands() []command {
 		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},
 		{"init", "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]", runInit},
 		{"doctor", "aboard doctor [--json]", runDoctor},
+		{"uninstall", "aboard uninstall [--data] [--dry-run] [--yes] [--json]", runUninstall},
 		{"version", "aboard version [--json]", runVersion},
 		{"serve", "aboard serve", runServe},
 		{"daemon", "aboard daemon [start] [--json]", runDaemon},

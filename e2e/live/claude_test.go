@@ -314,7 +314,7 @@ func TestUpgradeWithSessionOpen(t *testing.T) {
 		if strings.HasPrefix(c.Name, "codex") {
 			continue
 		}
-		if c.Code != nil && slices.Contains([]string{"daemon_outdated", "server_outdated", "hooks_outdated", "skill_outdated"}, *c.Code) {
+		if c.Code != nil && slices.Contains([]string{"daemon_outdated", "server_outdated", "hooks_outdated", "skill_outdated", "hooks_edited", "skill_edited"}, *c.Code) {
 			t.Errorf("after the upgrade, doctor reports %s: %s", *c.Code, c.Message)
 		}
 		if c.Name == "daemon" && c.Level != "ok" {

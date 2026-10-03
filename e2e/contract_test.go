@@ -17,6 +17,10 @@ var (
 	cliSchemaOnce sync.Once
 	cliSchemas    *jsonschema.Compiler
 	cliSchemaErr  error
+	// cliCompiled holds each compiled definition. The compiler isn't safe for
+	// concurrent use, and tests run in parallel, so compiling takes cliCompileMu.
+	cliCompileMu sync.Mutex
+	cliCompiled  = map[string]*jsonschema.Schema{}
 )
 
 // loadSpec reads a YAML spec file as JSON values. OpenAPI's `nullable: true` becomes a
@@ -88,7 +92,15 @@ func matchesCLISpec(t *testing.T, def string, v any) {
 	if cliSchemaErr != nil {
 		t.Fatal(cliSchemaErr)
 	}
-	s, err := cliSchemas.Compile("https://aboard.example/spec/cli.yaml#/$defs/" + def)
+	cliCompileMu.Lock()
+	s, ok := cliCompiled[def]
+	var err error
+	if !ok {
+		if s, err = cliSchemas.Compile("https://aboard.example/spec/cli.yaml#/$defs/" + def); err == nil {
+			cliCompiled[def] = s
+		}
+	}
+	cliCompileMu.Unlock()
 	if err != nil {
 		t.Fatalf("compile %s: %v", def, err)
 	}

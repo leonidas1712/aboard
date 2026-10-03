@@ -27,8 +27,8 @@
 #   its login link.
 # - Files and addresses: aboard keeps its files in $XDG_CONFIG_HOME/aboard (the owner
 #   token and credentials), $XDG_DATA_HOME/aboard (the local server's database, pid file
-#   and log) and $XDG_STATE_HOME/aboard (verified audit heads and the delivery daemon's
-#   journal, pid, log and socket), defaulting to ~/.config, ~/.local/share and
+#   and log) and $XDG_STATE_HOME/aboard (verified audit heads, the install manifest
+#   installs.json, and the delivery daemon's journal, pid, log and socket), defaulting to ~/.config, ~/.local/share and
 #   ~/.local/state. The local server listens on 127.0.0.1:7400.
 #   ABOARD_HOME, when set to an absolute path, moves all of it into one folder:
 #   $ABOARD_HOME/config, $ABOARD_HOME/data and $ABOARD_HOME/state, the daemon's socket
@@ -91,7 +91,9 @@ $defs:
       board; details.board, details.server, details.agents, and the two ways on:
       details.add_agent, the command a person runs to add an agent to that board, and
       details.new_board, the command that starts another board) · join_line_invalid ·
-      message_ref_invalid · check_failed.
+      message_ref_invalid · check_failed · confirmation_required (the command would
+      delete data and needs a person's yes, but can't ask: standard input isn't a
+      terminal, or --json was given; the hint names the command again with --yes).
   ServerRef:
     type: object
     required: [name, url]
@@ -184,6 +186,106 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       server_stopped: { type: boolean, description: "False when it wasn't running." }
       daemon_stopped: { type: boolean, description: "False when it wasn't running." }
+
+  # ---------- aboard uninstall [--data] [--dry-run] [--yes] ----------
+  UninstallOutput:
+    description: |
+      Removes what aboard init installed, and with --data Aboard's data too. In order:
+
+      1. Stops the local server and the delivery daemon, as aboard down does.
+      2. Takes Aboard's entries out of the harness files it shares with the person: its
+         hook entries in Claude Code's settings.json or settings.local.json and in
+         Codex's hooks.json, and the allow rule "Bash(aboard *)" when the install
+         manifest shows Aboard added it, or the file has no record. Every other key and hook stays as
+         it was. A group, event, "hooks", "permissions" or "allow" left empty by that is
+         removed, and a file left as an empty object is deleted. Aboard's hook entries
+         are taken out even when edited, since they run the binary being removed.
+      3. Deletes the files Aboard owns, the skill's SKILL.md (and its skills/aboard
+         folder once empty) and Codex's rules/aboard.rules, unless they were edited
+         after Aboard wrote them: those are kept, with action keep, and the text says so
+         with the path.
+      4. With --data, deletes Aboard's config, data and state folders: boards, messages,
+         logins, the delivery journal and the install manifest. Under ABOARD_HOME, its
+         config, data and state folders, and ABOARD_HOME itself once empty. In a
+         terminal it asks first unless --yes; otherwise, or with --json, it needs --yes
+         and fails with confirmation_required before changing anything. Inside a
+         harness session --data is refused with human_command_in_session. Without
+         --data, the folders are kept and listed.
+
+      It finds the files from the install manifest, which covers every scope and project
+      init wrote to, and, for installs from before the manifest, by looking for Aboard's
+      hook entries, skill and rules file in both scopes from the working directory (a
+      skill or rules file there that differs from this aboard's is kept). Records of the
+      files it removed leave the manifest; kept files stay in it.
+
+      It never deletes the aboard binary: binary.remove is the command that does. An
+      open harness session may still run the hooks it loaded when it started; once the
+      binary is removed they find nothing to run, and the session carries on.
+
+      --dry-run lists the same plan and changes nothing; applied is then false, and
+      server_stopped, daemon_stopped and each action say what would happen. Running
+      uninstall again afterwards finds nothing to do. Exit 0 when it ran, kept files
+      included.
+
+      Text output: a line about the server and daemon as aboard down prints it (with
+      --dry-run, "Would stop …"), one line per file:
+        delete   ~/.claude/skills/aboard/SKILL.md (claude-code skill)
+        edit     ~/.claude/settings.json (claude-code hooks: took out Aboard's entries, kept the rest)
+        keep     ~/.codex/rules/aboard.rules (codex permissions: edited since aboard 0.1.0 wrote it; remove it yourself if you don't need it)
+      or "No Aboard files found in harness settings.", then where the data is ("Kept
+      Aboard's data in ~/aboard; aboard uninstall --data deletes it.", "Would delete
+      Aboard's data in …", "Deleted Aboard's data in …", or "Aboard has no data on this
+      machine."; ABOARD_HOME when set, else each folder), then "aboard uninstall leaves
+      the binary at <path>. Remove it with: rm <path>". With --dry-run it ends "Run
+      aboard uninstall to make these changes." (with --data when given). Declining the
+      question about the data prints "Nothing changed." and changes nothing.
+    type: object
+    required: [applied, server, server_stopped, daemon_stopped, files, data, binary]
+    properties:
+      applied: { type: boolean, description: "False with --dry-run, or when the person declined." }
+      server: { $ref: "#/$defs/ServerRef" }
+      server_stopped: { type: boolean, description: "True when it was running and was stopped, or would be with --dry-run." }
+      daemon_stopped: { type: boolean, description: "True when it was running and was stopped, or would be with --dry-run." }
+      files:
+        type: array
+        description: Every Aboard file found.
+        items:
+          type: object
+          required: [path, harness, scope, kind, action, reason, written_by]
+          properties:
+            path: { type: string }
+            harness: { enum: [claude-code, codex] }
+            scope: { enum: [global, project] }
+            kind: { enum: [skill, hooks, permissions] }
+            action:
+              enum: [delete, edit, keep]
+              description: |
+                delete: the file is removed. edit: Aboard's entries are taken out and the
+                rest of the file stays. keep: the file is left as it is (see reason).
+            reason:
+              enum: [edited, null]
+              description: "Why a file is kept: edited after an aboard wrote it, or different from this aboard's with no record of who wrote it. Null otherwise."
+            written_by:
+              type: [string, "null"]
+              description: The version of aboard that wrote the file, from the install manifest; null without a record.
+      data:
+        type: object
+        required: [delete, deleted, dirs]
+        properties:
+          delete: { type: boolean, description: "True with --data." }
+          deleted: { type: boolean, description: "True when the folders were deleted." }
+          dirs:
+            type: array
+            description: Aboard's config, data and state folders that exist.
+            items: { type: string }
+      binary:
+        type: object
+        required: [path, remove]
+        properties:
+          path: { type: string, description: "The running aboard binary, links resolved." }
+          remove:
+            type: string
+            description: The command that removes it, such as "rm /home/alex/go/bin/aboard", or "brew uninstall aboard" for a Homebrew install.
 
   # ---------- aboard version ----------
   VersionOutput:
@@ -684,6 +786,15 @@ $defs:
       its own (see DeliveryOutput); it goes through the delivery daemon. Like aboard
       delivery, it is refused with human_command_in_session inside a harness session.
       Without --delivery (or an answer to the question) the mode is left alone.
+
+      Once it has written, init records each file in the install manifest
+      (installs.json in the state folder): its path, harness, scope, kind, the version of
+      aboard that wrote it and a SHA-256 of what Aboard wrote there (for a hooks file, of
+      Aboard's hook entries only). A file unchanged since keeps the version that first
+      wrote it. aboard doctor and aboard uninstall read it. A file to update that was
+      edited after an aboard wrote it is marked edited, and its text line ends with
+      "edited since aboard <version> wrote it": init --yes replaces a skill or rules file
+      whole, edits included, and rewrites only Aboard's entries in a hooks file.
     type: object
     required: [applied, scope, delivery, allow_commands, harnesses]
     properties:
@@ -722,12 +833,28 @@ $defs:
                     type: array
                     items: { type: string }
                     description: The allow rules the file holds for aboard, when --allow-commands was given.
+                  edited:
+                    type: boolean
+                    description: |
+                      Present and true when the install manifest shows the file (or, for a
+                      hooks file, Aboard's entries in it) was changed after an aboard wrote it.
+                  written_by:
+                    type: string
+                    description: Present with edited; the version of aboard that last wrote the file.
 
   # ---------- aboard doctor ----------
   DoctorOutput:
     description: |
       One check per part. Exit 0 when no check is an error, 3 otherwise. Text output is
       one line per check: "✓ …", "! …" (warning) or "✗ … Fix: …".
+      An installed skill or Aboard hook entries that differ from what this aboard writes
+      are told apart with the install manifest (see InitOutput): skill_outdated or
+      hooks_outdated when unchanged since an aboard wrote them, naming that version
+      ("codex: the Aboard hooks in ~/.codex/hooks.json were written by aboard 0.1.0 and
+      differ from the ones aboard 0.2.0 installs"), or when the manifest has no record of
+      them; skill_edited or hooks_edited when they were changed after an aboard wrote
+      them ("claude-code: the skill in ~/.claude/skills/aboard/SKILL.md was edited after
+      aboard 0.1.0 wrote it").
     type: object
     required: [checks]
     properties:
