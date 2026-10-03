@@ -33,7 +33,7 @@ func TestJournalFileIsPrivateAndSurvivesReopening(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "delivery.db")
 	j := open(t, path)
 	agent := delivery.AgentRef{Server: "http://127.0.0.1:7400", Board: "docs", Name: "reviewer"}
-	session := delivery.SessionKey{Harness: delivery.HarnessCodex, ID: "019a"}
+	session := delivery.SessionKey{Harness: "codex", ID: "019a"}
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	if _, err := j.AddDelivery(ctx, delivery.Delivery{Agent: agent, Session: session, State: delivery.StateConfirmed, Seqs: []int{6, 7}, CreatedAt: now, UpdatedAt: now}); err != nil {
 		t.Fatal(err)

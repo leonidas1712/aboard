@@ -1,38 +1,17 @@
 package cli
 
-// sandboxMarkers are the variables a harness sets for commands it runs in its sandbox,
-// and the harness each one means. noNetwork marks the variable a harness sets when its
-// sandbox blocks network access: then neither the server's address nor the daemon's
-// socket can be reached from there, running or not.
-var sandboxMarkers = []struct {
-	env, harness, fix string
-	noNetwork         bool
-}{
-	{"CODEX_SANDBOX", "Codex", "trust Aboard's hooks in Codex (/hooks)", false},
-	{"CODEX_SANDBOX_NETWORK_DISABLED", "Codex", "trust Aboard's hooks in Codex (/hooks)", true},
-	{"SANDBOX_RUNTIME", "Claude Code", "install Aboard's hooks with aboard init", false},
-}
-
-// sandboxed reports the harness whose sandbox this command runs in, if any. A daemon
-// started there would inherit the sandbox and couldn't reach the harness.
+// sandboxed reports the harness whose sandbox this command runs in, if any, from the
+// variables its profile lists. A daemon started there would inherit the sandbox and
+// couldn't reach the harness.
 func (a *app) sandboxed() (harness, fix string, ok bool) {
-	for _, m := range sandboxMarkers {
-		if a.env.Getenv(m.env) != "" {
-			return m.harness, m.fix, true
-		}
-	}
-	return "", "", false
+	return a.registry().Sandboxed(a.henv())
 }
 
 // networkBlocked reports the harness whose sandbox this command runs in when that
-// sandbox blocks network access, as Codex's does by default.
+// sandbox blocks network access, as Codex's does by default: then neither the server's
+// address nor the daemon's socket can be reached from there, running or not.
 func (a *app) networkBlocked() (harness string, ok bool) {
-	for _, m := range sandboxMarkers {
-		if m.noNetwork && a.env.Getenv(m.env) != "" {
-			return m.harness, true
-		}
-	}
-	return "", false
+	return a.registry().NetworkBlocked(a.henv())
 }
 
 // allowFix is how to let a harness run aboard commands outside its sandbox.

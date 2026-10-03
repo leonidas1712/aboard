@@ -9,87 +9,55 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/harness"
+	"github.com/leonidas1712/aboard/server/internal/harness/registry"
 )
 
 // Where aboard init installs: under the home directory for every project, or under the
 // working directory for that project only.
 const (
-	scopeGlobal  = "global"
-	scopeProject = "project"
+	scopeGlobal  = harness.ScopeGlobal
+	scopeProject = harness.ScopeProject
 )
 
-// The allow rules that let an agent run aboard commands without a permission prompt,
-// each in its harness's own format.
-const (
-	claudeAllowRule = "Bash(aboard *)"
-	codexAllowRule  = `prefix_rule(pattern=["aboard"], decision="allow")`
-)
-
-// codexRules is the Codex rules file aboard init writes for the allow rule.
-var codexRules = []byte("# Added by aboard init: run aboard commands without asking.\n" + codexAllowRule + "\n")
-
-// harnessFiles are the files aboard init writes for one harness in one scope. Claude Code
-// keeps its allow rule in the settings file that holds its hooks.
-type harnessFiles struct {
-	skill, hooks, allow string
-}
-
-// configDirs are where each harness keeps its global config: the variable that names the
-// folder, and the folder under the home directory when the variable isn't set. Each
-// harness profile's config_dir says the same.
-var configDirs = map[string]struct{ env, home string }{
-	"claude-code": {"CLAUDE_CONFIG_DIR", ".claude"},
-	"codex":       {"CODEX_HOME", ".codex"},
-}
-
-// configDir returns the folder a harness reads its global config from: the folder its
-// variable names when that is an absolute path, else the default under HOME.
-func (a *app) configDir(harness string) string {
-	d := configDirs[harness]
-	if dir := a.env.Getenv(d.env); filepath.IsAbs(dir) {
-		return dir
+// registry returns the harnesses Aboard knows, once per command.
+func (a *app) registry() harness.Set {
+	if a.harnesses == nil {
+		a.harnesses = registry.Harnesses()
 	}
-	return filepath.Join(a.env.Getenv("HOME"), d.home)
+	return a.harnesses
 }
 
-// setupFiles returns where aboard init writes for a harness in a scope. Global setup goes
-// in the harness's config folder, except Codex's skill, which Codex reads from
-// ~/.agents/skills wherever CODEX_HOME points. In a project,
-// Claude Code's hooks go in settings.local.json, the file meant for one person's machine,
-// since they name this machine's aboard binary.
-func (a *app) setupFiles(harness, scope string) harnessFiles {
-	home, dir := a.env.Getenv("HOME"), a.env.Dir
-	skill := filepath.Join("skills", "aboard", "SKILL.md")
-	switch {
-	case harness == "claude-code" && scope == scopeProject:
-		settings := filepath.Join(dir, ".claude", "settings.local.json")
-		return harnessFiles{filepath.Join(dir, ".claude", skill), settings, settings}
-	case harness == "claude-code":
-		settings := filepath.Join(a.configDir(harness), "settings.json")
-		return harnessFiles{filepath.Join(a.configDir(harness), skill), settings, settings}
-	case scope == scopeProject:
-		return harnessFiles{
-			filepath.Join(dir, ".agents", skill), filepath.Join(dir, ".codex", "hooks.json"),
-			filepath.Join(dir, ".codex", "rules", "aboard.rules"),
-		}
-	default:
-		return harnessFiles{
-			filepath.Join(home, ".agents", skill), filepath.Join(a.configDir(harness), "hooks.json"),
-			filepath.Join(a.configDir(harness), "rules", "aboard.rules"),
-		}
-	}
+// henv is what a harness reads from this command's environment.
+func (a *app) henv() harness.Env {
+	return harness.Env{Getenv: a.env.Getenv, Dir: a.env.Dir}
+}
+
+// item returns where a harness's item of a kind goes in a scope.
+func (a *app) item(h harness.Harness, scope string, kind harness.ItemKind) (harness.Item, bool) {
+	return harness.Find(h.Items(a.henv(), scope), kind)
+}
+
+// hooksFile returns the file that holds a harness's hooks in a scope, or "".
+func (a *app) hooksFile(h harness.Harness, scope string) string {
+	it, _ := a.item(h, scope, harness.ItemHooks)
+	return it.Path
 }
 
 // installedScopes returns the scopes in which a harness's Aboard hooks are installed,
 // with the hook file of each: those where the session-start hook, which every other hook
 // relies on, is there. Whether the rest match this aboard is checkHooksCurrent's job.
-func (a *app) installedScopes(harness string, specs []hookSpec) (scopes, files []string, err error) {
-	start := slices.DeleteFunc(slices.Clone(specs), func(s hookSpec) bool { return s.arg != "session-start" })
+func (a *app) installedScopes(h harness.Harness, specs []harness.Hook) (scopes, files []string, err error) {
+	start := sessionStartHooks(h, specs)
 	for _, scope := range a.scopes() {
-		path := a.setupFiles(harness, scope).hooks
-		missing, err := hooksMissing(path, harness, start)
+		path := a.hooksFile(h, scope)
+		if path == "" {
+			continue
+		}
+		missing, err := hooksMissing(path, h.Profile().Harness, start)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -98,6 +66,14 @@ func (a *app) installedScopes(harness string, specs []hookSpec) (scopes, files [
 		}
 	}
 	return scopes, files, nil
+}
+
+// sessionStartHooks returns the hooks that register a session.
+func sessionStartHooks(h harness.Harness, specs []harness.Hook) []harness.Hook {
+	return slices.DeleteFunc(slices.Clone(specs), func(s harness.Hook) bool {
+		c, ok := h.HookCall(s.Arg, harness.HookInput{})
+		return !ok || c.Op != harness.OpSessionStart
+	})
 }
 
 // scopes returns the scopes aboard can install in from the working directory: both,
@@ -117,9 +93,10 @@ func scopeText(scope string) string {
 	return "everywhere"
 }
 
-// addClaudeAllow adds the allow rule to the permissions in Claude Code settings, keeping
-// everything else. changed is false when a rule for aboard is already there.
-func addClaudeAllow(data []byte) (out []byte, changed bool, err error) {
+// addAllowRule adds an allow rule to permissions.allow in a JSON settings file that
+// holds a harness's hooks, keeping everything else. changed is false when the rule, or
+// a form of it the harness also accepts, is already there.
+func addAllowRule(data []byte, rule harness.Item) (out []byte, changed bool, err error) {
 	root, err := parseJSONObject(data)
 	if err != nil {
 		return nil, false, err
@@ -136,11 +113,10 @@ func addClaudeAllow(data []byte) (out []byte, changed bool, err error) {
 			return nil, false, fmt.Errorf("permissions.allow: %w", err)
 		}
 	}
-	// Claude Code also accepts the older prefix form.
-	if slices.Contains(allow, claudeAllowRule) || slices.Contains(allow, "Bash(aboard:*)") {
+	if slices.Contains(allow, rule.Rule) || slices.ContainsFunc(rule.Accepts, func(r string) bool { return slices.Contains(allow, r) }) {
 		return data, false, nil
 	}
-	raw, err := json.Marshal(append(allow, claudeAllowRule))
+	raw, err := json.Marshal(append(allow, rule.Rule))
 	if err != nil {
 		return nil, false, fmt.Errorf("encode permissions: %w", err)
 	}
@@ -153,44 +129,111 @@ func addClaudeAllow(data []byte) (out []byte, changed bool, err error) {
 	return out, true, err
 }
 
-// allowSettings adds Claude Code's allow rule to the planned change of its settings file.
-func allowSettings(c *fileChange) error {
-	data, changed, err := addClaudeAllow(c.data)
+// allowSettings adds an allow rule to the planned change of the settings file that
+// holds the hooks.
+func allowSettings(c *fileChange, rule harness.Item) error {
+	data, changed, err := addAllowRule(c.data, rule)
 	if err != nil {
 		return &Error{
 			Code: "invalid_request", Message: "Couldn't read the permissions in " + c.Path + ": " + err.Error(),
 			Hint: "Fix the file so permissions.allow is a list of strings, then run aboard init again.", Err: err,
 		}
 	}
-	c.Allow = []string{claudeAllowRule}
+	c.Allow = []string{rule.Rule}
 	if changed {
 		c.data = data
 		c.allowAdded = true
 		if c.Action == actionUnchanged {
 			c.Action = actionUpdate
 		}
-		c.commands = append(c.commands, "allow: "+claudeAllowRule)
+		c.commands = append(c.commands, "allow: "+rule.Rule)
 	}
 	return nil
 }
 
-// rulesChange plans the Codex rules file that holds the allow rule. Aboard owns the file.
-func rulesChange(path string) (fileChange, error) {
-	c := fileChange{
-		Path: path, Kind: "permissions", Action: actionCreate, Allow: []string{codexAllowRule},
-		data: codexRules, perm: 0o644, commands: []string{codexAllowRule},
+// ownedChange plans a file Aboard owns: the skill, a file inside the harness, or the
+// file that holds only an allow rule.
+func ownedChange(it harness.Item, kind string) (fileChange, error) {
+	c := fileChange{Path: it.Path, Kind: kind, Action: actionCreate, data: it.Data, perm: 0o644}
+	if it.Kind == harness.ItemAllowRule {
+		c.Allow, c.commands, c.note = []string{it.Rule}, []string{it.Rule}, it.Note
 	}
-	old, err := os.ReadFile(filepath.Clean(path))
+	old, err := os.ReadFile(filepath.Clean(it.Path))
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 	case err != nil:
-		return c, fmt.Errorf("read %s: %w", path, err)
-	case bytes.Equal(old, codexRules):
+		return c, fmt.Errorf("read %s: %w", it.Path, err)
+	case bytes.Equal(old, it.Data):
 		c.Action = actionUnchanged
 	default:
 		c.Action = actionUpdate
 	}
 	return c, nil
+}
+
+// changeKind is the kind an install item has in init's and uninstall's output and in
+// the install manifest.
+func changeKind(kind harness.ItemKind) string {
+	if kind == harness.ItemAllowRule {
+		return "permissions"
+	}
+	return string(kind)
+}
+
+// allowedIn returns the file that holds a harness's allow rule for aboard in a scope,
+// if any: the settings file that holds the hooks, or, for a rule in a file of its own,
+// any file with the same extension in that folder, since the harness reads them all.
+// Spaces in the rule don't matter there.
+func (a *app) allowedIn(h harness.Harness, scope string) (string, bool) {
+	rule, ok := a.item(h, scope, harness.ItemAllowRule)
+	if !ok {
+		return "", false
+	}
+	if rule.Path == "" {
+		path := a.hooksFile(h, scope)
+		data, err := os.ReadFile(filepath.Clean(path))
+		if err != nil {
+			return "", false
+		}
+		_, changed, err := addAllowRule(data, rule)
+		return path, err == nil && !changed
+	}
+	files, _ := filepath.Glob(filepath.Join(filepath.Dir(rule.Path), "*"+filepath.Ext(rule.Path)))
+	want := strings.Join(strings.Fields(rule.Rule), "")
+	for _, f := range files {
+		raw, err := os.ReadFile(filepath.Clean(f))
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(raw), "\n") {
+			if strings.Join(strings.Fields(line), "") == want {
+				return f, true
+			}
+		}
+	}
+	return "", false
+}
+
+// allowed reports whether a harness's files in a scope hold the allow rule for aboard.
+func (a *app) allowed(h harness.Harness, scope string) bool {
+	_, ok := a.allowedIn(h, scope)
+	return ok
+}
+
+// allowedAnywhere reports whether a rule the harness reads from here allows aboard.
+func (a *app) allowedAnywhere(h harness.Harness) bool {
+	return slices.ContainsFunc(a.scopes(), func(sc string) bool { return a.allowed(h, sc) })
+}
+
+// requiredAllow returns what Aboard says about a harness's allow rule when the harness
+// can't reach Aboard without it, or nil.
+func requiredAllow(h harness.Harness) *harness.AllowRequired {
+	for _, s := range h.Profile().Install {
+		if s.Kind == harness.ItemAllowRule && s.Required != nil {
+			return s.Required
+		}
+	}
+	return nil
 }
 
 // initChoices are the answers aboard init works from, from flags or questions.
@@ -201,17 +244,10 @@ type initChoices struct {
 	allow     bool
 }
 
-// codexAllowWhy says in one line why Codex needs aboard commands allowed.
-const codexAllowWhy = "Codex's sandbox blocks network access; aboard needs to reach its local server."
-
-// codexAllowAdvice is the line init adds when it sets up Codex without the allow rule.
-const codexAllowAdvice = "Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; " +
-	"add --allow-commands to let Codex run them outside its sandbox.\n"
-
-// choosesCodex reports whether c sets up Codex, given the harnesses found.
-func choosesCodex(c initChoices, found []string) bool {
+// chooses reports whether c sets up a harness, given the harnesses found.
+func (c initChoices) chooses(name string, found []string) bool {
 	if c.harnesses == nil {
-		return slices.Contains(found, "codex")
+		return slices.Contains(found, name)
 	}
-	return slices.Contains(c.harnesses, "codex")
+	return slices.Contains(c.harnesses, name)
 }

@@ -57,7 +57,7 @@ generate-check:
 # packages below and test-helper packages (named *test). A new package counts as core
 # unless it is added to CLIENT_PKGS. Raising the budget is a recorded decision.
 CORE_BUDGET_LINES := 15000
-CLIENT_PKGS       := cli delivery deliverytext joinline
+CLIENT_PKGS       := cli delivery deliverytext harness joinline
 
 ## core-size: print the core's size and fail if it is over its budget
 core-size:

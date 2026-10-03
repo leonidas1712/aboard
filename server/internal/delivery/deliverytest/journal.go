@@ -16,8 +16,8 @@ var (
 	t0      = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	writer  = delivery.AgentRef{Server: "http://127.0.0.1:7400", Board: "docs", Name: "writer"}
 	review  = delivery.AgentRef{Server: "http://127.0.0.1:7400", Board: "docs", Name: "reviewer"}
-	claudeA = delivery.SessionKey{Harness: delivery.HarnessClaudeCode, ID: "s-a"}
-	claudeB = delivery.SessionKey{Harness: delivery.HarnessClaudeCode, ID: "s-b"}
+	claudeA = delivery.SessionKey{Harness: "claude-code", ID: "s-a"}
+	claudeB = delivery.SessionKey{Harness: "claude-code", ID: "s-b"}
 )
 
 // RunJournal runs the Journal contract suite. open returns a new, empty journal.

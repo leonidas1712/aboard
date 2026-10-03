@@ -494,7 +494,7 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 	ad, ok := d.adapters[req.Harness]
 	if !ok || req.Session == "" {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),
-			"Use claude-code or codex.")
+			"Use "+d.harnessNames()+".")
 	}
 	key := req.Key()
 	create := false
@@ -535,19 +535,38 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 	}
 }
 
-// validationResponse turns an adapter's verdict on a session into an error response.
+// harnessNames lists the harnesses the daemon has adapters for, as "a, b or c".
+func (d *Daemon) harnessNames() string {
+	names := make([]string, 0, len(d.cfg.Adapters))
+	for _, a := range d.cfg.Adapters {
+		names = append(names, a.Harness())
+	}
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
+}
+
+// validationResponse turns an adapter's verdict on a session into an error response,
+// in the adapter's own words when it gave them.
 func validationResponse(key SessionKey, err error) (Response, bool) {
+	var words *SessionError
+	said := errors.As(err, &words)
 	switch {
 	case err == nil:
 		return Response{}, false
+	case errors.Is(err, ErrSubAgent) && said:
+		return errorResponse(ReasonSubAgent, words.Message, words.Hint), true
 	case errors.Is(err, ErrSubAgent):
 		return errorResponse(ReasonSubAgent,
-			"This Codex thread ("+key.ID+") is a sub-agent, and messages can only go to the root conversation.",
-			"Run aboard join or aboard resume in the root Codex conversation instead."), true
+			"The session "+key.String()+" is a sub-agent, and messages can only go to the root conversation.",
+			"Run aboard join or aboard resume in the root conversation instead."), true
+	case errors.Is(err, ErrTargetAbsent) && said:
+		return errorResponse(ReasonTargetAbsent, words.Message, words.Hint), true
 	case errors.Is(err, ErrTargetAbsent):
 		return errorResponse(ReasonTargetAbsent,
-			"Codex has no thread "+key.ID+".",
-			"Run the command inside a Codex session, or open that thread again."), true
+			"The session "+key.String()+" no longer exists.",
+			"Run the command inside that session, or open it again."), true
 	default:
 		return errorResponse("harness_unavailable",
 			"Couldn't check the session "+key.String()+": "+err.Error(),

@@ -218,24 +218,22 @@ type setupReport struct {
 func (a *app) setupStatus() (r setupReport, line string) {
 	r = setupReport{Global: []string{}, Project: []string{}}
 	var parts []string
-	for _, h := range []struct {
-		name  string
-		specs []hookSpec
-	}{{"claude-code", claudeHooks("aboard", true)}, {"codex", codexHooks("aboard")}} {
-		scopes, _, err := a.installedScopes(h.name, h.specs)
+	for _, h := range a.registry() {
+		name := h.Profile().Harness
+		scopes, _, err := a.installedScopes(h, h.Hooks("aboard", ""))
 		if err != nil || len(scopes) == 0 {
 			continue
 		}
 		var where []string
 		for _, s := range scopes {
 			if s == scopeGlobal {
-				r.Global = append(r.Global, h.name)
+				r.Global = append(r.Global, name)
 			} else {
-				r.Project = append(r.Project, h.name)
+				r.Project = append(r.Project, name)
 			}
 			where = append(where, scopeText(s))
 		}
-		parts = append(parts, h.name+" "+strings.Join(where, " and "))
+		parts = append(parts, name+" "+strings.Join(where, " and "))
 	}
 	if len(parts) == 0 {
 		return r, "Setup:  none; aboard init adds the skill and hooks\n"

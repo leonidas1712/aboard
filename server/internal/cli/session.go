@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // Where a command's board came from when the agent decided it.
@@ -16,15 +17,10 @@ const boardFromAgent = "agent"
 const agentFromSession = "session"
 
 // sessionKey returns the harness session this command runs in: ABOARD_SESSION, which
-// the Claude Code hook writes, then CODEX_THREAD_ID, which Codex sets.
+// Aboard's hooks write, then the variable of a harness that gives every command its
+// session id.
 func (a *app) sessionKey() (delivery.SessionKey, bool) {
-	if k, ok := delivery.ParseSessionKey(a.env.Getenv("ABOARD_SESSION")); ok {
-		return k, true
-	}
-	if id := strings.TrimSpace(a.env.Getenv("CODEX_THREAD_ID")); id != "" {
-		return delivery.SessionKey{Harness: delivery.HarnessCodex, ID: id}, true
-	}
-	return delivery.SessionKey{}, false
+	return a.registry().Session(a.henv())
 }
 
 // serverRefFor names a server URL the way output does.
@@ -157,19 +153,38 @@ func (a *app) sessionAgents(ctx context.Context, key delivery.SessionKey) ([]del
 }
 
 // checkSession makes sure the session this command runs in can have an agent bound to
-// it, before an agent is created for it. A Codex thread is read through Codex and
-// refused if it is a sub-agent.
+// it, before an agent is created for it. A session whose id every command carries is
+// registered from here, which checks it in the harness (a Codex thread is read through
+// Codex and refused if it is a sub-agent).
 func (a *app) checkSession(ctx context.Context) (delivery.SessionKey, bool, error) {
 	key, ok := a.sessionKey()
 	if !ok {
 		return key, false, nil
 	}
 	op := delivery.OpAgents
-	if key.Harness == delivery.HarnessCodex {
+	if h, known := a.registry().Get(key.Harness); known && h.Profile().Identity.Kind == "env" {
 		op = delivery.OpRegister
 	}
 	_, err := a.callDaemon(ctx, delivery.Request{Op: op, Harness: key.Harness, Session: key.ID})
 	return key, true, err
+}
+
+// sessionSources says how each harness gives its commands their session, such as "the
+// Claude Code hooks from aboard init set ABOARD_SESSION; Codex sets CODEX_THREAD_ID".
+func (a *app) sessionSources() string {
+	var parts []string
+	for _, h := range a.registry() {
+		p := h.Profile()
+		switch p.Identity.Kind {
+		case "env":
+			parts = append(parts, p.Name+" sets "+p.Identity.Env)
+		case "hook":
+			parts = append(parts, "the "+p.Name+" hooks from aboard init set ABOARD_SESSION")
+		case "extension":
+			parts = append(parts, "Aboard's "+p.Name+" extension sets ABOARD_SESSION")
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // previousAgent is the agent a session was bound to before a command moved it to
@@ -215,8 +230,8 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	key, ok := a.sessionKey()
 	if !ok {
 		return newError("session_unknown",
-			"aboard resume binds an agent to the session it runs in, and this command isn't running in a Claude Code or Codex session.",
-			"Run it from inside the session (the Claude Code hooks from aboard init set ABOARD_SESSION; Codex sets CODEX_THREAD_ID), or use --as AGENT on each command instead.")
+			"aboard resume binds an agent to the session it runs in, and this command isn't running in a "+harness.OrList(a.registry().Titles())+" session.",
+			"Run it from inside the session ("+a.sessionSources()+"), or use --as AGENT on each command instead.")
 	}
 	creds, err := a.readCredentials()
 	if err != nil {

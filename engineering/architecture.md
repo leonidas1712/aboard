@@ -14,7 +14,7 @@ without a line of SQL, HTTP or CLI code.
 | --- | --- | --- |
 | Domain | The product's rules, in the product's words ([glossary.md](glossary.md)) | `board` (the service and its ports), `rules`, `events` |
 | Port | A small interface the domain declares for something it needs | `board`'s store and notifier interfaces; `delivery`'s adapter, journal and server interfaces |
-| Adapter, driven | Plumbing that implements a port | `store/sqlite`, `notify`, `delivery/claude`, `delivery/codex` |
+| Adapter, driven | Plumbing that implements a port | `store/sqlite`, `notify`, `delivery/idlehook`, `delivery/codex` |
 | Adapter, driving | A caller that turns requests into domain calls and back | `api` (HTTP), `cli`, the delivery daemon |
 
 **Dependencies point inward.** Adapters import the domain; the domain never imports an
@@ -92,9 +92,17 @@ server/internal/notify           adapter: board's notifier port, in-process
 server/internal/api              driving adapter: HTTP, generated from openapi.yaml
 server/internal/cli              driving adapter: talks only to the API client
 server/internal/delivery         context: daemon, journal port, adapter port, sessions
-server/internal/delivery/claude  adapter: Claude Code
-server/internal/delivery/codex   adapter: Codex
+server/internal/delivery/idlehook adapter: a hook that waits while the session is idle (Claude Code)
+server/internal/delivery/codex   adapter: Codex's queue and app server
+server/internal/harness          what Aboard knows about each harness: profile, generic implementation, Harness interface
+server/internal/harness/claudecode, harness/codex   each harness's quirks, over the generic implementation
+server/internal/harness/registry the one list of harnesses; the CLI and the daemon loop over it
 ```
+
+The harness layer is a client-side context like delivery: the CLI and the daemon reach
+every harness through `harness.Harness`, and only `harness/registry` names them. A
+harness's data is its profile in `adapters/<harness>/profile.yaml`; see
+[adding-a-harness.md](adding-a-harness.md).
 
 ## Testing by layer
 

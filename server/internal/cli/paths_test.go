@@ -32,13 +32,13 @@ func TestHomeAddrIsPickedOnceAndKept(t *testing.T) {
 func TestHooksNameAboardHome(t *testing.T) {
 	env := map[string]string{"ABOARD_HOME": "/sb/my home"}
 	a := &app{env: Env{Getenv: func(k string) string { return env[k] }}}
-	for _, h := range a.withHome(codexHooks("/bin/aboard")) {
-		if !strings.HasPrefix(h.handler.Command, "ABOARD_HOME='/sb/my home' /bin/aboard hook codex ") || !isAboardHook(h.handler.Command, "codex", h.arg) {
-			t.Fatalf("hook command %q", h.handler.Command)
+	for _, h := range a.withHome(hooksOf(t, "codex", "/bin/aboard")) {
+		if !strings.HasPrefix(h.Handler.Command, "ABOARD_HOME='/sb/my home' /bin/aboard hook codex ") || !isAboardHook(h.Handler.Command, "codex", h.Arg) {
+			t.Fatalf("hook command %q", h.Handler.Command)
 		}
 	}
 	delete(env, "ABOARD_HOME")
-	if got := a.withHome(claudeHooks("/bin/aboard", true))[0].handler.Command; got != "/bin/aboard hook claude-code session-start" {
+	if got := a.withHome(hooksOf(t, "claude-code", "/bin/aboard"))[0].Handler.Command; got != "/bin/aboard hook claude-code session-start" {
 		t.Fatalf("without ABOARD_HOME: %q", got)
 	}
 }

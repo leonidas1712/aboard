@@ -8,9 +8,36 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/leonidas1712/aboard/server/internal/harness"
+	"github.com/leonidas1712/aboard/server/internal/harness/registry"
 )
 
 const exe = "/usr/local/bin/aboard"
+
+// hooksOf returns the hooks aboard init installs for the newest version of a harness,
+// each running bin.
+func hooksOf(t *testing.T, name, bin string) []harness.Hook {
+	t.Helper()
+	return harnessNamed(t, name).Hooks(bin, "")
+}
+
+func harnessNamed(t *testing.T, name string) harness.Harness {
+	t.Helper()
+	h, ok := registry.Harnesses().Get(name)
+	if !ok {
+		t.Fatalf("no harness %s", name)
+	}
+	return h
+}
+
+// hookEntry is one hook entry as a harness's settings file holds it.
+type hookEntry struct {
+	Type        string `json:"type"`
+	Command     string `json:"command"`
+	Timeout     int    `json:"timeout"`
+	AsyncRewake bool   `json:"asyncRewake"`
+}
 
 func TestMergeHooksKeepsEverythingElse(t *testing.T) {
 	settings := `{
@@ -22,7 +49,7 @@ func TestMergeHooksKeepsEverythingElse(t *testing.T) {
   },
   "zeta": 1
 }`
-	out, changed, err := mergeHooks([]byte(settings), "claude-code", claudeHooks(exe, true))
+	out, changed, err := mergeHooks([]byte(settings), "claude-code", hooksOf(t, "claude-code", exe))
 	if err != nil || !changed {
 		t.Fatalf("merge: changed %v, %v", changed, err)
 	}
@@ -37,7 +64,7 @@ func TestMergeHooksKeepsEverythingElse(t *testing.T) {
 	}
 	var parsed struct {
 		Hooks map[string][]struct {
-			Hooks []hookHandler `json:"hooks"`
+			Hooks []hookEntry `json:"hooks"`
 		} `json:"hooks"`
 	}
 	if err := json.Unmarshal(out, &parsed); err != nil {
@@ -47,22 +74,22 @@ func TestMergeHooksKeepsEverythingElse(t *testing.T) {
 		t.Fatalf("Stop groups %d, want the existing one and Aboard's", n)
 	}
 	stop := parsed.Hooks["Stop"][1].Hooks[0]
-	if !stop.AsyncRewake || stop.Timeout != stopHookTimeout {
+	if !stop.AsyncRewake || stop.Timeout != 86400 {
 		t.Fatalf("stop hook %+v", stop)
 	}
 
-	again, changed, err := mergeHooks(out, "claude-code", claudeHooks(exe, true))
+	again, changed, err := mergeHooks(out, "claude-code", hooksOf(t, "claude-code", exe))
 	if err != nil || changed || string(again) != text {
 		t.Fatalf("a second merge changed the file (changed %v, %v)", changed, err)
 	}
 }
 
 func TestMergeHooksUpdatesAMovedBinaryInPlace(t *testing.T) {
-	first, _, err := mergeHooks(nil, "codex", codexHooks("/old/place/aboard"))
+	first, _, err := mergeHooks(nil, "codex", hooksOf(t, "codex", "/old/place/aboard"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	moved, changed, err := mergeHooks(first, "codex", codexHooks(exe))
+	moved, changed, err := mergeHooks(first, "codex", hooksOf(t, "codex", exe))
 	if err != nil || !changed {
 		t.Fatalf("changed %v, %v", changed, err)
 	}
@@ -75,7 +102,7 @@ func TestMergeHooksUpdatesAMovedBinaryInPlace(t *testing.T) {
 }
 
 func TestMergeHooksRefusesAFileThatIsNotAnObject(t *testing.T) {
-	if _, _, err := mergeHooks([]byte(`["not", "settings"]`), "claude-code", claudeHooks(exe, true)); err == nil {
+	if _, _, err := mergeHooks([]byte(`["not", "settings"]`), "claude-code", hooksOf(t, "claude-code", exe)); err == nil {
 		t.Fatal("merged into a JSON array")
 	}
 }
@@ -123,14 +150,15 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 		t.Fatalf("exit %d\n%s", code, out)
 	}
 	a := &app{env: env}
-	scopes, _, err := a.installedScopes("claude-code", claudeHooks("aboard", true))
+	claude := harnessNamed(t, "claude-code")
+	scopes, _, err := a.installedScopes(claude, hooksOf(t, "claude-code", "aboard"))
 	if err != nil || !slices.Equal(scopes, []string{scopeProject}) {
 		t.Fatalf("scopes %v, %v", scopes, err)
 	}
-	if c := a.checkSkill("claude_skill", "claude-code"); len(c) != 1 || c[0].Level != levelOK {
+	if c := a.checkSkill(claude); len(c) != 1 || c[0].Level != levelOK {
 		t.Fatalf("current skill: %+v", c)
 	}
-	if c := a.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(a.hookExe(), true), okCheck("claude_hooks", "ok")); c.Level != levelOK {
+	if c := a.checkHooksCurrent("claude_hooks", claude, scopes, hooksOf(t, "claude-code", a.hookExe()), okCheck("claude_hooks", "ok")); c.Level != levelOK {
 		t.Fatalf("current hooks: %+v", c)
 	}
 
@@ -141,32 +169,11 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	moved.env.Executable = func() (string, error) { return "/elsewhere/aboard", nil }
 	fix := "run aboard init --yes --scope project in this project"
 	// The install manifest shows the skill changed after init wrote it.
-	if c := a.checkSkill("claude_skill", "claude-code"); len(c) != 1 || deref(c[0].Code) != "skill_edited" || !strings.HasPrefix(deref(c[0].Fix), fix) {
+	if c := a.checkSkill(claude); len(c) != 1 || deref(c[0].Code) != "skill_edited" || !strings.HasPrefix(deref(c[0].Fix), fix) {
 		t.Fatalf("edited skill: %+v", c)
 	}
-	if c := moved.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(moved.hookExe(), true), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
+	if c := moved.checkHooksCurrent("claude_hooks", claude, scopes, hooksOf(t, "claude-code", moved.hookExe()), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
 		t.Fatalf("outdated hooks: %+v", c)
-	}
-}
-
-func TestVersionAtLeast(t *testing.T) {
-	tests := []struct {
-		text string
-		want bool
-	}{
-		{"2.1.288 (Claude Code)", true},
-		{"2.1.118 (Claude Code)", true},
-		{"2.1.117 (Claude Code)", false},
-		{"2.0.999", false},
-		{"3.0", true},
-		{"1.9.200 (Claude Code)", false},
-		{"", true},
-		{"not a version", true},
-	}
-	for _, tt := range tests {
-		if got := versionAtLeast(tt.text, claudeBatchSince); got != tt.want {
-			t.Errorf("versionAtLeast(%q, %s) = %v, want %v", tt.text, claudeBatchSince, got, tt.want)
-		}
 	}
 }
 
@@ -178,13 +185,13 @@ func TestMergeHooksRemovesAboardsStaleEntries(t *testing.T) {
     {"hooks": [{"type": "command", "command": "/usr/local/bin/aboard hook codex tool"}]}
   ]
 }}`
-	out, changed, err := mergeHooks([]byte(old), "codex", codexHooks(exe))
+	out, changed, err := mergeHooks([]byte(old), "codex", hooksOf(t, "codex", exe))
 	if err != nil || !changed {
 		t.Fatalf("changed %v, %v", changed, err)
 	}
 	var parsed struct {
 		Hooks map[string][]struct {
-			Hooks []hookHandler `json:"hooks"`
+			Hooks []hookEntry `json:"hooks"`
 		} `json:"hooks"`
 	}
 	if err := json.Unmarshal(out, &parsed); err != nil {
@@ -198,7 +205,7 @@ func TestMergeHooksRemovesAboardsStaleEntries(t *testing.T) {
 		t.Fatalf("PreToolUse after the merge: %+v", pre)
 	}
 	old = `{"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": "/usr/local/bin/aboard hook claude-code tool"}]}]}}`
-	out, _, err = mergeHooks([]byte(old), "claude-code", claudeHooks(exe, true))
+	out, _, err = mergeHooks([]byte(old), "claude-code", hooksOf(t, "claude-code", exe))
 	if err != nil || strings.Contains(string(out), `"PostToolUse"`) {
 		t.Fatalf("an event left empty should go: %v\n%s", err, out)
 	}
