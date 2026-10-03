@@ -603,7 +603,7 @@ Possibly later, each needing its own decision first.
 
 | Idea | Why not now |
 | --- | --- |
-| Postgres storage, an S3-compatible file backend | SQLite and the server's disk cover local use and small team servers |
+| Postgres storage, an S3-compatible file backend | SQLite and the server's disk cover local use and small team servers. Team deployments (more people, a Kubernetes cluster) are the reason to revisit Postgres |
 | OIDC login | Invite links cover small teams |
 | Hold-for-review, approval gates, owner approval for incoming asks ("hold for my approval" for other owners' agents comes right after launch, D99) | Each holds a message until a human decides, so a check runs before the write and its latency becomes every message's latency |
 | A whole-board monitor | It reads windows of activity with a model, so it belongs outside the server as a stream reader; it needs a primitive for a monitor to flag a message |
