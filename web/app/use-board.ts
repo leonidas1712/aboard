@@ -80,7 +80,9 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const chain = useRef<Chain>(emptyChain);
   const broken = useRef(false);
   const live = useRef(true);
-  const known = useRef<Set<string>>(new Set());
+  // boardsQueued is set while a reload of the list of boards waits in the queue, so a
+  // burst of head changes (one per board when the stream opens) reloads it once.
+  const boardsQueued = useRef(false);
   const active = filterActive(filter);
   const filterKey = active ? JSON.stringify(filterQuery(filter)) : "";
   const current = useRef<Filter | null>(null);
@@ -95,9 +97,18 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const loadBoards = useCallback(async () => {
     const r = await get<{ boards: Board[] }>("/v1/boards");
     if (!live.current) return;
-    known.current = new Set(r.boards.map((b) => b.name));
     setBoards(r.boards);
   }, []);
+
+  // reloadBoards rereads the list of boards, whose message counts change with every head.
+  const reloadBoards = useCallback(() => {
+    if (boardsQueued.current) return;
+    boardsQueued.current = true;
+    run(async () => {
+      boardsQueued.current = false;
+      await loadBoards();
+    });
+  }, [run, loadBoards]);
 
   // after reads every page of messages after seq that match query, and adds them.
   const readAfter = useCallback(
@@ -166,12 +177,12 @@ export function useBoard(name: string, filter: Filter): BoardState {
       setBase({ messages: page.messages, prevBefore: page.prev_before });
       newest.current = page.messages.at(-1)?.seq ?? 0;
     });
-    run(loadBoards);
+    reloadBoards();
     run(catchUp);
     const stop = follow({
       head: (b) => {
         if (b === name) run(catchUp);
-        else if (!known.current.has(b)) run(loadBoards);
+        reloadBoards();
       },
       presence: (p) => {
         if (p.board !== name) return;
@@ -187,7 +198,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
       live.current = false;
       stop();
     };
-  }, [path, name, run, catchUp, loadBoards]);
+  }, [path, name, run, catchUp, reloadBoards]);
 
   // A new filter starts from its newest matches; no filter shows the timeline itself.
   useEffect(() => {

@@ -85,7 +85,10 @@ func runHook(ctx context.Context, a *app, args []string) error {
 	case harness == delivery.HarnessClaudeCode && event == "end":
 		_, hookErr = h.call(ctx, delivery.OpEnd)
 	case harness == delivery.HarnessCodex && event == "session-start":
-		_, hookErr = h.call(ctx, delivery.OpRegister)
+		var resp delivery.Response
+		if resp, hookErr = h.call(ctx, delivery.OpRegister); hookErr == nil {
+			h.startNote(resp)
+		}
 	case harness == delivery.HarnessCodex && event == "prompt":
 		_, hookErr = h.call(ctx, delivery.OpPrompt)
 	case harness == delivery.HarnessCodex && event == "stop":
@@ -140,6 +143,7 @@ func (h hookCall) claudeSessionStart(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	h.startNote(resp)
 	envFile := h.a.env.Getenv("CLAUDE_ENV_FILE")
 	if envFile == "" {
 		return nil
@@ -160,6 +164,26 @@ func (h hookCall) claudeSessionStart(ctx context.Context) error {
 		return fmt.Errorf("write CLAUDE_ENV_FILE: %w", err)
 	}
 	return nil
+}
+
+// startNote tells a session that starts again with the same session id (the harness
+// resumed it) which agent it is, or that another session resumed its agent meanwhile.
+// Both harnesses add a session-start hook's output to the session's context. A new
+// session gets nothing.
+func (h hookCall) startNote(resp delivery.Response) {
+	var note string
+	switch {
+	case resp.Reopened && len(resp.Agents) == 1:
+		a := resp.Agents[0]
+		note = fmt.Sprintf("Aboard: this session is %s on %s again, as it was before it closed; messages that waited for %s arrive when this turn ends.", a.Name, a.Board, a.Name)
+	case resp.Lost != nil:
+		a := resp.Lost
+		note = fmt.Sprintf("Aboard: this session was %s on %s until another session resumed %s; it has no agent now. "+
+			"To act as %s here again, run aboard resume %s, which leaves the other session without it.", a.Name, a.Board, a.Name, a.Name, a.Name)
+	default:
+		return
+	}
+	_, _ = fmt.Fprintln(h.a.env.Stdout, note)
 }
 
 func newBootID(rnd io.Reader) (string, error) {

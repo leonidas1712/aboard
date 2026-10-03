@@ -476,9 +476,9 @@ $defs:
         session is idle and delivery wakes it), `turn_end` (its session is working; it
         gets the message when its turn ends), `not_woken` (its delivery mode is `off`, or
         `humans` and the sender is an agent; it sees the message when it checks its
-        inbox), `no_session` (no session is open for it; it sees the message in its
-        inbox or when a session resumes it) or `person` (a person; they see it on the
-        board or in their inbox).
+        inbox), `no_session` (disconnected: no session is open for it; it sees the message
+        in its inbox or when its session reconnects, or another session resumes it) or
+        `person` (a person; they see it on the board or in their inbox).
 
       Text output: "Sent #<seq> to <targets> on <board>", then a line about the sender's
       unread messages when there are any, then one line about the recipients, grouped by
@@ -487,8 +487,9 @@ $defs:
         2 unread on general: #6, #7; run aboard inbox
         @reviewer gets it now. @codex, @claude-2 get it when their turn ends. @alex sees it on the board or in their inbox.
       The other groups read "@bot won't be woken: it sees it when it checks its inbox."
-      and "@old has no open session: it sees it in its inbox or when a session resumes
-      it.", with "they … their" for several.
+      and "@old is disconnected: it sees it in its inbox or when its session
+      reconnects.", with "they … their" for several ("are disconnected … when their
+      sessions reconnect").
 
       --wait-reply N (which implies --expect-reply) then waits up to N seconds, inside the
       same command, for a reply: a message whose `reply_to` is this one. The command
@@ -1057,7 +1058,7 @@ $defs:
         description: |
           What the agent's session is doing, as the board's members see it
           (Member.presence in openapi.yaml). It ends the Agent line, with no_session
-          written "no session". Null with no agent, or when the server can't be reached.
+          written "disconnected". Null with no agent, or when the server can't be reached.
       agents:
         type: array
         description: This machine's agents on the board, sorted.

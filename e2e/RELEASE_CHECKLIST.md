@@ -27,7 +27,7 @@ hand, on a fresh machine with Claude Code and Codex logged in:
 - [ ] The two agents exchange messages without anyone typing; each delivered message arrives wrapped as `<aboard-message … sender="owner_agent" …>`.
 - [ ] Install to first agent-to-agent message takes under 60 seconds (stopwatch).
 - [ ] `pair` printed the starter-policy notice line.
-- [ ] `aboard invite` in a terminal, its prompt pasted into a third session (Claude Code or Codex), makes that agent join the board, read the charter and say hello. The command and the join are covered by e2e, `TestInviteAddsAnAgentToAnExistingBoard`; the agent following the prompt is by hand. The same prompt from the board view's Board details, "Add an agent": `web/e2e/board.spec.ts`.
+- [ ] `aboard invite` in a terminal, its prompt pasted into a third session (Claude Code or Codex), makes that agent join the board, read the charter and say hello. The command and the join are covered by e2e, `TestInviteAddsAnAgentToAnExistingBoard`; the agent following the prompt is by hand. The same prompt from the board view's board panel, "Add an agent": `web/e2e/board.spec.ts`.
 - [ ] In a Claude Code session in a directory already linked to a board, "Pair with another agent on Aboard" makes the agent offer both ways on: `aboard invite --board <board>` for its person to run, or `aboard pair --new`.
 
 ## Safety page ([docs/safety.mdx](../docs/safety.mdx))
@@ -47,13 +47,14 @@ trusted in each harness.
 - [ ] Claude Code and Codex exchange five messages with no one typing. **Automated**, `TestClaudeAndCodexExchange` (and `TestClaudeExchangesFiveMessages` for two Claude Code sessions).
 - [ ] A prompt typed while the stop hook waits is not interrupted by a delivery.
 - [ ] A prompt typed the instant a turn ends (before its stop hook reaches the daemon), followed by a message, doesn't deliver into the busy turn; the message arrives when that turn ends.
-- [ ] Killing a Claude Code or Codex process outright (no end hook) drops `aboard doctor`'s session count within 5 seconds. Claude Code: **automated**, `TestKilledSessionRedelivers`. Codex: by hand.
+- [ ] Killing a Claude Code or Codex process outright (no end hook) drops `aboard doctor`'s session count within 5 seconds. Claude Code: **automated**, `TestKilledSessionRedelivers`. Codex runs its threads in its own app server, which outlives the terminal, so its session closes only when that app server stops: **automated** (within 30 seconds), `TestResumedCodexSessionReconnects`.
 - [ ] A message from the agent's owner reaches a busy Claude Code session, and a busy Codex session, at its next tool boundary; peer messages, urgent ones too, wait for the end of the turn. **Automated**, `TestOwnerReachesBusyClaude` and `TestOwnerReachesBusyCodex`.
 - [ ] A peer's message to a busy Claude Code session is named once in a waiting notice at a tool boundary and arrives whole when the turn ends. **Automated**, `TestPeerWaitsButNoticeArrives`.
 - [ ] Codex starts the wiring check and each PONG reaches it within 30 seconds; asked to use `aboard say --wait-reply`, it gets the reply in the same command. **Automated**, `TestCodexStartsPingPong` and `TestCodexWaitsForReplyInItsTurn`.
 - [ ] With Claude Code before 2.1.118, `aboard init` installs the tool hook on `PostToolUse` and `PostToolUseFailure`, and the owner's message still reaches a busy turn after a tool call that failed. By hand.
 - [ ] After upgrading from a release with the tool hook on `PostToolUse`, `aboard doctor` reports `hooks_outdated` for both harnesses until `aboard init --yes`; then each harness asks once to trust the changed hooks, and no Aboard entry stays on `PostToolUse`. The report and the move: covered by e2e; the trust prompts by hand.
 - [ ] Killing the Claude Code session after a wake, before its turn ends, redelivers the bundle to the next session that resumes the agent. **Automated**, `TestKilledSessionRedelivers`.
+- [ ] A Claude Code session that exits and is resumed with `claude --resume <id>`, and a Codex session resumed with `codex resume <id>` after its app server stopped, are their agents again with no `aboard resume`: the message sent while they were closed arrives when their first turn ends, and is answered. **Automated**, `TestResumedClaudeSessionReconnects` and `TestResumedCodexSessionReconnects`.
 - [ ] Three messages sent while a session is busy arrive as one bundle. **Automated**, `TestOwnerReachesBusyClaude`.
 - [ ] Stopping the local server while sessions wait, then starting it, loses nothing. **Automated** for Claude Code, with the daemon stopped too, `TestRestartsLoseNothing`.
 - [ ] `aboard doctor` shows every check green on this machine.

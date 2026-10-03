@@ -101,7 +101,10 @@ type SessionRecord struct {
 	Boot string
 	Open bool
 	// Process is the harness process the session runs in, or nil if it isn't known.
-	Process   *Process
+	Process *Process
+	// Lost is the agent another session resumed while this one held it, or nil. The
+	// session doesn't take it back when it starts again; it says so instead.
+	Lost      *AgentRef
 	UpdatedAt time.Time
 }
 

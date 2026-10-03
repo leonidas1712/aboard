@@ -137,8 +137,6 @@
   --focus-glow: color-mix(in oklab, var(--accent) 16%, transparent);
   /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
-  /* The veil behind a dialog: the dark theme's page colour, so it dims in both themes. */
-  --scrim: color-mix(in oklab, #0e171d 40%, transparent);
 }
 
 @theme inline {

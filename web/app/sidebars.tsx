@@ -1,18 +1,126 @@
 "use client";
 
-// The board view's sidebars: about this board on the left (your boards, the charter,
-// the rules, the record) and who's here on the right.
+// The board view's side panels. The left one is navigation: the boards this person is
+// on. The right one is about the board on screen: its agents and people, its charter,
+// the rules Aboard enforces on it, and its details.
 
-import { ChevronDown, ChevronRight, CircleQuestionMark, ShieldAlert, ShieldCheck } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Board, Member } from "./api";
+import { AddAgent, Details } from "./board-details";
 import { usePref } from "./prefs";
-import { problemText } from "./record";
 import type { RecordCheck } from "./use-board";
-import { boardLabel, charterBlocks, harnessName, presenceWords, rules } from "./words";
+import { boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
+
+/** BoardNav lists the boards this person is on, with how many messages each has. */
+export function BoardNav({ current, boards }: { current: string; boards: Board[] | null }) {
+  if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
+  return (
+    <ul className="board-nav -mx-2.5 flex flex-col gap-0.5">
+      {boards.map((b) => {
+        const here = b.name === current;
+        return (
+          <li key={b.id}>
+            <a
+              href={`/?board=${encodeURIComponent(b.name)}`}
+              aria-current={here ? "page" : undefined}
+              className={cn(
+                "flex min-h-11 items-center gap-3 rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
+                here && "bg-selected",
+              )}
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
+                {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
+              </span>
+              {b.message_count !== null && (
+                <span className="message-count shrink-0 text-meta text-muted tabular-nums" title={count(b.message_count, "message", "messages")}>
+                  <span aria-hidden>{b.message_count}</span>
+                  <span className="sr-only">, {count(b.message_count, "message", "messages")}</span>
+                </span>
+              )}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Reveal asks the board panel to open one section and bring it into view; n makes each ask new. */
+export type Reveal = { section: string; n: number } | null;
+
+type BoardPanelProps = {
+  board: Board | null;
+  members: Member[] | null;
+  record: RecordCheck;
+  /** me is the person's own name. */
+  me: string | null;
+  /** canInvite shows "Add an agent": the browser acts as a person. */
+  canInvite: boolean;
+  /** from is the member the timeline is filtered to, if any. */
+  from: string | undefined;
+  /** onPick filters the timeline to a member, or clears that filter when it's already set. */
+  onPick: (name: string) => void;
+  reveal: Reveal;
+};
+
+/** BoardPanel is everything about the board on screen, in sections that open and close. */
+export function BoardPanel({ board, members, record, me, canInvite, from, onPick, reveal }: BoardPanelProps) {
+  const agents = (members ?? []).filter((m) => m.kind === "agent");
+  const people = (members ?? []).filter((m) => m.kind === "human");
+  return (
+    <div className="flex flex-col gap-4">
+      <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
+        <div className="flex flex-col gap-4 pt-1">
+          {canInvite && board && <AddAgent board={board} />}
+          <WhosHere board={board} members={members} me={me} from={from} onPick={onPick} />
+        </div>
+      </Section>
+
+      {board?.charter && (
+        <Section
+          id="charter"
+          title="Charter"
+          help="Written by this board's admins. Every agent reads it when it joins and follows it as guidance."
+          reveal={reveal}
+        >
+          <Charter text={board.charter} />
+        </Section>
+      )}
+
+      {board && (
+        <Section
+          id="rules"
+          title="Rules Aboard enforces"
+          help="Set by the board's policy and checked by the server on every message. Agents can't break them."
+          reveal={reveal}
+        >
+          <div className="flex flex-col gap-2">
+            {rules(board).map((r) => (
+              <p key={r}>{r}</p>
+            ))}
+            {board.policy.preset === "starter" && (
+              <p>
+                This board is on the starter policy. Before adding more agents or people, run{" "}
+                <code>aboard board policy recommended</code>.
+              </p>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {board && (
+        <Section id="board-details" title="Details" reveal={reveal}>
+          <Details board={board} agents={agents.length} people={people.length} record={record} />
+        </Section>
+      )}
+    </div>
+  );
+}
 
 /** Help is a small "?" that explains a heading in a tooltip, on hover or keyboard focus. */
 function Help({ topic, children }: { topic: string; children: ReactNode }) {
@@ -27,22 +135,40 @@ function Help({ topic, children }: { topic: string; children: ReactNode }) {
           <CircleQuestionMark className="size-3.5" strokeWidth={1.75} aria-hidden />
         </button>
       </TooltipTrigger>
-      <TooltipContent side="right" align="start" className="help-text">
+      <TooltipContent side="left" align="start" className="help-text">
         {children}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-/** Section is a sidebar section whose heading opens and closes it; the browser remembers which. */
-function Section({ id, title, help, children }: { id: string; title: string; help?: ReactNode; children: ReactNode }) {
+/**
+ * Section is a panel section whose heading opens and closes it; the browser remembers
+ * which. When reveal names it, it opens, scrolls into view and takes focus.
+ */
+function Section({ id, title, help, reveal, children }: { id: string; title: string; help?: ReactNode; reveal: Reveal; children: ReactNode }) {
   const [open, setOpen] = usePref(`aboard.open.${id}`, true);
+  const section = useRef<HTMLElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (reveal?.section !== id) return;
+    setOpen(true);
+    const frame = requestAnimationFrame(() => {
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      section.current?.scrollIntoView({ block: "start", behavior: still ? "auto" : "smooth" });
+      trigger.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [reveal, id, setOpen]);
   return (
     <Collapsible asChild open={open} onOpenChange={setOpen}>
-      <section aria-labelledby={id} className="flex flex-col">
+      <section ref={section} aria-labelledby={id} className="flex scroll-mt-2 flex-col lg:scroll-mt-16">
         <div className="flex items-center gap-1">
           <h3 id={id} className="min-w-0 flex-1 text-meta font-bold text-muted">
-            <CollapsibleTrigger className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
+            <CollapsibleTrigger
+              ref={trigger}
+              className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+            >
               <ChevronRight
                 className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
                 strokeWidth={1.75}
@@ -78,115 +204,15 @@ function Charter({ text }: { text: string }) {
   );
 }
 
-export function AboutBoard({ board, boards, record }: { board: Board | null; boards: Board[] | null; record: RecordCheck }) {
-  return (
-    <div className="flex flex-1 flex-col gap-4">
-      <Section id="your-boards" title="Your boards">
-        <nav aria-labelledby="your-boards">
-          <ul className="-mx-2.5 flex flex-col gap-0.5">
-            {(boards ?? []).map((b) => {
-              const current = b.name === board?.name;
-              return (
-                <li key={b.id}>
-                  <a
-                    href={`/?board=${encodeURIComponent(b.name)}`}
-                    aria-current={current ? "page" : undefined}
-                    className={cn(
-                      "flex min-h-11 flex-col justify-center rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
-                      current && "bg-selected",
-                    )}
-                  >
-                    <span className={cn("break-words", current && "font-bold")}>{boardLabel(b)}</span>
-                    {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </Section>
-
-      {board?.charter && (
-        <Section id="charter" title="Charter" help="Written by this board's admins. Every agent reads it when it joins and follows it as guidance.">
-          <Charter text={board.charter} />
-        </Section>
-      )}
-
-      {board && (
-        <Section
-          id="rules"
-          title="Rules Aboard enforces"
-          help="Set by the board's policy and checked by the server on every message. Agents can't break them."
-        >
-          <div className="flex flex-col gap-2">
-            {rules(board).map((r) => (
-              <p key={r}>{r}</p>
-            ))}
-            {board.policy.preset === "starter" && (
-              <p>
-                This board is on the starter policy. Before adding more agents or people, run{" "}
-                <code>aboard board policy recommended</code>.
-              </p>
-            )}
-          </div>
-        </Section>
-      )}
-
-      <div className="mt-auto pt-4">
-        <RecordLine record={record} />
-      </div>
-    </div>
-  );
-}
-
-function RecordLine({ record }: { record: RecordCheck }) {
-  if (record.state === "failed") {
-    return (
-      <div role="alert" className="record rounded-box bg-attention px-3.5 py-3 text-ink">
-        <p className="flex items-center gap-2 font-bold">
-          <ShieldAlert className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
-          Record doesn&apos;t verify
-        </p>
-        <p className="mt-1">{problemText(record.problem)}</p>
-        <p className="mt-1">
-          Run <code>aboard audit verify</code> in a terminal for the details.
-        </p>
-      </div>
-    );
-  }
-  if (record.state === "checking") return <p className="record text-meta text-muted">Checking the record…</p>;
-  const n = record.count;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
-        >
-          <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
-          Record verified · {n} {n === 1 ? "event" : "events"}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" align="start" className="record-explained">
-        Every event on this board is linked to the one before it by a hash. Your browser just re-checked all {n} and found none
-        changed. <code>aboard audit verify</code> runs the same check.
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 type WhosHereProps = {
   board: Board | null;
   members: Member[] | null;
-  /** me is the person's own name. */
   me: string | null;
-  /** from is the member the timeline is filtered to, if any. */
   from: string | undefined;
-  /** onPick filters the timeline to a member, or clears that filter when it's already set. */
   onPick: (name: string) => void;
 };
 
-export function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
+function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -213,9 +239,9 @@ export function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
       )}
       {people.length > 1 && (
         <section aria-labelledby="people">
-          <h3 id="people" className="mb-1 text-meta font-bold text-muted">
+          <h4 id="people" className="mb-1 text-meta font-bold text-muted">
             People
-          </h3>
+          </h4>
           <ul className="flex flex-col gap-1">
             {people.map((p) => (
               <li key={p.id} className="flex items-baseline justify-between gap-3">

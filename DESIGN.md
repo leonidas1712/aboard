@@ -294,8 +294,8 @@ quiet; hierarchy comes from size and weight.
   centre column.
 - **Body** (400, 15px, line height 1.5): messages, charter, rules, field values.
   Names in a timeline entry's header use Body Strong (700).
-- **Label** (700, 14px, `muted`): section headings in sidebars ("Who's here",
-  "Rules"), column headings in the task board.
+- **Label** (700, 14px, `muted`): panel and section headings in sidebars ("Boards",
+  "Agents", "Rules Aboard enforces"), column headings in the task board.
 - **Meta** (400, 14px, `muted`): times, field labels, the quoted line of a reply, file
   type and version.
 
@@ -321,8 +321,11 @@ panels' titles, their hide buttons and the "Now:" line share one line; a hidden 
 strip keeps its show button in that row. Sections in a panel are 16px apart whether
 open or closed. Who you are sits at the right of the top bar: your mark and name,
 opening a menu with your access on this board (only with a second person), the server,
-and the theme (system, light or dark, kept per browser). The record line sits at the
-bottom of the left panel.
+and the theme (system, light or dark, kept per browser). The left panel is navigation
+only (the boards); the right panel is the board on screen, headed by its title, and
+the record line sits in its Details section. A panel's header row stays in place while
+the panel scrolls. On a narrow screen the board panel comes right after the
+conversation and the board list last.
 
 On a narrow screen the row wraps and the columns stack, centre first.
 
@@ -355,15 +358,19 @@ Gently rounded and consistent: 8px on controls (buttons, inputs, list items, the
 box and the file tile) and 10px on cards and boxes (task cards, the "Needs you" box,
 inbox items). Borders are 1px, in `rule` for containers and `field-border` for inputs.
 The current tab is marked by a 3px accent underline. Icons are 16px line icons with a
-1.5px stroke (18px for the file icon, 22px for the product mark), drawn in
-`currentColor`.
+1.5px stroke (18px for the file icon), drawn in `currentColor`. The product mark is
+Aboard's own drawing (the tab icon, a room holding two lines of conversation) at
+22px, filled from the theme's `surface`, `ink` and `accent`.
 
 ## Components
 
 ### Header
 
-- **Contents:** the product mark and "Aboard" (700, 17px), the board name (Title), and
-  "Pause board" as a secondary button that is always visible. On the inbox, a server
+- **Contents:** the product mark and "Aboard" (700, 17px), the board's title (Title)
+  with its name beside it in Meta, as a plain button (no chevron, a "Board details"
+  tooltip) that opens the board panel at Details, "Starter policy" as a link-styled
+  button that opens it at the rules, and "Pause board" as a secondary button that is
+  always visible. On the inbox, a server
   switcher ("Server" label and a secondary button) takes Pause board's place.
 - **Style:** surface fill, 14px by 24px padding, 1px rule below.
 
@@ -375,24 +382,23 @@ The current tab is marked by a 3px accent underline. Icons are 16px line icons w
 
 ### Sidebars
 
-- **Sections:** a Label heading, then plain content: a list of boards, a paragraph, a
-  link ("Edit charter", "Tighten the rules").
+- **Sections:** a Label heading with a chevron that opens and closes it (remembered per
+  browser), then plain content: a paragraph, a list, a link ("Edit charter", "Tighten
+  the rules").
 - **Board list:** each board a list item with 8px by 10px padding; the current one has
-  the `selected` fill and bold text. Counts sit right-aligned as plain numbers.
-- **Who's here:** each agent a block: its name in bold, and right-aligned its presence
-  as an 8px dot and a word (working: accent dot, `ink` word; idle: `muted` dot; no
-  session: a `muted` ring; waiting: the marigold block); then a two-column field grid
+  the `selected` fill and bold text. Its message count sits right-aligned as a plain
+  number in Meta.
+- **Add an agent:** a full-width secondary button at the top of the Agents section. It
+  opens, in place, a soft box (surface fill, 10px radius) with the role picker (only
+  with several roles), the prompt, "Copy prompt" and when the code stops working, and a
+  × that closes it.
+- **Agents:** each agent a block: its name in bold, and right-aligned its presence
+  as an 8px dot and a word (working: accent dot, `ink` word; idle: `muted` dot;
+  disconnected: a `muted` ring; waiting: the marigold block); then a two-column field grid
   (72px labels in Meta, values in Body, on one baseline): Owner (only with a second
   person), Role (a disclosure that opens a one-line description of the role), Harness.
   People follow, with their Access (Admin) or as one line ("People Leo (you, admin),
   Priya").
-
-### Dialog
-
-- **Style:** surface fill, 1px rule border, 10px radius, at most 540px wide, near the
-  top of the window; behind it the page is veiled with the dark page colour at 40%
-  (`--scrim`). No shadow. It fades in and out (200ms); a close button (×) sits top
-  right. Used for Board details, opened from the board's title.
 
 ### Timeline entry
 
@@ -458,7 +464,7 @@ The current tab is marked by a 3px accent underline. Icons are 16px line icons w
 - **Chips:** each active filter above the timeline as a small button: 8px radius, 1px
   rule border, surface fill, Meta text and a × icon; clicking removes the filter. "Clear
   all" follows when two or more are set. These are controls, not badges.
-- Clicking a member's name in Who's here filters to them (`aria-pressed`, an accent
+- Clicking a member's name in the Agents section filters to them (`aria-pressed`, an accent
   underline while set).
 
 ### Message box

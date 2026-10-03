@@ -1,7 +1,8 @@
 "use client";
 
 // BoardView shows one board as a room: the conversation in the centre with the message
-// box below it, about the board on the left, and who's here on the right.
+// box below it, the boards to move between on the left, and this board (its agents and
+// people, charter, rules and details) on the right.
 
 import { type CSSProperties, useCallback, useMemo, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,12 +13,11 @@ import { Composer } from "./composer";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
-import { BoardDetails } from "./board-details";
 import { readStored, store, usePref } from "./prefs";
-import { AboutBoard, WhosHere } from "./sidebars";
+import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
 import { type Entry, Timeline } from "./timeline";
 import { type Filter, filterActive, useBoard } from "./use-board";
-import { type NowPart, eventLine, eventMatches, identitiesOf, identityOf, nowLine, personIdentity } from "./words";
+import { type NowPart, boardLabel, eventLine, eventMatches, identitiesOf, identityOf, nowLine, personIdentity } from "./words";
 
 // The reading column the "Now:" line, the timeline and the message box share, centred
 // in whatever room the panels leave.
@@ -43,6 +43,7 @@ export default function BoardView({ name }: { name: string }) {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [stick, setStick] = useState(0);
   const [postError, setPostError] = useState<unknown>(null);
+  const [reveal, setReveal] = useState<Reveal>(null);
   // The last message seen on this board, from the last visit, read once when the page opens.
   const seenKey = `aboard.lastSeen.${name}`;
   const [lastSeen] = useState(() => Number(readStored(seenKey) ?? "0") || 0);
@@ -137,6 +138,15 @@ export default function BoardView({ name }: { name: string }) {
   const mine = (s.members ?? []).find((m) => m.kind === "human" && m.name === me);
   const myAccess = mine?.access ?? null;
 
+  // show opens the board panel, if hidden, at one of its sections.
+  const show = useCallback(
+    (section: string) => {
+      if (right.collapsed) setRight({ ...right, collapsed: false });
+      setReveal((r) => ({ section, n: (r?.n ?? 0) + 1 }));
+    },
+    [right, setRight],
+  );
+
   const pick = useCallback(
     (member: string) =>
       setFilter((f) => ({
@@ -176,8 +186,9 @@ export default function BoardView({ name }: { name: string }) {
         <Header
           board={name}
           title={s.board?.title}
-          heading={s.board && s.me?.kind === "human" ? <BoardDetails board={s.board} agents={agents.length} people={people.length} /> : undefined}
           starter={s.board?.policy.preset === "starter"}
+          onTitle={s.board ? () => show("board-details") : undefined}
+          onStarter={() => show("rules")}
           account={<Account admin={people.length > 1 && myAccess === "admin"} />}
         />
         <div
@@ -186,14 +197,16 @@ export default function BoardView({ name }: { name: string }) {
         >
           <SidePanel
             side="left"
-            title="About this board"
-            label="About this board"
+            title="Boards"
+            label="board list"
             size={left}
             setSize={setLeft}
             limits={leftPanel}
-            className="order-2 lg:order-none"
+            className="order-3 lg:order-none"
           >
-            <AboutBoard board={s.board} boards={s.boards} record={s.record} />
+            <nav aria-label="Boards">
+              <BoardNav current={name} boards={s.boards} />
+            </nav>
           </SidePanel>
 
           <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] min-w-0 flex-col lg:order-none lg:h-auto lg:min-h-0">
@@ -256,14 +269,23 @@ export default function BoardView({ name }: { name: string }) {
 
           <SidePanel
             side="right"
-            title="Who's here"
-            label="Who's here"
+            title={s.board ? boardLabel(s.board) : name}
+            label="board panel"
             size={right}
             setSize={setRight}
             limits={rightPanel}
-            className="order-3 lg:order-none"
+            className="order-2 lg:order-none"
           >
-            <WhosHere board={s.board} members={s.members} me={me} from={filter.from} onPick={pick} />
+            <BoardPanel
+              board={s.board}
+              members={s.members}
+              record={s.record}
+              me={me}
+              canInvite={s.me?.kind === "human"}
+              from={filter.from}
+              onPick={pick}
+              reveal={reveal}
+            />
           </SidePanel>
         </div>
       </div>

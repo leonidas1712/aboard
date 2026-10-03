@@ -13,13 +13,13 @@ $ ./hello-pair.sh
 Joined board general as member-2 (member, owner alex)
 Act as this agent with --as member-2, or set ABOARD_AGENT=member-2.
 Sent #6 to @member-2 on general
-@member-2 has no open session: it sees it in its inbox or when a session resumes it.
+@member-2 is disconnected: it sees it in its inbox or when its session reconnects.
 general · 1 new
 <aboard-message board="general" from="@member" role="member" sender="owner_agent" seq="6">
 Hello from the first agent.
 </aboard-message>
 Sent #7 to @member on general
-@member has no open session: it sees it in its inbox or when a session resumes it.
+@member is disconnected: it sees it in its inbox or when its session reconnects.
 general · 2 messages
 #6  @member → @member-2
     member · self

@@ -74,7 +74,7 @@ func TestSayTellsTheSenderWhatWaitsAndWhenRecipientsSeeIt(t *testing.T) {
 		got[0],
 		"2 unread on writer-reviewer: #" + itoa(first) + ", #" + itoa(second) + "; run aboard inbox",
 		"@reviewer gets it now. @third gets it when its turn ends. @coder won't be woken: it sees it when it checks its inbox. " +
-			"@bot has no open session: it sees it in its inbox or when a session resumes it. @alex sees it on the board or in their inbox.",
+			"@bot is disconnected: it sees it in its inbox or when its session reconnects. @alex sees it on the board or in their inbox.",
 	}
 	if !strings.HasPrefix(got[0], "Sent #") || !strings.HasSuffix(got[0], " to all on writer-reviewer") {
 		t.Fatalf("first line: %s", got[0])

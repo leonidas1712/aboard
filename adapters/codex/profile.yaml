@@ -76,7 +76,7 @@ delivery:
       why: before each tool call, adds the owner's messages and the waiting notice as additionalContext; never denies
     - event: SessionEnd
       run: end
-      why: closes the session (Codex allows 3 seconds)
+      why: closes the session (Codex allows 3 seconds); 0.159.3 was not seen to run it on quit or when its app server stopped
   mid_turn: tool-hook
   waiting_notice: true
 
@@ -90,3 +90,5 @@ notes:
   - "Verified live with Codex 0.159.3: idle wake through the queue, a message added at the next tool call, sub-agent refusal."
   - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. PostToolUse runs only after a tool succeeds, so it would miss failed tool calls; the tool hook is on PreToolUse.
   - Hook input carries session_id, turn_id and cwd, and agent_id and agent_type in a thread-spawned sub-agent; the tool hook ignores sub-agents.
+  - "Verified live with Codex 0.159.3: codex resume <id> keeps the thread id (CODEX_THREAD_ID and the hooks' session_id), and SessionStart runs with source resume, but only once the resumed thread's first turn starts, not when the terminal opens. The session-start hook then binds it again to its agent (D157), and the waiting message goes into its queue."
+  - "Verified live with Codex 0.159.3: Codex runs threads, and their hooks, in its own app server (codex app-server --managed-daemon, under CODEX_HOME), which outlives the terminal. The daemon therefore records that app server as the session's process. Quitting Codex prints \"Disconnected from this task. Any running work continues.\" and runs no SessionEnd; the thread stays loaded, so its session stays open, and a message posted afterwards was queued and answered with no terminal attached. The session closes when the app server stops (no SessionEnd ran then either; the daemon saw its process gone)."

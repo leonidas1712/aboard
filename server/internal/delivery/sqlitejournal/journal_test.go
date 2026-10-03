@@ -111,6 +111,9 @@ func TestMigrationKeepsEachSessionsLatestBinding(t *testing.T) {
 	}
 	// Go back to the schema that allowed several bindings per session.
 	for _, q := range []string{
+		"ALTER TABLE sessions DROP COLUMN lost_server",
+		"ALTER TABLE sessions DROP COLUMN lost_board",
+		"ALTER TABLE sessions DROP COLUMN lost_agent",
 		"DROP INDEX bindings_one_per_session",
 		"PRAGMA user_version = 3",
 		`INSERT INTO bindings VALUES
