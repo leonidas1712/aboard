@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aboard.example/spec/harness-profile.schema.json",
   "title": "Harness profile",
-  "description": "How Aboard works with one harness: how to check it, start it, run it headless, resume it, give it an identity and deliver messages into its sessions. One file per harness, at adapters/<harness>/profile.yaml. aboard init, the delivery daemon, aboard doctor and the launchers read it. Command lines are argument vectors, never shell strings; {prompt}, {session}, {dir} and {bundle} are filled in when they run.",
+  "description": "How Aboard works with one harness: how to check it, start it, run it headless, resume it, give it an identity, install into it and deliver messages into its sessions. One file per harness, at adapters/<harness>/profile.yaml. aboard init, doctor, status and uninstall, the hooks, the delivery daemon and the launchers read it through one generic implementation; a harness's own Go package overrides only what the profile can't say. Command lines are argument vectors, never shell strings; {prompt}, {session}, {dir} and {bundle} are filled in when they run.",
   "type": "object",
   "additionalProperties": false,
   "required": ["harness", "name", "drives", "command", "checks", "interactive", "headless", "identity", "delivery"],
@@ -28,13 +28,19 @@
       "description": "The program on the PATH.",
       "type": "string"
     },
+    "check_name": {
+      "description": "The short name aboard doctor gives this harness's checks and their codes: claude gives claude_hooks, claude_hooks_missing and claude_skill. The not-installed code is the harness's name with underscores, such as claude_code_not_installed. Default: the harness's name with underscores.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
     "checks": {
       "type": "object",
       "additionalProperties": false,
       "required": ["installed", "logged_in"],
       "properties": {
         "installed": { "$ref": "#/$defs/check" },
-        "logged_in": { "$ref": "#/$defs/check" }
+        "logged_in": { "$ref": "#/$defs/check" },
+        "min_version": { "type": "string", "description": "The oldest version of the harness Aboard works with, compared with the first version number its installed check prints. Read by the conformance kit." }
       }
     },
     "sandbox_env": {
@@ -42,13 +48,22 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "sandbox_network_env": {
+      "description": "The variables of sandbox_env the harness sets when its sandbox also blocks network access, local addresses and sockets included. A command that sees one and gets no answer from the server or the daemon fails with sandbox_blocks_network rather than saying they aren't running.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sandbox_fix": {
+      "description": "How the person gets the delivery daemon started outside the sandbox, completing \"Either …, so its session-start hook starts the daemon outside the sandbox\".",
+      "type": "string"
+    },
     "session_env": {
-      "description": "Variables set in the environment of every command the agent runs in a session, by the harness or by Aboard's hooks. A command that sees one runs inside a session, so it refuses human actions such as changing the delivery mode.",
+      "description": "The markers: variables set in the environment of every command the agent runs in a session, by the harness or by Aboard's hooks. A command that sees one runs inside a session, so it refuses human actions such as changing the delivery mode. A marker another harness sets too (omp sets CLAUDECODE) is resolved with identity.precedence and identity.yields_to.",
       "type": "array",
       "items": { "type": "string" }
     },
     "config_dir": {
-      "description": "The folder the harness reads its global config from: the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in skills_dir and delivery.hooks_file stands for it, so aboard init, doctor and status follow the variable.",
+      "description": "The folder the harness reads its global config from: the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in the install paths stands for it, so aboard init, doctor and status follow the variable.",
       "type": "object",
       "additionalProperties": false,
       "required": ["env", "default"],
@@ -58,11 +73,11 @@
       }
     },
     "skills_dir": {
-      "description": "Where aboard init puts the Aboard skill for every project: under the home directory, or under the config folder when it starts with {config_dir}.",
+      "description": "Deprecated: use install, with an item of kind skill. Where aboard init puts the Aboard skill for every project: under the home directory, or under the config folder when it starts with {config_dir}.",
       "type": "string"
     },
     "project": {
-      "description": "Where aboard init --scope project puts the skill and hooks, under the project directory. Hooks still run the installed aboard binary by absolute path.",
+      "description": "Deprecated: use install, whose items each name their project path. Where aboard init --scope project puts the skill and hooks, under the project directory. Hooks still run the installed aboard binary by absolute path.",
       "type": "object",
       "additionalProperties": false,
       "required": ["skills_dir", "hooks_file"],
@@ -72,7 +87,7 @@
       }
     },
     "allow_commands": {
-      "description": "How aboard init --allow-commands lets the agent run aboard commands without a permission prompt, in the harness's own permission format.",
+      "description": "Deprecated: use install, with an item of kind allow-rule. How aboard init --allow-commands lets the agent run aboard commands without a permission prompt, in the harness's own permission format.",
       "type": "object",
       "additionalProperties": false,
       "required": ["rule"],
@@ -124,14 +139,49 @@
         }
       }
     },
+    "install": {
+      "description": "What aboard init installs, in this order, and aboard uninstall takes out again. Paths: global is under the home directory, or under the config folder when it starts with {config_dir}; project is under the project directory. Hook commands run the installed aboard binary by absolute path in both scopes.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/installItem" }
+    },
     "identity": {
-      "description": "How a session knows which Aboard agent it is.",
+      "description": "How a session knows which Aboard agent it is, and how a command finds the session it runs in.",
       "type": "object",
       "additionalProperties": false,
       "required": ["session", "launched"],
       "properties": {
         "session": { "type": "string", "description": "How the CLI finds the session it runs in." },
-        "launched": { "type": "string", "description": "How a launcher passes the agent's identity to a session it starts, so no join line is pasted." }
+        "launched": { "type": "string", "description": "How a launcher passes the agent's identity to a session it starts, so no join line is pasted." },
+        "kind": {
+          "description": "Where the session id comes from. env: a variable the harness sets in every command the agent runs (identity.env). hook: only the hooks' input; Aboard's session-start hook writes ABOARD_SESSION=<harness>:<id> and ABOARD_BOOT to the file that identity.env_file names, which the harness loads into every command. extension: Aboard's extension inside the harness sets ABOARD_SESSION itself.",
+          "enum": ["env", "hook", "extension"]
+        },
+        "env": { "type": "string", "description": "For kind env, the variable that holds the session id." },
+        "env_file": { "type": "string", "description": "For kind hook, the variable that names the session's environment file." },
+        "precedence": { "type": "integer", "description": "When the markers of several harnesses are set, the one with the highest precedence is checked first. Default 0; equal ones are checked in the registry's order." },
+        "yields_to": {
+          "description": "Variables that mean a command runs in another harness that sets this harness's markers too. When one is set, the command isn't taken for this harness, and an ABOARD_SESSION naming it is ignored. Claude Code yields to OMPCODE, since omp sets CLAUDECODE as well.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "lifecycle": {
+      "description": "How a session starts, ends and stays alive.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "liveness": {
+          "description": "How the daemon knows a session is alive. process: its harness process is in the process table. connection: Aboard's extension inside the harness holds a connection to the daemon open.",
+          "enum": ["process", "connection"]
+        },
+        "outlives_terminal": { "type": "boolean", "description": "True when sessions run in a long-running harness process with no terminal (Codex's app server), so quitting the terminal leaves the session open." },
+        "resume_keeps_id": { "type": "boolean", "description": "True when resuming a session keeps its id, so the session-start hook binds it again to its agent." },
+        "resume_start": {
+          "description": "When a resumed session's start reaches Aboard. at-open: as it opens. first-turn: only once its first turn starts.",
+          "enum": ["at-open", "first-turn"]
+        },
+        "subagent_field": { "type": "string", "description": "The hook-input field that is set when a hook fires inside a subagent. Such hooks take nothing: the messages belong to the root conversation." }
       }
     },
     "delivery": {
@@ -141,11 +191,16 @@
       "required": ["method", "mid_turn"],
       "properties": {
         "method": {
-          "description": "stop-hook: a hook waits while the session is idle and wakes it. queue: the harness's own queue takes the bundle. none: the agent runs aboard inbox --wait itself.",
-          "enum": ["stop-hook", "queue", "none"]
+          "description": "stop-hook: a hook waits while the session is idle and wakes it. queue: the harness's own queue takes the bundle. extension: Aboard's extension inside the harness receives bundles over its connection to the daemon. none: the agent runs aboard inbox --wait itself. delivery.capabilities says more.",
+          "enum": ["stop-hook", "queue", "extension", "none"]
+        },
+        "capabilities": {
+          "description": "How messages reach a session, each a separate capability. idle-hook: a hook waits while the session is idle and wakes it with the bundle. queue: a command puts the bundle in the session's own queue, which starts it when the turn ends. tool-boundary: a hook adds the owner's messages to a running turn after a tool call. turn-start: a hook adds them as a turn starts. extension: Aboard's extension inside the harness holds a connection to the daemon, registers its session and process, receives bundles and confirms them. none: the skill has the agent run aboard inbox --wait.",
+          "type": "array",
+          "items": { "enum": ["idle-hook", "queue", "tool-boundary", "turn-start", "extension", "none"] }
         },
         "queue": { "$ref": "#/$defs/argv", "description": "For queue delivery, the command that queues a bundle." },
-        "hooks_file": { "type": "string", "description": "Where aboard init installs the hooks for every project: under the home directory, or under the config folder when it starts with {config_dir}." },
+        "hooks_file": { "type": "string", "description": "Deprecated: use install, with an item of kind hooks. Where aboard init installs the hooks for every project: under the home directory, or under the config folder when it starts with {config_dir}." },
         "hooks": {
           "type": "array",
           "items": {
@@ -155,6 +210,12 @@
             "properties": {
               "event": { "type": "string", "description": "The harness's name for the hook event." },
               "run": { "type": "string", "description": "The argument to aboard hook <harness>." },
+              "op": {
+                "description": "What the hook does, in common terms. session-start: registers the session. prompt: a turn starts. wait: waits while the session is idle, and wakes it with a bundle. turn-end: the turn ended. tool: a tool boundary, where the owner's messages are added. end: the session closed.",
+                "enum": ["session-start", "prompt", "wait", "turn-end", "tool", "end"]
+              },
+              "timeout": { "type": "integer", "minimum": 1, "description": "The hook's timeout in seconds, written into its entry." },
+              "options": { "type": "object", "description": "More settings of the hook's entry, in the harness's own words, written after its timeout: asyncRewake for Claude Code, additionalContextLimit for Codex." },
               "since": { "type": "string", "description": "The first version of the harness with this hook event. aboard init installs it when the harness reports this version or later, or no version, and the fallback events otherwise." },
               "fallback": { "type": "array", "items": { "type": "string" }, "description": "With since: the hook events that run the same command on older versions." },
               "why": { "type": "string" }
@@ -190,6 +251,55 @@
       "properties": {
         "run": { "$ref": "#/$defs/argv" },
         "json_true": { "type": "string", "description": "A field of the JSON output that must be true; otherwise exit status 0 is enough." }
+      }
+    },
+    "installItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "description": "skill: the Aboard skill, a file Aboard owns. hooks: the delivery hooks, merged into a file shared with the person. file: a file inside the harness that Aboard owns, such as an extension, built into the binary. allow-rule: what aboard init --allow-commands adds so the agent runs aboard commands without a permission prompt. consent: a step the person takes before the harness uses what was installed.",
+          "enum": ["skill", "hooks", "file", "allow-rule", "consent"]
+        },
+        "global": { "type": "string", "description": "Where the item goes for every project." },
+        "project": { "type": "string", "description": "Where the item goes for this project only, under its directory." },
+        "format": {
+          "description": "For hooks, the shared file's format. json: {\"hooks\": {<event>: [{\"hooks\": [<entry>]}]}}, the other keys kept as they are.",
+          "enum": ["json"]
+        },
+        "source": { "type": "string", "description": "For file, the name of the file built into aboard." },
+        "rule": { "type": "string", "description": "For allow-rule, the rule exactly as written. Without global and project paths, it goes in permissions.allow of the hooks file. With them, it goes in a file Aboard owns that holds only it, and counts as allowed in any file with the same extension in that folder, since the harness reads them all." },
+        "accepts": {
+          "description": "For allow-rule, other forms of the rule that already allow aboard.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "note": { "type": "string", "description": "For allow-rule, one line shown under the change, saying what the rule does in this harness." },
+        "required": {
+          "description": "For allow-rule, set when aboard commands can't reach Aboard from the harness without the rule (Codex's sandbox blocks network access): init recommends it, and doctor warns without it.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["why", "advice", "missing", "allowed", "not_allowed"],
+          "properties": {
+            "why": { "type": "string", "description": "Why the rule is needed, in init's question." },
+            "advice": { "type": "string", "description": "The line init adds when it sets the harness up without the rule." },
+            "missing": { "type": "string", "description": "What init's overview says without the rule." },
+            "allowed": { "type": "string", "description": "What doctor says with the rule, before the file that holds it." },
+            "not_allowed": { "type": "string", "description": "What doctor says without the rule." }
+          }
+        },
+        "missing": {
+          "description": "For hooks, what doctor reports when they aren't installed. Without it, an error.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "level": { "enum": ["warning", "error"] },
+            "effect": { "type": "string", "description": "What the person loses without the hooks, after a comma." }
+          }
+        },
+        "text": { "type": "string", "description": "For consent, what the person does, completing \"<harness> asks you to trust new hooks before they run: …\"." },
+        "project_text": { "type": "string", "description": "For consent, one more line after a project setup." }
       }
     }
   }
