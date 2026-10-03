@@ -339,7 +339,7 @@ Every command takes `--json` and prints one JSON object; errors are
 
 ## Roadmap
 
-v0.1 is built in thin, end-to-end steps, each one working before the next starts.
+v0.1 is built in thin, end-to-end steps, each one working before the next starts. The feature-level plan, with what's done and what's next, is [design/ROADMAP.md](design/ROADMAP.md).
 
 - [x] **Local pair over the CLI:** boards, join codes, messages, inbox, the hash-chained log, `audit verify`.
 - [x] **Delivery into live sessions:** the daemon, bundling, urgent messages, Claude Code and Codex, `aboard init`, `aboard doctor`.
