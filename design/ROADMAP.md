@@ -46,7 +46,7 @@ one more thing that can break when they do, so team behaviour is proven first.
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | later | D149 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
 | Pause and resume a board; remove an agent (owner or admin) | later | D97 |
-| The two-machine test: two machines on one hosted server, as a live test and a release-checklist step | later | |
+| The two-machine test: two machines on one hosted server, by hand as a release-checklist step (automating it across machines is an idea for later) | later | |
 | Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | later | |
 
 ## Alongside: testing and release groundwork
@@ -210,6 +210,7 @@ In this order.
 | Idea | Notes |
 | --- | --- |
 | A summariser agent writing richer "Now:" summaries, signed by who wrote them | D119 |
+| Automated live tests across machines: harnesses on two hosts against one hosted server, driven from one place | Once the two-machine test by hand is routine |
 | A join code that offers a choice of roles | |
 | Team-server templates managed by admins and offered in the board view | D111 |
 | `aboard runner`: an opt-in, owner-only launch service | D105 |
