@@ -30,6 +30,10 @@ var oldBinary string
 // oldVersion is oldBinary's version, older than the source's.
 const oldVersion = "0.0.1"
 
+// unstampedBinary is aboard at the source's version built without Git information,
+// playing a build from before servers reported their commit.
+var unstampedBinary string
+
 // fakeBin holds the fake codex binary, first on every test's PATH.
 var fakeBin string
 
@@ -58,6 +62,14 @@ func TestMain(m *testing.M) {
 	old.Stdout, old.Stderr = os.Stderr, os.Stderr
 	if err := old.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
+		os.Exit(1)
+	}
+	unstampedBinary = filepath.Join(dir, "unstamped", "aboard")
+	unstamped := exec.Command("go", "build", "-race", "-buildvcs=false", "-o", unstampedBinary, "./server/cmd/aboard")
+	unstamped.Dir = ".."
+	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
+	if err := unstamped.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
 		os.Exit(1)
 	}
 	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")

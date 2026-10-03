@@ -33,18 +33,26 @@ func (e *env) serverPID() int { return pidIn(filepath.Join(e.dataDir(), "server.
 // serverVersion is the version the local server reports in GET /v1/info.
 func (e *env) serverVersion() string {
 	e.t.Helper()
+	return e.serverInfo().Version
+}
+
+// serverInfo is the build the local server reports in GET /v1/info.
+func (e *env) serverInfo() (info struct {
+	Version    string `json:"version"`
+	Commit     string `json:"commit"`
+	CommitTime string `json:"commit_time"`
+},
+) {
+	e.t.Helper()
 	resp, err := http.Get("http://" + e.addr + "/v1/info")
 	if err != nil {
 		e.t.Fatalf("GET /v1/info: %v", err)
 	}
 	defer resp.Body.Close()
-	var info struct {
-		Version string `json:"version"`
-	}
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		e.t.Fatalf("decode /v1/info: %v", err)
 	}
-	return info.Version
+	return info
 }
 
 // doctorChecks runs aboard doctor and returns its checks by name. A name with several
@@ -150,6 +158,34 @@ func TestOlderLocalServerIsReplacedAndKeepsItsData(t *testing.T) {
 	}
 	if v := e.serverVersion(); v == oldVersion {
 		t.Fatalf("the server still reports the older version %q", v)
+	}
+}
+
+// A local server from a build of the same version that predates commit reporting is
+// replaced by a build that reports its commit, and every board and message is still
+// there.
+func TestLocalServerWithoutACommitIsReplacedByOneWithACommit(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.bin = unstampedBinary
+	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
+	e.run("join", line)
+	e.run("say", "--as", "writer", "--to", "@reviewer", "written before commit reporting")
+	oldPID := e.serverPID()
+	if info := e.serverInfo(); info.Commit != "" || info.CommitTime != "" {
+		t.Fatalf("the unstamped server reports commit %q at %q, want neither", info.Commit, info.CommitTime)
+	}
+
+	e.bin = binary
+	inbox := e.run("inbox", "--as", "reviewer", "--json")
+	if got := field(t, inbox.json(t), "messages.0.body"); got != "written before commit reporting" {
+		t.Fatalf("message after the upgrade: %v\n%s", got, inbox)
+	}
+	if pid := e.serverPID(); pid == oldPID {
+		t.Fatalf("the server without a commit (pid %d) is still running", oldPID)
+	}
+	if info := e.serverInfo(); info.CommitTime == "" {
+		t.Fatalf("the server reports no commit time after the upgrade: %+v", info)
 	}
 }
 

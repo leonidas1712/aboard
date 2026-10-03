@@ -25,7 +25,8 @@ func TestCompareBuilds(t *testing.T) {
 		{"unreadable version is oldest", delivery.Build{Version: "dev"}, delivery.Build{Version: "0.0.1"}, -1},
 		{"two unreadable versions are equal", delivery.Build{Version: "dev"}, delivery.Build{}, 0},
 		{"same version, later commit", delivery.Build{Version: "0.1.0", CommitTime: late}, delivery.Build{Version: "0.1.0", CommitTime: early}, 1},
-		{"same version, unknown commit time", delivery.Build{Version: "0.1.0"}, delivery.Build{Version: "0.1.0", CommitTime: late}, 0},
+		{"same version, no commit time is older", delivery.Build{Version: "0.1.0"}, delivery.Build{Version: "0.1.0", CommitTime: late}, -1},
+		{"same version, neither has a commit time", delivery.Build{Version: "0.1.0", Commit: "abc"}, delivery.Build{Version: "0.1.0"}, 0},
 		{"version wins over commit time", delivery.Build{Version: "0.1.0", CommitTime: late}, delivery.Build{Version: "0.1.1", CommitTime: early}, -1},
 	}
 	for _, tt := range tests {
