@@ -47,22 +47,31 @@ export function identityOf(id: string): number {
 }
 
 /**
- * identitiesOf gives each member of a board its identity colour: the one its id picks,
- * or, when an earlier member already has that colour, the next free one. Members keep
- * their join order, so each keeps its colour; past eight members colours repeat.
+ * identitiesOf gives each agent of a board its identity colour: the one its id picks,
+ * or, when a person or an earlier agent already has that colour, the next free one.
+ * Agents keep their join order, so each keeps its colour; past eight senders colours
+ * repeat. taken holds the people's colours, which never move.
  */
-export function identitiesOf(ids: string[]): Map<string, number> {
+export function identitiesOf(ids: string[], taken: Set<number> = new Set()): Map<string, number> {
   const out = new Map<string, number>();
-  const taken = new Set<number>();
+  const used = new Set(taken);
   for (const id of ids) {
     let n = identityOf(id);
-    if (taken.size < identities) {
-      while (taken.has(n)) n = (n % identities) + 1;
+    if (used.size < identities) {
+      while (used.has(n)) n = (n % identities) + 1;
     }
-    taken.add(n);
+    used.add(n);
     out.set(id, n);
   }
   return out;
+}
+
+/**
+ * personIdentity is a person's identity colour, the same on every board and page: from
+ * their id when it is you (GET /v1/me), else from their name, which is unique on a server.
+ */
+export function personIdentity(name: string, me: { id: string; name: string } | null): number {
+  return identityOf(me && me.name === name ? me.id : `human:${name}`);
 }
 
 // Names agents get from their harness, and the two letters their marks show.
@@ -283,4 +292,44 @@ export function eventMatches(e: BoardEvent, from: string | undefined, role: stri
   if (from) return e.actor.name === from || (e.type === "member.joined" && d.name === from);
   if (role) return e.type === "member.joined" && d.role === role;
   return true;
+}
+
+/** A charter block: a paragraph, or a list of the lines that start with "- ". */
+export type CharterBlock = { kind: "paragraph"; text: string } | { kind: "list"; items: string[] };
+
+/**
+ * charterBlocks reads a charter the way its author wrote it in YAML: single line
+ * breaks inside a paragraph join with a space, a blank line starts a new paragraph,
+ * and lines starting with "- " are list items.
+ */
+export function charterBlocks(text: string): CharterBlock[] {
+  const out: CharterBlock[] = [];
+  for (const chunk of text.replace(/\r\n?/g, "\n").split(/\n\s*\n/)) {
+    let words: string[] = [];
+    let items: string[] = [];
+    const flushWords = () => {
+      if (words.length) out.push({ kind: "paragraph", text: words.join(" ") });
+      words = [];
+    };
+    const flushItems = () => {
+      if (items.length) out.push({ kind: "list", items });
+      items = [];
+    };
+    for (const raw of chunk.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (/^[-*] /.test(line)) {
+        flushWords();
+        items.push(line.slice(2).trim());
+      } else if (items.length && /^\s{2,}/.test(raw)) {
+        items[items.length - 1] += ` ${line}`;
+      } else {
+        flushItems();
+        words.push(line);
+      }
+    }
+    flushWords();
+    flushItems();
+  }
+  return out;
 }

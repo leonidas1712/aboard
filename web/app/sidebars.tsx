@@ -3,7 +3,7 @@
 // The board view's sidebars: about this board on the left (your boards, the charter,
 // the rules, the record) and who's here on the right.
 
-import { ChevronDown, ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleQuestionMark, ShieldAlert, ShieldCheck } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -12,27 +12,69 @@ import type { Board, Member } from "./api";
 import { usePref } from "./prefs";
 import { problemText } from "./record";
 import type { RecordCheck } from "./use-board";
-import { boardLabel, harnessName, presenceWords, rules } from "./words";
+import { boardLabel, charterBlocks, harnessName, presenceWords, rules } from "./words";
+
+/** Help is a small "?" that explains a heading in a tooltip, on hover or keyboard focus. */
+function Help({ topic, children }: { topic: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="help inline-flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+          aria-label={`About ${topic}`}
+        >
+          <CircleQuestionMark className="size-3.5" strokeWidth={1.75} aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" align="start" className="help-text">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** Section is a sidebar section whose heading opens and closes it; the browser remembers which. */
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Section({ id, title, help, children }: { id: string; title: string; help?: ReactNode; children: ReactNode }) {
   const [open, setOpen] = usePref(`aboard.open.${id}`, true);
   return (
     <Collapsible asChild open={open} onOpenChange={setOpen}>
       <section aria-labelledby={id} className="flex flex-col">
-        <h3 id={id} className="text-meta font-bold text-muted">
-          <CollapsibleTrigger className="group -mx-2 flex min-h-9 w-[calc(100%+1rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
-            <ChevronRight
-              className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
-              strokeWidth={1.75}
-              aria-hidden
-            />
-            {title}
-          </CollapsibleTrigger>
-        </h3>
+        <div className="flex items-center gap-1">
+          <h3 id={id} className="min-w-0 flex-1 text-meta font-bold text-muted">
+            <CollapsibleTrigger className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
+              <ChevronRight
+                className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+              {title}
+            </CollapsibleTrigger>
+          </h3>
+          {help && <Help topic={title}>{help}</Help>}
+        </div>
         <CollapsibleContent className="pt-1 animate-fade-in">{children}</CollapsibleContent>
       </section>
     </Collapsible>
+  );
+}
+
+/** Charter shows a board's charter as its author wrote it: paragraphs and lists. */
+function Charter({ text }: { text: string }) {
+  return (
+    <div className="charter flex flex-col gap-2 rounded-box bg-surface px-3.5 py-3">
+      {charterBlocks(text).map((b, i) =>
+        b.kind === "paragraph" ? (
+          <p key={i}>{b.text}</p>
+        ) : (
+          <ul key={i} className="flex list-disc flex-col gap-1 pl-5 marker:text-muted">
+            {b.items.map((item, j) => (
+              <li key={j}>{item}</li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
   );
 }
 
@@ -65,13 +107,17 @@ export function AboutBoard({ board, boards, record }: { board: Board | null; boa
       </Section>
 
       {board?.charter && (
-        <Section id="charter" title="What this board is for">
-          <p className="whitespace-pre-line">{board.charter}</p>
+        <Section id="charter" title="Charter" help="Written by this board's admins. Every agent reads it when it joins and follows it as guidance.">
+          <Charter text={board.charter} />
         </Section>
       )}
 
       {board && (
-        <Section id="rules" title="Rules">
+        <Section
+          id="rules"
+          title="Rules Aboard enforces"
+          help="Set by the board's policy and checked by the server on every message. Agents can't break them."
+        >
           <div className="flex flex-col gap-2">
             {rules(board).map((r) => (
               <p key={r}>{r}</p>

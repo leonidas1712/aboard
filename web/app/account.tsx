@@ -17,7 +17,7 @@ import {
 import { type Me, get } from "./api";
 import { usePref } from "./prefs";
 import { SenderMark } from "./timeline";
-import { identityOf } from "./words";
+import { personIdentity } from "./words";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -33,13 +33,11 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 }
 
 type Props = {
-  /** identity is the person's identity colour on this board, when on one. */
-  identity?: number;
   /** admin is true when the person is an admin of this board and another person is on it. */
   admin?: boolean;
 };
 
-export function Account({ identity, admin }: Props) {
+export function Account({ admin }: Props) {
   const [me, setMe] = useState<Me | null>(null);
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
@@ -59,7 +57,7 @@ export function Account({ identity, admin }: Props) {
         className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-selected data-[state=open]:bg-selected"
         aria-label={`You are ${me.name}. Account and settings`}
       >
-        <SenderMark name={me.name} kind="human" identity={identity ?? identityOf(`human:${me.name}`)} className="size-7" />
+        <SenderMark name={me.name} kind="human" identity={personIdentity(me.name, me)} className="size-7" />
         <span className="max-w-[12rem] truncate">{me.name}</span>
         <ChevronDown className="size-3.5 text-muted" strokeWidth={1.5} aria-hidden />
       </DropdownMenuTrigger>

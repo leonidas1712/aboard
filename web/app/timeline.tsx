@@ -35,6 +35,8 @@ type Props = {
   /** resetKey changes when the timeline shows something else, such as a new filter. */
   resetKey: string;
   empty: ReactNode;
+  /** column is the class of the centred reading column inside the scrolling area. */
+  column: string;
 };
 
 const nearBottom = 48;
@@ -75,6 +77,7 @@ export function Timeline({
   stick,
   resetKey,
   empty,
+  column,
 }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -117,7 +120,12 @@ export function Timeline({
     } else if (messageCount > prev.messages && newestSeq > prev.last) {
       setUnseen((n) => n + entries.filter((e) => e.kind === "message" && e.seq > prev.last).length);
     }
-    lastCount.current = { first, last: newestSeq, height: el.scrollHeight, messages: messageCount };
+    lastCount.current = {
+      first,
+      last: newestSeq,
+      height: el.scrollHeight,
+      messages: messageCount,
+    };
   }, [entries, newestSeq, messageCount]);
 
   useEffect(() => {
@@ -161,43 +169,45 @@ export function Timeline({
         aria-relevant="additions"
         tabIndex={0}
       >
-        {hasEarlier && (
-          <div className="flex justify-center pt-3">
-            <Button variant="quiet" onClick={loadEarlier}>
-              Show earlier messages
-            </Button>
-          </div>
-        )}
-        <ol className="flex flex-col pb-4">
-          {entries.map((x, i) => {
-            const divider = dividerSeq !== null && x.seq === dividerSeq && i > 0;
-            const next = entries[i + 1];
-            const nextDivider = next !== undefined && dividerSeq !== null && next.seq === dividerSeq;
-            return (
-              <Fragment key={x.kind === "message" ? x.m.id : x.e.id}>
-                {divider && <NewDivider />}
-                {x.kind === "message" ? (
-                  <MessageEntry
-                    m={x.m}
-                    now={now}
-                    quote={quote(x.m)}
-                    answer={x.m.expects_reply ? answer(x.m) : null}
-                    identity={identity(x.m.from)}
-                    waiting={waiting.has(x.m.id)}
-                    onReply={() => onReply(x.m)}
-                    grouped={!divider && continues(entries[i - 1], x)}
-                    groupGoesOn={!nextDivider && next !== undefined && continues(x, next)}
-                    ruled={i > 0 && !divider && entries[i - 1].kind === "message"}
-                    arrived={x.seq > openedAt.current!}
-                  />
-                ) : (
-                  <EventLine e={x.e} line={x.line} now={now} arrived={x.seq > openedAt.current!} />
-                )}
-              </Fragment>
-            );
-          })}
-        </ol>
-        {messageCount === 0 && empty}
+        <div className={column}>
+          {hasEarlier && (
+            <div className="flex justify-center pt-3">
+              <Button variant="quiet" onClick={loadEarlier}>
+                Show earlier messages
+              </Button>
+            </div>
+          )}
+          <ol className="flex flex-col pb-4">
+            {entries.map((x, i) => {
+              const divider = dividerSeq !== null && x.seq === dividerSeq && i > 0;
+              const next = entries[i + 1];
+              const nextDivider = next !== undefined && dividerSeq !== null && next.seq === dividerSeq;
+              return (
+                <Fragment key={x.kind === "message" ? x.m.id : x.e.id}>
+                  {divider && <NewDivider />}
+                  {x.kind === "message" ? (
+                    <MessageEntry
+                      m={x.m}
+                      now={now}
+                      quote={quote(x.m)}
+                      answer={x.m.expects_reply ? answer(x.m) : null}
+                      identity={identity(x.m.from)}
+                      waiting={waiting.has(x.m.id)}
+                      onReply={() => onReply(x.m)}
+                      grouped={!divider && continues(entries[i - 1], x)}
+                      groupGoesOn={!nextDivider && next !== undefined && continues(x, next)}
+                      ruled={i > 0 && !divider && entries[i - 1].kind === "message"}
+                      arrived={x.seq > openedAt.current!}
+                    />
+                  ) : (
+                    <EventLine e={x.e} line={x.line} now={now} arrived={x.seq > openedAt.current!} />
+                  )}
+                </Fragment>
+              );
+            })}
+          </ol>
+          {messageCount === 0 && empty}
+        </div>
       </div>
       <div
         className={cn(
@@ -259,7 +269,17 @@ function Time({ at, now }: { at: string; now: number }) {
 }
 
 /** SenderMark is a sender's one or two letters on its identity colour. */
-export function SenderMark({ name, kind, identity, className }: { name: string; kind: "agent" | "human"; identity: number; className?: string }) {
+export function SenderMark({
+  name,
+  kind,
+  identity,
+  className,
+}: {
+  name: string;
+  kind: "agent" | "human";
+  identity: number;
+  className?: string;
+}) {
   const mark = markOf(name, kind);
   return (
     <span
@@ -269,7 +289,10 @@ export function SenderMark({ name, kind, identity, className }: { name: string; 
         mark.length > 1 ? "text-[13px]" : "text-body",
         className,
       )}
-      style={{ background: `var(--id-${identity}-bg)`, color: `var(--id-${identity}-fg)` }}
+      style={{
+        background: `var(--id-${identity}-bg)`,
+        color: `var(--id-${identity}-fg)`,
+      }}
     >
       {mark}
     </span>
@@ -337,7 +360,10 @@ function MessageEntry({
 }) {
   const self = m.sender === "self";
   const sender = self ? "You" : displayName(m.from, m.show_owner);
-  const about = m.from.kind === "agent" ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ") : undefined;
+  const about =
+    m.from.kind === "agent"
+      ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ")
+      : undefined;
   const outlined = standsAlone(m) && !answer;
   const replyButton = !waiting && (
     <button

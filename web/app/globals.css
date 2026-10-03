@@ -31,6 +31,7 @@
   --rule: #cbd3d6;
   --field-border: #7a8a94;
   --selected: #e1e8eb;
+  --sidebar: #e9eded;
   --accent: #2f7fa6;
   --link: #1f5a78;
   --attention: #f3dfa8;
@@ -66,6 +67,7 @@
     --rule: #293944;
     --field-border: #5a6e7a;
     --selected: #22333e;
+    --sidebar: #0a1216;
     --accent: #63b3d8;
     --link: #8ccbe6;
     --attention: #3a3016;
@@ -97,6 +99,7 @@
   --rule: #293944;
   --field-border: #5a6e7a;
   --selected: #22333e;
+  --sidebar: #0a1216;
   --accent: #63b3d8;
   --link: #8ccbe6;
   --attention: #3a3016;
@@ -129,6 +132,9 @@
   /* Outlines for messages that ask for a reply (faint) or are urgent (stronger). */
   --outline-faint: color-mix(in oklab, var(--accent) 40%, var(--background));
   --outline-strong: color-mix(in oklab, var(--accent) 75%, var(--background));
+  /* The message box while it has focus: a slightly stronger edge and a faint glow. */
+  --field-focus: color-mix(in oklab, var(--accent) 55%, var(--field-border));
+  --focus-glow: color-mix(in oklab, var(--accent) 16%, transparent);
   /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
 }
@@ -141,6 +147,7 @@
   --color-rule: var(--rule);
   --color-field-border: var(--field-border);
   --color-selected: var(--selected);
+  --color-sidebar: var(--sidebar);
   --color-accent: var(--accent);
   --color-link: var(--link);
   --color-attention: var(--attention);

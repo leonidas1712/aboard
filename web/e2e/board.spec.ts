@@ -102,6 +102,24 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(crew.locator('[data-agent="writer"]')).toBeVisible();
   await expect(crew.locator('[data-agent="reviewer"]')).toContainText("no session");
 
+  // The charter reads as paragraphs, not the template's hard line breaks, and both the
+  // charter and the enforced rules explain themselves.
+  const charter = page.locator(".charter");
+  await expect(charter.locator("p").first()).toContainText("one document together. The writer drafts");
+  await page.getByRole("button", { name: "About Charter" }).hover();
+  await expect(page.locator(".help-text").first()).toContainText("Every agent reads it when it joins");
+  await page.mouse.move(0, 0);
+  await page.getByRole("button", { name: "About Rules Aboard enforces" }).focus();
+  await expect(page.locator(".help-text").first()).toContainText("checked by the server on every message");
+
+  // The message box is one field, marked focused while any part of it has focus.
+  const field = page.locator(".composer-field");
+  await expect(field).not.toHaveAttribute("data-focused", /./);
+  await page.getByRole("textbox", { name: "Message everyone" }).focus();
+  await expect(field).toHaveAttribute("data-focused", "true");
+  await page.getByRole("textbox", { name: "Message everyone" }).blur();
+  await expect(field).not.toHaveAttribute("data-focused", /./);
+
   // Joins show inline as board events; the Filter panel hides them, a chip says so, and
   // removing the chip shows them again.
   const joins = page.locator(".board-event", { hasText: "reviewer joined as reviewer" });

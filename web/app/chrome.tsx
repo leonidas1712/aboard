@@ -16,7 +16,7 @@ export function Header({
 }: { board?: string; title?: string | null; starter?: boolean; account?: ReactNode }) {
   return (
     <header className="border-b border-rule bg-surface">
-      <div className="mx-auto flex min-h-16 max-w-[1480px] flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-6">
+      <div className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-5">
       <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
         <MessagesSquare className="size-[22px]" strokeWidth={1.5} aria-hidden />
         Aboard

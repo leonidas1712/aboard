@@ -16,7 +16,11 @@ import { readStored, store, usePref } from "./prefs";
 import { AboutBoard, WhosHere } from "./sidebars";
 import { type Entry, Timeline } from "./timeline";
 import { type Filter, filterActive, useBoard } from "./use-board";
-import { type NowPart, eventLine, eventMatches, identitiesOf, identityOf, nowLine } from "./words";
+import { type NowPart, eventLine, eventMatches, identitiesOf, identityOf, nowLine, personIdentity } from "./words";
+
+// The reading column the "Now:" line, the timeline and the message box share, centred
+// in whatever room the panels leave.
+const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
 
 const leftPanel: Limits = { initial: 272, min: 240, max: 400 };
 const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
@@ -25,8 +29,14 @@ export default function BoardView({ name }: { name: string }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
-  const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", { width: leftPanel.initial, collapsed: false });
-  const [rightPref, setRight] = usePref<PanelSize>("aboard.panel.right", { width: rightPanel.initial, collapsed: false });
+  const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {
+    width: leftPanel.initial,
+    collapsed: false,
+  });
+  const [rightPref, setRight] = usePref<PanelSize>("aboard.panel.right", {
+    width: rightPanel.initial,
+    collapsed: false,
+  });
   const left = clampSize(leftPref, leftPanel);
   const right = clampSize(rightPref, rightPanel);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -71,10 +81,20 @@ export default function BoardView({ name }: { name: string }) {
 
   const colours = useMemo(() => {
     const members = s.members ?? [];
-    const byId = identitiesOf(members.map((m) => m.id));
-    return new Map(members.map((m) => [`${m.kind}:${m.name}`, byId.get(m.id) ?? 1]));
-  }, [s.members]);
-  const identity = useCallback((from: MemberRef) => colours.get(`${from.kind}:${from.name}`) ?? identityOf(`${from.kind}:${from.name}`), [colours]);
+    const out = new Map<string, number>();
+    for (const p of members.filter((m) => m.kind === "human")) out.set(`human:${p.name}`, personIdentity(p.name, s.me));
+    const agentIds = members.filter((m) => m.kind === "agent");
+    const byId = identitiesOf(
+      agentIds.map((a) => a.id),
+      new Set(out.values()),
+    );
+    for (const a of agentIds) out.set(`agent:${a.name}`, byId.get(a.id) ?? 1);
+    return out;
+  }, [s.members, s.me]);
+  const identity = useCallback(
+    (from: MemberRef) => colours.get(`${from.kind}:${from.name}`) ?? identityOf(`${from.kind}:${from.name}`),
+    [colours],
+  );
 
   const entries = useMemo<Entry[]>(() => {
     const msgs = s.shown ?? [];
@@ -114,10 +134,16 @@ export default function BoardView({ name }: { name: string }) {
   );
 
   const mine = (s.members ?? []).find((m) => m.kind === "human" && m.name === me);
-  const myIdentity = mine ? colours.get(`human:${mine.name}`) : undefined;
   const myAccess = mine?.access ?? null;
 
-  const pick = useCallback((member: string) => setFilter((f) => ({ ...f, from: f.from === member ? undefined : member })), []);
+  const pick = useCallback(
+    (member: string) =>
+      setFilter((f) => ({
+        ...f,
+        from: f.from === member ? undefined : member,
+      })),
+    [],
+  );
 
   const now = nowLine(
     {
@@ -150,18 +176,26 @@ export default function BoardView({ name }: { name: string }) {
           board={name}
           title={s.board?.title}
           starter={s.board?.policy.preset === "starter"}
-          account={<Account identity={myIdentity} admin={people.length > 1 && myAccess === "admin"} />}
+          account={<Account admin={people.length > 1 && myAccess === "admin"} />}
         />
         <div
-          className="board-columns mx-auto flex w-full max-w-[1480px] flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)] min-[1480px]:border-x min-[1480px]:border-rule"
+          className="board-columns flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)]"
           style={{ "--columns": columns } as CSSProperties}
         >
-          <SidePanel side="left" title="About this board" label="About this board" size={left} setSize={setLeft} limits={leftPanel} className="order-2 lg:order-none">
+          <SidePanel
+            side="left"
+            title="About this board"
+            label="About this board"
+            size={left}
+            setSize={setLeft}
+            limits={leftPanel}
+            className="order-2 lg:order-none"
+          >
             <AboutBoard board={s.board} boards={s.boards} record={s.record} />
           </SidePanel>
 
-          <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] min-w-0 flex-col px-4 sm:px-6 lg:order-none lg:h-auto lg:min-h-0 xl:px-8">
-            <div className="mx-auto flex h-full min-h-0 w-full max-w-[800px] flex-col">
+          <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] min-w-0 flex-col lg:order-none lg:h-auto lg:min-h-0">
+            <div className={column}>
               <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
                 <NowLine parts={loading ? null : now} />
                 <FilterControl
@@ -179,25 +213,30 @@ export default function BoardView({ name }: { name: string }) {
                   <Problem error={error} />
                 </div>
               )}
-              {loading ? (
+            </div>
+            {loading ? (
+              <div className={cn(column, "min-h-0 flex-1")}>
                 <Loading />
-              ) : (
-                <Timeline
-                  entries={entries}
-                  dividerSeq={filterActive(filter) ? null : dividerSeq}
-                  hasEarlier={s.hasEarlier}
-                  loadEarlier={s.loadEarlier}
-                  quote={quote}
-                  answer={answer}
-                  identity={identity}
-                  waiting={waiting}
-                  onReply={setReplyTo}
-                  onSeen={onSeen}
-                  stick={stick}
-                  resetKey={JSON.stringify(filter)}
-                  empty={filterActive(filter) ? <NoMatches clear={() => setFilter({})} /> : <Empty agents={agents.length} />}
-                />
-              )}
+              </div>
+            ) : (
+              <Timeline
+                column={column}
+                entries={entries}
+                dividerSeq={filterActive(filter) ? null : dividerSeq}
+                hasEarlier={s.hasEarlier}
+                loadEarlier={s.loadEarlier}
+                quote={quote}
+                answer={answer}
+                identity={identity}
+                waiting={waiting}
+                onReply={setReplyTo}
+                onSeen={onSeen}
+                stick={stick}
+                resetKey={JSON.stringify(filter)}
+                empty={filterActive(filter) ? <NoMatches clear={() => setFilter({})} /> : <Empty agents={agents.length} />}
+              />
+            )}
+            <div className={column}>
               <Composer
                 board={name}
                 agents={agents}
@@ -213,7 +252,15 @@ export default function BoardView({ name }: { name: string }) {
             </div>
           </main>
 
-          <SidePanel side="right" title="Who's here" label="Who's here" size={right} setSize={setRight} limits={rightPanel} className="order-3 lg:order-none">
+          <SidePanel
+            side="right"
+            title="Who's here"
+            label="Who's here"
+            size={right}
+            setSize={setRight}
+            limits={rightPanel}
+            className="order-3 lg:order-none"
+          >
             <WhosHere board={s.board} members={s.members} me={me} from={filter.from} onPick={pick} />
           </SidePanel>
         </div>

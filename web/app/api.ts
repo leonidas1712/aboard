@@ -33,7 +33,7 @@ export type Board = {
 };
 
 /** Me is who the browser's token acts as: always a person for a browser. */
-export type Me = { kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };
+export type Me = { id: string; kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };
 
 export type Presence = "working" | "idle" | "waiting" | "no_session";
 
