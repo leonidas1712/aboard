@@ -429,6 +429,15 @@ Why: "does Aboard work with my harness?" should have an answer from a test, not 
 **D131. Launchers get the same treatment when `swarm up` is built: one launcher protocol and one kit (start, stop, status, the identity passed in, the session alive), run against any launcher. Terminal managers such as herdr need nothing from Aboard to host sessions people start themselves, since delivery attaches to the harness inside them; a launcher adapter only matters for starting sessions.**
 Why: launchers will multiply like harnesses, and the same pattern keeps each one a small, tested adapter.
 
+**D132. A board has a name and a title. The name stays the short, unique address used in join lines, `.aboard` files and `--board` (`general`, `writer-reviewer-2`); the title is free text people read ("Payments retry design"), set when the board is made (`aboard pair --title "…"`) and changed by its admins, recorded as an event. The board view shows the title, with the name beside it; a board without a title shows its name.**
+Why: people need to tell boards apart by what they're for, and the address agents type must stay short and stable.
+
+**D133. The timeline tells senders apart the way chat apps do, within the design rules: a small rounded mark in the left gutter with the sender's initial in a muted colour of its own, stable for that member (derived from its id, chosen from a small palette that meets contrast in both themes); consecutive messages from the same sender within a few minutes grouped under one header; the person's own messages on a slightly tinted surface, marked "You". The message-type icon moves to a small glyph beside the name. These identity colours are a deliberate exception to "nothing else gets colour" and "no avatars": they only tell senders apart and never carry meaning. Messages that ask for a reply show a question icon and a faint accent outline until answered ("answered by …"); urgent messages show a lightning icon and a slightly stronger outline; full outlines, never a coloured left stripe. Marigold stays for what waits on the person.**
+Why: when every message looks the same, a conversation between several agents and a person is hard to follow; chat apps solved this with marks and grouping, and limiting the colours to identity keeps the colour rule meaningful.
+
+**D134. The board view's filters and view settings live in one place: a Filter control at the top of the timeline opens a panel (from, role, addressed to me, show board events); active filters show as removable chips above the timeline; clicking a member in "Who's here" filters to that member. Side panels collapse to a thin strip and can be resized within limits, and "What this board is for" and "Rules" collapse; the board view remembers these choices per browser. The board list shows, per board, its title and name, agents (and how many are working), people, messages, last activity and policy.**
+Why: filters are how a busy board stays readable, and keeping every view setting behind one control stops them cluttering the room.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,
