@@ -999,7 +999,9 @@ $defs:
       differ from the ones aboard 0.2.0 installs"), or when the manifest has no record of
       them; skill_edited or hooks_edited when they were changed after an aboard wrote
       them ("claude-code: the skill in ~/.claude/skills/aboard/SKILL.md was edited after
-      aboard 0.1.0 wrote it"). A harness reached through a file Aboard installs
+      aboard 0.1.0 wrote it"). Two builds of the same version are named with their
+      commits ("written by aboard 0.1.0+dev.1d0e798ab12c and differs from the one aboard
+      0.1.0+dev.3f9a0c1e2b4d installs"). A harness reached through a file Aboard installs
       inside it rather than hooks (omp's extension) has a check named <check>_extension
       instead of <check>_hooks: <check>_extension_missing (an error), extension_outdated
       or extension_edited.

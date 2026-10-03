@@ -62,6 +62,7 @@ const INSTALLED_HOME = "{ABOARD_HOME}";
       "scope": "global",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -71,6 +72,7 @@ const INSTALLED_HOME = "{ABOARD_HOME}";
       "scope": "global",
       "kind": "file",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     }

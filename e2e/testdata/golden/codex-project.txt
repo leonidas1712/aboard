@@ -126,6 +126,7 @@ Nothing to change.
       "scope": "project",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -135,6 +136,7 @@ Nothing to change.
       "scope": "project",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     }

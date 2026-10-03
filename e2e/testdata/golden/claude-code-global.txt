@@ -137,6 +137,7 @@ Nothing to change.
       "scope": "global",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -146,6 +147,7 @@ Nothing to change.
       "scope": "global",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     }

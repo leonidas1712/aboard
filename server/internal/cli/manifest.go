@@ -12,6 +12,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // The install manifest records what aboard init wrote, so doctor can tell a file an
@@ -26,8 +28,10 @@ type installRecord struct {
 	Harness string `json:"harness"`
 	Scope   string `json:"scope"`
 	Kind    string `json:"kind"`
-	// Version is the aboard that last wrote the file.
+	// Version is the aboard that last wrote the file, and Commit the commit it was built
+	// from, when known, which tells two builds of one version apart.
 	Version string `json:"version"`
+	Commit  string `json:"commit,omitempty"`
 	// SHA256 is the hash of what Aboard wrote: the whole file for a skill or rules
 	// file, Aboard's hook entries only for a hooks file shared with the person.
 	SHA256 string `json:"sha256"`
@@ -159,14 +163,14 @@ func (a *app) recordInit(setups []harnessSetup, scope string) error {
 	for _, s := range setups {
 		for _, c := range s.Changes {
 			r := installRecord{
-				Path: c.Path, Harness: s.Name, Scope: scope, Kind: c.Kind, Version: version,
+				Path: c.Path, Harness: s.Name, Scope: scope, Kind: c.Kind, Version: version, Commit: currentBuild().Commit,
 				SHA256: contentHash(c.Kind, s.Name, c.data), Created: c.Action == actionCreate, AllowAdded: c.allowAdded,
 			}
 			if old, ok := m.find(c.Path, c.Kind); ok {
 				r.Created = r.Created || old.Created
 				r.AllowAdded = r.AllowAdded || old.AllowAdded
 				if old.SHA256 == r.SHA256 && old.Version != "" {
-					r.Version = old.Version
+					r.Version, r.Commit = old.Version, old.Commit
 				}
 			}
 			m.put(r)
@@ -183,7 +187,30 @@ func (m installManifest) fileOrigin(path, kind, harness string, data []byte) (wr
 	if !ok {
 		return "", false, false
 	}
-	return r.Version, contentHash(kind, harness, data) != r.SHA256, true
+	writtenBy, _ = buildNames(r, currentBuild())
+	return writtenBy, contentHash(kind, harness, data) != r.SHA256, true
+}
+
+// buildNames names the aboard that wrote an installed file and this aboard, for doctor
+// and init: by version, and, when both are the same version, with each one's commit too
+// (0.1.0+dev.3f9a0c1e2b4d), so two builds of one version don't read as the same.
+func buildNames(r installRecord, cur delivery.Build) (writtenBy, this string) {
+	if r.Version != cur.Version || r.Commit == cur.Commit {
+		return r.Version, buildName(cur)
+	}
+	return devName(r.Version, r.Commit), devName(cur.Version, cur.Commit)
+}
+
+// buildName names this aboard's build by its version.
+func buildName(b delivery.Build) string { return b.Version }
+
+// devName names a build of a version by its commit, unless the version already says
+// which build it is.
+func devName(v, commit string) string {
+	if commit == "" || strings.Contains(v, "+") {
+		return v
+	}
+	return v + "+dev." + commit[:min(12, len(commit))]
 }
 
 // markEdited marks the planned changes to files the person edited after an aboard

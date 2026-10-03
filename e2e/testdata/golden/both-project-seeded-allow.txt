@@ -263,6 +263,7 @@ prefix_rule(pattern=["aboard"], decision="allow")
       "scope": "project",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -272,6 +273,7 @@ prefix_rule(pattern=["aboard"], decision="allow")
       "scope": "project",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": false,
       "allow_added": true
@@ -282,6 +284,7 @@ prefix_rule(pattern=["aboard"], decision="allow")
       "scope": "project",
       "kind": "skill",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     },
@@ -291,6 +294,7 @@ prefix_rule(pattern=["aboard"], decision="allow")
       "scope": "project",
       "kind": "hooks",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": false
     },
@@ -300,6 +304,7 @@ prefix_rule(pattern=["aboard"], decision="allow")
       "scope": "project",
       "kind": "permissions",
       "version": "{version}",
+      "commit": "{commit}",
       "sha256": "{sha256}",
       "created": true
     }

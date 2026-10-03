@@ -256,6 +256,7 @@ func goldenFiles(t *testing.T, e *env) map[string]string {
 
 var (
 	goldenHash    = regexp.MustCompile(`"sha256": "[0-9a-f]{64}"`)
+	goldenCommit  = regexp.MustCompile(`"commit": "[^"]*"`)
 	goldenVersion = regexp.MustCompile(`"(version|written_by)": "[^"]*"`)
 )
 
@@ -266,6 +267,7 @@ func normalizeGolden(e *env, s string) string {
 	s = strings.ReplaceAll(s, binary, "{ABOARD}")
 	s = strings.ReplaceAll(s, e.home, "{HOME}")
 	s = goldenHash.ReplaceAllString(s, `"sha256": "{sha256}"`)
+	s = goldenCommit.ReplaceAllString(s, `"commit": "{commit}"`)
 	return goldenVersion.ReplaceAllString(s, `"$1": "{version}"`)
 }
 

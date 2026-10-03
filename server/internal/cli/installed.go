@@ -52,15 +52,15 @@ func (a *app) checkSkill(h harness.Harness) []doctorCheck {
 		case stateEdited:
 			return []doctorCheck{problem(name, levelWarning, "skill_edited",
 				harnessName+": the skill in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
-				initFix(scope)+" to replace it with the one aboard "+version+" installs, which discards your edits; or keep it as it is")}
+				initFix(scope)+" to replace it with the one aboard "+s.Current+" installs, which discards your edits; or keep it as it is")}
 		}
 		if s.WrittenBy != "" {
 			return []doctorCheck{problem(name, levelWarning, "skill_outdated",
-				harnessName+": the skill in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+version+" installs",
+				harnessName+": the skill in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+s.Current+" installs",
 				initFix(scope))}
 		}
 		return []doctorCheck{problem(name, levelWarning, "skill_outdated",
-			harnessName+": the skill in "+s.Path+" differs from the one aboard "+version+" installs",
+			harnessName+": the skill in "+s.Path+" differs from the one aboard "+s.Current+" installs",
 			initFix(scope))}
 	}
 	if len(installed) == 0 {
@@ -91,15 +91,15 @@ func (a *app) checkExtension(h harness.Harness) []doctorCheck {
 		case stateEdited:
 			return []doctorCheck{problem(name, levelWarning, "extension_edited",
 				p.Harness+": the extension in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
-				initFix(scope)+" to replace it with the one aboard "+version+" installs, which discards your edits; or keep it as it is")}
+				initFix(scope)+" to replace it with the one aboard "+s.Current+" installs, which discards your edits; or keep it as it is")}
 		}
 		if s.WrittenBy != "" {
 			return []doctorCheck{problem(name, levelWarning, "extension_outdated",
-				p.Harness+": the extension in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+version+" installs",
+				p.Harness+": the extension in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+s.Current+" installs",
 				initFix(scope))}
 		}
 		return []doctorCheck{problem(name, levelWarning, "extension_outdated",
-			p.Harness+": the extension in "+s.Path+" differs from the one aboard "+version+" installs",
+			p.Harness+": the extension in "+s.Path+" differs from the one aboard "+s.Current+" installs",
 			initFix(scope))}
 	}
 	if len(installed) == 0 {
@@ -144,11 +144,11 @@ func (a *app) checkHooksCurrent(name string, h harness.Harness, scopes []string,
 		}
 		if s.WrittenBy != "" {
 			return problem(name, levelWarning, "hooks_outdated",
-				harnessName+": the Aboard hooks in "+s.Path+" were written by aboard "+s.WrittenBy+" and differ from the ones aboard "+version+" installs",
+				harnessName+": the Aboard hooks in "+s.Path+" were written by aboard "+s.WrittenBy+" and differ from the ones aboard "+s.Current+" installs",
 				initFix(scope))
 		}
 		return problem(name, levelWarning, "hooks_outdated",
-			harnessName+": the Aboard hooks in "+s.Path+" differ from the ones aboard "+version+" installs",
+			harnessName+": the Aboard hooks in "+s.Path+" differ from the ones aboard "+s.Current+" installs",
 			initFix(scope))
 	}
 	return ok
@@ -162,10 +162,11 @@ const (
 	stateEdited   = "edited"   // changed after an aboard wrote it
 )
 
-// fileState is the state of one installed file. WrittenBy is the version of aboard the
-// install manifest says last wrote it, or "" when it has no record.
+// fileState is the state of one installed file. WrittenBy names the aboard the install
+// manifest says last wrote it, or is "" when it has no record; Current names this aboard
+// in the same terms, so two builds of one version read differently.
 type fileState struct {
-	Path, State, WrittenBy string
+	Path, State, WrittenBy, Current string
 }
 
 // skillState compares a harness's skill in a scope with the one this aboard installs.
@@ -213,13 +214,15 @@ func (a *app) installedHooksState(path, harnessName string, specs []harness.Hook
 // origin marks a file that differs from what this aboard writes as edited or outdated,
 // with the version that wrote it, from the install manifest.
 func (a *app) origin(s fileState, kind, harnessName string, data []byte) fileState {
-	by, edited, known := a.loadManifest().fileOrigin(s.Path, kind, harnessName, data)
-	s.State = stateOutdated
+	m := a.loadManifest()
+	_, edited, known := m.fileOrigin(s.Path, kind, harnessName, data)
+	s.State, s.Current = stateOutdated, buildName(currentBuild())
 	if edited {
 		s.State = stateEdited
 	}
 	if known {
-		s.WrittenBy = by
+		r, _ := m.find(s.Path, kind)
+		s.WrittenBy, s.Current = buildNames(r, currentBuild())
 	}
 	return s
 }
