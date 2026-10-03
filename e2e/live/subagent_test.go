@@ -113,7 +113,10 @@ func TestClaudeSubagentCannotActAsItsParent(t *testing.T) {
 		if since.IsZero() {
 			since = time.Now()
 		}
-		return time.Since(since) >= time.Second
+		// Claude Code may run the subagent in the background and end the writer's turn
+		// before it finishes, and SubagentStop can fire while it still runs, so the end
+		// is the writer's DONE, which it sends only once the subagent has reported.
+		return strings.Contains(s, "⏺ DONE") && time.Since(since) >= time.Second
 	})
 
 	var aboardCalls, subagentStarts, subagentStops int
