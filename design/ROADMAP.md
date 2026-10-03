@@ -18,7 +18,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Manual QA in a sandbox with real Claude Code and Codex, and the next UI round from it | next | D126 |
 | `aboard read` shows what the board view shows: "asks for a reply", "reply to #N", "urgent", and a readable header (role, harness and sender label on their own line); agents catching up in the terminal currently can't tell which messages want an answer | next | D36, D110 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
-| Upgrade rough edges found updating the maintainer's install: `aboard status` reports an outdated local server without replacing it (doctor says any command that uses it will); `aboard up` replaces it but prints "already running"; `aboard init --yes` says to trust new hooks even when the hooks were unchanged | next | D68 |
+| Upgrade rough edges found updating the maintainer's install: `aboard init --yes` says to trust new hooks even when the hooks were unchanged | next | D68 |
 
 ## Done
 
@@ -37,6 +37,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Delivery modes `auto`, `humans`, `off` | D71, D84, D99 |
 | Guided `aboard init`, global or project scope; following `CLAUDE_CONFIG_DIR` and `CODEX_HOME` | D72, D92 |
 | Upgrades replace an older daemon or server; `doctor` flags outdated setup | D68 |
+| `aboard status` replaces an older server or daemon like any command, and it and `aboard up` say what they replaced | D68 |
 | Commands that use a person's login refuse inside agent sessions and hand over the exact command | D85, D114 |
 | Web UI and `aboard open`, with a read-only browser token (now acting as the person, in #10) | D70, D86, D89 |
 | `make live`: real Claude Code and Codex in tmux | D90 |

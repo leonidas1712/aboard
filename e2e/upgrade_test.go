@@ -189,6 +189,84 @@ func TestLocalServerWithoutACommitIsReplacedByOneWithACommit(t *testing.T) {
 	}
 }
 
+// olderRunning returns an env whose local server and delivery daemon were started by
+// the older aboard, with the new aboard installed.
+func olderRunning(t *testing.T) *env {
+	t.Helper()
+	e := newEnv(t)
+	e.bin = oldBinary
+	e.run("up")
+	e.run("daemon", "start")
+	if e.serverPID() == 0 || e.daemonPID() == 0 {
+		t.Fatal("the older aboard started no server or no daemon")
+	}
+	e.bin = binary
+	return e
+}
+
+// aboard status replaces an older local server and daemon, as doctor's fix says any
+// command that uses them does, and says what it replaced.
+func TestStatusReplacesAnOlderServerAndDaemon(t *testing.T) {
+	t.Parallel()
+	e := olderRunning(t)
+	oldServer, oldDaemon := e.serverPID(), e.daemonPID()
+	text := e.run("status").stdout
+	for _, want := range []string{
+		"Server: http://" + e.addr + " running; replaced aboard " + oldVersion + " (commit ",
+		"; replaced aboard " + oldVersion + " (commit ",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("status lacks %q:\n%s", want, text)
+		}
+	}
+	if e.serverPID() == oldServer || e.daemonPID() == oldDaemon {
+		t.Fatalf("status left the older server (%d→%d) or daemon (%d→%d) running",
+			oldServer, e.serverPID(), oldDaemon, e.daemonPID())
+	}
+	if v := e.serverVersion(); v == oldVersion {
+		t.Fatalf("the server still reports the older version %q", v)
+	}
+	if c := e.doctorChecks()["local_server"]; c["level"] != "ok" {
+		t.Fatalf("after status, doctor's local_server check: %v", c)
+	}
+	again := e.run("status", "--json").json(t)
+	if field(t, again, "server_replaced") != nil || field(t, again, "daemon.replaced") != nil {
+		t.Fatalf("a second status replaced something again: %v", again)
+	}
+
+	s := olderRunning(t)
+	st := s.run("status", "--json").json(t)
+	for _, path := range []string{"server_replaced", "daemon.replaced"} {
+		if got := field(t, st, path+".from.version"); got != oldVersion {
+			t.Fatalf("%s.from.version = %v, want %s", path, got, oldVersion)
+		}
+		if got := field(t, st, path+".to.version"); got == oldVersion {
+			t.Fatalf("%s.to.version = %v, want this aboard's", path, got)
+		}
+	}
+}
+
+// aboard up replaces an older local server and says so, rather than that one is already
+// running.
+func TestUpSaysItReplacedAnOlderServer(t *testing.T) {
+	t.Parallel()
+	e := olderRunning(t)
+	up := e.run("up").stdout
+	if want := "Replaced local Aboard at http://" + e.addr + ": it ran aboard " + oldVersion + " (commit "; !strings.HasPrefix(up, want) {
+		t.Fatalf("up after an upgrade:\n%s\nwant it to start with %q", up, want)
+	}
+	expectLines(t, e.run("up"), "Local Aboard is already running at http://"+e.addr)
+
+	j := olderRunning(t)
+	out := j.run("up", "--json").json(t)
+	if field(t, out, "started") != false || field(t, out, "replaced.from.version") != oldVersion {
+		t.Fatalf("up --json after an upgrade: %v", out)
+	}
+	if again := j.run("up", "--json").json(t); field(t, again, "replaced") != nil {
+		t.Fatalf("a second up replaced something again: %v", again)
+	}
+}
+
 // An older aboard never replaces a newer daemon or server; it uses them.
 func TestOlderAboardUsesANewerDaemonAndServer(t *testing.T) {
 	t.Parallel()

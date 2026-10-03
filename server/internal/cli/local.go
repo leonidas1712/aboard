@@ -185,11 +185,14 @@ func runUp(ctx context.Context, a *app, args []string) error {
 	}
 	srv := a.localServer()
 	text := "Local Aboard is already running at " + srv.URL + "\n"
-	if started {
+	switch r := a.localReplaced; {
+	case started:
 		text = "Started local Aboard at " + srv.URL + "\n"
+	case r != nil:
+		text = "Replaced local Aboard at " + srv.URL + ": it ran aboard " + buildLabel(r.From) + ", an older build\n"
 	}
 	a.emit(map[string]any{
-		"server": srv, "started": started, "pid": localPID(p),
+		"server": srv, "started": started, "replaced": a.localReplaced, "pid": localPID(p),
 		"ui_url": srv.URL + "/", "data_dir": p.data, "version": version,
 	}, text)
 	return nil

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // upgradeLockTimeout is how long a command waits while another one replaces the
@@ -19,6 +20,21 @@ const upgradeLockTimeout = 30 * time.Second
 // replaceAttempts bounds how often a command replaces an older daemon that an older
 // hook keeps starting again.
 const replaceAttempts = 3
+
+// replacement is a running daemon or local server from an older build that a command
+// replaced with its own.
+type replacement struct {
+	From delivery.Build `json:"from"`
+	To   delivery.Build `json:"to"`
+}
+
+// text describes the replacement at the end of a line of aboard status.
+func (r *replacement) text() string {
+	if r == nil {
+		return ""
+	}
+	return "; replaced aboard " + buildLabel(r.From) + ", an older build"
+}
 
 // replaceOutdatedDaemon replaces a running delivery daemon from an older build with
 // this binary's, once per command. The journal is on disk, so the new daemon carries on
@@ -33,10 +49,14 @@ func (a *app) replaceOutdatedDaemon(ctx context.Context, p paths) {
 		return // a daemon started here would inherit the sandbox
 	}
 	own := currentBuild()
+	var from *delivery.Build
 	outdated := func() int {
 		st, _ := a.daemonStatus(ctx)
 		if st == nil || compareBuilds(st.Build, own) >= 0 {
 			return 0
+		}
+		if from == nil {
+			from = &st.Build
 		}
 		return st.PID
 	}
@@ -67,6 +87,7 @@ func (a *app) replaceOutdatedDaemon(ctx context.Context, p paths) {
 			return
 		}
 		_ = c.Close()
+		a.daemonReplaced = &replacement{From: *from, To: own}
 	}
 }
 
@@ -82,9 +103,14 @@ func (a *app) replaceOutdatedLocal(ctx context.Context) error {
 	if err != nil {
 		return nil //nolint:nilerr // the command reports a bad path itself
 	}
+	var from delivery.Build
 	outdated := func() bool {
 		info, err := a.localInfo(ctx)
-		return err == nil && info.Mode == api.Local && compareBuilds(infoBuild(info), currentBuild()) < 0
+		if err != nil || info.Mode != api.Local || compareBuilds(infoBuild(info), currentBuild()) >= 0 {
+			return false
+		}
+		from = infoBuild(info)
+		return true
 	}
 	if !outdated() {
 		// A server being stopped for a replacement no longer answers; wait for the new
@@ -103,7 +129,11 @@ func (a *app) replaceOutdatedLocal(ctx context.Context) error {
 	if stopAboard(ctx, localPID(p), func() bool { return !a.localRunning(ctx) }) != nil {
 		return nil // not a server this machine started; use it as it is
 	}
-	return a.startLocalAndWait(ctx)
+	if err := a.startLocalAndWait(ctx); err != nil {
+		return err
+	}
+	a.localReplaced = &replacement{From: from, To: currentBuild()}
+	return nil
 }
 
 // dataNewer reports data written by a newer aboard than this one.

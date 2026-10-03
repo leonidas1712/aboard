@@ -167,15 +167,35 @@ $defs:
       commit: { type: string }
       commit_time: { type: string, format: date-time }
 
+  Replaced:
+    description: |
+      A running delivery daemon or local server from an older build that this command
+      replaced with its own (spec/delivery.md, Upgrades): the build it stopped and the
+      build it started, each shaped like VersionOutput. Null when nothing was replaced.
+    type: [object, "null"]
+    required: [from, to]
+    properties:
+      from: { $ref: "#/$defs/VersionOutput" }
+      to: { $ref: "#/$defs/VersionOutput" }
+
   # ---------- aboard up ----------
   UpOutput:
+    description: |
+      Starts the local server in the background, or replaces one from an older build.
+      Text output, one line:
+        Started local Aboard at http://127.0.0.1:7400
+        Local Aboard is already running at http://127.0.0.1:7400
+        Replaced local Aboard at http://127.0.0.1:7400: it ran aboard 0.1.0 (commit 3f9a0c1e2b4d), an older build
     type: object
-    required: [server, started, pid, ui_url, data_dir]
+    required: [server, started, replaced, pid, ui_url, data_dir]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       started:
         type: boolean
-        description: False if a local server was already running.
+        description: False if a local server was already running, from this build or a replaced older one.
+      replaced:
+        $ref: "#/$defs/Replaced"
+        description: The older local server this command replaced, or null.
       pid: { type: integer }
       ui_url: { type: string, format: uri }
       data_dir: { type: string, examples: ["~/.local/share/aboard"] }
@@ -603,7 +623,11 @@ $defs:
   StatusOutput:
     description: |
       Which board and agent commands run here would use, and where each came from, and
-      whether the server and the delivery daemon are running. It never starts either.
+      whether the server and the delivery daemon are running. It never starts either,
+      but like any command that uses them it replaces a running local server or daemon
+      from an older build first (spec/delivery.md, Upgrades), and then says so on its
+      line: "Server: http://127.0.0.1:7400 running; replaced aboard 0.1.0 (commit
+      3f9a0c1e2b4d), an older build", and likewise at the end of the Daemon line.
       Text output, one line each:
         Server: http://127.0.0.1:7400 running
         Daemon: running (pid 4182), 2 open sessions
@@ -620,9 +644,12 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
+    required: [server, server_running, server_replaced, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      server_replaced:
+        $ref: "#/$defs/Replaced"
+        description: The older local server this command replaced, or null.
       setup:
         type: object
         description: The harnesses whose Aboard hooks are all installed, in each scope (see InitOutput).
@@ -635,11 +662,14 @@ $defs:
         description: Whether the server answers.
       daemon:
         type: object
-        required: [running, pid, open_sessions]
+        required: [running, pid, open_sessions, replaced]
         properties:
           running: { type: boolean }
           pid: { type: [integer, "null"] }
           open_sessions: { type: integer }
+          replaced:
+            $ref: "#/$defs/Replaced"
+            description: The older daemon this command replaced, or null.
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]

@@ -60,7 +60,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 		if b := infoBuild(info); info.Mode == api.Local && compareBuilds(b, currentBuild()) < 0 {
 			checks = append(checks, problem("local_server", levelWarning, "server_outdated",
 				"local server at "+srv.URL+" runs aboard "+buildLabel(b)+", older than this aboard "+buildLabel(currentBuild()),
-				"run any command that uses it, which replaces it, or aboard down"))
+				"run aboard status, or any other command that uses it, which replaces it"))
 		} else {
 			checks = append(checks, okCheck("local_server", "local server running at "+srv.URL))
 		}

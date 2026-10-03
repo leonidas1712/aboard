@@ -490,8 +490,10 @@ twice: a bundle the old daemon handed to a Claude Code session is confirmed by t
 session's next event, even when that event comes from the new aboard's hooks; anything
 else not confirmed goes back to `pending` and is handed again (see
 [The journal](#the-journal)). A command inside a harness's sandbox never replaces the
-daemon, because it couldn't start the new one. `aboard down` and `aboard doctor`'s
-reading of the local server never replace anything. If replacing fails, the command uses
+daemon, because it couldn't start the new one. `aboard status` replaces both, as any
+command does, but never starts one that isn't running; it and `aboard up` say what they
+replaced. `aboard down` and `aboard doctor`'s reading of the local server never replace
+anything. If replacing fails, the command uses
 the old one, and `aboard doctor` reports `daemon_outdated` or `server_outdated` with the
 fix `aboard down`.
 

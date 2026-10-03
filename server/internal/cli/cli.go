@@ -63,6 +63,10 @@ type app struct {
 	// delivery daemon and local server for an older build, so it checks each only once.
 	daemonChecked bool
 	localChecked  bool
+	// daemonReplaced and localReplaced are set when this command replaced an older
+	// daemon or local server, for the commands that say so.
+	daemonReplaced *replacement
+	localReplaced  *replacement
 	// homeAddr is the local server address read from ABOARD_HOME, once looked up.
 	homeAddr string
 }
