@@ -32,6 +32,34 @@ type headEvent struct {
 	Seq     int64  `json:"seq"`
 }
 
+// presenceEvent is the data of one `presence` event, the PresenceEvent schema.
+type presenceEvent struct {
+	Board         string  `json:"board"`
+	BoardID       string  `json:"board_id"`
+	Agent         string  `json:"agent"`
+	Presence      string  `json:"presence"`
+	PresenceSince *string `json:"presence_since"`
+}
+
+func presenceEventOf(pc board.PresenceChange) presenceEvent {
+	return presenceEvent{Board: pc.Board, BoardID: pc.BoardID, Agent: pc.Agent, Presence: pc.Presence.State, PresenceSince: nullable(pc.Presence.Since)}
+}
+
+// writeEvent writes one server-sent event. Its data are plain structs of strings and
+// numbers, which always encode.
+func writeEvent(buf *bytes.Buffer, name string, data any) {
+	b, _ := json.Marshal(data)
+	fmt.Fprintf(buf, "event: %s\ndata: %s\n\n", name, b)
+}
+
+// nullable returns nil for an empty string.
+func nullable(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // Stream answers GET /v1/stream. Which boards a human follows and when a head moved is
 // decided by the board service; the response below only writes the events. A refusal
 // (an agent token) is returned as an error before anything is written, so it gets the
@@ -76,7 +104,7 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 		return nil
 	}
 	for {
-		heads, ticked, err := s.feed.Next(ctx, keepalive)
+		u, ticked, err := s.feed.Next(ctx, keepalive)
 		if err != nil {
 			if ctx.Err() == nil {
 				s.log.Error("stream: follow heads", "error", err)
@@ -84,13 +112,11 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 			return nil
 		}
 		var buf bytes.Buffer
-		for _, hd := range heads {
-			data, err := json.Marshal(headEvent{Board: hd.Board, BoardID: hd.BoardID, Seq: hd.Seq})
-			if err != nil {
-				s.log.Error("stream: encode head", "error", err)
-				return nil
-			}
-			fmt.Fprintf(&buf, "event: head\ndata: %s\n\n", data)
+		for _, hd := range u.Heads {
+			writeEvent(&buf, "head", headEvent{Board: hd.Board, BoardID: hd.BoardID, Seq: hd.Seq})
+		}
+		for _, pc := range u.Presence {
+			writeEvent(&buf, "presence", presenceEventOf(pc))
 		}
 		if ticked {
 			keepalive = s.clk.After(keepaliveEvery)

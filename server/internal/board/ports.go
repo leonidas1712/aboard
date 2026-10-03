@@ -87,6 +87,8 @@ type Tx interface {
 	InsertMember(m Member) error
 	// SetCursor moves a member's read position forward; it never moves it back.
 	SetCursor(memberID string, seq int64) error
+	// SetPresence replaces an agent's presence.
+	SetPresence(memberID string, p Presence) error
 	// InsertJoinCode adds a join code.
 	InsertJoinCode(j JoinCode) error
 	// RevokeJoinCode marks a join code revoked at a time; a revoked code keeps its first time.

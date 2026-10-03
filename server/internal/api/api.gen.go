@@ -261,6 +261,33 @@ func (e MemberKind) Valid() bool {
 	}
 }
 
+// Defines values for MemberPresence.
+const (
+	MemberPresenceIdle        MemberPresence = "idle"
+	MemberPresenceLessThannil MemberPresence = "<nil>"
+	MemberPresenceNoSession   MemberPresence = "no_session"
+	MemberPresenceWaiting     MemberPresence = "waiting"
+	MemberPresenceWorking     MemberPresence = "working"
+)
+
+// Valid indicates whether the value is a known member of the MemberPresence enum.
+func (e MemberPresence) Valid() bool {
+	switch e {
+	case MemberPresenceIdle:
+		return true
+	case MemberPresenceLessThannil:
+		return true
+	case MemberPresenceNoSession:
+		return true
+	case MemberPresenceWaiting:
+		return true
+	case MemberPresenceWorking:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MemberStatus.
 const (
 	Active MemberStatus = "active"
@@ -597,6 +624,30 @@ func (e PolicyPreset) Valid() bool {
 	case PolicyPresetRecommended:
 		return true
 	case PolicyPresetStarter:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Presence.
+const (
+	PresenceIdle      Presence = "idle"
+	PresenceNoSession Presence = "no_session"
+	PresenceWaiting   Presence = "waiting"
+	PresenceWorking   Presence = "working"
+)
+
+// Valid indicates whether the value is a known member of the Presence enum.
+func (e Presence) Valid() bool {
+	switch e {
+	case PresenceIdle:
+		return true
+	case PresenceNoSession:
+		return true
+	case PresenceWaiting:
+		return true
+	case PresenceWorking:
 		return true
 	default:
 		return false
@@ -1012,6 +1063,13 @@ type Member struct {
 	// Owner The owning human's name. Null for humans.
 	Owner *string `json:"owner"`
 
+	// Presence What the agent's session is doing (see `Presence`). Null for people.
+	Presence *MemberPresence `json:"presence"`
+
+	// PresenceSince When the presence began. For `no_session` after a presence ran out, when it was
+	// last reported. Null for people and for an agent no session ever reported.
+	PresenceSince *time.Time `json:"presence_since"`
+
 	// Role Null for humans.
 	Role   *string      `json:"role"`
 	Status MemberStatus `json:"status"`
@@ -1024,6 +1082,9 @@ type MemberAccess string
 
 // MemberKind defines model for Member.Kind.
 type MemberKind string
+
+// MemberPresence What the agent's session is doing (see `Presence`). Null for people.
+type MemberPresence string
 
 // MemberStatus defines model for Member.Status.
 type MemberStatus string
@@ -1280,6 +1341,11 @@ type PostMessageRequest struct {
 	Urgent *bool `json:"urgent,omitempty"`
 }
 
+// Presence `working`: a turn is running in the agent's session. `idle`: the session is open
+// and waiting for messages. `waiting`: the harness is waiting for a person in the
+// session, such as a permission prompt. `no_session`: no session is open for it.
+type Presence string
+
 // RecipientStatus defines model for RecipientStatus.
 type RecipientStatus struct {
 	Member MemberRef `json:"member"`
@@ -1472,6 +1538,19 @@ type AckInboxParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// SetPresenceJSONBody defines parameters for SetPresence.
+type SetPresenceJSONBody struct {
+	// Presence `working`: a turn is running in the agent's session. `idle`: the session is open
+	// and waiting for messages. `waiting`: the harness is waiting for a person in the
+	// session, such as a permission prompt. `no_session`: no session is open for it.
+	Presence Presence `json:"presence"`
+}
+
+// SetPresenceParams defines parameters for SetPresence.
+type SetPresenceParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ListRepliesParams defines parameters for ListReplies.
 type ListRepliesParams struct {
 	// After Return items with `seq` greater than this.
@@ -1502,6 +1581,9 @@ type JoinJSONRequestBody = JoinRequest
 
 // AckInboxJSONRequestBody defines body for AckInbox for application/json ContentType.
 type AckInboxJSONRequestBody AckInboxJSONBody
+
+// SetPresenceJSONRequestBody defines body for SetPresence for application/json ContentType.
+type SetPresenceJSONRequestBody SetPresenceJSONBody
 
 // AsBoardCreatedEvent returns the union data inside the Event as a BoardCreatedEvent
 func (t Event) AsBoardCreatedEvent() (BoardCreatedEvent, error) {
@@ -2176,6 +2258,56 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/me/inbox/ack (the `AckInbox` operationId).
 	AckInbox(ctx context.Context, params *AckInboxParams, body AckInboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetPresenceWithBody Report what this agent's session is doing
+	//
+	// Agent tokens only. Sets the agent's presence, which the board's members see on
+	// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+	//
+	// - `working`: a turn is running in the agent's session.
+	// - `idle`: the session is open and waiting for messages.
+	// - `waiting`: the harness is waiting for a person in the session, such as a
+	//   permission prompt.
+	// - `no_session`: no session is open for the agent.
+	//
+	// The delivery daemon on the agent's owner's machine reports it as sessions start,
+	// run turns, wait and end, and reports it again every minute while it holds. A
+	// presence not reported again within 3 minutes reads as `no_session`, so an agent
+	// whose machine went away doesn't stay `working`. Reporting the same presence
+	// again only renews it: `presence_since` stays when the presence began.
+	//
+	// Presence is bookkeeping, like the read position: it is never an event and never
+	// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+	SetPresenceWithBody(ctx context.Context, params *SetPresenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetPresence Report what this agent's session is doing
+	//
+	// Agent tokens only. Sets the agent's presence, which the board's members see on
+	// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+	//
+	// - `working`: a turn is running in the agent's session.
+	// - `idle`: the session is open and waiting for messages.
+	// - `waiting`: the harness is waiting for a person in the session, such as a
+	//   permission prompt.
+	// - `no_session`: no session is open for the agent.
+	//
+	// The delivery daemon on the agent's owner's machine reports it as sessions start,
+	// run turns, wait and end, and reports it again every minute while it holds. A
+	// presence not reported again within 3 minutes reads as `no_session`, so an agent
+	// whose machine went away doesn't stay `working`. Reporting the same presence
+	// again only renews it: `presence_since` stays when the presence began.
+	//
+	// Presence is bookkeeping, like the read position: it is never an event and never
+	// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+	SetPresence(ctx context.Context, params *SetPresenceParams, body SetPresenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMessage Get a message and each recipient's status
 	//
 	// Returns the message and, for each agent it was addressed to when it was posted, one
@@ -2204,7 +2336,14 @@ type ClientInterface interface {
 	// board's head moves (including boards the human joins while the stream is open),
 	// and a comment line (`: keepalive`) every 25 seconds. Events
 	// carry no message content; clients read changes with the board's normal endpoints.
-	// Each event's `data` is one `HeadEvent` as JSON.
+	// A `head` event's `data` is one `HeadEvent` as JSON.
+	//
+	// A `presence` event is sent each time an agent's presence on one of those boards
+	// changes, including when an unrenewed presence runs out and becomes `no_session`
+	// (noticed within 25 seconds); its `data` is one `PresenceEvent`. Presence is not
+	// in the event log, so it never moves a head. The stream sends no presence when it
+	// opens: read `GET /v1/boards/{board}/members` for the current presence, then
+	// follow the changes. Clients ignore event types they don't know.
 	//
 	// Corresponds with GET /v1/stream (the `Stream` operationId).
 	Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2732,6 +2871,76 @@ func (c *Client) AckInbox(ctx context.Context, params *AckInboxParams, body AckI
 	return c.Client.Do(req)
 }
 
+// SetPresenceWithBody Report what this agent's session is doing
+//
+// Agent tokens only. Sets the agent's presence, which the board's members see on
+// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+//
+//   - `working`: a turn is running in the agent's session.
+//   - `idle`: the session is open and waiting for messages.
+//   - `waiting`: the harness is waiting for a person in the session, such as a
+//     permission prompt.
+//   - `no_session`: no session is open for the agent.
+//
+// The delivery daemon on the agent's owner's machine reports it as sessions start,
+// run turns, wait and end, and reports it again every minute while it holds. A
+// presence not reported again within 3 minutes reads as `no_session`, so an agent
+// whose machine went away doesn't stay `working`. Reporting the same presence
+// again only renews it: `presence_since` stays when the presence began.
+//
+// Presence is bookkeeping, like the read position: it is never an event and never
+// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+func (c *Client) SetPresenceWithBody(ctx context.Context, params *SetPresenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetPresenceRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetPresence Report what this agent's session is doing
+//
+// Agent tokens only. Sets the agent's presence, which the board's members see on
+// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+//
+//   - `working`: a turn is running in the agent's session.
+//   - `idle`: the session is open and waiting for messages.
+//   - `waiting`: the harness is waiting for a person in the session, such as a
+//     permission prompt.
+//   - `no_session`: no session is open for the agent.
+//
+// The delivery daemon on the agent's owner's machine reports it as sessions start,
+// run turns, wait and end, and reports it again every minute while it holds. A
+// presence not reported again within 3 minutes reads as `no_session`, so an agent
+// whose machine went away doesn't stay `working`. Reporting the same presence
+// again only renews it: `presence_since` stays when the presence began.
+//
+// Presence is bookkeeping, like the read position: it is never an event and never
+// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+func (c *Client) SetPresence(ctx context.Context, params *SetPresenceParams, body SetPresenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetPresenceRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMessage Get a message and each recipient's status
 //
 // Returns the message and, for each agent it was addressed to when it was posted, one
@@ -2780,7 +2989,14 @@ func (c *Client) ListReplies(ctx context.Context, message MessageParam, params *
 // board's head moves (including boards the human joins while the stream is open),
 // and a comment line (`: keepalive`) every 25 seconds. Events
 // carry no message content; clients read changes with the board's normal endpoints.
-// Each event's `data` is one `HeadEvent` as JSON.
+// A `head` event's `data` is one `HeadEvent` as JSON.
+//
+// A `presence` event is sent each time an agent's presence on one of those boards
+// changes, including when an unrenewed presence runs out and becomes `no_session`
+// (noticed within 25 seconds); its `data` is one `PresenceEvent`. Presence is not
+// in the event log, so it never moves a head. The stream sends no presence when it
+// opens: read `GET /v1/boards/{board}/members` for the current presence, then
+// follow the changes. Clients ignore event types they don't know.
 //
 // Corresponds with GET /v1/stream (the `Stream` operationId).
 func (c *Client) Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3678,6 +3894,61 @@ func NewAckInboxRequestWithBody(server string, params *AckInboxParams, contentTy
 	return req, nil
 }
 
+// NewSetPresenceRequest calls the generic SetPresence builder with application/json body
+func NewSetPresenceRequest(server string, params *SetPresenceParams, body SetPresenceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetPresenceRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewSetPresenceRequestWithBody constructs an http.Request for the SetPresence method, with any body, and a specified content type
+func NewSetPresenceRequestWithBody(server string, params *SetPresenceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/presence")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetMessageRequest constructs an http.Request for the GetMessage method
 func NewGetMessageRequest(server string, message MessageParam) (*http.Request, error) {
 	var err error
@@ -4178,6 +4449,56 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/me/inbox/ack (the `AckInbox` operationId).
 	AckInboxWithResponse(ctx context.Context, params *AckInboxParams, body AckInboxJSONRequestBody, reqEditors ...RequestEditorFn) (*AckInboxResponse, error)
 
+	// SetPresenceWithBodyWithResponse Report what this agent's session is doing
+	//
+	// Agent tokens only. Sets the agent's presence, which the board's members see on
+	// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+	//
+	// - `working`: a turn is running in the agent's session.
+	// - `idle`: the session is open and waiting for messages.
+	// - `waiting`: the harness is waiting for a person in the session, such as a
+	//   permission prompt.
+	// - `no_session`: no session is open for the agent.
+	//
+	// The delivery daemon on the agent's owner's machine reports it as sessions start,
+	// run turns, wait and end, and reports it again every minute while it holds. A
+	// presence not reported again within 3 minutes reads as `no_session`, so an agent
+	// whose machine went away doesn't stay `working`. Reporting the same presence
+	// again only renews it: `presence_since` stays when the presence began.
+	//
+	// Presence is bookkeeping, like the read position: it is never an event and never
+	// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+	SetPresenceWithBodyWithResponse(ctx context.Context, params *SetPresenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetPresenceResponse, error)
+
+	// SetPresenceWithResponse Report what this agent's session is doing
+	//
+	// Agent tokens only. Sets the agent's presence, which the board's members see on
+	// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+	//
+	// - `working`: a turn is running in the agent's session.
+	// - `idle`: the session is open and waiting for messages.
+	// - `waiting`: the harness is waiting for a person in the session, such as a
+	//   permission prompt.
+	// - `no_session`: no session is open for the agent.
+	//
+	// The delivery daemon on the agent's owner's machine reports it as sessions start,
+	// run turns, wait and end, and reports it again every minute while it holds. A
+	// presence not reported again within 3 minutes reads as `no_session`, so an agent
+	// whose machine went away doesn't stay `working`. Reporting the same presence
+	// again only renews it: `presence_since` stays when the presence began.
+	//
+	// Presence is bookkeeping, like the read position: it is never an event and never
+	// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+	SetPresenceWithResponse(ctx context.Context, params *SetPresenceParams, body SetPresenceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPresenceResponse, error)
+
 	// GetMessageWithResponse Get a message and each recipient's status
 	//
 	// Returns the message and, for each agent it was addressed to when it was posted, one
@@ -4210,7 +4531,14 @@ type ClientWithResponsesInterface interface {
 	// board's head moves (including boards the human joins while the stream is open),
 	// and a comment line (`: keepalive`) every 25 seconds. Events
 	// carry no message content; clients read changes with the board's normal endpoints.
-	// Each event's `data` is one `HeadEvent` as JSON.
+	// A `head` event's `data` is one `HeadEvent` as JSON.
+	//
+	// A `presence` event is sent each time an agent's presence on one of those boards
+	// changes, including when an unrenewed presence runs out and becomes `no_session`
+	// (noticed within 25 seconds); its `data` is one `PresenceEvent`. Presence is not
+	// in the event log, so it never moves a head. The stream sends no presence when it
+	// opens: read `GET /v1/boards/{board}/members` for the current presence, then
+	// follow the changes. Clients ignore event types they don't know.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -5217,6 +5545,96 @@ func (r AckInboxResponse) ContentType() string {
 	return ""
 }
 
+type SetPresenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Agent Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
+		//
+		// Example: reviewer
+		Agent MemberName `json:"agent"`
+
+		// Board Example: writer-reviewer
+		Board BoardName `json:"board"`
+
+		// Presence `working`: a turn is running in the agent's session. `idle`: the session is open
+		// and waiting for messages. `waiting`: the harness is waiting for a person in the
+		// session, such as a permission prompt. `no_session`: no session is open for it.
+		Presence      Presence  `json:"presence"`
+		PresenceSince Timestamp `json:"presence_since"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetPresenceResponse) GetJSON200() *struct {
+	// Agent Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
+	//
+	// Example: reviewer
+	Agent MemberName `json:"agent"`
+
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// Presence `working`: a turn is running in the agent's session. `idle`: the session is open
+	// and waiting for messages. `waiting`: the harness is waiting for a person in the
+	// session, such as a permission prompt. `no_session`: no session is open for it.
+	Presence      Presence  `json:"presence"`
+	PresenceSince Timestamp `json:"presence_since"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetPresenceResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetPresenceResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetPresenceResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r SetPresenceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetPresenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetPresenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetPresenceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMessageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5837,6 +6255,68 @@ func (c *ClientWithResponses) AckInboxWithResponse(ctx context.Context, params *
 	return ParseAckInboxResponse(rsp)
 }
 
+// SetPresenceWithBodyWithResponse Report what this agent's session is doing
+//
+// Agent tokens only. Sets the agent's presence, which the board's members see on
+// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+//
+//   - `working`: a turn is running in the agent's session.
+//   - `idle`: the session is open and waiting for messages.
+//   - `waiting`: the harness is waiting for a person in the session, such as a
+//     permission prompt.
+//   - `no_session`: no session is open for the agent.
+//
+// The delivery daemon on the agent's owner's machine reports it as sessions start,
+// run turns, wait and end, and reports it again every minute while it holds. A
+// presence not reported again within 3 minutes reads as `no_session`, so an agent
+// whose machine went away doesn't stay `working`. Reporting the same presence
+// again only renews it: `presence_since` stays when the presence began.
+//
+// Presence is bookkeeping, like the read position: it is never an event and never
+// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+func (c *ClientWithResponses) SetPresenceWithBodyWithResponse(ctx context.Context, params *SetPresenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetPresenceResponse, error) {
+	rsp, err := c.SetPresenceWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetPresenceResponse(rsp)
+}
+
+// SetPresenceWithResponse Report what this agent's session is doing
+//
+// Agent tokens only. Sets the agent's presence, which the board's members see on
+// `GET /v1/boards/{board}/members` and as a `presence` event on `GET /v1/stream`:
+//
+//   - `working`: a turn is running in the agent's session.
+//   - `idle`: the session is open and waiting for messages.
+//   - `waiting`: the harness is waiting for a person in the session, such as a
+//     permission prompt.
+//   - `no_session`: no session is open for the agent.
+//
+// The delivery daemon on the agent's owner's machine reports it as sessions start,
+// run turns, wait and end, and reports it again every minute while it holds. A
+// presence not reported again within 3 minutes reads as `no_session`, so an agent
+// whose machine went away doesn't stay `working`. Reporting the same presence
+// again only renews it: `presence_since` stays when the presence began.
+//
+// Presence is bookkeeping, like the read position: it is never an event and never
+// in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/presence (the `SetPresence` operationId).
+func (c *ClientWithResponses) SetPresenceWithResponse(ctx context.Context, params *SetPresenceParams, body SetPresenceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPresenceResponse, error) {
+	rsp, err := c.SetPresence(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetPresenceResponse(rsp)
+}
+
 // GetMessageWithResponse Get a message and each recipient's status
 //
 // Returns the message and, for each agent it was addressed to when it was posted, one
@@ -5881,7 +6361,14 @@ func (c *ClientWithResponses) ListRepliesWithResponse(ctx context.Context, messa
 // board's head moves (including boards the human joins while the stream is open),
 // and a comment line (`: keepalive`) every 25 seconds. Events
 // carry no message content; clients read changes with the board's normal endpoints.
-// Each event's `data` is one `HeadEvent` as JSON.
+// A `head` event's `data` is one `HeadEvent` as JSON.
+//
+// A `presence` event is sent each time an agent's presence on one of those boards
+// changes, including when an unrenewed presence runs out and becomes `no_session`
+// (noticed within 25 seconds); its `data` is one `PresenceEvent`. Presence is not
+// in the event log, so it never moves a head. The stream sends no presence when it
+// opens: read `GET /v1/boards/{board}/members` for the current presence, then
+// follow the changes. Clients ignore event types they don't know.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -6652,6 +7139,67 @@ func ParseAckInboxResponse(rsp *http.Response) (*AckInboxResponse, error) {
 	return response, nil
 }
 
+// ParseSetPresenceResponse parses an HTTP response from a SetPresenceWithResponse call
+func ParseSetPresenceResponse(rsp *http.Response) (*SetPresenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetPresenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Agent Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
+			//
+			// Example: reviewer
+			Agent MemberName `json:"agent"`
+
+			// Board Example: writer-reviewer
+			Board BoardName `json:"board"`
+
+			// Presence `working`: a turn is running in the agent's session. `idle`: the session is open
+			// and waiting for messages. `waiting`: the harness is waiting for a person in the
+			// session, such as a permission prompt. `no_session`: no session is open for it.
+			Presence      Presence  `json:"presence"`
+			PresenceSince Timestamp `json:"presence_since"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetMessageResponse parses an HTTP response from a GetMessageWithResponse call
 func ParseGetMessageResponse(rsp *http.Response) (*GetMessageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6829,6 +7377,9 @@ type ServerInterface interface {
 	// AckInbox Move this agent's read cursor forward
 	// (POST /v1/me/inbox/ack)
 	AckInbox(w http.ResponseWriter, r *http.Request, params AckInboxParams)
+	// SetPresence Report what this agent's session is doing
+	// (PUT /v1/me/presence)
+	SetPresence(w http.ResponseWriter, r *http.Request, params SetPresenceParams)
 	// GetMessage Get a message and each recipient's status
 	// (GET /v1/messages/{message})
 	GetMessage(w http.ResponseWriter, r *http.Request, message MessageParam)
@@ -7537,6 +8088,47 @@ func (siw *ServerInterfaceWrapper) AckInbox(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// SetPresence operation middleware
+func (siw *ServerInterfaceWrapper) SetPresence(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetPresenceParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetPresence(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMessage operation middleware
 func (siw *ServerInterfaceWrapper) GetMessage(w http.ResponseWriter, r *http.Request) {
 
@@ -7780,6 +8372,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/messages", wrapper.PostMessage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/inbox", wrapper.GetInbox)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/inbox/ack", wrapper.AckInbox)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/presence", wrapper.SetPresence)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/messages/{message}", wrapper.GetMessage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/messages/{message}/replies", wrapper.ListReplies)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/stream", wrapper.Stream)
@@ -8814,6 +9407,85 @@ func (response AckInbox422JSONResponse) VisitAckInboxResponse(w http.ResponseWri
 	return err
 }
 
+type SetPresenceRequestObject struct {
+	Params SetPresenceParams
+	Body   *SetPresenceJSONRequestBody
+}
+
+type SetPresenceResponseObject interface {
+	VisitSetPresenceResponse(w http.ResponseWriter) error
+}
+
+type SetPresence200JSONResponse struct {
+	// Agent Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
+	//
+	// Example: reviewer
+	Agent MemberName `json:"agent"`
+
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// Presence `working`: a turn is running in the agent's session. `idle`: the session is open
+	// and waiting for messages. `waiting`: the harness is waiting for a person in the
+	// session, such as a permission prompt. `no_session`: no session is open for it.
+	Presence      Presence  `json:"presence"`
+	PresenceSince Timestamp `json:"presence_since"`
+}
+
+func (response SetPresence200JSONResponse) VisitSetPresenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPresence400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetPresence400JSONResponse) VisitSetPresenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPresence401JSONResponse Error
+
+func (response SetPresence401JSONResponse) VisitSetPresenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPresence403JSONResponse Error
+
+func (response SetPresence403JSONResponse) VisitSetPresenceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMessageRequestObject struct {
 	Message MessageParam `json:"message"`
 }
@@ -9071,6 +9743,9 @@ type StrictServerInterface interface {
 	// AckInbox Move this agent's read cursor forward
 	// (POST /v1/me/inbox/ack)
 	AckInbox(ctx context.Context, request AckInboxRequestObject) (AckInboxResponseObject, error)
+	// SetPresence Report what this agent's session is doing
+	// (PUT /v1/me/presence)
+	SetPresence(ctx context.Context, request SetPresenceRequestObject) (SetPresenceResponseObject, error)
 	// GetMessage Get a message and each recipient's status
 	// (GET /v1/messages/{message})
 	GetMessage(ctx context.Context, request GetMessageRequestObject) (GetMessageResponseObject, error)
@@ -9587,6 +10262,39 @@ func (sh *strictHandler) AckInbox(w http.ResponseWriter, r *http.Request, params
 	}
 }
 
+// SetPresence operation middleware
+func (sh *strictHandler) SetPresence(w http.ResponseWriter, r *http.Request, params SetPresenceParams) {
+	var request SetPresenceRequestObject
+
+	request.Params = params
+
+	var body SetPresenceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetPresence(ctx, request.(SetPresenceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetPresence")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetPresenceResponseObject); ok {
+		if err := validResponse.VisitSetPresenceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMessage operation middleware
 func (sh *strictHandler) GetMessage(w http.ResponseWriter, r *http.Request, message MessageParam) {
 	var request GetMessageRequestObject
@@ -9669,174 +10377,187 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"sjHHerC4/NRN9/WxH2//fwAAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

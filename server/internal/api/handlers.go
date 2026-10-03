@@ -248,6 +248,16 @@ func (h *handlers) AckInbox(ctx context.Context, req AckInboxRequestObject) (Ack
 	return AckInbox200JSONResponse{Cursor: Seq(cursor)}, nil
 }
 
+func (h *handlers) SetPresence(ctx context.Context, req SetPresenceRequestObject) (SetPresenceResponseObject, error) {
+	b, me, err := h.svc.SetPresence(ctx, principal(ctx), string(req.Body.Presence))
+	if err != nil {
+		return nil, err
+	}
+	return convert[SetPresence200JSONResponse](map[string]string{
+		"board": b.Name, "agent": me.Name, "presence": me.Presence.State, "presence_since": me.Presence.Since,
+	})
+}
+
 func (h *handlers) ListEvents(ctx context.Context, req ListEventsRequestObject) (ListEventsResponseObject, error) {
 	log, err := h.svc.Events(ctx, principal(ctx), req.Board, afterOr(req.Params.After), limitOr(req.Params.Limit))
 	if err != nil {
