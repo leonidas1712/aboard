@@ -267,9 +267,13 @@ test("the board view shows the room live, posts as the person and verifies the r
   aboard("say", "--as", "reviewer", "--to", "@writer", "One more.");
   await expect(row.locator(".messages")).toContainText("6");
 
-  // The token lasts until the server stops; after that the page says to log in again.
+  // The login outlasts a restart of the server; once the person ends it, the page says to
+  // log in again.
   aboard("down");
   aboard("up");
+  await page.reload();
+  await expect(page.locator(".board-row", { hasText: "Docs review" })).toBeVisible();
+  aboard("logout", "--browsers");
   await page.reload();
   await expect(page.locator(".problem")).toContainText("Run aboard open again");
 });
@@ -325,4 +329,86 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   expect(joined.board.name).toBe(board);
   expect(joined.agent.role).toBe("reviewer");
   await expect(panel.locator('[data-agent="invited"]')).toBeVisible();
+});
+
+test("replies form threads that open in place, remember how they were left and surface what is new", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Threads", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  const say = (...args: string[]) => JSON.parse(aboard("say", "--board", board, "--json", ...args)).message;
+  const ask = say("--as", "writer", "--to", "@reviewer", "The retry design is in design.md. Can you review it?");
+  const first = say("--as", "reviewer", "--reply", ask.id, "--to", "@writer", "The jitter range is too narrow.");
+  say("--as", "writer", "--reply", first.id, "--to", "@reviewer", "Fair, switching to full jitter.");
+  say("--as", "reviewer", "Tests pass locally.");
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await page.goto(open.url);
+
+  // The thread's first message says how many replies and when the last came; a reply to
+  // a reply is in the same thread, and closed, the replies stay out of the timeline.
+  const thread = page.locator(`[data-thread="${ask.id}"]`);
+  const toggle = thread.locator(".thread-toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toContainText("2 replies");
+  await expect(toggle).toContainText("last just now");
+  await expect(page.getByText("The jitter range is too narrow.")).toHaveCount(0);
+  await expect(page.locator(".message", { hasText: "Tests pass locally." })).toBeVisible();
+
+  // Opened, the replies show in order, one level deep, and stay open after a reload.
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(thread.locator(".reply .body")).toHaveText(["The jitter range is too narrow.", "Fair, switching to full jitter."]);
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
+  await page.reload();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+  // A reply that arrives while the thread is closed shows as new, there and in the "Now:"
+  // line, which opens the thread at it.
+  say("--as", "reviewer", "--reply", ask.id, "--to", "@writer", "One more: cap the delay.");
+  await expect(thread.locator(".thread-new")).toHaveText("1 new");
+  await expect(toggle).toContainText("3 replies");
+  const fresh = page.locator(".now").getByRole("button", { name: "1 new reply in a thread" });
+  await fresh.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(thread.locator(".message", { hasText: "One more: cap the delay." })).toBeInViewport();
+  await expect(thread.locator(".thread-new")).toHaveCount(0);
+  await expect(fresh).toHaveCount(0);
+
+  // Replying in the thread posts a reply to its first message, shown in the thread.
+  await thread.getByRole("button", { name: "Reply in thread" }).click();
+  await expect(page.locator(".composer")).toContainText("Replying to writer");
+  await page.getByRole("textbox", { name: "Message writer" }).fill("Looks good once the cap is in.");
+  await page.getByRole("button", { name: "Post" }).click();
+  await expect(thread.locator(".message", { hasText: "Looks good once the cap is in." })).toContainText("You");
+  expect(aboard("read", "--as", "writer", "--board", board, "--thread", String(ask.seq))).toContain("Looks good once the cap is in.");
+
+  // A question to the person inside a closed thread still waits for them: in the thread,
+  // and in the "Now:" line, which opens the thread at the question.
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  say("--as", "reviewer", "--reply", ask.id, "--to", "@alex", "--expect-reply", "Alex, can I merge after the cap?");
+  await expect(thread).toContainText("reviewer is waiting for your reply in this thread.");
+  await page.locator(".now").getByRole("button", { name: "reviewer asked you a question" }).click();
+  const asked = thread.locator(".message", { hasText: "Alex, can I merge after the cap?" });
+  await expect(asked).toBeInViewport();
+  await expect(asked).toContainText("reviewer is waiting for your reply.");
+  await asked.getByRole("button", { name: "Reply", exact: true }).click();
+  await page.getByRole("textbox", { name: "Message reviewer" }).fill("Yes, merge it.");
+  await page.getByRole("button", { name: "Post" }).click();
+  await expect(asked).not.toContainText("waiting for your reply");
+  await expect(page.locator(".now")).toContainText("nothing waiting on you");
+
+  // A filter finds replies inside threads: the thread shows its first message with only
+  // the replies that match, open.
+  await page.getByRole("button", { name: "Filter" }).click();
+  await page.getByRole("menuitem", { name: /^From/ }).click();
+  await page.getByRole("menuitemradio", { name: "writer" }).click();
+  await page.keyboard.press("Escape");
+  await expect(thread.locator(".thread-toggle")).toContainText("1 of 6 replies match");
+  await expect(thread.locator(".reply .body")).toHaveText(["Fair, switching to full jitter."]);
+  await expect(page.locator(".message", { hasText: "Tests pass locally." })).toHaveCount(0);
+  await page.getByRole("button", { name: "Remove filter: From writer" }).click();
+  await expect(thread.locator(".thread-toggle")).toContainText("6 replies");
 });

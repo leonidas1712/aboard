@@ -322,6 +322,29 @@ func (h *handlers) GetMessage(context.Context, GetMessageRequestObject) (GetMess
 	return nil, notImplemented("message status")
 }
 
-func (h *handlers) ListReplies(context.Context, ListRepliesRequestObject) (ListRepliesResponseObject, error) {
-	return nil, notImplemented("lists of replies")
+func (h *handlers) ListReplies(ctx context.Context, req ListRepliesRequestObject) (ListRepliesResponseObject, error) {
+	wait := time.Duration(0)
+	if req.Params.Wait != nil {
+		wait = time.Duration(*req.Params.Wait) * time.Second
+	}
+	th, err := h.svc.Thread(ctx, principal(ctx), req.Message, wait, afterOr(req.Params.After), limitOr(req.Params.Limit))
+	if err != nil {
+		return nil, err
+	}
+	out := struct {
+		MessageID string        `json:"message_id"`
+		Root      *wireMessage  `json:"root"`
+		Replies   []wireMessage `json:"replies"`
+		NextAfter *int64        `json:"next_after"`
+	}{MessageID: req.Message, Replies: []wireMessage{}, NextAfter: th.NextAfter}
+	r := board.Reading{Board: th.Board, Reader: th.Reader, Messages: th.Replies}
+	if th.Root != nil {
+		r.Messages = append([]board.Message{*th.Root}, th.Replies...)
+	}
+	ms := messagesOf(r)
+	if th.Root != nil {
+		out.Root, ms = &ms[0], ms[1:]
+	}
+	out.Replies = append(out.Replies, ms...)
+	return convert[ListReplies200JSONResponse](out)
 }

@@ -57,6 +57,12 @@ export type Message = {
   body: string;
   reply_to: string | null;
   reply_to_seq: number | null;
+  /** thread_root is the first message of the reply's thread; null for a message that replies to nothing. */
+  thread_root: string | null;
+  thread_root_seq: number | null;
+  /** reply_count and last_reply_at describe the thread a message starts, as the reader may see it. */
+  reply_count: number;
+  last_reply_at: string | null;
   urgent: boolean;
   expects_reply: boolean;
   sender: Sender;
@@ -64,6 +70,9 @@ export type Message = {
 };
 
 export type MessagePage = { messages: Message[]; next_after: number | null; prev_before: number | null };
+
+/** ReplyPage is a thread: its first message (null when the reader may not see it) and replies, oldest first. */
+export type ReplyPage = { message_id: string; root: Message | null; replies: Message[]; next_after: number | null };
 
 export type Actor = { kind: "agent" | "human" | "system"; member_id: string | null; name: string | null; owner: string | null };
 

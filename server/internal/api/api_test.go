@@ -749,10 +749,6 @@ func TestOperationsThisServerDoesNotProvideReturnNotImplemented(t *testing.T) {
 	if code := errorCode(t, status, err, 501); code != "not_implemented" {
 		t.Fatalf("message status: %s", code)
 	}
-	replies, err := c.ListRepliesWithResponse(ctx, m.JSON201.Id, nil)
-	if code := errorCode(t, replies, err, 501); code != "not_implemented" {
-		t.Fatalf("replies: %s", code)
-	}
 }
 
 // An agent that has seen its unread messages can wait for the next one with after,

@@ -4,7 +4,7 @@
 // box below it, the boards to move between on the left, and this board (its agents and
 // people, charter, rules and details) on the right.
 
-import { type CSSProperties, useCallback, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type MemberRef, type Message } from "./api";
@@ -15,7 +15,8 @@ import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidt
 import { Account } from "./account";
 import { readStored, store, usePref } from "./prefs";
 import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
-import { type Entry, Timeline } from "./timeline";
+import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
+import { threadsOf, useThreadPrefs } from "./threads";
 import { type Filter, filterActive, useBoard } from "./use-board";
 import { type NowPart, boardLabel, eventLine, eventMatches, identitiesOf, identityOf, nowLine, personIdentity } from "./words";
 
@@ -47,34 +48,39 @@ export default function BoardView({ name }: { name: string }) {
   // The last message seen on this board, from the last visit, read once when the page opens.
   const seenKey = `aboard.lastSeen.${name}`;
   const [lastSeen] = useState(() => Number(readStored(seenKey) ?? "0") || 0);
+  const prefs = useThreadPrefs(name);
 
   const error = s.error ?? postError;
   const me = s.me?.name ?? null;
   const agents = useMemo(() => (s.members ?? []).filter((m) => m.kind === "agent"), [s.members]);
   const people = useMemo(() => (s.members ?? []).filter((m) => m.kind === "human"), [s.members]);
 
-  const byId = useMemo(() => new Map([...(s.messages ?? []), ...(s.shown ?? [])].map((m) => [m.id, m])), [s.messages, s.shown]);
-  // Replies by the message they answer, oldest first, from the unfiltered timeline.
+  // Every loaded message: the timeline, the filter's matches and threads read whole.
+  const known = s.known;
+  const byId = useMemo(() => new Map(known.map((m) => [m.id, m])), [known]);
+  const threads = useMemo(() => threadsOf(known), [known]);
+  // Replies by the message they answer, oldest first.
   const repliesTo = useMemo(() => {
     const out = new Map<string, Message[]>();
-    for (const m of s.messages ?? []) {
+    for (const m of known) {
       if (m.reply_to) out.set(m.reply_to, [...(out.get(m.reply_to) ?? []), m]);
     }
     return out;
-  }, [s.messages]);
+  }, [known]);
 
   // Questions waiting on the person: addressed to them, asking for a reply, and not yet
-  // answered (by them when asked by name; by anyone when asked of everyone).
+  // answered (by them when asked by name; by anyone when asked of everyone). Questions
+  // inside threads count the same.
   const waiting = useMemo(() => {
     const ids = new Set<string>();
-    for (const m of s.messages ?? []) {
+    for (const m of known) {
       if (!m.expects_reply || !s.toMe.has(m.id)) continue;
       const replies = repliesTo.get(m.id) ?? [];
       const answered = m.to.includes("all") ? replies.length > 0 : replies.some((r) => r.sender === "self");
       if (!answered) ids.add(m.id);
     }
     return ids;
-  }, [s.messages, s.toMe, repliesTo]);
+  }, [known, s.toMe, repliesTo]);
 
   const answer = useCallback(
     (m: Message) => (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
@@ -98,9 +104,61 @@ export default function BoardView({ name }: { name: string }) {
     [colours],
   );
 
+  // A reply counts as new until the person has seen it: after the newest reply they saw
+  // in its thread, else after the last message they saw on the board, else after what
+  // was loaded when the page opened.
+  const opened = useRef<number | null>(null);
+  if (opened.current === null && s.messages !== null) opened.current = known.at(-1)?.seq ?? 0;
+  const thread = useCallback(
+    (root: Message, only: Message[] | null): Thread | undefined => {
+      const all = threads.get(root.id) ?? [];
+      const last = all.at(-1);
+      if (!last) return undefined;
+      const repliers: MemberRef[] = [];
+      for (const r of [...all].reverse()) {
+        if (!repliers.some((x) => x.kind === r.from.kind && x.name === r.from.name)) repliers.push(r.from);
+      }
+      const since = prefs.seen(root.id) ?? (lastSeen > 0 ? lastSeen : (opened.current ?? 0));
+      const waits = all.find((r) => waiting.has(r.id)) ?? null;
+      const fresh = all.filter((r) => r.seq > since && r.sender !== "self");
+      return {
+        root: root.id,
+        replies: only ?? all,
+        total: all.length,
+        lastAt: last.at,
+        repliers,
+        open: prefs.open(root.id) ?? waits !== null,
+        filtered: only !== null,
+        fresh: fresh.length,
+        firstFresh: fresh[0]?.id ?? null,
+        waiting: waits,
+      };
+    },
+    [threads, prefs, lastSeen, waiting],
+  );
+
   const entries = useMemo<Entry[]>(() => {
+    const out: Entry[] = [];
+    const roots = new Map<string, Message[] | null>();
+    // A reply whose thread can't be read stands alone, with the line it quotes.
+    const add = (m: Message) => {
+      if (m.thread_root === null) {
+        if (!roots.has(m.id)) roots.set(m.id, null);
+      } else if (s.rootless.has(m.thread_root)) {
+        out.push({ kind: "message", seq: m.seq, m });
+      } else if (filterActive(filter)) {
+        roots.set(m.thread_root, [...(roots.get(m.thread_root) ?? []), m]);
+      } else if (!roots.has(m.thread_root)) {
+        roots.set(m.thread_root, null);
+      }
+    };
+    for (const m of s.shown ?? []) add(m);
+    for (const [id, only] of roots) {
+      const root = byId.get(id);
+      // A thread whose first message is still loading shows once it arrives.
+      if (root) out.push({ kind: "message", seq: root.seq, m: root, thread: thread(root, only) });
+    }
     const msgs = s.shown ?? [];
-    const out: Entry[] = msgs.map((m) => ({ kind: "message", seq: m.seq, m }));
     if (showEvents && s.board && !filter.toMe) {
       const from = s.hasEarlier ? (msgs[0]?.seq ?? 0) : 0;
       const creator = s.board.created_by.name;
@@ -111,13 +169,21 @@ export default function BoardView({ name }: { name: string }) {
       }
     }
     return out.sort((a, b) => a.seq - b.seq);
-  }, [s.shown, s.events, s.board, s.hasEarlier, showEvents, people.length, filter]);
+  }, [s.shown, s.rootless, s.events, s.board, s.hasEarlier, byId, thread, showEvents, people.length, filter]);
+
+  // An open thread's replies have been seen.
+  useEffect(() => {
+    for (const e of entries) {
+      const last = e.kind === "message" && e.thread?.open ? e.thread.replies.at(-1) : undefined;
+      if (last && e.kind === "message" && !e.thread!.filtered) prefs.see(e.m.id, last.seq);
+    }
+  }, [entries, prefs]);
 
   const dividerSeq = useMemo(() => {
     if (lastSeen <= 0) return null;
-    const next = (s.shown ?? []).find((m) => m.seq > lastSeen && m.sender !== "self");
+    const next = entries.find((e) => e.kind === "message" && e.seq > lastSeen && e.m.sender !== "self");
     return next?.seq ?? null;
-  }, [s.shown, lastSeen]);
+  }, [entries, lastSeen]);
 
   const onSeen = useCallback(
     (seq: number) => {
@@ -134,6 +200,22 @@ export default function BoardView({ name }: { name: string }) {
     },
     [byId],
   );
+
+  // Showing a message opens its thread first, then scrolls to it once it is on the page.
+  const [pending, setPending] = useState<string | null>(null);
+  const onShow = useCallback(
+    (id: string) => {
+      const m = byId.get(id);
+      if (m?.thread_root) prefs.setOpen(m.thread_root, true);
+      setPending(id);
+    },
+    [byId, prefs],
+  );
+  useEffect(() => {
+    if (pending && showMessage(pending)) setPending(null);
+  }, [pending, entries]);
+
+  const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
   const mine = (s.members ?? []).find((m) => m.kind === "human" && m.name === me);
   const myAccess = mine?.access ?? null;
@@ -156,11 +238,14 @@ export default function BoardView({ name }: { name: string }) {
     [],
   );
 
+  // New replies in closed threads, which the timeline doesn't show until opened.
+  const unread = entries.flatMap((e) => (e.kind === "message" && e.thread && !e.thread.open && e.thread.fresh > 0 ? [e.thread] : []));
   const now = nowLine(
     {
       agents,
-      questions: (s.messages ?? []).filter((m) => waiting.has(m.id)),
-      lastActivity: s.messages?.at(-1)?.at ?? null,
+      questions: known.filter((m) => waiting.has(m.id)),
+      newReplies: unread.length > 0 ? { count: unread.reduce((n, t) => n + t.fresh, 0), threads: unread.length, target: unread[0].firstFresh ?? unread[0].root } : null,
+      lastActivity: known.at(-1)?.at ?? null,
     },
     Date.now(),
   );
@@ -212,7 +297,7 @@ export default function BoardView({ name }: { name: string }) {
           <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] min-w-0 flex-col lg:order-none lg:h-auto lg:min-h-0">
             <div className={column}>
               <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
-                <NowLine parts={loading ? null : now} />
+                <NowLine parts={loading ? null : now} onShow={onShow} />
                 <FilterControl
                   filter={filter}
                   setFilter={setFilter}
@@ -245,6 +330,8 @@ export default function BoardView({ name }: { name: string }) {
                 identity={identity}
                 waiting={waiting}
                 onReply={setReplyTo}
+                onToggle={onToggle}
+                onShow={onShow}
                 onSeen={onSeen}
                 stick={stick}
                 resetKey={JSON.stringify(filter)}
@@ -257,9 +344,13 @@ export default function BoardView({ name }: { name: string }) {
                 agents={agents}
                 replyTo={replyTo}
                 onCancelReply={() => setReplyTo(null)}
-                onPosted={() => {
+                onPosted={(m) => {
                   setPostError(null);
-                  setStick((n) => n + 1);
+                  // A reply opens its thread and is shown there; anything else is newest.
+                  if (m.thread_root) {
+                    prefs.setOpen(m.thread_root, true);
+                    setPending(m.id);
+                  } else setStick((n) => n + 1);
                   s.refresh();
                 }}
                 onError={setPostError}
@@ -293,33 +384,30 @@ export default function BoardView({ name }: { name: string }) {
   );
 }
 
-function NowLine({ parts }: { parts: NowPart[] | null }) {
+function NowLine({ parts, onShow }: { parts: NowPart[] | null; onShow: (id: string) => void }) {
   if (parts === null) return <p className="now h-[25px] w-72 animate-pulse rounded-control bg-selected motion-reduce:animate-none" />;
   return (
     <p className="now min-w-0 flex-1 py-2 text-now">
       <strong>Now:</strong>{" "}
-      {parts.map((p, i) => (
-        <span key={p.text}>
-          {i > 0 && <span className="text-muted"> · </span>}
-          {p.attention ? (
-            <span className="rounded-[4px] bg-attention px-1 text-ink">
-              {p.target ? (
-                <button
-                  type="button"
-                  className="text-ink underline decoration-1 underline-offset-[3px] hover:no-underline"
-                  onClick={() => document.querySelector(`[data-id="${p.target}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                >
-                  {p.text}
-                </button>
-              ) : (
-                p.text
-              )}
-            </span>
-          ) : (
-            p.text
-          )}
-        </span>
-      ))}
+      {parts.map((p, i) => {
+        const text = p.target ? (
+          <button
+            type="button"
+            className={cn("underline decoration-1 underline-offset-[3px] hover:no-underline", p.attention ? "text-ink" : "now-link text-link")}
+            onClick={() => onShow(p.target!)}
+          >
+            {p.text}
+          </button>
+        ) : (
+          p.text
+        );
+        return (
+          <span key={p.text}>
+            {i > 0 && <span className="text-muted"> · </span>}
+            {p.attention ? <span className="rounded-[4px] bg-attention px-1 text-ink">{text}</span> : text}
+          </span>
+        );
+      })}
     </p>
   );
 }

@@ -49,6 +49,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},
 		{"InsertMessageCountsItOnItsBoard", insertMessageCountsItOnItsBoard},
+		{"ThreadsReadAndCountOnlyVisibleReplies", threadsReadAndCountOnlyVisibleReplies},
 		{"ReadSeesCommittedWritesOnly", readSeesCommittedWritesOnly},
 	}
 	for _, tt := range tests {
@@ -1135,6 +1136,96 @@ func insertMessageCountsItOnItsBoard(t *testing.T, st board.Store) {
 		}
 		if q.MessageCount != 0 || q.LastMessageAt != nil {
 			t.Errorf("a board without messages: %d messages, last %v", q.MessageCount, q.LastMessageAt)
+		}
+		return nil
+	})
+}
+
+// threadsReadAndCountOnlyVisibleReplies adds replies to the conversation:
+//
+//	6 writer   -> @reviewer  replies to 1
+//	7 other    -> @writer    replies to 6, in 1's thread
+//	8 reviewer -> all        replies to 2
+func threadsReadAndCountOnlyVisibleReplies(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	later := "2026-10-01T16:05:00.000Z"
+	replies := []struct {
+		from        board.Member
+		to, replyTo string
+		at          string
+		root        string
+	}{
+		{c.writer, "@reviewer", "msg_1", at, "msg_1"},
+		{c.other, "@writer", "msg_6", later, "msg_1"},
+		{c.reviewer, "all", "msg_2", at, "msg_2"},
+	}
+	write(t, st, func(tx board.Tx) error {
+		for i, r := range replies {
+			seq := int64(6 + i)
+			err := tx.InsertMessage(board.Message{
+				ID: fmt.Sprintf("msg_%d", seq), BoardID: "brd_docs", Seq: seq, At: r.at, SenderID: r.from.ID, To: []string{r.to},
+				Body: "reply", ReplyTo: ptr(r.replyTo), ThreadRoot: ptr(r.root),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	read(t, st, func(tx board.ReadTx) error {
+		m, err := tx.MessageByID("msg_7")
+		if err != nil {
+			return err
+		}
+		if m.ThreadRoot == nil || *m.ThreadRoot != "msg_1" || m.ThreadRootSeq == nil || *m.ThreadRootSeq != 1 {
+			t.Errorf("MessageByID(msg_7) thread root %v (#%v), want msg_1 (#1)", m.ThreadRoot, m.ThreadRootSeq)
+		}
+
+		threads := []struct {
+			name    string
+			readAll bool
+			after   int64
+			limit   int
+			want    []int64
+		}{
+			{"every reply, oldest first", true, 0, 10, []int64{6, 7}},
+			{"after a reply", true, 6, 10, []int64{7}},
+			{"limited", true, 0, 1, []int64{6}},
+			// 7 is addressed to @writer.
+			{"only what the reader may see", false, 0, 10, []int64{6}},
+		}
+		for _, tt := range threads {
+			got, err := tx.Thread("msg_1", c.reviewer, tt.readAll, tt.after, tt.limit)
+			if err != nil {
+				return err
+			}
+			if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, tt.want) {
+				t.Errorf("%s: Thread(msg_1) seqs = %v, want %v", tt.name, seqs, tt.want)
+			}
+		}
+
+		all, err := tx.ThreadCounts(c.reviewer, true, []string{"msg_1", "msg_2", "msg_3"})
+		if err != nil {
+			return err
+		}
+		want := map[string]board.ThreadCount{"msg_1": {Replies: 2, LastAt: later}, "msg_2": {Replies: 1, LastAt: at}}
+		if !reflect.DeepEqual(all, want) {
+			t.Errorf("ThreadCounts(readAll) = %+v, want %+v", all, want)
+		}
+		visible, err := tx.ThreadCounts(c.reviewer, false, []string{"msg_1", "msg_2"})
+		if err != nil {
+			return err
+		}
+		want = map[string]board.ThreadCount{"msg_1": {Replies: 1, LastAt: at}, "msg_2": {Replies: 1, LastAt: at}}
+		if !reflect.DeepEqual(visible, want) {
+			t.Errorf("ThreadCounts(addressed) = %+v, want %+v", visible, want)
+		}
+		none, err := tx.ThreadCounts(c.reviewer, true, nil)
+		if err != nil {
+			return err
+		}
+		if none == nil || len(none) != 0 {
+			t.Errorf("ThreadCounts of no threads = %#v, want an empty map", none)
 		}
 		return nil
 	})

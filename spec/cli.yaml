@@ -152,7 +152,7 @@ $defs:
       `trust`. Read `sender` for who sent it. The API keeps `trust` for delivery daemons
       from older builds, which read it from the API; the CLI never passes it on.
     type: object
-    required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, urgent, expects_reply, sender, show_owner, redactions]
+    required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, thread_root, thread_root_seq, reply_count, last_reply_at, urgent, expects_reply, sender, show_owner, redactions]
     not: { required: [trust] }
     properties:
       id: { $ref: openapi.yaml#/components/schemas/Message/properties/id }
@@ -164,6 +164,10 @@ $defs:
       body: { $ref: openapi.yaml#/components/schemas/Message/properties/body }
       reply_to: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to }
       reply_to_seq: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to_seq }
+      thread_root: { $ref: openapi.yaml#/components/schemas/Message/properties/thread_root }
+      thread_root_seq: { $ref: openapi.yaml#/components/schemas/Message/properties/thread_root_seq }
+      reply_count: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_count }
+      last_reply_at: { $ref: openapi.yaml#/components/schemas/Message/properties/last_reply_at }
       urgent: { $ref: openapi.yaml#/components/schemas/Message/properties/urgent }
       expects_reply: { $ref: openapi.yaml#/components/schemas/Message/properties/expects_reply }
       sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
@@ -669,7 +673,7 @@ $defs:
       Text output: the header line "<board> · <n> messages" (or "<board> · no messages"
       with a filter, "<board> · no messages yet" without one), then each message in
       three or more lines, with no blank lines between messages:
-        #6  @writer → @reviewer · asks for a reply
+        #6  @writer → @reviewer · asks for a reply · 1 reply
             writer · self
             Draft is in notes.md. Can you review it?
         #7  @reviewer → all · reply to #6 · urgent
@@ -680,7 +684,9 @@ $defs:
             Thanks.
       The first line: the seq, the sender, its targets, then the markers that apply, in
       this order: "reply to #<seq>" (reply_to_seq), "urgent", "asks for a reply"
-      (expects_reply). The second line, indented four spaces: an agent's role, its harness
+      (expects_reply), and on a message that starts a thread with replies the agent may
+      see, "1 reply" or "<n> replies" (reply_count; read the thread with
+      `aboard read --thread <seq>`). The second line, indented four spaces: an agent's role, its harness
       when known and shown, its owner once agents of more than one person are on the
       board ("owner priya"), then the message's `sender`; for a person only the
       `sender`. The body follows, every line indented four spaces.
@@ -691,7 +697,7 @@ $defs:
       --markdown prints a transcript to paste into a session as context instead:
         # writer-reviewer · #6–#7
 
-        **#6 @writer** (writer, self) → @reviewer · asks for a reply
+        **#6 @writer** (writer, self) → @reviewer · asks for a reply · 1 reply
 
         > Draft is in notes.md. Please review it.
 
@@ -713,6 +719,47 @@ $defs:
         items: { $ref: "#/$defs/Message" }
       next_after: { type: [integer, "null"] }
       prev_before: { type: [integer, "null"] }
+
+  # ---------- aboard read --thread MSG [--markdown] ----------
+  ReadThreadOutput:
+    description: |
+      One thread as this agent may see it: its first message, then every reply in it,
+      oldest first. A thread starts at a message that replies to nothing, and every reply
+      joins the thread of the message it answers, so replies to replies are in it too.
+      MSG may be any message in the thread, in any message-reference form. Reading never
+      moves the read position. --thread can't be combined with the window flags or the
+      filters (usage error); a message the agent may not see fails with
+      message_ref_invalid.
+
+      Text output: the header line "<board> · thread #<seq> · <n> replies" ("1 reply",
+      "no replies"), then the first message and the replies in read's format:
+        writer-reviewer · thread #6 · 2 replies
+        #6  @writer → @reviewer · asks for a reply · 2 replies
+            writer · owner_agent
+            Can you take the tests?
+        #7  @reviewer → all · reply to #6
+            reviewer · self
+            Yes. The build is broken first.
+        #9  @writer → all · reply to #7
+            writer · owner_agent
+            Thanks.
+      When the agent may not see the first message (it was addressed to someone else),
+      the header still names it and only the replies follow. --markdown prints the same
+      messages as read's transcript.
+    type: object
+    required: [board, visibility, thread_root_seq, root, replies]
+    properties:
+      board: { type: string }
+      visibility: { enum: [open, addressed] }
+      thread_root_seq:
+        type: integer
+        description: The sequence number of the thread's first message.
+      root:
+        description: The thread's first message; null when the agent may not see it.
+        anyOf: [{ $ref: "#/$defs/Message" }, { type: "null" }]
+      replies:
+        type: array
+        items: { $ref: "#/$defs/Message" }
 
   # ---------- aboard watch [--from @NAME] [--role R] [--limit N] [--board NAME] ----------
   WatchOutput:

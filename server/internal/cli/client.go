@@ -109,6 +109,28 @@ func (c *client) board(ctx context.Context, name string) (*api.Board, error) {
 	return r.JSON200, nil
 }
 
+// thread returns the whole thread a message is in: its first message, when the caller
+// may see it, and every reply, oldest first.
+func (c *client) thread(ctx context.Context, id string) (*api.ReplyPage, error) {
+	out := &api.ReplyPage{MessageId: id, Replies: []api.Message{}}
+	after, limit := 0, 200
+	for {
+		r, err := c.api.ListRepliesWithResponse(ctx, id, &api.ListRepliesParams{After: &after, Limit: &limit})
+		if err != nil {
+			return nil, c.unreachable(err)
+		}
+		if r.JSON200 == nil {
+			return nil, apiError(r.StatusCode(), r.Body)
+		}
+		out.Root = r.JSON200.Root
+		out.Replies = append(out.Replies, r.JSON200.Replies...)
+		if r.JSON200.NextAfter == nil {
+			return out, nil
+		}
+		after = *r.JSON200.NextAfter
+	}
+}
+
 // messages returns a page of a board's timeline.
 func (c *client) messages(ctx context.Context, board string, params api.ListMessagesParams) (*api.MessagePage, error) {
 	r, err := c.api.ListMessagesWithResponse(ctx, board, &params)

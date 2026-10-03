@@ -4,8 +4,9 @@
 // timeline, the board events, and the record's verification. It reads only the public
 // API and follows the event stream for changes.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ApiError,
   type Board,
   type BoardEvent,
   type EventPage,
@@ -13,6 +14,7 @@ import {
   type Member,
   type Message,
   type MessagePage,
+  type ReplyPage,
   follow,
   get,
 } from "./api";
@@ -48,6 +50,13 @@ export type BoardState = {
   hasEarlier: boolean;
   events: BoardEvent[];
   record: RecordCheck;
+  /**
+   * known is every message loaded, oldest first: the timeline, the filter's matches, and
+   * the threads read for replies whose first message is older than what is loaded.
+   */
+  known: Message[];
+  /** rootless holds the thread roots this reader can't read, so their replies stand alone. */
+  rootless: Set<string>;
   /** toMe holds the ids of loaded messages addressed to the person. */
   toMe: Set<string>;
   error: unknown;
@@ -69,6 +78,10 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const [record, setRecord] = useState<RecordCheck>({ state: "checking" });
   const [toMe, setToMe] = useState<Set<string>>(new Set());
   const [error, setError] = useState<unknown>(null);
+  // Threads read whole because a loaded reply's first message wasn't loaded.
+  const [extra, setExtra] = useState<Message[]>([]);
+  const [rootless, setRootless] = useState<Set<string>>(new Set());
+  const requested = useRef<Set<string>>(new Set());
 
   // Reads run one at a time, so a live update never races a first page. newest is the
   // seq of the newest message loaded, for the timeline and for the filter's matches;
@@ -233,6 +246,45 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const refresh = useCallback(() => run(catchUp), [run, catchUp]);
 
+  const known = useMemo(() => {
+    const out = new Map<string, Message>();
+    for (const m of [...extra, ...(base?.messages ?? []), ...(filtered?.messages ?? [])]) out.set(m.id, m);
+    return [...out.values()].sort((a, b) => a.seq - b.seq);
+  }, [extra, base, filtered]);
+
+  // A reply whose thread starts before what is loaded brings its whole thread in, so the
+  // reply shows under its first message.
+  useEffect(() => {
+    const ids = new Set(known.map((m) => m.id));
+    const missing = [...new Set(known.map((m) => m.thread_root).filter((r): r is string => !!r && !ids.has(r)))].filter(
+      (r) => !requested.current.has(r),
+    );
+    for (const root of missing) {
+      requested.current.add(root);
+      run(async () => {
+        const out: Message[] = [];
+        let after = 0;
+        let page: ReplyPage | null = null;
+        try {
+          do {
+            page = await get<ReplyPage>(`/v1/messages/${encodeURIComponent(root)}/replies`, { after, limit: 200 });
+            out.push(...page.replies);
+            after = page.next_after ?? 0;
+          } while (page.next_after !== null);
+        } catch (e) {
+          // A thread that can't be read leaves its replies standing alone; a lost login
+          // is reported as for any other read.
+          if (e instanceof ApiError && e.status === 401) throw e;
+          page = null;
+        }
+        if (!live.current) return;
+        if (page?.root) out.unshift(page.root);
+        else setRootless((s) => new Set([...s, root]));
+        setExtra((x) => [...x, ...out]);
+      });
+    }
+  }, [known, run]);
+
   return {
     board,
     boards,
@@ -243,6 +295,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
     hasEarlier: prevBefore !== null,
     events,
     record,
+    known,
+    rootless,
     toMe,
     error,
     loadEarlier,

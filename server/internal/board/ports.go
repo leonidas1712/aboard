@@ -61,6 +61,19 @@ type ReadTx interface {
 	MessageByID(id string) (Message, error)
 	// MessagesBySeq returns the board's messages among seqs, keyed by seq.
 	MessagesBySeq(boardID string, seqs []int64) (map[int64]Message, error)
+	// Thread returns up to limit replies after seq in the thread rootID starts that
+	// reader may see, oldest first. readAll means as for Timeline.
+	Thread(rootID string, reader Member, readAll bool, after int64, limit int) ([]Message, error)
+	// ThreadCounts returns, for each of rootIDs whose thread has a reply reader may see,
+	// how many such replies it has and when the newest was posted. readAll means as for
+	// Timeline.
+	ThreadCounts(reader Member, readAll bool, rootIDs []string) (map[string]ThreadCount, error)
+}
+
+// ThreadCount counts the replies in one thread that a reader may see.
+type ThreadCount struct {
+	Replies int
+	LastAt  string
 }
 
 // TimelineQuery says which messages Timeline returns. Zero values don't filter.
