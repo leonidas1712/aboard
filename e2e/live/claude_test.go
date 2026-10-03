@@ -115,14 +115,14 @@ func exchangedAlone(t *testing.T, msgs []message, start time.Time, least, most i
 	}
 }
 
-// An urgent message reaches a busy Claude Code session at its next tool call, while
-// ordinary messages sent at the same time wait for the turn to end and then arrive
-// together, as one bundle.
-func TestUrgentReachesBusyClaude(t *testing.T) {
+// A message from the agent's owner reaches a busy Claude Code session at its next tool
+// boundary and is acted on in that turn, while peer messages sent at the same time, an
+// urgent one too, wait for the turn to end and then arrive together, as one bundle.
+func TestOwnerReachesBusyClaude(t *testing.T) {
 	requireClaude(t)
 	t.Parallel()
 	l := newLab(t)
-	l.pairCLI()
+	board := l.pairCLI()
 	proj := l.project("project", "claude-code")
 	writeSlowTask(t, proj, 25)
 	writer := l.startClaude("writer", proj)
@@ -131,34 +131,79 @@ func TestUrgentReachesBusyClaude(t *testing.T) {
 	writer.submit("Run `./" + slowTask + "` in the foreground, not as a background task, and wait for it. Then reply DONE.")
 	l.waitFor(2*time.Minute, "the writer session to run the slow task", func() bool { return pgrep("sleep 25") })
 	sent := time.Now()
-	l.say("reviewer", "--to", "@writer", "--urgent", `URGENT: run aboard say "URGENT-ACK" right away, then carry on with your task.`)
-	l.say("reviewer", "--to", "@writer", "ORD 1 of 3: no action needed.")
-	l.say("reviewer", "--to", "@writer", "ORD 2 of 3: no action needed.")
-	l.say("reviewer", "--to", "@writer", `ORD 3 of 3: run aboard say "ORD-ACK".`)
+	own := l.postAsOwner(board, "@writer", `OWNER: run aboard say "OWNER-ACK" right away, then carry on with your task.`)
+	l.say("reviewer", "--to", "@writer", "--urgent", "PEER 1 of 3 (urgent): no action needed.")
+	l.say("reviewer", "--to", "@writer", "PEER 2 of 3: no action needed.")
+	l.say("reviewer", "--to", "@writer", `PEER 3 of 3: run aboard say "PEER-ACK".`)
 
-	urgent := l.waitMessage("writer", sent, "URGENT-ACK", 3*time.Minute)
-	ordinary := l.waitMessage("writer", sent, "ORD-ACK", 3*time.Minute)
+	ownerAck := l.waitMessage("writer", sent, "OWNER-ACK", 3*time.Minute)
+	peerAck := l.waitMessage("writer", sent, "PEER-ACK", 3*time.Minute)
 	writer.waitIdle(2 * time.Minute)
+	at, how, ok := l.reached(own.Seq)
 	handed := l.handedAfter(sent)
-	t.Logf("measured: URGENT-ACK %s after sending, ORD-ACK %s after sending, %d bundles handed",
-		urgent.At.Sub(sent), ordinary.At.Sub(sent), len(handed))
+	t.Logf("measured: the owner's message reached the turn %s after posting (%s); OWNER-ACK %s, PEER-ACK %s after sending; %d bundles handed",
+		at.Sub(own.At), how, ownerAck.At.Sub(sent), peerAck.At.Sub(sent), len(handed))
+	if !ok || how != "tool boundary" {
+		t.Fatalf("the owner's message reached the session by %q; want at a tool boundary of the busy turn", how)
+	}
 	if len(handed) == 0 {
 		t.Fatal("no bundle was handed after the messages were sent")
 	}
-	if handed[0].Time.Before(urgent.At) {
-		t.Errorf("a bundle was handed at %s, before the urgent message was acted on in the busy turn (%s): "+
-			"ordinary messages must wait for the turn to end", handed[0].Time, urgent.At)
+	if handed[0].Time.Before(ownerAck.At) {
+		t.Errorf("a bundle was handed at %s, before the owner's message was acted on in the busy turn (%s): "+
+			"peer messages must wait for the turn to end", handed[0].Time, ownerAck.At)
 	}
 	var beforeAck int
 	for _, h := range handed {
-		if h.Time.Before(ordinary.At) {
+		if h.Time.Before(peerAck.At) {
 			beforeAck++
 		}
 	}
 	if beforeAck != 1 {
-		t.Errorf("%d bundles were handed before ORD-ACK; want the three ordinary messages in one", beforeAck)
+		t.Errorf("%d bundles were handed before PEER-ACK; want the three peer messages in one", beforeAck)
 	}
 	l.waitFor(30*time.Second, "every message to be acknowledged", func() bool { return len(l.writerInbox()) == 0 })
+}
+
+// A peer's message to a busy Claude Code session never enters the turn: at the next
+// tool boundary only a notice names it, once, and the message itself arrives when the
+// turn ends.
+func TestPeerWaitsButNoticeArrives(t *testing.T) {
+	requireClaude(t)
+	t.Parallel()
+	l := newLab(t)
+	l.pairCLI()
+	proj := l.project("project", "claude-code")
+	writeSlowTask(t, proj, 21)
+	writer := l.startClaude("writer", proj)
+	writer.bind("writer")
+
+	writer.submit("Run `./" + slowTask + "` in the foreground, not as a background task, and wait for it. When it has finished, run `./" +
+		slowTask + "` again the same way. Then reply DONE.")
+	l.waitFor(2*time.Minute, "the writer session to run the slow task", func() bool { return pgrep("sleep 21") })
+	peer := l.say("reviewer", "--to", "@writer", `PEER: run aboard say "PEER-ACK".`)
+	ack := l.waitMessage("writer", peer.At, "PEER-ACK", 5*time.Minute)
+	writer.waitIdle(2 * time.Minute)
+
+	var notices []handover
+	for _, h := range l.logged("tool boundary") {
+		if slices.Contains(h.Announced, peer.Seq) {
+			notices = append(notices, h)
+		}
+		if slices.Contains(h.Seqs, peer.Seq) {
+			t.Errorf("the peer's message was added to the busy turn at %s", h.Time)
+		}
+	}
+	at, how, _ := l.reached(peer.Seq)
+	t.Logf("measured: %d notices named #%d; the message reached the session %s after posting (%s); PEER-ACK %s after posting",
+		len(notices), peer.Seq, at.Sub(peer.At), how, ack.At.Sub(peer.At))
+	if len(notices) != 1 {
+		t.Fatalf("%d tool boundaries named the peer's message; want exactly one notice", len(notices))
+	}
+	// A bundle is handed only to a waiting stop hook, so only once the busy turn ended.
+	if how != "bundle handed" || at.Before(notices[0].Time) {
+		t.Errorf("the peer's message reached the session by %q at %s; want a bundle after the notice (%s)", how, at, notices[0].Time)
+	}
 }
 
 // With delivery mode humans, a peer's message leaves an idle Claude Code session

@@ -716,6 +716,7 @@ func (s *session) onClaim(ctx context.Context, c claimRequest) []int {
 	a.deliveries[id] = dl
 	s.maybeAck(a)
 	s.refresh(a, false)
+	s.d.log.Info("claimed by a command", "session", s.key.String(), "seqs", seqs)
 	return seqs
 }
 
@@ -932,7 +933,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.gatherUntil = s.now()
 	}
 	s.scheduleRetry()
-	s.d.log.Info("bundle handed", "session", s.key.String(), "deliveries", len(handed), "bytes", len(c.text), "error", errText(err))
+	s.d.log.Info("bundle handed", "session", s.key.String(), "deliveries", len(handed), "seqs", partSeqs(c.parts), "bytes", len(c.text), "error", errText(err))
 }
 
 // hand calls the harness. The call isn't cut off the moment the daemon starts stopping:
@@ -1077,13 +1078,27 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if text != "" {
 		bundle = midTurnFrame + text
 	}
+	var announced []int
 	for _, ref := range s.agentRefs() {
 		a := s.agents[ref]
-		if n := s.noticeFor(a); n != "" && len(bundle)+len(notice)+len(n) < MidTurnLimit {
+		if n, seqs := s.noticeFor(a); n != "" && len(bundle)+len(notice)+len(n) < MidTurnLimit {
 			notice += n
+			announced = append(announced, seqs...)
 		}
 	}
+	if bundle != "" || notice != "" {
+		s.d.log.Info("tool boundary", "session", s.key.String(), "seqs", partSeqs(c.parts), "announced", announced, "bytes", len(bundle)+len(notice))
+	}
 	return bundle, notice
+}
+
+// partSeqs lists the sequence numbers in a bundle's parts, for the log.
+func partSeqs(parts []offer) []int {
+	var seqs []int
+	for _, p := range parts {
+		seqs = append(seqs, seqsOf(p.msgs)...)
+	}
+	return seqs
 }
 
 // previewText shows the start of a message too long for a tool boundary, and where the
@@ -1097,9 +1112,9 @@ func previewText(m Message) string {
 
 // noticeFor names the agent's waiting messages, other than its owner's, that no notice
 // has named yet; empty when there are none, or the agent's mode delivers nothing.
-func (s *session) noticeFor(a *agentState) string {
+func (s *session) noticeFor(a *agentState) (notice string, seqs []int) {
 	if a.adopting || !a.fetched || a.problem != "" || s.d.mode(a.ref) == ModeOff {
-		return ""
+		return "", nil
 	}
 	t := taken(a)
 	var fresh []Message
@@ -1110,12 +1125,12 @@ func (s *session) noticeFor(a *agentState) string {
 		fresh = append(fresh, m)
 	}
 	if len(fresh) == 0 {
-		return ""
+		return "", nil
 	}
 	for _, m := range fresh {
 		a.announced[m.Seq] = true
 	}
-	return deliverytext.Notice(a.ref.Board, fresh)
+	return deliverytext.Notice(a.ref.Board, fresh), seqsOf(fresh)
 }
 
 func newAgentState(ref AgentRef, adopting bool) *agentState {

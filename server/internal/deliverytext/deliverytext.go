@@ -162,6 +162,7 @@ func Notice(board string, ms []Message) string {
 		}
 		parts = append(parts, fmt.Sprintf("#%d from %s (%s)", m.Seq, from, m.Sender))
 	}
-	return fmt.Sprintf(`<aboard-notice board="%s" waiting="%d">%s</aboard-notice>`, attrEscaper.Replace(board), len(ms),
-		attrEscaper.Replace(fmt.Sprintf("%d waiting on %s: %s; run aboard inbox when convenient", len(ms), board, strings.Join(parts, ", "))))
+	text := fmt.Sprintf("%d waiting on %s: %s; run aboard inbox when convenient", len(ms), board, strings.Join(parts, ", "))
+	return `<aboard-notice board="` + attrEscaper.Replace(board) + `" waiting="` + strconv.Itoa(len(ms)) + `">` +
+		attrEscaper.Replace(text) + "</aboard-notice>"
 }

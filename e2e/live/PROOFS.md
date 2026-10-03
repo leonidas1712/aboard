@@ -12,7 +12,7 @@ to see delivery work for real.
 
 ```bash
 make live                          # every test, about 2 minutes
-make live RUN=TestUrgentReachesBusyClaude
+make live RUN=TestOwnerReachesBusyClaude
 LIVE_KEEP=1 make live RUN=TestIdleClaudeWakesAndReplies   # keep the panes and logs even on a pass
 ```
 
@@ -52,7 +52,8 @@ Code 2.1.287 with its default model.
 | --- | --- | --- |
 | `TestIdleClaudeWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins. Then a message to the idle first session is handed over within 2 seconds and answered on the board with no one typing. | 6 |
 | `TestClaudeExchangesFiveMessages` | One prompt starts the skill's wiring check to PING 3: six messages go back and forth between two sessions, taking turns, and the exchange stops. | 9 |
-| `TestUrgentReachesBusyClaude` | While a turn runs a 25-second task, an urgent message reaches it at the next tool call and is acted on in that turn; three ordinary messages sent at the same time wait for the turn to end and arrive as one bundle. | 3 |
+| `TestOwnerReachesBusyClaude` | While a turn runs a 25-second task, the owner's message (posted with the owner login on the API) reaches it at the next tool boundary and is acted on in that turn; three peer messages sent at the same time, one urgent, wait for the turn to end and arrive as one bundle. | 3 |
+| `TestPeerWaitsButNoticeArrives` | While a turn runs two slow tasks, a peer's message never enters it: one tool boundary's notice names it, exactly once, and the message arrives in a bundle when the turn ends. | 3 |
 | `TestHumansModeWakesOnlyForPeople` | With `aboard delivery humans`, a peer's message wakes nothing for 10 seconds and stays unread; the owner's message (posted with the owner login on the API) wakes the session within 2 seconds, and the agent reports both sequence numbers from that one bundle. | 2 |
 | `TestUpgradeWithSessionOpen` | A session set up with an older aboard keeps working when the new binary is installed over it at the same path: two messages are answered, the daemon and local server are replaced, each message is handed once, doctor reports nothing outdated, the hooks file is byte for byte the same, and `aboard init` again changes nothing. | 3 |
 | `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
@@ -61,16 +62,16 @@ Code 2.1.287 with its default model.
 | `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
 | `TestIdleCodexWakesAndReplies` | Codex runs the project's hooks (session start, prompt, tool, stop). An idle Codex session is woken through `codex queue` within 2 seconds plus Codex's 2-second gather, and answers on the board. | 2 |
 | `TestClaudeAndCodexExchange` | Claude Code and Codex run the wiring check to PING 3 with no one typing. | about 9 |
+| `TestCodexStartsPingPong` | Codex starts the wiring check itself; each PONG reaches Codex within 30 seconds of being posted, measured from the daemon's log (handed, added at a tool boundary or shown by `say --wait-reply`), so Codex never keeps its turn busy waiting. | 4 |
+| `TestOwnerReachesBusyCodex` | While Codex runs a slow task twice, the owner's message reaches the turn at the next tool call (Codex's pre-tool hook), is acted on in that turn, and never goes into Codex's queue. | 2 |
+| `TestCodexWaitsForReplyInItsTurn` | From inside its sandbox, Codex asks with `aboard say --wait-reply` and gets the reply in the same command: the daemon records it as shown and never queues it. | 2 |
 
-A full run with Claude Code only is about 31 turns.
+A full run with Claude Code only is about 34 turns; the Codex tests add about 10.
 
 ## Checked by hand
 
 These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
 
-- **Urgent messages in Codex.** Not automated yet. The suite now trusts Codex's hooks
-  before a session starts (below), so a test like `TestUrgentReachesBusyClaude` for Codex
-  is possible; until then, run the urgent check by hand (below).
 - **The stop-hook race** (a prompt typed the instant a turn ends) needs typing faster
   than a turn's stop hook starts, which tmux can't do reliably. A forced e2e test covers
   the ordering.
