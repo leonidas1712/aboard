@@ -17,7 +17,7 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e live vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance live harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, tests, e2e, vulnerabilities
 check: fmt-check lint vet generate-check core-size test e2e vuln
@@ -78,6 +78,15 @@ e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
 	go test -race -tags e2e -count=1 ./e2e/...
+
+## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
+# The kit's two halves also run in make test and make e2e, so make check runs them.
+conformance:
+	@$(REQUIRE_GO); \
+	HARNESS='$(HARNESS)' go test -race -count=1 -run '^TestHarnessConformance$$' ./server/internal/harness/registry/; \
+	status=0; out="$$(HARNESS='$(HARNESS)' go test -race -tags e2e -count=1 -run '^TestHarnessConformance$$' -v ./e2e/ 2>&1)" || status=$$?; \
+	echo "$$out" | grep -v -E '^ *(=== |--- PASS)' || true; \
+	exit $$status
 
 ## live: drive real Claude Code and Codex in tmux (spends model turns; RUN=TestName for one)
 # Not part of make check. Needs tmux and logged-in harnesses; a missing one is skipped.
