@@ -65,13 +65,58 @@ g.Go(func() error { return daemon.Run(ctx) })
 return g.Wait()
 ```
 
-## Logging
+## Extensions run in their own processes
+
+A broken or hostile extension must never stop a board or read its database. Launchers,
+monitors, CLI extensions and harness hooks run as separate processes and talk to Aboard
+over a small protocol (the public API, JSON on standard input and output, or the
+monitor hook); nothing is loaded into the server or the daemon.
+
+- Every call out to an extension or a harness has a timeout, taken from the context.
+- Failure degrades, never stops. A monitor that times out or crashes means "no check":
+  the message is posted, the failure is logged, and the board view and `aboard doctor`
+  flag the monitor as down. A launcher that fails reports the session it couldn't
+  start; the board carries on.
+- Hook commands stay thin: they call `aboard` and hold no logic of their own, so a
+  change to the core needs no change in each harness.
+
+## Logging and request ids
 
 Use `log/slog`, passed in, never the global logger. Log with keys, not formatted
 strings: `log.Info("message posted", "board", b, "seq", seq)`.
 
 Never log tokens, join codes, credentials, message bodies, note text or file contents.
 Log ids and sizes instead.
+
+One request id follows a command through every process it touches, so an agent
+debugging "my message never arrived" can follow it from the log alone:
+
+- The CLI makes one id per command (`req_` and a ULID) and sends it as `X-Request-Id`
+  on every request that command makes.
+- The server takes a well-formed id from the header or makes one, puts it on the
+  request's logger, returns it in the `X-Request-Id` response header and in error
+  bodies, and logs it with the board and sequence number of any event the request
+  appended.
+- The delivery daemon logs each delivery with the board and sequence numbers it
+  delivered and the ids of its own requests, so a message's sequence number joins the
+  write that made it to the session that received it.
+- The CLI's error output and `--json` errors include the request id.
+
+(Request ids are not built yet.)
+
+## Debugging
+
+Every failure leaves a trail an agent can read and act on:
+
+- **Errors carry a stable code, a message and a hint** naming the next step (see
+  Errors above). Agents branch on the code, never on the message.
+- **`aboard doctor --json`** checks the install, the servers, versions, harness files,
+  delivery and presence, each with a level, a code and a fix.
+- **Logs are in documented places**: the local server's log in Aboard's data folder,
+  the daemon's in its state folder.
+- **`aboard debug bundle`** writes one archive with the logs, versions, `doctor`
+  output and config, with tokens and credentials removed and message bodies left out,
+  for bug reports from people and agents. (Not built yet.)
 
 ## Time and randomness
 
