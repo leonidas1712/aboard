@@ -96,15 +96,23 @@ type Redaction struct {
 
 // Message is a stored message with its sender.
 type Message struct {
-	ID           string
-	BoardID      string
-	Seq          int64
-	At           string
-	SenderID     string
-	To           []string
-	Body         string
-	ReplyTo      *string
-	ReplyToSeq   *int64
+	ID         string
+	BoardID    string
+	Seq        int64
+	At         string
+	SenderID   string
+	To         []string
+	Body       string
+	ReplyTo    *string
+	ReplyToSeq *int64
+	// ThreadRoot is the first message of the reply's thread; nil for a message that
+	// replies to nothing. The store fills ThreadRootSeq when it reads a message.
+	ThreadRoot    *string
+	ThreadRootSeq *int64
+	// ReplyCount and LastReplyAt describe the thread a message starts, counting only the
+	// replies its reader may see. The service fills them for each reader.
+	ReplyCount   int
+	LastReplyAt  *string
 	Urgent       bool
 	ExpectsReply bool
 	Redactions   []Redaction

@@ -28,6 +28,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Browser logins survive server restarts and upgrades (kept as digests in the database); `aboard logout --browsers` | review | D88, D89, D121, D163 |
 | Board view layout: left panel is the board list only (with message counts); right panel is this board (Agents with "Add an agent", Charter, Rules Aboard enforces, Details with the record check); the header shows Aboard's mark and the title opens Details; "disconnected" for agents with no session | review | D143, D157, D161 |
 | The CLI for people: per-command help (`aboard help <command>`, `--help`, `--json`), color and selectors only for a person at a terminal, a guided `aboard init` that shows what is already set up | review | D162 |
+| Threads: the board view folds replies under the message that starts each thread (one level, remembered, "N new"), `aboard read --thread`, `GET /v1/messages/{message}/replies` | review | D158 |
 
 ## Done
 
@@ -132,7 +133,6 @@ release is in engineering/testing.md and engineering/release.md.
 | Feature | Decisions |
 | --- | --- |
 | Replies and per-recipient message status (the endpoints are specified) | D36, D37 |
-| Threads in the board view (collapsible, one level), `aboard read --thread`, the replies endpoint | later | D158 |
 | Tasks as a kanban: claim, release, wait with a reason, done, labels, order | D12, D32 |
 | Notes, verified when citing a board file by hash | D14 |
 | Files with versions, in-place editing of Markdown, pins | D15, D33 |

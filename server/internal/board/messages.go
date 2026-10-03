@@ -39,6 +39,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		var replyToSeq *int64
+		var threadRoot *string
 		if in.ReplyTo != nil {
 			orig, err := tx.MessageByID(*in.ReplyTo)
 			if errors.Is(err, ErrNotFound) || (err == nil && orig.BoardID != b.ID) {
@@ -48,7 +49,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			if err != nil {
 				return err
 			}
-			replyToSeq = ptr(orig.Seq)
+			replyToSeq, threadRoot = ptr(orig.Seq), threadRootOf(orig)
 		}
 		var role rules.Role
 		if me.Role != nil {
@@ -79,7 +80,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		}
 		msg = Message{
 			ID: id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
-			ReplyToSeq: replyToSeq, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
+			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
 			SenderName: me.Name, SenderKind: me.Kind, SenderRole: me.Role, SenderOwner: me.Owner, SenderHuman: me.HumanID,
 		}
 		if err := tx.InsertMessage(msg); err != nil {
@@ -186,9 +187,12 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 			e.Status = http.StatusNotFound
 			return e
 		}
-		readAll := b.Policy.Visibility == rules.VisibilityOpen || me.Kind == "human"
+		readAll := readsAll(b, me)
 		msgs, err := tx.Timeline(b.ID, me, readAll, q)
 		if err != nil {
+			return err
+		}
+		if err := countReplies(tx, b, me, msgs); err != nil {
 			return err
 		}
 		r = Reading{Board: b, Reader: me, Messages: msgs}
@@ -245,6 +249,9 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			}
 			if len(msgs) > limit {
 				msgs, more = msgs[:limit], true
+			}
+			if err := countReplies(tx, b, me, msgs); err != nil {
+				return err
 			}
 			r = Reading{Board: b, Reader: me, Messages: msgs}
 			return nil

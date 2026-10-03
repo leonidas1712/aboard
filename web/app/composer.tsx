@@ -23,7 +23,8 @@ type Props = {
   agents: Member[];
   replyTo: Message | null;
   onCancelReply: () => void;
-  onPosted: () => void;
+  /** onPosted runs with the message as stored. */
+  onPosted: (m: Message) => void;
   onError: (e: unknown) => void;
 };
 
@@ -62,7 +63,7 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
     setBusy(true);
     setProblem(null);
     try {
-      await post<Message>(
+      const posted = await post<Message>(
         `/v1/boards/${encodeURIComponent(board)}/messages`,
         {
           body: text,
@@ -74,7 +75,7 @@ export function Composer({ board, agents, replyTo, onCancelReply, onPosted, onEr
       key.current = "";
       setBody("");
       onCancelReply();
-      onPosted();
+      onPosted(posted);
     } catch (err) {
       if (err instanceof ApiError && err.status !== 401) setProblem(err);
       else onError(err);

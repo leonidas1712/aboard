@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -267,6 +268,7 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	toMe := fs.Bool("to-me", false, "only messages addressed to you that you didn't send")
 	limit := fs.Int("limit", 0, "the most messages to show (default 50)")
 	markdown := fs.Bool("markdown", false, "print a Markdown transcript to paste into a session")
+	thread := fs.String("thread", "", "show the whole thread this message is in: msg_…, 6 or #6")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board")
 	if _, err := a.parse(fs, args, readUsage, 0, 0); err != nil {
@@ -275,11 +277,15 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if *after < 0 || *before < 0 || *around < 0 || *limit < 0 {
 		return usageError("--after, --before, --around and --limit can't be negative.", readUsage)
 	}
-	if windows := btoi(*after > 0) + btoi(*before > 0) + btoi(*around > 0); windows > 1 {
+	windows := btoi(*after > 0) + btoi(*before > 0) + btoi(*around > 0)
+	if windows > 1 {
 		return usageError("Use only one of --after, --before and --around.", readUsage)
 	}
 	if *markdown && a.json {
 		return usageError("--markdown and --json can't be combined.", readUsage)
+	}
+	if *thread != "" && (windows > 0 || *from != "" || *role != "" || *toMe || *limit > 0) {
+		return usageError("--thread shows a whole thread, so it can't be combined with --after, --before, --around, --from, --role, --to-me or --limit.", readUsage)
 	}
 	f := readFilter{from: strings.TrimPrefix(*from, "@"), role: *role, toMe: *toMe, limit: *limit}
 	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
@@ -295,6 +301,9 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	b, err := c.board(ctx, t.board)
 	if err != nil {
 		return err
+	}
+	if *thread != "" {
+		return readThread(ctx, a, c, t, cred, b, *thread, *markdown)
 	}
 	page, err := readPage(ctx, c, t.board, f, *after, *before, *around)
 	if err != nil {
@@ -332,6 +341,61 @@ func runRead(ctx context.Context, a *app, args []string) error {
 		PrevBefore *int         `json:"prev_before"`
 	}{page.Board, string(b.Policy.Visibility), cliMessages(msgs), page.NextAfter, page.PrevBefore}, text)
 	return nil
+}
+
+// readThread prints the thread the message ref points at: its first message, when the
+// agent may see it, then every reply, oldest first.
+func readThread(ctx context.Context, a *app, c *client, t target, cred agentCredential, b *api.Board, ref string, markdown bool) error {
+	r, err := parseMessageRef(ref)
+	if err != nil {
+		return err
+	}
+	if r.Board != "" && r.Board != t.board {
+		return newError("message_ref_invalid", fmt.Sprintf("%s reads threads on %s, its own board, not on %s.", cred.Name, t.board, r.Board),
+			"Use the message's number on "+t.board+", or --as an agent on "+r.Board+".")
+	}
+	id, err := a.resolveMessageRef(ctx, r, t, cred)
+	if err != nil {
+		return err
+	}
+	th, err := c.thread(ctx, id)
+	if e := (*Error)(nil); errors.As(err, &e) && e.Code == "message_not_found" {
+		return newError("message_ref_invalid", fmt.Sprintf("There is no message %s on board %s that %s can see.", ref, t.board, cred.Name),
+			"Run aboard read to see the messages and their numbers.")
+	}
+	if err != nil {
+		return err
+	}
+	msgs := th.Replies
+	var root *cliMessage
+	rootSeq := 0
+	if th.Root != nil {
+		msgs = append([]api.Message{*th.Root}, th.Replies...)
+		root, rootSeq = &cliMessage{Message: *th.Root}, th.Root.Seq
+	} else if len(th.Replies) > 0 && th.Replies[0].ThreadRootSeq != nil {
+		rootSeq = *th.Replies[0].ThreadRootSeq
+	}
+	if markdown {
+		_, err := io.WriteString(a.env.Stdout, transcriptText(t.board, msgs))
+		return err
+	}
+	text := fmt.Sprintf("%s · thread #%d · %s\n", t.board, rootSeq, repliesText(len(th.Replies), "no replies")) + timelineText(msgs)
+	a.emit(struct {
+		Board         string       `json:"board"`
+		Visibility    string       `json:"visibility"`
+		ThreadRootSeq int          `json:"thread_root_seq"`
+		Root          *cliMessage  `json:"root"`
+		Replies       []cliMessage `json:"replies"`
+	}{t.board, string(b.Policy.Visibility), rootSeq, root, cliMessages(th.Replies)}, text)
+	return nil
+}
+
+// repliesText says how many replies there are: "1 reply", "3 replies", or none.
+func repliesText(n int, none string) string {
+	if n == 0 {
+		return none
+	}
+	return fmt.Sprintf("%d %s", n, plural(n, "reply", "replies"))
 }
 
 // readPage reads the page aboard read shows: the newest matching messages by default,
