@@ -1,87 +1,142 @@
 {
   "harnesses": {
     "claude-code": {
-      "version": "2.1.287 (Claude Code)",
+      "version": "2.1.288 (Claude Code)",
       "scenarios": {
         "JoinsAndTalks": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestIdleClaudeWakesAndReplies"
+          "date": "2026-10-04",
+          "test": "TestWakesAndReplies/claude-code"
         },
         "KilledSessionRedelivers": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestKilledSessionRedelivers"
+          "date": "2026-10-04",
+          "test": "TestKilledSessionRedelivers/claude-code"
         },
         "OwnerReachesBusy": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestUrgentReachesBusyClaude"
+          "date": "2026-10-04",
+          "test": "TestOwnerReachesBusy/claude-code"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
-          "date": "2026-10-03",
-          "test": "TestPeerWaitsButNoticeArrives"
+          "date": "2026-10-04",
+          "test": "TestPeerWaitsButNoticeArrives/claude-code"
         },
         "PingPong": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestClaudeExchangesFiveMessages"
+          "date": "2026-10-04",
+          "test": "TestPingPong/claude-code"
+        },
+        "PingPongAcrossHarnesses": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestProjectScopeInit"
+          "date": "2026-10-04",
+          "test": "TestProjectScopeSetup/claude-code"
+        },
+        "RepliesReachPromptly": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestRepliesReachPromptly/claude-code"
         },
         "RestartsLoseNothing": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestRestartsLoseNothing"
+          "date": "2026-10-04",
+          "test": "TestRestartsLoseNothing/claude-code"
         },
         "ResumeReconnects": {
           "result": "pass",
-          "date": "2026-10-03",
-          "test": "TestResumedClaudeSessionReconnects"
+          "date": "2026-10-04",
+          "test": "TestResumeReconnects/claude-code"
+        },
+        "SubagentCannotActAsItsParent": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestSubagentCannotActAsItsParent/claude-code"
         },
         "WakesAndReplies": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestIdleClaudeWakesAndReplies"
+          "date": "2026-10-04",
+          "test": "TestWakesAndReplies/claude-code"
         }
       }
     },
     "codex": {
-      "version": "codex-cli 0.159.3",
+      "version": "codex-cli 0.160.0",
       "notes": {
         "baseline": "needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it",
         "owner_mid_turn": "once Aboard's hooks are trusted in /hooks; until then the owner's messages wait for the turn's end",
         "reconnect": "quitting Codex leaves its session open in Codex's app server, which still takes messages"
       },
       "scenarios": {
+        "JoinsAndTalks": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestWakesAndReplies/codex"
+        },
+        "KilledSessionRedelivers": {
+          "result": "n/a",
+          "date": "2026-10-04",
+          "test": "TestKilledSessionRedelivers/codex"
+        },
         "OwnerReachesBusy": {
           "result": "pass",
-          "date": "2026-10-03",
-          "test": "TestOwnerReachesBusyCodex"
+          "date": "2026-10-04",
+          "test": "TestOwnerReachesBusy/codex"
+        },
+        "PeerWaitsButNoticeArrives": {
+          "result": "n/a",
+          "date": "2026-10-04",
+          "test": "TestPeerWaitsButNoticeArrives/codex"
+        },
+        "PingPong": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestPingPong/codex"
+        },
+        "PingPongAcrossHarnesses": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+        },
+        "ProjectScopeSetup": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestProjectScopeSetup/codex"
         },
         "RepliesReachPromptly": {
           "result": "pass",
-          "date": "2026-10-03",
-          "test": "TestCodexStartsPingPong"
+          "date": "2026-10-04",
+          "test": "TestRepliesReachPromptly/codex"
+        },
+        "RestartsLoseNothing": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestRestartsLoseNothing/codex"
         },
         "ResumeReconnects": {
           "result": "pass",
-          "date": "2026-10-03",
-          "test": "TestResumedCodexSessionReconnects"
+          "date": "2026-10-04",
+          "test": "TestResumeReconnects/codex"
         },
         "SandboxNeedsTheAllowRule": {
           "result": "pass",
-          "date": "2026-10-03",
+          "date": "2026-10-04",
           "test": "TestCodexSandboxNeedsTheAllowRule"
+        },
+        "SubagentCannotActAsItsParent": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "test": "TestSubagentCannotActAsItsParent/codex"
         },
         "WakesAndReplies": {
           "result": "pass",
-          "date": "2026-10-02",
-          "test": "TestIdleCodexWakesAndReplies"
+          "date": "2026-10-04",
+          "test": "TestWakesAndReplies/codex"
         }
       }
     }

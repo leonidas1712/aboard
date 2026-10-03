@@ -13,7 +13,7 @@ after the plan, with the pull request that merged it.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Harness conformance kit: the fast kit (no model), `make live HARNESS=<name>`, support levels 0–3, and a per-harness feature matrix that the README's harness table comes from | building | D130, D164 |
+| Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), the per-harness feature matrix the README's table is generated from, and the control socket as a versioned contract (`spec/control.md`) | done (#33) | D130, D164, D167 |
 | omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | next | D160, D164 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 
@@ -92,7 +92,7 @@ In this order.
 ### Release cleanup and docs
 | Feature | Decisions |
 | --- | --- |
-| Profiles at level 0 for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | D130 |
+| Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | D130 |
 | The docs site (Mintlify): quickstart, one page per harness, safety, CLI and API reference | |
 | `CHANGELOG.md` with a "Contract changes" section | D149 |
 | `aboard debug bundle`: logs, versions, `doctor` output and config, with secrets removed | D150 |

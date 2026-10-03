@@ -258,20 +258,19 @@ has a docs page.
 
 | Harness | Baseline | Wakes when idle | Peers at turn end | Owner mid-turn | Waiting notice | Presence | Reconnects on resume | Subagents | Project setup | Started by a launcher | Sandbox check |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | partial | ✓ | – | ✓ |
-| [Codex](docs/harnesses/codex.mdx) | partial | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | partial | partial | – | ✓ |
+| [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | – | ✓ |
 
-- Claude Code, subagents: marked: a subagent's commands may only read; not proven by the live kit.
+- Claude Code, subagents: marked: a subagent's commands may only read.
 - Claude Code, started by a launcher: no launcher starts sessions in this aboard.
-- Codex, baseline: not proven by the live kit; needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it.
+- Codex, baseline: needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it.
 - Codex, owner mid-turn: once Aboard's hooks are trusted in /hooks; until then the owner's messages wait for the turn's end.
 - Codex, waiting notice: the harness's own queue takes peers' messages as they come, so none wait to be named.
 - Codex, reconnects on resume: quitting Codex leaves its session open in Codex's app server, which still takes messages.
-- Codex, subagents: marked: a subagent's commands may only read; not proven by the live kit.
-- Codex, project setup: not proven by the live kit.
+- Codex, subagents: marked: a subagent's commands may only read.
 - Codex, started by a launcher: no launcher starts sessions in this aboard.
 
-Live results from Claude Code 2.1.287 and Codex 0.159.3.
+Live results from Claude Code 2.1.288 and Codex 0.160.0.
 
 <!-- end of harness-table -->
 
