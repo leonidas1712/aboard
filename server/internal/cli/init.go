@@ -207,10 +207,16 @@ type fileChange struct {
 	Action string `json:"action"`
 	// Allow lists the allow rules for aboard the file holds, when they were asked for.
 	Allow []string `json:"allow,omitempty"`
-	data  []byte
-	perm  os.FileMode
+	// Edited is set when the file, or Aboard's entries in it, changed after an aboard
+	// wrote it; WrittenBy is that aboard's version.
+	Edited    bool   `json:"edited,omitempty"`
+	WrittenBy string `json:"written_by,omitempty"`
+	data      []byte
+	perm      os.FileMode
 	// commands are the hook commands the file runs, shown in text output.
 	commands []string
+	// allowAdded is set when this change adds Aboard's allow rule to the file.
+	allowAdded bool
 }
 
 // File change actions.
@@ -308,6 +314,9 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		if err := a.applyInit(ctx, setups, modeChange); err != nil {
 			return err
 		}
+		if err := a.recordInit(setups, c.scope); err != nil {
+			return err
+		}
 	}
 	a.emit(struct {
 		Applied       bool           `json:"applied"`
@@ -386,6 +395,7 @@ func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup,
 		}
 		s.Changes = append(s.Changes, rc)
 	}
+	a.markEdited(setups)
 	return setups, nil
 }
 
@@ -571,12 +581,7 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 // initList lists the changes, one file per line, and returns how many are pending.
 func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home string) (list string, pending int) {
 	var b strings.Builder
-	short := func(p string) string {
-		if rel, err := filepath.Rel(home, p); err == nil && !strings.HasPrefix(rel, "..") {
-			return "~/" + rel
-		}
-		return p
-	}
+	short := func(p string) string { return shortPath(p, home) }
 	for _, s := range setups {
 		if !s.Detected {
 			fmt.Fprintf(&b, "%s: not found on this machine\n", s.Name)
@@ -595,7 +600,11 @@ func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home str
 			fmt.Fprintf(&b, "  (its hooks are also set up %s; with both, it may run each hook twice)\n", scopeText(other))
 		}
 		for _, ch := range s.Changes {
-			fmt.Fprintf(&b, "  %-9s %s (%s)\n", ch.Action, short(ch.Path), ch.Kind)
+			kind := ch.Kind
+			if ch.Edited {
+				kind += "; edited since aboard " + ch.WrittenBy + " wrote it"
+			}
+			fmt.Fprintf(&b, "  %-9s %s (%s)\n", ch.Action, short(ch.Path), kind)
 			if ch.Action == actionUnchanged {
 				continue
 			}

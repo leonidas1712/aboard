@@ -48,7 +48,7 @@ session that is already running.
 | What | How it updates | Rule | Today |
 | --- | --- | --- | --- |
 | The binary (CLI, daemon, local server) | A package manager, the install script, or `aboard upgrade` | Never installed silently. A command in a terminal says once a day that a newer release exists. A running daemon or local server from an older build is replaced by the first newer command or hook that reaches it. | Replacement: yes. Notice and `aboard upgrade`: to build |
-| Files installed into harnesses (the skill, hook entries, allow rules) | `aboard init --yes` | Hooks run the installed binary by its path, so a new binary takes effect without rewriting them. `aboard doctor` reports a file that differs from what this build would write; the install manifest tells an outdated file from one the person edited. | Content check: yes. Manifest: to build |
+| Files installed into harnesses (the skill, hook entries, allow rules) | `aboard init --yes` | Hooks run the installed binary by its path, so a new binary takes effect without rewriting them. `aboard doctor` reports a file that differs from what this build would write; the install manifest tells an outdated file from one the person edited. | Yes |
 | Team servers | A new binary or image, then a restart | Migrations run forward only, on start, after a backup of the database. A binary older than its data refuses to start. | Forward-only and refusal: yes. Backup: to build, in the team step |
 
 ### No silent installs
@@ -70,11 +70,26 @@ hooks again whenever an entry changes. Instead:
   with the person (such as `.claude/settings.json`), with what this build's
   `aboard init` would write, and reports a difference as a warning. *Today.*
 - `aboard init` records what it wrote in an install manifest in Aboard's own state
-  (`$ABOARD_HOME/state/installs.json`, or the state folder): each file's path, the
-  harness, the version of `aboard` that wrote it, and a SHA-256 of the content it
-  wrote. Doctor then says which version wrote a file, and tells an outdated file
-  (unchanged since an older `aboard` wrote it; `init --yes` updates it) from one the
-  person edited (`init` shows the difference and asks before replacing it). *To build.*
+  (`installs.json` in the state folder, so `$ABOARD_HOME/state/installs.json` under
+  `ABOARD_HOME`): each file's path, the harness, the scope, the version of `aboard`
+  that wrote it, and a SHA-256 of the content it wrote (of Aboard's hook entries only,
+  in a file shared with the person). Doctor then says which version wrote a file, and
+  tells an outdated file (unchanged since an older `aboard` wrote it, `hooks_outdated`
+  or `skill_outdated`; `init --yes` updates it) from one the person edited
+  (`hooks_edited` or `skill_edited`; `init` marks it edited in the list it shows
+  before replacing it). *Today.*
+
+### Removing Aboard
+
+`aboard uninstall` is the way out, and it relies on the manifest too. It stops the local
+server and the delivery daemon, takes Aboard's entries out of files it shares with the
+person, and deletes the files it owns, in every scope and project the manifest records
+(and, for installs from before the manifest, in both scopes found by content). A file
+the person edited is kept and named. Data stays unless `--data` is given, and the
+binary always stays: uninstall prints the command that removes it, since only the
+person knows how it was installed (`rm <path>`, or `brew uninstall aboard` for a
+Homebrew install). [docs/install.mdx](../docs/install.mdx) is the page for people and
+agents. *Today.*
 
 ### Migrations
 

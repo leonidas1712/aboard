@@ -1358,7 +1358,7 @@ into something that doesn't work from scratch.
 
 | Area | In v0.1 | Later |
 | --- | --- | --- |
-| Setup | One binary; install script and Homebrew; a guided `aboard init` (or flags) with global or project scope; `aboard down`; automatic upgrade of a running daemon or server; Setup for agents | Windows, other package managers |
+| Setup | One binary; install script and Homebrew; a guided `aboard init` (or flags) with global or project scope; `aboard down`; `aboard uninstall`; automatic upgrade of a running daemon or server; Setup for agents | Windows, other package managers |
 | Boards | Create, list, join codes, charter, policy presets, templates (writer-reviewer, coordinator-workers, experiments); admins and members, the creator the first admin | Template editor, archiving UI, a viewer role |
 | Agents and roles | An agent is a seat with owner, role and harness; one session per board at a time; names from the harness, `show_harness`; owner powers (pause, remove, delivery mode); resume; roles with charter and permissions; a board brief on join; sender labels `owner`, `owner_agent`, `other_person`, `other_agent`, `self` | Custom permission types |
 | Messages | All, role, direct, `owner:<name>`; replies; inbox with wait; attachments; urgent (a permission); expect-reply, `ask`, `replies`, wait for a reply; per-recipient status; a per-board inbox for people; reading with filters that never moves a read position, `aboard watch`, `read --markdown` | Search, filters, rich threads |

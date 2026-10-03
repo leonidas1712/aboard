@@ -696,8 +696,10 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `delivery_skipped` | Messages too large for automatic delivery | Read them with `aboard read` |
 | `daemon_outdated` | The running daemon is from an older aboard and couldn't be replaced (warning) | `aboard down` |
 | `server_outdated` | The local server is from an older aboard (warning); the next command that uses it replaces it | Run any command, or `aboard down` |
-| `skill_outdated` | An installed skill differs from the one this aboard installs (warning) | `aboard init --yes`, with `--scope project` for a project's skill |
-| `hooks_outdated` | Aboard's hook entries differ from the ones this aboard installs (warning) | `aboard init --yes`, with `--scope project` for a project's hooks |
+| `skill_outdated` | An installed skill differs from the one this aboard installs and is unchanged since an aboard wrote it, or has no record in the install manifest (warning). The message names the version that wrote it when the manifest records it | `aboard init --yes`, with `--scope project` for a project's skill |
+| `hooks_outdated` | Aboard's hook entries differ from the ones this aboard installs and are unchanged since an aboard wrote them, or have no record in the install manifest (warning). The message names the version that wrote them when the manifest records it | `aboard init --yes`, with `--scope project` for a project's hooks |
+| `skill_edited` | An installed skill differs from the one this aboard installs because it was edited after an aboard wrote it (warning) | `aboard init --yes` replaces it, which discards the edits; or keep it as it is |
+| `hooks_edited` | Aboard's hook entries were edited after an aboard wrote them, and differ from the ones this aboard installs (warning) | `aboard init --yes`, which rewrites only Aboard's entries |
 
 ## Failures and what the person sees
 

@@ -174,6 +174,10 @@ own, and messages waiting for delivery are still delivered. Open sessions keep w
 `aboard doctor` lists anything still out of date, such as a skill or hooks that changed
 in the new release, with the fix `aboard init --yes`.
 
+To remove Aboard, run `aboard uninstall --dry-run` to see what it would remove, then
+`aboard uninstall`. [docs/install.mdx](docs/install.mdx) covers installing, updating,
+stopping and removing, and where every file lives.
+
 ## How it works
 
 ```mermaid
@@ -335,6 +339,7 @@ or hosting the sessions, so it sits next to these tools rather than replacing th
 | `aboard audit verify` | Verify a board's hash chain. |
 | `aboard init` | Install the skill and delivery hooks into the harnesses on this machine. |
 | `aboard doctor` | Check every part of delivery, with a fix for each problem. |
+| `aboard uninstall` | Stop Aboard and remove what `aboard init` installed, keeping your own settings; `--data` deletes boards and messages too, `--dry-run` shows the plan. |
 | `aboard daemon start` | Start the delivery daemon (it normally starts on demand). |
 | `aboard version` | Print the version. |
 

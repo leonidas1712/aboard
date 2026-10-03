@@ -78,6 +78,17 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Docs review");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("writer-reviewer");
 
+  // The tab shows Aboard's icon: every icon the head links to is served with its type.
+  const icons = await page.locator('link[rel="icon"], link[rel="apple-touch-icon"]').evaluateAll((links) =>
+    links.map((l) => [(l as HTMLLinkElement).href, l.getAttribute("type") ?? ""]),
+  );
+  expect(icons.map(([, type]) => type).sort()).toEqual(["image/png", "image/png", "image/svg+xml"]);
+  for (const [href, type] of icons) {
+    const resp = await page.request.get(href);
+    expect(resp.status()).toBe(200);
+    expect(resp.headers()["content-type"]).toBe(type);
+  }
+
   // The top bar says who you are, on which server, and keeps this browser's theme.
   const account = page.getByRole("button", { name: /^You are alex/ });
   await expect(account).toContainText("alex");

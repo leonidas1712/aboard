@@ -217,12 +217,15 @@ func TestInitAsksToTrustOnlyChangedHooks(t *testing.T) {
 
 // Hooks installed by an earlier aboard, with the tool hook on the events it used then,
 // are reported out of date until aboard init --yes moves them, leaving no Aboard entry
-// on the old events.
+// on the old events. That aboard predates the install manifest, so there is none.
 func TestDoctorReportsHooksFromBeforeTheToolHookMoved(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.harnessHome()
 	e.run("init", "--yes")
+	if err := os.Remove(e.manifestPath()); err != nil {
+		t.Fatal(err)
+	}
 	claude, codex := filepath.Join(e.home, ".claude", "settings.json"), filepath.Join(e.home, ".codex", "hooks.json")
 	for path, from := range map[string]string{claude: `"PostToolBatch"`, codex: `"PreToolUse"`} {
 		old := strings.Replace(readFile(t, path), from, `"PostToolUse"`, 1)

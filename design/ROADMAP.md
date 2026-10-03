@@ -23,6 +23,8 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | `aboard pair` in a linked directory names both ways on: `aboard invite` for another agent, `aboard pair --new` for another board | done | D44, D143 |
 | Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | done | D66, D72, D152 |
 | Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | review | D157 |
+| `aboard uninstall` and the install manifest; docs page "Install, update and remove" | done (#22) | D145, D159 |
+| Board view tab icon: a room holding two lines of conversation, as SVG (light and dark) with PNG fallbacks and an Apple touch icon | done (#21) | |
 
 ## Done
 
@@ -86,14 +88,16 @@ release is in engineering/testing.md and engineering/release.md.
 | Dependabot pull requests for Go modules, npm and GitHub Actions | next | |
 | Every `--json` output in tests validated against its schema in `spec/cli.yaml` | next | D147 |
 | Accessibility checks (axe) in the Playwright test, in both themes | next | |
-| The install manifest: `aboard init` records what it wrote; `doctor` tells outdated from edited | next | D145 |
+| The install manifest: `aboard init` records what it wrote; `doctor` tells outdated from edited | review (#22) | D145, D159 |
 | A cleanup pass every few weeks: dead code, near-duplicate helpers, weak tests | next, repeating | D144 |
 
 ### Harnesses
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| The profile describes a harness completely; `init`, `doctor`, `status` name no harness | next | D128 |
+| The profile describes a harness; `init`, `doctor`, `status` name no harness | next | D128, D160 |
 | Delivery adapters per mechanism: idle hook, queue command, none | next | D129 |
+| Profile plus per-harness code: shared Go reads the profile, one `Harness` interface and registry for quirks, harness-side code (extensions, plugins) in `adapters/<harness>/` | next | D160 |
+| omp as the first new harness, with automatic delivery | next, after the kit | D160 |
 | Harness conformance kit: fast kit, `make live HARNESS=<name>`, support levels 0–3, README table from results | next | D130 |
 | Profiles at level 0 for OpenCode, Pi, OpenClaw, Hermes, Antigravity and others | next | D130 |
 | Automatic delivery for a harness beyond Claude Code and Codex | needs approval per harness | D130 |

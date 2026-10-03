@@ -165,8 +165,10 @@ func TestInitAsksThenWritesTheProjectSetup(t *testing.T) {
 	if got := files(t, project); !slices.Equal(got, want) {
 		t.Fatalf("project files %v, want %v", got, want)
 	}
-	if got := files(t, home); len(got) != len(want) {
-		t.Fatalf("files outside the project: %v", got)
+	// Aboard's own state folder holds the install manifest; nothing else is written.
+	outside := slices.DeleteFunc(files(t, home), func(f string) bool { return strings.HasPrefix(f, "project/") })
+	if !slices.Equal(outside, []string{".local/state/aboard/installs.json"}) {
+		t.Fatalf("files outside the project: %v", outside)
 	}
 	settings, err := os.ReadFile(filepath.Clean(filepath.Join(project, ".claude", "settings.local.json")))
 	if err != nil {
@@ -226,8 +228,9 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	moved := &app{env: env}
 	moved.env.Executable = func() (string, error) { return "/elsewhere/aboard", nil }
 	fix := "run aboard init --yes --scope project in this project"
-	if c := a.checkSkill("claude_skill", "claude-code"); len(c) != 1 || deref(c[0].Code) != "skill_outdated" || deref(c[0].Fix) != fix {
-		t.Fatalf("outdated skill: %+v", c)
+	// The install manifest shows the skill changed after init wrote it.
+	if c := a.checkSkill("claude_skill", "claude-code"); len(c) != 1 || deref(c[0].Code) != "skill_edited" || !strings.HasPrefix(deref(c[0].Fix), fix) {
+		t.Fatalf("edited skill: %+v", c)
 	}
 	if c := moved.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(moved.hookExe(), true), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
 		t.Fatalf("outdated hooks: %+v", c)

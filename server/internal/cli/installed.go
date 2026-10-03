@@ -46,6 +46,17 @@ func (a *app) checkSkill(name, harness string) []doctorCheck {
 			continue
 		}
 		if !bytes.Equal(data, skill.Skill) {
+			by, edited, known := a.loadManifest().fileOrigin(path, "skill", harness, data)
+			switch {
+			case edited:
+				return []doctorCheck{problem(name, levelWarning, "skill_edited",
+					harness+": the skill in "+path+" was edited after aboard "+by+" wrote it",
+					initFix(scope)+" to replace it with the one aboard "+version+" installs, which discards your edits; or keep it as it is")}
+			case known:
+				return []doctorCheck{problem(name, levelWarning, "skill_outdated",
+					harness+": the skill in "+path+" was written by aboard "+by+" and differs from the one aboard "+version+" installs",
+					initFix(scope))}
+			}
 			return []doctorCheck{problem(name, levelWarning, "skill_outdated",
 				harness+": the skill in "+path+" differs from the one aboard "+version+" installs",
 				initFix(scope))}
@@ -69,6 +80,17 @@ func (a *app) checkHooksCurrent(name, harness string, scopes []string, specs []h
 		}
 		if _, changed, err := mergeHooks(data, harness, specs); err != nil || !changed {
 			continue
+		}
+		by, edited, known := a.loadManifest().fileOrigin(path, "hooks", harness, data)
+		switch {
+		case edited:
+			return problem(name, levelWarning, "hooks_edited",
+				harness+": the Aboard hooks in "+path+" were edited after aboard "+by+" wrote them",
+				initFix(scope)+", which rewrites only Aboard's entries")
+		case known:
+			return problem(name, levelWarning, "hooks_outdated",
+				harness+": the Aboard hooks in "+path+" were written by aboard "+by+" and differ from the ones aboard "+version+" installs",
+				initFix(scope))
 		}
 		return problem(name, levelWarning, "hooks_outdated",
 			harness+": the Aboard hooks in "+path+" differ from the ones aboard "+version+" installs",

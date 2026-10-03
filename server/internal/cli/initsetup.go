@@ -168,6 +168,7 @@ func allowSettings(c *fileChange) error {
 	c.Allow = []string{claudeAllowRule}
 	if changed {
 		c.data = data
+		c.allowAdded = true
 		if c.Action == actionUnchanged {
 			c.Action = actionUpdate
 		}
