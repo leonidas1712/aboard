@@ -20,14 +20,15 @@ import (
 	"time"
 )
 
-// claudeSetup is how the suite runs Claude Code on this machine.
+// claudeSetup is how the suite runs Claude Code on this machine: always with a scratch
+// config directory (CLAUDE_CONFIG_DIR), logged in through CLAUDE_CODE_OAUTH_TOKEN, so the
+// person's own ~/.claude is never read or written.
 type claudeSetup struct {
-	// skip says why Claude Code can't run here; empty when it can.
+	// skip says why Claude Code can't run here: it isn't installed.
 	skip string
-	// isolated is true when Claude Code keeps its config in a scratch directory
-	// (CLAUDE_CONFIG_DIR) and is still logged in there. Otherwise it uses the person's
-	// own config directory, which it writes its project list to.
-	isolated bool
+	// fail says why the suite can't run Claude Code without touching the person's own
+	// config: there is no token, or it doesn't log Claude Code in.
+	fail string
 }
 
 var (
@@ -35,43 +36,40 @@ var (
 	claudeSetUp claudeSetup
 )
 
-// requireClaude skips the test unless Claude Code is installed and logged in.
-func requireClaude(t *testing.T) claudeSetup {
+// requireClaude skips the test unless Claude Code is installed, and fails it unless
+// CLAUDE_CODE_OAUTH_TOKEN logs Claude Code in with a scratch config directory.
+func requireClaude(t *testing.T) {
 	t.Helper()
 	claudeOnce.Do(func() { claudeSetUp = detectClaude() })
 	if claudeSetUp.skip != "" {
 		t.Skip(claudeSetUp.skip)
 	}
-	return claudeSetUp
+	if claudeSetUp.fail != "" {
+		t.Fatal(claudeSetUp.fail)
+	}
 }
 
-// detectClaude checks Claude Code is installed and logged in, first with a scratch config
-// directory and then with the person's own. LIVE_CLAUDE_CONFIG=home skips the first.
+// detectClaude checks Claude Code is installed and that CLAUDE_CODE_OAUTH_TOKEN logs it
+// in with a scratch config directory. The suite never falls back to the person's own
+// config: that reads and writes their ~/.claude.json, and their own hooks would run in
+// the test sessions too.
 func detectClaude() claudeSetup {
 	if _, err := exec.LookPath("claude"); err != nil {
 		return claudeSetup{skip: "Claude Code is not installed: no claude on the PATH"}
 	}
-	env := append(cleanEnv(), "PATH="+os.Getenv("PATH"))
-	if os.Getenv("LIVE_CLAUDE_CONFIG") != "home" {
-		dir, err := os.MkdirTemp("", "aboard-live-claude-")
-		if err == nil {
-			defer func() { _ = os.RemoveAll(dir) }()
-			if claudeLoggedIn(append(slices.Clone(env), "CLAUDE_CONFIG_DIR="+dir)) {
-				return claudeSetup{isolated: true}
-			}
-		}
+	const fix = "Run claude setup-token once and export the token it prints as CLAUDE_CODE_OAUTH_TOKEN, " +
+		"so the suite can run Claude Code with a scratch config directory; it never uses your own ~/.claude."
+	if os.Getenv("CLAUDE_CODE_OAUTH_TOKEN") == "" {
+		return claudeSetup{fail: "CLAUDE_CODE_OAUTH_TOKEN is not set. " + fix}
 	}
+	dir, err := os.MkdirTemp("", "aboard-live-claude-")
+	if err != nil {
+		return claudeSetup{fail: "create a scratch config directory: " + err.Error()}
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	env := append(cleanEnv(), "PATH="+os.Getenv("PATH"), "CLAUDE_CONFIG_DIR="+dir)
 	if !claudeLoggedIn(env) {
-		return claudeSetup{skip: "Claude Code is not logged in: claude auth status says so"}
-	}
-	// With the person's own config, their global settings apply too. Aboard's hooks
-	// there would run alongside the project's, so the results would prove nothing.
-	home, _ := os.UserHomeDir()
-	if raw, err := os.ReadFile(filepath.Clean(filepath.Join(home, ".claude", "settings.json"))); err == nil &&
-		strings.Contains(string(raw), " hook claude-code ") {
-		return claudeSetup{skip: "~/.claude/settings.json holds Aboard's hooks, which would run in the test sessions too. " +
-			"Run claude setup-token once and export the token it prints as CLAUDE_CODE_OAUTH_TOKEN, " +
-			"so the suite can run Claude Code with a scratch config directory"}
+		return claudeSetup{fail: "CLAUDE_CODE_OAUTH_TOKEN doesn't log Claude Code in: claude auth status says so. " + fix}
 	}
 	return claudeSetup{}
 }
@@ -96,11 +94,9 @@ func claudeLoggedIn(env []string) bool {
 // ABOARD_HOME it was started with, and so do its hooks.
 func (l *lab) startClaude(name, dir string) *pane {
 	l.t.Helper()
-	setup := requireClaude(l.t)
-	env := slices.Clone(l.vars) // newLab added CLAUDE_CONFIG_DIR when isolated
-	if setup.isolated {
-		l.trustInClaude(dir)
-	}
+	requireClaude(l.t)
+	env := slices.Clone(l.vars) // newLab added CLAUDE_CONFIG_DIR
+	l.trustInClaude(dir)
 	p := l.start(name, dir, env, claudeArgv())
 	p.waitClaudeReady()
 	return p
@@ -176,18 +172,17 @@ func (l *lab) trustInClaude(dir string) {
 	}
 }
 
-// waitClaudeReady answers Claude Code's workspace trust question and waits for its
-// prompt. With the person's own config, a new project shows that question; since the
-// project pre-approves aboard commands, its default answer is "No, exit". First-run
-// setup isn't answered: it would write the person's own settings.
+// waitClaudeReady answers Claude Code's workspace trust question, if a project the
+// scratch config doesn't list as trusted shows it, and waits for its prompt. Since the
+// project pre-approves aboard commands, the question's default answer is "No, exit".
+// First-run setup should never show, since the scratch config is seeded past it.
 func (p *pane) waitClaudeReady() {
 	p.l.t.Helper()
 	p.l.waitFor(90*time.Second, p.name+": Claude Code to show its prompt", func() bool {
 		s := p.screen()
 		switch {
 		case strings.Contains(s, "Select login method"):
-			p.l.t.Fatalf("%s: Claude Code asks to log in. Log in to Claude Code, or set LIVE_CLAUDE_CONFIG=home "+
-				"if its login lives in its own config directory.\n%s", p.name, s)
+			p.l.t.Fatalf("%s: Claude Code asks to log in. Export a valid CLAUDE_CODE_OAUTH_TOKEN from claude setup-token.\n%s", p.name, s)
 		case strings.Contains(s, "Yes, I trust this folder"):
 			if selectedLine(s, "No, exit") {
 				p.keys("Down")
@@ -195,8 +190,7 @@ func (p *pane) waitClaudeReady() {
 			p.keys("Enter")
 			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Yes, I trust this folder") })
 		case strings.Contains(s, "Choose the text style"):
-			// Answering would save the theme in the person's own settings.json.
-			p.l.t.Fatalf("%s: Claude Code shows its first-run setup. Start claude once by hand to finish it, then run the suite again.", p.name)
+			p.l.t.Fatalf("%s: Claude Code shows its first-run setup, which the scratch config should have skipped.\n%s", p.name, s)
 		case claudeReady(s):
 			return true
 		}

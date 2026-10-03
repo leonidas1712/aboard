@@ -20,15 +20,16 @@ LIVE_KEEP=1 make live RUN=TestIdleClaudeWakesAndReplies   # keep the panes and l
 passed to `-run`. Tests run in parallel, each with its own scratch directory, port and
 tmux server.
 
-**Prerequisites.** Go, tmux, and the harnesses logged in: Claude Code (`claude auth
-status` says `loggedIn`) and Codex (`codex login status` succeeds, and `codex queue`
-exists). A harness that is missing or logged out is skipped with the reason, not failed.
+**Prerequisites.** Go, tmux, and the harnesses logged in: Claude Code through
+`CLAUDE_CODE_OAUTH_TOKEN` (below) and Codex (`codex login status` succeeds, and `codex
+queue` exists). A harness that isn't installed is skipped with the reason; Codex logged
+out is skipped too.
 
-On a machine where Claude Code keeps its login in the system keychain (macOS), a scratch
-config directory starts logged out. Run `claude setup-token` once and export the token
-it prints as `CLAUDE_CODE_OAUTH_TOKEN` before `make live`: Claude Code then logs in with
-a scratch config directory, and your own `~/.claude` (settings, hooks, project list) is
-never read or written.
+Run `claude setup-token` once and export the token it prints as
+`CLAUDE_CODE_OAUTH_TOKEN` before `make live`. Claude Code then logs in with a scratch
+config directory, and your own `~/.claude` (settings, hooks, project list) is never read
+or written. Without the token, or with one that doesn't log Claude Code in, every Claude
+Code test fails with that instruction: the suite never falls back to your own config.
 
 **Settings.**
 
@@ -36,7 +37,6 @@ never read or written.
 | --- | --- |
 | `LIVE_KEEP=1` | Save artifacts for passing tests too |
 | `LIVE_ARTIFACTS=<dir>` | Where artifacts go (default `e2e/live/artifacts/`, git-ignored) |
-| `LIVE_CLAUDE_CONFIG=home` | Run Claude Code with your own config directory (see below) |
 | `LIVE_CLAUDE_MODEL=<model>` | Pass `--model` to Claude Code |
 
 **Artifacts.** When a test fails, it writes each pane's full scrollback, Claude Code's
@@ -59,6 +59,7 @@ Code 2.1.287 with its default model.
 | `TestProjectScopeInit` | `aboard init --scope project` writes only into the project; a session started there runs the hooks and one started elsewhere doesn't; doctor and status name the project's settings; your own config is untouched. | 0 |
 | `TestKilledSessionRedelivers` | A session killed (`SIGKILL`) mid-turn after a wake never confirms: the daemon closes it within 5 seconds, the message stays unread, and the next session that resumes the agent receives it and acts on it. | 4 |
 | `TestSessionMovesBetweenBoards` | A session that joins one board and then another moves: a message on the new board is handed within 2 seconds and answered there, while a message to its old agent wakes nothing for 20 seconds and stays unread for whichever session resumes that agent. | 3 |
+| `TestClaudeSubagentCannotActAsItsParent` | A subagent asked to run `aboard status` and `aboard say` gets `agent_id` in its Bash hook input; Aboard's pre-tool hook marks the command and aboard refuses to post (`subagent_without_seat` in the transcript), so nothing reaches the board. It logs whether SubagentStart and SubagentStop fired, whether the subagent's status named the parent's agent, and whether Claude Code asked before the marked command. | 1 |
 | `TestResumedClaudeSessionReconnects` | A session that quits (its end hook closes it, and the agent shows as disconnected) and is resumed with `claude --resume <id>` in the same pane keeps its session id and is its agent again with no `aboard resume`: the message sent while it was closed, which wakes nothing, is handed when its first turn ends and answered. | 3 |
 | `TestRestartsLoseNothing` | Stopping the daemon while the stop hook waits (the hook starts it again), and separately stopping the local server and running `aboard up`, loses no message. | 3 |
 | `TestIdleCodexWakesAndReplies` | Codex runs the project's hooks (session start, prompt, tool, stop). An idle Codex session is woken through `codex queue` within 2 seconds plus Codex's 2-second gather, and answers on the board. | 2 |
@@ -89,13 +90,10 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
   product's own way of isolating a copy of Aboard, with the local server on a free port
   (`ABOARD_LOCAL_ADDR`). Harnesses are started with these variables, so their hooks and
   every command an agent runs use the scratch state too.
-- **Claude Code** keeps its config in a scratch `CLAUDE_CONFIG_DIR` when it is still
-  logged in there (the suite checks with `claude auth status`), seeded so first-run setup
-  is done and the project is trusted. Otherwise, or with `LIVE_CLAUDE_CONFIG=home`, it
-  uses your own config directory: it then adds the scratch projects to its own project
-  list in `~/.claude.json`, and the suite answers the workspace trust question in the
-  pane. In that mode, tests skip if `~/.claude/settings.json` holds Aboard's hooks, since
-  they would run in the test sessions too.
+- **Claude Code** keeps its config in a scratch `CLAUDE_CONFIG_DIR`, logged in with
+  `CLAUDE_CODE_OAUTH_TOKEN` (the suite checks with `claude auth status`), seeded so
+  first-run setup is done and the project is trusted. It never uses your own config
+  directory.
 - **Codex** gets a scratch `CODEX_HOME` with your `auth.json` linked (not copied, so a
   token Codex refreshes stays yours), the project marked trusted and the project's hooks
   trusted. Each hook command carries the scratch variables and writes its event to
