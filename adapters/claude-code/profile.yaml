@@ -3,6 +3,7 @@ harness: claude-code
 name: Claude Code
 drives: real
 command: claude
+check_name: claude
 
 checks:
   installed:
@@ -12,6 +13,7 @@ checks:
     json_true: loggedIn
 
 sandbox_env: [SANDBOX_RUNTIME]
+sandbox_fix: install Aboard's hooks with aboard init
 session_env: [ABOARD_SESSION, CLAUDECODE]
 
 # Claude Code reads its global settings and skills from CLAUDE_CONFIG_DIR when it is set.
@@ -19,17 +21,23 @@ config_dir:
   env: CLAUDE_CONFIG_DIR
   default: .claude
 
-skills_dir: "{config_dir}/skills"
-
 # settings.local.json is the project file meant for one person's machine; the hooks name
 # this machine's aboard binary.
-project:
-  skills_dir: .claude/skills
-  hooks_file: .claude/settings.local.json
-
-# Goes in permissions.allow of the settings file that holds the hooks.
-allow_commands:
-  rule: Bash(aboard *)
+install:
+  - kind: skill
+    global: "{config_dir}/skills/aboard/SKILL.md"
+    project: .claude/skills/aboard/SKILL.md
+  - kind: hooks
+    format: json
+    global: "{config_dir}/settings.json"
+    project: .claude/settings.local.json
+  # No paths: it goes in permissions.allow of the settings file that holds the hooks.
+  # Claude Code also reads the older prefix form.
+  - kind: allow-rule
+    rule: Bash(aboard *)
+    accepts: ["Bash(aboard:*)"]
+  - kind: consent
+    text: review them in /hooks
 
 interactive:
   start: [claude, "{prompt}"]
@@ -48,27 +56,49 @@ identity:
     The session-start hook writes ABOARD_SESSION=claude-code:<session id> and
     ABOARD_BOOT to CLAUDE_ENV_FILE, so every command the agent runs carries them.
   launched: ABOARD_AGENT in the session's environment, which its hooks also see.
+  kind: hook
+  env_file: CLAUDE_ENV_FILE
+  # omp sets CLAUDECODE=1 in every command too, and OMPCODE=1.
+  yields_to: [OMPCODE]
+
+lifecycle:
+  liveness: process
+  resume_keeps_id: true
+  resume_start: at-open
+  subagent_field: agent_id
 
 delivery:
   method: stop-hook
-  hooks_file: "{config_dir}/settings.json"
+  capabilities: [idle-hook, tool-boundary]
   hooks:
     - event: SessionStart
       run: session-start
+      op: session-start
+      timeout: 30
       why: registers the session and writes its environment file
     - event: UserPromptSubmit
       run: prompt
+      op: prompt
+      timeout: 10
       why: marks the session busy and releases a waiting stop hook
+    # The hook waits for as long as the session is idle.
     - event: Stop
       run: stop
+      op: wait
+      timeout: 86400
+      options: {asyncRewake: true}
       why: "asyncRewake: waits while idle; exit 2 wakes the session with the bundle"
     - event: PostToolBatch
       run: tool
+      op: tool
+      timeout: 10
       since: 2.1.118
       fallback: [PostToolUse, PostToolUseFailure]
       why: once a batch of tool calls is done, adds the owner's messages and the waiting notice as additionalContext
     - event: SessionEnd
       run: end
+      op: end
+      timeout: 10
       why: closes the session
   mid_turn: tool-hook
   waiting_notice: true

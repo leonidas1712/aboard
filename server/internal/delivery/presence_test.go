@@ -16,7 +16,7 @@ func (r *rig) presence(agent delivery.AgentRef, want delivery.Presence) {
 // hookCall sends one hook request for the Claude Code session s1, boot b1.
 func (r *rig) hookCall(op string) {
 	r.t.Helper()
-	r.ok(delivery.Request{Op: op, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+	r.ok(delivery.Request{Op: op, Harness: "claude-code", Session: "s1", Boot: "b1"})
 }
 
 // A Claude Code session's agent is idle while the session waits, working while a turn
@@ -24,7 +24,7 @@ func (r *rig) hookCall(op string) {
 func TestClaudeSessionReportsItsAgentsPresence(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	r.presence(reviewer, delivery.PresenceIdle)
 
 	r.hookCall(delivery.OpPrompt)
@@ -46,11 +46,11 @@ func TestClaudeSessionReportsItsAgentsPresence(t *testing.T) {
 
 func TestCodexTurnsReportPresence(t *testing.T) {
 	r := newRig(t)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.presence(reviewer, delivery.PresenceIdle)
-	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessCodex, Session: "t1"})
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "codex", Session: "t1"})
 	r.presence(reviewer, delivery.PresenceWorking)
-	r.ok(delivery.Request{Op: delivery.OpTurnEnd, Harness: delivery.HarnessCodex, Session: "t1"})
+	r.ok(delivery.Request{Op: delivery.OpTurnEnd, Harness: "codex", Session: "t1"})
 	r.presence(reviewer, delivery.PresenceIdle)
 }
 
@@ -58,8 +58,8 @@ func TestCodexTurnsReportPresence(t *testing.T) {
 func TestDeadHarnessLeavesItsAgentWithNoSession(t *testing.T) {
 	r := newRig(t)
 	harness := delivery.Process{PID: 7201, Start: 1759320000}
-	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: "claude-code", Session: "s1", Boot: "b1", Process: &harness})
+	r.bind("claude-code", "s1", reviewer)
 	r.hookCall(delivery.OpPrompt)
 	r.presence(reviewer, delivery.PresenceWorking)
 	r.procs.Kill(harness)
@@ -70,9 +70,9 @@ func TestDeadHarnessLeavesItsAgentWithNoSession(t *testing.T) {
 func TestMovedSessionLeavesTheOldAgentWithNoSession(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	r.presence(reviewer, delivery.PresenceIdle)
-	r.bind(delivery.HarnessClaudeCode, "s1", planner)
+	r.bind("claude-code", "s1", planner)
 	r.presence(planner, delivery.PresenceIdle)
 	r.presence(reviewer, delivery.PresenceNoSession)
 }
@@ -82,7 +82,7 @@ func TestMovedSessionLeavesTheOldAgentWithNoSession(t *testing.T) {
 func TestPresenceIsRenewedWhileItHolds(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	r.presence(reviewer, delivery.PresenceIdle)
 	reports := r.server.PresenceReports(reviewer)
 	r.eventually("a renewal", delivery.PresenceRenew, func() bool { return r.server.PresenceReports(reviewer) > reports })

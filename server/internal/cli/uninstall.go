@@ -13,7 +13,7 @@ import (
 	"slices"
 	"strings"
 
-	skill "github.com/leonidas1712/aboard/skills/aboard"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // Uninstall actions for one file.
@@ -169,7 +169,7 @@ func runUninstall(ctx context.Context, a *app, args []string) error {
 }
 
 // uninstallKinds orders a harness's files in uninstall's output.
-var uninstallKinds = []string{"skill", "hooks", "permissions"}
+var uninstallKinds = []string{"skill", "file", "hooks", "permissions"}
 
 // planUninstall works out what to do with each Aboard file: those the install manifest
 // records, in any scope and project, and, for installs from before the manifest, those
@@ -188,17 +188,14 @@ func (a *app) planUninstall(m installManifest) ([]uninstallFile, error) {
 		_, ok := m.find(path, kind)
 		return ok
 	}
-	for _, harness := range []string{"claude-code", "codex"} {
+	for _, h := range a.registry() {
 		for _, scope := range a.scopes() {
-			f := a.setupFiles(harness, scope)
-			if !known(f.skill, "skill") {
-				cands = append(cands, candidate{f.skill, harness, scope, "skill", nil})
-			}
-			if !known(f.hooks, "hooks") {
-				cands = append(cands, candidate{f.hooks, harness, scope, "hooks", nil})
-			}
-			if harness == "codex" && !known(f.allow, "permissions") {
-				cands = append(cands, candidate{f.allow, harness, scope, "permissions", nil})
+			for _, it := range h.Items(a.henv(), scope) {
+				kind := changeKind(it.Kind)
+				if it.Path == "" || it.Kind == harness.ItemConsent || known(it.Path, kind) {
+					continue
+				}
+				cands = append(cands, candidate{it.Path, h.Profile().Harness, scope, kind, nil})
 			}
 		}
 	}
@@ -221,8 +218,11 @@ func (a *app) planUninstall(m installManifest) ([]uninstallFile, error) {
 		}
 		switch c.kind {
 		case "hooks":
-			removeAllow := c.harness == "claude-code" && (c.rec == nil || c.rec.AllowAdded)
-			out, changed, empty, err := removeAboardEntries(data, c.harness, removeAllow)
+			var rule string
+			if it, ok := a.allowInHooks(c.harness, c.scope); ok && (c.rec == nil || c.rec.AllowAdded) {
+				rule = it.Rule
+			}
+			out, changed, empty, err := removeAboardEntries(data, c.harness, rule)
 			if err != nil {
 				return nil, &Error{
 					Code: "invalid_request", Message: "Couldn't read the hook settings in " + c.path + ": " + err.Error(),
@@ -238,11 +238,7 @@ func (a *app) planUninstall(m installManifest) ([]uninstallFile, error) {
 				f.Action, f.data, f.note = actionEdit, out, ": took out Aboard's entries, kept the rest"
 			}
 		default:
-			want := skill.Skill
-			if c.kind == "permissions" {
-				want = codexRules
-			}
-			unchanged := bytes.Equal(data, want)
+			unchanged := bytes.Equal(data, a.ownedData(c.harness, c.scope, c.kind))
 			if c.rec != nil {
 				unchanged = contentHash(c.kind, c.harness, data) == c.rec.SHA256
 			}
@@ -306,11 +302,37 @@ func (a *app) applyUninstall(files []uninstallFile, m *installManifest) error {
 	return a.saveManifest(*m)
 }
 
+// allowInHooks returns a harness's allow rule when it goes in the settings file that
+// holds its hooks.
+func (a *app) allowInHooks(name, scope string) (harness.Item, bool) {
+	h, ok := a.registry().Get(name)
+	if !ok {
+		return harness.Item{}, false
+	}
+	it, ok := a.item(h, scope, harness.ItemAllowRule)
+	return it, ok && it.Path == ""
+}
+
+// ownedData is what this aboard writes to a file of a kind it owns for a harness: the
+// skill, a file inside the harness, or the file that holds an allow rule.
+func (a *app) ownedData(name, scope, kind string) []byte {
+	h, ok := a.registry().Get(name)
+	if !ok {
+		return nil
+	}
+	for _, it := range h.Items(a.henv(), scope) {
+		if changeKind(it.Kind) == kind && it.Path != "" {
+			return it.Data
+		}
+	}
+	return nil
+}
+
 // removeAboardEntries takes Aboard's hook entries for harness out of a hook settings
-// file, and with allow Claude Code's allow rule for aboard, keeping everything else as
-// it was. Objects and lists left empty by that go too. empty is true when nothing is
-// left in the file.
-func removeAboardEntries(data []byte, harness string, allow bool) (out []byte, changed, empty bool, err error) {
+// file, and the allow rule when one is given, keeping everything else as it was.
+// Objects and lists left empty by that go too. empty is true when nothing is left in
+// the file.
+func removeAboardEntries(data []byte, name, allow string) (out []byte, changed, empty bool, err error) {
 	root, err := parseJSONObject(data)
 	if err != nil {
 		return nil, false, false, err
@@ -320,7 +342,7 @@ func removeAboardEntries(data []byte, harness string, allow bool) (out []byte, c
 		if err != nil {
 			return nil, false, false, fmt.Errorf("hooks: %w", err)
 		}
-		removed, err := removeStaleHooks(hooks, harness, nil)
+		removed, err := removeStaleHooks(hooks, name, nil)
 		if err != nil {
 			return nil, false, false, err
 		}
@@ -333,8 +355,8 @@ func removeAboardEntries(data []byte, harness string, allow bool) (out []byte, c
 			}
 		}
 	}
-	if allow {
-		removed, err := removeClaudeAllow(root)
+	if allow != "" {
+		removed, err := removeAllowRule(root, allow)
 		if err != nil {
 			return nil, false, false, err
 		}
@@ -347,9 +369,9 @@ func removeAboardEntries(data []byte, harness string, allow bool) (out []byte, c
 	return out, true, len(root.keys) == 0, err
 }
 
-// removeClaudeAllow takes Aboard's allow rule out of permissions.allow in Claude Code
-// settings, removing the list and the permissions object if that leaves them empty.
-func removeClaudeAllow(root *jsonObject) (bool, error) {
+// removeAllowRule takes Aboard's allow rule out of permissions.allow in a settings file,
+// removing the list and the permissions object if that leaves them empty.
+func removeAllowRule(root *jsonObject, rule string) (bool, error) {
 	raw, ok := root.get("permissions")
 	if !ok || string(bytes.TrimSpace(raw)) == "null" {
 		return false, nil
@@ -368,7 +390,7 @@ func removeClaudeAllow(root *jsonObject) (bool, error) {
 	}
 	kept := slices.DeleteFunc(slices.Clone(rules), func(r json.RawMessage) bool {
 		var s string
-		return json.Unmarshal(r, &s) == nil && s == claudeAllowRule
+		return json.Unmarshal(r, &s) == nil && s == rule
 	})
 	if len(kept) == len(rules) {
 		return false, nil

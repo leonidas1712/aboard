@@ -1,0 +1,234 @@
+==== aboard init --harness codex --scope project --allow-commands ====
+claude-code: not chosen
+codex, in this project:
+  create    ~/project/.agents/skills/aboard/SKILL.md (skill)
+  create    ~/project/.codex/hooks.json (hooks)
+            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
+            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
+            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
+            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+  create    ~/project/.codex/rules/aboard.rules (permissions)
+            prefix_rule(pattern=["aboard"], decision="allow")
+            (Codex runs the commands it allows outside its sandbox.)
+Run aboard init --yes --scope project --harness codex --allow-commands to make these changes.
+==== aboard init --yes --harness codex --scope project --allow-commands --json ====
+{
+  "applied": true,
+  "scope": "project",
+  "delivery": null,
+  "allow_commands": true,
+  "harnesses": [
+    {
+      "name": "claude-code",
+      "detected": true,
+      "changes": []
+    },
+    {
+      "name": "codex",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/project/.codex/hooks.json",
+          "kind": "hooks",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/project/.codex/rules/aboard.rules",
+          "kind": "permissions",
+          "action": "create",
+          "allow": [
+            "prefix_rule(pattern=[\"aboard\"], decision=\"allow\")"
+          ]
+        }
+      ]
+    }
+  ]
+}
+==== aboard init --yes --harness codex --scope project --allow-commands (again) ====
+claude-code: not chosen
+codex, in this project:
+  unchanged ~/project/.agents/skills/aboard/SKILL.md (skill)
+  unchanged ~/project/.codex/hooks.json (hooks)
+  unchanged ~/project/.codex/rules/aboard.rules (permissions)
+Nothing to change.
+==== file project/.agents/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== file project/.codex/hooks.json ====
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "timeout": 30,
+            "additionalContextLimit": 8192
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+==== file project/.codex/rules/aboard.rules ====
+# Added by aboard init: run aboard commands without asking.
+prefix_rule(pattern=["aboard"], decision="allow")
+==== install manifest ====
+{
+  "files": [
+    {
+      "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.codex/hooks.json",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "hooks",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/project/.codex/rules/aboard.rules",
+      "harness": "codex",
+      "scope": "project",
+      "kind": "permissions",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    }
+  ]
+}
+==== aboard status --json: setup ====
+{
+  "global": [],
+  "project": [
+    "codex"
+  ]
+}
+==== aboard status: setup line ====
+Setup:  codex in this project
+==== aboard doctor --json: harness checks ====
+[
+  {
+    "code": "claude_hooks_missing",
+    "fix": "run aboard init",
+    "level": "error",
+    "message": "claude-code: hooks not installed (SessionStart, UserPromptSubmit, Stop, PostToolBatch, SessionEnd)",
+    "name": "claude_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex-cli 0.159.3: queue available",
+    "name": "codex"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: hooks installed in this project ({HOME}/project/.codex/hooks.json)",
+    "name": "codex_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: aboard commands run outside Codex's sandbox (allowed in {HOME}/project/.codex/rules/aboard.rules)",
+    "name": "codex_allow"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex: skill installed in {HOME}/project/.agents/skills/aboard/SKILL.md",
+    "name": "codex_skill"
+  }
+]
+==== aboard uninstall --json: files ====
+[
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "skill",
+    "path": "{HOME}/project/.agents/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "hooks",
+    "path": "{HOME}/project/.codex/hooks.json",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "codex",
+    "kind": "permissions",
+    "path": "{HOME}/project/.codex/rules/aboard.rules",
+    "reason": null,
+    "scope": "project",
+    "written_by": "{version}"
+  }
+]

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // askInit is the guided part of aboard init in a terminal: it shows what is already set
@@ -26,7 +27,11 @@ func (a *app) askInit(ctx context.Context, c *initChoices, known []harnessSetup,
 		}
 	}
 	if len(found) == 0 {
-		_, _ = io.WriteString(a.env.Stdout, "\naboard init sets up Claude Code and Codex, and found neither on this machine. "+
+		none := "neither"
+		if len(a.registry()) > 2 {
+			none = "none of them"
+		}
+		_, _ = io.WriteString(a.env.Stdout, "\naboard init sets up "+harness.AndList(a.registry().Titles())+", and found "+none+" on this machine. "+
 			"Install one, then run aboard init again.\n")
 		return false, nil
 	}
@@ -56,8 +61,10 @@ func (a *app) askInit(ctx context.Context, c *initChoices, known []harnessSetup,
 
 	if !set["harness"] {
 		var choices []choice
-		for _, h := range found {
-			choices = append(choices, choice{h, harnessTitles[h]})
+		for _, name := range found {
+			if h, ok := a.registry().Get(name); ok {
+				choices = append(choices, choice{name, h.Profile().Name})
+			}
 		}
 		picked, err := k.pickMany("Set up which harnesses?", "", choices, found)
 		if err != nil {
@@ -92,11 +99,7 @@ func (a *app) askInit(ctx context.Context, c *initChoices, known []harnessSetup,
 		c.delivery = delivery.Mode(picked)
 	}
 	if !set["allow-commands"] {
-		description, def := "Adds the rule Bash(aboard *), which allows the aboard command and nothing else.", a.allowed("claude-code", c.scope)
-		if choosesCodex(*c, found) {
-			// Without the rule, Codex runs aboard in its sandbox, where it can't reach the server.
-			description, def = codexAllowWhy+" The rule lets Codex run aboard, and nothing else, outside its sandbox.", true
-		}
+		description, def := a.allowQuestion(*c, found)
 		allow, err := k.confirm("Let agents run aboard commands without a permission prompt?", description, def)
 		if err != nil {
 			return stop(err)
@@ -106,40 +109,70 @@ func (a *app) askInit(ctx context.Context, c *initChoices, known []harnessSetup,
 	return true, nil
 }
 
+// allowQuestion explains the question about allowing aboard commands, and its default.
+// A chosen harness that can't reach Aboard without its rule (Codex, whose sandbox
+// blocks network access) says why, and the answer defaults to yes. Otherwise the
+// first chosen harness's rule is named, and the default is whether it is there.
+func (a *app) allowQuestion(c initChoices, found []string) (description string, def bool) {
+	var first harness.Harness
+	for _, h := range a.registry() {
+		rule, ok := a.item(h, c.scope, harness.ItemAllowRule)
+		if !ok || !c.chooses(h.Profile().Harness, found) {
+			continue
+		}
+		if rule.Required != nil {
+			return rule.Required.Why, true
+		}
+		if first == nil {
+			first = h
+		}
+	}
+	if first == nil {
+		return "", false
+	}
+	rule, _ := a.item(first, c.scope, harness.ItemAllowRule)
+	return "Adds the rule " + rule.Rule + ", which allows the aboard command and nothing else.", a.allowed(first, c.scope)
+}
+
 // setupOverview describes what aboard init has already set up on this machine, for each
 // harness and scope, and the delivery mode of agents without their own. allCurrent is
 // true when every harness found is set up in some scope with this aboard's hooks and
-// skill, and Codex with its allow rule. scope is where to suggest installing: where the
-// hooks already are when that is only this project, else everywhere.
+// skill, and, for a harness that can't reach Aboard without it, its allow rule. scope is
+// where to suggest installing: where the hooks already are when that is only this
+// project, else everywhere.
 func (a *app) setupOverview(ctx context.Context, known []harnessSetup, mode delivery.Mode, st styles) (text string, allCurrent bool, scope string) {
 	var b strings.Builder
 	b.WriteString(st.heading("Aboard setup on this machine") + "\n")
-	specs := a.currentHooks(ctx)
 	allCurrent, scope = true, scopeGlobal
 	var installedIn []string
-	for _, h := range known {
-		label := fmt.Sprintf("  %-13s", harnessTitles[h.Name])
-		if !h.Detected {
+	for _, k := range known {
+		h, ok := a.registry().Get(k.Name)
+		if !ok {
+			continue
+		}
+		label := fmt.Sprintf("  %-13s", h.Profile().Name)
+		if !k.Detected {
 			b.WriteString(label + st.dim("not found on this machine") + "\n")
 			continue
 		}
+		specs, req := a.currentHooks(ctx, h), requiredAllow(h)
 		current, lines := false, 0
 		for _, sc := range a.scopes() {
-			hooks, sk := a.hooksState(h.Name, sc, specs[h.Name]), a.skillState(h.Name, sc)
-			allow := a.allowed(h.Name, sc)
+			hooks, sk := a.hooksState(h, sc, specs), a.skillState(h, sc)
+			allow := a.allowed(h, sc)
 			if hooks.State == stateMissing && sk.State == stateMissing && !allow {
 				continue
 			}
 			if hooks.State != stateMissing {
 				installedIn = append(installedIn, sc)
 			}
-			current = current || (hooks.State == stateCurrent && sk.State == stateCurrent && (h.Name != "codex" || a.codexAllowedAnywhere()))
+			current = current || (hooks.State == stateCurrent && sk.State == stateCurrent && (req == nil || a.allowedAnywhere(h)))
 			parts := []string{stateText(st, "hooks", "them", hooks), stateText(st, "skill", "it", sk)}
 			switch {
 			case allow:
 				parts = append(parts, st.ok("aboard commands allowed"))
-			case h.Name == "codex":
-				parts = append(parts, st.warn("aboard commands not allowed, so Codex can't reach the local server"))
+			case req != nil:
+				parts = append(parts, st.warn(req.Missing))
 			}
 			if lines > 0 {
 				label = strings.Repeat(" ", len(label))
@@ -157,11 +190,6 @@ func (a *app) setupOverview(ctx context.Context, known []harnessSetup, mode deli
 		scope = scopeProject
 	}
 	return b.String(), allCurrent, scope
-}
-
-// codexAllowedAnywhere reports whether a Codex rules file Codex reads here allows aboard.
-func (a *app) codexAllowedAnywhere() bool {
-	return slices.ContainsFunc(a.scopes(), func(sc string) bool { return a.allowed("codex", sc) })
 }
 
 // stateText says in a few words how an installed file compares with what this aboard

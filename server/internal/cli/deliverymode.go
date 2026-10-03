@@ -8,26 +8,16 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
 )
 
-// sessionMarkers are the variables set in the environment of every command an agent
-// runs in a harness session, by the harness or by Aboard's hooks, and the harness each
-// one means. Together with sandboxMarkers they tell a command it runs inside a session.
-var sessionMarkers = []struct{ env, harness string }{
-	{"ABOARD_SESSION", "Claude Code"},
-	{"CLAUDECODE", "Claude Code"},
-	{"CODEX_THREAD_ID", "Codex"},
-}
-
-// inSession reports the harness whose session this command runs in, if any.
+// inSession reports the harness whose session this command runs in, if any, from the
+// variables each harness's profile lists for its sessions and its sandbox. harness is
+// "harness" when the session is of a harness Aboard doesn't know by name, such as one
+// that sets another harness's variables too.
 func (a *app) inSession() (harness string, ok bool) {
-	for _, m := range sessionMarkers {
-		if a.env.Getenv(m.env) != "" {
-			return m.harness, true
-		}
+	title, ok := a.registry().InSession(a.henv())
+	if ok && title == "" {
+		title = "harness"
 	}
-	if harness, _, ok := a.sandboxed(); ok {
-		return harness, true
-	}
-	return "", false
+	return title, ok
 }
 
 // refuseInSession refuses a command that is up to a person (it acts or reads with the

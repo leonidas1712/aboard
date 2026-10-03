@@ -97,11 +97,12 @@ release is in engineering/testing.md and engineering/release.md.
 ### Harnesses
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| The profile describes a harness; `init`, `doctor`, `status` name no harness | next | D128, D160 |
-| Delivery adapters per mechanism: idle hook, queue command, none | next | D129 |
-| Profile plus per-harness code: shared Go reads the profile, one `Harness` interface and registry for quirks, harness-side code (extensions, plugins) in `adapters/<harness>/` | next | D160 |
+| The profile describes a harness; `init`, `doctor`, `status`, `uninstall`, the hooks and session detection name no harness | review | D128, D160, D164 |
+| Delivery adapters per mechanism: idle hook, queue command, none (the idle hook is shared; the queue adapter is still Codex's own) | review | D129, D164 |
+| Profile plus per-harness code: shared Go reads the profile, one `Harness` interface and registry for quirks, harness-side code (extensions, plugins) in `adapters/<harness>/` | review | D160, D164 |
 | omp as the first new harness, with automatic delivery | next, after the kit | D160 |
-| Harness conformance kit: fast kit, `make live HARNESS=<name>`, support levels 0–3, README table from results | next | D130 |
+| Harness conformance kit: fast kit, `make live HARNESS=<name>`, support levels 0–3, README table from results | next | D130, D164 |
+| A docs page per harness (`docs/harnesses/<harness>.mdx`) and the checklist in `engineering/adding-a-harness.md` | review | D164 |
 | Profiles at level 0 for OpenCode, Pi, OpenClaw, Hermes, Antigravity and others | next | D130 |
 | Automatic delivery for a harness beyond Claude Code and Codex | needs approval per harness | D130 |
 

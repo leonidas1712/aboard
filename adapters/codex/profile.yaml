@@ -3,6 +3,7 @@ harness: codex
 name: Codex
 drives: real
 command: codex
+check_name: codex
 
 checks:
   installed:
@@ -11,6 +12,8 @@ checks:
     run: [codex, login, status]
 
 sandbox_env: [CODEX_SANDBOX, CODEX_SANDBOX_NETWORK_DISABLED]
+sandbox_network_env: [CODEX_SANDBOX_NETWORK_DISABLED]
+sandbox_fix: trust Aboard's hooks in Codex (/hooks)
 session_env: [CODEX_THREAD_ID]
 
 # Codex reads its global config, hooks and rules from CODEX_HOME when it is set. Its
@@ -19,22 +22,39 @@ config_dir:
   env: CODEX_HOME
   default: .codex
 
-skills_dir: .agents/skills
-
 # Codex finds skills in the project's .agents/skills, and reads the project's .codex
 # folder (hooks.json, rules/) only once the person trusts the project.
-project:
-  skills_dir: .agents/skills
-  hooks_file: .codex/hooks.json
-
-# A rules file in the rules folder next to each config layer, $CODEX_HOME or the
-# project's .codex. Codex runs a command every rule allows outside its sandbox. Codex's
-# sandbox blocks network access by default (CODEX_SANDBOX_NETWORK_DISABLED=1), local
-# addresses and Unix sockets included, so aboard needs this rule to reach its server
-# and daemon; the pattern matches only commands whose first word is aboard.
-allow_commands:
-  rule: prefix_rule(pattern=["aboard"], decision="allow")
-  file: rules/aboard.rules
+install:
+  - kind: skill
+    global: .agents/skills/aboard/SKILL.md
+    project: .agents/skills/aboard/SKILL.md
+  # Codex runs hooks only once trusted; with them in both scopes it runs each one twice.
+  - kind: hooks
+    format: json
+    global: "{config_dir}/hooks.json"
+    project: .codex/hooks.json
+    missing:
+      level: warning
+      effect: so your messages wait for the end of a turn
+  # A rules file in the rules folder next to each config layer, $CODEX_HOME or the
+  # project's .codex. Codex runs a command every rule allows outside its sandbox.
+  # Codex's sandbox blocks network access by default (CODEX_SANDBOX_NETWORK_DISABLED=1),
+  # local addresses and Unix sockets included, so aboard needs this rule to reach its
+  # server and daemon; the pattern matches only commands whose first word is aboard.
+  - kind: allow-rule
+    rule: prefix_rule(pattern=["aboard"], decision="allow")
+    global: "{config_dir}/rules/aboard.rules"
+    project: .codex/rules/aboard.rules
+    note: Codex runs the commands it allows outside its sandbox.
+    required:
+      why: Codex's sandbox blocks network access; aboard needs to reach its local server. The rule lets Codex run aboard, and nothing else, outside its sandbox.
+      advice: Codex's sandbox blocks network access, so aboard commands Codex runs can't reach the local server; add --allow-commands to let Codex run them outside its sandbox.
+      missing: aboard commands not allowed, so Codex can't reach the local server
+      allowed: aboard commands run outside Codex's sandbox
+      not_allowed: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server
+  - kind: consent
+    text: review them in /hooks
+    project_text: Codex reads a project's .codex folder only once you trust the project.
 
 interactive:
   start: [codex, "{prompt}"]
@@ -56,26 +76,48 @@ identity:
   launched: >-
     ABOARD_AGENT in the environment of the commands the agent runs. Codex's hooks don't
     see the environment Codex was started with, so hooks never rely on it.
+  kind: env
+  env: CODEX_THREAD_ID
+
+lifecycle:
+  liveness: process
+  outlives_terminal: true
+  resume_keeps_id: true
+  resume_start: first-turn
+  subagent_field: agent_id
 
 delivery:
   method: queue
+  capabilities: [queue, tool-boundary]
   queue: [codex, queue, --thread, "{session}", --message, "{bundle}"]
-  hooks_file: "{config_dir}/hooks.json"
   hooks:
     - event: SessionStart
       run: session-start
+      op: session-start
+      timeout: 30
       why: registers the thread
     - event: UserPromptSubmit
       run: prompt
+      op: prompt
+      timeout: 10
       why: marks a turn running, so the owner's messages wait for a tool call instead of the queue
     - event: Stop
       run: stop
+      op: turn-end
+      timeout: 10
       why: confirms what the turn's tool calls received and marks the turn ended; the owner's messages no tool call took go into the queue
+    # additionalContextLimit is in tokens: well above the 9,000 bytes the daemon adds at
+    # one tool boundary, so Codex never shortens it.
     - event: PreToolUse
       run: tool
+      op: tool
+      timeout: 30
+      options: {additionalContextLimit: 8192}
       why: before each tool call, adds the owner's messages and the waiting notice as additionalContext; never denies
     - event: SessionEnd
       run: end
+      op: end
+      timeout: 3
       why: closes the session (Codex allows 3 seconds); 0.159.3 was not seen to run it on quit or when its app server stopped
   mid_turn: tool-hook
   waiting_notice: true

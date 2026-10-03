@@ -27,7 +27,7 @@ type Adapter struct {
 var _ delivery.Adapter = (*Adapter)(nil)
 
 // Harness returns "codex".
-func (*Adapter) Harness() string { return delivery.HarnessCodex }
+func (*Adapter) Harness() string { return "codex" }
 
 // WaitsForIdle is false: Codex queues a bundle until the thread's turn ends.
 func (*Adapter) WaitsForIdle() bool { return false }
@@ -108,8 +108,27 @@ func (l *limited) Write(p []byte) (int, error) {
 }
 
 // Validate reads the exact thread through the app server and refuses a thread that
-// doesn't exist or that a parent thread spawned.
+// doesn't exist or that a parent thread spawned, saying so in Codex's words.
 func (a *Adapter) Validate(ctx context.Context, threadID string) error {
+	err := a.validate(ctx, threadID)
+	switch {
+	case errors.Is(err, delivery.ErrSubAgent):
+		return &delivery.SessionError{
+			Err:     err,
+			Message: "This Codex thread (" + threadID + ") is a sub-agent, and messages can only go to the root conversation.",
+			Hint:    "Run aboard join or aboard resume in the root Codex conversation instead.",
+		}
+	case errors.Is(err, delivery.ErrTargetAbsent):
+		return &delivery.SessionError{
+			Err:     err,
+			Message: "Codex has no thread " + threadID + ".",
+			Hint:    "Run the command inside a Codex session, or open that thread again.",
+		}
+	}
+	return err
+}
+
+func (a *Adapter) validate(ctx context.Context, threadID string) error {
 	thread, err := a.readThread(ctx, threadID)
 	if err != nil {
 		return err

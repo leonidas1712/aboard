@@ -13,6 +13,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // Env is everything a command reads from or writes to the outside world.
@@ -74,8 +76,8 @@ type app struct {
 	localReplaced  *replacement
 	// homeAddr is the local server address read from ABOARD_HOME, once looked up.
 	homeAddr string
-	// claudeBatch says whether Claude Code has the PostToolBatch hook, once looked up.
-	claudeBatch *bool
+	// harnesses are the harnesses Aboard knows, once listed.
+	harnesses harness.Set
 }
 
 type command struct {

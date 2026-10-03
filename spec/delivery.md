@@ -44,7 +44,7 @@ replaced without changing the others.
 
 | Part | What it does | Interface | Implementations |
 | --- | --- | --- | --- |
-| Harness adapter | Checks a harness is usable, validates a session, hands over a bundle, reports the result | `Adapter` | Claude Code, Codex. Others use `inbox --wait`. |
+| Harness adapter | Checks a harness is usable, validates a session, hands over a bundle, reports the result | `Adapter` | The idle hook (Claude Code), Codex's queue. Others use `inbox --wait`. |
 | Server connection | Follows one server's board heads; fetches inboxes, acknowledges and reports presence with agent tokens | `Server` | HTTP API client with a server-sent event stream |
 | Journal | Records every delivery's state durably, without message bodies | `Journal` | SQLite file in the state directory |
 | Control socket | Lets hooks and the CLI talk to the daemon | `Control` | Unix socket, owner only |
@@ -52,6 +52,64 @@ replaced without changing the others.
 
 The daemon core depends only on these interfaces. A new harness is a new `Adapter`; it
 never reads the journal, moves a read position, or holds a token.
+
+## Harness capabilities
+
+What we want: any harness can take part, whatever it offers, without the daemon
+assuming every harness works like Claude Code or Codex.
+
+How Aboard does it: each harness's profile ([harness-profile.schema.json](harness-profile.schema.json))
+declares what it can do, as separate capabilities, and the daemon and the hooks use only
+what it declares.
+
+**Identity** (`identity.kind`): where a session's id comes from.
+
+| Kind | How a command finds its session | Harness |
+| --- | --- | --- |
+| `env` | A variable the harness sets in every command the agent runs | Codex (`CODEX_THREAD_ID`) |
+| `hook` | Only the hooks see the id; the session-start hook writes `ABOARD_SESSION=<harness>:<id>` and `ABOARD_BOOT` to the session's environment file, which the harness loads into every command | Claude Code (`CLAUDE_ENV_FILE`) |
+| `extension` | Aboard's extension inside the harness sets `ABOARD_SESSION` itself | None yet |
+
+A command also needs to know it runs inside some session, so it refuses people's
+commands there. Each profile lists its markers (`session_env`). Some harnesses set
+another's markers too: omp sets `CLAUDECODE=1` in every command, as well as `OMPCODE=1`.
+Detection checks the harness with the highest `identity.precedence` first, and a harness
+is not taken while a variable in its `identity.yields_to` is set: Claude Code yields to
+`OMPCODE`, and its `ABOARD_SESSION` is then ignored too. A command whose only markers
+belong to a harness that yielded runs in a session of a harness Aboard doesn't know: it
+still refuses people's commands, and its agent comes from `--as` or `ABOARD_AGENT`.
+
+**Delivery** (`delivery.capabilities`):
+
+| Capability | What it does | Harness |
+| --- | --- | --- |
+| `idle-hook` | A hook waits while the session is idle and wakes it with the bundle | Claude Code (the stop hook) |
+| `queue` | A command puts the bundle in the session's own queue, which starts it when the turn ends | Codex (`codex queue`) |
+| `tool-boundary` | A hook adds the owner's messages to a running turn after a tool call | Claude Code, Codex |
+| `turn-start` | A hook adds the owner's messages as a turn starts | None yet |
+| `extension` | Aboard's extension inside the harness holds a connection to the daemon (below) | None yet |
+| `none` | The skill has the agent run `aboard inbox --wait` | Every other harness |
+
+**The extension connection.** Specified; not built yet. Aboard's extension inside the
+harness opens a long-lived connection to the control socket, registers its session and
+the harness process it runs in, receives bundles over that connection, adds them to the
+session (waking it when it is idle) and confirms each one. The open connection is also
+the session's liveness: when it closes, the session is closed, as when the process
+table shows a harness gone. The same capability later covers a harness the daemon pushes
+to over its own endpoint, such as a gateway that holds sessions with no terminal. The
+messages on that connection are a versioned contract of their own, written down with
+the first harness that uses it.
+
+**Lifecycle** (`lifecycle`): how the daemon knows a session is alive (`process`, or an
+open extension `connection`); whether sessions run in a long-running harness process
+that outlives the terminal (`outlives_terminal`, as Codex's app server does, so quitting
+the terminal leaves the session open); whether resuming keeps the session's id and when
+a resumed session's start reaches Aboard (`resume_start`: `at-open` for Claude Code,
+`first-turn` for Codex); and the hook-input field that marks a subagent, whose hooks
+take nothing.
+
+Each harness's own page under [docs/harnesses](../docs/harnesses) says which of these it
+has and how they show up on that machine.
 
 ## The daemon
 

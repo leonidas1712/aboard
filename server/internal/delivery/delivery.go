@@ -13,12 +13,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
-// Harness names.
-const (
-	HarnessClaudeCode = "claude-code"
-	HarnessCodex      = "codex"
-)
-
 // SessionKey identifies one session: the harness and the harness's own session id.
 type SessionKey struct {
 	Harness string `json:"harness"`
@@ -167,6 +161,18 @@ var (
 	// ErrLoginMissing means there is no human login for the server.
 	ErrLoginMissing = errors.New("no human login for this server")
 )
+
+// SessionError is an adapter's verdict on a session, in its harness's own words: Err is
+// ErrTargetAbsent or ErrSubAgent, and Message and Hint are what the person reads.
+type SessionError struct {
+	Err           error
+	Message, Hint string
+}
+
+func (e *SessionError) Error() string { return e.Message }
+
+// Unwrap returns Err, so errors.Is sees the kind of failure.
+func (e *SessionError) Unwrap() error { return e.Err }
 
 // Limits and timings of delivery.
 const (

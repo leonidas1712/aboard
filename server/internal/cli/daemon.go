@@ -19,8 +19,6 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/apiserver"
-	"github.com/leonidas1712/aboard/server/internal/delivery/claude"
-	"github.com/leonidas1712/aboard/server/internal/delivery/codex"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
 	"github.com/leonidas1712/aboard/server/internal/delivery/proctable"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
@@ -29,8 +27,8 @@ import (
 // daemonStartTimeout is how long a background delivery daemon may take to answer.
 const daemonStartTimeout = 5 * time.Second
 
-// daemonCallTimeout bounds one request to the daemon. Binding a Codex thread runs the
-// Codex app server, which can take a few seconds.
+// daemonCallTimeout bounds one request to the daemon. Binding a session can run the
+// harness to check it (Codex's app server), which can take a few seconds.
 const daemonCallTimeout = 60 * time.Second
 
 // runDaemon runs the delivery daemon in the foreground until interrupted, or until no
@@ -101,9 +99,15 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	log.Info("delivery daemon started", "pid", pid, "socket", p.socket())
+	var adapters []delivery.Adapter
+	for _, h := range a.registry() {
+		if ad := h.Adapter(version); ad != nil {
+			adapters = append(adapters, ad)
+		}
+	}
 	err = delivery.Run(ctx, delivery.Config{
 		Journal:  journal,
-		Adapters: []delivery.Adapter{claude.Adapter{}, &codex.Adapter{ClientVersion: version}},
+		Adapters: adapters,
 		Connect: func(url string) delivery.Server {
 			return apiserver.New(url, daemonTokens{a: a}, a.env.Rand)
 		},

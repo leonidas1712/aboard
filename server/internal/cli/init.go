@@ -10,181 +10,46 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"slices"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
-	skill "github.com/leonidas1712/aboard/skills/aboard"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
-
-// hookSpec is one delivery hook a harness runs.
-type hookSpec struct {
-	// event is the harness's name for the hook event.
-	event string
-	// arg is the event argument of "aboard hook <harness> <arg>".
-	arg     string
-	handler hookHandler
-}
-
-// hookHandler is one hook command in a harness's hook settings.
-type hookHandler struct {
-	Type    string `json:"type"`
-	Command string `json:"command"`
-	Timeout int    `json:"timeout,omitempty"`
-	// AsyncRewake runs a Claude Code hook in the background; exit code 2 wakes the
-	// session with the hook's standard error.
-	AsyncRewake bool `json:"asyncRewake,omitempty"`
-	// AdditionalContextLimit is how much context, in approximate tokens, a Codex hook
-	// may add before Codex shortens it.
-	AdditionalContextLimit int `json:"additionalContextLimit,omitempty"`
-}
-
-// codexContextLimit is how much context, in tokens, Codex takes from the tool hook before
-// shortening it: well above the 9,000 bytes the daemon adds at one tool boundary.
-const codexContextLimit = 8192
-
-// stopHookTimeout is the stop hook's timeout in seconds. The hook waits for as long as
-// the session is idle.
-const stopHookTimeout = 86400
-
-// claudeBatchSince is the first Claude Code version with the PostToolBatch hook, which
-// fires once each batch of tool calls is done, failed ones included.
-const claudeBatchSince = "2.1.118"
-
-// claudeHooks returns Claude Code's hooks. With batch, the tool hook runs on
-// PostToolBatch; without it, for a Claude Code older than claudeBatchSince, on
-// PostToolUse and PostToolUseFailure, which together fire after every tool call.
-func claudeHooks(exe string, batch bool) []hookSpec {
-	cmd := func(arg string) string { return shellWord(exe) + " hook claude-code " + arg }
-	tool := hookHandler{Type: "command", Command: cmd("tool"), Timeout: 10}
-	specs := []hookSpec{
-		{"SessionStart", "session-start", hookHandler{Type: "command", Command: cmd("session-start"), Timeout: 30}},
-		{"UserPromptSubmit", "prompt", hookHandler{Type: "command", Command: cmd("prompt"), Timeout: 10}},
-		{"Stop", "stop", hookHandler{Type: "command", Command: cmd("stop"), Timeout: stopHookTimeout, AsyncRewake: true}},
-	}
-	if batch {
-		specs = append(specs, hookSpec{"PostToolBatch", "tool", tool})
-	} else {
-		specs = append(specs, hookSpec{"PostToolUse", "tool", tool}, hookSpec{"PostToolUseFailure", "tool", tool})
-	}
-	return append(specs, hookSpec{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 10}})
-}
-
-// claudeHasBatch reports whether the Claude Code on the PATH has the PostToolBatch hook:
-// true when its version is claudeBatchSince or later, or can't be read, since a Claude
-// Code installed later will be a current one.
-func (a *app) claudeHasBatch(ctx context.Context) bool {
-	if a.claudeBatch == nil {
-		v := ""
-		if path := a.lookPath("claude"); path != "" {
-			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			cmd := exec.CommandContext(cctx, path, "--version") //nolint:gosec // the claude on this command's PATH
-			cmd.Env = append(os.Environ(), "HOME="+a.env.Getenv("HOME"), "PATH="+a.env.Getenv("PATH"))
-			if out, err := cmd.Output(); err == nil {
-				v = string(out)
-			}
-			cancel()
-		}
-		batch := versionAtLeast(v, claudeBatchSince)
-		a.claudeBatch = &batch
-	}
-	return *a.claudeBatch
-}
-
-// lookPath finds a program on this command's PATH, or returns "".
-func (a *app) lookPath(name string) string {
-	for _, dir := range filepath.SplitList(a.env.Getenv("PATH")) {
-		p := filepath.Join(dir, name)
-		if info, err := os.Stat(p); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
-			return p
-		}
-	}
-	return ""
-}
-
-// versionAtLeast reports whether the first dotted version number in text, such as
-// "2.1.288 (Claude Code)", is at least min. Text without one counts as new enough.
-func versionAtLeast(text, minimum string) bool {
-	found := versionNumber.FindString(text)
-	if found == "" {
-		return true
-	}
-	have, want := strings.Split(found, "."), strings.Split(minimum, ".")
-	for i := range want {
-		h, w := 0, 0
-		if i < len(have) {
-			h, _ = strconv.Atoi(have[i])
-		}
-		w, _ = strconv.Atoi(want[i])
-		if h != w {
-			return h > w
-		}
-	}
-	return true
-}
-
-var versionNumber = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
-
-func codexHooks(exe string) []hookSpec {
-	cmd := func(arg string) string { return shellWord(exe) + " hook codex " + arg }
-	return []hookSpec{
-		{"SessionStart", "session-start", hookHandler{Type: "command", Command: cmd("session-start"), Timeout: 30}},
-		// The prompt and stop hooks mark when a turn runs, so the owner's messages go to the
-		// next tool call rather than the queue, which holds them until the turn ends.
-		{"UserPromptSubmit", "prompt", hookHandler{Type: "command", Command: cmd("prompt"), Timeout: 10}},
-		{"Stop", "stop", hookHandler{Type: "command", Command: cmd("stop"), Timeout: 10}},
-		// Before each tool call, so failed tool calls don't keep the owner's messages out of
-		// the turn: Codex runs PostToolUse only after a tool succeeds. It never denies.
-		{"PreToolUse", "tool", hookHandler{Type: "command", Command: cmd("tool"), Timeout: 30, AdditionalContextLimit: codexContextLimit}},
-		// Codex caps SessionEnd hooks at 3 seconds; closing a session is one socket call.
-		{"SessionEnd", "end", hookHandler{Type: "command", Command: cmd("end"), Timeout: 3}},
-	}
-}
 
 // withHome makes each hook command set ABOARD_HOME when this command runs with it set,
 // so hooks use the same folder as the commands that installed them. Codex doesn't pass
 // the environment it was started with to its hooks.
-func (a *app) withHome(specs []hookSpec) []hookSpec {
+func (a *app) withHome(specs []harness.Hook) []harness.Hook {
 	p, err := a.paths()
 	if err != nil || p.home == "" {
 		return specs
 	}
 	out := slices.Clone(specs)
 	for i := range out {
-		out[i].handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].handler.Command
+		out[i].Handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].Handler.Command
 	}
 	return out
 }
 
-var plainWord = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
-
 // shellWord quotes s for a shell command line when it needs quoting.
-func shellWord(s string) string {
-	if plainWord.MatchString(s) {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
+func shellWord(s string) string { return harness.ShellWord(s) }
 
 // isAboardHook reports whether a hook command runs "aboard hook <harness> <arg>".
-func isAboardHook(command, harness, arg string) bool {
-	return strings.Contains(command, "aboard") && strings.HasSuffix(strings.TrimSpace(command), " hook "+harness+" "+arg)
+func isAboardHook(command, name, arg string) bool {
+	return strings.Contains(command, "aboard") && strings.HasSuffix(strings.TrimSpace(command), " hook "+name+" "+arg)
 }
 
 // aboardHookArg returns the <arg> of a command that runs "aboard hook <harness> <arg>".
-func aboardHookArg(command, harness string) (string, bool) {
+func aboardHookArg(command, name string) (string, bool) {
 	if !strings.Contains(command, "aboard") {
 		return "", false
 	}
 	fields := strings.Fields(command)
 	n := len(fields)
-	if n < 3 || fields[n-3] != "hook" || fields[n-2] != harness {
+	if n < 3 || fields[n-3] != "hook" || fields[n-2] != name {
 		return "", false
 	}
 	return fields[n-1], true
@@ -214,6 +79,8 @@ type fileChange struct {
 	perm      os.FileMode
 	// commands are the hook commands the file runs, shown in text output.
 	commands []string
+	// note is one line shown under the change, saying what it does in the harness.
+	note string
 	// allowAdded is set when this change adds Aboard's allow rule to the file.
 	allowAdded bool
 }
@@ -225,8 +92,8 @@ const (
 	actionUnchanged = "unchanged"
 )
 
-// runInit adds the Aboard skill and the delivery hooks to Claude Code and Codex, for
-// every project or for this one. In a terminal it asks what to set up and confirms
+// runInit adds the Aboard skill and the delivery hooks to each harness, for every
+// project or for this one. In a terminal it asks what to set up and confirms
 // before writing; otherwise it writes only with --yes and else lists the changes.
 func runInit(ctx context.Context, a *app, args []string) error {
 	use := usageOf("init")
@@ -257,9 +124,9 @@ func runInit(ctx context.Context, a *app, args []string) error {
 	if abs, err := filepath.Abs(exe); err == nil {
 		exe = abs
 	}
-	known := []harnessSetup{
-		{Name: "claude-code", Detected: detected(a.configDir("claude-code"), "claude")},
-		{Name: "codex", Detected: detected(a.configDir("codex"), "codex")},
+	var known []harnessSetup
+	for _, h := range a.registry() {
+		known = append(known, harnessSetup{Name: h.Profile().Harness, Detected: h.Detected(a.henv())})
 	}
 	interactive := !*yes && a.interactive()
 	current := delivery.ModeAuto
@@ -296,7 +163,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 	if interactive {
 		_, _ = io.WriteString(a.env.Stdout, "\n"+st.heading("Changes")+"\n"+list)
 		if pending == 0 {
-			_, _ = io.WriteString(a.env.Stdout, initEnding(c, nil, 0, false, st))
+			_, _ = io.WriteString(a.env.Stdout, a.initEnding(c, nil, 0, false, st))
 			return nil
 		}
 		_, _ = io.WriteString(a.env.Stdout, "\n")
@@ -319,7 +186,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	text := list + a.codexAllowLine(c, setups, interactive) + initEnding(c, setups, pending, apply, st)
+	text := list + a.allowAdvice(c, setups, interactive) + a.initEnding(c, setups, pending, apply, st)
 	if interactive && apply {
 		text += nextSteps(setups, st)
 	}
@@ -349,8 +216,8 @@ func (a *app) checkInitChoices(c initChoices, use string) error {
 			"Run aboard init in the project's directory, or use --scope global.")
 	}
 	for _, h := range c.harnesses {
-		if h != "claude-code" && h != "codex" {
-			return usageError(fmt.Sprintf("%q is not a harness aboard init sets up; use claude-code or codex.", h), use)
+		if _, ok := a.registry().Get(h); !ok {
+			return usageError(fmt.Sprintf("%q is not a harness aboard init sets up; use %s.", h, harness.OrList(a.registry().Names())), use)
 		}
 	}
 	if c.delivery == "" {
@@ -364,41 +231,45 @@ func (a *app) checkInitChoices(c initChoices, use string) error {
 
 // planInit works out every file change for the chosen harnesses, without writing.
 func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup, exe string) ([]harnessSetup, error) {
-	specs := map[string][]hookSpec{"claude-code": a.withHome(claudeHooks(exe, a.claudeHasBatch(ctx))), "codex": a.withHome(codexHooks(exe))}
 	setups := slices.Clone(known)
 	for i := range setups {
 		s := &setups[i]
 		s.Changes = []fileChange{}
-		if !s.Detected || (c.harnesses != nil && !slices.Contains(c.harnesses, s.Name)) {
+		h, ok := a.registry().Get(s.Name)
+		if !ok || !s.Detected || (c.harnesses != nil && !slices.Contains(c.harnesses, s.Name)) {
 			continue
 		}
-		files := a.setupFiles(s.Name, c.scope)
-		sk, err := skillChange(files.skill)
-		if err != nil {
-			return nil, err
-		}
-		hk, err := hooksChange(files.hooks, s.Name, specs[s.Name])
-		if err != nil {
-			return nil, err
-		}
-		s.Changes = append(s.Changes, sk, hk)
-		if scopes, _, err := a.installedScopes(s.Name, specs[s.Name]); err == nil {
-			s.otherScope = slices.ContainsFunc(scopes, func(sc string) bool { return sc != c.scope })
-		}
-		if !c.allow {
-			continue
-		}
-		if s.Name == "claude-code" {
-			if err := allowSettings(&s.Changes[1]); err != nil {
-				return nil, err
+		specs := a.withHome(h.Hooks(exe, h.Version(ctx, a.henv())))
+		hooksAt := -1
+		for _, it := range h.Items(a.henv(), c.scope) {
+			switch {
+			case it.Kind == harness.ItemHooks:
+				hk, err := hooksChange(it.Path, s.Name, specs)
+				if err != nil {
+					return nil, err
+				}
+				hooksAt = len(s.Changes)
+				s.Changes = append(s.Changes, hk)
+				if scopes, _, err := a.installedScopes(h, specs); err == nil {
+					s.otherScope = slices.ContainsFunc(scopes, func(sc string) bool { return sc != c.scope })
+				}
+			case it.Kind == harness.ItemAllowRule && !c.allow, it.Kind == harness.ItemConsent:
+			case it.Kind == harness.ItemAllowRule && it.Path == "":
+				// The rule goes in the settings file that holds the hooks.
+				if hooksAt < 0 {
+					continue
+				}
+				if err := allowSettings(&s.Changes[hooksAt], it); err != nil {
+					return nil, err
+				}
+			default:
+				ch, err := ownedChange(it, changeKind(it.Kind))
+				if err != nil {
+					return nil, err
+				}
+				s.Changes = append(s.Changes, ch)
 			}
-			continue
 		}
-		rc, err := rulesChange(files.allow)
-		if err != nil {
-			return nil, err
-		}
-		s.Changes = append(s.Changes, rc)
 	}
 	a.markEdited(setups)
 	return setups, nil
@@ -428,35 +299,10 @@ func (a *app) applyInit(ctx context.Context, setups []harnessSetup, mode *initDe
 	return nil
 }
 
-// detected reports whether a harness looks installed: its folder exists or its command
-// is on the PATH.
-func detected(dir, command string) bool {
-	if info, err := os.Stat(dir); err == nil && info.IsDir() {
-		return true
-	}
-	_, err := exec.LookPath(command)
-	return err == nil
-}
-
-func skillChange(path string) (fileChange, error) {
-	c := fileChange{Path: path, Kind: "skill", Action: actionCreate, data: skill.Skill, perm: 0o644}
-	old, err := os.ReadFile(filepath.Clean(path))
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-	case err != nil:
-		return c, fmt.Errorf("read %s: %w", path, err)
-	case bytes.Equal(old, skill.Skill):
-		c.Action = actionUnchanged
-	default:
-		c.Action = actionUpdate
-	}
-	return c, nil
-}
-
-func hooksChange(path, harness string, specs []hookSpec) (fileChange, error) {
+func hooksChange(path, name string, specs []harness.Hook) (fileChange, error) {
 	c := fileChange{Path: path, Kind: "hooks", Action: actionCreate, perm: 0o644}
 	for _, s := range specs {
-		c.commands = append(c.commands, s.event+": "+s.handler.Command)
+		c.commands = append(c.commands, s.Event+": "+s.Handler.Command)
 	}
 	old, err := os.ReadFile(filepath.Clean(path))
 	switch {
@@ -469,7 +315,7 @@ func hooksChange(path, harness string, specs []hookSpec) (fileChange, error) {
 			c.perm = info.Mode().Perm()
 		}
 	}
-	data, changed, err := mergeHooks(old, harness, specs)
+	data, changed, err := mergeHooks(old, name, specs)
 	if err != nil {
 		return c, &Error{
 			Code: "invalid_request", Message: "Couldn't read the hook settings in " + path + ": " + err.Error(),
@@ -486,7 +332,7 @@ func hooksChange(path, harness string, specs []hookSpec) (fileChange, error) {
 // mergeHooks adds the delivery hooks to a harness's hook settings, keeping every other
 // setting and hook as it was. An Aboard hook already there is updated in place when its
 // command or options differ. changed is false when nothing needs writing.
-func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, changed bool, err error) {
+func mergeHooks(data []byte, name string, specs []harness.Hook) (out []byte, changed bool, err error) {
 	root, err := parseJSONObject(data)
 	if err != nil {
 		return nil, false, err
@@ -499,12 +345,12 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 	}
 	for _, spec := range specs {
 		var groups []json.RawMessage
-		if raw, ok := hooks.get(spec.event); ok && string(bytes.TrimSpace(raw)) != "null" {
+		if raw, ok := hooks.get(spec.Event); ok && string(bytes.TrimSpace(raw)) != "null" {
 			if err := json.Unmarshal(raw, &groups); err != nil {
-				return nil, false, fmt.Errorf("hooks.%s: %w", spec.event, err)
+				return nil, false, fmt.Errorf("hooks.%s: %w", spec.Event, err)
 			}
 		}
-		want, err := json.Marshal(spec.handler)
+		want, err := json.Marshal(spec.Handler)
 		if err != nil {
 			return nil, false, fmt.Errorf("encode hook: %w", err)
 		}
@@ -512,12 +358,12 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 		for gi, g := range groups {
 			group, err := parseJSONObject(g)
 			if err != nil {
-				return nil, false, fmt.Errorf("hooks.%s: %w", spec.event, err)
+				return nil, false, fmt.Errorf("hooks.%s: %w", spec.Event, err)
 			}
 			var handlers []json.RawMessage
 			if raw, ok := group.get("hooks"); ok {
 				if err := json.Unmarshal(raw, &handlers); err != nil {
-					return nil, false, fmt.Errorf("hooks.%s: %w", spec.event, err)
+					return nil, false, fmt.Errorf("hooks.%s: %w", spec.Event, err)
 				}
 			}
 			groupChanged := false
@@ -527,7 +373,7 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 					continue
 				}
 				command, _ := have["command"].(string)
-				if !isAboardHook(command, harness, spec.arg) {
+				if !isAboardHook(command, name, spec.Arg) {
 					continue
 				}
 				found = true
@@ -562,11 +408,11 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 			if err != nil {
 				return nil, false, fmt.Errorf("encode hooks: %w", err)
 			}
-			hooks.set(spec.event, raw)
+			hooks.set(spec.Event, raw)
 			changed = true
 		}
 	}
-	removed, err := removeStaleHooks(hooks, harness, specs)
+	removed, err := removeStaleHooks(hooks, name, specs)
 	if err != nil {
 		return nil, false, err
 	}
@@ -630,8 +476,8 @@ func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home str
 			for _, line := range lines {
 				fmt.Fprintf(&b, "            %s\n", st.dim(line))
 			}
-			if ch.Kind == "permissions" {
-				b.WriteString("            " + st.dim("(Codex runs the commands it allows outside its sandbox.)") + "\n")
+			if ch.note != "" {
+				b.WriteString("            " + st.dim("("+ch.note+")") + "\n")
 			}
 		}
 	}
@@ -644,28 +490,27 @@ func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home str
 	return b.String(), pending
 }
 
-// codexAllowLine recommends --allow-commands when init sets up Codex without it and no
-// rule Codex reads here allows aboard yet. In a terminal the question already said why.
-func (a *app) codexAllowLine(c initChoices, setups []harnessSetup, interactive bool) string {
+// allowAdvice recommends --allow-commands when init sets up a harness that can't reach
+// Aboard without its allow rule, and no rule it reads here allows aboard yet. In a
+// terminal the question already said why.
+func (a *app) allowAdvice(c initChoices, setups []harnessSetup, interactive bool) string {
 	if c.allow || interactive {
 		return ""
 	}
+	var advice string
 	for _, s := range setups {
-		if s.Name != "codex" || len(s.Changes) == 0 {
+		h, ok := a.registry().Get(s.Name)
+		if !ok || len(s.Changes) == 0 {
 			continue
 		}
-		for _, scope := range []string{scopeGlobal, c.scope} {
-			if _, ok := codexAllows(filepath.Dir(a.setupFiles("codex", scope).allow)); ok {
-				return ""
-			}
+		req := requiredAllow(h)
+		if req == nil || a.allowed(h, scopeGlobal) || a.allowed(h, c.scope) {
+			continue
 		}
-		return codexAllowAdvice
+		advice += req.Advice + "\n"
 	}
-	return ""
+	return advice
 }
-
-// harnessTitles are the harnesses' names as people know them.
-var harnessTitles = map[string]string{"claude-code": "Claude Code", "codex": "Codex"}
 
 // actionStyle colors text by the file action it stands for.
 func actionStyle(st styles, action, text string) string {
@@ -682,40 +527,52 @@ func actionStyle(st styles, action, text string) string {
 
 // initEnding says what happened, or what to run to make the changes. Only the harnesses
 // whose hook files were added or updated ask the person to trust the hooks again.
-func initEnding(c initChoices, setups []harnessSetup, pending int, applied bool, st styles) string {
+func (a *app) initEnding(c initChoices, setups []harnessSetup, pending int, applied bool, st styles) string {
 	switch {
 	case pending == 0:
 		return st.ok("Nothing to change.") + "\n"
 	case !applied:
 		return "Run " + st.code(initCommand(c)) + " to make these changes.\n"
 	}
-	var trust []string
+	var trust []harness.Item
+	var titles []string
 	for _, s := range setups {
-		for _, ch := range s.Changes {
-			if ch.Kind == "hooks" && ch.Action != actionUnchanged {
-				trust = append(trust, harnessTitles[s.Name])
-				break
-			}
+		h, ok := a.registry().Get(s.Name)
+		if !ok {
+			continue
+		}
+		consent, asks := harness.Find(h.Items(a.henv(), c.scope), harness.ItemConsent)
+		changed := slices.ContainsFunc(s.Changes, func(ch fileChange) bool { return ch.Kind == "hooks" && ch.Action != actionUnchanged })
+		if asks && changed {
+			trust, titles = append(trust, consent), append(titles, h.Profile().Name)
 		}
 	}
-	switch len(trust) {
-	case 0:
+	switch {
+	case len(trust) == 0:
 		return st.ok("Done.") + "\n"
-	case 1:
-		return st.ok("Done.") + " " + trust[0] + " asks you to trust new hooks before they run: review them in /hooks.\n" + projectEnding(c, trust)
+	case len(trust) == 1:
+		return st.ok("Done.") + " " + titles[0] + " asks you to trust new hooks before they run: " + trust[0].Text + ".\n" + projectEnding(c, trust)
+	case !slices.ContainsFunc(trust, func(it harness.Item) bool { return it.Text != trust[0].Text }):
+		return st.ok("Done.") + " " + harness.AndList(titles) +
+			" ask you to trust new hooks before they run: " + trust[0].Text + " in each.\n" + projectEnding(c, trust)
 	}
-	return st.ok("Done.") + " " + strings.Join(trust, " and ") +
-		" ask you to trust new hooks before they run: review them in /hooks in each.\n" + projectEnding(c, trust)
+	text := st.ok("Done.")
+	for i, t := range trust {
+		text += " " + titles[i] + " asks you to trust new hooks before they run: " + t.Text + "."
+	}
+	return text + "\n" + projectEnding(c, trust)
 }
 
 // projectEnding is what a project setup that changed hook files adds to init's ending.
-func projectEnding(c initChoices, trust []string) string {
+func projectEnding(c initChoices, trust []harness.Item) string {
 	if c.scope != scopeProject {
 		return ""
 	}
 	var end string
-	if slices.Contains(trust, harnessTitles["codex"]) {
-		end = "Codex reads a project's .codex folder only once you trust the project.\n"
+	for _, t := range trust {
+		if t.ProjectText != "" {
+			end += t.ProjectText + "\n"
+		}
 	}
 	return end + "The hook files name this machine's aboard binary; keep them out of version control.\n"
 }
@@ -741,10 +598,10 @@ func initCommand(c initChoices) string {
 // removeStaleHooks takes out Aboard's hook entries for harness that specs no longer
 // have, such as the tool hook on an event this aboard moved it from, and any group or
 // event left empty by that. Other hooks are kept as they were.
-func removeStaleHooks(hooks *jsonObject, harness string, specs []hookSpec) (bool, error) {
+func removeStaleHooks(hooks *jsonObject, name string, specs []harness.Hook) (bool, error) {
 	wanted := map[string]bool{}
 	for _, s := range specs {
-		wanted[s.event+" "+s.arg] = true
+		wanted[s.Event+" "+s.Arg] = true
 	}
 	changed := false
 	for _, event := range slices.Clone(hooks.keys) {
@@ -772,7 +629,7 @@ func removeStaleHooks(hooks *jsonObject, harness string, specs []hookSpec) (bool
 					Command string `json:"command"`
 				}
 				if json.Unmarshal(h, &have) == nil {
-					if arg, ok := aboardHookArg(have.Command, harness); ok && !wanted[event+" "+arg] {
+					if arg, ok := aboardHookArg(have.Command, name); ok && !wanted[event+" "+arg] {
 						continue
 					}
 				}

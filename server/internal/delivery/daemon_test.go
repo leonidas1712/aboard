@@ -48,8 +48,8 @@ func newRig(t *testing.T) *rig {
 	t.Helper()
 	r := &rig{
 		t: t, clock: clock.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
-		claude: deliverytest.NewFakeAdapter(delivery.HarnessClaudeCode, true),
-		codex:  deliverytest.NewFakeAdapter(delivery.HarnessCodex, false),
+		claude: deliverytest.NewFakeAdapter("claude-code", true),
+		codex:  deliverytest.NewFakeAdapter("codex", false),
 		server: deliverytest.NewFakeServer(),
 		procs:  deliverytest.NewFakeProcesses(),
 		path:   filepath.Join(t.TempDir(), "delivery.db"),
@@ -134,7 +134,7 @@ func (r *rig) ok(req delivery.Request) delivery.Response {
 // register starts a Claude Code session, as its session-start hook does.
 func (r *rig) register(id, boot string) {
 	r.t.Helper()
-	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: id, Boot: boot})
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: "claude-code", Session: id, Boot: boot})
 }
 
 func (r *rig) bind(harness, id string, agent delivery.AgentRef) {
@@ -163,7 +163,7 @@ func (r *rig) wait(id, boot string, resumed bool) *hook {
 	r.t.Cleanup(func() { _ = c.Close() })
 	go func() {
 		_ = delivery.WriteFrame(c, delivery.Request{
-			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: delivery.HarnessClaudeCode,
+			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: "claude-code",
 			Session: id, Boot: boot, Resumed: resumed,
 		})
 	}()
@@ -250,7 +250,7 @@ func (r *rig) postFromOwner(to delivery.AgentRef, body string) int {
 func TestIdleSessionGetsOneBundleAndAcksOnlyAfterConfirmation(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	r.post(reviewer, "one", false)
 	two := r.post(reviewer, "two", false)
 
@@ -269,9 +269,9 @@ func TestIdleSessionGetsOneBundleAndAcksOnlyAfterConfirmation(t *testing.T) {
 func TestPromptReleasesTheWaitingHookWithoutADelivery(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	h := r.wait("s1", "b1", false)
-	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
 	if resp := h.next(); resp.Event != delivery.EventRelease {
 		t.Fatalf("want a release, got %+v", resp)
 	}
@@ -280,14 +280,14 @@ func TestPromptReleasesTheWaitingHookWithoutADelivery(t *testing.T) {
 func TestOwnersMessageGoesToTheToolHookAndOthersWaitForIdle(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
-	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+	r.bind("claude-code", "s1", reviewer)
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
 	ordinary := r.post(reviewer, "ordinary", true)
 	urgent := r.postFromOwner(reviewer, "build broken")
 
 	var got string
 	r.eventually("the owner's message", 0, func() bool {
-		got = r.ok(delivery.Request{Op: delivery.OpBoundary, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"}).Bundle
+		got = r.ok(delivery.Request{Op: delivery.OpBoundary, Harness: "claude-code", Session: "s1", Boot: "b1"}).Bundle
 		return got != ""
 	})
 	if !strings.Contains(got, "build broken") || strings.Contains(got, "ordinary") {
@@ -307,7 +307,7 @@ func TestOwnersMessageGoesToTheToolHookAndOthersWaitForIdle(t *testing.T) {
 func TestBundlesStayWithinTheLimit(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	big := strings.Repeat("x", 12<<10)
 	r.post(reviewer, "a"+big, false)
 	r.post(reviewer, "b"+big, false)
@@ -326,7 +326,7 @@ func TestBundlesStayWithinTheLimit(t *testing.T) {
 func TestMessageTooLargeIsSkippedAndDoesNotBlockLaterOnes(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	huge := r.post(reviewer, strings.Repeat("y", 40<<10), false)
 	small := r.post(reviewer, "small", false)
 
@@ -344,7 +344,7 @@ func TestMessageTooLargeIsSkippedAndDoesNotBlockLaterOnes(t *testing.T) {
 
 func TestQueueingHarnessGathersMessagesAndConfirmsOnAcceptance(t *testing.T) {
 	r := newRig(t)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.post(reviewer, "first", false)
 	second := r.post(reviewer, "second", false)
 	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
@@ -402,7 +402,7 @@ func TestDefaultDeliveryModeAppliesToAgentsWithoutTheirOwn(t *testing.T) {
 func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
 	r := newRig(t)
 	r.setMode(reviewer, delivery.ModeHumans)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.post(reviewer, "peer note", false)
 	person := r.server.Post(reviewer, delivery.Message{Body: "from alex", FromName: "alex", FromHuman: true, Sender: "owner"})
 	r.eventually("the queued bundle", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
@@ -419,10 +419,10 @@ func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
 func TestOwnersMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
 	r := newRig(t)
 	codexReq := func(op string) delivery.Request {
-		return delivery.Request{Op: op, Harness: delivery.HarnessCodex, Session: "t1"}
+		return delivery.Request{Op: op, Harness: "codex", Session: "t1"}
 	}
 	r.ok(codexReq(delivery.OpRegister))
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.ok(codexReq(delivery.OpPrompt))
 
 	r.post(reviewer, "ordinary note", true)
@@ -444,10 +444,10 @@ func TestOwnersMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
 func TestHeldOwnersMessageIsQueuedWhenTheCodexTurnEnds(t *testing.T) {
 	r := newRig(t)
 	codexReq := func(op string) delivery.Request {
-		return delivery.Request{Op: op, Harness: delivery.HarnessCodex, Session: "t1"}
+		return delivery.Request{Op: op, Harness: "codex", Session: "t1"}
 	}
 	r.ok(codexReq(delivery.OpRegister))
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.ok(codexReq(delivery.OpPrompt))
 	r.postFromOwner(reviewer, "urgent but late")
 	r.clock.Advance(5 * time.Second)
@@ -463,7 +463,7 @@ func TestHeldOwnersMessageIsQueuedWhenTheCodexTurnEnds(t *testing.T) {
 
 func TestBusyIsNeverAFailedAttempt(t *testing.T) {
 	r := newRig(t)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.codex.SetBusy(true)
 	r.post(reviewer, "hello", false)
 	r.eventually("several busy answers", time.Second, func() bool { return r.codex.Attempts() >= 8 })
@@ -476,7 +476,7 @@ func TestBusyIsNeverAFailedAttempt(t *testing.T) {
 
 func TestFailuresBackOffAndStopForAttentionAfterFiveAttempts(t *testing.T) {
 	r := newRig(t)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.codex.FailWith(errors.New("codex queue: thread is locked"))
 	r.post(reviewer, "hello", false)
 
@@ -504,7 +504,7 @@ func TestFailuresBackOffAndStopForAttentionAfterFiveAttempts(t *testing.T) {
 
 func TestGoneCodexThreadNeedsAttentionWithItsReason(t *testing.T) {
 	r := newRig(t)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.codex.MarkAbsent("t1")
 	r.post(reviewer, "hello", false)
 	r.eventually("attention", time.Second, func() bool { return len(r.status().Attention) == 1 })
@@ -516,7 +516,7 @@ func TestGoneCodexThreadNeedsAttentionWithItsReason(t *testing.T) {
 func TestSubAgentSessionCannotBeBound(t *testing.T) {
 	r := newRig(t)
 	r.codex.MarkSubAgent("t-sub")
-	resp := r.call(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessCodex, Session: "t-sub", Agent: &reviewer})
+	resp := r.call(delivery.Request{Op: delivery.OpBind, Harness: "codex", Session: "t-sub", Agent: &reviewer})
 	if resp.Error == nil || resp.Error.Code != delivery.ReasonSubAgent {
 		t.Fatalf("bind of a sub-agent: %+v", resp)
 	}
@@ -525,7 +525,7 @@ func TestSubAgentSessionCannotBeBound(t *testing.T) {
 func TestCrashAfterHandingOverHandsTheBundleOverAgain(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	seq := r.post(reviewer, "please review", false)
 	r.wait("s1", "b1", false).bundle()
 
@@ -544,7 +544,7 @@ func TestCrashAfterHandingOverHandsTheBundleOverAgain(t *testing.T) {
 func TestRestartDuringAWokenTurnConfirmsWithoutHandingOverAgain(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	seq := r.post(reviewer, "please review", false)
 	r.wait("s1", "b1", false).bundle()
 
@@ -560,7 +560,7 @@ func TestRestartDuringAWokenTurnConfirmsWithoutHandingOverAgain(t *testing.T) {
 
 func TestCrashAfterConfirmingAcknowledgesWithoutHandingOverAgain(t *testing.T) {
 	r := newRig(t)
-	r.bind(delivery.HarnessCodex, "t1", reviewer)
+	r.bind("codex", "t1", reviewer)
 	r.server.FailAcks(true)
 	seq := r.post(reviewer, "hello", false)
 	// The harness has the bundle as soon as Hand is called, but it is confirmed only once
@@ -581,13 +581,13 @@ func TestCrashAfterConfirmingAcknowledgesWithoutHandingOverAgain(t *testing.T) {
 func TestUnconfirmedBundleGoesToTheNextSessionForTheAgent(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	r.post(reviewer, "please review", false)
 	r.wait("s1", "b1", false).bundle()
-	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: delivery.HarnessClaudeCode, Session: "s1"})
+	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: "claude-code", Session: "s1"})
 
 	r.register("s2", "c1")
-	r.bind(delivery.HarnessClaudeCode, "s2", reviewer)
+	r.bind("claude-code", "s2", reviewer)
 	if b := r.wait("s2", "c1", false).bundle(); !strings.Contains(b, "please review") {
 		t.Fatalf("next session got:\n%s", b)
 	}
@@ -599,17 +599,17 @@ func TestUnconfirmedBundleGoesToTheNextSessionForTheAgent(t *testing.T) {
 func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	if prev := r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &reviewer}).Previous; prev != nil {
+	if prev := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &reviewer}).Previous; prev != nil {
 		t.Fatalf("a session with no agent moved from %+v", prev)
 	}
 	r.post(reviewer, "handed before the move", false)
 	r.wait("s1", "b1", false).bundle()
 
-	resp := r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &planner})
+	resp := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &planner})
 	if resp.Previous == nil || *resp.Previous != reviewer {
 		t.Fatalf("binding another agent should name the one it replaced, got %+v", resp.Previous)
 	}
-	again := r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &planner})
+	again := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &planner})
 	if again.Previous != nil {
 		t.Fatalf("binding the same agent again moved from %+v", again.Previous)
 	}
@@ -620,7 +620,7 @@ func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
 	if !strings.Contains(b, "for the new seat") || strings.Contains(b, "for the old seat") || strings.Contains(b, "handed before the move") {
 		t.Fatalf("the moved session got:\n%s", b)
 	}
-	if got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "s1"}).Agents; len(got) != 1 || got[0] != planner {
+	if got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "s1"}).Agents; len(got) != 1 || got[0] != planner {
 		t.Fatalf("agents bound to the moved session: %+v", got)
 	}
 	if got := r.server.Cursor(reviewer); got != 0 {
@@ -628,7 +628,7 @@ func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
 	}
 
 	r.register("s2", "c1")
-	r.bind(delivery.HarnessClaudeCode, "s2", reviewer)
+	r.bind("claude-code", "s2", reviewer)
 	// The bundle handed before the move goes again as it was, then what came after it.
 	if b = r.wait("s2", "c1", false).bundle(); !strings.Contains(b, "handed before the move") {
 		t.Fatalf("the session that resumed the old agent got first:\n%s", b)
@@ -641,7 +641,7 @@ func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
 func TestNewBootHandsUnconfirmedBundlesOverAgain(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	r.post(reviewer, "please review", false)
 	r.wait("s1", "b1", false).bundle()
 	// The session's process was replaced (a resume) before its turn ended.
@@ -658,8 +658,8 @@ func TestRevokedTokenStopsOnlyThatAgent(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
 	r.register("s2", "c1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
-	r.bind(delivery.HarnessClaudeCode, "s2", planner)
+	r.bind("claude-code", "s1", reviewer)
+	r.bind("claude-code", "s2", planner)
 	r.server.Revoke(reviewer)
 	r.post(reviewer, "for the revoked agent", false)
 	r.post(planner, "for the planner", false)
@@ -676,13 +676,13 @@ func TestRevokedTokenStopsOnlyThatAgent(t *testing.T) {
 func TestAgentsListsWhatIsBoundToTheSession(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", planner)
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
-	got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "s1"}).Agents
+	r.bind("claude-code", "s1", planner)
+	r.bind("claude-code", "s1", reviewer)
+	got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "s1"}).Agents
 	if len(got) != 1 || got[0] != reviewer {
 		t.Fatalf("agents %+v", got)
 	}
-	unknown := r.call(delivery.Request{Op: delivery.OpAgents, Harness: delivery.HarnessClaudeCode, Session: "nope"})
+	unknown := r.call(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "nope"})
 	if unknown.Error == nil || unknown.Error.Code != "session_unknown" {
 		t.Fatalf("unknown session: %+v", unknown)
 	}
@@ -695,7 +695,7 @@ func TestDaemonStopsAfterTenMinutesWithoutAnOpenSession(t *testing.T) {
 	if st := r.status(); st.OpenSessions != 1 {
 		t.Fatalf("open sessions %d", st.OpenSessions)
 	}
-	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: delivery.HarnessClaudeCode, Session: "s1"})
+	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: "claude-code", Session: "s1"})
 	r.eventually("the daemon to stop", time.Minute, r.stopped)
 }
 
@@ -718,8 +718,8 @@ func (r *rig) stopped() bool {
 func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 	r := newRig(t)
 	harness := delivery.Process{PID: 7101, Start: 1759320000}
-	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: "claude-code", Session: "s1", Boot: "b1", Process: &harness})
+	r.bind("claude-code", "s1", reviewer)
 	r.clock.Advance(time.Hour)
 	if st := r.status(); st.OpenSessions != 1 {
 		t.Fatalf("a live session should stay open: %d open", st.OpenSessions)
@@ -736,7 +736,7 @@ func TestSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 func TestRestoredSessionWhoseHarnessDiedIsClosed(t *testing.T) {
 	r := newRig(t)
 	harness := delivery.Process{PID: 7102, Start: 1759320000}
-	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: "claude-code", Session: "s1", Boot: "b1", Process: &harness})
 	r.stop()
 	r.procs.Kill(harness)
 	r.start()
@@ -749,8 +749,8 @@ func TestLaterRequestsDontReplaceTheSessionsProcess(t *testing.T) {
 	r := newRig(t)
 	harness := delivery.Process{PID: 7103, Start: 1759320000}
 	other := delivery.Process{PID: 7104, Start: 1759320001}
-	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1", Process: &harness})
-	r.ok(delivery.Request{Op: delivery.OpBind, Harness: delivery.HarnessClaudeCode, Session: "s1", Agent: &reviewer, Process: &other})
+	r.ok(delivery.Request{Op: delivery.OpRegister, Harness: "claude-code", Session: "s1", Boot: "b1", Process: &harness})
+	r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &reviewer, Process: &other})
 	r.procs.Kill(harness)
 	r.eventually("the dead session to close", delivery.LivenessCheck, func() bool { return r.status().OpenSessions == 0 })
 }
@@ -760,16 +760,16 @@ func TestLaterRequestsDontReplaceTheSessionsProcess(t *testing.T) {
 func TestLateStopHookFromAnEarlierTurnIsReleased(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")
-	r.bind(delivery.HarnessClaudeCode, "s1", reviewer)
+	r.bind("claude-code", "s1", reviewer)
 	hookStarted := r.clock.Now()
 	r.clock.Advance(time.Second)
-	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: delivery.HarnessClaudeCode, Session: "s1", Boot: "b1"})
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
 
 	c := r.dial()
 	defer func() { _ = c.Close() }()
 	go func() {
 		_ = delivery.WriteFrame(c, delivery.Request{
-			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: delivery.HarnessClaudeCode,
+			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: "claude-code",
 			Session: "s1", Boot: "b1", Started: hookStarted,
 		})
 	}()

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -16,8 +15,8 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
-	"github.com/leonidas1712/aboard/server/internal/delivery/codex"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // Check levels.
@@ -75,12 +74,14 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	}
 	status, daemonCheck := a.checkDaemon(ctx, p)
 	checks = append(checks, daemonCheck...)
-	checks = append(checks, a.checkClaudeHooks(ctx))
-	checks = append(checks, a.checkCodex(ctx)...)
-	checks = append(checks, a.checkSkill("claude_skill", "claude-code")...)
-	checks = append(checks, a.checkSkill("codex_skill", "codex")...)
+	for _, h := range a.registry() {
+		checks = append(checks, a.checkHarness(ctx, h)...)
+	}
+	for _, h := range a.registry() {
+		checks = append(checks, a.checkSkill(h)...)
+	}
 	if status != nil {
-		checks = append(checks, statusChecks(status)...)
+		checks = append(checks, a.statusChecks(status)...)
 	}
 
 	failed := false
@@ -153,7 +154,7 @@ func (a *app) checkDaemon(ctx context.Context, p paths) (*delivery.Status, []doc
 
 // hooksMissing returns the events of specs that have no Aboard hook in a harness's hook
 // settings file.
-func hooksMissing(path, harness string, specs []hookSpec) ([]string, error) {
+func hooksMissing(path, name string, specs []harness.Hook) ([]string, error) {
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
@@ -173,36 +174,64 @@ func hooksMissing(path, harness string, specs []hookSpec) ([]string, error) {
 	var missing []string
 	for _, s := range specs {
 		found := false
-		for _, g := range settings.Hooks[s.event] {
+		for _, g := range settings.Hooks[s.Event] {
 			for _, h := range g.Hooks {
-				found = found || isAboardHook(h.Command, harness, s.arg)
+				found = found || isAboardHook(h.Command, name, s.Arg)
 			}
 		}
 		if !found {
-			missing = append(missing, s.event)
+			missing = append(missing, s.Event)
 		}
 	}
 	return missing, nil
 }
 
-func (a *app) checkClaudeHooks(ctx context.Context) doctorCheck {
-	if !detected(a.configDir("claude-code"), "claude") {
-		return problem("claude_hooks", levelWarning, "claude_code_not_installed",
-			"claude-code: not installed", "install Claude Code, or ignore this if you don't use it")
+// checkHarness checks that a harness is there, that its hooks are installed and the
+// same as this aboard's, and, when it can't reach Aboard without one, its allow rule.
+func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck {
+	var checks []doctorCheck
+	found, installed := h.InstalledChecks(ctx, a.henv())
+	for _, c := range found {
+		checks = append(checks, fromHarness(c))
 	}
-	scopes, files, err := a.installedScopes("claude-code", claudeHooks("aboard", true))
+	if !installed {
+		return checks
+	}
+	p := h.Profile()
+	name := p.CheckName + "_hooks"
+	newest := h.Hooks("aboard", "")
+	scopes, files, err := a.installedScopes(h, newest)
 	if err == nil && len(scopes) > 0 {
-		return a.checkHooksCurrent("claude_hooks", "claude-code", scopes, a.withHome(claudeHooks(a.hookExe(), a.claudeHasBatch(ctx))),
-			okCheck("claude_hooks", "claude-code: "+installedText(scopes, files)))
+		checks = append(checks, a.checkHooksCurrent(name, h, scopes, a.currentHooks(ctx, h),
+			okCheck(name, p.Harness+": "+installedText(scopes, files))))
+		return append(checks, a.checkAllow(h, scopes)...)
 	}
-	missing, err2 := hooksMissing(a.setupFiles("claude-code", scopeGlobal).hooks, "claude-code", claudeHooks("aboard", true))
-	switch {
-	case err != nil || err2 != nil:
-		return problem("claude_hooks", levelError, "claude_hooks_missing", "claude-code: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init")
-	default:
-		return problem("claude_hooks", levelError, "claude_hooks_missing",
-			"claude-code: hooks not installed ("+strings.Join(missing, ", ")+")", "run aboard init")
+	level, effect := levelError, ""
+	if it, ok := a.item(h, scopeGlobal, harness.ItemHooks); ok && it.Missing != nil {
+		if it.Missing.Level != "" {
+			level = it.Missing.Level
+		}
+		if it.Missing.Effect != "" {
+			effect = ", " + it.Missing.Effect
+		}
 	}
+	code := p.CheckName + "_hooks_missing"
+	missing, err2 := hooksMissing(a.hooksFile(h, scopeGlobal), p.Harness, newest)
+	if err != nil || err2 != nil {
+		checks = append(checks, problem(name, level, code, p.Harness+": "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
+	} else {
+		checks = append(checks, problem(name, level, code,
+			p.Harness+": hooks not installed ("+strings.Join(missing, ", ")+")"+effect, "run aboard init"))
+	}
+	return append(checks, a.checkAllow(h, nil)...)
+}
+
+// fromHarness turns a harness's own check into a line of aboard doctor.
+func fromHarness(c harness.CheckResult) doctorCheck {
+	if c.Level == levelOK {
+		return okCheck(c.Name, c.Message)
+	}
+	return problem(c.Name, c.Level, c.Code, c.Message, c.Fix)
 }
 
 // installedText says where a harness's hooks are installed.
@@ -214,83 +243,32 @@ func installedText(scopes, files []string) string {
 	return "hooks installed " + strings.Join(parts, " and ")
 }
 
-func (a *app) checkCodex(ctx context.Context) []doctorCheck {
-	if _, err := exec.LookPath("codex"); err != nil {
-		return []doctorCheck{problem("codex", levelWarning, "codex_not_installed",
-			"codex: not on the PATH", "install Codex, or ignore this if you don't use it")}
+// checkAllow checks, for a harness that can't reach Aboard without its allow rule, that
+// a rule it reads allows the aboard command, here or everywhere. Without it, Codex runs
+// aboard commands in its sandbox, which by default blocks network access, so they can't
+// reach the local server or the daemon. scopes are where the harness's hooks are
+// installed, which picks the fix.
+func (a *app) checkAllow(h harness.Harness, scopes []string) []doctorCheck {
+	req := requiredAllow(h)
+	if req == nil {
+		return nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	cx := &codex.Adapter{}
-	ver, err := cx.Version(ctx)
-	if err != nil {
-		return []doctorCheck{problem("codex", levelWarning, "codex_not_installed",
-			"codex: "+err.Error(), "reinstall Codex, or ignore this if you don't use it")}
-	}
-	if !cx.HasQueue(ctx) {
-		return []doctorCheck{problem("codex", levelError, "codex_queue_missing",
-			ver+": no queue command, so messages can't be delivered to Codex", "update Codex")}
-	}
-	checks := []doctorCheck{okCheck("codex", ver+": queue available")}
-	scopes, files, err := a.installedScopes("codex", codexHooks("aboard"))
-	if err == nil && len(scopes) > 0 {
-		return append(checks,
-			a.checkHooksCurrent("codex_hooks", "codex", scopes, a.withHome(codexHooks(a.hookExe())),
-				okCheck("codex_hooks", "codex: "+installedText(scopes, files))),
-			a.checkCodexAllow(scopes))
-	}
-	missing, err2 := hooksMissing(a.setupFiles("codex", scopeGlobal).hooks, "codex", codexHooks("aboard"))
-	switch {
-	case err != nil || err2 != nil:
-		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing", "codex: "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
-	default:
-		checks = append(checks, problem("codex_hooks", levelWarning, "codex_hooks_missing",
-			"codex: hooks not installed ("+strings.Join(missing, ", ")+"), so your messages wait for the end of a turn",
-			"run aboard init"))
-	}
-	return append(checks, a.checkCodexAllow(nil))
-}
-
-// checkCodexAllow checks that a Codex rules file allows the aboard command, here or
-// everywhere. Without it, Codex runs aboard commands in its sandbox, which by default
-// blocks network access, so they can't reach the local server or the daemon. scopes are
-// where Codex's hooks are installed, which picks the fix.
-func (a *app) checkCodexAllow(scopes []string) doctorCheck {
+	p := h.Profile()
+	name := p.CheckName + "_allow"
 	for _, scope := range a.scopes() {
-		if file, ok := codexAllows(filepath.Dir(a.setupFiles("codex", scope).allow)); ok {
-			return okCheck("codex_allow", "codex: aboard commands run outside Codex's sandbox (allowed in "+file+")")
+		if file, ok := a.allowedIn(h, scope); ok {
+			return []doctorCheck{okCheck(name, p.Harness+": "+req.Allowed+" (allowed in "+file+")")}
 		}
 	}
 	fix := "run " + allowFix
 	if slices.Equal(scopes, []string{scopeProject}) {
 		fix = "run aboard init --yes --scope project --allow-commands in this project"
 	}
-	return problem("codex_allow", levelWarning, "codex_aboard_not_allowed",
-		"codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
-		fix)
-}
-
-// codexAllows returns the rules file in dir that holds Codex's allow rule for aboard,
-// spaces aside, if any. Codex reads every .rules file there.
-func codexAllows(dir string) (string, bool) {
-	files, _ := filepath.Glob(filepath.Join(dir, "*.rules"))
-	want := strings.Join(strings.Fields(codexAllowRule), "")
-	for _, f := range files {
-		raw, err := os.ReadFile(filepath.Clean(f))
-		if err != nil {
-			continue
-		}
-		for _, line := range strings.Split(string(raw), "\n") {
-			if strings.Join(strings.Fields(line), "") == want {
-				return f, true
-			}
-		}
-	}
-	return "", false
+	return []doctorCheck{problem(name, levelWarning, p.CheckName+"_aboard_not_allowed", p.Harness+": "+req.NotAllowed, fix)}
 }
 
 // statusChecks reports the daemon's servers and the deliveries that need a person.
-func statusChecks(st *delivery.Status) []doctorCheck {
+func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 	var checks []doctorCheck
 	for _, s := range st.Servers {
 		switch s.Problem {
@@ -309,12 +287,12 @@ func statusChecks(st *delivery.Status) []doctorCheck {
 	for _, ag := range st.Agents {
 		checks = append(checks, problem("delivery", levelError, "delivery_attention",
 			fmt.Sprintf("deliveries for %s on %s stopped (%s)", ag.Agent.Name, ag.Agent.Board, ag.Reason),
-			fixFor(ag.Reason)))
+			a.fixFor(ag.Reason)))
 	}
 	for _, d := range st.Attention {
 		checks = append(checks, problem("delivery", levelError, "delivery_attention",
 			fmt.Sprintf("1 delivery needs attention: #%s on %s for %s (%s)", seqList(d.Seqs), d.Agent.Board, d.Agent.Name, d.Reason),
-			fixFor(d.Reason)))
+			a.fixFor(d.Reason)))
 	}
 	if n := len(st.Skipped); n > 0 {
 		var where []string
@@ -336,14 +314,15 @@ func seqList(seqs []int) string {
 	return strings.Join(parts, ", #")
 }
 
-// fixFor says how to fix a delivery that stopped for reason.
-func fixFor(reason string) string {
-	switch reason {
-	case delivery.ReasonTargetAbsent:
-		return "open that Codex thread again, or rejoin with aboard join"
-	case delivery.ReasonSubAgent:
-		return "run aboard resume from the root Codex conversation"
-	case delivery.ReasonUnauthorized:
+// fixFor says how to fix a delivery that stopped for reason: in the words of the
+// harness whose adapter gave the reason, if one did.
+func (a *app) fixFor(reason string) string {
+	for _, h := range a.registry() {
+		if fix := h.Fix(reason); fix != "" {
+			return fix
+		}
+	}
+	if reason == delivery.ReasonUnauthorized {
 		return "the agent's token was rejected; join the board again with aboard join"
 	}
 	return "look at the daemon log, then run aboard resume in the session to try again"

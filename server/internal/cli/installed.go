@@ -5,10 +5,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
-	skill "github.com/leonidas1712/aboard/skills/aboard"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // Installed files are compared by content with what aboard init would write now, not
@@ -39,10 +38,11 @@ func initFix(scope string) string {
 // checkSkill reports a harness's installed skill, in each scope that has one, that
 // differs from the one this aboard installs. It returns nothing when the skill isn't
 // installed in any scope; the hooks check covers setup.
-func (a *app) checkSkill(name, harness string) []doctorCheck {
+func (a *app) checkSkill(h harness.Harness) []doctorCheck {
+	name, harnessName := h.Profile().CheckName+"_skill", h.Profile().Harness
 	var installed []string
 	for _, scope := range a.scopes() {
-		s := a.skillState(harness, scope)
+		s := a.skillState(h, scope)
 		switch s.State {
 		case stateMissing:
 			continue
@@ -51,44 +51,45 @@ func (a *app) checkSkill(name, harness string) []doctorCheck {
 			continue
 		case stateEdited:
 			return []doctorCheck{problem(name, levelWarning, "skill_edited",
-				harness+": the skill in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
+				harnessName+": the skill in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
 				initFix(scope)+" to replace it with the one aboard "+version+" installs, which discards your edits; or keep it as it is")}
 		}
 		if s.WrittenBy != "" {
 			return []doctorCheck{problem(name, levelWarning, "skill_outdated",
-				harness+": the skill in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+version+" installs",
+				harnessName+": the skill in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+version+" installs",
 				initFix(scope))}
 		}
 		return []doctorCheck{problem(name, levelWarning, "skill_outdated",
-			harness+": the skill in "+s.Path+" differs from the one aboard "+version+" installs",
+			harnessName+": the skill in "+s.Path+" differs from the one aboard "+version+" installs",
 			initFix(scope))}
 	}
 	if len(installed) == 0 {
 		return nil
 	}
-	return []doctorCheck{okCheck(name, harness+": skill installed in "+strings.Join(installed, " and "))}
+	return []doctorCheck{okCheck(name, harnessName+": skill installed in "+strings.Join(installed, " and "))}
 }
 
 // checkHooksCurrent reports Aboard hook entries, in each of the scopes given, that
 // differ from what aboard init would write now, or returns ok.
-func (a *app) checkHooksCurrent(name, harness string, scopes []string, specs []hookSpec, ok doctorCheck) doctorCheck {
+func (a *app) checkHooksCurrent(name string, h harness.Harness, scopes []string, specs []harness.Hook, ok doctorCheck) doctorCheck {
+	harnessName := h.Profile().Harness
 	for _, scope := range scopes {
-		s := a.installedHooksState(a.setupFiles(harness, scope).hooks, harness, specs)
+		s := a.installedHooksState(a.hooksFile(h, scope), harnessName, specs)
 		switch s.State {
 		case stateCurrent:
 			continue
 		case stateEdited:
 			return problem(name, levelWarning, "hooks_edited",
-				harness+": the Aboard hooks in "+s.Path+" were edited after aboard "+s.WrittenBy+" wrote them",
+				harnessName+": the Aboard hooks in "+s.Path+" were edited after aboard "+s.WrittenBy+" wrote them",
 				initFix(scope)+", which rewrites only Aboard's entries")
 		}
 		if s.WrittenBy != "" {
 			return problem(name, levelWarning, "hooks_outdated",
-				harness+": the Aboard hooks in "+s.Path+" were written by aboard "+s.WrittenBy+" and differ from the ones aboard "+version+" installs",
+				harnessName+": the Aboard hooks in "+s.Path+" were written by aboard "+s.WrittenBy+" and differ from the ones aboard "+version+" installs",
 				initFix(scope))
 		}
 		return problem(name, levelWarning, "hooks_outdated",
-			harness+": the Aboard hooks in "+s.Path+" differ from the ones aboard "+version+" installs",
+			harnessName+": the Aboard hooks in "+s.Path+" differ from the ones aboard "+version+" installs",
 			initFix(scope))
 	}
 	return ok
@@ -109,49 +110,51 @@ type fileState struct {
 }
 
 // skillState compares a harness's skill in a scope with the one this aboard installs.
-func (a *app) skillState(harness, scope string) fileState {
-	path := a.setupFiles(harness, scope).skill
-	s := fileState{Path: path, State: stateMissing}
-	data, err := os.ReadFile(filepath.Clean(path))
+func (a *app) skillState(h harness.Harness, scope string) fileState {
+	it, _ := a.item(h, scope, harness.ItemSkill)
+	s := fileState{Path: it.Path, State: stateMissing}
+	if it.Path == "" {
+		return s
+	}
+	data, err := os.ReadFile(filepath.Clean(it.Path))
 	switch {
 	case err != nil:
 		return s
-	case bytes.Equal(data, skill.Skill):
+	case bytes.Equal(data, it.Data):
 		s.State = stateCurrent
 		return s
 	}
-	return a.origin(s, "skill", harness, data)
+	return a.origin(s, "skill", h.Profile().Harness, data)
 }
 
 // hooksState compares a harness's Aboard hooks in a scope with specs. They count as
 // installed when the session-start hook, which every other hook relies on, is there.
-func (a *app) hooksState(harness, scope string, specs []hookSpec) fileState {
-	path := a.setupFiles(harness, scope).hooks
-	start := slices.DeleteFunc(slices.Clone(specs), func(s hookSpec) bool { return s.arg != "session-start" })
-	if missing, err := hooksMissing(path, harness, start); err != nil || len(missing) > 0 {
+func (a *app) hooksState(h harness.Harness, scope string, specs []harness.Hook) fileState {
+	path := a.hooksFile(h, scope)
+	if missing, err := hooksMissing(path, h.Profile().Harness, sessionStartHooks(h, specs)); err != nil || len(missing) > 0 {
 		return fileState{Path: path, State: stateMissing}
 	}
-	return a.installedHooksState(path, harness, specs)
+	return a.installedHooksState(path, h.Profile().Harness, specs)
 }
 
 // installedHooksState compares the Aboard hooks in a file that has them with specs. A
 // file that can't be read or merged counts as current here; other checks report it.
-func (a *app) installedHooksState(path, harness string, specs []hookSpec) fileState {
+func (a *app) installedHooksState(path, harnessName string, specs []harness.Hook) fileState {
 	s := fileState{Path: path, State: stateCurrent}
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return s
 	}
-	if _, changed, err := mergeHooks(data, harness, specs); err != nil || !changed {
+	if _, changed, err := mergeHooks(data, harnessName, specs); err != nil || !changed {
 		return s
 	}
-	return a.origin(s, "hooks", harness, data)
+	return a.origin(s, "hooks", harnessName, data)
 }
 
 // origin marks a file that differs from what this aboard writes as edited or outdated,
 // with the version that wrote it, from the install manifest.
-func (a *app) origin(s fileState, kind, harness string, data []byte) fileState {
-	by, edited, known := a.loadManifest().fileOrigin(s.Path, kind, harness, data)
+func (a *app) origin(s fileState, kind, harnessName string, data []byte) fileState {
+	by, edited, known := a.loadManifest().fileOrigin(s.Path, kind, harnessName, data)
 	s.State = stateOutdated
 	if edited {
 		s.State = stateEdited
@@ -162,26 +165,7 @@ func (a *app) origin(s fileState, kind, harness string, data []byte) fileState {
 	return s
 }
 
-// allowed reports whether a harness's files in a scope hold the allow rule for aboard.
-func (a *app) allowed(harness, scope string) bool {
-	f := a.setupFiles(harness, scope)
-	if harness == "codex" {
-		_, ok := codexAllows(filepath.Dir(f.allow))
-		return ok
-	}
-	data, err := os.ReadFile(filepath.Clean(f.hooks))
-	if err != nil {
-		return false
-	}
-	_, changed, err := addClaudeAllow(data)
-	return err == nil && !changed
-}
-
-// currentHooks returns the hooks this aboard installs for each harness.
-func (a *app) currentHooks(ctx context.Context) map[string][]hookSpec {
-	exe := a.hookExe()
-	return map[string][]hookSpec{
-		"claude-code": a.withHome(claudeHooks(exe, a.claudeHasBatch(ctx))),
-		"codex":       a.withHome(codexHooks(exe)),
-	}
+// currentHooks returns the hooks this aboard installs for a harness.
+func (a *app) currentHooks(ctx context.Context, h harness.Harness) []harness.Hook {
+	return a.withHome(h.Hooks(a.hookExe(), h.Version(ctx, a.henv())))
 }

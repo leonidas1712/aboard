@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // hookExit is the exit code a hook command ends with, without printing an error.
@@ -23,26 +24,12 @@ type hookExit int
 
 func (e hookExit) Error() string { return fmt.Sprintf("hook exit %d", int(e)) }
 
-// exitWake is the exit code that makes Claude Code wake the session with the hook's
-// standard error.
+// exitWake is the exit code that makes a harness wake the session with a waiting
+// hook's standard error.
 const exitWake = 2
 
 // hookInputLimit is the most hook input read from standard input.
 const hookInputLimit = 1 << 20
-
-// hookInput is the part of a harness's hook input the hooks read.
-type hookInput struct {
-	SessionID string `json:"session_id"`
-	Source    string `json:"source"`
-	// AgentID is set when a hook fires inside a sub-agent (Claude Code's subagents and
-	// Codex's sub-agent threads).
-	AgentID string `json:"agent_id"`
-	// HookEventName is the event the harness ran the hook for; a tool hook's output
-	// names it back.
-	HookEventName string `json:"hook_event_name"`
-	// Prompt is the prompt text, on Claude Code's UserPromptSubmit.
-	Prompt string `json:"prompt"`
-}
 
 // sessionIDPattern is what a session id may contain. It is written into a file the
 // harness sources as shell, so nothing else is accepted.
@@ -58,9 +45,9 @@ func runHook(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	harness, event := pos[0], pos[1]
+	name, event := pos[0], pos[1]
 	started := time.Now()
-	var in hookInput
+	var in harness.HookInput
 	data, err := io.ReadAll(io.LimitReader(a.env.Stdin, hookInputLimit))
 	if err == nil {
 		err = json.Unmarshal(data, &in)
@@ -69,36 +56,42 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		a.hookNote("the hook input has no usable session_id")
 		return hookExit(0)
 	}
-	h := hookCall{a: a, harness: harness, in: in, boot: a.env.Getenv("ABOARD_BOOT"), started: started}
+	hs, known := a.registry().Get(name)
+	var call harness.Call
+	if known {
+		call, known = hs.HookCall(event, in)
+	}
+	if !known {
+		return usageError(fmt.Sprintf("%q is not a hook event for %q.", event, name), use)
+	}
+	h := hookCall{a: a, harness: name, in: in, boot: a.env.Getenv("ABOARD_BOOT"), started: started}
 	var hookErr error
-	switch {
-	case harness == delivery.HarnessClaudeCode && event == "session-start":
-		hookErr = h.claudeSessionStart(ctx)
-	case harness == delivery.HarnessClaudeCode && event == "prompt":
-		req := h.request(delivery.OpPrompt)
-		// Claude Code submits a stop hook's wake text as the next prompt. That prompt is the
-		// wake itself, so it must not count as the session's next event.
-		req.Wake = strings.Contains(h.in.Prompt, "<aboard-messages")
-		_, hookErr = h.a.callDaemon(ctx, req)
-	case harness == delivery.HarnessClaudeCode && event == "stop":
-		return h.stop(ctx)
-	case harness == delivery.HarnessClaudeCode && event == "end":
-		_, hookErr = h.call(ctx, delivery.OpEnd)
-	case harness == delivery.HarnessCodex && event == "session-start":
+	switch call.Op {
+	case harness.OpSessionStart:
+		if envFile := hs.Profile().Identity.EnvFile; envFile != "" {
+			hookErr = h.sessionStartWithEnvFile(ctx, envFile)
+			break
+		}
 		var resp delivery.Response
 		if resp, hookErr = h.call(ctx, delivery.OpRegister); hookErr == nil {
 			h.startNote(resp)
 		}
-	case harness == delivery.HarnessCodex && event == "prompt":
-		_, hookErr = h.call(ctx, delivery.OpPrompt)
-	case harness == delivery.HarnessCodex && event == "stop":
+	case harness.OpPrompt:
+		req := h.request(delivery.OpPrompt)
+		// A prompt that hands back a waiting hook's wake text is the wake itself, so it
+		// must not count as the session's next event.
+		req.Wake = call.Wake
+		_, hookErr = h.a.callDaemon(ctx, req)
+	case harness.OpWait:
+		return h.stop(ctx)
+	case harness.OpTurnEnd:
 		_, hookErr = h.call(ctx, delivery.OpTurnEnd)
-	case harness == delivery.HarnessCodex && event == "end":
+	case harness.OpEnd:
 		_, hookErr = h.call(ctx, delivery.OpEnd)
-	case (harness == delivery.HarnessClaudeCode || harness == delivery.HarnessCodex) && event == "tool":
+	case harness.OpTool:
 		hookErr = h.tool(ctx)
 	default:
-		return usageError(fmt.Sprintf("%q is not a hook event for %q.", event, harness), use)
+		return usageError(fmt.Sprintf("%q is not a hook event for %q.", event, name), use)
 	}
 	if hookErr != nil {
 		a.hookNote(asError(hookErr).Message)
@@ -114,7 +107,7 @@ func (a *app) hookNote(msg string) {
 type hookCall struct {
 	a       *app
 	harness string
-	in      hookInput
+	in      harness.HookInput
 	boot    string
 	started time.Time
 }
@@ -127,10 +120,11 @@ func (h hookCall) call(ctx context.Context, op string) (delivery.Response, error
 	return h.a.callDaemon(ctx, h.request(op))
 }
 
-// claudeSessionStart registers the session and writes ABOARD_SESSION and ABOARD_BOOT to
-// the session's environment file, so every command the agent runs carries them. A
-// compacted session keeps its boot id; anything else is a new process with a new one.
-func (h hookCall) claudeSessionStart(ctx context.Context) error {
+// sessionStartWithEnvFile registers the session and writes ABOARD_SESSION and
+// ABOARD_BOOT to the session's environment file, which the variable envVar names, so
+// every command the agent runs carries them. A compacted session keeps its boot id;
+// anything else is a new process with a new one.
+func (h hookCall) sessionStartWithEnvFile(ctx context.Context, envVar string) error {
 	h.boot = ""
 	if h.in.Source != "compact" {
 		boot, err := newBootID(h.a.env.Rand)
@@ -144,31 +138,31 @@ func (h hookCall) claudeSessionStart(ctx context.Context) error {
 		return err
 	}
 	h.startNote(resp)
-	envFile := h.a.env.Getenv("CLAUDE_ENV_FILE")
+	envFile := h.a.env.Getenv(envVar)
 	if envFile == "" {
 		return nil
 	}
-	lines := "export ABOARD_SESSION=" + delivery.HarnessClaudeCode + ":" + h.in.SessionID + "\n"
+	lines := "export ABOARD_SESSION=" + h.harness + ":" + h.in.SessionID + "\n"
 	if sessionIDPattern.MatchString(resp.Boot) {
 		lines += "export ABOARD_BOOT=" + resp.Boot + "\n"
 	}
 	f, err := os.OpenFile(filepath.Clean(envFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return fmt.Errorf("open CLAUDE_ENV_FILE: %w", err)
+		return fmt.Errorf("open %s: %w", envVar, err)
 	}
 	if _, err := f.WriteString(lines); err != nil {
 		_ = f.Close()
-		return fmt.Errorf("write CLAUDE_ENV_FILE: %w", err)
+		return fmt.Errorf("write %s: %w", envVar, err)
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("write CLAUDE_ENV_FILE: %w", err)
+		return fmt.Errorf("write %s: %w", envVar, err)
 	}
 	return nil
 }
 
 // startNote tells a session that starts again with the same session id (the harness
 // resumed it) which agent it is, or that another session resumed its agent meanwhile.
-// Both harnesses add a session-start hook's output to the session's context. A new
+// The harnesses add a session-start hook's output to the session's context. A new
 // session gets nothing.
 func (h hookCall) startNote(resp delivery.Response) {
 	var note string
