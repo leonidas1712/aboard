@@ -16,6 +16,8 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Board view, round 4: full-width layout, gentler composer focus, Charter and "Rules Aboard enforces", charter paragraphs, stable mark colours | building | D118, D133 |
 | Merge #10 (everything since #5) and update the maintainer's install | next | |
 | Manual QA in a sandbox with real Claude Code and Codex, and the next UI round from it | next | D126 |
+| `aboard read` shows what the board view shows: "asks for a reply", "reply to #N", "urgent", and a readable header (role, harness and sender label on their own line); agents catching up in the terminal currently can't tell which messages want an answer | next | D36, D110 |
+| Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 
 ## Done
 
