@@ -126,6 +126,24 @@ entry's text changes.
 terminal, whether resuming keeps the id, when a resumed session's start reaches Aboard,
 and the hook-input field that marks a subagent.
 
+**Subagents.** `subagent_identity` says whether Aboard can tell a subagent's commands
+from its parent's. A subagent inherits its parent's session, so without that its
+`aboard say` posts as the parent. `marked` needs a way: a hook of op `mark-subagent` that
+adds `ABOARD_SUBAGENT` to a subagent's `aboard` commands (Claude Code's `PreToolUse`
+hook, with `matcher: Bash`), an extension that sets it, or, when every command carries
+both its own thread's id and its root session's, `identity.root_env` (Codex's
+`CODEX_SESSION_ID`). A marked subagent's commands may only read. Otherwise say `none`,
+and the docs page states the risk. Every hook whose input carries a subagent's id is
+ignored, so a subagent's turn never counts as its parent's.
+
+```yaml
+subagent_identity: marked
+identity:
+  kind: env
+  env: CODEX_THREAD_ID
+  root_env: CODEX_SESSION_ID
+```
+
 Then add the harness to `harness/registry`. With only a profile, `harness.MustLoad` is
 its implementation.
 
@@ -198,6 +216,7 @@ with a separate test login, and its page says so.
 Copy this section for the new harness in the pull request that adds it.
 
 - [ ] Profile in `adapters/<harness>/profile.yaml`, valid against the schema
+- [ ] `subagent_identity` declared, and a test that a subagent's `aboard say` is refused (or the risk on the docs page, for `none`)
 - [ ] In `harness/registry`
 - [ ] Go package, only for quirks, each override saying why
 - [ ] Harness-side code in `adapters/<harness>/`, if any

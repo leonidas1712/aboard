@@ -78,6 +78,12 @@ identity:
     see the environment Codex was started with, so hooks never rely on it.
   kind: env
   env: CODEX_THREAD_ID
+  # The root thread's id; equal to CODEX_THREAD_ID in the root conversation.
+  root_env: CODEX_SESSION_ID
+
+# A sub-agent's commands carry its own CODEX_THREAD_ID and the root's CODEX_SESSION_ID
+# (identity.root_env); the two differ only in a sub-agent, which may then only read.
+subagent_identity: marked
 
 lifecycle:
   liveness: process
@@ -131,6 +137,7 @@ notes:
   - "Verified with Codex 0.159.3 (codex exec -s workspace-write, network off as by default): without the allow rule, aboard status inside Codex reported the running server and daemon as not running; with rules/aboard.rules it reported both running. A command that gets no answer there now fails with sandbox_blocks_network."
   - "Verified live with Codex 0.159.3: idle wake through the queue, a message added at the next tool call, sub-agent refusal."
   - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. PostToolUse runs only after a tool succeeds, so it would miss failed tool calls; the tool hook is on PreToolUse.
-  - Hook input carries session_id, turn_id and cwd, and agent_id and agent_type in a thread-spawned sub-agent; the tool hook ignores sub-agents.
+  - Hook input carries session_id, turn_id and cwd, and agent_id and agent_type in a thread-spawned sub-agent; there session_id is the root's, so every hook ignores input with agent_id.
+  - "Verified live with Codex 0.160.0: a sub-agent's commands carry its own thread id in CODEX_THREAD_ID and the root's in CODEX_SESSION_ID (equal in the root), and aboard status there resolved no agent. Sub-agents fire SubagentStart and SubagentStop, not SessionStart and Stop, and codex queue and the app server refuse direct input to a v2 sub-agent thread (upstream source)."
   - "Verified live with Codex 0.159.3: codex resume <id> keeps the thread id (CODEX_THREAD_ID and the hooks' session_id), and SessionStart runs with source resume, but only once the resumed thread's first turn starts, not when the terminal opens. The session-start hook then binds it again to its agent (D157), and the waiting message goes into its queue."
   - "Verified live with Codex 0.159.3: Codex runs threads, and their hooks, in its own app server (codex app-server --managed-daemon, under CODEX_HOME), which outlives the terminal. The daemon therefore records that app server as the session's process. Quitting Codex prints \"Disconnected from this task. Any running work continues.\" and runs no SessionEnd; the thread stays loaded, so its session stays open, and a message posted afterwards was queued and answered with no terminal attached. The session closes when the app server stops (no SessionEnd ran then either; the daemon saw its process gone)."

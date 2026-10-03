@@ -148,7 +148,7 @@ Setup:  codex everywhere
     "code": "claude_hooks_missing",
     "fix": "run aboard init",
     "level": "error",
-    "message": "claude-code: hooks not installed (SessionStart, UserPromptSubmit, Stop, PostToolBatch, SessionEnd)",
+    "message": "claude-code: hooks not installed (SessionStart, UserPromptSubmit, Stop, PostToolBatch, PreToolUse, SessionEnd)",
     "name": "claude_hooks"
   },
   {

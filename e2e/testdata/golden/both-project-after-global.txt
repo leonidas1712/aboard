@@ -7,6 +7,7 @@ claude-code, in this project:
             UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt
             Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code stop
             PostToolBatch: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
+            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
 codex, in this project:
   (its hooks are also set up everywhere; with both, it may run each hook twice)
@@ -116,6 +117,18 @@ Nothing to change.
           {
             "type": "command",
             "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool",
             "timeout": 10
           }
         ]
@@ -242,6 +255,18 @@ Nothing to change.
           {
             "type": "command",
             "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool",
             "timeout": 10
           }
         ]

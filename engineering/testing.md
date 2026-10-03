@@ -85,13 +85,11 @@ never from what a model writes. It spends model turns, so it is not part of
 A real harness needs a login, and Aboard never writes to one or does anything that could
 rotate or invalidate it. Each harness's docs page says the same.
 
-- **Claude Code.** With `CLAUDE_CODE_OAUTH_TOKEN` in the environment (from `claude
-  setup-token`), each test runs Claude Code with a scratch `CLAUDE_CONFIG_DIR`, and the
-  person's `~/.claude` is never read. Without the token the suite falls back to the
-  person's own Claude Code config, and skips Claude Code when their
-  `~/.claude/settings.json` holds Aboard's hooks; `LIVE_CLAUDE_CONFIG=home` forces that
-  fallback. The fallback runs Claude Code against the person's own config, so use the
-  token.
+- **Claude Code.** Each test runs Claude Code with a scratch `CLAUDE_CONFIG_DIR`, logged
+  in with `CLAUDE_CODE_OAUTH_TOKEN` from the environment (from `claude setup-token`), and
+  the person's `~/.claude` is never read or written. Without the token, or with one that
+  doesn't log Claude Code in, the Claude Code tests fail with a message saying to set
+  it; they never skip and never fall back to the person's own config.
 - **Codex.** Each test has its own `CODEX_HOME`. The person's `auth.json` is linked into
   it, never copied, so a token Codex refreshes is written to the person's own file, not
   to a copy that would leave theirs with a spent refresh token. Nothing else of theirs

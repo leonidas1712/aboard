@@ -157,14 +157,19 @@
           "enum": ["env", "hook", "extension"]
         },
         "env": { "type": "string", "description": "For kind env, the variable that holds the session id." },
+        "root_env": { "type": "string", "description": "For kind env, a variable that holds the root session's id in every command, set when a subagent's commands carry their own id in env (Codex's CODEX_SESSION_ID). A command whose two ids differ runs in a subagent." },
         "env_file": { "type": "string", "description": "For kind hook, the variable that names the session's environment file." },
         "precedence": { "type": "integer", "description": "When the markers of several harnesses are set, the one with the highest precedence is checked first. Default 0; equal ones are checked in the registry's order." },
         "yields_to": {
-          "description": "Variables that mean a command runs in another harness that sets this harness's markers too. When one is set, the command isn't taken for this harness, and an ABOARD_SESSION naming it is ignored. Claude Code yields to OMPCODE, since omp sets CLAUDECODE as well.",
+          "description": "Variables that mean a command runs in another harness that sets or inherits this harness's markers. When one is set, the command isn't taken for this harness, and an ABOARD_SESSION or ABOARD_SUBAGENT naming it is ignored. Claude Code yields to OMPCODE, since omp sets CLAUDECODE as well, and to CODEX_THREAD_ID, since a Codex started inside a Claude Code session inherits its ABOARD_SESSION. For kind hook, the session-start hook writes unset into the environment file for each of these that is another harness's session variable (identity.env) and is set when it runs, since then it came from an outer session.",
           "type": "array",
           "items": { "type": "string" }
         }
       }
+    },
+    "subagent_identity": {
+      "description": "Whether Aboard can tell a subagent's commands from its parent's. none: the harness has no subagents, or their commands can't be told apart, so a subagent may act as its parent; the harness's docs page states the risk. marked: they can (a hook of op mark-subagent marks them with ABOARD_SUBAGENT, the harness's extension does, or identity.root_env differs from identity.env), and a marked subagent may only read. seats: marked, and a subagent can be given a seat of its own. Default none.",
+      "enum": ["none", "marked", "seats"]
     },
     "lifecycle": {
       "description": "How a session starts, ends and stays alive.",
@@ -211,9 +216,10 @@
               "event": { "type": "string", "description": "The harness's name for the hook event." },
               "run": { "type": "string", "description": "The argument to aboard hook <harness>." },
               "op": {
-                "description": "What the hook does, in common terms. session-start: registers the session. prompt: a turn starts. wait: waits while the session is idle, and wakes it with a bundle. turn-end: the turn ended. tool: a tool boundary, where the owner's messages are added. end: the session closed.",
-                "enum": ["session-start", "prompt", "wait", "turn-end", "tool", "end"]
+                "description": "What the hook does, in common terms. session-start: registers the session. prompt: a turn starts. wait: waits while the session is idle, and wakes it with a bundle. turn-end: the turn ended. tool: a tool boundary, where the owner's messages are added. end: the session closed. mark-subagent: before a command runs inside a subagent, marks it with ABOARD_SUBAGENT when it runs aboard; it never denies and never changes another command.",
+                "enum": ["session-start", "prompt", "wait", "turn-end", "tool", "end", "mark-subagent"]
               },
+              "matcher": { "type": "string", "description": "The harness's matcher for the hook's group, such as Bash for a hook that only sees shell commands. Without it, the group has no matcher and the hook fires for every tool." },
               "timeout": { "type": "integer", "minimum": 1, "description": "The hook's timeout in seconds, written into its entry." },
               "options": { "type": "object", "description": "More settings of the hook's entry, in the harness's own words, written after its timeout: asyncRewake for Claude Code, additionalContextLimit for Codex." },
               "since": { "type": "string", "description": "The first version of the harness with this hook event. aboard init installs it when the harness reports this version or later, or no version, and the fallback events otherwise." },

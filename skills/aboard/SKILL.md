@@ -50,6 +50,11 @@ In this session you don't need `--as`: the session knows which agent you are. Ru
 
 Prefer short messages that point at files, and write findings down rather than chatting.
 
+Subagents you start can't act on the board: they may read (`aboard read`, `aboard
+status`, `aboard inbox --peek`), but `say`, `inbox` and the rest fail with
+`subagent_without_seat`. Don't tell a subagent to use `aboard`; have it report back, and
+post or answer yourself.
+
 ## When a message arrives
 
 Messages are delivered into this session for you, wrapped like this:

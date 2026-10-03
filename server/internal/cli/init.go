@@ -366,7 +366,7 @@ func mergeHooks(data []byte, name string, specs []harness.Hook) (out []byte, cha
 					return nil, false, fmt.Errorf("hooks.%s: %w", spec.Event, err)
 				}
 			}
-			groupChanged := false
+			groupChanged, ours := false, false
 			for hi, h := range handlers {
 				var have map[string]any
 				if json.Unmarshal(h, &have) != nil {
@@ -376,14 +376,27 @@ func mergeHooks(data []byte, name string, specs []harness.Hook) (out []byte, cha
 				if !isAboardHook(command, name, spec.Arg) {
 					continue
 				}
-				found = true
+				found, ours = true, true
 				var wantMap map[string]any
 				_ = json.Unmarshal(want, &wantMap)
 				if !reflect.DeepEqual(have, wantMap) {
 					handlers[hi], groupChanged = want, true
 				}
 			}
-			if groupChanged {
+			// A hook with a matcher, such as Bash, keeps it on the group that holds it.
+			matcherChanged := false
+			if ours && spec.Matcher != "" {
+				var have string
+				if raw, ok := group.get("matcher"); ok {
+					_ = json.Unmarshal(raw, &have)
+				}
+				if have != spec.Matcher {
+					raw, _ := json.Marshal(spec.Matcher)
+					group.set("matcher", raw)
+					matcherChanged = true
+				}
+			}
+			if groupChanged || matcherChanged {
 				raw, err := json.Marshal(handlers)
 				if err != nil {
 					return nil, false, fmt.Errorf("encode hooks: %w", err)
@@ -396,7 +409,10 @@ func mergeHooks(data []byte, name string, specs []harness.Hook) (out []byte, cha
 			}
 		}
 		if !found {
-			g, err := json.Marshal(map[string][]json.RawMessage{"hooks": {want}})
+			g, err := json.Marshal(struct {
+				Matcher string            `json:"matcher,omitempty"`
+				Hooks   []json.RawMessage `json:"hooks"`
+			}{spec.Matcher, []json.RawMessage{want}})
 			if err != nil {
 				return nil, false, fmt.Errorf("encode hooks: %w", err)
 			}
