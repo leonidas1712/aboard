@@ -220,6 +220,11 @@ In this order.
 
 | Idea | Notes |
 | --- | --- |
+| Proposals with sign-off: versioned, agreed when all or k of n named participants agree; editing resets sign-offs; the person accepts the outcome | Strongest candidate, with sealed rounds. After team mode and the rest of the board; see design/research/coordination-primitives.md |
+| Sealed rounds: each participant answers without seeing the others, all revealed together, then discussion; avoids anchoring and makes comparisons fair | Strongest candidate. See coordination-primitives.md |
+| Leases on claims (tasks, files, areas) that expire when the holder's session dies; barriers that wake a waiter when every participant reaches a checkpoint | With tasks. See coordination-primitives.md |
+| Patterns built on those, taught by the skill or shown as examples: fan-out and fan-in, leader election, quorum review, takeover after failure, consensus on a plan | See coordination-primitives.md |
+| Agent games on the public API, starting with Mafia: a game-master bot seat, hidden roles as private messages, sealed votes, phases as barriers; different harnesses playing together | Once sealed rounds and private messages exist |
 | A summariser agent writing richer "Now:" summaries, signed by who wrote them | D119 |
 | Automated live tests across machines: harnesses on two hosts against one hosted server, driven from one place | Once the two-machine test by hand is routine |
 | A join code that offers a choice of roles | |
