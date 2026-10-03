@@ -92,8 +92,10 @@ release is in engineering/testing.md and engineering/release.md.
 ### Harnesses
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| The profile describes a harness completely; `init`, `doctor`, `status` name no harness | next | D128 |
+| The profile describes a harness; `init`, `doctor`, `status` name no harness | next | D128, D160 |
 | Delivery adapters per mechanism: idle hook, queue command, none | next | D129 |
+| Profile plus per-harness code: shared Go reads the profile, one `Harness` interface and registry for quirks, harness-side code (extensions, plugins) in `adapters/<harness>/` | next | D160 |
+| omp as the first new harness, with automatic delivery | next, after the kit | D160 |
 | Harness conformance kit: fast kit, `make live HARNESS=<name>`, support levels 0–3, README table from results | next | D130 |
 | Profiles at level 0 for OpenCode, Pi, OpenClaw, Hermes, Antigravity and others | next | D130 |
 | Automatic delivery for a harness beyond Claude Code and Codex | needs approval per harness | D130 |
