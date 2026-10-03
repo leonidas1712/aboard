@@ -59,6 +59,7 @@ func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoRespon
 func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject) (CreateBoardResponseObject, error) {
 	in, err := convert[struct {
 		Name     string `json:"name"`
+		Title    string `json:"title"`
 		Template string `json:"template"`
 		Charter  string `json:"charter"`
 		Preset   string `json:"preset"`
@@ -66,11 +67,11 @@ func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.CreateBoard(ctx, principal(ctx), board.NewBoard{Name: in.Name, Template: in.Template, Charter: in.Charter, Preset: in.Preset})
+	v, err := h.svc.CreateBoard(ctx, principal(ctx), board.NewBoard{Name: in.Name, Title: in.Title, Template: in.Template, Charter: in.Charter, Preset: in.Preset})
 	if err != nil {
 		return nil, err
 	}
-	return convert[CreateBoard201JSONResponse](boardOf(v))
+	return convert[CreateBoard201JSONResponse](boardOf(v, principal(ctx)))
 }
 
 func (h *handlers) ListBoards(ctx context.Context, _ ListBoardsRequestObject) (ListBoardsResponseObject, error) {
@@ -82,7 +83,7 @@ func (h *handlers) ListBoards(ctx context.Context, _ ListBoardsRequestObject) (L
 		Boards []wireBoard `json:"boards"`
 	}{Boards: []wireBoard{}}
 	for _, v := range views {
-		out.Boards = append(out.Boards, boardOf(v))
+		out.Boards = append(out.Boards, boardOf(v, principal(ctx)))
 	}
 	return convert[ListBoards200JSONResponse](out)
 }
@@ -92,21 +93,43 @@ func (h *handlers) GetBoard(ctx context.Context, req GetBoardRequestObject) (Get
 	if err != nil {
 		return nil, err
 	}
-	return convert[GetBoard200JSONResponse](boardOf(v))
+	return convert[GetBoard200JSONResponse](boardOf(v, principal(ctx)))
 }
 
 func (h *handlers) UpdateBoard(ctx context.Context, req UpdateBoardRequestObject) (UpdateBoardResponseObject, error) {
 	in, err := convert[struct {
-		Policy rules.PolicyChange `json:"policy"`
+		Title  *string             `json:"title"`
+		Policy *rules.PolicyChange `json:"policy"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.UpdatePolicy(ctx, principal(ctx), req.Board, in.Policy)
+	v, err := h.svc.UpdateBoard(ctx, principal(ctx), req.Board, board.Change{Title: in.Title, Policy: in.Policy})
 	if err != nil {
 		return nil, err
 	}
-	return convert[UpdateBoard200JSONResponse](boardOf(v))
+	return convert[UpdateBoard200JSONResponse](boardOf(v, principal(ctx)))
+}
+
+func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponseObject, error) {
+	me, err := h.svc.WhoAmI(ctx, principal(ctx))
+	if err != nil {
+		return nil, err
+	}
+	out := struct {
+		ID      string  `json:"id"`
+		Kind    string  `json:"kind"`
+		Name    string  `json:"name"`
+		Board   *string `json:"board"`
+		Owner   *string `json:"owner"`
+		Browser bool    `json:"browser"`
+	}{Browser: me.Browser}
+	if me.Agent != nil {
+		out.ID, out.Kind, out.Name, out.Board, out.Owner = me.Agent.ID, "agent", me.Agent.Name, &me.Board, me.Agent.Owner
+	} else {
+		out.ID, out.Kind, out.Name = me.Human.ID, "human", me.Human.Name
+	}
+	return convert[GetMe200JSONResponse](out)
 }
 
 func (h *handlers) ListMembers(ctx context.Context, req ListMembersRequestObject) (ListMembersResponseObject, error) {
@@ -168,7 +191,7 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 		Agent wireMember `json:"agent"`
 		Token string     `json:"token"`
 		Board wireBoard  `json:"board"`
-	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View)})
+	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, principal(ctx))})
 }
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {
@@ -246,6 +269,16 @@ func (h *handlers) AckInbox(ctx context.Context, req AckInboxRequestObject) (Ack
 		return nil, err
 	}
 	return AckInbox200JSONResponse{Cursor: Seq(cursor)}, nil
+}
+
+func (h *handlers) SetPresence(ctx context.Context, req SetPresenceRequestObject) (SetPresenceResponseObject, error) {
+	b, me, err := h.svc.SetPresence(ctx, principal(ctx), string(req.Body.Presence))
+	if err != nil {
+		return nil, err
+	}
+	return convert[SetPresence200JSONResponse](map[string]string{
+		"board": b.Name, "agent": me.Name, "presence": me.Presence.State, "presence_since": me.Presence.Since,
+	})
 }
 
 func (h *handlers) ListEvents(ctx context.Context, req ListEventsRequestObject) (ListEventsResponseObject, error) {

@@ -53,8 +53,9 @@ func (s *Service) Config() Config { return s.cfg }
 type Principal struct {
 	Human *Human
 	Agent *Member
-	// ReadOnly is set for a browser token, which acts as its human for reads only.
-	ReadOnly bool
+	// Browser is set for a browser token, which acts as its human with the human's
+	// permissions, except that it can't log in another browser.
+	Browser bool
 }
 
 // Authenticate resolves a bearer token to a human, an agent, or a human's browser.
@@ -121,6 +122,14 @@ func (s *Service) BootstrapOwner(ctx context.Context, name string) (string, erro
 func stamp(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:05.000Z") }
 
 func ptr[T any](v T) *T { return &v }
+
+// deref returns the string p points to, or "" for nil.
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
 
 func actorOf(m Member) events.Actor {
 	return events.Actor{Kind: m.Kind, MemberID: ptr(m.ID), Name: ptr(m.Name), Owner: m.Owner}

@@ -31,12 +31,12 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by"
+const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at"
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -58,8 +58,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		b.ID, b.Name, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy)
+	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
+		b.MessageCount, b.LastMessageAt)
 }
 
 // SetBoardPolicy replaces a board's policy.
@@ -69,6 +70,11 @@ func (t *tx) SetBoardPolicy(boardID string, p rules.Policy) error {
 		return fmt.Errorf("encode policy: %w", err)
 	}
 	return t.exec("UPDATE boards SET policy_json = ? WHERE id = ?", string(policy), boardID)
+}
+
+// SetBoardTitle replaces a board's title; nil removes it.
+func (t *tx) SetBoardTitle(boardID string, title *string) error {
+	return t.exec("UPDATE boards SET title = ? WHERE id = ?", title, boardID)
 }
 
 // BoardByName finds a board by name.
@@ -107,19 +113,29 @@ func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
 	return out, rows.Err()
 }
 
-const memberColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
+const (
+	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at"
+)
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
-	var access sql.NullString
-	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt)
+	var access, presence, since, at sql.NullString
+	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt,
+		&presence, &since, &at)
 	m.Access = access.String
+	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String}
 	return m, notFound(err)
+}
+
+// SetPresence records an agent's presence, when it began and when it was reported.
+func (t *tx) SetPresence(memberID string, p board.Presence) error {
+	return t.exec("UPDATE members SET presence = ?, presence_since = ?, presence_at = ? WHERE id = ?", p.State, p.Since, p.At, memberID)
 }
 
 // InsertMember adds a member.
 func (t *tx) InsertMember(m board.Member) error {
-	return t.exec("INSERT INTO members ("+memberColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
+	return t.exec("INSERT INTO members ("+memberInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
 		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.Access, m.Status, m.Cursor, m.JoinedAt)
 }
 

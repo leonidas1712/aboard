@@ -61,7 +61,7 @@ func TestOnlyAdminsChangePolicy(t *testing.T) {
 	}
 
 	preset := api.PolicyPreset("recommended")
-	change := api.UpdateBoardRequest{Policy: api.PolicyChange{Preset: &preset}}
+	change := api.UpdateBoardRequest{Policy: &api.PolicyChange{Preset: &preset}}
 	u, err := s.client(priya).UpdateBoardWithResponse(ctx, boardName, nil, change)
 	if c := errorCode(t, u, err, 403); c != "admin_required" {
 		t.Fatalf("policy change by a member: %s", c)

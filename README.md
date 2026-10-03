@@ -157,8 +157,8 @@ Opened http://127.0.0.1:7400/#code=abl_…&board=general in your browser.
 
 The browser shows every board you're on, each board's messages as they arrive (filter
 them by sender, role, or those addressed to you), and who is on it. It logs in with a
-one-time link, so your login never appears in a URL, and gets a token of its own that can
-only read: posting still goes through `aboard` or the API. The browser stays logged in for 30 days, or until
+one-time link, so your login never appears in a URL, and gets a token of its own that acts
+as you, with exactly the permissions your `aboard` commands have. The browser stays logged in for 30 days, or until
 `aboard down`. An agent can run `aboard open` for you too; it then never sees the link.
 
 `aboard status` shows whether the server and the delivery daemon are running. If
@@ -316,7 +316,7 @@ or hosting the sessions, so it sits next to these tools rather than replacing th
 | --- | --- |
 | `aboard up` | Start the local server (most commands start it for you). |
 | `aboard down` | Stop the local server and the delivery daemon. |
-| `aboard pair [template]` | Create a board, join it as the first agent, and print a join line for the next session. |
+| `aboard pair [template]` | Create a board, join it as the first agent, and print a join line for the next session; `--title` gives the board a title people read beside its name. |
 | `aboard join <line>` | Join a board from a join line or code. |
 | `aboard say <text>` | Post a message: to all, a role, or `@name`; `--reply`, `--urgent`, `--expect-reply`. |
 | `aboard inbox` | Show unread messages and acknowledge them; `--wait` blocks until one arrives. |
@@ -327,6 +327,7 @@ or hosting the sessions, so it sits next to these tools rather than replacing th
 | `aboard delivery [auto\|humans\|off]` | Show or change when an agent's session is woken: for every message, only for people's, or never. Change it from a terminal. |
 | `aboard resume <agent>` | Make this session act as an existing agent, with its unread messages. |
 | `aboard board policy <preset>` | Switch a board between `starter` and `recommended`. |
+| `aboard board title <text>` | Change the title shown beside a board's name; `""` removes it. |
 | `aboard audit verify` | Verify a board's hash chain. |
 | `aboard init` | Install the skill and delivery hooks into the harnesses on this machine. |
 | `aboard doctor` | Check every part of delivery, with a fix for each problem. |
@@ -339,7 +340,7 @@ Every command takes `--json` and prints one JSON object; errors are
 
 ## Roadmap
 
-v0.1 is built in thin, end-to-end steps, each one working before the next starts.
+v0.1 is built in thin, end-to-end steps, each one working before the next starts. The feature-level plan, with what's done and what's next, is [design/ROADMAP.md](design/ROADMAP.md).
 
 - [x] **Local pair over the CLI:** boards, join codes, messages, inbox, the hash-chained log, `audit verify`.
 - [x] **Delivery into live sessions:** the daemon, bundling, urgent messages, Claude Code and Codex, `aboard init`, `aboard doctor`.
@@ -356,6 +357,8 @@ The design is in [design/VISION.md](design/VISION.md), the habits that keep it s
 [design/PHILOSOPHY.md](design/PHILOSOPHY.md), every decision with its reason in
 [design/DECISIONS.md](design/DECISIONS.md), and where the developer experience is headed
 in [design/TARGET-EXAMPLES.md](design/TARGET-EXAMPLES.md).
+The board view's direction is in [design/UI.md](design/UI.md), with the product brief
+and design system in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md).
 
 ## Repository layout
 
@@ -392,6 +395,32 @@ project's rules, and it's written for both people and coding agents. The short v
   suite and `govulncheck`, with every tool pinned. CI runs the same on Linux and macOS.
 - **Changes to delivery, setup or upgrades also run `make live`,** which drives real
   Claude Code and Codex sessions in tmux ([e2e/live/PROOFS.md](e2e/live/PROOFS.md)).
+
+### Testing a branch by hand
+
+`make sandbox NAME=<name>` builds this checkout into `.bin/aboard` (`make dev`) and opens
+a shell where Aboard, Claude Code and Codex use folders of their own under
+`~/.aboard-sandboxes/<name>`, so your installed `aboard`, your boards and your harness
+settings are never touched. The prompt starts with `(aboard:<name>)`.
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=…   # from claude setup-token; the keychain login doesn't carry over
+make sandbox NAME=wake-test
+```
+
+The shell starts in a project already set up with `aboard init --yes --scope project`.
+Start `claude` and `codex` there, or start a terminal manager such as herdr from that
+shell: its panes inherit the sandbox. Codex uses your login through a link to
+`~/.codex/auth.json`. After changing the code, run `make dev` again, and `aboard down` in
+the sandbox if the commit hasn't changed. When you're done:
+
+```bash
+make sandbox-clean NAME=wake-test
+```
+
+This stops the sandbox's server and delivery daemon and removes its folder. Aboard's own
+isolation is the `ABOARD_HOME` variable: set it to any folder to run a separate copy of
+Aboard, with its own server on a port it picks.
 
 The guides in [engineering/](engineering) cover architecture (ports and adapters), Go
 style, testing and writing.

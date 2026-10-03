@@ -20,21 +20,14 @@ func (h *handlers) CreateLoginCode(ctx context.Context, _ CreateLoginCodeRequest
 	return convert[CreateLoginCode201JSONResponse](map[string]string{"code": c.Code, "expires_at": c.ExpiresAt})
 }
 
-// CreateBrowserToken exchanges a login code for a read-only browser token. It needs no
-// token: the code is the proof.
+// CreateBrowserToken exchanges a login code for a browser token that acts as the human
+// who asked for the code. It needs no token: the code is the proof.
 func (h *handlers) CreateBrowserToken(ctx context.Context, req CreateBrowserTokenRequestObject) (CreateBrowserTokenResponseObject, error) {
 	token, expires, err := h.svc.CreateBrowserToken(ctx, req.Body.Code)
 	if err != nil {
 		return nil, err
 	}
 	return CreateBrowserToken201JSONResponse{Token: token, ExpiresAt: expires.UTC()}, nil
-}
-
-// browserReadOnly is the error for a write sent with a browser token.
-func browserReadOnly() *apierr.Error {
-	return apierr.New(http.StatusForbidden, "browser_read_only",
-		"A browser token can only read.",
-		"Use the aboard command, or send a human or agent token.")
 }
 
 // checkHost refuses requests whose Host header isn't one of hosts, so a web page that

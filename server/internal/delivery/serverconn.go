@@ -24,6 +24,9 @@ type srvMsg struct {
 	// head is a head change from the stream; connected says the stream (re)opened.
 	head      *Head
 	connected bool
+	// presence reports an agent's presence.
+	presence *AgentRef
+	state    Presence
 }
 
 // serverConn follows one server. Its watched agents are changed only by run; the
@@ -94,6 +97,32 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 			err := c.srv.Ack(actx, *m.ack, m.upTo)
 			cancel()
 			m.replyTo.mail.put(sessionMsg{ack: &ackResult{agent: *m.ack, upTo: m.upTo, err: err}})
+		}
+	}
+	c.reportPresence(ctx, batch)
+}
+
+// reportPresence sends the latest presence in batch for each agent. A report that
+// fails is only logged: the session reports again within PresenceRenew, and until then
+// the server keeps the last presence it had.
+func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
+	latest := map[AgentRef]Presence{}
+	var order []AgentRef
+	for _, m := range batch {
+		if m.presence == nil {
+			continue
+		}
+		if _, seen := latest[*m.presence]; !seen {
+			order = append(order, *m.presence)
+		}
+		latest[*m.presence] = m.state
+	}
+	for _, agent := range order {
+		pctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
+		err := c.srv.SetPresence(pctx, agent, latest[agent])
+		cancel()
+		if err != nil {
+			c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", latest[agent], "error", err)
 		}
 	}
 }

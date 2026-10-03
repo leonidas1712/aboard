@@ -30,6 +30,10 @@ var oldBinary string
 // oldVersion is oldBinary's version, older than the source's.
 const oldVersion = "0.0.1"
 
+// unstampedBinary is aboard at the source's version built without Git information,
+// playing a build from before servers reported their commit.
+var unstampedBinary string
+
 // fakeBin holds the fake codex binary, first on every test's PATH.
 var fakeBin string
 
@@ -58,6 +62,14 @@ func TestMain(m *testing.M) {
 	old.Stdout, old.Stderr = os.Stderr, os.Stderr
 	if err := old.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
+		os.Exit(1)
+	}
+	unstampedBinary = filepath.Join(dir, "unstamped", "aboard")
+	unstamped := exec.Command("go", "build", "-race", "-buildvcs=false", "-o", unstampedBinary, "./server/cmd/aboard")
+	unstamped.Dir = ".."
+	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
+	if err := unstamped.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
 		os.Exit(1)
 	}
 	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")
@@ -112,9 +124,7 @@ func newEnv(t *testing.T) *env {
 		"PATH=" + fakeBin + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
 		"FAKE_CODEX_THREADS=" + filepath.Join(home, "fake-codex-threads.json"),
-		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"),
-		"XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"),
-		"XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
+		"ABOARD_HOME=" + filepath.Join(home, "aboard"),
 		"ABOARD_LOCAL_ADDR=" + e.addr,
 	}
 	t.Cleanup(e.stopServer)
@@ -127,15 +137,18 @@ func (e *env) port() string {
 	return port
 }
 
-func (e *env) dataDir() string {
-	return filepath.Join(e.home, ".local", "share", "aboard")
-}
+// aboardHome is the env's ABOARD_HOME, which holds all of aboard's files.
+func (e *env) aboardHome() string { return filepath.Join(e.home, "aboard") }
+
+func (e *env) dataDir() string   { return filepath.Join(e.aboardHome(), "data") }
+func (e *env) configDir() string { return filepath.Join(e.aboardHome(), "config") }
+func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state") }
 
 // stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
 	for _, pidFile := range []string{
 		filepath.Join(e.dataDir(), "server.pid"),
-		filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid"),
+		filepath.Join(e.stateDir(), "daemon.pid"),
 	} {
 		raw, err := os.ReadFile(pidFile)
 		if err != nil {

@@ -59,7 +59,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	if info, err := a.localInfo(ctx); err == nil {
 		if b := infoBuild(info); info.Mode == api.Local && compareBuilds(b, currentBuild()) < 0 {
 			checks = append(checks, problem("local_server", levelWarning, "server_outdated",
-				"local server at "+srv.URL+" runs aboard "+b.Version+", older than this aboard "+version,
+				"local server at "+srv.URL+" runs aboard "+buildLabel(b)+", older than this aboard "+buildLabel(currentBuild()),
 				"run any command that uses it, which replaces it, or aboard down"))
 		} else {
 			checks = append(checks, okCheck("local_server", "local server running at "+srv.URL))
@@ -138,7 +138,7 @@ func (a *app) checkDaemon(ctx context.Context, p paths) (*delivery.Status, []doc
 	st := resp.Status
 	if compareBuilds(st.Build, currentBuild()) < 0 {
 		return st, []doctorCheck{problem("daemon", levelWarning, "daemon_outdated",
-			fmt.Sprintf("delivery daemon running (pid %d) is from aboard %q, older than this aboard %s, and couldn't be replaced", st.PID, st.Build.Version, version),
+			fmt.Sprintf("delivery daemon running (pid %d) is from aboard %s, older than this aboard %s, and couldn't be replaced", st.PID, buildLabel(st.Build), buildLabel(currentBuild())),
 			"run aboard down; the next command starts the current daemon")}
 	}
 	return st, []doctorCheck{okCheck("daemon",
@@ -186,7 +186,7 @@ func (a *app) checkClaudeHooks() doctorCheck {
 	}
 	scopes, files, err := a.installedScopes("claude-code", claudeHooks("aboard"))
 	if err == nil && len(scopes) > 0 {
-		return a.checkHooksCurrent("claude_hooks", "claude-code", scopes, claudeHooks(a.hookExe()),
+		return a.checkHooksCurrent("claude_hooks", "claude-code", scopes, a.withHome(claudeHooks(a.hookExe())),
 			okCheck("claude_hooks", "claude-code: "+installedText(scopes, files)))
 	}
 	missing, err2 := hooksMissing(a.setupFiles("claude-code", scopeGlobal).hooks, "claude-code", claudeHooks("aboard"))
@@ -228,7 +228,7 @@ func (a *app) checkCodex(ctx context.Context) []doctorCheck {
 	checks := []doctorCheck{okCheck("codex", ver+": queue available")}
 	scopes, files, err := a.installedScopes("codex", codexHooks("aboard"))
 	if err == nil && len(scopes) > 0 {
-		return append(checks, a.checkHooksCurrent("codex_hooks", "codex", scopes, codexHooks(a.hookExe()),
+		return append(checks, a.checkHooksCurrent("codex_hooks", "codex", scopes, a.withHome(codexHooks(a.hookExe())),
 			okCheck("codex_hooks", "codex: "+installedText(scopes, files))))
 	}
 	missing, err2 := hooksMissing(a.setupFiles("codex", scopeGlobal).hooks, "codex", codexHooks("aboard"))

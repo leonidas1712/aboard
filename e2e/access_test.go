@@ -14,7 +14,7 @@ import (
 // getAsOwner reads an API path with this machine's person's login and decodes the JSON.
 func (e *env) getAsOwner(path string) map[string]any {
 	e.t.Helper()
-	token, err := os.ReadFile(filepath.Join(e.home, ".config", "aboard", "local-owner-token"))
+	token, err := os.ReadFile(filepath.Join(e.configDir(), "local-owner-token"))
 	if err != nil {
 		e.t.Fatalf("no owner login: %v", err)
 	}

@@ -73,7 +73,7 @@ func TestInitProjectScopeWritesOnlyUnderTheProject(t *testing.T) {
 	if got := filesUnder(t, e.dir); !slices.Equal(got, want) {
 		t.Fatalf("project files %v, want %v", got, want)
 	}
-	if got := filesUnder(t, e.home, "project", ".local", ".config"); len(got) != 0 {
+	if got := filesUnder(t, e.home, "project", "aboard"); len(got) != 0 {
 		t.Fatalf("project setup wrote outside the project: %v", got)
 	}
 	settings, err := os.ReadFile(filepath.Join(e.dir, ".claude", "settings.local.json"))

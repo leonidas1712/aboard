@@ -181,6 +181,7 @@ type FakeServer struct {
 	followers map[chan delivery.Head]bool
 	acks      []int
 	failAcks  bool
+	presence  map[delivery.AgentRef][]delivery.Presence
 }
 
 var _ delivery.Server = (*FakeServer)(nil)
@@ -190,7 +191,36 @@ func NewFakeServer() *FakeServer {
 	return &FakeServer{
 		heads: map[string]int{}, inboxes: map[delivery.AgentRef][]delivery.Message{},
 		cursors: map[delivery.AgentRef]int{}, revoked: map[delivery.AgentRef]bool{}, followers: map[chan delivery.Head]bool{},
+		presence: map[delivery.AgentRef][]delivery.Presence{},
 	}
+}
+
+// SetPresence records the agent's presence.
+func (s *FakeServer) SetPresence(_ context.Context, agent delivery.AgentRef, p delivery.Presence) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.revoked[agent] {
+		return delivery.ErrUnauthorized
+	}
+	s.presence[agent] = append(s.presence[agent], p)
+	return nil
+}
+
+// Presence is the agent's latest reported presence, or "" if none was reported.
+func (s *FakeServer) Presence(agent delivery.AgentRef) delivery.Presence {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r := s.presence[agent]; len(r) > 0 {
+		return r[len(r)-1]
+	}
+	return ""
+}
+
+// PresenceReports is how many times the agent's presence was reported.
+func (s *FakeServer) PresenceReports(agent delivery.AgentRef) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.presence[agent])
 }
 
 // Post adds a message for an agent on its board and moves the board's head. It returns

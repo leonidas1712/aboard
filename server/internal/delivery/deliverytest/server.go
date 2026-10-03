@@ -54,6 +54,13 @@ func RunServer(t *testing.T, f ServerFixture) {
 		}
 	})
 
+	t.Run("SetPresenceTakesEveryPresenceTheDaemonReports", func(t *testing.T) {
+		srv, to, _ := f.New(t)
+		for _, p := range []delivery.Presence{delivery.PresenceIdle, delivery.PresenceWorking, delivery.PresenceWorking, delivery.PresenceNoSession} {
+			must(t, srv.SetPresence(ctx, to, p))
+		}
+	})
+
 	t.Run("FollowReportsHeadChanges", func(t *testing.T) {
 		srv, to, post := f.New(t)
 		fctx, cancel := context.WithCancel(ctx)

@@ -69,14 +69,16 @@ policy`, `aboard watch` and changing a delivery mode say to run them in a termin
 agent allowed to run `aboard` without asking still can't change a policy or read the board
 as you.
 
-**The browser login can only read.** `aboard open` logs the browser in with a link that
-works once, for 60 seconds, so your login never appears in a URL. The link's code sits
-after the `#`, which browsers never send to a server, and the page removes it from the
-address bar. The page trades the code for a browser token that it keeps in its own
-storage and sends with each request itself, so the token reaches only Aboard, not other
-programs on the same machine. The server refuses every write made with it: posting still
-needs `aboard` or a token of your own. No cookie is involved. The browser token lasts 30
-days, or until `aboard down` stops the server. An agent may run `aboard open` for you;
+**The browser acts as you, and only `aboard open` logs it in.** `aboard open` logs the
+browser in with a link that works once, for 60 seconds, so your login never appears in a
+URL. The link's code sits after the `#`, which browsers never send to a server, and the
+page removes it from the address bar. The page trades the code for a browser token that
+it keeps in its own storage and sends with each request itself, in a header, so the token
+reaches only Aboard: no cookie is involved, so another website can't make your browser
+use it. The token has exactly your permissions, the same as your `aboard` commands: it can
+post and reply, and if you are the board's admin, change its policy; a member's browser
+gets `admin_required` like their CLI. It can't make another login link. The browser token
+lasts 30 days, or until `aboard down` stops the server. An agent may run `aboard open` for you;
 the command then never prints the link, so the link never reaches the agent. The local
 server answers only requests addressed to `127.0.0.1` or `localhost` at its own port, so
 a web page can't reach it under another name.

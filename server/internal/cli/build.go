@@ -51,15 +51,28 @@ func infoBuild(info *api.ServerInfo) delivery.Build {
 
 // compareBuilds returns -1 when a is older than b, 1 when it is newer, and 0 when they
 // count as the same build. Versions decide first; between equal versions a later commit
-// time is newer, and an unknown commit time decides nothing.
+// time is newer, and a build without a commit time is older than one with it, since it
+// predates commit reporting. Two builds without commit times are the same build.
 func compareBuilds(a, b delivery.Build) int {
 	if c := compareVersions(a.Version, b.Version); c != 0 {
 		return c
 	}
 	if a.CommitTime.IsZero() || b.CommitTime.IsZero() {
-		return 0
+		return cmp.Compare(boolInt(!a.CommitTime.IsZero()), boolInt(!b.CommitTime.IsZero()))
 	}
 	return a.CommitTime.Compare(b.CommitTime)
+}
+
+// buildLabel names a build in doctor's text: its version, and its commit when known, so
+// two builds of one version can be told apart.
+func buildLabel(b delivery.Build) string {
+	switch {
+	case b.Commit != "":
+		return b.Version + " (commit " + b.Commit[:min(12, len(b.Commit))] + ")"
+	case b.CommitTime.IsZero():
+		return b.Version + " (no commit recorded)"
+	}
+	return b.Version
 }
 
 // semver is a parsed semantic version; ok is false when the text wasn't one.

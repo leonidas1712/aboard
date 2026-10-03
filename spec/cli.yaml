@@ -16,17 +16,32 @@
 #   session is bound to at most one agent: pair, join or resume in a session bound to
 #   another agent moves the session to the new one (see PreviousAgent). With no agent:
 #   agent_not_selected (details.choices). Agent commands (say, inbox, read)
-#   never fall back to the human login; human commands (board policy, audit verify, watch)
+#   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
 #   use the human login unless --as is given, and open always uses it.
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, watch, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, board title, watch, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
 #   joins as an agent, audit verify prints only counts and hashes, and open never shows
 #   its login link.
+# - Files and addresses: aboard keeps its files in $XDG_CONFIG_HOME/aboard (the owner
+#   token and credentials), $XDG_DATA_HOME/aboard (the local server's database, pid file
+#   and log) and $XDG_STATE_HOME/aboard (verified audit heads and the delivery daemon's
+#   journal, pid, log and socket), defaulting to ~/.config, ~/.local/share and
+#   ~/.local/state. The local server listens on 127.0.0.1:7400.
+#   ABOARD_HOME, when set to an absolute path, moves all of it into one folder:
+#   $ABOARD_HOME/config, $ABOARD_HOME/data and $ABOARD_HOME/state, the daemon's socket
+#   included. With ABOARD_HOME set, the first command that needs the local server's
+#   address picks a free port on 127.0.0.1 and records it in $ABOARD_HOME/data/server.addr;
+#   every later command and start in that home uses it, so two homes run side by side
+#   with their own server and daemon. aboard init then writes ABOARD_HOME=<path> into
+#   each hook command, because Codex doesn't pass its environment to hooks.
+#   ABOARD_LOCAL_ADDR, when set, is the local server's address in either case. A relative
+#   ABOARD_HOME fails with invalid_request. URLs, join lines ("on localhost:<port>"),
+#   status and doctor all show the address in use.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
-#   Board for human commands (board policy, audit verify, watch, open) and for pair:
+#   Board for human commands (board policy, board title, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
 # - Text output of agent commands names the board in one line: say ends with
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
@@ -58,7 +73,10 @@ $defs:
       daemon is from an older aboard, couldn't be replaced, and lacks the operation; run
       aboard down, then the command again) · daemon_protocol_mismatch (the running daemon
       is from a newer aboard that speaks another control protocol; install the newer
-      aboard) · data_newer (the database or delivery journal was written by a newer
+      aboard) · server_outdated (the server is from an older aboard, or its build can't be
+      read, and answered not_found or not_implemented for an operation in the spec; for
+      the local server run aboard down, then the command again; a team server needs
+      upgrading by whoever runs it) · data_newer (the database or delivery journal was written by a newer
       aboard; install it) · human_command_in_session (a command that acts or reads with the
       human login, or changes a delivery mode, ran inside a harness session; a person runs
       it in a terminal) · browser_unavailable (aboard open inside a harness session
@@ -163,9 +181,9 @@ $defs:
       data_dir: { type: string, examples: ["~/.local/share/aboard"] }
       version: { type: string }
 
-  # ---------- aboard pair [template] [--new] [--board NAME] [--name NAME] ----------
+  # ---------- aboard pair [template] [--new] [--board NAME] [--title TEXT] [--name NAME] ----------
   # In a directory already linked to a board, pair fails with board_already_linked
-  # unless --new is given.
+  # unless --new is given. --title sets the board's title (Board.title).
   PairOutput:
     type: object
     required: [server, server_started, board, agent, use, join, policy_notice]
@@ -389,7 +407,7 @@ $defs:
       starts the local server if it isn't running, asks it for a one-time login code
       (POST /v1/login-codes) with the human login, and opens
       <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
-      send to a server: the page exchanges it once for a read-only browser token
+      send to a server: the page exchanges it once for a browser token that acts as the owner
       (POST /v1/browser-tokens), keeps the token in its own storage, removes the code from
       the address bar and shows the board, or the board list when no board is selected. The board is --board, then the
       project's .aboard file; with neither, the board list opens. A --board the owner
@@ -591,7 +609,7 @@ $defs:
         Daemon: running (pid 4182), 2 open sessions
         Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
-        Agent:  writer (from --as); delivery auto
+        Agent:  writer (from --as); delivery auto; idle
         Policy: starter (a starting point; tighten with aboard board policy recommended)
         People: alex (admin), sam (member)
       The People line appears only when more than one person is on the board; with one
@@ -602,7 +620,7 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
     type: object
-    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, agents, policy, people]
+    required: [server, server_running, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       setup:
@@ -633,6 +651,12 @@ $defs:
       delivery:
         enum: [auto, humans, off, null]
         description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
+      presence:
+        enum: [working, idle, waiting, no_session, null]
+        description: |
+          What the agent's session is doing, as the board's members see it
+          (Member.presence in openapi.yaml). It ends the Agent line, with no_session
+          written "no session". Null with no agent, or when the server can't be reached.
       agents:
         type: array
         description: This machine's agents on the board, sorted.
@@ -667,6 +691,26 @@ $defs:
       before: { $ref: openapi.yaml#/components/schemas/Policy }
       after: { $ref: openapi.yaml#/components/schemas/Policy }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
+
+  # ---------- aboard board title <text> ----------
+  BoardTitleOutput:
+    description: |
+      A human command with the human login, for the board's admins. Changes the title
+      people read beside the board's name; the name stays its address. The words after
+      `title` are joined with spaces, so quotes are optional; `aboard board title ""`
+      removes the title. A person who isn't an admin gets admin_required, whose hint
+      names the admins. Inside a harness session it refuses with
+      human_command_in_session.
+    type: object
+    required: [board, before, after]
+    properties:
+      board: { type: string }
+      before:
+        type: [string, "null"]
+        description: The title before the change; null for none.
+      after:
+        type: [string, "null"]
+        description: The title now; null when it was removed.
 
   # ---------- aboard audit verify ----------
   AuditVerifyOutput:

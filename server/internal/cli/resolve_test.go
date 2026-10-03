@@ -114,6 +114,19 @@ func TestResolvePaths(t *testing.T) {
 			paths{config: "/h/.config/aboard", data: "/h/.local/share/aboard", state: "/h/.local/state/aboard"},
 			false,
 		},
+		{
+			"ABOARD_HOME moves everything and wins over xdg",
+			map[string]string{"HOME": "/h", "XDG_CONFIG_HOME": "/c", "ABOARD_HOME": "/sb/aboard"},
+			paths{home: "/sb/aboard", config: "/sb/aboard/config", data: "/sb/aboard/data", state: "/sb/aboard/state"},
+			false,
+		},
+		{
+			"ABOARD_HOME needs no HOME",
+			map[string]string{"ABOARD_HOME": "/sb/aboard/"},
+			paths{home: "/sb/aboard", config: "/sb/aboard/config", data: "/sb/aboard/data", state: "/sb/aboard/state"},
+			false,
+		},
+		{"relative ABOARD_HOME", map[string]string{"HOME": "/h", "ABOARD_HOME": "rel"}, paths{}, true},
 		{"no home", map[string]string{}, paths{}, true},
 	}
 	for _, tt := range tests {

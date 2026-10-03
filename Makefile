@@ -17,7 +17,7 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e live vuln tools core-size web web-check web-e2e install
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e live vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, tests, e2e, vulnerabilities
 check: fmt-check lint vet generate-check core-size test e2e vuln
@@ -96,6 +96,28 @@ web:
 ## install: build the web UI, then install aboard with the UI embedded
 install: web
 	go install -tags ui ./server/cmd/aboard
+
+# A dev build's version is the source's version with build metadata naming the commit,
+# such as 0.1.0+dev.1d0e798ab12c (".dirty" with uncommitted changes). Build metadata
+# never orders versions, so a dev build compares with an installed build of the same
+# version by commit time, like any other build.
+SOURCE_VERSION = $(shell sed -n 's/^var version = "\(.*\)"$$/\1/p' server/internal/cli/build.go)
+DEV_VERSION    = $(SOURCE_VERSION)+dev.$(shell git rev-parse --short=12 HEAD)$(if $(shell git status --porcelain),.dirty)
+
+## dev: build this checkout into ./.bin/aboard as a dev build, with the UI if web/out exists
+dev:
+	@tags=""; if [ -d web/out ]; then tags="-tags ui"; fi; \
+	go build $$tags -ldflags "-X github.com/leonidas1712/aboard/server/internal/cli.version=$(DEV_VERSION)" \
+		-o $(BIN)/aboard ./server/cmd/aboard; \
+	echo "Built $(BIN)/aboard $(DEV_VERSION)$${tags:+ with the web UI}"
+
+## sandbox: open a shell to test this checkout by hand, isolated from your own setup (NAME=<name>)
+sandbox: dev
+	@scripts/sandbox open "$(NAME)"
+
+## sandbox-clean: stop a sandbox's server and daemon and remove it (NAME=<name>)
+sandbox-clean:
+	@scripts/sandbox clean "$(NAME)"
 
 ## web-check: build and typecheck the web UI, then run its browser smoke test
 web-check: web

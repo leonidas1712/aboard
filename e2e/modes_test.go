@@ -17,7 +17,7 @@ import (
 // login, the way the web UI or a script on the API would.
 func (e *env) postAsOwner(board, body string, urgent bool) {
 	e.t.Helper()
-	token, err := os.ReadFile(filepath.Join(e.home, ".config", "aboard", "local-owner-token"))
+	token, err := os.ReadFile(filepath.Join(e.configDir(), "local-owner-token"))
 	if err != nil {
 		e.t.Fatalf("no owner login: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 	if got := field(t, reviewer.run("status", "--json").json(t), "delivery"); got != "humans" {
 		t.Fatalf("status delivery %v, want humans", got)
 	}
-	if !strings.Contains(reviewer.run("status").stdout, "Agent:  reviewer (from this session); delivery humans\n") {
+	if !strings.Contains(reviewer.run("status").stdout, "Agent:  reviewer (from this session); delivery humans;") {
 		t.Fatalf("status text lacks the mode:\n%s", reviewer.run("status").stdout)
 	}
 
@@ -204,6 +204,7 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 			command string
 		}{
 			{[]string{"board", "policy", "recommended", "--json"}, "aboard board policy recommended --board writer-reviewer"},
+			{[]string{"board", "title", "Docs review", "--json"}, "aboard board title 'Docs review' --board writer-reviewer"},
 			{[]string{"watch", "--json"}, "aboard watch --board writer-reviewer"},
 		} {
 			r := s.runExit(c.args...)

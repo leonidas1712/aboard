@@ -83,10 +83,14 @@ type Tx interface {
 	InsertBoard(b Board) error
 	// SetBoardPolicy replaces a board's policy.
 	SetBoardPolicy(boardID string, p rules.Policy) error
+	// SetBoardTitle replaces a board's title; nil removes it.
+	SetBoardTitle(boardID string, title *string) error
 	// InsertMember adds a member to its board.
 	InsertMember(m Member) error
 	// SetCursor moves a member's read position forward; it never moves it back.
 	SetCursor(memberID string, seq int64) error
+	// SetPresence replaces an agent's presence.
+	SetPresence(memberID string, p Presence) error
 	// InsertJoinCode adds a join code.
 	InsertJoinCode(j JoinCode) error
 	// RevokeJoinCode marks a join code revoked at a time; a revoked code keeps its first time.
@@ -94,7 +98,8 @@ type Tx interface {
 	// AppendEvent adds the next event to its board's log and moves the board's head. It
 	// fails, storing nothing, unless the event's seq is exactly one past the head.
 	AppendEvent(e events.Event) error
-	// InsertMessage adds a message.
+	// InsertMessage adds a message and counts it on its board (MessageCount,
+	// LastMessageAt).
 	InsertMessage(m Message) error
 }
 

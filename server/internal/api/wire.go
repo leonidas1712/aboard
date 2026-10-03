@@ -31,18 +31,25 @@ type wireMember struct {
 	Access   *string `json:"access"`
 	Status   string  `json:"status"`
 	JoinedAt string  `json:"joined_at"`
+	// Presence and PresenceSince are null for people.
+	Presence      *string `json:"presence"`
+	PresenceSince *string `json:"presence_since"`
 }
 
 type wireBoard struct {
-	ID        string                `json:"id"`
-	Name      string                `json:"name"`
-	Template  *string               `json:"template"`
-	Charter   string                `json:"charter"`
-	Roles     map[string]rules.Role `json:"roles"`
-	Policy    rules.Policy          `json:"policy"`
-	HeadSeq   int64                 `json:"head_seq"`
-	CreatedAt string                `json:"created_at"`
-	CreatedBy wireMemberRef         `json:"created_by"`
+	ID       string                `json:"id"`
+	Name     string                `json:"name"`
+	Title    *string               `json:"title"`
+	Template *string               `json:"template"`
+	Charter  string                `json:"charter"`
+	Roles    map[string]rules.Role `json:"roles"`
+	Policy   rules.Policy          `json:"policy"`
+	HeadSeq  int64                 `json:"head_seq"`
+	// MessageCount and LastMessageAt are null for a reader who may not see them.
+	MessageCount  *int64        `json:"message_count"`
+	LastMessageAt *string       `json:"last_message_at"`
+	CreatedAt     string        `json:"created_at"`
+	CreatedBy     wireMemberRef `json:"created_by"`
 }
 
 type wireMessage struct {
@@ -100,15 +107,27 @@ func memberOf(m board.Member, boardName string) wireMember {
 	if m.Access != "" {
 		w.Access = &m.Access
 	}
+	if m.Kind == "agent" {
+		state := m.Presence.State
+		if state == "" {
+			state = board.PresenceNoSession
+		}
+		w.Presence, w.PresenceSince = &state, nullable(m.Presence.Since)
+	}
 	return w
 }
 
-func boardOf(v board.View) wireBoard {
+// boardOf is a board as reader p sees it.
+func boardOf(v board.View, p board.Principal) wireBoard {
 	b := v.Board
-	return wireBoard{
-		ID: b.ID, Name: b.Name, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
+	w := wireBoard{
+		ID: b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
 		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator),
 	}
+	if v.ShowsCounts(p) {
+		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
+	}
+	return w
 }
 
 // sender is the sender label: who sent a message relative to its reader. A person

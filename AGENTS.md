@@ -14,6 +14,8 @@ and steer everything, and the server enforces the safety rules on every write.
 before adding anything to the server.
 If this file disagrees with either, they win; flag the conflict instead of picking
 silently. Record new decisions in DECISIONS.md.
+[design/ROADMAP.md](design/ROADMAP.md) is the feature-level plan: update a feature's status when
+its work starts, goes into review or merges, and add new work there.
 
 If `private/ABOARD_OSS_VISION.md` exists locally, it holds extra planning context (the
 launch plan and scope cuts), and its launch-scope table is authoritative for what's in
@@ -104,7 +106,8 @@ ONLY allowed scope for v0.1.
 ```
 /spec       contracts: openapi.yaml, events.md, aboard.schema.json, cli.yaml, delivery.md,
             harness-profile.schema.json
-/design     VISION.md, DECISIONS.md
+/design     VISION.md, DECISIONS.md, UI.md
+PRODUCT.md, DESIGN.md  design records used for UI work (with .impeccable/design.json)
 /engineering how we write Go, tests and text; glossary
 /server     Go: api, store, events, rules, monitors, files, delivery, launchers, cli
 /web        Next.js board UI (static export, embedded in the binary)

@@ -76,6 +76,21 @@ func codexHooks(exe string) []hookSpec {
 	}
 }
 
+// withHome makes each hook command set ABOARD_HOME when this command runs with it set,
+// so hooks use the same folder as the commands that installed them. Codex doesn't pass
+// the environment it was started with to its hooks.
+func (a *app) withHome(specs []hookSpec) []hookSpec {
+	p, err := a.paths()
+	if err != nil || p.home == "" {
+		return specs
+	}
+	out := slices.Clone(specs)
+	for i := range out {
+		out[i].handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].handler.Command
+	}
+	return out
+}
+
 var plainWord = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
 
 // shellWord quotes s for a shell command line when it needs quoting.
@@ -250,7 +265,7 @@ func (a *app) checkInitChoices(c initChoices, use string) error {
 
 // planInit works out every file change for the chosen harnesses, without writing.
 func (a *app) planInit(c initChoices, known []harnessSetup, exe string) ([]harnessSetup, error) {
-	specs := map[string][]hookSpec{"claude-code": claudeHooks(exe), "codex": codexHooks(exe)}
+	specs := map[string][]hookSpec{"claude-code": a.withHome(claudeHooks(exe)), "codex": a.withHome(codexHooks(exe))}
 	setups := slices.Clone(known)
 	for i := range setups {
 		s := &setups[i]

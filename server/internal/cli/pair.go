@@ -17,12 +17,16 @@ import (
 // defaultTemplate is the board template pair uses when none is named.
 const defaultTemplate = "general"
 
+// pairUsage is the usage of "aboard pair".
+const pairUsage = "aboard pair [template] [--new] [--board NAME] [--title TEXT] [--name NAME] [--json]"
+
 // runPair creates a board from a template, joins this session as the template's first
 // role and prints a join line for a second session in the other role.
 func runPair(ctx context.Context, a *app, args []string) error {
-	const use = "aboard pair [template] [--new] [--board NAME] [--name NAME] [--json]"
+	const use = pairUsage
 	fs := a.flags("pair")
 	boardName := fs.String("board", "", "name of the new board")
+	title := fs.String("title", "", "the new board's title, free text people read beside its name")
 	agentName := fs.String("name", "", "name of this session's agent")
 	newBoard := fs.Bool("new", false, "create another board even though this directory is linked to one")
 	pos, err := a.parse(fs, args, use, 0, 1)
@@ -72,7 +76,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	defer cancel()
 
 	created, err := c.api.CreateBoardWithResponse(ctx, &api.CreateBoardParams{},
-		api.CreateBoardRequest{Template: &tmpl, Name: optional(*boardName)})
+		api.CreateBoardRequest{Template: &tmpl, Name: optional(*boardName), Title: optional(strings.TrimSpace(*title))})
 	if err != nil {
 		return c.unreachable(err)
 	}
@@ -122,7 +126,11 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	} else {
 		text.WriteString("Using local Aboard at " + srv.URL + "\n")
 	}
-	fmt.Fprintf(&text, "Created board %s and joined as %s\n", board, agentText(joined.Agent))
+	if t := joined.Board.Title; t != nil {
+		fmt.Fprintf(&text, "Created board %s (%s) and joined as %s\n", board, *t, agentText(joined.Agent))
+	} else {
+		fmt.Fprintf(&text, "Created board %s and joined as %s\n", board, agentText(joined.Agent))
+	}
 	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
 	if notice != nil {

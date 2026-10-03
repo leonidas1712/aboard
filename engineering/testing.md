@@ -83,3 +83,18 @@ a mock was called.
   shared state, no required order, `t.Parallel()` where possible.
 - **Failures explain themselves.** On failure, print the command, its exit code, stdout
   and stderr, and the server log.
+
+## Known intermittent failures
+
+A test that failed once and could not be made to fail again is listed here with what is
+known, so the next failure is compared against it rather than retried.
+
+- `TestHumansModeWakesOnlyForPeople` (`e2e/modes_test.go`): timed out after 5 s waiting
+  for both messages to be acknowledged, once, on GitHub's ubuntu-latest runner for
+  branch `claude/dev-isolation` on 2026-10-03. It did not fail again in 130 Linux runs
+  in Docker (80 on one arm64 CPU, 50 on two emulated amd64 CPUs) or on macOS.
+  Hypothesis: the daemon put a bundle the stop hook had taken back to pending when the
+  hook's "received" and its exit reached the daemon together, so the next stop hook
+  was handed the bundle again and nothing confirmed it. That race is fixed and
+  covered by `TestHookThatTookTheBundleAndLeftHasIt`; if this test fails again, the
+  hypothesis is wrong.

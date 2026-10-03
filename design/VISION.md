@@ -1235,7 +1235,7 @@ larger teams after v0.1, with the same migrations and tests.
 - Local mode embeds the build in the Go binary and serves it at `/`. Deployed, the same
   build can be embedded or served from any CDN pointed at the API.
 - `aboard open` logs the browser in with a one-time code in the URL's fragment; the page
-  trades it for a read-only browser token it keeps and sends itself, never a cookie (D89).
+  trades it for a browser token that acts as the person, which it keeps and sends itself, never a cookie (D89, D121).
 
 ### Local and team mode
 
@@ -1376,6 +1376,9 @@ into something that doesn't work from scratch.
 | Storage | SQLite | Postgres |
 
 ## Build order
+
+The steps below are the outline; [ROADMAP.md](ROADMAP.md) tracks each feature's status and
+the current order.
 
 v0.1 is built in ten steps. Each one works end to end before the next starts, and the
 quickstart stays green throughout.

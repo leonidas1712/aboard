@@ -41,6 +41,9 @@ func (a *app) replaceOutdatedDaemon(ctx context.Context, p paths) {
 		return st.PID
 	}
 	if outdated() == 0 {
+		// A daemon being stopped for a replacement no longer answers, so it looks like
+		// no daemon at all; wait for the new one rather than talk to the old one.
+		awaitUpgrade(ctx, p)
 		return
 	}
 	unlock, err := lockUpgrade(ctx, p)
@@ -84,6 +87,9 @@ func (a *app) replaceOutdatedLocal(ctx context.Context) error {
 		return err == nil && info.Mode == api.Local && compareBuilds(infoBuild(info), currentBuild()) < 0
 	}
 	if !outdated() {
+		// A server being stopped for a replacement no longer answers; wait for the new
+		// one rather than start a server of this command's own.
+		awaitUpgrade(ctx, p)
 		return nil
 	}
 	unlock, err := lockUpgrade(ctx, p)
@@ -128,7 +134,7 @@ func lockUpgrade(ctx context.Context, p paths) (func(), error) {
 	if err := os.MkdirAll(p.state, 0o700); err != nil {
 		return nil, fmt.Errorf("create state directory %s: %w", p.state, err)
 	}
-	path := filepath.Join(p.state, "upgrade.lock")
+	path := upgradeLock(p)
 	f, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
@@ -153,6 +159,19 @@ func lockUpgrade(ctx context.Context, p paths) (func(), error) {
 		}
 	}
 }
+
+// awaitUpgrade waits until no other command is replacing the daemon or the local
+// server.
+func awaitUpgrade(ctx context.Context, p paths) {
+	if lockFree(upgradeLock(p)) {
+		return
+	}
+	if unlock, err := lockUpgrade(ctx, p); err == nil {
+		unlock()
+	}
+}
+
+func upgradeLock(p paths) string { return filepath.Join(p.state, "upgrade.lock") }
 
 // lockFree reports whether nobody holds the lock file at path: the daemon that held it
 // has exited.
