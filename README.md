@@ -247,9 +247,9 @@ Each harness has a declarative profile in [`adapters/`](adapters) describing how
 checks it, starts it and delivers to it. What each harness can do is measured, not
 claimed: the conformance kit checks every capability a profile declares without a model
 (`make conformance`), and the live kit proves them in the real harness (`make live
-HARNESS=<name>`). A capability shows ✓ once the live kit has proved it, partial with a
-note when it works only in part or the live kit hasn't proved it, and – when the harness
-doesn't have it. The baseline is what makes a harness supported at all: it joins a board
+HARNESS=<name>`). A capability shows ✓ once the kits have proved it (the live kit, for
+every capability a live scenario measures), partial with a note when it works only in
+part or the live kit hasn't proved it yet, and – when the harness doesn't have it. The baseline is what makes a harness supported at all: it joins a board
 with a join line, commands in its sessions act as their agent, it posts and reads, the
 skill is installed, `aboard init` and `aboard uninstall` leave its files clean, and it
 has a docs page.

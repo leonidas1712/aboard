@@ -164,8 +164,8 @@ Read the relevant guide before writing that kind of thing; they override habit.
 
 A change is done when all of these hold:
 
-- [ ] `make check` passes (format, lint, vet, generated code, core size,
-      `go test -race`, e2e, govulncheck).
+- [ ] `make check` passes (format, lint, vet, generated code, core size, the README's
+      harness table, `go test -race`, e2e with the harness conformance kit, govulncheck).
 - [ ] E2e tests cover the change; the quickstart still works from scratch.
 - [ ] A change to delivery, setup or upgrades passes `make live` (real harnesses in
       tmux; see [e2e/live/PROOFS.md](e2e/live/PROOFS.md)) before it merges.
