@@ -18,7 +18,7 @@ const stopTimeout = 10 * time.Second
 // runDown stops the local server and the delivery daemon, and waits until both have
 // stopped. Open sessions start the daemon again on their next hook.
 func runDown(ctx context.Context, a *app, args []string) error {
-	const use = "aboard down [--json]"
+	use := usageOf("down")
 	fs := a.flags("down")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err

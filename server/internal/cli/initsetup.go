@@ -1,17 +1,14 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
@@ -204,53 +201,6 @@ type initChoices struct {
 	allow     bool
 }
 
-// prompter asks questions on a terminal.
-type prompter struct {
-	in  *bufio.Reader
-	out io.Writer
-}
-
-// ask prints a question and returns the trimmed answer, or def for an empty answer or
-// the end of input.
-func (p *prompter) ask(question, def string) string {
-	_, _ = fmt.Fprint(p.out, question)
-	line, _ := p.in.ReadString('\n')
-	if line = strings.TrimSpace(line); line != "" {
-		return line
-	}
-	return def
-}
-
-// choose asks until the answer is one of options.
-func (p *prompter) choose(question, def string, options []string) string {
-	for {
-		answer := strings.ToLower(p.ask(question, def))
-		if slices.Contains(options, answer) {
-			return answer
-		}
-		_, _ = fmt.Fprintf(p.out, "Answer %s.\n", strings.Join(options, ", "))
-	}
-}
-
-// yes asks a yes-or-no question; anything but yes is no.
-func (p *prompter) yes(question string) bool {
-	switch strings.ToLower(p.ask(question+" [y/N] ", "n")) {
-	case "y", "yes":
-		return true
-	}
-	return false
-}
-
-// yesByDefault asks a yes-or-no question whose empty answer is yes; anything but no is
-// yes.
-func (p *prompter) yesByDefault(question string) bool {
-	switch strings.ToLower(p.ask(question+" [Y/n] ", "y")) {
-	case "n", "no":
-		return false
-	}
-	return true
-}
-
 // codexAllowWhy says in one line why Codex needs aboard commands allowed.
 const codexAllowWhy = "Codex's sandbox blocks network access; aboard needs to reach its local server."
 
@@ -264,37 +214,4 @@ func choosesCodex(c initChoices, found []string) bool {
 		return slices.Contains(found, "codex")
 	}
 	return slices.Contains(c.harnesses, "codex")
-}
-
-// askInit asks the questions no flag answered. set holds the flags that were given.
-func (a *app) askInit(p *prompter, c *initChoices, found []string, set map[string]bool, current delivery.Mode) {
-	if !set["harness"] && len(found) > 1 {
-		answer := p.ask(fmt.Sprintf("Set up which harnesses? %s [all] ", strings.Join(found, ", ")), "all")
-		if answer != "all" {
-			var l listFlag
-			_ = l.Set(answer)
-			c.harnesses = l
-		}
-	}
-	if !set["scope"] {
-		answer := p.choose(fmt.Sprintf("Install everywhere, or only in this project (%s)? everywhere/project [everywhere] ", a.env.Dir),
-			"everywhere", []string{"everywhere", "global", "project"})
-		c.scope = map[string]string{"everywhere": scopeGlobal, "global": scopeGlobal, "project": scopeProject}[answer]
-	}
-	if !set["delivery"] {
-		_, _ = fmt.Fprintln(p.out, "Delivery wakes a session when a message arrives: auto for every message, humans only for messages from people, off never.")
-		c.delivery = delivery.Mode(p.choose(fmt.Sprintf("Delivery for agents on this machine? auto/humans/off [%s] ", current),
-			string(current), []string{"auto", "humans", "off"}))
-	}
-	if set["allow-commands"] {
-		return
-	}
-	const question = "Let agents run aboard commands without a permission prompt?"
-	if choosesCodex(*c, found) {
-		// Without the rule, Codex runs aboard in its sandbox, where it can't reach the server.
-		_, _ = fmt.Fprintln(p.out, codexAllowWhy)
-		c.allow = p.yesByDefault(question)
-		return
-	}
-	c.allow = p.yes(question)
 }

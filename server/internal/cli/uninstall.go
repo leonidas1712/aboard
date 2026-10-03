@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -60,7 +59,7 @@ type uninstallBinary struct {
 // wrote into harness settings, and with --data deletes Aboard's folders. It leaves the
 // binary, which it can't tell how to remove reliably, and says how.
 func runUninstall(ctx context.Context, a *app, args []string) error {
-	const use = "aboard uninstall [--data] [--dry-run] [--yes] [--json]"
+	use := usageOf("uninstall")
 	flags := a.flags("uninstall")
 	withData := flags.Bool("data", false, "also delete Aboard's data: boards, messages, logins and the delivery journal")
 	dryRun := flags.Bool("dry-run", false, "list what would be removed, and change nothing")
@@ -88,15 +87,19 @@ func runUninstall(ctx context.Context, a *app, args []string) error {
 	where := dataWhere(p, data.Dirs, home)
 
 	if *withData && !*dryRun && !*yes && len(data.Dirs) > 0 {
-		if !a.env.Terminal || a.json {
+		if !a.interactive() {
 			return newError("confirmation_required",
 				"aboard uninstall --data deletes every board, message and login in "+where+", and needs a yes first.",
 				"Run "+again+" --yes to delete it, or "+again+" --dry-run to see everything it removes.")
 		}
-		pr := &prompter{in: bufio.NewReader(a.env.Stdin), out: a.env.Stdout}
-		if !pr.yes("Delete Aboard's data in " + where + ": every board, message and login on this machine?") {
+		ok, err := a.asker().confirm("Delete Aboard's data in "+where+"?",
+			"Every board, message and login on this machine. This can't be undone.", false)
+		if errors.Is(err, errAborted) || (err == nil && !ok) {
 			_, _ = io.WriteString(a.env.Stdout, "Nothing changed.\n")
 			return nil
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -122,6 +125,7 @@ func runUninstall(ctx context.Context, a *app, args []string) error {
 	}
 
 	var text strings.Builder
+	st := a.out()
 	if *dryRun {
 		text.WriteString(wouldStopText(srv, serverStopped, daemonStopped))
 	} else {
@@ -131,7 +135,7 @@ func runUninstall(ctx context.Context, a *app, args []string) error {
 		text.WriteString("No Aboard files found in harness settings.\n")
 	}
 	for _, f := range files {
-		fmt.Fprintf(&text, "%-8s %s (%s %s%s)\n", f.Action, shortPath(f.Path, home), f.Harness, f.Kind, f.note)
+		fmt.Fprintf(&text, "%s %s (%s %s%s)\n", actionStyle(st, f.Action, fmt.Sprintf("%-8s", f.Action)), shortPath(f.Path, home), f.Harness, f.Kind, f.note)
 	}
 	switch {
 	case len(data.Dirs) == 0:
@@ -144,7 +148,7 @@ func runUninstall(ctx context.Context, a *app, args []string) error {
 		text.WriteString("Deleted Aboard's data in " + where + ".\n")
 	}
 	bin := a.binaryRemoval()
-	text.WriteString("aboard uninstall leaves the binary at " + bin.Path + ". Remove it with: " + bin.Remove + "\n")
+	text.WriteString("aboard uninstall leaves the binary at " + bin.Path + ". Remove it with: " + st.code(bin.Remove) + "\n")
 	if *dryRun {
 		cmd := "aboard uninstall"
 		if *withData {

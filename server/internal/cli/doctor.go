@@ -85,15 +85,16 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 
 	failed := false
 	var text strings.Builder
+	st := a.out()
 	for _, c := range checks {
 		switch c.Level {
 		case levelOK:
-			text.WriteString("✓ " + c.Message + "\n")
+			text.WriteString(st.ok("✓") + " " + c.Message + "\n")
 		case levelWarning:
-			text.WriteString("! " + c.Message + ". Fix: " + deref(c.Fix) + "\n")
+			text.WriteString(st.warn("!") + " " + c.Message + ". " + st.heading("Fix:") + " " + deref(c.Fix) + "\n")
 		default:
 			failed = true
-			text.WriteString("✗ " + c.Message + ". Fix: " + deref(c.Fix) + "\n")
+			text.WriteString(st.bad("✗") + " " + c.Message + ". " + st.heading("Fix:") + " " + deref(c.Fix) + "\n")
 		}
 	}
 	a.emit(struct {

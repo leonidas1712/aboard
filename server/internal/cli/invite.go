@@ -10,7 +10,7 @@ import (
 )
 
 // inviteUsage is the usage of "aboard invite".
-const inviteUsage = "aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]"
+var inviteUsage = usageOf("invite")
 
 // invitePrompt is the sentence under the join line in the prompt a person pastes into an
 // agent's session. The board view's "Add an agent" uses the same words.

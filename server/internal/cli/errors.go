@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // Exit codes shared by every command.
@@ -52,12 +53,14 @@ func newError(code, message, hint string) *Error {
 	return &Error{Code: code, Message: message, Hint: hint}
 }
 
-// usageError reports bad flags or arguments; usage is the command's usage text.
+// usageError reports bad flags or arguments; usage is the command's usage text, which
+// starts with "aboard <command>".
 func usageError(message, usage string) *Error {
-	return &Error{
-		Code: "invalid_request", Message: message,
-		Hint: "Run aboard help to see the commands and their flags.", Exit: exitUsage, Usage: usage,
+	hint := "Run aboard help to see the commands."
+	if f := strings.Fields(usage); len(f) > 1 {
+		hint = "Run aboard help " + f[1] + " for its usage, flags and examples."
 	}
+	return &Error{Code: "invalid_request", Message: message, Hint: hint, Exit: exitUsage, Usage: usage}
 }
 
 // asError turns any error into an *Error, keeping the code of one that has it.

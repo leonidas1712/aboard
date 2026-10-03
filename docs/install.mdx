@@ -54,7 +54,18 @@ Everything after this section works the same however `aboard` was installed.
 ## Set up your harnesses
 
 `aboard init` adds the Aboard skill and the delivery hooks to Claude Code and Codex.
-Without `--yes` it only lists what it would change.
+Run it in a terminal and it shows what is already set up for each harness (hooks and
+skill current, outdated or edited, and whether `aboard` commands are allowed), then
+asks which harnesses, where to install, the delivery mode and whether to allow
+`aboard` commands, and shows the changes before making them:
+
+```bash
+aboard init
+```
+
+Every question has a flag. `--yes` makes the changes without asking. An agent's
+session, a script or `--json` never gets a question: there, without `--yes`, init
+only lists what it would change.
 
 ```bash
 aboard init --yes

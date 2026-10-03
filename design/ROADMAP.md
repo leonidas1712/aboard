@@ -25,6 +25,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" | next | D157 |
 | `aboard uninstall` and the install manifest; docs page "Install, update and remove" | review (#22) | D145, D159 |
 | Board view tab icon: a room holding two lines of conversation, as SVG (light and dark) with PNG fallbacks and an Apple touch icon | done (#21) | |
+| The CLI for people: per-command help (`aboard help <command>`, `--help`, `--json`), color and selectors only for a person at a terminal, a guided `aboard init` that shows what is already set up | review | D162 |
 
 ## Done
 

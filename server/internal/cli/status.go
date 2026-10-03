@@ -19,7 +19,7 @@ const (
 // runStatus prints which board and agent commands run here would use, and where each
 // came from. It is the one place, besides selection errors, that shows the sources.
 func runStatus(ctx context.Context, a *app, args []string) error {
-	const use = "aboard status [--as AGENT] [--board NAME] [--json]"
+	use := usageOf("status")
 	fs := a.flags("status")
 	as := fs.String("as", "", "the agent to check")
 	boardFlag := fs.String("board", "", "the board to check")
@@ -92,7 +92,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, out.Server)
 		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
-		a.emit(out, text.String())
+		a.emit(out, styleStatus(text.String(), a.out()))
 		return nil
 	}
 	out.Server, out.Board, out.BoardSource = t.server, &t.board, t.source
@@ -146,7 +146,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		text.WriteString(line + "\n")
 	}
 	text.WriteString(boardLines.String())
-	a.emit(out, text.String())
+	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil
 }
 
