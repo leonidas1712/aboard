@@ -377,6 +377,10 @@ Why: an agent that misreads a concept acts on the misreading, and a person who c
 **D117. The code follows a hexagonal architecture: domain-driven design with ports and adapters. The domain sits in the middle and depends on nothing outside it; it declares the ports it needs (store, notifier, harness delivery, launcher, monitor, login provider) and adapters implement them, each passing the port's shared test kit, so parts can be swapped and combined into new configurations without touching the rules. Restates D47 as a principle for the whole codebase; engineering/architecture.md has the rules.**
 Why: harnesses, launchers and storage will keep changing, and each change should be a new adapter, not an edit to the rules.
 
+D120, settled while building it: `PUT /v1/me/presence` with the agent's token; `presence` and `presence_since` on each agent in `GET members`, null for people; a `presence` stream event on each change, never a log event or a head move. A presence not renewed within 3 minutes reads as `no_session` (noticed at the stream's next keepalive); the daemon reports on each change and renews every minute. The daemon reports `working`, `idle` and `no_session` only: `waiting` would need a new Claude Code Notification hook, which makes every person trust changed hooks again, so the API accepts it but nothing sends it yet.
+
+D121, settled while building it: a browser token can't ask for a login code (403 `human_token_required`), so a browser login can't renew itself past 30 days. `browser_read_only` is removed from the error codes: no server sends it, and clients already accept codes they don't know.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,
