@@ -139,7 +139,8 @@ func TestInstallPathsFollowTheConfigFolder(t *testing.T) {
 // A command finds its session from ABOARD_SESSION, then from a harness's own variable.
 // omp sets CLAUDECODE as well as OMPCODE in every command, so with OMPCODE set nothing
 // is taken for Claude Code: the command runs in a session of a harness Aboard doesn't
-// know, and its agent comes from --as or ABOARD_AGENT.
+// know, and its agent comes from --as or ABOARD_AGENT. A Codex started inside a Claude
+// Code session inherits its ABOARD_SESSION and is taken for Codex.
 func TestSessionDetectionChecksTheMostSpecificMarkerFirst(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -152,7 +153,8 @@ func TestSessionDetectionChecksTheMostSpecificMarkerFirst(t *testing.T) {
 		{"claude code", map[string]string{"CLAUDECODE": "1", "ABOARD_SESSION": "claude-code:5f1c"}, "claude-code:5f1c", "Claude Code", true},
 		{"claude code before its hook ran", map[string]string{"CLAUDECODE": "1"}, "", "Claude Code", true},
 		{"codex", map[string]string{"CODEX_THREAD_ID": " 019a "}, "codex:019a", "Codex", true},
-		{"aboard's session first", map[string]string{"ABOARD_SESSION": "claude-code:5f1c", "CODEX_THREAD_ID": "019a"}, "claude-code:5f1c", "Claude Code", true},
+		{"aboard's session first", map[string]string{"ABOARD_SESSION": "codex:019b", "CODEX_THREAD_ID": "019a"}, "codex:019b", "Codex", true},
+		{"codex started from a claude code session", map[string]string{"CLAUDECODE": "1", "ABOARD_SESSION": "claude-code:5f1c", "CODEX_THREAD_ID": "019a"}, "codex:019a", "Codex", true},
 		{"omp", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1"}, "", "", true},
 		{"omp started from a claude code session", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "claude-code:5f1c"}, "", "", true},
 		{"a harness aboard's own extension names", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "omp:0199"}, "omp:0199", "", true},
@@ -184,5 +186,44 @@ func TestNetworkBlockedComesFromTheProfile(t *testing.T) {
 	}
 	if _, ok := Harnesses().NetworkBlocked(e(map[string]string{"CODEX_SANDBOX": "seatbelt", "SANDBOX_RUNTIME": "1"})); ok {
 		t.Fatal("a sandbox that doesn't block the network was taken for one that does")
+	}
+}
+
+// A subagent's mark counts unless a more specific marker says the command runs in a
+// harness started inside that subagent. A Codex sub-agent's thread id differs from its
+// root session's.
+func TestSubagentMarkFollowsTheSession(t *testing.T) {
+	tests := []struct {
+		name string
+		vars map[string]string
+		want string
+	}{
+		{"main conversation", map[string]string{"ABOARD_SESSION": "claude-code:5f1c"}, ""},
+		{"claude code subagent", map[string]string{"ABOARD_SESSION": "claude-code:5f1c", "ABOARD_SUBAGENT": "a1b2"}, "a1b2"},
+		{"codex started from a subagent", map[string]string{"ABOARD_SESSION": "claude-code:5f1c", "ABOARD_SUBAGENT": "a1b2", "CODEX_THREAD_ID": "019a"}, ""},
+		{"no session", map[string]string{"ABOARD_SUBAGENT": "a1b2"}, "a1b2"},
+		{"codex root", map[string]string{"CODEX_THREAD_ID": "019a", "CODEX_SESSION_ID": "019a"}, ""},
+		{"codex sub-agent", map[string]string{"CODEX_THREAD_ID": "019c", "CODEX_SESSION_ID": "019a"}, "019c"},
+		{"codex before CODEX_SESSION_ID", map[string]string{"CODEX_THREAD_ID": "019c"}, ""},
+	}
+	for _, tt := range tests {
+		e := harness.Env{Getenv: func(k string) string { return tt.vars[k] }}
+		got, _ := Harnesses().Subagent(e)
+		if got != tt.want {
+			t.Errorf("%s: subagent %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
+
+// A profile that marks subagents says so, and one that says so has a way to mark them.
+func TestSubagentIdentityMatchesTheHooks(t *testing.T) {
+	for _, h := range Harnesses() {
+		p := h.Profile()
+		marks := p.Identity.RootEnv != "" ||
+			slices.ContainsFunc(p.Delivery.Hooks, func(s harness.HookSpec) bool { return s.Op == harness.OpMarkSubagent })
+		declared := p.SubagentIdentity == "marked" || p.SubagentIdentity == "seats"
+		if marks != declared {
+			t.Errorf("%s: subagent_identity %q, but a mark-subagent hook is %v", p.Harness, p.SubagentIdentity, marks)
+		}
 	}
 }

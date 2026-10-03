@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -197,8 +198,7 @@ type lab struct {
 	vars  []string
 	// started counts the harnesses started in this lab.
 	started int
-	// claudeConfig is Claude Code's config directory for this test, or empty when
-	// Claude Code uses the person's own (see claudeSetup).
+	// claudeConfig is Claude Code's scratch config directory for this test.
 	claudeConfig string
 	// codexReady is true once codexHome has set up the test's CODEX_HOME for Codex.
 	codexReady bool
@@ -262,11 +262,8 @@ func newLabWith(t *testing.T, binary string) *lab {
 	if err := os.MkdirAll(filepath.Join(dir, "codex-home"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	claudeOnce.Do(func() { claudeSetUp = detectClaude() })
-	if claudeSetUp.isolated {
-		l.claudeConfig = filepath.Join(dir, "claude-config")
-		l.vars = append(l.vars, "CLAUDE_CONFIG_DIR="+l.claudeConfig)
-	}
+	l.claudeConfig = filepath.Join(dir, "claude-config")
+	l.vars = append(l.vars, "CLAUDE_CONFIG_DIR="+l.claudeConfig)
 	t.Cleanup(l.teardown)
 	return l
 }
@@ -413,14 +410,11 @@ func (l *lab) saveArtifacts() {
 			write(name, raw)
 		}
 	}
-	// Claude Code's transcripts, when it kept its config in the scratch directory, show
-	// every command an agent ran and its output.
-	if l.claudeConfig != "" {
-		transcripts, _ := filepath.Glob(filepath.Join(l.claudeConfig, "projects", "*", "*.jsonl"))
-		for _, path := range transcripts {
-			if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
-				write("transcript-"+filepath.Base(filepath.Dir(path))+"-"+filepath.Base(path), raw)
-			}
+	// Claude Code's transcripts, its subagents' included, show every command an agent ran
+	// and its output.
+	for _, path := range l.claudeTranscripts() {
+		if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
+			write("transcript-"+filepath.Base(filepath.Dir(path))+"-"+filepath.Base(path), raw)
 		}
 	}
 	// Codex's config shows which hooks it trusted, and the hook log which ran.
@@ -436,6 +430,19 @@ func (l *lab) saveArtifacts() {
 		write("board-as-"+agent+".json", []byte(l.exec(context.Background(), l.human, "read", "--as", agent, "--json", "--limit", "200").stdout))
 	}
 	l.t.Logf("artifacts: %s", dir)
+}
+
+// claudeTranscripts lists every transcript Claude Code wrote in the test's config
+// directory, its subagents' included.
+func (l *lab) claudeTranscripts() []string {
+	var out []string
+	_ = filepath.WalkDir(filepath.Join(l.claudeConfig, "projects"), func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasSuffix(path, ".jsonl") {
+			out = append(out, path)
+		}
+		return nil
+	})
+	return out
 }
 
 // result is one finished aboard command.

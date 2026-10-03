@@ -89,6 +89,37 @@ func (s Set) Session(e Env) (delivery.SessionKey, bool) {
 	return delivery.SessionKey{}, false
 }
 
+// Subagent returns the id of the subagent a command runs in: from the mark Aboard's hook
+// or extension adds to a subagent's aboard commands, or, for a harness that gives every
+// command both its own thread's id and its root session's (Codex), from the two being
+// different. A mark inherited by a harness started inside that subagent doesn't count:
+// a more specific marker says the command runs in another harness, as for
+// ABOARD_SESSION.
+func (s Set) Subagent(e Env) (string, bool) {
+	if id := strings.TrimSpace(e.Getenv(SubagentEnv)); id != "" {
+		k, ok := delivery.ParseSessionKey(e.Getenv("ABOARD_SESSION"))
+		if h, known := s.Get(k.Harness); !ok || !known || !yields(h, e) {
+			return id, true
+		}
+	}
+	k, ok := s.Session(e)
+	if !ok {
+		return "", false
+	}
+	h, known := s.Get(k.Harness)
+	if !known {
+		return "", false
+	}
+	id := h.Profile().Identity
+	if id.RootEnv == "" || strings.TrimSpace(e.Getenv(id.Env)) != k.ID {
+		return "", false
+	}
+	if root := strings.TrimSpace(e.Getenv(id.RootEnv)); root != "" && root != k.ID {
+		return k.ID, true
+	}
+	return "", false
+}
+
 // InSession reports the harness whose session a command runs in, from its markers or
 // its sandbox's. title is "" when a marker is set but its harness gives way to one
 // Aboard doesn't know: the command still runs in a session.

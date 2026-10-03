@@ -64,12 +64,18 @@ func runHook(ctx context.Context, a *app, args []string) error {
 	if !known {
 		return usageError(fmt.Sprintf("%q is not a hook event for %q.", event, name), use)
 	}
+	if in.AgentID != "" && call.Op != harness.OpMarkSubagent {
+		// A hook fired inside a subagent. Codex gives it the root's session_id, so it would
+		// count as the root's prompt, tool boundary or turn end; the messages and the
+		// session's state belong to the root conversation.
+		return hookExit(0)
+	}
 	h := hookCall{a: a, harness: name, in: in, boot: a.env.Getenv("ABOARD_BOOT"), started: started}
 	var hookErr error
 	switch call.Op {
 	case harness.OpSessionStart:
 		if envFile := hs.Profile().Identity.EnvFile; envFile != "" {
-			hookErr = h.sessionStartWithEnvFile(ctx, envFile)
+			hookErr = h.sessionStartWithEnvFile(ctx, envFile, a.inheritedSessionVars(hs))
 			break
 		}
 		var resp delivery.Response
@@ -90,6 +96,8 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		_, hookErr = h.call(ctx, delivery.OpEnd)
 	case harness.OpTool:
 		hookErr = h.tool(ctx)
+	case harness.OpMarkSubagent:
+		hookErr = h.markSubagent()
 	default:
 		return usageError(fmt.Sprintf("%q is not a hook event for %q.", event, name), use)
 	}
@@ -120,11 +128,33 @@ func (h hookCall) call(ctx context.Context, op string) (delivery.Response, error
 	return h.a.callDaemon(ctx, h.request(op))
 }
 
+// inheritedSessionVars lists the session variables of other harnesses that hs gives
+// way to and that are set in this hook's environment. The harness was started from a
+// command of that other harness's session, so its own commands must not carry them.
+// Only variables another harness sets as its session id are listed: a marker such as
+// OMPCODE may come from a harness that runs these hooks itself.
+func (a *app) inheritedSessionVars(hs harness.Harness) []string {
+	var out []string
+	for _, v := range hs.Profile().Identity.YieldsTo {
+		if a.env.Getenv(v) == "" {
+			continue
+		}
+		for _, other := range a.registry() {
+			if id := other.Profile().Identity; other != hs && id.Kind == "env" && id.Env == v {
+				out = append(out, v)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // sessionStartWithEnvFile registers the session and writes ABOARD_SESSION and
 // ABOARD_BOOT to the session's environment file, which the variable envVar names, so
-// every command the agent runs carries them. A compacted session keeps its boot id;
-// anything else is a new process with a new one.
-func (h hookCall) sessionStartWithEnvFile(ctx context.Context, envVar string) error {
+// every command the agent runs carries them, and unsets the inherited session variables
+// of an outer harness. A compacted session keeps its boot id; anything else is a new
+// process with a new one.
+func (h hookCall) sessionStartWithEnvFile(ctx context.Context, envVar string, inherited []string) error {
 	h.boot = ""
 	if h.in.Source != "compact" {
 		boot, err := newBootID(h.a.env.Rand)
@@ -145,6 +175,11 @@ func (h hookCall) sessionStartWithEnvFile(ctx context.Context, envVar string) er
 	lines := "export ABOARD_SESSION=" + h.harness + ":" + h.in.SessionID + "\n"
 	if sessionIDPattern.MatchString(resp.Boot) {
 		lines += "export ABOARD_BOOT=" + resp.Boot + "\n"
+	}
+	for _, v := range inherited {
+		if envName.MatchString(v) {
+			lines += "unset " + v + "\n"
+		}
 	}
 	f, err := os.OpenFile(filepath.Clean(envFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -194,9 +229,6 @@ func newBootID(rnd io.Reader) (string, error) {
 // tool adds to a busy turn, at a tool boundary, the owner's messages and a notice of the
 // other messages waiting. It never blocks or changes the tool call.
 func (h hookCall) tool(ctx context.Context) error {
-	if h.in.AgentID != "" {
-		return nil // a sub-agent's tool call; messages go to the root conversation
-	}
 	req := h.request(delivery.OpBoundary)
 	req.Started = h.started
 	resp, err := h.a.callDaemon(ctx, req)
@@ -219,6 +251,62 @@ func (h hookCall) tool(ctx context.Context) error {
 	}
 	out.HookSpecificOutput.HookEventName = event
 	out.HookSpecificOutput.AdditionalContext = text
+	enc := json.NewEncoder(h.a.env.Stdout)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(out); err != nil {
+		return fmt.Errorf("print hook output: %w", err)
+	}
+	return nil
+}
+
+// runsAboard matches a shell command that runs aboard as a command: at the start, or
+// after a separator, a pipe, a subshell or a command substitution, optionally behind
+// variable assignments, a wrapper such as env, or a path ending in /aboard. A command
+// that only names aboard, such as a path to a project folder called aboard, doesn't
+// match, so the harness's allow rules keep applying to it.
+var runsAboard = regexp.MustCompile("(^|[;&|(`\\n]|\\$\\()\\s*" +
+	`(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S*|env|command|exec|nohup|time)\s+)*` +
+	`(?:\S*/)?aboard(?:$|[\s;&|)])`)
+
+// envName is what a variable name written into an environment file may be.
+var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// markSubagent marks a shell command a subagent is about to run, when it runs
+// aboard, by prefixing it with "export ABOARD_SUBAGENT=<agent id>; ", so aboard knows
+// the command isn't the parent's and refuses to act as the parent. The tool's other
+// input is kept, and no permission decision is given, so the harness's own permission
+// rules still decide. Any other command, and every command of the main conversation,
+// gets no output and runs as it is.
+func (h hookCall) markSubagent() error {
+	var input map[string]json.RawMessage
+	var command string
+	readable := h.in.AgentID != "" && len(h.in.ToolInput) > 0 &&
+		json.Unmarshal(h.in.ToolInput, &input) == nil && input["command"] != nil &&
+		json.Unmarshal(input["command"], &command) == nil
+	if !readable || !runsAboard.MatchString(command) {
+		return nil
+	}
+	prefix := "export " + harness.SubagentEnv + "=" + harness.ShellWord(h.in.AgentID) + "; "
+	if strings.HasPrefix(command, prefix) {
+		return nil
+	}
+	raw, err := json.Marshal(prefix + command)
+	if err != nil {
+		return fmt.Errorf("encode the command: %w", err)
+	}
+	input["command"] = raw
+	event := h.in.HookEventName
+	if event == "" {
+		event = "PreToolUse"
+	}
+	var out struct {
+		HookSpecificOutput struct {
+			HookEventName string                     `json:"hookEventName"`
+			UpdatedInput  map[string]json.RawMessage `json:"updatedInput"`
+		} `json:"hookSpecificOutput"`
+	}
+	out.HookSpecificOutput.HookEventName = event
+	out.HookSpecificOutput.UpdatedInput = input
 	enc := json.NewEncoder(h.a.env.Stdout)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(out); err != nil {

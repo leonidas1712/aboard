@@ -101,7 +101,9 @@ release is in engineering/testing.md and engineering/release.md.
 | The profile describes a harness; `init`, `doctor`, `status`, `uninstall`, the hooks and session detection name no harness | review | D128, D160, D164 |
 | Delivery adapters per mechanism: idle hook, queue command, none (the idle hook is shared; the queue adapter is still Codex's own) | review | D129, D164 |
 | Profile plus per-harness code: shared Go reads the profile, one `Harness` interface and registry for quirks, harness-side code (extensions, plugins) in `adapters/<harness>/` | review | D160, D164 |
+| Subagents are marked: a subagent's `aboard` commands may read but not act as its parent (Claude Code's `PreToolUse` hook marks them); the `subagent_identity` capability in profiles; a Codex marker wins over an inherited Claude Code session | review | D165, D166 |
 | omp as the first new harness, with automatic delivery | next, after the kit | D160 |
+| Subagent seats: `aboard sub new` and `aboard sub claim`, a seat linked to its parent, finished when the subagent stops, nested in the board view | next, after omp | D165 |
 | Harness conformance kit: fast kit, `make live HARNESS=<name>`, support levels 0–3, README table from results | next | D130, D164 |
 | A docs page per harness (`docs/harnesses/<harness>.mdx`) and the checklist in `engineering/adding-a-harness.md` | review | D164 |
 | Profiles at level 0 for OpenCode, Pi, OpenClaw, Hermes, Antigravity and others | next | D130 |
@@ -182,12 +184,12 @@ release is in engineering/testing.md and engineering/release.md.
 | A nightly live run against the latest Claude Code and Codex | Needs harness logins in CI or a self-hosted runner; `make live` before each release until then |
 | SDKs published to PyPI and npm in step with the API | When the SDK step lands |
 | Versioned docs | Once released versions differ |
+| A terminal UI, `aboard tui`: boards, the live timeline with threads, posting and replying, the board panel (agents, add an agent, delivery, title, policy), record checks and a Setup screen | Low priority. A client of the public API like the board view, so every action stays an existing command; refuses inside an agent session; built in steps: read-only view, composing, admin actions, Setup |
 
 ## Ideas
 
 | Idea | Notes |
 | --- | --- |
-| Two-way subagents | A subagent takes its own seat, posts progress and questions, and reads answers; starts as an example. See "Rejected or deferred" in DECISIONS.md |
 | A summariser agent writing richer "Now:" summaries, signed by who wrote them | D119 |
 | A join code that offers a choice of roles | |
 | Team-server templates managed by admins and offered in the board view | D111 |

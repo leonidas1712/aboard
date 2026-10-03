@@ -139,6 +139,9 @@ func Run(ctx context.Context, args []string, env Env) int {
 				Hint: "Run aboard help " + c.name + " for its usage, flags and examples.", Exit: exitUsage,
 			})
 		}
+		if err := a.refuseInSubagent(c.name, args[1:]); err != nil {
+			return a.report(err)
+		}
 		return a.report(c.run(ctx, a, args[1:]))
 	}
 	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")

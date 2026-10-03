@@ -31,6 +31,16 @@
 #   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
 #   joins as an agent, audit verify prints only counts and hashes, and open never shows
 #   its login link.
+# - Inside a subagent of a harness session (ABOARD_SUBAGENT is set, which Claude Code's
+#   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
+#   marker says the command runs elsewhere; or CODEX_THREAD_ID differs from
+#   CODEX_SESSION_ID, as in a Codex sub-agent), only reading commands run: read, status,
+#   inbox --peek, doctor, audit, help, version and hook. Every other command refuses with
+#   subagent_without_seat and exits 1 before it does anything, whatever --as or
+#   ABOARD_AGENT name.
+# - Session precedence: a harness variable that every command of a session carries
+#   (CODEX_THREAD_ID) wins over an ABOARD_SESSION naming a harness that gives way to it
+#   (Claude Code's, inherited by a Codex started inside it).
 # - Files and addresses: aboard keeps its files in $XDG_CONFIG_HOME/aboard (the owner
 #   token and credentials), $XDG_DATA_HOME/aboard (the local server's database, pid file
 #   and log) and $XDG_STATE_HOME/aboard (verified audit heads, the install manifest
@@ -72,7 +82,9 @@ $defs:
       agent_not_selected (details.choices lists your agents on this board;
       details.board_source says where the board came from) · agent_ambiguous
       (details.boards lists the boards with that agent name) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
-      session the daemon hasn't registered) · codex_subagent_target · codex_target_absent ·
+      session the daemon hasn't registered) · subagent_without_seat (the command changes
+      state and runs in a subagent, which may only read; the hint names what it can run) ·
+      codex_subagent_target · codex_target_absent ·
       harness_unavailable (the session couldn't be checked for another reason) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
       inside a harness's sandbox, where it won't start one) · sandbox_blocks_network (the

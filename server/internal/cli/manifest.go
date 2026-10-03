@@ -115,13 +115,14 @@ func contentHash(kind, harness string, data []byte) string {
 }
 
 // hooksHash hashes Aboard's hook entries for harness in a hook settings file, each as
-// its event and its handler with keys sorted, in a fixed order, so the person's own
-// hooks and the file's layout don't change it. A file that can't be read hashes as
-// empty.
+// its event, its group's matcher when it has one, and its handler with keys sorted, in a
+// fixed order, so the person's own hooks and the file's layout don't change it. A file
+// that can't be read hashes as empty.
 func hooksHash(data []byte, harness string) string {
 	var settings struct {
 		Hooks map[string][]struct {
-			Hooks []map[string]any `json:"hooks"`
+			Matcher string           `json:"matcher"`
+			Hooks   []map[string]any `json:"hooks"`
 		} `json:"hooks"`
 	}
 	var entries []string
@@ -137,7 +138,11 @@ func hooksHash(data []byte, harness string) string {
 					if err != nil {
 						continue
 					}
-					entries = append(entries, event+" "+string(raw))
+					where := event
+					if g.Matcher != "" {
+						where += " " + g.Matcher
+					}
+					entries = append(entries, where+" "+string(raw))
 				}
 			}
 		}

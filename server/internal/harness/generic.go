@@ -106,11 +106,11 @@ func (g *Generic) Hooks(exe, version string) []Hook {
 		h := Handler{Type: "command", Command: ShellWord(exe) + " hook " + g.profile.Harness + " " + s.Run, Timeout: s.Timeout, Options: s.Options}
 		if s.Since != "" && !VersionAtLeast(version, s.Since) {
 			for _, event := range s.Fallback {
-				hooks = append(hooks, Hook{Event: event, Arg: s.Run, Handler: h})
+				hooks = append(hooks, Hook{Event: event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
 			}
 			continue
 		}
-		hooks = append(hooks, Hook{Event: s.Event, Arg: s.Run, Handler: h})
+		hooks = append(hooks, Hook{Event: s.Event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
 	}
 	return hooks
 }

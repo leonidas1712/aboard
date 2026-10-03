@@ -126,7 +126,9 @@ type Hook struct {
 	// Event is the harness's name for the hook event.
 	Event string
 	// Arg is the event argument of "aboard hook <harness> <arg>".
-	Arg     string
+	Arg string
+	// Matcher is the matcher of the hook's group, such as Bash, or "" for none.
+	Matcher string
 	Handler Handler
 }
 
@@ -202,7 +204,14 @@ const (
 	OpTool Op = "tool"
 	// OpEnd closes the session.
 	OpEnd Op = "end"
+	// OpMarkSubagent marks an aboard command a subagent is about to run as the
+	// subagent's, so it can't act as the parent.
+	OpMarkSubagent Op = "mark-subagent"
 )
+
+// SubagentEnv is the variable that marks a command as run by a subagent of the session
+// it runs in. Its value is the harness's id for the subagent.
+const SubagentEnv = "ABOARD_SUBAGENT"
 
 // HookInput is the part of a harness's hook input the hooks read.
 type HookInput struct {
@@ -215,6 +224,9 @@ type HookInput struct {
 	HookEventName string `json:"hook_event_name"`
 	// Prompt is the prompt text, on a prompt hook.
 	Prompt string `json:"prompt"`
+	// ToolInput is the input of the tool about to run, on a pre-tool hook. For a shell
+	// command it holds the command and the tool's other settings.
+	ToolInput json.RawMessage `json:"tool_input"`
 }
 
 // Call is what one hook does.

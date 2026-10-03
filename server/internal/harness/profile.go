@@ -35,11 +35,15 @@ type Profile struct {
 	Identity struct {
 		Kind       string   `yaml:"kind"`
 		Env        string   `yaml:"env"`
+		RootEnv    string   `yaml:"root_env"`
 		EnvFile    string   `yaml:"env_file"`
 		Precedence int      `yaml:"precedence"`
 		YieldsTo   []string `yaml:"yields_to"`
 	} `yaml:"identity"`
-	Lifecycle struct {
+	// SubagentIdentity is whether a subagent's commands can be told from its parent's:
+	// none, marked or seats.
+	SubagentIdentity string `yaml:"subagent_identity"`
+	Lifecycle        struct {
 		Liveness         string `yaml:"liveness"`
 		OutlivesTerminal bool   `yaml:"outlives_terminal"`
 		ResumeKeepsID    bool   `yaml:"resume_keeps_id"`
@@ -101,6 +105,7 @@ type HookSpec struct {
 	Event    string         `yaml:"event"`
 	Run      string         `yaml:"run"`
 	Op       Op             `yaml:"op"`
+	Matcher  string         `yaml:"matcher"`
 	Timeout  int            `yaml:"timeout"`
 	Options  map[string]any `yaml:"options"`
 	Since    string         `yaml:"since"`
