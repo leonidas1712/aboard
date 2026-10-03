@@ -27,6 +27,8 @@ func TestCompareBuilds(t *testing.T) {
 		{"same version, later commit", delivery.Build{Version: "0.1.0", CommitTime: late}, delivery.Build{Version: "0.1.0", CommitTime: early}, 1},
 		{"same version, no commit time is older", delivery.Build{Version: "0.1.0"}, delivery.Build{Version: "0.1.0", CommitTime: late}, -1},
 		{"same version, neither has a commit time", delivery.Build{Version: "0.1.0", Commit: "abc"}, delivery.Build{Version: "0.1.0"}, 0},
+		{"dev build, later commit than the installed release", delivery.Build{Version: "0.1.0+dev.1d0e798ab12c", CommitTime: late}, delivery.Build{Version: "0.1.0", CommitTime: early}, 1},
+		{"dev build of the installed release's commit", delivery.Build{Version: "0.1.0+dev.1d0e798ab12c.dirty", CommitTime: late}, delivery.Build{Version: "0.1.0", CommitTime: late}, 0},
 		{"version wins over commit time", delivery.Build{Version: "0.1.0", CommitTime: late}, delivery.Build{Version: "0.1.1", CommitTime: early}, -1},
 	}
 	for _, tt := range tests {

@@ -1,0 +1,177 @@
+#!/bin/sh
+# Opens a shell for testing this checkout's aboard by hand, without touching the
+# person's own Aboard, Claude Code or Codex setup, and removes it again.
+#
+#   scripts/sandbox open <name>    (make sandbox NAME=<name>)
+#   scripts/sandbox clean <name>   (make sandbox-clean NAME=<name>)
+#
+# A sandbox is a folder, $HOME/.aboard-sandboxes/<name> unless ABOARD_SANDBOXES names
+# another parent, holding:
+#
+#   bin/aboard      a link to the dev build (.bin/aboard), first on the shell's PATH
+#   aboard-home/    the sandbox's ABOARD_HOME: its config, data, delivery daemon and port
+#   claude-config/  Claude Code's CLAUDE_CONFIG_DIR
+#   codex-home/     Codex's CODEX_HOME, with the person's auth.json linked, not copied
+#   project/        a git project set up with aboard init --yes --scope project,
+#                   where the shell starts
+#   shell/          the shell start-up files that put the sandbox's name in the prompt
+#
+# The shell drops the variables a harness or another Aboard sets (CLAUDE*, CODEX*,
+# ABOARD*), keeps CLAUDE_CODE_OAUTH_TOKEN, and turns harness auto-updates off. Programs
+# started from it, a terminal manager and its panes included, inherit all of this.
+#
+# SANDBOX_ABOARD names another aboard binary to link. SANDBOX_CMD runs that one command
+# in the sandbox instead of an interactive shell (the tests use it).
+set -eu
+
+usage() {
+	echo "usage: scripts/sandbox open|clean <name>" >&2
+	exit 2
+}
+[ $# -eq 2 ] || usage
+action=$1
+name=$2
+case $name in
+'' | *[!A-Za-z0-9_-]*)
+	echo "Name the sandbox with letters, digits, - and _, for example: make sandbox NAME=wake-test" >&2
+	exit 2
+	;;
+esac
+if [ -z "${HOME:-}" ]; then
+	echo "HOME is not set, so there is nowhere to put the sandbox." >&2
+	exit 1
+fi
+
+repo=$(cd "$(dirname "$0")/.." && pwd)
+root=${ABOARD_SANDBOXES:-$HOME/.aboard-sandboxes}
+dir=$root/$name
+prefix="(aboard:$name)"
+
+# drop_markers unsets what a harness, or Aboard run from one, sets for the commands it
+# runs: aboard would otherwise take this shell for that session, or use another home.
+drop_markers() {
+	for v in $(env | sed -E -n 's/^((CLAUDE|CODEX|ABOARD)[A-Za-z0-9_]*)=.*/\1/p'); do
+		[ "$v" = CLAUDE_CODE_OAUTH_TOKEN ] || unset "$v"
+	done
+}
+
+clean() {
+	if [ ! -d "$dir" ]; then
+		echo "There is no sandbox named $name in $root."
+		return 0
+	fi
+	drop_markers
+	aboard=$dir/bin/aboard
+	[ -x "$aboard" ] || aboard=${SANDBOX_ABOARD:-$repo/.bin/aboard}
+	if [ -x "$aboard" ] && [ -d "$dir/aboard-home" ]; then
+		ABOARD_HOME=$dir/aboard-home CODEX_HOME=$dir/codex-home "$aboard" down || true
+	fi
+	rm -rf "$dir"
+	rmdir "$root" 2>/dev/null || true
+	echo "Removed sandbox $name ($dir)."
+}
+
+open_sandbox() {
+	bin=${SANDBOX_ABOARD:-$repo/.bin/aboard}
+	if [ ! -x "$bin" ]; then
+		echo "There is no dev build at $bin. Run make dev first, or use make sandbox, which runs it." >&2
+		exit 1
+	fi
+	# Read before the harness variables are dropped: the person's own Codex login.
+	codex_auth=${CODEX_HOME:-$HOME/.codex}/auth.json
+	drop_markers
+
+	mkdir -p "$root"
+	mkdir -p -m 700 "$dir"
+	for d in bin aboard-home claude-config codex-home project shell; do
+		mkdir -p -m 700 "$dir/$d"
+	done
+	ln -sf "$bin" "$dir/bin/aboard"
+	codex_note="Codex: no login found at $codex_auth; run codex login in this shell."
+	if [ -L "$dir/codex-home/auth.json" ] || [ -e "$dir/codex-home/auth.json" ]; then
+		codex_note="Codex: logged in with $(readlink "$dir/codex-home/auth.json" 2>/dev/null || echo "its own auth.json")."
+	elif [ -f "$codex_auth" ]; then
+		ln -s "$codex_auth" "$dir/codex-home/auth.json"
+		codex_note="Codex: logged in with $codex_auth (linked)."
+	fi
+	# Claude Code would otherwise start with its first-run questions in a new config folder.
+	[ -f "$dir/claude-config/.claude.json" ] ||
+		printf '{"hasCompletedOnboarding":true,"theme":"dark"}\n' >"$dir/claude-config/.claude.json"
+	if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+		claude_note="Claude Code: logged in with CLAUDE_CODE_OAUTH_TOKEN."
+	else
+		claude_note="Claude Code: not logged in here. Its keychain login doesn't carry over to a new
+  config folder: run claude setup-token, export CLAUDE_CODE_OAUTH_TOKEN, then
+  make sandbox NAME=$name again (or run /login inside Claude Code)."
+	fi
+
+	export ABOARD_HOME="$dir/aboard-home"
+	export CLAUDE_CONFIG_DIR="$dir/claude-config"
+	export CODEX_HOME="$dir/codex-home"
+	export DISABLE_AUTOUPDATER=1
+	export PATH="$dir/bin:$PATH"
+	export ABOARD_SANDBOX_NAME="$name"
+
+	cd "$dir/project"
+	if [ ! -d .git ] && command -v git >/dev/null 2>&1; then
+		git init -q .
+	fi
+	aboard init --yes --scope project
+	# Started here so it has the sandbox's CODEX_HOME: Codex doesn't pass its environment
+	# to its hooks, so a daemon a Codex hook starts would use the person's own.
+	aboard daemon start
+
+	cat <<EOF
+
+Aboard sandbox $name: $dir
+  aboard:      $(command -v aboard) -> $bin ($(aboard version 2>/dev/null | head -n 1))
+  ABOARD_HOME: $ABOARD_HOME
+  $claude_note
+  $codex_note
+Start claude, codex or a terminal manager here; they use this sandbox.
+After make dev on the same commit, run aboard down so the server and daemon restart on
+the new build. Remove everything with make sandbox-clean NAME=$name.
+
+EOF
+
+	if [ -n "${SANDBOX_CMD:-}" ]; then
+		exec sh -c "$SANDBOX_CMD"
+	fi
+	sh_name=$(basename "${SHELL:-/bin/sh}")
+	case $sh_name in
+	zsh)
+		for f in .zshenv .zprofile .zlogin; do
+			printf '[ -f "$HOME/%s" ] && . "$HOME/%s"\n' "$f" "$f" >"$dir/shell/$f"
+		done
+		cat >"$dir/shell/.zshrc" <<EOF
+[ -f "\$HOME/.zshrc" ] && . "\$HOME/.zshrc"
+export PATH="$dir/bin:\$PATH"
+_aboard_sandbox_prompt() {
+	case \$PROMPT in "$prefix "*) ;; *) PROMPT="$prefix \$PROMPT" ;; esac
+}
+precmd_functions+=(_aboard_sandbox_prompt)
+EOF
+		export ZDOTDIR="$dir/shell"
+		exec "$SHELL" -i
+		;;
+	bash)
+		cat >"$dir/shell/bashrc" <<EOF
+[ -f "\$HOME/.bashrc" ] && . "\$HOME/.bashrc"
+export PATH="$dir/bin:\$PATH"
+PS1="$prefix \$PS1"
+EOF
+		exec "$SHELL" --rcfile "$dir/shell/bashrc" -i
+		;;
+	*)
+		PS1="$prefix ${PS1:-\$ }"
+		export PS1
+		exec "${SHELL:-/bin/sh}" -i
+		;;
+	esac
+}
+
+case $action in
+open) open_sandbox ;;
+clean) clean ;;
+*) usage ;;
+esac

@@ -395,6 +395,32 @@ project's rules, and it's written for both people and coding agents. The short v
 - **Changes to delivery, setup or upgrades also run `make live`,** which drives real
   Claude Code and Codex sessions in tmux ([e2e/live/PROOFS.md](e2e/live/PROOFS.md)).
 
+### Testing a branch by hand
+
+`make sandbox NAME=<name>` builds this checkout into `.bin/aboard` (`make dev`) and opens
+a shell where Aboard, Claude Code and Codex use folders of their own under
+`~/.aboard-sandboxes/<name>`, so your installed `aboard`, your boards and your harness
+settings are never touched. The prompt starts with `(aboard:<name>)`.
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=…   # from claude setup-token; the keychain login doesn't carry over
+make sandbox NAME=wake-test
+```
+
+The shell starts in a project already set up with `aboard init --yes --scope project`.
+Start `claude` and `codex` there, or start a terminal manager such as herdr from that
+shell: its panes inherit the sandbox. Codex uses your login through a link to
+`~/.codex/auth.json`. After changing the code, run `make dev` again, and `aboard down` in
+the sandbox if the commit hasn't changed. When you're done:
+
+```bash
+make sandbox-clean NAME=wake-test
+```
+
+This stops the sandbox's server and delivery daemon and removes its folder. Aboard's own
+isolation is the `ABOARD_HOME` variable: set it to any folder to run a separate copy of
+Aboard, with its own server on a port it picks.
+
 The guides in [engineering/](engineering) cover architecture (ports and adapters), Go
 style, testing and writing.
 

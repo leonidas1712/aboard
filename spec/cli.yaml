@@ -25,6 +25,21 @@
 #   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
 #   joins as an agent, audit verify prints only counts and hashes, and open never shows
 #   its login link.
+# - Files and addresses: aboard keeps its files in $XDG_CONFIG_HOME/aboard (the owner
+#   token and credentials), $XDG_DATA_HOME/aboard (the local server's database, pid file
+#   and log) and $XDG_STATE_HOME/aboard (verified audit heads and the delivery daemon's
+#   journal, pid, log and socket), defaulting to ~/.config, ~/.local/share and
+#   ~/.local/state. The local server listens on 127.0.0.1:7400.
+#   ABOARD_HOME, when set to an absolute path, moves all of it into one folder:
+#   $ABOARD_HOME/config, $ABOARD_HOME/data and $ABOARD_HOME/state, the daemon's socket
+#   included. With ABOARD_HOME set, the first command that needs the local server's
+#   address picks a free port on 127.0.0.1 and records it in $ABOARD_HOME/data/server.addr;
+#   every later command and start in that home uses it, so two homes run side by side
+#   with their own server and daemon. aboard init then writes ABOARD_HOME=<path> into
+#   each hook command, because Codex doesn't pass its environment to hooks.
+#   ABOARD_LOCAL_ADDR, when set, is the local server's address in either case. A relative
+#   ABOARD_HOME fails with invalid_request. URLs, join lines ("on localhost:<port>"),
+#   status and doctor all show the address in use.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
 #   Board for human commands (board policy, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.

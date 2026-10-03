@@ -90,7 +90,12 @@ as the end hook would have. A process the daemon can't read counts as alive.
 **Shutdown.** On SIGINT or SIGTERM it stops taking new work, lets in-flight harness calls
 finish for up to 5 seconds, closes server connections and the journal, and exits.
 
-**State it keeps:**
+**State it keeps.** `<config>/aboard` and `<state>/aboard` below are the XDG folders
+(`$XDG_CONFIG_HOME`, else `~/.config`; `$XDG_STATE_HOME`, else `~/.local/state`). When
+`ABOARD_HOME` is set they are `$ABOARD_HOME/config` and `$ABOARD_HOME/state` instead, and
+the local server's database, pid file and log are in `$ABOARD_HOME/data`, so one folder
+holds a whole copy of Aboard and its daemon (see "Files and addresses" in
+[cli.yaml](cli.yaml)).
 
 | Where | What | Never |
 | --- | --- | --- |
@@ -393,7 +398,9 @@ unconfirmed. Like `join`, it moves a session that was bound to another agent.
 
 ## The control socket
 
-- Path `<state>/aboard/daemon.sock`; the directory is 0700 and the socket 0600.
+- Path `<state>/aboard/daemon.sock` (`$ABOARD_HOME/state/daemon.sock` when `ABOARD_HOME`
+  is set, with the same short-path fallback under `/tmp/aboard-<uid>/`); the directory is
+  0700 and the socket 0600.
 - Every connection's peer must be the same OS user as the daemon. The daemon reads the
   peer's user id from the kernel: `SO_PEERCRED` on Linux, `LOCAL_PEERCRED` on macOS. If
   it can't read it, it refuses the connection. The check is tested on both systems in CI.

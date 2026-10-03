@@ -81,8 +81,8 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
 
 ## How the suite keeps your machine untouched
 
-- **Aboard's state** lives under `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME`
-  in the test's scratch directory, with the local server on a free port
+- **Aboard's state** lives in an `ABOARD_HOME` in the test's scratch directory, the
+  product's own way of isolating a copy of Aboard, with the local server on a free port
   (`ABOARD_LOCAL_ADDR`). Harnesses are started with these variables, so their hooks and
   every command an agent runs use the scratch state too.
 - **Claude Code** keeps its config in a scratch `CLAUDE_CONFIG_DIR` when it is still
@@ -164,9 +164,10 @@ Codex 0.159.3 (the earlier proofs by hand, and the suite):
   `currentHash`; the suite writes those entries before Codex starts, so the dialog never
   shows.
 - Codex hooks don't see the environment Codex was started with, so for live runs each
-  hook command needs the scratch variables in it (`env XDG_CONFIG_HOME=… XDG_DATA_HOME=…
-  XDG_STATE_HOME=… ABOARD_LOCAL_ADDR=… PATH=… <aboard> hook codex …`), or a hook starts a
-  daemon on the real home's state.
+  hook command needs the scratch variables in it, or a hook starts a daemon on the real
+  home's state. `aboard init` writes `ABOARD_HOME=…` into each hook command when it is
+  set; the suite adds the rest (`env PATH=… ABOARD_LOCAL_ADDR=… CODEX_HOME=… <aboard> hook
+  codex …`).
 - Start the daemon outside Codex (`aboard daemon start`) before the first command in
   Codex: a daemon started inside Codex's sandbox inherits the sandbox and can't run
   `codex app-server`. The suite does this with the test's `CODEX_HOME`.

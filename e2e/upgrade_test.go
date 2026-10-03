@@ -25,7 +25,7 @@ func pidIn(path string) int {
 }
 
 func (e *env) daemonPID() int {
-	return pidIn(filepath.Join(e.home, ".local", "state", "aboard", "daemon.pid"))
+	return pidIn(filepath.Join(e.stateDir(), "daemon.pid"))
 }
 
 func (e *env) serverPID() int { return pidIn(filepath.Join(e.dataDir(), "server.pid")) }

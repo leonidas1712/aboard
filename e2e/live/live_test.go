@@ -182,7 +182,7 @@ func cleanEnv() []string {
 }
 
 // lab is one isolated machine for a test: aboard in its own directory, Aboard's state
-// under XDG directories in the scratch directory, a free port for the local server, and a
+// in an ABOARD_HOME in the scratch directory, a free port for the local server, and a
 // tmux server for the harness sessions.
 type lab struct {
 	t *testing.T
@@ -249,13 +249,10 @@ func newLabWith(t *testing.T, binary string) *lab {
 	state := filepath.Join(dir, "state")
 	l.vars = append(cleanEnv(),
 		"PATH="+filepath.Dir(l.bin)+string(os.PathListSeparator)+os.Getenv("PATH"),
-		"XDG_CONFIG_HOME="+filepath.Join(state, "config"),
-		"XDG_DATA_HOME="+filepath.Join(state, "data"),
-		"XDG_STATE_HOME="+filepath.Join(state, "st"),
+		"ABOARD_HOME="+state,
 		"ABOARD_LOCAL_ADDR="+l.addr,
-		// Claude Code keeps its installed versions under XDG_DATA_HOME but its launcher
-		// link in ~/.local/bin. Updating itself here would install into the scratch
-		// directory and point the person's own launcher at it, so updates are off.
+		// A harness updating itself during a test would change the person's own install,
+		// so updates are off.
 		"DISABLE_AUTOUPDATER=1",
 		// Aboard's global setup follows these (D92), so every command the lab runs, aboard
 		// doctor and init included, looks in the test's own folders and never the person's.
@@ -295,9 +292,9 @@ func freeAddr(t *testing.T) string {
 	return l.Addr().String()
 }
 
-func (l *lab) stateDir() string  { return filepath.Join(l.dir, "state", "st", "aboard") }
-func (l *lab) dataDir() string   { return filepath.Join(l.dir, "state", "data", "aboard") }
-func (l *lab) configDir() string { return filepath.Join(l.dir, "state", "config", "aboard") }
+func (l *lab) stateDir() string  { return filepath.Join(l.dir, "state", "state") }
+func (l *lab) dataDir() string   { return filepath.Join(l.dir, "state", "data") }
+func (l *lab) configDir() string { return filepath.Join(l.dir, "state", "config") }
 
 // teardown saves what explains a failure, stops every harness and aboard process the lab
 // started, and checks the person's own config is untouched.

@@ -41,7 +41,7 @@ func TestHiddenHarnessesGiveNeutralNames(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
-	token, err := os.ReadFile(filepath.Join(e.home, ".config", "aboard", "local-owner-token"))
+	token, err := os.ReadFile(filepath.Join(e.configDir(), "local-owner-token"))
 	if err != nil {
 		t.Fatal(err)
 	}
