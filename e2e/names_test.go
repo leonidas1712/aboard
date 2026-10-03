@@ -64,7 +64,8 @@ func TestHiddenHarnessesGiveNeutralNames(t *testing.T) {
 	)
 	expectLines(t, e.run("read", "--as", "agent-1"),
 		"writer-reviewer · 1 message",
-		"#8  @agent-2 (reviewer, owner_agent) → @agent-1",
+		"#8  @agent-2 → @agent-1",
+		"    reviewer · owner_agent",
 		"    hello",
 	)
 	// People still see which harness each agent runs.

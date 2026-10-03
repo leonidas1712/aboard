@@ -71,9 +71,11 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	// Terminal 1: read the board.
 	expectLines(t, e.run("read", "--as", "member"),
 		"general · 2 messages",
-		"#6  @member (member, self) → @member-2",
+		"#6  @member → @member-2",
+		"    member · self",
 		"    The plan is in plan.md. Can you take the tests?",
-		"#7  @member-2 (member, owner_agent) → all",
+		"#7  @member-2 → all",
+		"    member · owner_agent",
 		"    On it. I will post when they pass.",
 	)
 

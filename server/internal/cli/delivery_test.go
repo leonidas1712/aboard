@@ -47,16 +47,18 @@ func TestDeliveryTextCarriesTheAPIMessage(t *testing.T) {
 
 func TestTimelineText(t *testing.T) {
 	agent := agentMessage()
-	agent.Body, agent.Sender = "two\nlines", "self"
+	agent.Body, agent.Sender, agent.ExpectsReply = "two\nlines", "self", true
 	human := agentMessage()
 	human.Seq, human.Body, human.To, human.Sender = 7, "Approved.", nil, "owner"
 	human.From = api.MemberRef{Kind: "human", Name: "alex"}
 	other := agentMessage()
 	other.Seq, other.Body, other.Sender, other.ShowOwner = 8, "Seen.", "other_agent", true
+	other.ReplyToSeq, other.Urgent, other.ExpectsReply = ptr(6), true, true
 	other.From = api.MemberRef{Kind: "agent", Name: "codex", Owner: ptr("priya"), Role: ptr("reviewer"), Harness: ptr("codex")}
-	want := "#6  @writer (writer, self) → @reviewer\n    two\n    lines\n" +
-		"#7  @alex (owner) → all\n    Approved.\n" +
-		"#8  @codex · priya (reviewer, codex, other_agent) → @reviewer\n    Seen.\n"
+	want := "#6  @writer → @reviewer · asks for a reply\n    writer · self\n    two\n    lines\n" +
+		"#7  @alex → all\n    owner\n    Approved.\n" +
+		"#8  @codex → @reviewer · reply to #6 · urgent · asks for a reply\n" +
+		"    reviewer · codex · owner priya · other_agent\n    Seen.\n"
 	if got := timelineText([]api.Message{agent, human, other}); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}

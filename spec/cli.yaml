@@ -367,11 +367,23 @@ $defs:
       a member name with or without @. Filters and window flags are passed to the API.
 
       Text output: the header line "<board> · <n> messages" (or "<board> · no messages"
-      with a filter, "<board> · no messages yet" without one), then each message as
-      "#6  @writer (writer, self) → @reviewer" followed by its body indented four spaces.
-      In the brackets: an agent's role, its harness when known and shown, then the
-      message's `sender`; for a person only the `sender`. Once agents of more than one
-      person are on the board, an agent's owner follows its name: "@codex · priya".
+      with a filter, "<board> · no messages yet" without one), then each message in
+      three or more lines, with no blank lines between messages:
+        #6  @writer → @reviewer · asks for a reply
+            writer · self
+            Draft is in notes.md. Can you review it?
+        #7  @reviewer → all · reply to #6 · urgent
+            reviewer · codex · owner_agent
+            Reviewed. Approved.
+        #8  @alex → @reviewer
+            owner
+            Thanks.
+      The first line: the seq, the sender, its targets, then the markers that apply, in
+      this order: "reply to #<seq>" (reply_to_seq), "urgent", "asks for a reply"
+      (expects_reply). The second line, indented four spaces: an agent's role, its harness
+      when known and shown, its owner once agents of more than one person are on the
+      board ("owner priya"), then the message's `sender`; for a person only the
+      `sender`. The body follows, every line indented four spaces.
       When more matching messages exist, a last line names the command for them:
         Earlier: aboard read --before 6 --from @writer
         Later: aboard read --after 12 --from @writer
@@ -379,15 +391,18 @@ $defs:
       --markdown prints a transcript to paste into a session as context instead:
         # writer-reviewer · #6–#7
 
-        **#6 @writer** (writer, self) → @reviewer
+        **#6 @writer** (writer, self) → @reviewer · asks for a reply
 
         > Draft is in notes.md. Please review it.
 
         **#7 @reviewer** (reviewer, owner_agent) → all · reply to #6
 
         > Reviewed. Approved.
-      Each body is a Markdown blockquote, so text in a message can't pass for another
-      message's heading. --markdown and --json can't be combined (usage error).
+      Each heading carries the same markers as the text output. In the brackets: an
+      agent's role, its harness when known and shown, then the `sender`; for a person
+      only the `sender`; an agent's owner, when shown, follows its name ("@codex ·
+      priya"). Each body is a Markdown blockquote, so text in a message can't pass for
+      another message's heading. --markdown and --json can't be combined (usage error).
     type: object
     required: [board, visibility, messages, next_after, prev_before]
     properties:

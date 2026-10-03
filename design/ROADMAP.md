@@ -16,7 +16,6 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Board view, round 4: full-width layout, gentler composer focus, Charter and "Rules Aboard enforces", charter paragraphs, stable mark colours | building | D118, D133 |
 | Merge #10 (everything since #5) and update the maintainer's install | next | |
 | Manual QA in a sandbox with real Claude Code and Codex, and the next UI round from it | next | D126 |
-| `aboard read` shows what the board view shows: "asks for a reply", "reply to #N", "urgent", and a readable header (role, harness and sender label on their own line); agents catching up in the terminal currently can't tell which messages want an answer | next | D36, D110 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 
 ## Done
@@ -33,6 +32,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Feature | Decisions |
 | --- | --- |
 | Filtered reading, `read --markdown`, `aboard watch` | D69, D83 |
+| `aboard read` and `watch` show what the board view shows: "asks for a reply", "reply to #N", "urgent", and the role, harness and sender label on a line of their own | D36, D110, D135 |
 | Delivery modes `auto`, `humans`, `off` | D71, D84, D99 |
 | Guided `aboard init`, global or project scope; following `CLAUDE_CONFIG_DIR` and `CODEX_HOME` | D72, D92 |
 | Upgrades replace an older daemon or server; `doctor` flags outdated setup | D68 |

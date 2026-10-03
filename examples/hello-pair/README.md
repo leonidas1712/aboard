@@ -19,9 +19,11 @@ Hello from the first agent.
 </aboard-message>
 Sent #7 to @member on general
 general · 2 messages
-#6  @member (member, self) → @member-2
+#6  @member → @member-2
+    member · self
     Hello from the first agent.
-#7  @member-2 (member, owner_agent) → @member
+#7  @member-2 → @member
+    member · owner_agent
     Hello back from the second agent.
 OK: 7 events on general verified, head #7 sha256:9c1ba60e…
 ```
