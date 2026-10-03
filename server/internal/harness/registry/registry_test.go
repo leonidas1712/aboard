@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -94,6 +95,7 @@ func TestEveryProfileMatchesTheSchemaAndIsRegistered(t *testing.T) {
 func TestInstallPathsFollowTheConfigFolder(t *testing.T) {
 	claude, _ := Harnesses().Get("claude-code")
 	codex, _ := Harnesses().Get("codex")
+	omp, _ := Harnesses().Get("omp")
 	env := func(vars map[string]string) harness.Env {
 		return harness.Env{Dir: "/p", Getenv: func(k string) string { return vars[k] }}
 	}
@@ -128,6 +130,15 @@ func TestInstallPathsFollowTheConfigFolder(t *testing.T) {
 		{codex, map[string]string{"HOME": "/h"}, harness.ScopeProject, []string{
 			"skill /p/.agents/skills/aboard/SKILL.md", "hooks /p/.codex/hooks.json", "allow-rule /p/.codex/rules/aboard.rules", "consent ",
 		}},
+		{omp, map[string]string{"HOME": "/h"}, harness.ScopeGlobal, []string{
+			"skill /h/.omp/agent/skills/aboard/SKILL.md", "file /h/.omp/agent/extensions/aboard.ts",
+		}},
+		{omp, map[string]string{"HOME": "/h", "PI_CODING_AGENT_DIR": "/a"}, harness.ScopeGlobal, []string{
+			"skill /a/skills/aboard/SKILL.md", "file /a/extensions/aboard.ts",
+		}},
+		{omp, map[string]string{"HOME": "/h", "PI_CODING_AGENT_DIR": "/a"}, harness.ScopeProject, []string{
+			"skill /p/.omp/skills/aboard/SKILL.md", "file /p/.omp/extensions/aboard.ts",
+		}},
 	}
 	for _, tt := range tests {
 		if got := paths(tt.h, env(tt.vars), tt.scope); !slices.Equal(got, tt.want) {
@@ -138,9 +149,9 @@ func TestInstallPathsFollowTheConfigFolder(t *testing.T) {
 
 // A command finds its session from ABOARD_SESSION, then from a harness's own variable.
 // omp sets CLAUDECODE as well as OMPCODE in every command, so with OMPCODE set nothing
-// is taken for Claude Code: the command runs in a session of a harness Aboard doesn't
-// know, and its agent comes from --as or ABOARD_AGENT. A Codex started inside a Claude
-// Code session inherits its ABOARD_SESSION and is taken for Codex.
+// is taken for Claude Code: the command runs in an omp session, whose id Aboard's
+// extension puts in ABOARD_SESSION. A Codex started inside a Claude Code or omp session
+// inherits its ABOARD_SESSION and is taken for Codex.
 func TestSessionDetectionChecksTheMostSpecificMarkerFirst(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -155,9 +166,10 @@ func TestSessionDetectionChecksTheMostSpecificMarkerFirst(t *testing.T) {
 		{"codex", map[string]string{"CODEX_THREAD_ID": " 019a "}, "codex:019a", "Codex", true},
 		{"aboard's session first", map[string]string{"ABOARD_SESSION": "codex:019b", "CODEX_THREAD_ID": "019a"}, "codex:019b", "Codex", true},
 		{"codex started from a claude code session", map[string]string{"CLAUDECODE": "1", "ABOARD_SESSION": "claude-code:5f1c", "CODEX_THREAD_ID": "019a"}, "codex:019a", "Codex", true},
-		{"omp", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1"}, "", "", true},
-		{"omp started from a claude code session", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "claude-code:5f1c"}, "", "", true},
-		{"a harness aboard's own extension names", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "omp:0199"}, "omp:0199", "", true},
+		{"omp before its extension ran", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1"}, "", "omp", true},
+		{"omp started from a claude code session", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "claude-code:5f1c"}, "", "omp", true},
+		{"omp", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "omp:0199"}, "omp:0199", "omp", true},
+		{"codex started from an omp session", map[string]string{"OMPCODE": "1", "CLAUDECODE": "1", "ABOARD_SESSION": "omp:0199", "CODEX_THREAD_ID": "019a"}, "codex:019a", "Codex", true},
 		{"claude code's sandbox", map[string]string{"SANDBOX_RUNTIME": "1"}, "", "Claude Code", true},
 		{"codex's sandbox", map[string]string{"CODEX_SANDBOX": "seatbelt"}, "", "Codex", true},
 	}
@@ -205,6 +217,7 @@ func TestSubagentMarkFollowsTheSession(t *testing.T) {
 		{"codex root", map[string]string{"CODEX_THREAD_ID": "019a", "CODEX_SESSION_ID": "019a"}, ""},
 		{"codex sub-agent", map[string]string{"CODEX_THREAD_ID": "019c", "CODEX_SESSION_ID": "019a"}, "019c"},
 		{"codex before CODEX_SESSION_ID", map[string]string{"CODEX_THREAD_ID": "019c"}, ""},
+		{"omp subagent", map[string]string{"OMPCODE": "1", "ABOARD_SESSION": "omp:0199", "ABOARD_SUBAGENT": "0-Explore"}, "0-Explore"},
 	}
 	for _, tt := range tests {
 		e := harness.Env{Getenv: func(k string) string { return tt.vars[k] }}
@@ -215,15 +228,36 @@ func TestSubagentMarkFollowsTheSession(t *testing.T) {
 	}
 }
 
-// A profile that marks subagents says so, and one that says so has a way to mark them.
+// A profile that marks subagents says so, and one that says so has a way to mark them:
+// identity.root_env, a hook of op mark-subagent, or Aboard's extension, which marks them.
 func TestSubagentIdentityMatchesTheHooks(t *testing.T) {
 	for _, h := range Harnesses() {
 		p := h.Profile()
-		marks := p.Identity.RootEnv != "" ||
+		marks := p.Identity.RootEnv != "" || p.Identity.Kind == "extension" ||
 			slices.ContainsFunc(p.Delivery.Hooks, func(s harness.HookSpec) bool { return s.Op == harness.OpMarkSubagent })
 		declared := p.SubagentIdentity == "marked" || p.SubagentIdentity == "seats"
 		if marks != declared {
 			t.Errorf("%s: subagent_identity %q, but a mark-subagent hook is %v", p.Harness, p.SubagentIdentity, marks)
 		}
+	}
+}
+
+// The file aboard init installs inside a harness names this machine's aboard binary and
+// ABOARD_HOME, quoted so the file still reads as code, and leaves no placeholder.
+func TestInstalledFilesNameThisAboard(t *testing.T) {
+	omp, _ := Harnesses().Get("omp")
+	e := harness.Env{
+		Dir: "/p", Getenv: func(k string) string { return map[string]string{"HOME": "/h"}[k] },
+		Aboard: `/opt/my "tools"/aboard`, AboardHome: "/h/aboard",
+	}
+	it, _ := harness.Find(omp.Items(e, harness.ScopeGlobal), harness.ItemFile)
+	data := string(it.Data)
+	for _, want := range []string{`const INSTALLED_ABOARD = "/opt/my \"tools\"/aboard";`, `const INSTALLED_HOME = "/h/aboard";`} {
+		if !strings.Contains(data, want) {
+			t.Errorf("the installed extension lacks %s", want)
+		}
+	}
+	if strings.Contains(data, "{aboard_") {
+		t.Error("the installed extension still has a placeholder")
 	}
 }

@@ -29,7 +29,7 @@ func sandboxCmd(home string, extra []string, args ...string) *exec.Cmd {
 		"HOME=" + home,
 		"USER=alex",
 		"SHELL=/bin/sh",
-		"PATH=" + fakeBin + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"PATH=" + fakeBin + string(os.PathListSeparator) + systemPath,
 		"SANDBOX_ABOARD=" + binary,
 	}, extra...)
 	return cmd

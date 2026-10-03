@@ -69,6 +69,65 @@ func (a *app) checkSkill(h harness.Harness) []doctorCheck {
 	return []doctorCheck{okCheck(name, harnessName+": skill installed in "+strings.Join(installed, " and "))}
 }
 
+// checkExtension reports the file Aboard installs inside a harness that has no hooks,
+// such as omp's extension: not installed in any scope, or, in a scope that has it,
+// different from the one this aboard installs. Without it the harness's sessions have no
+// identity and get no messages.
+func (a *app) checkExtension(h harness.Harness) []doctorCheck {
+	p := h.Profile()
+	if _, ok := a.item(h, scopeGlobal, harness.ItemFile); !ok {
+		return nil
+	}
+	name := p.CheckName + "_extension"
+	var installed []string
+	for _, scope := range a.scopes() {
+		s := a.ownedFileState(h, scope)
+		switch s.State {
+		case stateMissing:
+			continue
+		case stateCurrent:
+			installed = append(installed, scopeText(scope)+" ("+s.Path+")")
+			continue
+		case stateEdited:
+			return []doctorCheck{problem(name, levelWarning, "extension_edited",
+				p.Harness+": the extension in "+s.Path+" was edited after aboard "+s.WrittenBy+" wrote it",
+				initFix(scope)+" to replace it with the one aboard "+version+" installs, which discards your edits; or keep it as it is")}
+		}
+		if s.WrittenBy != "" {
+			return []doctorCheck{problem(name, levelWarning, "extension_outdated",
+				p.Harness+": the extension in "+s.Path+" was written by aboard "+s.WrittenBy+" and differs from the one aboard "+version+" installs",
+				initFix(scope))}
+		}
+		return []doctorCheck{problem(name, levelWarning, "extension_outdated",
+			p.Harness+": the extension in "+s.Path+" differs from the one aboard "+version+" installs",
+			initFix(scope))}
+	}
+	if len(installed) == 0 {
+		return []doctorCheck{problem(name, levelError, p.CheckName+"_extension_missing",
+			p.Harness+": Aboard's extension isn't installed, so its sessions have no agent and get no messages", "run aboard init")}
+	}
+	return []doctorCheck{okCheck(name, p.Harness+": extension installed "+strings.Join(installed, " and "))}
+}
+
+// ownedFileState compares the file Aboard installs inside a harness, in a scope, with
+// the one this aboard installs.
+func (a *app) ownedFileState(h harness.Harness, scope string) fileState {
+	it, _ := a.item(h, scope, harness.ItemFile)
+	s := fileState{Path: it.Path, State: stateMissing}
+	if it.Path == "" {
+		return s
+	}
+	data, err := os.ReadFile(filepath.Clean(it.Path))
+	switch {
+	case err != nil:
+		return s
+	case bytes.Equal(data, it.Data):
+		s.State = stateCurrent
+		return s
+	}
+	return a.origin(s, "file", h.Profile().Harness, data)
+}
+
 // checkHooksCurrent reports Aboard hook entries, in each of the scopes given, that
 // differ from what aboard init would write now, or returns ok.
 func (a *app) checkHooksCurrent(name string, h harness.Harness, scopes []string, specs []harness.Hook, ok doctorCheck) doctorCheck {

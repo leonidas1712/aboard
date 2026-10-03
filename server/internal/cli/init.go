@@ -241,7 +241,7 @@ func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup,
 		}
 		specs := a.withHome(h.Hooks(exe, h.Version(ctx, a.henv())))
 		hooksAt := -1
-		for _, it := range h.Items(a.henv(), c.scope) {
+		for _, it := range h.Items(a.installEnv(), c.scope) {
 			switch {
 			case it.Kind == harness.ItemHooks:
 				hk, err := hooksChange(it.Path, s.Name, specs)
@@ -557,7 +557,7 @@ func (a *app) initEnding(c initChoices, setups []harnessSetup, pending int, appl
 		if !ok {
 			continue
 		}
-		consent, asks := harness.Find(h.Items(a.henv(), c.scope), harness.ItemConsent)
+		consent, asks := harness.Find(h.Items(a.installEnv(), c.scope), harness.ItemConsent)
 		changed := slices.ContainsFunc(s.Changes, func(ch fileChange) bool { return ch.Kind == "hooks" && ch.Action != actionUnchanged })
 		if asks && changed {
 			trust, titles = append(trust, consent), append(titles, h.Profile().Name)

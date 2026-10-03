@@ -27,7 +27,7 @@ func (a *app) refuseInSubagent(command string, args []string) error {
 		}
 	}
 	return newError("subagent_without_seat",
-		"aboard "+command+" changes the board or the agent's state, and this command runs in a subagent of a "+harnessName+
+		"aboard "+command+" changes the board or the agent's state, and this command runs in a subagent of "+withArticle(harnessName)+
 			" session. A subagent has no seat of its own on Aboard, so it would act as its parent agent.",
 		"A subagent can read: aboard read, aboard status or aboard inbox --peek. Report back to the main conversation, "+
 			"and let it post or acknowledge messages.")

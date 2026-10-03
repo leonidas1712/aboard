@@ -68,7 +68,7 @@ what it declares.
 | --- | --- | --- |
 | `env` | A variable the harness sets in every command the agent runs | Codex (`CODEX_THREAD_ID`) |
 | `hook` | Only the hooks see the id; the session-start hook writes `ABOARD_SESSION=<harness>:<id>` and `ABOARD_BOOT` to the session's environment file, which the harness loads into every command | Claude Code (`CLAUDE_ENV_FILE`) |
-| `extension` | Aboard's extension inside the harness sets `ABOARD_SESSION` itself | None yet |
+| `extension` | Aboard's extension inside the harness sets `ABOARD_SESSION` itself | omp |
 
 A command also needs to know it runs inside some session, so it refuses people's
 commands there. Each profile lists its markers (`session_env`). Some harnesses set
@@ -94,7 +94,8 @@ and the CLI lets them only read (`read`, `status`, `inbox --peek`, `doctor`, `au
 is marked through its `PreToolUse` hook (below). Codex marks them itself: a sub-agent's
 commands carry its own thread id in `CODEX_THREAD_ID` and the root's in
 `CODEX_SESSION_ID` (`identity.root_env`), and a command whose two ids differ is a
-sub-agent's. `seats`: marked, and a subagent can have a seat of its own (not built yet).
+sub-agent's. omp's extension marks a subagent's bash commands that run `aboard` itself
+(below). `seats`: marked, and a subagent can have a seat of its own (not built yet).
 
 Every hook whose input has `agent_id` fired inside a subagent and takes nothing and
 changes nothing, except Claude Code's pre-tool hook, which marks commands. Codex gives
@@ -109,18 +110,19 @@ tool boundary or turn end.
 | `queue` | A command puts the bundle in the session's own queue, which starts it when the turn ends | Codex (`codex queue`) |
 | `tool-boundary` | A hook adds the owner's messages to a running turn after a tool call | Claude Code, Codex |
 | `turn-start` | A hook adds the owner's messages as a turn starts | None yet |
-| `extension` | Aboard's extension inside the harness holds a connection to the daemon (below) | None yet |
+| `extension` | Aboard's extension inside the harness holds a connection to the daemon (below) | omp |
 | `none` | The skill has the agent run `aboard inbox --wait` | Every other harness |
 
 **The extension connection.** Specified in [control.md](control.md#the-extension-connection);
-not built yet. Aboard's extension inside the harness opens a long-lived connection to the
-control socket, registers its session and the harness process it runs in (`hello`),
-receives bundles over that connection while the session is idle, adds them to the
-session (waking it) and confirms each one (`received`), and reports when turns start and
-end. The open connection is also the session's liveness: when it closes, the session is
-closed, as when the process table shows a harness gone. The same capability later covers
-a harness the daemon pushes to over its own endpoint, such as a gateway that holds
-sessions with no terminal.
+omp's extension is the first to use it. Aboard's extension inside the harness opens a
+long-lived connection to the control socket, registers its session and the harness
+process it runs in (`hello`), receives bundles over that connection while the session is
+idle, adds them to the session (waking it) and confirms each one (`received`), and
+reports when turns start and end. The open connection is also the session's liveness:
+when it closes, the session is closed, as when the process table shows a harness gone.
+The daemon serves it for any harness whose delivery adapter has the `extension`
+capability; the same capability later covers a harness the daemon pushes to over its own
+endpoint, such as a gateway that holds sessions with no terminal.
 
 **Lifecycle** (`lifecycle`): how the daemon knows a session is alive (`process`, or an
 open extension `connection`); whether sessions run in a long-running harness process
@@ -356,6 +358,41 @@ next tool call; other messages still go to the queue. The owner's messages no to
 took go into the queue when the turn ends. Without the prompt and stop hooks (hooks not
 trusted in Codex), the daemon never sees a turn, and the owner's messages go into the
 queue like any other, arriving when the turn ends.
+
+### omp
+
+omp has no shell hooks. Aboard's extension (`adapters/omp/aboard.ts`), which omp loads
+from its extensions folder as it starts, does what the hooks do for the other harnesses,
+over the extension connection.
+
+| omp event | The extension | The daemon learns |
+| --- | --- | --- |
+| `session_start`, `session_switch`, `session_branch` (main agent) | Sets `ABOARD_SESSION=omp:<id>` for the session's commands; says `goodbye` for a session it leaves and `hello` for the new one, `source` `resume` when the session already has messages | The session, its boot id and omp's process |
+| `agent_start` | Sends `prompt` | The session is busy |
+| `agent_end`, unless omp continues by itself | Sends `turn_end` | The session is idle |
+| `turn_end` that ran tools | Sends `boundary` on a connection of its own and adds the answer with `sendMessage(…, {deliverAs: "aside"})` | The session is busy and between steps |
+| `tool_call` in a subagent, for `bash` | Prefixes a command that runs `aboard` with `export ABOARD_SUBAGENT=<agent id>; ` | Nothing: the daemon isn't asked |
+| `session_shutdown` | Sends `goodbye` | The session closed |
+
+**Idle.** After `welcome`, and after each `turn_end`, the connection is the session's
+waiter, as a Claude Code stop hook is.
+
+**Delivery.** The daemon sends `deliver` with the bundle and its delivery id. The
+extension adds the bundle with `sendMessage(…, {triggerTurn: true})`, which starts a turn,
+and answers `received` with the id. A bundle that arrives just as a turn starts goes in
+with `deliverAs: "aside"` when it holds the owner's message, `"followUp"` otherwise.
+
+**Confirmation.** `received` confirms the bundle, as a queue taking it does. A bundle
+sent and not confirmed when the connection drops goes again, with the same id, when the
+extension reconnects; the extension skips ids it already added.
+
+**During a turn.** After each omp turn (a model response and its tool calls) that ran
+tools, the extension asks for the owner's messages and the waiting notice, and adds them
+as an aside, which omp injects at the next step boundary without interrupting the tool
+batch. Peers' messages wait for `turn_end`.
+
+**Subagents.** omp binds the extension again for each subagent, which sees
+`ctx.agent.kind` `"sub"`: it never connects, and marks the subagent's `aboard` commands.
 
 ### Delivery modes
 
@@ -672,13 +709,20 @@ settings file that holds the hooks, and writes `rules/aboard.rules` with
 `prefix_rule(pattern=["aboard"], decision="allow")` in `$CODEX_HOME` or the project's
 `.codex/`. Codex runs a command its rules allow outside its sandbox.
 
-`aboard status` shows where the hooks are installed on its Setup line, and `aboard doctor`
-accepts hooks in either scope and names the file.
+For omp, `aboard init` writes Aboard's extension and the skill into omp's agent folder
+(`$PI_CODING_AGENT_DIR`, default `~/.omp/agent`) as `extensions/aboard.ts` and
+`skills/aboard/SKILL.md`, or, with `--scope project`, into the project's
+`.omp/extensions/` and `.omp/skills/aboard/`. The extension is the file built into the
+binary with two strings filled in: this aboard's absolute path and, when it runs with
+one, its `ABOARD_HOME`. omp asks no trust question; it loads extensions as it starts.
+
+`aboard status` shows where the hooks, or omp's extension, are installed on its Setup
+line, and `aboard doctor` accepts them in either scope and names the file.
 
 An installed file is out of date when it differs from what this `aboard init` would write
-now: the skill compared byte for byte, and each Aboard hook entry compared with the entry
-`aboard init` would write (the absolute path of this aboard, then `hook <harness>
-<event>`, with its options). Installed files carry no version mark. Hook commands run the
+now: the skill and omp's extension compared byte for byte, and each Aboard hook entry
+compared with the entry `aboard init` would write (the absolute path of this aboard,
+then `hook <harness> <event>`, with its options). Installed files carry no version mark. Hook commands run the
 installed binary by its path, so after an upgrade at the same path they already run the
 new one, and the entries stay byte for byte the same; the harnesses ask the person to
 trust hooks only when an entry changes, so an upgrade that doesn't change the hooks never
@@ -778,6 +822,11 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `codex_hooks_missing` | Codex is installed but the hooks aren't (warning) | `aboard init` |
 | `codex_not_installed` | No `codex` on the PATH | Install Codex or ignore |
 | `codex_queue_missing` | This Codex has no `queue` command | Update Codex |
+| `omp_not_installed` | omp isn't installed (warning) | Install it, or ignore |
+| `omp_outdated` | omp is older than 18.5.1, whose commands don't carry the session the extension sets (warning) | `omp update` |
+| `omp_extension_missing` | omp is installed but Aboard's extension isn't | `aboard init`, then restart omp |
+| `extension_outdated` | Aboard's extension differs from the one this aboard installs and is unchanged since an aboard wrote it, or has no record in the install manifest (warning) | `aboard init --yes`, with `--scope project` for a project's extension |
+| `extension_edited` | Aboard's extension was edited after an aboard wrote it (warning) | `aboard init --yes` replaces it, which discards the edits |
 | `codex_target_absent` | The bound thread no longer exists | Reopen it or rejoin |
 | `codex_subagent_target` | The session is a sub-agent thread | Join from the root conversation |
 | `server_unreachable` | A server with bound agents doesn't answer | Check the server or the network |

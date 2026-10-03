@@ -10,6 +10,7 @@ claude-code, everywhere:
             PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
 codex: not chosen
+omp: not found on this machine
 Run aboard init --yes --harness claude-code to make these changes.
 ==== aboard init --yes --harness claude-code --json ====
 {
@@ -38,6 +39,11 @@ Run aboard init --yes --harness claude-code to make these changes.
       "name": "codex",
       "detected": true,
       "changes": []
+    },
+    {
+      "name": "omp",
+      "detected": false,
+      "changes": []
     }
   ]
 }
@@ -46,6 +52,7 @@ claude-code, everywhere:
   unchanged ~/.claude/skills/aboard/SKILL.md (skill)
   unchanged ~/.claude/settings.json (hooks)
 codex: not chosen
+omp: not found on this machine
 Nothing to change.
 ==== file .claude/settings.json ====
 {
@@ -194,6 +201,13 @@ Setup:  claude-code everywhere
     "level": "warning",
     "message": "codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
     "name": "codex_allow"
+  },
+  {
+    "code": "omp_not_installed",
+    "fix": "install omp, or ignore this if you don't use it",
+    "level": "warning",
+    "message": "omp: not installed",
+    "name": "omp"
   },
   {
     "code": null,

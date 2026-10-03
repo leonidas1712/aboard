@@ -230,7 +230,7 @@
           }
         },
         "mid_turn": {
-          "description": "tool-hook: a message from the agent's owner reaches a busy session at its next tool boundary, through a tool hook that adds context. idle: it waits for the end of the turn like any other message.",
+          "description": "tool-hook: a message from the agent's owner reaches a busy session at its next tool boundary, through a tool hook, or Aboard's extension inside the harness, that adds context. idle: it waits for the end of the turn like any other message.",
           "enum": ["tool-hook", "idle"]
         },
         "waiting_notice": {
@@ -275,7 +275,7 @@
           "description": "For hooks, the shared file's format. json: {\"hooks\": {<event>: [{\"hooks\": [<entry>]}]}}, the other keys kept as they are.",
           "enum": ["json"]
         },
-        "source": { "type": "string", "description": "For file, the name of the file built into aboard." },
+        "source": { "type": "string", "description": "For file, the name of the file built into aboard, under adapters/. aboard init writes this machine's aboard binary where the file says {aboard_binary} and the ABOARD_HOME it runs with where it says {aboard_home}, each as the inside of a JSON string." },
         "rule": { "type": "string", "description": "For allow-rule, the rule exactly as written. Without global and project paths, it goes in permissions.allow of the hooks file. With them, it goes in a file Aboard owns that holds only it, and counts as allowed in any file with the same extension in that folder, since the harness reads them all." },
         "accepts": {
           "description": "For allow-rule, other forms of the rule that already allow aboard.",

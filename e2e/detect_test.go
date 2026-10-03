@@ -9,10 +9,11 @@ import (
 )
 
 // omp sets OMPCODE=1 and CLAUDECODE=1 in every command it runs, and a session started
-// from a Claude Code session also inherits that session's ABOARD_SESSION. Aboard doesn't
-// know omp yet, so a command inside it is not taken for Claude Code: it doesn't act as
-// the Claude Code session's agent, it refuses people's commands without naming Claude
-// Code, and its agent comes from --as or ABOARD_AGENT.
+// from a Claude Code session also inherits that session's ABOARD_SESSION until Aboard's
+// extension in omp sets its own. A command inside omp is never taken for Claude Code: it
+// doesn't act as the Claude Code session's agent, it refuses people's commands as an omp
+// session's, and without the extension's session its agent comes from --as or
+// ABOARD_AGENT.
 func TestCommandsInsideOmpAreNotTakenForClaudeCode(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -34,7 +35,7 @@ func TestCommandsInsideOmpAreNotTakenForClaudeCode(t *testing.T) {
 	r = e.exec(omp, "", "delivery", "off", "--as", "claude", "--json")
 	msg, _ := field(t, r.json(t), "error.message").(string)
 	if r.code == 0 || field(t, r.json(t), "error.code") != "human_command_in_session" ||
-		strings.Contains(msg, "Claude Code") || !strings.Contains(msg, "inside a harness session") {
+		strings.Contains(msg, "Claude Code") || !strings.Contains(msg, "inside an omp session") {
 		t.Fatalf("aboard delivery off inside omp:\n%s", r)
 	}
 	if r := e.exec(omp, "", "say", "--as", "claude", "hello from omp", "--json"); r.code != 0 {

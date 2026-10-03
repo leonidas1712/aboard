@@ -198,6 +198,10 @@ func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck
 		return checks
 	}
 	p := h.Profile()
+	if len(p.Delivery.Hooks) == 0 {
+		// Reached through a file Aboard installs inside it, such as an extension.
+		return append(append(checks, a.checkExtension(h)...), a.checkAllow(h, nil)...)
+	}
 	name := p.CheckName + "_hooks"
 	newest := h.Hooks("aboard", "")
 	scopes, files, err := a.installedScopes(h, newest)

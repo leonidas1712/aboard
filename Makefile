@@ -17,10 +17,10 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance live harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
-## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, vulnerabilities
-check: fmt-check lint vet generate-check core-size harness-table-check test e2e vuln
+## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, extension tests, vulnerabilities
+check: fmt-check lint vet generate-check core-size harness-table-check test e2e extension-test vuln
 	@echo "make check: OK"
 
 ## fmt: rewrite Go files with gofumpt and goimports
@@ -80,13 +80,34 @@ e2e:
 	go test -race -tags e2e -count=1 ./e2e/...
 
 ## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
-# The kit's two halves also run in make test and make e2e, so make check runs them.
+# The kit's two halves also run in make test and make e2e, so make check runs them. A
+# harness with code that runs inside it (adapters/<harness>/*.test.ts) has its tests run
+# too, with Bun.
 conformance:
 	@$(REQUIRE_GO); \
 	HARNESS='$(HARNESS)' go test -race -count=1 -run '^TestHarnessConformance$$' ./server/internal/harness/registry/; \
 	status=0; out="$$(HARNESS='$(HARNESS)' go test -race -tags e2e -count=1 -run '^TestHarnessConformance$$' -v ./e2e/ 2>&1)" || status=$$?; \
 	echo "$$out" | grep -v -E '^ *(=== |--- PASS)' || true; \
-	exit $$status
+	if [ $$status -ne 0 ]; then exit $$status; fi; \
+	$(MAKE) --no-print-directory extension-test HARNESS='$(HARNESS)'
+
+# Extensions are TypeScript that the harness's own Bun runs (omp's), so their tests need
+# Bun; there is no build step.
+BUN ?= $(shell command -v bun 2>/dev/null || ([ -x "$$HOME/.bun/bin/bun" ] && echo "$$HOME/.bun/bin/bun"))
+
+## extension-test: test the code Aboard installs inside harnesses (adapters/*/*.test.ts) with Bun
+extension-test:
+	@dirs=""; for f in adapters/*/*.test.ts; do \
+		h="$$(basename "$$(dirname "$$f")")"; \
+		if [ -z "$(HARNESS)" ] || echo ",$(HARNESS)," | grep -q ",$$h,"; then dirs="$$dirs adapters/$$h"; fi; \
+	done; \
+	if [ -z "$$dirs" ]; then exit 0; fi; \
+	if [ -z "$(BUN)" ]; then \
+		echo "extension-test: Bun is needed to test the extensions in$$dirs, and isn't installed."; \
+		echo "Install it with: curl -fsSL https://bun.sh/install | bash   (or brew install oven-sh/bun/bun)"; \
+		exit 1; \
+	fi; \
+	$(BUN) test $$dirs
 
 ## live: drive real harnesses in tmux (spends model turns; HARNESS=<name> for one harness, RUN=TestName for one test)
 # Not part of make check. Needs tmux and logged-in harnesses; a missing one is skipped.

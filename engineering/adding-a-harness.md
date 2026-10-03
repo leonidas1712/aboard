@@ -187,21 +187,32 @@ func New() *Harness { return &Harness{harness.MustLoad("codex")} }
 func (h *Harness) InstalledChecks(ctx context.Context, e harness.Env) ([]harness.CheckResult, bool) { … }
 ```
 
-What the two packages override today, as examples: Claude Code marks a prompt that
+What the packages override today, as examples: Claude Code marks a prompt that
 carries Aboard's messages as the wake coming back (`HookCall`). Codex checks its version
 and queue command in doctor (`InstalledChecks`), delivers with its own adapter
 (`Adapter`: `codex queue`, and `codex app-server` to check a thread), and words the
-fixes for its delivery reasons (`Fix`). A delivery mechanism no adapter covers is a new
-adapter behind `delivery.Adapter`, which passes `deliverytest.RunAdapter`.
+fixes for its delivery reasons (`Fix`). omp checks in doctor that it is new enough for
+Aboard's extension (`InstalledChecks`); everything else of omp's is the profile, the
+shared extension adapter and the extension itself. A delivery mechanism no adapter
+covers is a new adapter behind `delivery.Adapter`, which passes
+`deliverytest.RunAdapter`.
 
 ## 3. Harness-side code
 
 Code that runs inside the harness, such as an extension or plugin, lives in
-`adapters/<harness>/`, is built into the binary, and is installed by an install item of
-kind `file`. An extension that delivers holds the extension connection to the delivery
-daemon, specified in [spec/control.md](../spec/control.md#the-extension-connection):
-`hello` with its session, bundles it confirms with `received`, `prompt` and
-`turn_end` for presence, and `goodbye`.
+`adapters/<harness>/`, is built into the binary (add it to `Files` in
+`adapters/embed.go`), and is installed by an install item of kind `file`, with its
+`source`. `aboard init` writes this machine's `aboard` and `ABOARD_HOME` where the file
+says `{aboard_binary}` and `{aboard_home}`, and doctor reports the file missing,
+installed, edited or outdated, as it does hooks. An extension that delivers holds the
+extension connection to the delivery daemon, specified in
+[spec/control.md](../spec/control.md#the-extension-connection): `hello` with its
+session, bundles it confirms with `received`, `prompt` and `turn_end` for presence, and
+`goodbye`; the daemon serves it for any harness whose profile declares the capability
+`extension`. [adapters/omp/aboard.ts](../adapters/omp/aboard.ts) is the example. Its
+tests run against a stand-in for the harness's API and a fake daemon
+(`adapters/<harness>/*.test.ts`, run by `make extension-test` with Bun, and by
+`make conformance` for that harness).
 
 ## 4. Pass the kits
 
@@ -215,19 +226,20 @@ It runs two halves, both driven by the profile, so nothing in them names a harne
 
 - `server/internal/harness/registry/conformance_test.go`, in process: the profile
   matches the schema; every capability, identity kind, liveness, install item and
-  subagent level it declares has code behind it (declaring `turn-start`, `extension` or
-  `seats` today fails, naming what is missing); its delivery adapter passes the
+  subagent level it declares has code behind it (declaring `turn-start` or `seats`
+  today fails, naming what is missing); its delivery adapter passes the
   delivery port's contract (`deliverytest.RunAdapter`); its markers find its sessions,
   a harness started inside one of its sessions is taken for itself, and two harnesses
   that set the same marker are told apart.
 - `e2e/conformance_test.go`, through the real binary: the docs page; `aboard init` in
   each scope installs exactly the profile's items, keeps the person's own hooks,
   changes nothing the second time, and `aboard uninstall` leaves every file byte for
-  byte as before; doctor reports the hooks missing, installed, edited and outdated; a
-  command finds its session from where the profile says; what each hook does, and that
-  a hook fired inside a subagent changes nothing; a marked subagent may read but not
-  act as its parent; and delivery when idle, at a turn's end, the owner's messages at a
-  tool boundary, the waiting notice, a killed session, and a resumed session.
+  byte as before; doctor reports the hooks, or the extension, missing, installed,
+  edited and outdated; a command finds its session from where the profile says; what
+  each hook does, and that a hook fired inside a subagent changes nothing; a marked
+  subagent may read but not act as its parent; and delivery when idle, at a turn's
+  end, the owner's messages at a tool boundary, the waiting notice, a killed session
+  (or a dropped extension connection), and a resumed session.
 
 It ends with a line per harness of what it measured. The per-harness code it may need:
 
@@ -236,6 +248,9 @@ It ends with a line per harness of what it measured. The per-harness code it may
   harness's command in `e2e/` (as `e2e/fakecodex` is Codex's).
 - Delivery that doesn't go through Aboard's own hooks needs a fake in `kitFakes` in
   `e2e/conformance_test.go`, saying what the harness received.
+- An extension needs nothing more: the kit plays it with a client of the extension
+  connection (`e2e/extension_test.go`), and the extension's own tests prove what it does
+  inside the harness.
 - An identity kind the kit has no driver for fails in `kitStart`, saying so.
 
 Then add the harness's cases to the golden test (`e2e/golden_test.go`), which pins every

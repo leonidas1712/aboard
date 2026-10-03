@@ -72,6 +72,8 @@ type Item struct {
 	Project string `yaml:"project"`
 	Format  string `yaml:"format"`
 	Rule    string `yaml:"rule"`
+	// Source is, for a file Aboard installs inside the harness, its name in aboard.
+	Source string `yaml:"source"`
 	// Required is set for an allow rule the harness can't reach Aboard without.
 	Required map[string]string `yaml:"required"`
 	Missing  *struct {
@@ -155,6 +157,12 @@ func (p Profile) Item(kind string) (Item, bool) {
 // WaitsForIdle reports whether bundles go only to a hook that waits while the session is
 // idle, so a handed bundle is confirmed later, by the session's next event.
 func (p Profile) WaitsForIdle() bool { return p.Has("idle-hook") }
+
+// HoldsWhileBusy reports whether Aboard holds a busy session's messages until its turn
+// ends and hands them over together, rather than the harness's own queue taking each as
+// it comes: through a hook that waits while the session is idle, or the connection of
+// Aboard's extension inside the harness.
+func (p Profile) HoldsWhileBusy() bool { return p.Has("idle-hook") || p.Has("extension") }
 
 // Delivers reports whether the harness has automatic delivery of any kind.
 func (p Profile) Delivers() bool {

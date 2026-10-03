@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/leonidas1712/aboard/adapters"
 	skill "github.com/leonidas1712/aboard/skills/aboard"
 )
 
@@ -28,6 +29,9 @@ type goldenCase struct {
 	seed map[string]string
 	// before are init runs made first, with --yes added.
 	before [][]string
+	// dirs are folders the person already had, by path under the home directory, such as
+	// omp's agent folder, which makes omp count as installed.
+	dirs []string
 }
 
 // personSettings and personHooks are a person's own Claude Code settings and Codex
@@ -104,6 +108,13 @@ func TestInitWritesExactlyTheGoldenFiles(t *testing.T) {
 			vars: []string{"CLAUDE_CONFIG_DIR={HOME}/claude-config", "CODEX_HOME={HOME}/codex-home"},
 		},
 		{name: "both-project-after-global", args: []string{"--scope", "project"}, before: [][]string{{}}},
+		{name: "omp-global", args: []string{"--harness", "omp"}, dirs: []string{".omp/agent"}},
+		{name: "omp-project", args: []string{"--harness", "omp", "--scope", "project"}, dirs: []string{".omp/agent"}},
+		{
+			name: "omp-agent-dir", args: []string{"--harness", "omp"},
+			vars: []string{"PI_CODING_AGENT_DIR={HOME}/omp-agent"}, dirs: []string{"omp-agent"},
+		},
+		{name: "all-global-allow", args: []string{"--allow-commands"}, dirs: []string{".omp/agent"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -112,6 +123,11 @@ func TestInitWritesExactlyTheGoldenFiles(t *testing.T) {
 			e.harnessHome()
 			for _, v := range c.vars {
 				e.vars = append(e.vars, strings.ReplaceAll(v, "{HOME}", e.home))
+			}
+			for _, d := range c.dirs {
+				if err := os.MkdirAll(filepath.Join(e.home, filepath.FromSlash(d)), 0o755); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for rel, content := range c.seed {
 				p := filepath.Join(e.home, filepath.FromSlash(rel))
@@ -145,6 +161,7 @@ func TestInitWritesExactlyTheGoldenFiles(t *testing.T) {
 				if content == string(skill.Skill) {
 					content = "(the Aboard skill this aboard installs, byte for byte)\n"
 				}
+				content = goldenInstalledFile(t, content)
 				section("file "+rel, content)
 			}
 			if m, err := os.ReadFile(e.manifestPath()); err == nil {
@@ -160,7 +177,7 @@ func TestInitWritesExactlyTheGoldenFiles(t *testing.T) {
 			}
 			var checks []any
 			for _, ch := range field(t, e.runExit("doctor", "--json").json(t), "checks").([]any) {
-				if name := ch.(map[string]any)["name"].(string); strings.HasPrefix(name, "claude") || strings.HasPrefix(name, "codex") {
+				if name := ch.(map[string]any)["name"].(string); strings.HasPrefix(name, "claude") || strings.HasPrefix(name, "codex") || strings.HasPrefix(name, "omp") {
 					checks = append(checks, ch)
 				}
 			}
@@ -199,6 +216,29 @@ func TestInitWritesExactlyTheGoldenFiles(t *testing.T) {
 			}
 		})
 	}
+}
+
+// goldenInstalledFile shortens a file aboard init installs inside a harness (omp's
+// extension) to the lines it fills in, when the rest is byte for byte the file built
+// into aboard; anything else is returned whole.
+func goldenInstalledFile(t *testing.T, content string) string {
+	t.Helper()
+	src, err := adapters.Files.ReadFile("omp/aboard.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filled := regexp.MustCompile(`(?m)^const INSTALLED_(ABOARD|HOME) = .*$`)
+	lines := filled.FindAllString(content, -1)
+	restored := filled.ReplaceAllStringFunc(content, func(line string) string {
+		if strings.HasPrefix(line, "const INSTALLED_ABOARD") {
+			return `const INSTALLED_ABOARD = "{aboard_binary}";`
+		}
+		return `const INSTALLED_HOME = "{aboard_home}";`
+	})
+	if len(lines) != 2 || restored != string(src) {
+		return content
+	}
+	return "(adapters/omp/aboard.ts as built into aboard, byte for byte, with these lines filled in)\n" + strings.Join(lines, "\n") + "\n"
 }
 
 // goldenFiles reads every file a harness setup can touch: under the home directory,

@@ -94,8 +94,9 @@ server/internal/cli              driving adapter: talks only to the API client
 server/internal/delivery         context: daemon, journal port, adapter port, sessions
 server/internal/delivery/idlehook adapter: a hook that waits while the session is idle (Claude Code)
 server/internal/delivery/codex   adapter: Codex's queue and app server
+server/internal/delivery/extension adapter: an extension inside the harness holds a connection to the daemon (omp)
 server/internal/harness          what Aboard knows about each harness: profile, generic implementation, Harness interface
-server/internal/harness/claudecode, harness/codex   each harness's quirks, over the generic implementation
+server/internal/harness/claudecode, harness/codex, harness/omp   each harness's quirks, over the generic implementation
 server/internal/harness/registry the one list of harnesses; the CLI and the daemon loop over it
 ```
 

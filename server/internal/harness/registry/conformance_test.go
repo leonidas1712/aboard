@@ -211,15 +211,20 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 			t.Errorf("identity kind hook needs identity.env_file and a hook of op session-start that writes it")
 		}
 	case "extension":
-		t.Errorf("identity kind extension: no code in this aboard serves the extension connection (spec/control.md)")
+		if !p.HasCapability("extension") {
+			t.Errorf("identity kind extension needs the delivery capability extension: the extension's hello registers the session")
+		}
+		if _, ok := harness.Find(items, harness.ItemFile); !ok {
+			t.Errorf("identity kind extension needs an install item of kind file: the extension aboard init installs")
+		}
 	default:
 		t.Errorf("identity.kind %q: say where a session's id comes from (env, hook or extension)", p.Identity.Kind)
 	}
 	if len(p.SessionEnv) == 0 {
 		t.Errorf("session_env lists no markers, so commands in a session would be taken for a person's")
 	}
-	if p.Lifecycle.Liveness == "connection" {
-		t.Errorf("lifecycle.liveness connection: no code in this aboard keeps a session alive by its connection")
+	if p.Lifecycle.Liveness == "connection" && !p.HasCapability("extension") {
+		t.Errorf("lifecycle.liveness connection needs the delivery capability extension, whose connection keeps the session alive")
 	}
 
 	// Delivery: the method and each capability.
@@ -255,7 +260,12 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 		case "turn-start":
 			t.Errorf("capability turn-start: no code in this aboard adds messages as a turn starts")
 		case "extension":
-			t.Errorf("capability extension: no code in this aboard serves the extension connection (spec/control.md)")
+			if ad == nil || !ad.WaitsForIdle() {
+				t.Errorf("capability extension: the harness's delivery adapter must hand bundles to the extension's connection while the session is idle")
+			}
+			if p.Identity.Kind != "extension" {
+				t.Errorf("capability extension: identity.kind is %q, want extension: the connection is opened for the session the extension names", p.Identity.Kind)
+			}
 		case "none":
 			if ad != nil {
 				t.Errorf("capability none, but the harness has a delivery adapter")
@@ -265,8 +275,8 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 	if p.Delivery.MidTurn == "tool-hook" && !slices.Contains(caps, "tool-boundary") && !slices.Contains(caps, "extension") {
 		t.Errorf("delivery.mid_turn tool-hook needs the capability tool-boundary")
 	}
-	if p.Delivery.WaitingNotice && !slices.Contains(caps, "tool-boundary") {
-		t.Errorf("delivery.waiting_notice needs the capability tool-boundary, where the notice is added")
+	if p.Delivery.WaitingNotice && !slices.Contains(caps, "tool-boundary") && !slices.Contains(caps, "extension") {
+		t.Errorf("delivery.waiting_notice needs the capability tool-boundary or extension, where the notice is added")
 	}
 	if p.Delivery.Method == "stop-hook" || p.Delivery.Method == "queue" {
 		if !hasOp(p, harness.OpSessionStart) || !hasOp(p, harness.OpEnd) {
@@ -283,7 +293,12 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 	for _, it := range p.Install {
 		switch it.Kind {
 		case harness.ItemFile:
-			t.Errorf("install item of kind file (%s): no code in this aboard installs files of that kind", it.Source)
+			if f, _ := harness.Find(items, harness.ItemFile); len(f.Data) == 0 {
+				t.Errorf("install item of kind file (%s): aboard has no such file to install", it.Source)
+			}
+			if it.Global == "" && it.Project == "" {
+				t.Errorf("install item of kind file (%s) names no path to install it at", it.Source)
+			}
 		case harness.ItemHooks:
 			if it.Format != "json" {
 				t.Errorf("install item hooks has format %q: aboard merges only json hooks files", it.Format)
@@ -300,8 +315,8 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 	switch p.SubagentIdentity {
 	case "", "none":
 	case "marked":
-		if p.Identity.RootEnv == "" && !hasOp(p, harness.OpMarkSubagent) {
-			t.Errorf("subagent_identity marked needs a way to mark: a hook of op mark-subagent, or identity.root_env")
+		if p.Identity.RootEnv == "" && !hasOp(p, harness.OpMarkSubagent) && p.Identity.Kind != "extension" {
+			t.Errorf("subagent_identity marked needs a way to mark: a hook of op mark-subagent, identity.root_env, or Aboard's extension")
 		}
 	case "seats":
 		t.Errorf("subagent_identity seats: no code in this aboard gives a subagent a seat")
@@ -339,6 +354,8 @@ func checkAdapter(t *testing.T, h harness.Harness) {
 		Root:     func(*testing.T) string { return fmt.Sprintf("5f1c2d3e-0000-4000-8000-%012d", n.Add(1)) },
 		SubAgent: func(*testing.T) string { return "" },
 		Absent:   func(*testing.T) string { return "" },
+		// An extension answers received for each bundle it adds, which confirms it.
+		ConfirmsOnHand: h.Profile().HasCapability("extension"),
 	})
 }
 

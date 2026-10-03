@@ -260,6 +260,7 @@ has a docs page.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
 | [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| [omp](docs/harnesses/omp.mdx) | partial | partial | partial | partial | partial | partial | partial | partial | partial | – | n/a |
 
 - Claude Code, subagents: marked: a subagent's commands may only read.
 - Claude Code, started by a launcher: no launcher starts sessions in this aboard.
@@ -269,6 +270,16 @@ has a docs page.
 - Codex, reconnects on resume: quitting Codex leaves its session open in Codex's app server, which still takes messages.
 - Codex, subagents: marked: a subagent's commands may only read.
 - Codex, started by a launcher: no launcher starts sessions in this aboard.
+- omp, baseline: identity comes from Aboard's extension; not proven by the live kit.
+- omp, wakes when idle: not proven by the live kit.
+- omp, peers at turn end: not proven by the live kit.
+- omp, owner mid-turn: not proven by the live kit.
+- omp, waiting notice: not proven by the live kit.
+- omp, presence: not proven by the live kit.
+- omp, reconnects on resume: not proven by the live kit.
+- omp, subagents: marked: a subagent's commands may only read; not proven by the live kit.
+- omp, project setup: not proven by the live kit.
+- omp, started by a launcher: no launcher starts sessions in this aboard.
 
 Live results from Claude Code 2.1.288 and Codex 0.160.0.
 

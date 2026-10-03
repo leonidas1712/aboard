@@ -1,0 +1,153 @@
+==== aboard init --harness omp ====
+claude-code: not chosen
+codex: not chosen
+omp, everywhere:
+  create    ~/omp-agent/skills/aboard/SKILL.md (skill)
+  create    ~/omp-agent/extensions/aboard.ts (file)
+Run aboard init --yes --harness omp to make these changes.
+==== aboard init --yes --harness omp --json ====
+{
+  "applied": true,
+  "scope": "global",
+  "delivery": null,
+  "allow_commands": false,
+  "harnesses": [
+    {
+      "name": "claude-code",
+      "detected": true,
+      "changes": []
+    },
+    {
+      "name": "codex",
+      "detected": true,
+      "changes": []
+    },
+    {
+      "name": "omp",
+      "detected": true,
+      "changes": [
+        {
+          "path": "{HOME}/omp-agent/skills/aboard/SKILL.md",
+          "kind": "skill",
+          "action": "create"
+        },
+        {
+          "path": "{HOME}/omp-agent/extensions/aboard.ts",
+          "kind": "file",
+          "action": "create"
+        }
+      ]
+    }
+  ]
+}
+==== aboard init --yes --harness omp (again) ====
+claude-code: not chosen
+codex: not chosen
+omp, everywhere:
+  unchanged ~/omp-agent/skills/aboard/SKILL.md (skill)
+  unchanged ~/omp-agent/extensions/aboard.ts (file)
+Nothing to change.
+==== file omp-agent/extensions/aboard.ts ====
+(adapters/omp/aboard.ts as built into aboard, byte for byte, with these lines filled in)
+const INSTALLED_ABOARD = "{ABOARD}";
+const INSTALLED_HOME = "{ABOARD_HOME}";
+==== file omp-agent/skills/aboard/SKILL.md ====
+(the Aboard skill this aboard installs, byte for byte)
+==== install manifest ====
+{
+  "files": [
+    {
+      "path": "{HOME}/omp-agent/skills/aboard/SKILL.md",
+      "harness": "omp",
+      "scope": "global",
+      "kind": "skill",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    },
+    {
+      "path": "{HOME}/omp-agent/extensions/aboard.ts",
+      "harness": "omp",
+      "scope": "global",
+      "kind": "file",
+      "version": "{version}",
+      "sha256": "{sha256}",
+      "created": true
+    }
+  ]
+}
+==== aboard status --json: setup ====
+{
+  "global": [
+    "omp"
+  ],
+  "project": []
+}
+==== aboard status: setup line ====
+Setup:  omp everywhere
+==== aboard doctor --json: harness checks ====
+[
+  {
+    "code": "claude_hooks_missing",
+    "fix": "run aboard init",
+    "level": "error",
+    "message": "claude-code: hooks not installed (SessionStart, UserPromptSubmit, Stop, PostToolBatch, PreToolUse, SessionEnd)",
+    "name": "claude_hooks"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "codex-cli 0.159.3: queue available",
+    "name": "codex"
+  },
+  {
+    "code": "codex_hooks_missing",
+    "fix": "run aboard init",
+    "level": "warning",
+    "message": "codex: hooks not installed (SessionStart, UserPromptSubmit, Stop, PreToolUse, SessionEnd), so your messages wait for the end of a turn",
+    "name": "codex_hooks"
+  },
+  {
+    "code": "codex_aboard_not_allowed",
+    "fix": "run aboard init --yes --allow-commands",
+    "level": "warning",
+    "message": "codex: no rule allows aboard commands, so Codex runs them in its sandbox, which blocks network access to the local Aboard server",
+    "name": "codex_allow"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "omp: extension installed everywhere ({HOME}/omp-agent/extensions/aboard.ts)",
+    "name": "omp_extension"
+  },
+  {
+    "code": null,
+    "fix": null,
+    "level": "ok",
+    "message": "omp: skill installed in {HOME}/omp-agent/skills/aboard/SKILL.md",
+    "name": "omp_skill"
+  }
+]
+==== aboard uninstall --json: files ====
+[
+  {
+    "action": "delete",
+    "harness": "omp",
+    "kind": "skill",
+    "path": "{HOME}/omp-agent/skills/aboard/SKILL.md",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  },
+  {
+    "action": "delete",
+    "harness": "omp",
+    "kind": "file",
+    "path": "{HOME}/omp-agent/extensions/aboard.ts",
+    "reason": null,
+    "scope": "global",
+    "written_by": "{version}"
+  }
+]

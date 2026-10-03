@@ -20,6 +20,7 @@ codex, in this project:
   create    ~/project/.codex/rules/aboard.rules (permissions)
             prefix_rule(pattern=["aboard"], decision="allow")
             (Codex runs the commands it allows outside its sandbox.)
+omp: not found on this machine
 Run aboard init --yes --scope project --allow-commands to make these changes.
 ==== aboard init --yes --scope project --allow-commands --json ====
 {
@@ -70,6 +71,11 @@ Run aboard init --yes --scope project --allow-commands to make these changes.
           ]
         }
       ]
+    },
+    {
+      "name": "omp",
+      "detected": false,
+      "changes": []
     }
   ]
 }
@@ -81,6 +87,7 @@ codex, in this project:
   unchanged ~/project/.agents/skills/aboard/SKILL.md (skill)
   unchanged ~/project/.codex/hooks.json (hooks)
   unchanged ~/project/.codex/rules/aboard.rules (permissions)
+omp: not found on this machine
 Nothing to change.
 ==== file project/.agents/skills/aboard/SKILL.md ====
 (the Aboard skill this aboard installs, byte for byte)
@@ -337,6 +344,13 @@ Setup:  claude-code in this project, codex in this project
     "level": "ok",
     "message": "codex: aboard commands run outside Codex's sandbox (allowed in {HOME}/project/.codex/rules/aboard.rules)",
     "name": "codex_allow"
+  },
+  {
+    "code": "omp_not_installed",
+    "fix": "install omp, or ignore this if you don't use it",
+    "level": "warning",
+    "message": "omp: not installed",
+    "name": "omp"
   },
   {
     "code": null,
