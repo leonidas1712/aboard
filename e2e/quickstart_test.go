@@ -252,7 +252,8 @@ func TestOwnerLoginIsNeverSentToAnotherServer(t *testing.T) {
 
 // TestPairInALinkedDirectoryNamesTheBoard runs pair twice in one directory. The second
 // run must not quietly create another board and re-point the directory; it says which
-// board the directory uses, and --new creates another one on purpose.
+// board the directory uses and names both ways on: invite adds an agent to that board,
+// and --new creates another one on purpose.
 func TestPairInALinkedDirectoryNamesTheBoard(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -269,9 +270,18 @@ func TestPairInALinkedDirectoryNamesTheBoard(t *testing.T) {
 	if b := field(t, v, "error.details.board"); b != "writer-reviewer" {
 		t.Fatalf("details.board %v", b)
 	}
+	if a, n := field(t, v, "error.details.add_agent"), field(t, v, "error.details.new_board"); a != "aboard invite --board writer-reviewer" || n != "aboard pair --new" {
+		t.Fatalf("details name %v and %v as the ways on", a, n)
+	}
 	text := e.runExit("pair", "writer-reviewer")
-	if !strings.Contains(text.stderr, "already linked to board writer-reviewer") || !strings.Contains(text.stderr, "aboard pair --new") {
-		t.Fatalf("error doesn't name the board and the way out\n%s", text)
+	for _, want := range []string{
+		"already linked to board writer-reviewer",
+		"To add an agent to writer-reviewer, a person runs aboard invite --board writer-reviewer in a terminal",
+		"To start another board, run aboard pair --new.",
+	} {
+		if !strings.Contains(text.stderr, want) {
+			t.Fatalf("error doesn't say %q\n%s", want, text)
+		}
 	}
 
 	fresh := e.run("pair", "writer-reviewer", "--new")

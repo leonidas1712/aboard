@@ -85,6 +85,7 @@ func commands() []command {
 		{"down", "aboard down [--json]", runDown},
 		{"pair", pairUsage, runPair},
 		{"join", "aboard join <join-line|code> [--name NAME] [--harness H] [--json]", runJoin},
+		{"invite", inviteUsage, runInvite},
 		{"say", "aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]", runSay},
 		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
 		{"read", readUsage, runRead},

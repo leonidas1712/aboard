@@ -1,0 +1,113 @@
+package cli
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/boardfile"
+)
+
+// inviteUsage is the usage of "aboard invite".
+const inviteUsage = "aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]"
+
+// invitePrompt is the sentence under the join line in the prompt a person pastes into an
+// agent's session. The board view's "Add an agent" uses the same words.
+const invitePrompt = "You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board."
+
+// runInvite creates a join code for an existing board and prints a prompt that brings
+// one more agent onto it. It uses the person's login, so it refuses inside a harness
+// session and hands over the command instead.
+func runInvite(ctx context.Context, a *app, args []string) error {
+	fs := a.flags("invite")
+	boardFlag := fs.String("board", "", "the board to add an agent to")
+	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
+	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h")
+	if _, err := a.parse(fs, args, inviteUsage, 0, 0); err != nil {
+		return err
+	}
+	command := "aboard invite"
+	if *roleFlag != "" {
+		command += " --role " + shellWord(*roleFlag)
+	}
+	if err := a.refuseInSession("Adding an agent to a board", command+boardArg(a.namedBoard(*boardFlag))); err != nil {
+		return err
+	}
+	t, err := a.selectBoard(*boardFlag)
+	if err != nil {
+		return err
+	}
+	c, err := a.humanClient(ctx, t)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	board, err := c.board(ctx, t.board)
+	if err != nil {
+		return err
+	}
+	role := *roleFlag
+	if role == "" {
+		role = inviteRole(board)
+	}
+	req := api.CreateJoinCodeRequest{Role: role}
+	if *ttl != 0 {
+		secs := int(ttl.Seconds())
+		req.TtlSeconds = &secs
+	}
+	r, err := c.api.CreateJoinCodeWithResponse(ctx, board.Name, &api.CreateJoinCodeParams{}, req)
+	if err != nil {
+		return c.unreachable(err)
+	}
+	if r.JSON201 == nil {
+		return apiError(r.StatusCode(), r.Body)
+	}
+	jc := r.JSON201
+	line := deref(jc.JoinLine)
+	prompt := line + "\n" + invitePrompt
+	notice := noticeFor(board.Policy)
+
+	text := fmt.Sprintf("Created a join code for board %s: an agent joins as %s. It works for %s, for any number of agents.\n",
+		board.Name, jc.Role, durationText(time.Until(jc.ExpiresAt)))
+	if notice != nil {
+		text += notice.Message + "\n"
+	}
+	text += "\nPaste this into the agent's session:\n\n" + prompt + "\n"
+	a.emit(struct {
+		Board        string        `json:"board"`
+		Role         string        `json:"role"`
+		JoinLine     string        `json:"join_line"`
+		Prompt       string        `json:"prompt"`
+		ExpiresAt    time.Time     `json:"expires_at"`
+		PolicyNotice *policyNotice `json:"policy_notice"`
+	}{board.Name, jc.Role, line, prompt, jc.ExpiresAt, notice}, text)
+	return nil
+}
+
+// inviteRole is the role invite gives when none is named: the role the board's template
+// invites when pairing, if the board still has it, else member.
+func inviteRole(b *api.Board) string {
+	if b.Template != nil {
+		if f, err := boardfile.Template(*b.Template); err == nil && len(f.Pair) == 2 {
+			if _, ok := b.Roles[f.Pair[1]]; ok {
+				return f.Pair[1]
+			}
+		}
+	}
+	return "member"
+}
+
+// durationText says how long a code works, rounded to whole hours or minutes:
+// "24 hours", "1 hour", "30 minutes".
+func durationText(d time.Duration) string {
+	n, unit := int((d + 30*time.Second).Minutes()), "minute"
+	if n >= 60 {
+		n, unit = int((d + 30*time.Minute).Hours()), "hour"
+	}
+	if n == 1 {
+		return "1 " + unit
+	}
+	return fmt.Sprintf("%d %ss", n, unit)
+}

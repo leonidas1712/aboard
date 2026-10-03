@@ -19,8 +19,9 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 | What reaches a busy agent: owner messages mid-turn at the next tool boundary (Claude Code `PostToolBatch`, Codex `PreToolUse`), peer urgent first in the next bundle, `say` advisories (unread, recipient outcomes), `--wait-reply` outcomes, the skill's checkpoint baseline; live tests including Codex starting the ping-pong | next | D137–D141 |
 | The content-free "messages waiting" notice at tool boundaries for Claude Code and Codex | next | D142 |
-| Board details panel with "Add an agent" and "Copy details"; `aboard invite` | next | D143 |
-| Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | review | D66, D72, D152 |
+| Board details panel with "Add an agent" and "Copy details"; `aboard invite` | done | D143 |
+| `aboard pair` in a linked directory names both ways on: `aboard invite` for another agent, `aboard pair --new` for another board | done | D44, D143 |
+| Codex's sandbox blocks the local server: `sandbox_blocks_network` naming the fix, `aboard init` recommending `--allow-commands` for Codex, doctor's `codex_aboard_not_allowed` | done | D66, D72, D152 |
 
 ## Done
 

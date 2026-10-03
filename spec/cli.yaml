@@ -17,11 +17,11 @@
 #   another agent moves the session to the new one (see PreviousAgent). With no agent:
 #   agent_not_selected (details.choices). Agent commands (say, inbox, read)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
-#   use the human login unless --as is given, and open always uses it.
+#   use the human login unless --as is given, and open and invite always use it.
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board title, watch, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, board title, invite, watch, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
 #   joins as an agent, audit verify prints only counts and hashes, and open never shows
 #   its login link.
@@ -41,7 +41,7 @@
 #   ABOARD_HOME fails with invalid_request. URLs, join lines ("on localhost:<port>"),
 #   status and doctor all show the address in use.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
-#   Board for human commands (board policy, board title, audit verify, watch, open) and for pair:
+#   Board for human commands (board policy, board title, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
 # - Text output of agent commands names the board in one line: say ends with
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
@@ -88,7 +88,9 @@ $defs:
       it in a terminal) · browser_unavailable (aboard open inside a harness session
       couldn't start a browser; the person runs it in their own terminal) ·
       board_not_selected · board_already_linked (pair in a directory already linked to a
-      board; details.board, details.server, details.agents) · join_line_invalid ·
+      board; details.board, details.server, details.agents, and the two ways on:
+      details.add_agent, the command a person runs to add an agent to that board, and
+      details.new_board, the command that starts another board) · join_line_invalid ·
       message_ref_invalid · check_failed.
   ServerRef:
     type: object
@@ -232,7 +234,8 @@ $defs:
 
   # ---------- aboard pair [template] [--new] [--board NAME] [--title TEXT] [--name NAME] ----------
   # In a directory already linked to a board, pair fails with board_already_linked
-  # unless --new is given. --title sets the board's title (Board.title).
+  # unless --new is given; its hint names both ways on: aboard invite to add an agent to
+  # that board, and aboard pair --new to start another. --title sets the board's title (Board.title).
   PairOutput:
     type: object
     required: [server, server_started, board, agent, use, join, policy_notice]
@@ -269,6 +272,31 @@ $defs:
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
       previous_board: { $ref: "#/$defs/PreviousBoard" }
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
+
+  # ---------- aboard invite [--role R] [--ttl DURATION] [--board NAME] ----------
+  InviteOutput:
+    description: |
+      A human command with the human login: it creates a join code for an existing
+      board and prints a prompt to paste into an agent's session. The role defaults to
+      the one the board's template invites when pairing (`reviewer` on writer-reviewer),
+      else `member`. --ttl is how long the code works (Go duration, 1m to 168h; default
+      24h); any number of agents can join with it until then. Text output ends with the
+      prompt alone, after a blank line, so it can be copied whole. Inside a harness
+      session it refuses with human_command_in_session, whose hint is the command to run.
+    type: object
+    required: [board, role, join_line, prompt, expires_at, policy_notice]
+    properties:
+      board: { type: string, examples: [general] }
+      role: { type: string, examples: [member] }
+      join_line:
+        type: string
+        examples: ["Join Aboard board general on localhost as member with code 7Q4-K2M"]
+      prompt:
+        type: string
+        description: The join line, a newline, then one sentence telling the agent what to do.
+        examples: ["Join Aboard board general on localhost as member with code 7Q4-K2M\nYou have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board."]
+      expires_at: { type: string, format: date-time }
+      policy_notice: { $ref: "#/$defs/PolicyNotice" }
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
