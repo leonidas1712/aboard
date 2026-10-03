@@ -25,6 +25,61 @@ export const presenceWords: Record<Presence, string> = {
   no_session: "no session",
 };
 
+/** boardLabel is what people call a board: its title, else its name. */
+export function boardLabel(b: Pick<Board, "name" | "title">): string {
+  return b.title?.trim() || b.name;
+}
+
+/** identities is how many identity colours there are (--id-1 to --id-8 in globals.css). */
+export const identities = 8;
+
+/**
+ * identityOf picks a member's identity colour, 1 to identities, from its id. The same
+ * member always gets the same colour; the colour only tells senders apart.
+ */
+export function identityOf(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ((h >>> 0) % identities) + 1;
+}
+
+/**
+ * identitiesOf gives each member of a board its identity colour: the one its id picks,
+ * or, when an earlier member already has that colour, the next free one. Members keep
+ * their join order, so each keeps its colour; past eight members colours repeat.
+ */
+export function identitiesOf(ids: string[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const taken = new Set<number>();
+  for (const id of ids) {
+    let n = identityOf(id);
+    if (taken.size < identities) {
+      while (taken.has(n)) n = (n % identities) + 1;
+    }
+    taken.add(n);
+    out.set(id, n);
+  }
+  return out;
+}
+
+/** initialOf is the letter a sender mark shows. */
+export function initialOf(name: string): string {
+  return (name.match(/[a-z0-9]/i)?.[0] ?? "?").toUpperCase();
+}
+
+/** clockTime is a time of day, as in a chat's gutter ("14:05"). */
+export function clockTime(at: string): string {
+  return new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** policyName names a policy preset as the board view says it. */
+export function policyName(p: Policy): string {
+  return p.preset === "starter" ? "Starter policy" : "Recommended policy";
+}
+
 /** displayName is a member's name, with its owner once a second owner is on the board. */
 export function displayName(m: MemberRef, showOwner: boolean): string {
   return showOwner && m.kind === "agent" && m.owner ? `${m.name} · ${m.owner}` : m.name;
@@ -63,7 +118,7 @@ export function exactTime(at: string): string {
   return new Date(at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "medium" });
 }
 
-function count(n: number, one: string, many: string): string {
+export function count(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
@@ -184,7 +239,22 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
         ? `${who} changed the rules: ${changed.map((k) => `${k.replace("_", " ")} is now ${String(after[k])}`).join(", ")}`
         : `${who} changed the rules`;
     }
+    case "board.titled": {
+      const after = d.after as string | null;
+      return after ? `${who} titled the board “${after}”` : `${who} removed the board's title`;
+    }
     default:
       return null;
   }
+}
+
+/**
+ * eventMatches says whether a board event belongs in a timeline filtered to one sender
+ * or role: the member's own actions and its join.
+ */
+export function eventMatches(e: BoardEvent, from: string | undefined, role: string | undefined): boolean {
+  const d = (e.data ?? {}) as Record<string, unknown>;
+  if (from) return e.actor.name === from || (e.type === "member.joined" && d.name === from);
+  if (role) return e.type === "member.joined" && d.role === role;
+  return true;
 }

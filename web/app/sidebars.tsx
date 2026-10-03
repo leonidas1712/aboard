@@ -4,18 +4,42 @@
 // the rules, the record) and who's here on the right.
 
 import { ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Board, Member } from "./api";
 import { SectionHeading } from "./chrome";
+import { usePref } from "./prefs";
 import { problemText } from "./record";
 import type { RecordCheck } from "./use-board";
-import { harnessName, presenceWords, rules } from "./words";
+import { boardLabel, harnessName, presenceWords, rules } from "./words";
+
+/** Section is a sidebar section whose heading opens and closes it; the browser remembers which. */
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const [open, setOpen] = usePref(`aboard.open.${id}`, true);
+  return (
+    <Collapsible asChild open={open} onOpenChange={setOpen}>
+      <section aria-labelledby={id}>
+        <h2 id={id} className="mb-1 text-meta font-bold text-muted">
+          <CollapsibleTrigger className="group -mx-2 flex min-h-9 w-[calc(100%+1rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
+            <ChevronRight
+              className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            {title}
+          </CollapsibleTrigger>
+        </h2>
+        <CollapsibleContent className="animate-fade-in">{children}</CollapsibleContent>
+      </section>
+    </Collapsible>
+  );
+}
 
 export function AboutBoard({ board, boards, record }: { board: Board | null; boards: Board[] | null; record: RecordCheck }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <nav aria-labelledby="your-boards">
         <SectionHeading id="your-boards">Your boards</SectionHeading>
         <ul className="flex flex-col gap-0.5">
@@ -27,11 +51,12 @@ export function AboutBoard({ board, boards, record }: { board: Board | null; boa
                   href={`/?board=${encodeURIComponent(b.name)}`}
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "flex min-h-11 items-center rounded-control px-2.5 py-2 break-all text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
-                    current && "bg-selected font-bold",
+                    "flex min-h-11 flex-col justify-center rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
+                    current && "bg-selected",
                   )}
                 >
-                  {b.name}
+                  <span className={cn("break-words", current && "font-bold")}>{boardLabel(b)}</span>
+                  {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
                 </a>
               </li>
             );
@@ -40,15 +65,13 @@ export function AboutBoard({ board, boards, record }: { board: Board | null; boa
       </nav>
 
       {board?.charter && (
-        <section aria-labelledby="charter">
-          <SectionHeading id="charter">What this board is for</SectionHeading>
+        <Section id="charter" title="What this board is for">
           <p className="whitespace-pre-line">{board.charter}</p>
-        </section>
+        </Section>
       )}
 
       {board && (
-        <section aria-labelledby="rules">
-          <SectionHeading id="rules">Rules</SectionHeading>
+        <Section id="rules" title="Rules">
           <div className="flex flex-col gap-2">
             {rules(board).map((r) => (
               <p key={r}>{r}</p>
@@ -60,7 +83,7 @@ export function AboutBoard({ board, boards, record }: { board: Board | null; boa
               </p>
             )}
           </div>
-        </section>
+        </Section>
       )}
 
       <RecordLine record={record} />
@@ -83,24 +106,39 @@ function RecordLine({ record }: { record: RecordCheck }) {
       </div>
     );
   }
+  if (record.state === "checking") return <p className="record text-meta text-muted">Checking the record…</p>;
+  const n = record.count;
   return (
-    <p
-      className="record flex items-center gap-2 text-meta text-muted"
-      title="This browser checked every event's hash against the one before it, the same check as aboard audit verify."
-    >
-      {record.state === "verified" ? (
-        <>
-          <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-label="Verified" />
-          Record verified · {record.count} {record.count === 1 ? "event" : "events"}
-        </>
-      ) : (
-        "Checking the record…"
-      )}
-    </p>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+        >
+          <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
+          Record verified · {n} {n === 1 ? "event" : "events"}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" className="record-explained">
+        Every event on this board is linked to the one before it by a hash. Your browser just re-checked all {n} and found none
+        changed. <code>aboard audit verify</code> runs the same check.
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
-export function WhosHere({ board, members }: { board: Board | null; members: Member[] | null }) {
+type WhosHereProps = {
+  board: Board | null;
+  members: Member[] | null;
+  /** me is the person's own name. */
+  me: string | null;
+  /** from is the member the timeline is filtered to, if any. */
+  from: string | undefined;
+  /** onPick filters the timeline to a member, or clears that filter when it's already set. */
+  onPick: (name: string) => void;
+};
+
+export function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -114,9 +152,16 @@ export function WhosHere({ board, members }: { board: Board | null; members: Mem
         ) : agents.length === 0 ? (
           <p>No agents yet.</p>
         ) : (
-          <ul className="flex flex-col gap-4">
+          <ul className="flex flex-col gap-3">
             {agents.map((a) => (
-              <AgentItem key={a.id} agent={a} roleCharter={board?.roles[a.role ?? ""]?.charter} showOwner={showOwner} />
+              <AgentItem
+                key={a.id}
+                agent={a}
+                roleCharter={board?.roles[a.role ?? ""]?.charter}
+                showOwner={showOwner}
+                picked={from === a.name}
+                onPick={() => onPick(a.name)}
+              />
             ))}
           </ul>
         )}
@@ -126,8 +171,11 @@ export function WhosHere({ board, members }: { board: Board | null; members: Mem
           <SectionHeading id="people">People</SectionHeading>
           <ul className="flex flex-col gap-1">
             {people.map((p) => (
-              <li key={p.id} className="flex justify-between gap-3">
-                <span className="font-bold">{p.name}</span>
+              <li key={p.id} className="flex items-baseline justify-between gap-3">
+                <NameButton name={p.name} picked={from === p.name} onPick={() => onPick(p.name)}>
+                  {p.name}
+                  {p.name === me && <span className="font-normal text-muted"> (you)</span>}
+                </NameButton>
                 <span className="text-meta text-muted">{p.access === "admin" ? "Admin" : "Member"}</span>
               </li>
             ))}
@@ -138,7 +186,37 @@ export function WhosHere({ board, members }: { board: Board | null; members: Mem
   );
 }
 
-function AgentItem({ agent, roleCharter, showOwner }: { agent: Member; roleCharter?: string; showOwner: boolean }) {
+/** NameButton is a member's name that filters the timeline to them. */
+function NameButton({ name, picked, onPick, children }: { name: string; picked: boolean; onPick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={picked}
+      title={picked ? `Show everyone's messages` : `Show only ${name}'s messages`}
+      className={cn(
+        "member-filter -mx-2 min-h-9 min-w-0 rounded-[6px] px-2 text-left font-bold break-all text-ink transition-colors duration-[140ms] ease-out hover:bg-selected",
+        picked && "bg-selected underline decoration-accent decoration-2 underline-offset-[5px]",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AgentItem({
+  agent,
+  roleCharter,
+  showOwner,
+  picked,
+  onPick,
+}: {
+  agent: Member;
+  roleCharter?: string;
+  showOwner: boolean;
+  picked: boolean;
+  onPick: () => void;
+}) {
   const presence = agent.presence ?? "no_session";
   const waiting = presence === "waiting";
   return (
@@ -146,15 +224,17 @@ function AgentItem({ agent, roleCharter, showOwner }: { agent: Member; roleChart
       className={cn("agent transition-colors duration-200 ease-out", waiting && "-mx-3 rounded-box bg-attention px-3 py-2.5")}
       data-agent={agent.name}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-bold break-all">{agent.name}</span>
+      <div className="flex items-center justify-between gap-3">
+        <NameButton name={agent.name} picked={picked} onPick={onPick}>
+          {agent.name}
+        </NameButton>
         <CrossFade
           value={presenceWords[presence]}
           className={cn("text-meta", waiting ? "text-ink" : presence === "working" ? "text-ink" : "text-muted")}
         />
       </div>
       {waiting && <p className="text-meta">Its session is waiting for you, such as a permission prompt.</p>}
-      <dl className="mt-1 grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 gap-y-0.5">
+      <dl className="mt-0.5 grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 gap-y-0.5">
         {showOwner && (
           <>
             <dt className={cn("text-meta", waiting ? "text-ink" : "text-muted")}>Owner</dt>

@@ -19,6 +19,8 @@ export type MemberRef = { name: string; kind: "agent" | "human"; role: string | 
 export type Board = {
   id: string;
   name: string;
+  /** title is free text people read beside the name; null when the board has none. */
+  title: string | null;
   charter: string;
   roles: Record<string, Role>;
   policy: Policy;
@@ -26,6 +28,9 @@ export type Board = {
   created_at: string;
   created_by: MemberRef;
 };
+
+/** Me is who the browser's token acts as: always a person for a browser. */
+export type Me = { kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };
 
 export type Presence = "working" | "idle" | "waiting" | "no_session";
 

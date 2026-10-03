@@ -35,6 +35,24 @@
   --link: #1f5a78;
   --attention: #f3dfa8;
   --on-ink: #fbfcfc;
+  /* Identity colours: a fill and an initial for each sender mark. They only tell
+     senders apart and carry no other meaning (DESIGN.md, "Identity colours"). */
+  --id-1-bg: #fbd5d4;
+  --id-1-fg: #743839;
+  --id-2-bg: #f8d8c7;
+  --id-2-fg: #713e1e;
+  --id-3-bg: #dee3c4;
+  --id-3-fg: #4c5212;
+  --id-4-bg: #cde8d1;
+  --id-4-fg: #255a33;
+  --id-5-bg: #c2e9e3;
+  --id-5-fg: #005c53;
+  --id-6-bg: #dadefc;
+  --id-6-fg: #44477a;
+  --id-7-bg: #e8d8f5;
+  --id-7-fg: #5b3f70;
+  --id-8-bg: #f5d5e6;
+  --id-8-fg: #6d3958;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -51,7 +69,34 @@
     --link: #8ccbe6;
     --attention: #3a3016;
     --on-ink: #0e171d;
+    --id-1-bg: #523333;
+    --id-1-fg: #fdcdcc;
+    --id-2-bg: #503627;
+    --id-2-fg: #fad1bb;
+    --id-3-bg: #3c4024;
+    --id-3-fg: #d9e0b7;
+    --id-4-bg: #2c4431;
+    --id-4-fg: #c2e6c8;
+    --id-5-bg: #1e4540;
+    --id-5-fg: #b3e7df;
+    --id-6-bg: #383b55;
+    --id-6-fg: #d3d8ff;
+    --id-7-bg: #44374f;
+    --id-7-fg: #e6d1f7;
+    --id-8-bg: #4e3343;
+    --id-8-fg: #f7cde3;
   }
+}
+
+/* Derived from the tokens above, so both themes follow. */
+:root {
+  /* The person's own messages sit on the surface with a trace of the accent. */
+  --own: color-mix(in oklab, var(--accent) 7%, var(--surface));
+  /* Outlines for messages that ask for a reply (faint) or are urgent (stronger). */
+  --outline-faint: color-mix(in oklab, var(--accent) 40%, var(--background));
+  --outline-strong: color-mix(in oklab, var(--accent) 75%, var(--background));
+  /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
+  --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
 }
 
 @theme inline {
@@ -66,6 +111,7 @@
   --color-link: var(--link);
   --color-attention: var(--attention);
   --color-on-ink: var(--on-ink);
+  --color-own: var(--own);
   --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif;
   --text-meta: 14px;
   --text-meta--line-height: 1.5;
@@ -117,6 +163,29 @@
     scrollbar-color: var(--rule) transparent;
     scrollbar-width: thin;
   }
+}
+
+/* A quiet scrollbar: thin, tinted from the page, and only shown while the area scrolls
+   or the pointer is over it. Scrolling by keyboard, wheel and touch is unchanged. */
+.quiet-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 200ms var(--ease-out);
+}
+.quiet-scroll:hover,
+.quiet-scroll:focus-visible,
+.quiet-scroll[data-scrolling] {
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+/* A message the person jumped to ("Answered by …") is marked for a moment. */
+@keyframes flash {
+  from {
+    background-color: var(--selected);
+  }
+}
+.flash {
+  animation: flash 1400ms var(--ease-out);
 }
 
 /* Motion: short, ease-out, never overshooting. Under reduced motion, fades only. */
