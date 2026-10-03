@@ -286,7 +286,12 @@ var liveResults = struct {
 	sync.Mutex
 	r        *support.Results
 	versions map[string]string
-}{r: &support.Results{Harnesses: map[string]*support.HarnessResults{}}, versions: map[string]string{}}
+	// handovers are the deliveries measured, by harness (handover_test.go).
+	handovers map[string][]handSample
+}{
+	r:        &support.Results{Harnesses: map[string]*support.HarnessResults{}},
+	versions: map[string]string{}, handovers: map[string][]handSample{},
+}
 
 // record starts recording a scenario for a harness: pass or fail when the test ends, or
 // n/a when the scenario doesn't apply. A test skipped because the harness can't run
@@ -328,7 +333,7 @@ func (rec *recorder) save(scenario, result string) {
 	liveResults.Lock()
 	defer liveResults.Unlock()
 	liveResults.r.Record(rec.d.p.Harness, scenario, support.Result{
-		Result: result, Date: time.Now().Format(time.DateOnly), Test: rec.t.Name(),
+		Result: result, Date: time.Now().Format(time.DateOnly), Version: version, Test: rec.t.Name(),
 	})
 	if version != "" {
 		liveResults.versions[rec.d.p.Harness] = version
@@ -367,7 +372,7 @@ func harnessVersion(d *driver) string {
 func saveResults() error {
 	liveResults.Lock()
 	defer liveResults.Unlock()
-	if len(liveResults.r.Harnesses) == 0 {
+	if len(liveResults.r.Harnesses) == 0 && len(liveResults.handovers) == 0 {
 		return nil
 	}
 	path := filepath.Join(repoRoot, support.ResultsFile)
@@ -382,6 +387,12 @@ func saveResults() error {
 		if v := liveResults.versions[harness]; v != "" {
 			all.Harnesses[harness].Version = v
 		}
+	}
+	for harness, samples := range liveResults.handovers {
+		if all.Harnesses[harness] == nil {
+			all.Harnesses[harness] = &support.HarnessResults{Scenarios: map[string]support.Result{}}
+		}
+		all.Harnesses[harness].Handover = typicalHandover(samples)
 	}
 	return all.Save(path)
 }

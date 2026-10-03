@@ -59,14 +59,23 @@ ask it for a subagent. A scenario that doesn't apply to a harness records n/a wi
 reason, from the harness's profile: a Codex session killed after a wake has nothing to
 hand again, since Codex's queue confirms a bundle when it takes it.
 
-Each scenario's result (pass, fail or n/a, the day, and the test) is saved in
-[support.json](support.json) when the run ends, with the harness's version.
-`make harness-table` turns it, with the profiles, into the support matrix in the
-README; `make check` fails when that table is out of date. A capability counts as
-supported once a scenario that measures it passed; a failure in the latest run makes it
-partial until it passes again. Notes in `support.json` are written by hand, for what a
-profile can't say. The entries from before the kit name the earlier test that proved
-them.
+Each scenario's result (pass, fail or n/a, the day, the harness's version, and the
+test) is saved in [support.json](support.json) when the run ends. `make harness-table`
+turns it, with the profiles, into the support matrix in the README, with a line per
+harness under it naming the versions and days its capabilities were proven on; `make
+check` fails when that table is out of date. A capability counts as supported once a
+scenario that measures it passed; a failure in the latest run makes it partial until it
+passes again. Notes in `support.json` are written by hand, for what a profile can't say.
+The entries from before the kit name the earlier test that proved them.
+
+Every test also measures its deliveries from the daemon's log as it cleans up: from a
+message's posting (the board's event log) until the daemon began handing it over
+(`began` in the `bundle handed` line, Aboard's part), and from then until the session
+confirmed it (`bundle confirmed`, the harness's part: a Claude Code stop hook's next
+event, Codex's queue taking it, omp's extension adding it). The run saves the median of
+each per harness as `handover` in `support.json`, and the README's line for the harness
+shows it. A message posted while its session was busy waits for the turn's end, which
+counts as Aboard's part; the median keeps those few from deciding the typical value.
 
 Turns are model turns per run of one harness (prompts typed plus bundles delivered),
 measured on Claude Code 2.1.287 with its default model.

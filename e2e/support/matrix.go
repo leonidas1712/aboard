@@ -3,11 +3,11 @@ package support
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -153,6 +153,8 @@ type Result struct {
 	Result string `json:"result"`
 	// Date is the day it ran, YYYY-MM-DD.
 	Date string `json:"date,omitempty"`
+	// Version is the harness version it ran with, as the harness's --version prints it.
+	Version string `json:"version,omitempty"`
 	// Test is the test that produced it.
 	Test string `json:"test"`
 }
@@ -165,6 +167,21 @@ type HarnessResults struct {
 	// hand, for what the profile can't say.
 	Notes     map[string]string `json:"notes,omitempty"`
 	Scenarios map[string]Result `json:"scenarios"`
+	// Handover is how long deliveries to the harness typically took in the latest run
+	// that measured any.
+	Handover *Handover `json:"handover,omitempty"`
+}
+
+// Handover is how long a delivery typically took, the median of the deliveries a live
+// run measured from the daemon's log: from the message's posting until the daemon began
+// handing it to the session (Aboard's part), and from then until the session confirmed
+// it had it (the harness's part: a waiting hook's next event, a queue taking it, or an
+// extension's received).
+type Handover struct {
+	AboardMS   int64  `json:"aboard_ms"`
+	HarnessMS  int64  `json:"harness_ms"`
+	Deliveries int    `json:"deliveries"`
+	Date       string `json:"date"`
 }
 
 // Results is the live suite's record, e2e/live/support.json.
@@ -320,22 +337,60 @@ func Table(profiles []Profile, results *Results) string {
 		b.WriteString(strings.Join(notes, "\n"))
 		b.WriteString("\n")
 	}
-	var versions []string
+	var evidence []string
 	for _, p := range profiles {
-		if h := results.Harnesses[p.Harness]; h != nil && h.Version != "" {
-			v := h.Version
-			if n := versionNumber.FindString(v); n != "" {
-				v = n
-			}
-			versions = append(versions, p.Name+" "+v)
+		if line := Evidence(p, results.Harnesses[p.Harness]); line != "" {
+			evidence = append(evidence, "- "+line)
 		}
 	}
-	sort.Strings(versions)
-	if len(versions) > 0 {
-		b.WriteString("\nLive results from " + strings.Join(versions, " and ") + ".\n")
+	if len(evidence) > 0 {
+		b.WriteString("\nLive evidence:\n\n" + strings.Join(evidence, "\n") + "\n")
 	}
 	return b.String()
 }
+
+// Evidence says on which harness versions and days the live kit proved a harness's
+// capabilities, and how long a delivery to it typically took, or "" when it never ran
+// live: "Claude Code: proven on 2.1.288, 2026-10-04; a delivery typically began 0.1 s
+// after its message was posted, and Claude Code confirmed it 2.3 s later (median of 14)."
+func Evidence(p Profile, h *HarnessResults) string {
+	if h == nil {
+		return ""
+	}
+	versions, days := map[string]bool{}, map[string]bool{}
+	for _, r := range h.Scenarios {
+		if r.Result != "pass" {
+			continue
+		}
+		v := r.Version
+		if v == "" {
+			v = h.Version
+		}
+		if n := versionNumber.FindString(v); n != "" {
+			versions[n] = true
+		}
+		if r.Date != "" {
+			days[r.Date] = true
+		}
+	}
+	if len(versions) == 0 && len(days) == 0 {
+		return ""
+	}
+	line := p.Name + ": proven on " + strings.Join(slices.Sorted(maps.Keys(versions)), ", ")
+	if d := slices.Sorted(maps.Keys(days)); len(d) == 1 {
+		line += ", " + d[0]
+	} else if len(d) > 1 {
+		line += ", " + d[0] + " to " + d[len(d)-1]
+	}
+	if t := h.Handover; t != nil && t.Deliveries > 0 {
+		line += fmt.Sprintf("; a delivery typically began %s after its message was posted, and %s confirmed it %s later (median of %d, %s)",
+			seconds(t.AboardMS), p.Name, seconds(t.HarnessMS), t.Deliveries, t.Date)
+	}
+	return line + "."
+}
+
+// seconds writes milliseconds as seconds with one decimal: "0.4 s".
+func seconds(ms int64) string { return fmt.Sprintf("%.1f s", float64(ms)/1000) }
 
 var versionNumber = regexp.MustCompile(`\d+\.\d+(\.\d+)?`)
 

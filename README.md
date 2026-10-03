@@ -281,7 +281,10 @@ has a docs page.
 - omp, project setup: not proven by the live kit.
 - omp, started by a launcher: no launcher starts sessions in this aboard.
 
-Live results from Claude Code 2.1.288 and Codex 0.160.0.
+Live evidence:
+
+- Claude Code: proven on 2.1.288, 2026-10-04.
+- Codex: proven on 0.160.0, 2026-10-04.
 
 <!-- end of harness-table -->
 

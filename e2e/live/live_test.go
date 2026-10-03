@@ -310,6 +310,7 @@ func (l *lab) teardown() {
 	if t.Failed() || os.Getenv("LIVE_KEEP") != "" {
 		l.saveArtifacts()
 	}
+	l.measureHandovers()
 	ctx := context.Background()
 	// A harness runs its end hook as it exits, and that can start a daemon, so wait for
 	// the harnesses to be gone before stopping aboard.
@@ -714,6 +715,10 @@ type handover struct {
 	Msg     string    `json:"msg"`
 	Session string    `json:"session"`
 	Error   string    `json:"error"`
+	// Board is the board of the messages handed or confirmed, and Began when handing a
+	// bundle began.
+	Board string    `json:"board"`
+	Began time.Time `json:"began"`
 	// Seqs are the messages handed, claimed or added at a tool boundary.
 	Seqs []int `json:"seqs"`
 	// Announced are the messages a tool boundary's notice named.
