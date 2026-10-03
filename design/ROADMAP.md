@@ -14,7 +14,7 @@ after the plan, with the pull request that merged it.
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), the per-harness feature matrix the README's table is generated from, and the control socket as a versioned contract (`spec/control.md`) | done (#33) | D130, D164, D167 |
-| omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | next | D160, D164 |
+| omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | in progress | D160, D164, D168 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 
 ## Next: team mode
