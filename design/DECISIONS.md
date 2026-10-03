@@ -514,6 +514,26 @@ Why: with mixed versions (D148) a client needs to know what a server can do befo
 **D152. Codex's sandbox blocks network access by default, which covers the local server's address and the daemon's socket, so `aboard` commands Codex runs there see neither, running or not. A command that runs inside a sandbox marked as blocking the network (Codex's `CODEX_SANDBOX_NETWORK_DISABLED`) and gets no answer fails with `sandbox_blocks_network`, starts nothing, and names the fix: `aboard init --yes --allow-commands` in a terminal, whose Codex rule runs `aboard` outside the sandbox, or approving the command. It is checked before `daemon_in_sandbox` (D66), and `aboard status` and `aboard doctor` say the same rather than "not running". The guided `aboard init` says why in one line and suggests yes when Codex is among the harnesses; `aboard init --yes` without the flag keeps its default but recommends it in one line; doctor warns `codex_aboard_not_allowed` while no Codex rules file allows `aboard`. Refines D66 and D72.**
 Why: QA saw `aboard status` inside Codex report a running server as stopped, and other commands fail with `daemon_in_sandbox`, until the person approved each one outside the sandbox. Verified with Codex 0.159.3: without the rule `aboard status` reported both stopped; with the rule it reported both running. The rule matches only commands whose first word is `aboard` (`codex execpolicy check`), so it allows nothing broader. Opening the sandbox's network instead would let every command reach the network.
 
+## Accepted (2026-10-03): teams, identity and threads
+
+**D153. On a team server, the server is the team. People join the server through an invite and become its members; the server's admins (D111) manage membership. Boards are open or private: an open board is listed for every member of the server, and any member can join it; a private board is listed and joinable only by those invited to it. Whether every member or only admins can create boards is a server setting. This is separate from a board's visibility policy (D3), which decides who reads what inside a board. Locally, the one person is the team (D113). Built in the team step.**
+Why: teams work like chat workspaces, with shared rooms anyone can find and private ones for some people, and keeping it to two kinds of board stays lightweight.
+
+**D154. Every person has an identity on each server they use: a name unique on that server (chosen when they connect, defaulting to their system user name), an optional display name, and their logins, one per machine or browser, each revocable on its own. An invite link creates the identity; a later single sign-on adapter only proves who someone is and maps them to that identity (D104), so names, membership and roles always live in Aboard.**
+Why: owners, admins, sender labels and inboxes all need a stable person to point to, whatever way that person logs in.
+
+**D155. A program that takes part on a board, such as a chat bridge or a webhook relay, gets its own agent seat and token, owned by the person who added it, and posts as itself. It never posts with a person's login. Refines D56.**
+Why: attribution must stay true; a bridge posting as its owner would make its messages look like the owner's instructions to every agent (D110).
+
+**D156. Running Aboard in containers means the server and its UI: an official image runs `aboard serve`, and hosted recipes (Render, Railway or Fly, with a persistent disk for the database and files) start a team server. The CLI and the delivery daemon run on the machine with the harness sessions, because they must reach those sessions' hooks and queues. Isolating the agents themselves is the sandbox recipes (D106). Files stay on the server's disk; an object store remains deferred until a target host has no persistent disk.**
+Why: the network-facing server is what benefits from a container, and the daemon can't deliver from inside one.
+
+**D157. When a harness session resumes with the same session id it had before (for example `claude --resume` or `codex resume`), its hooks bind it again to the agent it filled, and what waited for that agent is delivered, with no `aboard resume` needed. Only that exact session id is matched, never a new session. The UI and CLI call an agent with no session "disconnected".**
+Why: closing and reopening a session is common, and the same session coming back should simply carry on; a new session taking over an agent stays a deliberate step.
+
+**D158. Replies form threads in the board view, as in chat apps: a message with replies shows how many and when the last came; it expands inline, in order, one level deep (replies to replies join the same thread), and stays collapsed or expanded as the person left it. `aboard read --thread N` shows a thread in the terminal, and `GET /v1/messages/{message}/replies` is built. Built with the rest of the board.**
+Why: a busy board is easier to follow when each conversation can be read and folded on its own, and one level keeps threads readable.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,
