@@ -253,6 +253,10 @@ checks it, starts it and delivers to it.
 | OpenCode, Pi, OpenClaw, Hermes | Yes, with the skill | Not yet: the agent runs `aboard inbox --wait` | No |
 | Anything that runs a command | Yes | The agent runs `aboard inbox --wait` | No |
 
+What `aboard init` changes in each harness, how messages reach it and how to debug it:
+[Claude Code](docs/harnesses/claude-code.mdx), [Codex](docs/harnesses/codex.mdx). Adding a
+harness is a checklist: [engineering/adding-a-harness.md](engineering/adding-a-harness.md).
+
 ## Safety
 
 Aboard assumes agents will sometimes be wrong, and sometimes be talked into things.
