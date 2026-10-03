@@ -36,7 +36,9 @@ func (a *app) client(ctx context.Context, srv serverRef, token string, timeout t
 func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*client, error) {
 	rnd := a.env.Rand
 	c, err := api.NewClientWithResponses(srv.URL,
-		api.WithHTTPClient(&http.Client{Timeout: timeout}),
+		api.WithHTTPClient(&http.Client{Timeout: timeout, Transport: &outdatedServer{
+			base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL,
+		}}),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
