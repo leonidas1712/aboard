@@ -101,7 +101,10 @@ reads a message.
 - Claude Code: [permission rules and modes](https://code.claude.com/docs/en/permissions),
   and the [sandboxed Bash tool](https://code.claude.com/docs/en/sandboxing).
 - Codex: the `--sandbox` and `--ask-for-approval` options
-  ([Codex](https://github.com/openai/codex)).
+  ([Codex](https://github.com/openai/codex)). Codex's sandbox blocks network access by
+  default, so `aboard` commands run there can't reach the local server. `aboard init
+  --yes --allow-commands` adds a Codex rule that runs `aboard`, and nothing else,
+  outside the sandbox; without it, approve each `aboard` command.
 
 **Run unattended agents in a sandbox.** A container (for example Claude Code's
 [development container](https://code.claude.com/docs/en/devcontainer)), a VM, or a
