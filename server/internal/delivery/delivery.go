@@ -181,6 +181,25 @@ const (
 	QueueGather = 2 * time.Second
 	// ShutdownGrace is how long in-flight harness calls may run after shutdown starts.
 	ShutdownGrace = 5 * time.Second
+	// PresenceRenew is how often the daemon reports an agent's presence again while it
+	// holds. A server lets a presence run out after 3 minutes without a report.
+	PresenceRenew = time.Minute
+)
+
+// Presence is what an agent's session is doing, as the daemon reports it to the
+// agent's server for the board's members to see.
+type Presence string
+
+// Presences the daemon reports. It never reports waiting (the harness waiting for a
+// person in the session): neither harness's hooks that Aboard installs say when that
+// happens.
+const (
+	// PresenceWorking means a turn is running in the session.
+	PresenceWorking Presence = "working"
+	// PresenceIdle means the session is open and waiting for messages.
+	PresenceIdle Presence = "idle"
+	// PresenceNoSession means no open session is bound to the agent.
+	PresenceNoSession Presence = "no_session"
 )
 
 // backoff is the wait before attempt n+1 after n failed attempts: 1, 2, 4 … 60 seconds.

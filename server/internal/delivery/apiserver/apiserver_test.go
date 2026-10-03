@@ -151,6 +151,30 @@ func TestRejectedAgentTokenIsUnauthorized(t *testing.T) {
 	if err := srv.Ack(context.Background(), to, 1); !errors.Is(err, delivery.ErrUnauthorized) {
 		t.Fatalf("Ack with a bad token = %v, want ErrUnauthorized", err)
 	}
+	if err := srv.SetPresence(context.Background(), to, delivery.PresenceIdle); !errors.Is(err, delivery.ErrUnauthorized) {
+		t.Fatalf("SetPresence with a bad token = %v, want ErrUnauthorized", err)
+	}
+}
+
+// A presence the daemon reports is what the board's members see.
+func TestReportedPresenceShowsOnTheBoard(t *testing.T) {
+	ctx := context.Background()
+	url, owner := localServer(t)
+	board, _, reviewerToken := pairedAgents(t, url, owner)
+	to := delivery.AgentRef{Server: url, Board: board, Name: "reviewer"}
+	srv := New(url, tokens{agents: map[delivery.AgentRef]string{to: reviewerToken}}, rand.Reader)
+	if err := srv.SetPresence(ctx, to, delivery.PresenceWorking); err != nil {
+		t.Fatal(err)
+	}
+	r, err := apiClient(t, url, owner).ListMembersWithResponse(ctx, board)
+	if err != nil || r.JSON200 == nil {
+		t.Fatalf("members: %v %s", err, r.Body)
+	}
+	for _, m := range r.JSON200.Members {
+		if m.Name == "reviewer" && (m.Presence == nil || *m.Presence != api.MemberPresenceWorking) {
+			t.Fatalf("reviewer's presence: %v", m.Presence)
+		}
+	}
 }
 
 func TestFollowWithoutALoginSendsNothing(t *testing.T) {
