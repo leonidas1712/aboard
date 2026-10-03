@@ -14,8 +14,11 @@ after the plan, with the pull request that merged it.
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), the per-harness feature matrix the README's table is generated from, and the control socket as a versioned contract (`spec/control.md`) | done (#33) | D130, D164, D167 |
-| omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | next | D160, D164 |
+| omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | building | D160, D164 |
 | Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
+| Every hook event `aboard init` installs carries the first harness version that supports it; an older or unknown version gets only the safe set (some Claude Code versions discard the whole settings file over one unknown hook event) | building, with omp | D164 |
+| Delivery stages in the daemon journal (accepted, turn started), "stalled" when no turn starts soon after a wake, and hand-over timings per harness | building, with omp | D129, D167 |
+| Evidence for each cell of the support matrix: the harness version and date it was proven live | building, with omp | D167 |
 
 ## Next: team mode
 
@@ -98,7 +101,9 @@ In this order.
 | The docs site (Mintlify): quickstart, one page per harness, safety, CLI and API reference | |
 | `CHANGELOG.md` with a "Contract changes" section | D149 |
 | `aboard debug bundle`: logs, versions, `doctor` output and config, with secrets removed | D150 |
-| Presence `waiting`, reported through a Claude Code hook, bundled with another hook change | D120 |
+| Presence `waiting` from hooks: Claude Code and Codex `PermissionRequest` (and Codex asking the user a question) mark the agent waiting until a matching tool event, the next prompt or a stop; ships with the next Claude Code hook change, since each change asks the person to trust hooks again | D120 |
+| Presence that says how sure it is: unconfirmed after a daemon restart until a live event arrives, stale after a long silence; a short settle time before idle, so a pause between steps doesn't flicker | D120 |
+| `aboard agent explain`: which evidence decided an agent's presence and its last delivery | D120 |
 | Trim VISION.md, which has grown to about 1,450 lines | |
 
 ### Interfaces
@@ -124,6 +129,7 @@ In this order.
 | A nightly live run against the latest Claude Code and Codex | Needs harness logins in CI or a self-hosted runner; `make live` before each release until then |
 | SDKs published to PyPI and npm in step with the API | When the SDK step lands |
 | Versioned docs | Once released versions differ |
+| A public "add Aboard support" contract for harness makers: report state and session over the control socket with a monotonic sequence, and certify the integration with the conformance kit, with no code in this repository | After omp proves the extension connection |
 | Subagent seats: `aboard sub new` and `aboard sub claim`, a seat linked to its parent, finished when the subagent stops, nested in the board view | D165 |
 | Hermes and OpenClaw support, and automatic delivery for any harness beyond Claude Code, Codex and omp | Needs the maintainer's approval per harness (D130) |
 | A terminal UI, `aboard tui`: boards, the live timeline with threads, posting and replying, the board panel (agents, add an agent, delivery, title, policy), record checks and a Setup screen | Low priority. A client of the public API like the board view, so every action stays an existing command; refuses inside an agent session; built in steps: read-only view, composing, admin actions, Setup |
