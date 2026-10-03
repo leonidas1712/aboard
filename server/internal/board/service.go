@@ -53,8 +53,9 @@ func (s *Service) Config() Config { return s.cfg }
 type Principal struct {
 	Human *Human
 	Agent *Member
-	// ReadOnly is set for a browser token, which acts as its human for reads only.
-	ReadOnly bool
+	// Browser is set for a browser token, which acts as its human with the human's
+	// permissions, except that it can't log in another browser.
+	Browser bool
 }
 
 // Authenticate resolves a bearer token to a human, an agent, or a human's browser.

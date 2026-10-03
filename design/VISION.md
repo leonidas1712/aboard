@@ -1235,7 +1235,7 @@ larger teams after v0.1, with the same migrations and tests.
 - Local mode embeds the build in the Go binary and serves it at `/`. Deployed, the same
   build can be embedded or served from any CDN pointed at the API.
 - `aboard open` logs the browser in with a one-time code in the URL's fragment; the page
-  trades it for a read-only browser token it keeps and sends itself, never a cookie (D89).
+  trades it for a browser token that acts as the person, which it keeps and sends itself, never a cookie (D89, D121).
 
 ### Local and team mode
 

@@ -84,7 +84,7 @@ func (e *env) exchange(link *url.URL) reply {
 	return e.request(http.MethodPost, "http://"+link.Host+"/v1/browser-tokens", "", "", string(body))
 }
 
-func TestOpenLogsTheBrowserInOnceWithAReadOnlyToken(t *testing.T) {
+func TestOpenLogsTheBrowserInOnceAsItsPerson(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	line := field(t, e.run("pair", "writer-reviewer", "--json").json(t), "join.line").(string)
@@ -142,9 +142,17 @@ func TestOpenLogsTheBrowserInOnceWithAReadOnlyToken(t *testing.T) {
 		t.Fatalf("stream with the browser token: %d %q %v", stream.StatusCode, event, err)
 	}
 
-	post := e.request(http.MethodPost, base+"/v1/boards/"+board+"/messages", token, "", `{"body":"from a web page"}`)
-	if post.status != http.StatusForbidden || !strings.Contains(post.body, "browser_read_only") {
+	// The browser acts as the person who ran aboard open, so it posts as them.
+	post := e.request(http.MethodPost, base+"/v1/boards/"+board+"/messages", token, "", `{"body":"from the browser"}`)
+	if post.status != http.StatusCreated || !strings.Contains(post.body, `"kind":"human"`) {
 		t.Fatalf("post with the browser token: %d %s", post.status, post.body)
+	}
+	if r := e.run("read", "--as", "writer", "--json"); !strings.Contains(r.stdout, "from the browser") {
+		t.Fatalf("the writer doesn't see the browser's post:\n%s", r)
+	}
+	code := e.request(http.MethodPost, base+"/v1/login-codes", token, "", "")
+	if code.status != http.StatusForbidden || !strings.Contains(code.body, "human_token_required") {
+		t.Fatalf("login code with the browser token: %d %s", code.status, code.body)
 	}
 }
 

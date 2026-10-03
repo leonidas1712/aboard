@@ -54,10 +54,16 @@ type LoginCode struct {
 }
 
 // CreateLoginCode makes a code that CreateBrowserToken exchanges once, within
-// LoginCodeTTL, for a browser token. Only humans can ask for one.
+// LoginCodeTTL, for a browser token. Only a human's own login can ask for one: a
+// browser that could ask would keep itself logged in past BrowserTokenTTL.
 func (s *Service) CreateLoginCode(_ context.Context, p Principal) (LoginCode, error) {
 	if err := requireHuman(p); err != nil {
 		return LoginCode{}, err
+	}
+	if p.Browser {
+		return LoginCode{}, apierr.New(http.StatusForbidden, "human_token_required",
+			"A browser can't make a login link; only your own login can.",
+			"Run aboard open in a terminal.")
 	}
 	code, err := s.gen.Token("abl")
 	if err != nil {
@@ -80,8 +86,8 @@ func loginCodeInvalid() *apierr.Error {
 }
 
 // CreateBrowserToken uses up a login code and returns a new browser token for its
-// human, and when the token ends. A browser token can only read. A code works only
-// once, even if this call fails.
+// human, and when the token ends. A browser token acts as its human, with the human's
+// permissions. A code works only once, even if this call fails.
 func (s *Service) CreateBrowserToken(_ context.Context, code string) (token string, expires time.Time, err error) {
 	digest := ids.Digest(s.key, code)
 	now := s.clk.Now()
@@ -101,7 +107,7 @@ func (s *Service) CreateBrowserToken(_ context.Context, code string) (token stri
 	return token, expires, nil
 }
 
-// authenticateBrowser resolves a browser token to the human it reads as.
+// authenticateBrowser resolves a browser token to the human it acts as.
 func (s *Service) authenticateBrowser(token string) (Principal, error) {
 	s.logins.mu.Lock()
 	defer s.logins.mu.Unlock()
@@ -112,5 +118,5 @@ func (s *Service) authenticateBrowser(token string) (Principal, error) {
 			"Run aboard open in a terminal to log in again.")
 	}
 	h := l.human
-	return Principal{Human: &h, ReadOnly: true}, nil
+	return Principal{Human: &h, Browser: true}, nil
 }

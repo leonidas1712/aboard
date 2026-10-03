@@ -389,7 +389,7 @@ $defs:
       starts the local server if it isn't running, asks it for a one-time login code
       (POST /v1/login-codes) with the human login, and opens
       <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
-      send to a server: the page exchanges it once for a read-only browser token
+      send to a server: the page exchanges it once for a browser token that acts as the owner
       (POST /v1/browser-tokens), keeps the token in its own storage, removes the code from
       the address bar and shows the board, or the board list when no board is selected. The board is --board, then the
       project's .aboard file; with neither, the board list opens. A --board the owner
