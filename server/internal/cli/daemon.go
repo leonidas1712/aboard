@@ -37,7 +37,7 @@ const daemonCallTimeout = 60 * time.Second
 // session has been open for ten minutes. A second daemon exits at once. "aboard daemon
 // start" starts it in the background instead.
 func runDaemon(ctx context.Context, a *app, args []string) error {
-	const use = "aboard daemon [start] [--json]"
+	use := usageOf("daemon")
 	fs := a.flags("daemon")
 	pos, err := a.parse(fs, args, use, 0, 1)
 	if err != nil {

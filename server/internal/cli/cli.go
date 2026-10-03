@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -31,6 +32,9 @@ type Env struct {
 	// Terminal is true when standard input and output are a terminal, so a command may
 	// ask questions.
 	Terminal bool
+	// StdoutTerminal and StderrTerminal are true when that stream is a terminal, so text
+	// written to it may be colored.
+	StdoutTerminal, StderrTerminal bool
 	// OpenBrowser opens a URL in the person's browser, failing when no browser could be
 	// started.
 	OpenBrowser func(ctx context.Context, url string) error
@@ -45,6 +49,7 @@ func OSEnv() Env {
 	return Env{
 		Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Getenv: os.Getenv, Dir: dir,
 		Executable: os.Executable, Rand: rand.Reader, Terminal: isTerminal(os.Stdin) && isTerminal(os.Stdout),
+		StdoutTerminal: isTerminal(os.Stdout), StderrTerminal: isTerminal(os.Stderr),
 		OpenBrowser: openBrowser,
 	}
 }
@@ -74,51 +79,38 @@ type app struct {
 }
 
 type command struct {
-	name  string
-	usage string
-	run   func(ctx context.Context, a *app, args []string) error
+	name string
+	run  func(ctx context.Context, a *app, args []string) error
 }
 
+// commands lists every command; their usage and help live in helpTopics.
 func commands() []command {
 	return []command{
-		{"up", "aboard up [--json]", runUp},
-		{"down", "aboard down [--json]", runDown},
-		{"pair", pairUsage, runPair},
-		{"join", "aboard join <join-line|code> [--name NAME] [--harness H] [--json]", runJoin},
-		{"invite", inviteUsage, runInvite},
-		{"say", "aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply] [--as AGENT] [--board NAME] [--json]", runSay},
-		{"inbox", "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]", runInbox},
-		{"read", readUsage, runRead},
-		{"watch", watchUsage, runWatch},
-		{"open", openUsage, runOpen},
-		{"logout", logoutUsage, runLogout},
-		{"status", "aboard status [--as AGENT] [--board NAME] [--json]", runStatus},
-		{"delivery", "aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]", runDelivery},
-		{"board", boardUsage, runBoard},
-		{"audit", "aboard audit verify [--as AGENT] [--board NAME] [--json]", runAudit},
-		{"resume", "aboard resume <agent> [--board NAME] [--json]", runResume},
-		{"init", "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]", runInit},
-		{"doctor", "aboard doctor [--json]", runDoctor},
-		{"uninstall", "aboard uninstall [--data] [--dry-run] [--yes] [--json]", runUninstall},
-		{"version", "aboard version [--json]", runVersion},
-		{"serve", "aboard serve", runServe},
-		{"daemon", "aboard daemon [start] [--json]", runDaemon},
-		{"hook", "aboard hook <claude-code|codex> <event>", runHook},
+		{"up", runUp},
+		{"down", runDown},
+		{"pair", runPair},
+		{"join", runJoin},
+		{"invite", runInvite},
+		{"say", runSay},
+		{"inbox", runInbox},
+		{"read", runRead},
+		{"watch", runWatch},
+		{"open", runOpen},
+		{"logout", runLogout},
+		{"status", runStatus},
+		{"delivery", runDelivery},
+		{"board", runBoard},
+		{"audit", runAudit},
+		{"resume", runResume},
+		{"init", runInit},
+		{"doctor", runDoctor},
+		{"uninstall", runUninstall},
+		{"version", runVersion},
+		{"help", runHelp},
+		{"serve", runServe},
+		{"daemon", runDaemon},
+		{"hook", runHook},
 	}
-}
-
-// usage is the help text listing the commands people use.
-func usage() string {
-	var b strings.Builder
-	b.WriteString("Usage: aboard <command> [flags]\n\nCommands:\n")
-	for _, c := range commands() {
-		if c.name == "serve" || c.name == "hook" {
-			continue
-		}
-		b.WriteString("  " + c.usage + "\n")
-	}
-	b.WriteString("  aboard help\n\nFlags may come before or after the other arguments. --json prints one JSON object.\n")
-	return b.String()
 }
 
 // Run runs the aboard command with args (without the program name) and returns the
@@ -126,20 +118,30 @@ func usage() string {
 func Run(ctx context.Context, args []string, env Env) int {
 	a := &app{env: env, json: wantsJSON(args)}
 	if len(args) == 0 {
-		_, _ = io.WriteString(env.Stderr, usage())
+		_, _ = io.WriteString(env.Stderr, overviewText(a.errStyles()))
 		return exitUsage
 	}
 	switch args[0] {
-	case "help", "-h", "-help", "--help":
-		_, _ = io.WriteString(env.Stdout, usage())
-		return exitOK
+	case "-h", "-help", "--help":
+		args = append([]string{"help"}, args[1:]...)
 	}
 	for _, c := range commands() {
-		if c.name == args[0] {
-			return a.report(c.run(ctx, a, args[1:]))
+		if c.name != args[0] {
+			continue
 		}
+		// "aboard <command> help" reads like a request for help; say where it is
+		// rather than running the command with "help" as its argument.
+		if rest := slices.DeleteFunc(slices.Clone(args[1:]), isJSONFlag); len(rest) == 1 && rest[0] == "help" && c.name != "help" {
+			return a.report(&Error{
+				Code: "invalid_request", Message: "aboard " + c.name + " help is not a command.",
+				Hint: "Run aboard help " + c.name + " for its usage, flags and examples.", Exit: exitUsage,
+			})
+		}
+		return a.report(c.run(ctx, a, args[1:]))
 	}
-	return a.report(usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), usage()))
+	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")
+	e.Hint = "Run aboard help to see the commands."
+	return a.report(e)
 }
 
 // wantsJSON looks for --json before flags are parsed, so even a usage error can be
@@ -149,11 +151,15 @@ func wantsJSON(args []string) bool {
 		if arg == "--" {
 			return false
 		}
-		if arg == "--json" || arg == "-json" || arg == "--json=true" || arg == "-json=true" {
+		if isJSONFlag(arg) {
 			return true
 		}
 	}
 	return false
+}
+
+func isJSONFlag(arg string) bool {
+	return arg == "--json" || arg == "-json" || arg == "--json=true" || arg == "-json=true"
 }
 
 // errCheckFailed means a check ran, failed and already printed its result.
@@ -178,14 +184,15 @@ func (a *app) report(err error) int {
 	if a.json {
 		a.writeJSON(e.wire())
 	} else {
-		msg := "Error: " + e.Message + "\n"
+		st := a.errStyles()
+		msg := st.render(styleBadBold, "Error:") + " " + e.Message + "\n"
 		if e.Hint != "" {
-			msg += "Hint: " + e.Hint + "\n"
+			msg += st.warn("Hint:") + " " + e.Hint + "\n"
 		}
 		_, _ = io.WriteString(a.env.Stderr, msg)
 	}
 	if e.Usage != "" {
-		_, _ = io.WriteString(a.env.Stderr, "\nUsage: "+strings.TrimPrefix(e.Usage, "Usage: ")+"\n")
+		_, _ = io.WriteString(a.env.Stderr, "\n"+a.errStyles().heading("Usage:")+" "+strings.TrimPrefix(e.Usage, "Usage: ")+"\n")
 	}
 	return e.exitCode()
 }
@@ -208,7 +215,7 @@ func (a *app) writeJSON(v any) {
 
 func runVersion(_ context.Context, a *app, args []string) error {
 	fs := a.flags("version")
-	if _, err := a.parse(fs, args, "aboard version [--json]", 0, 0); err != nil {
+	if _, err := a.parse(fs, args, usageOf("version"), 0, 0); err != nil {
 		return err
 	}
 	a.emit(currentBuild(), "aboard "+version+"\n")

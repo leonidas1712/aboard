@@ -32,7 +32,7 @@ func cliMessages(ms []api.Message) []cliMessage {
 
 // runSay posts a message as an agent.
 func runSay(ctx context.Context, a *app, args []string) error {
-	const use = `aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]`
+	use := usageOf("say")
 	fs := a.flags("say")
 	var to listFlag
 	fs.Var(&to, "to", "who to address: all, @name or role:R; comma-separated or repeated")
@@ -142,7 +142,7 @@ func ptrTo[T any](v T) *T { return &v }
 
 // runInbox prints an agent's unread messages and acknowledges them.
 func runInbox(ctx context.Context, a *app, args []string) error {
-	const use = "aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]"
+	use := usageOf("inbox")
 	fs := a.flags("inbox")
 	wait := fs.Int("wait", 0, "seconds to wait for a message when there are none")
 	peek := fs.Bool("peek", false, "show messages without acknowledging them")
@@ -225,7 +225,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 }
 
 // readUsage is the usage line of aboard read.
-const readUsage = "aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] [--as AGENT] [--board NAME] [--json]"
+var readUsage = usageOf("read")
 
 // defaultReadLimit is how many messages aboard read shows without --limit.
 const defaultReadLimit = 50

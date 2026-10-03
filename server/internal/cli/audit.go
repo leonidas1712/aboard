@@ -63,7 +63,7 @@ func (p *pinCheck) check(evs []events.Event) (int64, bool) {
 
 // runAudit runs "aboard audit verify", which checks a board's hash chain.
 func runAudit(ctx context.Context, a *app, args []string) error {
-	const use = "aboard audit verify [--as AGENT] [--board NAME] [--json]"
+	use := usageOf("audit")
 	fs := a.flags("audit")
 	as := fs.String("as", "", "verify as this agent instead of as yourself")
 	boardFlag := fs.String("board", "", "the board to verify")

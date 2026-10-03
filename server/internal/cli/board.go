@@ -36,7 +36,7 @@ func (a *app) namedBoard(boardFlag string) string {
 }
 
 // boardUsage is the usage of "aboard board", which acts on a board's settings.
-const boardUsage = "aboard board policy <starter|recommended> | aboard board title <text> [--board NAME] [--json]"
+var boardUsage = usageOf("board")
 
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset,
 // and "aboard board title <text>", which changes its title. Both use the human login, so

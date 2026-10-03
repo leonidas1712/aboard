@@ -18,12 +18,12 @@ import (
 const defaultTemplate = "general"
 
 // pairUsage is the usage of "aboard pair".
-const pairUsage = "aboard pair [template] [--new] [--board NAME] [--title TEXT] [--name NAME] [--json]"
+var pairUsage = usageOf("pair")
 
 // runPair creates a board from a template, joins this session as the template's first
 // role and prints a join line for a second session in the other role.
 func runPair(ctx context.Context, a *app, args []string) error {
-	const use = pairUsage
+	use := pairUsage
 	fs := a.flags("pair")
 	boardName := fs.String("board", "", "name of the new board")
 	title := fs.String("title", "", "the new board's title, free text people read beside its name")
@@ -121,22 +121,23 @@ func runPair(ctx context.Context, a *app, args []string) error {
 
 	notice := noticeFor(joined.Board.Policy)
 	var text strings.Builder
+	st := a.out()
 	if started {
-		text.WriteString("Started local Aboard at " + srv.URL + "\n")
+		text.WriteString("Started local Aboard at " + st.code(srv.URL) + "\n")
 	} else {
-		text.WriteString("Using local Aboard at " + srv.URL + "\n")
+		text.WriteString("Using local Aboard at " + st.code(srv.URL) + "\n")
 	}
 	if t := joined.Board.Title; t != nil {
-		fmt.Fprintf(&text, "Created board %s (%s) and joined as %s\n", board, *t, agentText(joined.Agent))
+		fmt.Fprintf(&text, "Created board %s (%s) and joined as %s\n", st.name(board), *t, agentText(joined.Agent))
 	} else {
-		fmt.Fprintf(&text, "Created board %s and joined as %s\n", board, agentText(joined.Agent))
+		fmt.Fprintf(&text, "Created board %s and joined as %s\n", st.name(board), agentText(joined.Agent))
 	}
 	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
 	if notice != nil {
-		text.WriteString(notice.Message + "\n")
+		text.WriteString(st.warn(notice.Message) + "\n")
 	}
-	text.WriteString("\nPaste this into your next session:\n" + line + "\n")
+	text.WriteString("\n" + st.heading("Paste this into your next session:") + "\n" + st.code(line) + "\n")
 
 	a.emit(struct {
 		Server        serverRef      `json:"server"`
@@ -202,7 +203,7 @@ func optional(s string) *string {
 
 // runJoin redeems a join line or a bare join code, creating an agent for this machine.
 func runJoin(ctx context.Context, a *app, args []string) error {
-	const use = "aboard join <join-line|code> [--name NAME] [--harness H] [--json]"
+	use := usageOf("join")
 	fs := a.flags("join")
 	agentName := fs.String("name", "", "name of the new agent")
 	harness := fs.String("harness", "", "the program running this session, such as claude-code or codex")

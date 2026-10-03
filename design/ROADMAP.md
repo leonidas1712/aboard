@@ -27,6 +27,7 @@ Status: **done** (merged) · **review** (built, in a pull request) · **building
 | Board view tab icon: a room holding two lines of conversation, as SVG (light and dark) with PNG fallbacks and an Apple touch icon | done (#21) | |
 | Browser logins survive server restarts and upgrades (kept as digests in the database); `aboard logout --browsers` | review | D88, D89, D121, D163 |
 | Board view layout: left panel is the board list only (with message counts); right panel is this board (Agents with "Add an agent", Charter, Rules Aboard enforces, Details with the record check); the header shows Aboard's mark and the title opens Details; "disconnected" for agents with no session | review | D143, D157, D161 |
+| The CLI for people: per-command help (`aboard help <command>`, `--help`, `--json`), color and selectors only for a person at a terminal, a guided `aboard init` that shows what is already set up | review | D162 |
 
 ## Done
 

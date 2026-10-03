@@ -22,7 +22,9 @@ func (a *app) flags(name string) *flag.FlagSet {
 func (a *app) parse(fs *flag.FlagSet, args []string, usage string, minPos, maxPos int) ([]string, error) {
 	pos, err := parseInterspersed(fs, args)
 	if errors.Is(err, flag.ErrHelp) {
-		_, _ = io.WriteString(a.env.Stdout, "Usage: "+usage+"\n")
+		if err := a.showHelp(fs.Name()); err != nil {
+			return nil, err
+		}
 		return nil, errHelpShown
 	}
 	if err != nil {
@@ -37,7 +39,7 @@ func (a *app) parse(fs *flag.FlagSet, args []string, usage string, minPos, maxPo
 	return pos, nil
 }
 
-// errHelpShown means -h was given and the usage is already printed.
+// errHelpShown means -h or --help was given and the command's help is already printed.
 var errHelpShown = errors.New("help shown")
 
 // parseInterspersed parses flags wherever they appear in args and returns the

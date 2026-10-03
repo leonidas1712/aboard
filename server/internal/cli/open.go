@@ -10,7 +10,7 @@ import (
 )
 
 // openUsage is the usage line of aboard open.
-const openUsage = "aboard open [--board NAME] [--json]"
+var openUsage = usageOf("open")
 
 // runOpen opens the web UI in the browser, logged in as the local owner, through a
 // one-time login link: the owner's token never appears in a URL, and the link's code

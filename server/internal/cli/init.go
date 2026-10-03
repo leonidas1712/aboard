@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -230,7 +229,7 @@ const (
 // every project or for this one. In a terminal it asks what to set up and confirms
 // before writing; otherwise it writes only with --yes and else lists the changes.
 func runInit(ctx context.Context, a *app, args []string) error {
-	const use = "aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]"
+	use := usageOf("init")
 	flags := a.flags("init")
 	yes := flags.Bool("yes", false, "make the changes without asking")
 	scope := flags.String("scope", scopeGlobal, "global: every project (under your home directory); project: only this directory")
@@ -262,7 +261,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		{Name: "claude-code", Detected: detected(a.configDir("claude-code"), "claude")},
 		{Name: "codex", Detected: detected(a.configDir("codex"), "codex")},
 	}
-	interactive := a.env.Terminal && !*yes && !a.json
+	interactive := !*yes && a.interactive()
 	current := delivery.ModeAuto
 	if interactive || c.delivery != "" {
 		// The empty AgentRef holds the mode of agents without their own.
@@ -270,15 +269,11 @@ func runInit(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	p := &prompter{in: bufio.NewReader(a.env.Stdin), out: a.env.Stdout}
 	if interactive {
-		var found []string
-		for _, h := range known {
-			if h.Detected {
-				found = append(found, h.Name)
-			}
+		proceed, err := a.askInit(ctx, &c, known, set, current)
+		if err != nil || !proceed {
+			return err
 		}
-		a.askInit(p, &c, found, set, current)
 		if err := a.checkInitChoices(c, use); err != nil {
 			return err
 		}
@@ -295,17 +290,23 @@ func runInit(ctx context.Context, a *app, args []string) error {
 			modeChange.Action = actionUpdate
 		}
 	}
+	st := a.out()
 	apply := *yes
-	list, pending := initList(setups, modeChange, c, home)
+	list, pending := initList(setups, modeChange, c, home, st, interactive)
 	if interactive {
-		_, _ = io.WriteString(a.env.Stdout, "\n"+list)
+		_, _ = io.WriteString(a.env.Stdout, "\n"+st.heading("Changes")+"\n"+list)
 		if pending == 0 {
-			_, _ = io.WriteString(a.env.Stdout, initEnding(c, nil, 0, false))
+			_, _ = io.WriteString(a.env.Stdout, initEnding(c, nil, 0, false, st))
 			return nil
 		}
-		if apply = p.yes("Make these changes?"); !apply {
+		_, _ = io.WriteString(a.env.Stdout, "\n")
+		apply, err = a.asker().confirm("Make these changes?", "", true)
+		if errors.Is(err, errAborted) || (err == nil && !apply) {
 			_, _ = io.WriteString(a.env.Stdout, "Nothing changed.\n")
 			return nil
+		}
+		if err != nil {
+			return err
 		}
 		// The changes are already on screen; say only how it ended.
 		list = ""
@@ -318,13 +319,17 @@ func runInit(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
+	text := list + a.codexAllowLine(c, setups, interactive) + initEnding(c, setups, pending, apply, st)
+	if interactive && apply {
+		text += nextSteps(setups, st)
+	}
 	a.emit(struct {
 		Applied       bool           `json:"applied"`
 		Scope         string         `json:"scope"`
 		Delivery      *initDelivery  `json:"delivery"`
 		AllowCommands bool           `json:"allow_commands"`
 		Harnesses     []harnessSetup `json:"harnesses"`
-	}{apply, c.scope, modeChange, c.allow, setups}, list+a.codexAllowLine(c, setups, interactive)+initEnding(c, setups, pending, apply))
+	}{apply, c.scope, modeChange, c.allow, setups}, text)
 	return nil
 }
 
@@ -579,46 +584,59 @@ func mergeHooks(data []byte, harness string, specs []hookSpec) (out []byte, chan
 }
 
 // initList lists the changes, one file per line, and returns how many are pending.
-func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home string) (list string, pending int) {
+// compact names the hook events of a hooks file on one line instead of each command,
+// for a person who already chose what to set up.
+func initList(setups []harnessSetup, mode *initDelivery, c initChoices, home string, st styles, compact bool) (list string, pending int) {
 	var b strings.Builder
 	short := func(p string) string { return shortPath(p, home) }
 	for _, s := range setups {
 		if !s.Detected {
-			fmt.Fprintf(&b, "%s: not found on this machine\n", s.Name)
+			fmt.Fprintf(&b, "%s: %s\n", s.Name, st.dim("not found on this machine"))
 			continue
 		}
 		if len(s.Changes) == 0 {
-			fmt.Fprintf(&b, "%s: not chosen\n", s.Name)
+			fmt.Fprintf(&b, "%s: %s\n", s.Name, st.dim("not chosen"))
 			continue
 		}
-		fmt.Fprintf(&b, "%s, %s:\n", s.Name, scopeText(c.scope))
+		b.WriteString(st.heading(s.Name+", "+scopeText(c.scope)+":") + "\n")
 		if s.otherScope {
 			other := scopeGlobal
 			if c.scope == scopeGlobal {
 				other = scopeProject
 			}
-			fmt.Fprintf(&b, "  (its hooks are also set up %s; with both, it may run each hook twice)\n", scopeText(other))
+			fmt.Fprintf(&b, "  %s\n", st.warn("(its hooks are also set up "+scopeText(other)+"; with both, it may run each hook twice)"))
 		}
 		for _, ch := range s.Changes {
 			kind := ch.Kind
 			if ch.Edited {
-				kind += "; edited since aboard " + ch.WrittenBy + " wrote it"
+				kind += "; " + st.warn("edited since aboard "+ch.WrittenBy+" wrote it")
 			}
-			fmt.Fprintf(&b, "  %-9s %s (%s)\n", ch.Action, short(ch.Path), kind)
+			fmt.Fprintf(&b, "  %s %s (%s)\n", actionStyle(st, ch.Action, fmt.Sprintf("%-9s", ch.Action)), short(ch.Path), kind)
 			if ch.Action == actionUnchanged {
 				continue
 			}
 			pending++
+			lines, events := []string{}, []string{}
 			for _, cmd := range ch.commands {
-				fmt.Fprintf(&b, "            %s\n", cmd)
+				if event, _, ok := strings.Cut(cmd, ": "); compact && ok && event != "allow" {
+					events = append(events, event)
+					continue
+				}
+				lines = append(lines, cmd)
+			}
+			if len(events) > 0 {
+				lines = append([]string{"aboard hook " + s.Name + " on " + strings.Join(events, ", ")}, lines...)
+			}
+			for _, line := range lines {
+				fmt.Fprintf(&b, "            %s\n", st.dim(line))
 			}
 			if ch.Kind == "permissions" {
-				b.WriteString("            (Codex runs the commands it allows outside its sandbox.)\n")
+				b.WriteString("            " + st.dim("(Codex runs the commands it allows outside its sandbox.)") + "\n")
 			}
 		}
 	}
 	if mode != nil {
-		fmt.Fprintf(&b, "delivery for agents without their own mode: %s (%s)\n", mode.Mode, mode.Action)
+		fmt.Fprintf(&b, "delivery for agents without their own mode: %s (%s)\n", st.name(string(mode.Mode)), actionStyle(st, mode.Action, mode.Action))
 		if mode.Action != actionUnchanged {
 			pending++
 		}
@@ -649,14 +667,27 @@ func (a *app) codexAllowLine(c initChoices, setups []harnessSetup, interactive b
 // harnessTitles are the harnesses' names as people know them.
 var harnessTitles = map[string]string{"claude-code": "Claude Code", "codex": "Codex"}
 
+// actionStyle colors text by the file action it stands for.
+func actionStyle(st styles, action, text string) string {
+	switch action {
+	case actionCreate:
+		return st.ok(text)
+	case actionUpdate, actionEdit:
+		return st.warn(text)
+	case actionDelete:
+		return st.bad(text)
+	}
+	return st.dim(text)
+}
+
 // initEnding says what happened, or what to run to make the changes. Only the harnesses
 // whose hook files were added or updated ask the person to trust the hooks again.
-func initEnding(c initChoices, setups []harnessSetup, pending int, applied bool) string {
+func initEnding(c initChoices, setups []harnessSetup, pending int, applied bool, st styles) string {
 	switch {
 	case pending == 0:
-		return "Nothing to change.\n"
+		return st.ok("Nothing to change.") + "\n"
 	case !applied:
-		return "Run " + initCommand(c) + " to make these changes.\n"
+		return "Run " + st.code(initCommand(c)) + " to make these changes.\n"
 	}
 	var trust []string
 	for _, s := range setups {
@@ -669,11 +700,11 @@ func initEnding(c initChoices, setups []harnessSetup, pending int, applied bool)
 	}
 	switch len(trust) {
 	case 0:
-		return "Done.\n"
+		return st.ok("Done.") + "\n"
 	case 1:
-		return "Done. " + trust[0] + " asks you to trust new hooks before they run: review them in /hooks.\n" + projectEnding(c, trust)
+		return st.ok("Done.") + " " + trust[0] + " asks you to trust new hooks before they run: review them in /hooks.\n" + projectEnding(c, trust)
 	}
-	return "Done. " + strings.Join(trust, " and ") +
+	return st.ok("Done.") + " " + strings.Join(trust, " and ") +
 		" ask you to trust new hooks before they run: review them in /hooks in each.\n" + projectEnding(c, trust)
 }
 

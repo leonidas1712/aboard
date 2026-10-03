@@ -9,6 +9,12 @@
 # - On failure the object is the API error shape {"error":{code,message,hint,details?}},
 #   whether the error came from the server or the CLI. CLI-only codes are listed below.
 # - Exit codes: 0 ok · 1 error · 2 usage error · 3 a check ran and failed.
+# - Text output is colored only when it goes to a terminal, NO_COLOR is unset, TERM
+#   isn't dumb, --json wasn't given and the command doesn't run inside a harness session
+#   (see below); otherwise it is plain text, and the words are the same either way. A
+#   command asks questions only when standard input and output are both terminals,
+#   --json wasn't given and it doesn't run inside a harness session; every question has
+#   a flag that answers it, and elsewhere a command never waits for an answer.
 # - Agent resolution: --as, then ABOARD_AGENT, then the agent bound to the current
 #   session (ABOARD_SESSION set by the Claude Code hook, or CODEX_THREAD_ID set by Codex).
 #   The agent decides the board: each agent belongs to one board. A name this machine has
@@ -299,6 +305,61 @@ $defs:
       version: { type: string, examples: ["0.1.0"] }
       commit: { type: string }
       commit_time: { type: string, format: date-time }
+
+  # ---------- aboard help [command] ----------
+  HelpOutput:
+    description: |
+      The help aboard prints for its commands, as data: the source of the CLI reference
+      in the docs. Without a command it lists every command a person or agent runs, in
+      the order and groups of "aboard help"; with one, it holds just that command, which
+      may also be one Aboard runs itself (serve, hook). An unknown command fails with
+      invalid_request and exit 2.
+
+      Text output: "aboard help" lists the commands by group, one line each; "aboard help
+      <command>", "aboard <command> --help" and "aboard <command> -h" print the same help
+      for one command (its summary, usage, description, flags, examples and related
+      commands), to stdout, exit 0. "aboard <command> help" is not a command: it fails
+      with invalid_request and exit 2, and its hint names aboard help <command>.
+    type: object
+    required: [commands]
+    properties:
+      commands:
+        type: array
+        items:
+          type: object
+          required: [name, group, summary, usage, description, flags, examples, see_also]
+          properties:
+            name: { type: string, examples: [init] }
+            group:
+              type: string
+              description: The heading aboard help lists it under; "Run by Aboard itself" for serve and hook.
+              examples: [Get started, Talk, Board, Run, Maintain]
+            summary: { type: string, description: One line. }
+            usage:
+              type: array
+              items: { type: string }
+              description: One line per form of the command, such as "aboard board policy <starter|recommended> [--board NAME] [--json]".
+            description: { type: string, description: Paragraphs separated by a blank line. }
+            flags:
+              type: array
+              items:
+                type: object
+                required: [name, value, text]
+                properties:
+                  name: { type: string, examples: ["--to"] }
+                  value: { type: string, description: "The value it takes, such as T[,T…]; empty for a switch." }
+                  text: { type: string }
+            examples:
+              type: array
+              items:
+                type: object
+                required: [command, text]
+                properties:
+                  command: { type: string }
+                  text: { type: string }
+            see_also:
+              type: array
+              items: { type: string, description: A command name. }
 
   Replaced:
     description: |
@@ -772,10 +833,16 @@ $defs:
       were added or updated ("Done. Codex asks you to trust new hooks before they run:
       review them in /hooks."); rewriting only a skill asks for no trust.
 
-      Run in a terminal (stdin and stdout are terminals) without --yes or --json, it asks
-      which harnesses, the scope, the delivery mode and whether to allow aboard commands,
-      skipping any question a flag answers; then it shows the changes and asks before
-      making them. Declining changes nothing and exits 0 with applied false.
+      Run in a terminal (stdin and stdout are terminals, outside a harness session)
+      without --yes or --json, it first shows what is already set up: for each harness
+      and scope, whether the hooks and the skill are current, outdated or edited, and
+      whether aboard commands are allowed; and the delivery mode of agents without their
+      own. When everything is current it says so and asks whether to change anything.
+      Then it asks, with selectors, which harnesses, the scope, the delivery mode and
+      whether to allow aboard commands, skipping any question a flag answers; shows the
+      changes; and asks before making them, ending with the next steps. Declining, or
+      Ctrl-C, changes nothing and exits 0. With TERM=dumb or ACCESSIBLE set it asks line
+      by line instead.
 
       --scope global (the default) writes in each harness's config folder:
       $CLAUDE_CONFIG_DIR (~/.claude/) for Claude Code; $CODEX_HOME (~/.codex/) and

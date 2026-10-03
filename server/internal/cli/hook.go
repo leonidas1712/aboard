@@ -52,7 +52,7 @@ var sessionIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 // that fails for any reason other than a delivery exits 0, so a broken daemon never
 // blocks a session.
 func runHook(ctx context.Context, a *app, args []string) error {
-	const use = "aboard hook <claude-code|codex> <event>"
+	use := usageOf("hook")
 	fs := a.flags("hook")
 	pos, err := a.parse(fs, args, use, 2, 2)
 	if err != nil {
