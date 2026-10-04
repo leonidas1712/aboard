@@ -36,6 +36,12 @@ const defaultSwarmWait = 2 * time.Minute
 
 // runSwarm runs "aboard swarm up|ps|down|runner".
 func runSwarm(ctx context.Context, a *app, args []string) error {
+	if len(args) > 0 && strings.HasPrefix(args[0], "-") {
+		// --help, -h or --json before the subcommand: help, or a usage error.
+		if _, err := a.parse(a.flags("swarm"), args, swarmUsage, 0, 0); err != nil {
+			return err
+		}
+	}
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		return usageError("Name what to do: aboard swarm up, ps or down.", swarmUsage)
 	}
@@ -206,7 +212,7 @@ const (
 
 // runSwarmUp starts the agents of a board file.
 func runSwarmUp(ctx context.Context, a *app, args []string) error {
-	flags := a.flags("swarm up")
+	flags := a.flags("swarm")
 	file := flags.String("file", "", "the board file")
 	launcherFlag := flags.String("launcher", "", "the launcher of agents that don't name their own")
 	fresh := flags.Bool("fresh", false, "start new sessions instead of resuming")
@@ -783,7 +789,7 @@ func (a *app) swarmTarget(ctx context.Context, boardFlag, file string) (string, 
 
 // runSwarmPs lists a swarm's agents.
 func runSwarmPs(ctx context.Context, a *app, args []string) error {
-	flags := a.flags("swarm ps")
+	flags := a.flags("swarm")
 	file := flags.String("file", "", "the board file")
 	boardFlag := flags.String("board", "", "the swarm's board")
 	if _, err := a.parse(flags, args, swarmUsage, 0, 0); err != nil {
@@ -881,7 +887,7 @@ func (a *app) swarmRows(ctx context.Context, name string, rec *swarmRecord, f *s
 
 // runSwarmDown stops a swarm's sessions, or the named agents'.
 func runSwarmDown(ctx context.Context, a *app, args []string) error {
-	flags := a.flags("swarm down")
+	flags := a.flags("swarm")
 	file := flags.String("file", "", "the board file")
 	boardFlag := flags.String("board", "", "the swarm's board")
 	pos, err := a.parse(flags, args, swarmUsage, 0, -1)

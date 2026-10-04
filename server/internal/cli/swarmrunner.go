@@ -70,7 +70,7 @@ func headlessSessionSaved(a *app, swarm, agent string) bool {
 // harness with every unread message as the prompt, resuming the same harness session
 // each time, then acknowledges what the turn was given. The headless launcher starts it.
 func runSwarmRunner(ctx context.Context, a *app, args []string) error {
-	fls := a.flags("swarm runner")
+	fls := a.flags("swarm")
 	harnessName := fls.String("harness", "", "the harness to run")
 	swarm := fls.String("swarm", "", "the swarm, which names where the session is kept")
 	model := fls.String("model", "", "the model")
