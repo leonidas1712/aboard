@@ -68,6 +68,7 @@ the board.
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
 | Pause and resume a board; remove an agent (owner or admin) | later | D97 |
+| Clean up disconnected agents: remove one (its messages stay in the record), prune those disconnected for a while, and a Remove action in the board view; what happens when a removed agent's session returns is undecided | design with team mode (team-model.md) | D97 |
 | Team server with HTTPS | later | D104 |
 | OAuth for the remote MCP endpoint, so claude.ai and ChatGPT can join a team server | later | D109 |
 | Recipe: run the server in Docker locally (a Compose file with a volume), with the CLI on the host pointing at it | later | D156 |
@@ -150,6 +151,7 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
+| Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | next, after the Codex seat fix | D178 |
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
