@@ -41,6 +41,11 @@ func (p paths) daemonLog() string  { return filepath.Join(p.state, "daemon.log")
 func (p paths) deliveryDB() string { return filepath.Join(p.state, "delivery.db") }
 func (p paths) socket() string     { return control.Path(p.state) }
 
+// Swarms keep their launch tickets, the sessions they started and the headless
+// runners' sessions and logs in the state directory.
+func (p paths) launches() string { return filepath.Join(p.state, "launches") }
+func (p paths) swarms() string   { return filepath.Join(p.state, "swarms") }
+
 // resolvePaths puts everything under ABOARD_HOME when it is set. Otherwise it follows
 // the XDG base directory variables, falling back to the usual directories under $HOME.
 func resolvePaths(getenv func(string) string) (paths, error) {

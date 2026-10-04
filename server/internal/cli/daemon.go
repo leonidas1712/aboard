@@ -20,6 +20,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/apiserver"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
+	"github.com/leonidas1712/aboard/server/internal/delivery/launchtickets"
 	"github.com/leonidas1712/aboard/server/internal/delivery/proctable"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
 )
@@ -117,6 +118,7 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 		Log:       log,
 		PID:       pid,
 		Build:     currentBuild(),
+		Tickets:   launchtickets.Dir(p.launches()),
 	})
 	log.Info("delivery daemon stopped", "error", errText(err))
 	if err != nil {

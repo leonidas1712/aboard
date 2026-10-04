@@ -163,10 +163,21 @@ describe("identity and hello", () => {
 			process: { pid: process.pid },
 			cwd: "/work/project",
 			harness_version: "18.5.1",
-			extension_version: "2",
+			extension_version: "3",
 		});
 		expect(hello.boot).toMatch(/^[0-9a-f]{16}$/);
 		expect(hello.resumed).toBeUndefined();
+		expect(hello.launch).toBeUndefined();
+	});
+
+	test("a session aboard swarm up started hands in its launch ticket", async () => {
+		process.env.ABOARD_LAUNCH = "lch_0123456789abcdef01234567";
+		try {
+			const { conn } = await started();
+			expect(conn.frames[0].launch).toBe("lch_0123456789abcdef01234567");
+		} finally {
+			delete process.env.ABOARD_LAUNCH;
+		}
 	});
 
 	test("a session that already has messages connects as resumed", async () => {

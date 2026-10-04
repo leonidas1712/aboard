@@ -148,12 +148,19 @@ func Run(ctx context.Context, args []string, env Env) int {
 		if err := a.refuseInSubagent(c.name, args[1:]); err != nil {
 			return a.report(err)
 		}
+		if !slices.Contains(noLaunchClaim, c.name) {
+			a.claimLaunch(ctx)
+		}
 		return a.report(c.run(ctx, a, args[1:]))
 	}
 	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")
 	e.Hint = "Run aboard help to see the commands."
 	return a.report(e)
 }
+
+// noLaunchClaim are the commands that never hand in the session's launch ticket: the
+// ones a harness or a person runs rather than the agent.
+var noLaunchClaim = []string{"hook", "daemon", "serve", "help", "version", "up", "down", "swarm"}
 
 // wantsJSON looks for --json before flags are parsed, so even a usage error can be
 // printed as JSON.

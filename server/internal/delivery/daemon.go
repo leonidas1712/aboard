@@ -37,6 +37,9 @@ type Config struct {
 	// IdleExit overrides how long the daemon runs with no open session; zero means
 	// the default.
 	IdleExit time.Duration
+	// Tickets holds the launch tickets aboard swarm up writes. Nil means a launch
+	// ticket binds nothing.
+	Tickets Tickets
 }
 
 // harnessCallTimeout bounds one call into a harness, such as one codex queue run.
@@ -526,6 +529,15 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),
 			"Use "+d.harnessNames()+".")
 	}
+	if req.Op == OpRegister && req.Launch != "" {
+		ticket := req.Launch
+		req.Launch = ""
+		resp := d.call(ctx, req)
+		if resp.Error != nil {
+			return resp
+		}
+		return d.bindLaunch(ctx, req, ticket, resp)
+	}
 	key := req.Key()
 	create := false
 	switch req.Op {
@@ -563,6 +575,31 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 	case <-ctx.Done():
 		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again; it starts the daemon.")
 	}
+}
+
+// bindLaunch binds a session that just registered to the agent its launch ticket names,
+// and takes the ticket, so a session started later with the same ticket in its
+// environment (one started from inside this one) can't take the seat. resp is the
+// register's answer, which then names the agent. A ticket that is gone binds nothing.
+func (d *Daemon) bindLaunch(ctx context.Context, req Request, ticket string, resp Response) Response {
+	if d.cfg.Tickets == nil {
+		return resp
+	}
+	agent, ok, err := d.cfg.Tickets.Take(ticket)
+	if err != nil {
+		d.log.Warn("launch ticket: couldn't read it", "session", req.Key().String(), "error", err)
+		return resp
+	}
+	if !ok {
+		return resp
+	}
+	b := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent})
+	if b.Error != nil {
+		return b
+	}
+	d.log.Info("session took its launched seat", "session", req.Key().String(), "agent", agent.Name, "board", agent.Board)
+	resp.Agents, resp.Lost, resp.Previous = []AgentRef{agent}, nil, b.Previous
+	return resp
 }
 
 // harnessNames lists the harnesses the daemon has adapters for, as "a, b or c".
@@ -702,7 +739,7 @@ func (d *Daemon) status(ctx context.Context) Response {
 		st.Agents = append(st.Agents, AgentProblem{Agent: a, Reason: reason})
 	}
 	for a, s := range d.owners {
-		st.Bindings = append(st.Bindings, BindingStatus{Agent: a, Session: s.key.String()})
+		st.Bindings = append(st.Bindings, BindingStatus{Agent: a, Session: s.key.String(), Open: d.open[s.key]})
 	}
 	d.mu.Unlock()
 	slices.SortFunc(st.Servers, func(a, b ServerStatus) int { return strings.Compare(a.URL, b.URL) })
