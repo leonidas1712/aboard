@@ -25,14 +25,17 @@
 #   another agent moves the session to the new one (see PreviousAgent). With no agent:
 #   agent_not_selected (details.choices). Agent commands (say, inbox, read)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
-#   use the human login unless --as is given, and open, invite and logout always use it.
+#   use the human login unless --as is given (board policy takes no --as), and open, invite
+#   and logout always use it. Inside a harness session board title acts as the session's
+#   agent, for its owner.
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board title, invite, watch, logout --browsers, and the delivery-mode changes (aboard
-#   delivery MODE, init --delivery). pair, audit verify and open still run there: pair
-#   joins as an agent, audit verify prints only counts and hashes, and open never shows
-#   its login link.
+#   run them in a terminal: board policy, invite, watch, logout --browsers, and the delivery-mode changes (aboard
+#   delivery MODE, init --delivery). pair, board title, audit verify and open still run
+#   there: pair joins as an agent, board title sets the title as the session's agent for
+#   its owner, audit verify prints only counts and hashes, and open never shows its login
+#   link.
 # - Inside a subagent of a harness session (ABOARD_SUBAGENT is set, which Claude Code's
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
 #   marker says the command runs elsewhere; or CODEX_THREAD_ID differs from
@@ -61,7 +64,7 @@
 #   ABOARD_HOME fails with invalid_request. URLs, join lines ("on localhost:<port>"),
 #   status and doctor all show the address in use.
 # - Board for agent commands (say, inbox, read): the board of the agent they act as.
-#   Board for human commands (board policy, board title, invite, audit verify, watch, open) and for pair:
+#   Board for human commands (board policy, board title in a terminal, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
 # - Text output of agent commands names the board in one line: say ends with
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
@@ -1233,12 +1236,13 @@ $defs:
   # ---------- aboard board title <text> ----------
   BoardTitleOutput:
     description: |
-      A human command with the human login, for the board's admins. Changes the title
-      people read beside the board's name; the name stays its address. The words after
-      `title` are joined with spaces, so quotes are optional; `aboard board title ""`
-      removes the title. A person who isn't an admin gets admin_required, whose hint
-      names the admins. Inside a harness session it refuses with
-      human_command_in_session.
+      Changes the title people read beside the board's name; the name stays its
+      address. The words after `title` are joined with spaces, so quotes are optional;
+      `aboard board title ""` removes the title. For the board's admins: in a terminal
+      it uses the human login; inside a harness session, or with --as, it acts as the
+      agent, on the agent's board, for its owner, and board.titled names the agent and
+      its owner. A person who isn't an admin, or their agent, gets admin_required, whose
+      hint names the admins.
     type: object
     required: [board, before, after]
     properties:

@@ -219,9 +219,12 @@ paths:
       operationId: updateBoard
       summary: Change a board's title or policy
       description: |
-        Admins only. An agent gets 403 `human_token_required`; a person on the board who
-        isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-        `title` and `policy` can be changed, in one request or separately.
+        Admins only, except that an agent whose owner is an admin of the board may change
+        the title, acting for its owner; `board.titled` then names the agent and its
+        owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+        the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+        hint names the board's admins. `title` and `policy` can be changed, in one
+        request or separately.
 
         - `title` replaces the board's title; an empty string removes it. Writes
           `board.titled`, unless the title is unchanged.

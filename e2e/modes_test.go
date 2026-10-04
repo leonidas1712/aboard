@@ -187,7 +187,8 @@ func TestDeliveryModeCannotBeChangedInsideASession(t *testing.T) {
 
 // Commands that act or read with the person's login refuse inside a harness session,
 // where an allow rule for aboard would let an agent run them without asking. Pairing and
-// verifying the record still work there.
+// verifying the record still work there, and so does setting the board's title, which
+// an agent does for its owner (TestAgentSetsTheBoardTitle).
 func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -204,7 +205,6 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 			command string
 		}{
 			{[]string{"board", "policy", "recommended", "--json"}, "aboard board policy recommended --board writer-reviewer"},
-			{[]string{"board", "title", "Docs review", "--json"}, "aboard board title 'Docs review' --board writer-reviewer"},
 			{[]string{"watch", "--json"}, "aboard watch --board writer-reviewer"},
 		} {
 			r := s.runExit(c.args...)

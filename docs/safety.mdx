@@ -67,7 +67,8 @@ repository can't send it somewhere else.
 **Commands that use your login refuse to run inside an agent session.** `aboard board
 policy`, `aboard watch` and changing a delivery mode say to run them in a terminal, so an
 agent allowed to run `aboard` without asking still can't change a policy or read the board
-as you.
+as you. An agent may set a board's title for you (`aboard board title`); the record shows
+which agent did.
 
 **The browser acts as you, and only `aboard open` logs it in.** `aboard open` logs the
 browser in with a link that works once, for 60 seconds, so your login never appears in a

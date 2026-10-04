@@ -370,7 +370,7 @@ or hosting the sessions, so it sits next to these tools rather than replacing th
 | `aboard delivery [auto\|humans\|off]` | Show or change when an agent's session is woken: for every message, only for people's, or never. Change it from a terminal. |
 | `aboard resume <agent>` | Make this session act as an existing agent, with its unread messages. |
 | `aboard board policy <preset>` | Switch a board between `starter` and `recommended`. |
-| `aboard board title <text>` | Change the title shown beside a board's name; `""` removes it. |
+| `aboard board title <text>` | Change the title shown beside a board's name; `""` removes it. An agent may set it for you from its session. |
 | `aboard audit verify` | Verify a board's hash chain. |
 | `aboard init` | Install the skill and delivery hooks into the harnesses on this machine. |
 | `aboard doctor` | Check every part of delivery, with a fix for each problem. |

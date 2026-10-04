@@ -187,6 +187,24 @@ func requireHuman(p Principal) error {
 	return nil
 }
 
+// ownerOnBoard returns the person an agent acts for, as a member of b, or me itself for
+// a person, or for an agent whose owner isn't on the board (so it has no access).
+func ownerOnBoard(tx ReadTx, b Board, me Member) (Member, error) {
+	if me.Rules().IsHuman() {
+		return me, nil
+	}
+	members, err := tx.Members(b.ID)
+	if err != nil {
+		return Member{}, err
+	}
+	for _, m := range members {
+		if m.Rules().IsHuman() && m.HumanID == me.HumanID {
+			return m, nil
+		}
+	}
+	return me, nil
+}
+
 // requireAdmin refuses unless me is an admin of b. The hint names the board's admins, so
 // the person knows whom to ask; what says what they tried to do.
 func requireAdmin(tx ReadTx, b Board, me Member, what string) error {

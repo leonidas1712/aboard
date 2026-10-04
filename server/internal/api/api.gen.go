@@ -2267,9 +2267,12 @@ type ClientInterface interface {
 
 	// UpdateBoardWithBody Change a board's title or policy
 	//
-	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-	// `title` and `policy` can be changed, in one request or separately.
+	// Admins only, except that an agent whose owner is an admin of the board may change
+	// the title, acting for its owner; `board.titled` then names the agent and its
+	// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+	// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+	// hint names the board's admins. `title` and `policy` can be changed, in one
+	// request or separately.
 	//
 	// - `title` replaces the board's title; an empty string removes it. Writes
 	//   `board.titled`, unless the title is unchanged.
@@ -2283,9 +2286,12 @@ type ClientInterface interface {
 
 	// UpdateBoard Change a board's title or policy
 	//
-	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-	// `title` and `policy` can be changed, in one request or separately.
+	// Admins only, except that an agent whose owner is an admin of the board may change
+	// the title, acting for its owner; `board.titled` then names the agent and its
+	// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+	// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+	// hint names the board's admins. `title` and `policy` can be changed, in one
+	// request or separately.
 	//
 	// - `title` replaces the board's title; an empty string removes it. Writes
 	//   `board.titled`, unless the title is unchanged.
@@ -2754,9 +2760,12 @@ func (c *Client) GetBoard(ctx context.Context, board BoardParam, reqEditors ...R
 
 // UpdateBoardWithBody Change a board's title or policy
 //
-// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-// `title` and `policy` can be changed, in one request or separately.
+// Admins only, except that an agent whose owner is an admin of the board may change
+// the title, acting for its owner; `board.titled` then names the agent and its
+// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+// hint names the board's admins. `title` and `policy` can be changed, in one
+// request or separately.
 //
 //   - `title` replaces the board's title; an empty string removes it. Writes
 //     `board.titled`, unless the title is unchanged.
@@ -2780,9 +2789,12 @@ func (c *Client) UpdateBoardWithBody(ctx context.Context, board BoardParam, para
 
 // UpdateBoard Change a board's title or policy
 //
-// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-// `title` and `policy` can be changed, in one request or separately.
+// Admins only, except that an agent whose owner is an admin of the board may change
+// the title, acting for its owner; `board.titled` then names the agent and its
+// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+// hint names the board's admins. `title` and `policy` can be changed, in one
+// request or separately.
 //
 //   - `title` replaces the board's title; an empty string removes it. Writes
 //     `board.titled`, unless the title is unchanged.
@@ -4673,9 +4685,12 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateBoardWithBodyWithResponse Change a board's title or policy
 	//
-	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-	// `title` and `policy` can be changed, in one request or separately.
+	// Admins only, except that an agent whose owner is an admin of the board may change
+	// the title, acting for its owner; `board.titled` then names the agent and its
+	// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+	// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+	// hint names the board's admins. `title` and `policy` can be changed, in one
+	// request or separately.
 	//
 	// - `title` replaces the board's title; an empty string removes it. Writes
 	//   `board.titled`, unless the title is unchanged.
@@ -4689,9 +4704,12 @@ type ClientWithResponsesInterface interface {
 
 	// UpdateBoardWithResponse Change a board's title or policy
 	//
-	// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-	// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-	// `title` and `policy` can be changed, in one request or separately.
+	// Admins only, except that an agent whose owner is an admin of the board may change
+	// the title, acting for its owner; `board.titled` then names the agent and its
+	// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+	// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+	// hint names the board's admins. `title` and `policy` can be changed, in one
+	// request or separately.
 	//
 	// - `title` replaces the board's title; an empty string removes it. Writes
 	//   `board.titled`, unless the title is unchanged.
@@ -6536,9 +6554,12 @@ func (c *ClientWithResponses) GetBoardWithResponse(ctx context.Context, board Bo
 
 // UpdateBoardWithBodyWithResponse Change a board's title or policy
 //
-// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-// `title` and `policy` can be changed, in one request or separately.
+// Admins only, except that an agent whose owner is an admin of the board may change
+// the title, acting for its owner; `board.titled` then names the agent and its
+// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+// hint names the board's admins. `title` and `policy` can be changed, in one
+// request or separately.
 //
 //   - `title` replaces the board's title; an empty string removes it. Writes
 //     `board.titled`, unless the title is unchanged.
@@ -6558,9 +6579,12 @@ func (c *ClientWithResponses) UpdateBoardWithBodyWithResponse(ctx context.Contex
 
 // UpdateBoardWithResponse Change a board's title or policy
 //
-// Admins only. An agent gets 403 `human_token_required`; a person on the board who
-// isn't an admin gets 403 `admin_required`, whose hint names the board's admins.
-// `title` and `policy` can be changed, in one request or separately.
+// Admins only, except that an agent whose owner is an admin of the board may change
+// the title, acting for its owner; `board.titled` then names the agent and its
+// owner. An agent that sends `policy` gets 403 `human_token_required`. A person on
+// the board who isn't an admin, or their agent, gets 403 `admin_required`, whose
+// hint names the board's admins. `title` and `policy` can be changed, in one
+// request or separately.
 //
 //   - `title` replaces the board's title; an empty string removes it. Writes
 //     `board.titled`, unless the title is unchanged.
@@ -11546,90 +11570,92 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
+	"zd3/DwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
