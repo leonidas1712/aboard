@@ -57,6 +57,11 @@ func loadSpec(path string) (any, error) {
 					n["anyOf"] = []any{map[string]any{"$ref": n["$ref"]}, map[string]any{"type": "null"}}
 					delete(n, "$ref")
 				}
+				// A nullable allOf (a $ref with a description beside it) allows null too.
+				if all, ok := n["allOf"]; ok {
+					n["anyOf"] = []any{map[string]any{"allOf": all}, map[string]any{"type": "null"}}
+					delete(n, "allOf")
+				}
 			}
 			for _, c := range n {
 				fix(c)

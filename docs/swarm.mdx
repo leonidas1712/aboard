@@ -124,14 +124,85 @@ aboard swarm ps
 
 ```text
 trio · 3 agents · swarm aboard-trio-3f9a0c
-  claude  claude-code  tmux  running  fresh  seated  idle          focused
-  codex   codex        tmux  running  fresh  seated  working       focused
-  omp     omp          tmux  exited   fresh  -       disconnected  focused
+  claude  claude-code  tmux  running  fresh  seated  idle          focused  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:claude
+  codex   codex        tmux  running  fresh  seated  working       focused  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:codex
+  omp     omp          tmux  exited   fresh  -       disconnected  focused  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:omp
 ```
 
 Each line: the agent, its harness, its launcher, whether its session runs, whether it
 started fresh or was resumed, whether a session holds its seat, its presence
-(`disconnected` when no session holds it), and its delivery mode (`focused` unless you changed it with `aboard delivery`). `--json` adds the launcher's handle and the session id.
+(`disconnected` when no session holds it), its delivery mode (`focused` unless you
+changed it with `aboard delivery`), and the line to watch it. `--json` adds the
+launcher's handle and the session id.
+
+## Manage swarms from any folder
+
+Aboard remembers every swarm `swarm up` started on this machine, so you don't need to be
+in its folder. List them:
+
+```bash
+aboard swarm list
+```
+
+```text
+2 swarms on this machine:
+  aboard-trio-3f9a0c  trio  Three harnesses on one board  2 of 3 running  tmux   up 5m ago  /Users/alex/work
+  aboard-docs-81b2e0  docs  -                             0 of 1 running  herdr  up 2d ago  /Users/alex/docs (aboard.yaml is gone)
+From any folder: aboard swarm show <swarm>, or --swarm <swarm> on swarm up, ps or down.
+```
+
+Each line: the swarm, its board and title, how many of its agents run, its launchers,
+when `swarm up` last ran, and the folder of its board file. A swarm whose board file
+moved or was deleted is still listed, marked as gone.
+
+Add `--swarm` to `up`, `ps` or `down` to act on one from anywhere. It takes the swarm's
+name or its board's:
+
+```bash
+aboard swarm ps --swarm trio
+aboard swarm down codex --swarm trio
+aboard swarm up --swarm trio
+```
+
+`swarm up --swarm` reads the board file it last read for that swarm, and starts the
+agents in that file's folder. If the file moved, it stops with `board_file_not_found` and
+asks where the file is now: `aboard swarm up --swarm trio --file ~/work/trio.yaml`. `ps`
+and `down` don't need the file.
+
+Without `--swarm` and with no `aboard.yaml` in the folder, `ps` and `down` use the only
+swarm on the machine; with several, they stop with `swarm_not_selected` and list them.
+
+See one swarm in full, with the commands to watch, stop and start each agent:
+
+```bash
+aboard swarm show trio
+```
+
+```text
+trio · Three harnesses on one board · swarm aboard-trio-3f9a0c
+  file      /Users/alex/work/aboard.yaml
+  server    http://127.0.0.1:7400
+  launcher  tmux
+  last up   5m ago
+  running   2 of 3 agents
+
+claude · claude-code · tmux · running · seated · idle · fresh
+  session  claude-code:5f1c2d3e-0000-4000-8000-000000000001
+  watch    tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:claude
+  stop     aboard swarm down claude --swarm aboard-trio-3f9a0c
+
+omp · omp · tmux · exited · not seated · disconnected · fresh
+  watch    tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:omp
+  start    aboard swarm up --swarm aboard-trio-3f9a0c
+
+Watch and message them: aboard open --board trio
+Stop them all: aboard swarm down --swarm aboard-trio-3f9a0c
+```
+
+The `watch` line comes from the agent's launcher: a tmux window, `herdr session attach
+<swarm>` for herdr, or `tail -f` of the runner's log for a headless agent. `start` runs
+`swarm up`, which starts every agent of the swarm that isn't running. `--json` gives the
+same as data, with each agent's commands.
 
 ## Stop and resume
 
