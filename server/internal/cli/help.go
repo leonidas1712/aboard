@@ -334,14 +334,20 @@ func helpText(templates string) []commandHelp {
 			Summary: "Change a board's policy preset or title",
 			Usage: []string{
 				"aboard board policy <starter|recommended> [--board NAME] [--json]",
-				"aboard board title <text> [--board NAME] [--json]",
+				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
 			},
 			Description: "policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
 				"Switch to recommended before adding other people or their agents.\n\n" +
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
-				"Both use your own login and are up to a person, so they are refused inside an agent's session.",
-			Flags: []helpFlag{{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."}, flagJSON},
+				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
+				"title may be set by an agent for its owner, when the owner is an admin of the board: inside an agent's session, or with --as, it acts as that agent, on its board, and the record names the agent. " +
+				"Elsewhere it uses your own login.",
+			Flags: []helpFlag{
+				{"--as", "AGENT", "title only: set the title as this agent, for its owner. Default inside an agent's session: the session's agent."},
+				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which); for an agent, its own board."},
+				flagJSON,
+			},
 			Examples: []helpExample{
 				{"aboard board policy recommended", "Tighten the board before others join"},
 				{"aboard board title \"Payments retry design\"", "Name what the board is for"},

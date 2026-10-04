@@ -118,29 +118,34 @@ type PresenceChange struct {
 	Presence Presence
 }
 
-// presenceOn returns the current presence of every agent on each board, by board id and
-// agent name.
-func (s *Service) presenceOn(ctx context.Context, boardIDs []string) (map[string]map[string]Presence, error) {
+// presenceOn returns the current presence of every agent on each board, and the read
+// position of the agents owned by humanID, by board id and agent name.
+func (s *Service) presenceOn(ctx context.Context, boardIDs []string, humanID string) (presence map[string]map[string]Presence, reads map[string]map[string]int64, err error) {
 	now := s.clk.Now()
-	out := make(map[string]map[string]Presence, len(boardIDs))
-	err := s.st.Read(ctx, func(tx ReadTx) error {
+	presence = make(map[string]map[string]Presence, len(boardIDs))
+	reads = make(map[string]map[string]int64, len(boardIDs))
+	err = s.st.Read(ctx, func(tx ReadTx) error {
 		for _, id := range boardIDs {
 			members, err := tx.Members(id)
 			if err != nil {
 				return err
 			}
-			agents := map[string]Presence{}
+			agents, mine := map[string]Presence{}, map[string]int64{}
 			for _, m := range members {
-				if m.Kind == "agent" {
-					agents[m.Name] = m.CurrentPresence(now)
+				if m.Kind != "agent" {
+					continue
+				}
+				agents[m.Name] = m.CurrentPresence(now)
+				if m.HumanID == humanID {
+					mine[m.Name] = m.Cursor
 				}
 			}
-			out[id] = agents
+			presence[id], reads[id] = agents, mine
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("read presence: %w", err)
+		return nil, nil, fmt.Errorf("read presence: %w", err)
 	}
-	return out, nil
+	return presence, reads, nil
 }

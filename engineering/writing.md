@@ -58,11 +58,13 @@ description: Calls store.AppendMessage via the rules pipeline.
 
 ## Error messages
 
-Say what happened and what to do next, with a stable code.
+Say what happened and what to do next, with a stable code. The CLI shows the code in
+text too, in parentheses after "Error", so a person can search for it and an agent can
+match it without `--json`.
 
 ```
-Do:    You don't have permission to message everyone on this board.
-       Use --to @name or --to role:R.            (code: broadcast_not_allowed)
+Do:    Error (broadcast_not_allowed): You don't have permission to message everyone on this board.
+       Hint: Use --to @name or --to role:R.
 Don't: forbidden
 Don't: Error: permission check failed in rules.Check (broadcast=false)
 ```

@@ -285,8 +285,12 @@ type Change struct {
 // UpdateBoard changes a board's title, policy or both. Only the board's admins may.
 // Each change appends its own event; a title that doesn't change appends nothing.
 func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, change Change) (View, error) {
-	if err := requireHuman(p); err != nil {
-		return View{}, err
+	// An agent may change only the title, acting for its owner; the policy, like
+	// membership and roles, stays with people.
+	if change.Policy != nil || change.Title == nil {
+		if err := requireHuman(p); err != nil {
+			return View{}, err
+		}
 	}
 	var title *string
 	if change.Title != nil {
@@ -305,7 +309,12 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		if change.Policy == nil {
 			what = "change its title"
 		}
-		if err := requireAdmin(tx, b, me, what); err != nil {
+		// An agent acts within its owner's access to the board.
+		forWhom, err := ownerOnBoard(tx, b, me)
+		if err != nil {
+			return err
+		}
+		if err := requireAdmin(tx, b, forWhom, what); err != nil {
 			return err
 		}
 		now := s.clk.Now()

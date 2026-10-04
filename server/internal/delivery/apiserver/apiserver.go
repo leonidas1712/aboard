@@ -207,15 +207,20 @@ func (s *Server) Follow(ctx context.Context, connected func(), head func(deliver
 	silence := time.AfterFunc(streamSilence, cancel)
 	defer silence.Stop()
 	return readEvents(resp.Body, func() { silence.Reset(streamSilence) }, func(event, data string) {
-		if event != "head" {
+		var h struct {
+			Board    string `json:"board"`
+			Seq      int    `json:"seq"`
+			Agent    string `json:"agent"`
+			ReadUpTo int    `json:"read_up_to"`
+		}
+		if json.Unmarshal([]byte(data), &h) != nil || h.Board == "" {
 			return
 		}
-		var h struct {
-			Board string `json:"board"`
-			Seq   int    `json:"seq"`
-		}
-		if json.Unmarshal([]byte(data), &h) == nil && h.Board != "" {
+		switch {
+		case event == "head":
 			head(delivery.Head{Board: h.Board, Seq: h.Seq})
+		case event == "read" && h.Agent != "":
+			head(delivery.Head{Board: h.Board, Read: &delivery.ReadPosition{Agent: h.Agent, UpTo: h.ReadUpTo}})
 		}
 	})
 }

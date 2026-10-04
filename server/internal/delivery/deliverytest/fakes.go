@@ -307,7 +307,19 @@ func (s *FakeServer) Ack(_ context.Context, agent delivery.AgentRef, upTo int) e
 		return errors.New("ack_out_of_range")
 	}
 	s.acks = append(s.acks, upTo)
-	s.cursors[agent] = max(s.cursors[agent], upTo)
+	before := s.cursors[agent]
+	s.cursors[agent] = max(before, upTo)
+	if s.cursors[agent] == before {
+		return nil
+	}
+	// As a real server's stream does, report the move to the agent's owner.
+	read := delivery.Head{Board: agent.Board, Read: &delivery.ReadPosition{Agent: agent.Name, UpTo: s.cursors[agent]}}
+	for ch := range s.followers {
+		select {
+		case ch <- read:
+		default:
+		}
+	}
 	return nil
 }
 

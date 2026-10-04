@@ -18,9 +18,10 @@ const agentFromSession = "session"
 
 // sessionKey returns the harness session this command runs in: ABOARD_SESSION, which
 // Aboard's hooks write, then the variable of a harness that gives every command its
-// session id.
+// session id. In a sub-agent that has a thread of its own (Codex's), it is the root
+// conversation's session, as for a subagent of any other harness.
 func (a *app) sessionKey() (delivery.SessionKey, bool) {
-	return a.registry().Session(a.henv())
+	return a.registry().RootSession(a.henv())
 }
 
 // serverRefFor names a server URL the way output does.
