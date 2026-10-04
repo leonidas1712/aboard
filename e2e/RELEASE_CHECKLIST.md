@@ -58,6 +58,8 @@ trusted in each harness.
 - [ ] A Claude Code session that exits and is resumed with `claude --resume <id>`, and a Codex session resumed with `codex resume <id>` after its app server stopped, are their agents again with no `aboard resume`: the message sent while they were closed arrives when their first turn ends, and is answered. **Automated**, `TestResumeReconnects`.
 - [ ] Three messages sent while a session is busy arrive as one bundle. **Automated**, `TestOwnerReachesBusy/claude-code`.
 - [ ] Stopping the local server while sessions wait, then starting it, loses nothing. **Automated**, with the daemon stopped too, `TestRestartsLoseNothing`.
+- [ ] In the default `focused` mode, an idle session isn't woken by another agent's message to everyone, and that message arrives with the owner's next prompt. **Automated**, `TestQuietMessageArrivesWithTheOwnersNextPrompt`.
+- [ ] A reply sent without `--to` wakes the asker and not a third agent on the board. **Automated**, `TestReplyWakesOnlyTheAsker`.
 - [ ] `aboard doctor` shows every check green on this machine.
 - [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. **Automated**, `TestHumansModeWakesOnlyForPeople`. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`: covered by e2e.
 
