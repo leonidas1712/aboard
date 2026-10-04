@@ -238,9 +238,13 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	prog := a.swarmProgress()
 	srv, started, err := a.swarmServer(ctx)
 	if err != nil {
 		return err
+	}
+	if started {
+		prog.step("Started local Aboard at " + srv.URL)
 	}
 	c, err := a.humanClient(ctx, target{server: srv})
 	if err != nil {
@@ -249,6 +253,11 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	board, created, err := ensureSwarmBoard(ctx, c, f)
 	if err != nil {
 		return err
+	}
+	if created {
+		prog.step("Created board " + board.Name + " from " + f.path)
+	} else {
+		prog.step("Board " + board.Name + " on " + srv.URL)
 	}
 	p, err := a.paths()
 	if err != nil {
@@ -284,9 +293,11 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 			err = saveErr
 		}
 		if err != nil {
+			prog.finish()
 			return err
 		}
 		out = append(out, ag)
+		prog.started(ag)
 	}
 	if *wait > 0 {
 		// A resumed session that ends at once couldn't be resumed (its harness lost the
@@ -303,13 +314,18 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 			}
 			ag.SeatCreated = out[i].SeatCreated
 			out[i] = ag
+			prog.started(ag)
 			return nil
 		}
-		if err := a.waitSeated(ctx, c, board.Name, name, out, *wait, retry); err != nil {
+		err := a.waitSeated(ctx, c, board.Name, name, out, *wait, retry, prog)
+		prog.finish()
+		if err != nil {
 			return err
 		}
 	} else {
 		a.fillSeats(ctx, c, board.Name, func(i int) *swarmAgent { return &out[i].swarmAgent }, len(out))
+		prog.update(out, nil)
+		prog.finish()
 	}
 	notice := noticeFor(board.Policy)
 	a.emit(struct {
@@ -520,6 +536,13 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		Swarm: in.swarm, Agent: spec.Name, Harness: spec.Harness, Mode: mode, Dir: dir,
 		Env: a.sessionEnv(spec.Name),
 	}
+	inPrompt := mode == launcher.ModeInteractive && prof.Interactive.Launch == harness.LaunchPrompt
+	if inPrompt {
+		// The harness runs the session's commands in a process that may serve other
+		// sessions (Codex's app server): an agent named in its environment could reach
+		// them, so the session's identity is its ticket, and then its binding.
+		delete(req.Env, "ABOARD_AGENT")
+	}
 	start, ticket, note := "fresh", "", in.note
 	if mode == launcher.ModeHeadless {
 		exe, err := a.env.Executable()
@@ -552,7 +575,11 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 			if ticket, err = in.tickets.Write(a.env.Rand, ref); err != nil {
 				return swarmUpAgent{}, err
 			}
-			req.Env[launchtickets.Env] = ticket
+			if inPrompt {
+				prompt = launchPrompt(spec, in.board, ticket)
+			} else {
+				req.Env[launchtickets.Env] = ticket
+			}
 			req.Argv = harnessArgv(prof.Interactive.Start, prof.Interactive.Model, spec, "", prompt)
 		}
 	}
@@ -717,11 +744,25 @@ func (a *app) fillSeats(ctx context.Context, c *client, board string, row func(i
 }
 
 // waitSeated waits until every agent has taken its seat, for at most d.
-func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, out []swarmUpAgent, d time.Duration, retry func(int) error) error {
+func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, out []swarmUpAgent, d time.Duration, retry func(int) error, prog *swarmProgress) error {
 	deadline := time.Now().Add(d)
 	row := func(i int) *swarmAgent { return &out[i].swarmAgent }
-	for !a.fillSeats(ctx, c, board, row, len(out)) {
+	blocked := map[string]bool{}
+	var asked time.Time
+	for {
+		all := a.fillSeats(ctx, c, board, row, len(out))
+		if !all && time.Since(asked) >= time.Second {
+			// Whether a session waits on a question, from a launcher that can tell: once a
+			// second, since an external launcher's answer is a process of its own.
+			asked = time.Now()
+			a.askBlocked(ctx, swarm, out, blocked)
+		}
+		prog.update(out, blocked)
+		if all {
+			return nil
+		}
 		if err := a.exitedUnseated(ctx, swarm, out, retry); err != nil {
+			prog.update(out, blocked)
 			return err
 		}
 		if time.Now().After(deadline) || ctx.Err() != nil {
@@ -735,6 +776,19 @@ func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, ou
 				}
 			}
 			hint := "A harness asking a question as it starts, such as whether to trust the folder, waits for an answer in its session. "
+			var asking []string
+			for _, n := range waiting {
+				if blocked[n] {
+					asking = append(asking, n)
+				}
+			}
+			if len(asking) > 0 {
+				verb := " waits on a question in its window"
+				if len(asking) > 1 {
+					verb = " wait on a question in their windows"
+				}
+				hint = harness.AndList(asking) + verb + "; answer it there and run aboard swarm up again. "
+			}
 			if len(watch) > 0 {
 				hint += "Watch it with " + strings.Join(watch, "; ") + ". "
 			}
@@ -749,7 +803,26 @@ func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, ou
 		case <-time.After(250 * time.Millisecond):
 		}
 	}
-	return nil
+}
+
+// askBlocked asks the launcher of each running agent not yet seated whether its session
+// waits on the person, where the launcher can tell, and records it in blocked.
+func (a *app) askBlocked(ctx context.Context, swarm string, out []swarmUpAgent, blocked map[string]bool) {
+	for _, ag := range out {
+		if ag.Seated || ag.Handle == nil || ag.State == string(launcher.Exited) {
+			delete(blocked, ag.Name)
+			continue
+		}
+		l, err := a.launcherFor(ag.Launcher)
+		if err != nil {
+			continue
+		}
+		if asker, ok := l.(launcher.Asker); ok {
+			if b, err := asker.Blocked(ctx, launcher.Ref{Swarm: swarm, Agent: ag.Name, Handle: *ag.Handle}); err == nil {
+				blocked[ag.Name] = b
+			}
+		}
+	}
 }
 
 // exitedUnseated fails when a session swarm up started has already ended without its
@@ -943,7 +1016,11 @@ func runSwarmPs(ctx context.Context, a *app, args []string) error {
 		if r.Seated {
 			seated = "seated"
 		}
-		return []string{r.Name, r.Harness, r.Launcher, r.State, orDash(r.Start), seated, orDash(r.Presence), orDash(r.Delivery)}
+		presence := "-"
+		if r.Presence != nil && *r.Presence != "" {
+			presence = presenceText(*r.Presence)
+		}
+		return []string{r.Name, r.Harness, r.Launcher, r.State, orDash(r.Start), seated, presence, orDash(r.Delivery)}
 	})
 	a.emit(struct {
 		Server serverRef    `json:"server"`

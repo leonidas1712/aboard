@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -373,6 +374,151 @@ func TestSwarmUpStartsEveryHarness(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Codex runs threads, their hooks and their commands in an app server under CODEX_HOME
+// that outlives its terminal, so on a person's machine the swarm's codex usually joins
+// one a Codex started earlier, outside the swarm: nothing it runs sees the environment
+// swarm up started it with. Here Codex's app server daemon starts first (codex
+// app-server daemon start, under the lab's CODEX_HOME, with the lab's environment and
+// none of the swarm's), as a Codex the person ran earlier leaves it; then swarm up's
+// codex runs its thread on that app server (its prompt hook runs under it), takes its
+// seat anyway, from the launch ticket in its first prompt, and answers a message. No
+// app server under the lab's CODEX_HOME has ABOARD_AGENT in its environment, so the
+// person's other Codex threads can't act as the agent.
+func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
+	only(t, "codex")
+	requireCodex(t)
+	parallel(t)
+	s := newSwarmLab(t)
+	d := s.driverFor("codex")
+	d.setUp(s.lab)
+	home := filepath.Join(s.lab.dir, "codex-home")
+
+	daemon := command(t.Context(), "codex", "app-server", "daemon", "start")
+	daemon.Dir, daemon.Env = s.lab.dir, slices.Clone(s.vars)
+	// Stops it even when the test fails: the daemon detaches from this process, so
+	// nothing else would. The lab's watchdog stops it if the test process dies first.
+	t.Cleanup(func() { stopCodexAppServers(s.lab, home) })
+	if out, err := daemon.CombinedOutput(); err != nil {
+		t.Fatalf("codex app-server daemon start under the lab's CODEX_HOME: %v\n%s", err, out)
+	}
+	s.waitFor(time.Minute, "Codex's app server daemon to run under the lab's CODEX_HOME", func() bool {
+		return len(codexAppServers(t.Context(), home)) > 0
+	})
+	before := codexAppServers(t.Context(), home)
+	t.Logf("Codex's app server, started outside the swarm: %v", before)
+
+	s.add(d, "codex")
+	s.writeFile("shared", "tmux")
+	up := s.swarm("up", "--wait", "0")
+	panes := s.swarmPanes(up)
+	s.waitSeated(panes)
+	parents := codexAppServerParents(t.Context(), home)
+	t.Logf("Codex's app servers once the swarm's codex is seated, as pid: parent: %v (before: %v)", parents, before)
+	// The swarm's codex ran its thread on the app server daemon started before it: the
+	// daemon, or a server it started (it may replace its managed server), ran its prompt
+	// hook, and no app server started outside it. A server that went away is no concern.
+	shared := func(pid int) bool { return slices.Contains(before, pid) || slices.Contains(before, parents[pid]) }
+	runners := s.codexHookRunners("prompt")
+	if !slices.ContainsFunc(runners, shared) {
+		t.Fatalf("the swarm's codex didn't run on the app server started before it (%v): its prompt hook ran under %v, and the app servers are now %v (pid: parent)",
+			before, runners, parents)
+	}
+	for pid := range parents {
+		if !shared(pid) {
+			t.Fatalf("the swarm's codex started an app server of its own, %d: the app servers are now %v (pid: parent), before %v", pid, parents, before)
+		}
+	}
+	for pid, env := range codexAppServerEnvs(t.Context(), home) {
+		if strings.Contains(env, " ABOARD_AGENT=") {
+			t.Fatalf("Codex's app server %d has ABOARD_AGENT in its environment, so every thread it runs would act as that agent", pid)
+		}
+	}
+
+	since := time.Now()
+	s.postAsOwner("shared", "@codex", "Run this command now, and nothing else: aboard say SHARED-PONG")
+	s.waitFor(5*time.Minute, "codex to post SHARED-PONG", func() bool {
+		panes[0].idle() // dismisses an announcement or answers the hooks question
+		msgs, _, _ := s.tryMessages("codex")
+		for _, m := range msgs {
+			if m.From.Name == "codex" && !m.At.Before(since) && strings.Contains(m.Body, "SHARED-PONG") {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// stopCodexAppServers stops the Codex app server daemon running under CODEX_HOME home:
+// with codex app-server daemon stop, then by signal, so none outlives the test.
+func stopCodexAppServers(l *lab, home string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	stop := command(ctx, "codex", "app-server", "daemon", "stop")
+	stop.Dir, stop.Env = l.dir, slices.Clone(l.vars)
+	_ = stop.Run()
+	for _, sig := range []syscall.Signal{syscall.SIGTERM, syscall.SIGKILL} {
+		if waitQuietly(5*time.Second, func() bool { return len(codexAppServers(ctx, home)) == 0 }) {
+			return
+		}
+		for _, pid := range codexAppServers(ctx, home) {
+			_ = syscall.Kill(pid, sig)
+		}
+	}
+}
+
+// codexAppServers lists the Codex app servers running with CODEX_HOME home.
+func codexAppServers(ctx context.Context, home string) []int {
+	var pids []int
+	for pid := range codexAppServerEnvs(ctx, home) {
+		pids = append(pids, pid)
+	}
+	slices.Sort(pids)
+	return pids
+}
+
+// codexAppServerEnvs maps each Codex app server running with CODEX_HOME home to its
+// command line and environment, as ps shows them for the person's own processes. The
+// environment is what tells the lab's apart: the daemon's command line names no folder.
+func codexAppServerEnvs(ctx context.Context, home string) map[int]string {
+	out, err := command(ctx, "ps", "eww", "-ax", "-o", "pid=,command=").Output()
+	if err != nil {
+		return nil
+	}
+	found := map[int]string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || !strings.Contains(line, "app-server") || !slices.Contains(fields, "CODEX_HOME="+home) {
+			continue
+		}
+		if pid, err := strconv.Atoi(fields[0]); err == nil {
+			found[pid] = line
+		}
+	}
+	return found
+}
+
+// codexAppServerParents maps each Codex app server running with CODEX_HOME home to its
+// parent process.
+func codexAppServerParents(ctx context.Context, home string) map[int]int {
+	out, err := command(ctx, "ps", "eww", "-ax", "-o", "pid=,ppid=,command=").Output()
+	if err != nil {
+		return nil
+	}
+	found := map[int]int{}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || !strings.Contains(line, "app-server") || !slices.Contains(fields, "CODEX_HOME="+home) {
+			continue
+		}
+		pid, errPid := strconv.Atoi(fields[0])
+		ppid, errParent := strconv.Atoi(fields[1])
+		if errPid == nil && errParent == nil {
+			found[pid] = ppid
+		}
+	}
+	return found
 }
 
 // An agent swarm up started, stopped with swarm down, is resumed by the next swarm up in

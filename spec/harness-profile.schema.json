@@ -104,7 +104,11 @@
       "properties": {
         "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt. An element that is exactly {prompt} is the first prompt, and is left out when there is none." },
         "resume": { "$ref": "#/$defs/argv", "description": "Opens an earlier session again by its id, {session}, in a terminal. {prompt} here is never the first prompt again, which the conversation already has: aboard swarm up gives a short note that the session was restarted, so its turn takes the messages that waited. aboard swarm up resumes an agent's last session with it; the live conformance kit too, with no prompt." },
-        "model": { "$ref": "#/$defs/argv", "description": "How to choose the model, {model}: put right after the program name in start and resume, followed by the board file's args." }
+        "model": { "$ref": "#/$defs/argv", "description": "How to choose the model, {model}: put right after the program name in start and resume, followed by the board file's args." },
+        "launch": {
+          "description": "Where aboard swarm up puts a new session's identity. env (the default): ABOARD_AGENT and the launch ticket ABOARD_LAUNCH in the environment the launcher starts the harness with, for a harness whose hooks, extension or commands run in that process or its children. prompt: the first prompt's first line asks the agent to run aboard status --launch <ticket>, and the environment names no agent; the prompt hook hands the ticket in as the turn starts, and the command does when no hook runs. For a harness that runs its sessions and their commands in a long-running process it may share with sessions started elsewhere (Codex's app server), where the environment it was started with never reaches them, and could reach the person's other sessions.",
+          "enum": ["env", "prompt"]
+        }
       }
     },
     "headless": {

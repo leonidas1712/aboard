@@ -1184,11 +1184,15 @@ $defs:
       mode: { enum: [focused, all, humans, off] }
       changed: { type: boolean, description: "True when this command changed the mode." }
 
-  # ---------- aboard status [--as AGENT] [--board NAME] ----------
+  # ---------- aboard status [--as AGENT] [--board NAME] [--launch TICKET] ----------
   StatusOutput:
     description: |
       Which board and agent commands run here would use, and where each came from, and
-      whether the server and the delivery daemon are running. It never starts either,
+      whether the server and the delivery daemon are running. With --launch, run in a
+      session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
+      first hands the ticket in, so the session takes its seat; a ticket already taken
+      (by the session's prompt hook) changes nothing, and a malformed one is a usage
+      error. The output is the same either way. It never starts either,
       but like any command that uses them it replaces a running local server or daemon
       from an older build first (spec/delivery.md, Upgrades), and then says so on its
       line: "Server: http://127.0.0.1:7400 running; replaced aboard 0.1.0 (commit
@@ -1453,13 +1457,24 @@ $defs:
       charter, title and policy.preset); creates each agent's seat with the person's
       login the first time; and starts every agent whose session isn't running through
       its launcher, with its identity in the session's environment (ABOARD_AGENT and a
-      one-time launch ticket, spec/launcher.md), so no join line is pasted. An agent
+      one-time launch ticket, spec/launcher.md), or for Codex the ticket on its first
+      prompt's first line (aboard status --launch <ticket>), so no join line is pasted. An agent
       whose session runs is left as it is. An agent that had a session before is resumed
       with the harness's own resume, so it keeps its conversation, unless --fresh is
       given or the harness can't resume. --launcher sets the launcher of agents that
       don't name their own. Then it waits, up to --wait, until every agent is seated;
       --wait 0 doesn't wait. A person's command: inside a harness session it refuses with
       human_command_in_session. It starts sessions once and never schedules anything.
+      While it works it shows progress on standard error, never with --json: at a
+      person's terminal one line per agent, updated in place (a spinner while it starts,
+      "✓ claude  claude-code  seated after 2.4s", "⚠ codex  codex  waiting on a question
+      in its window"); elsewhere one plain line per change, with no control codes
+      ("Created board trio from /path/aboard.yaml", "claude: starting (claude-code, tmux);
+      watch it with <attach>", "claude: seated after 2.4s", "codex: waiting on a question
+      in its window, such as trusting the folder; answer it there: <attach>" when the
+      launcher reports the session blocked, or "codex: not seated after 12s: it may be
+      asking a question in its window, …" when it can't tell). Standard output is the
+      same either way.
       Text output:
         Using local Aboard at http://127.0.0.1:7400
         Created board trio from aboard.yaml
@@ -1502,9 +1517,11 @@ $defs:
       seat, and its presence and delivery mode. The swarm is --board's, else the board
       file's (default ./aboard.yaml), else the only swarm on this machine. Text output:
         trio · 3 agents · swarm aboard-trio-3f9a0c
-          claude  claude-code  tmux  running  fresh    seated  idle        focused
-          codex   codex        tmux  running  resumed  seated  working     focused
-          omp     omp          tmux  exited   fresh    -       no_session  focused
+          claude  claude-code  tmux  running  fresh    seated  idle          focused
+          codex   codex        tmux  running  resumed  seated  working       focused
+          omp     omp          tmux  exited   fresh    -       disconnected  focused
+      The text calls an agent with no session disconnected, as the rest of the CLI does;
+      presence in the JSON is the API's no_session.
     type: object
     required: [server, board, swarm, agents]
     properties:

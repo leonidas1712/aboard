@@ -390,6 +390,14 @@ for sig in TERM TERM KILL; do
 	pkill -"$sig" -f "$LAB_DIR" || break
 	sleep 1
 done
+# A Codex app server daemon detaches and names no folder on its command line; its
+# environment holds the lab's CODEX_HOME.
+for sig in TERM KILL; do
+	pids=$(ps eww -ax -o pid=,command= | awk -v want="CODEX_HOME=$LAB_DIR/codex-home" '{for (i = 2; i <= NF; i++) if ($i == want) {print $1; break}}')
+	[ -z "$pids" ] && break
+	kill -"$sig" $pids 2>/dev/null
+	sleep 1
+done
 rm -rf "$LAB_SOCKETS"
 `
 
@@ -497,8 +505,12 @@ func (l *lab) teardown() {
 	}
 	// Codex runs its hooks from an app server of its own, started from the test's
 	// CODEX_HOME, which outlives the session; stopping it runs the session-end hook,
-	// which can start a daemon, so it stops before aboard does.
+	// which can start a daemon, so it stops before aboard does. Its managed daemon names
+	// no folder on its command line, so it is also found by its environment.
 	l.stopProcesses(filepath.Join(l.dir, "codex-home"))
+	if l.codexReady {
+		stopCodexAppServers(l, filepath.Join(l.dir, "codex-home"))
+	}
 	// A stop hook that loses its daemon starts another, so stop every process running
 	// this lab's binary until none is left.
 	deadline := time.Now().Add(15 * time.Second)

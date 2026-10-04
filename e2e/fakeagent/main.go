@@ -6,14 +6,20 @@
 //     ticket) and a CLAUDE_ENV_FILE, and its end hook when it stops. With --print it runs
 //     one headless turn instead and prints {"session_id", "result"}.
 //   - codex: starts its session at its first turn: the session-start hook runs without
-//     Codex's environment, and the prompt's commands run with CODEX_THREAD_ID. Every
-//     other codex command (queue, app-server, --version) is the fake codex at FAKE_CODEX.
+//     Codex's environment, and the prompt's commands run with CODEX_THREAD_ID. With
+//     FAKE_CODEX_APP_SERVER=shared it plays a Codex whose threads run in an app server
+//     started earlier, outside the swarm: the prompt's commands don't get ABOARD_AGENT
+//     or ABOARD_LAUNCH either. With FAKE_CODEX_HOOKS=untrusted no hook runs, as before
+//     the person trusts Aboard's hooks, and with FAKE_CODEX_RUNS=nothing it runs none
+//     of the prompt's commands, as a model that skips them. Every other codex command (queue, app-server,
+//     --version) is the fake codex at FAKE_CODEX.
 //   - omp: connects to the delivery daemon as Aboard's extension does, handing in its
 //     launch ticket in its hello, and gives its commands ABOARD_SESSION.
 //
 // A session id comes from --resume (claude, omp) or "resume" (codex), else is new. The
 // first prompt is the last argument when it isn't an option's value. A prompt that says
-// "Run aboard status" runs it, and each line "run: <command>" runs that command with sh,
+// "Run aboard status" runs it (with --launch and the ticket when the prompt gives them,
+// as a model copies the command), and each line "run: <command>" runs that command with sh,
 // with the session's environment. Every start is logged as one JSON line to
 // FAKE_AGENT_LOG. An interactive session then runs until it is hung up or killed.
 package main
@@ -31,6 +37,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -126,15 +133,26 @@ func newID() string {
 	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:32]
 }
 
+// promptAgent finds the agent a first or restart prompt names, for a session started
+// with no ABOARD_AGENT in its environment.
+var promptAgent = regexp.MustCompile(`(?i)you are (?:still )?(\S+) on the`)
+
+// promptLaunch finds the command a first prompt gives for handing in a launch ticket.
+var promptLaunch = regexp.MustCompile(`aboard status --launch lch_[0-9a-f]{24}`)
+
 func logStart(s *session) {
 	path := os.Getenv("FAKE_AGENT_LOG")
 	if path == "" {
 		return
 	}
 	cwd, _ := os.Getwd()
+	agent := os.Getenv("ABOARD_AGENT")
+	if m := promptAgent.FindStringSubmatch(s.prompt); agent == "" && m != nil {
+		agent = m[1]
+	}
 	line, _ := json.Marshal(map[string]any{
 		"harness": s.harness, "argv": s.argv, "session": s.id, "source": s.source, "prompt": s.prompt, "print": s.print,
-		"agent": os.Getenv("ABOARD_AGENT"), "launch": os.Getenv("ABOARD_LAUNCH"), "headless": os.Getenv("ABOARD_HEADLESS"),
+		"agent": agent, "env_agent": os.Getenv("ABOARD_AGENT"), "launch": os.Getenv("ABOARD_LAUNCH"), "headless": os.Getenv("ABOARD_HEADLESS"),
 		"cwd": cwd, "pid": os.Getpid(),
 	})
 	f, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // the log the test named
@@ -209,20 +227,35 @@ func codex(s *session) {
 	if s.prompt != "" {
 		// Codex runs its hooks in its own app server, which doesn't have the environment
 		// Codex was started with.
-		hookEnv := slices.DeleteFunc(slices.Clone(s.env), func(kv string) bool {
-			return strings.HasPrefix(kv, "ABOARD_LAUNCH=") || strings.HasPrefix(kv, "ABOARD_AGENT=")
-		})
-		if s.source != "resume" {
+		hookEnv := withoutLaunchEnv(s.env)
+		hooks := os.Getenv("FAKE_CODEX_HOOKS") != "untrusted"
+		if s.source != "resume" && hooks {
 			// Codex 0.160 runs no SessionStart hook for a resumed thread: it reports in
 			// with the first turn's hooks only.
 			hook(s, "session-start", hookEnv, map[string]any{"hook_event_name": "SessionStart", "source": s.source})
 		}
 		saveConversation(s)
-		appendContext(s, hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt}))
+		if hooks {
+			appendContext(s, hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt}))
+		}
+		if os.Getenv("FAKE_CODEX_APP_SERVER") == "shared" {
+			// An app server started earlier, outside the swarm, runs the thread's commands
+			// with its own environment, not the one this codex was started with.
+			s.env = withoutLaunchEnv(s.env)
+		}
 		s.env = append(s.env, "CODEX_THREAD_ID="+s.id, "CODEX_SESSION_ID="+s.id)
-		runPrompt(s)
+		if os.Getenv("FAKE_CODEX_RUNS") != "nothing" {
+			runPrompt(s)
+		}
 	}
 	waitUntilStopped()
+}
+
+// withoutLaunchEnv is env without the identity aboard swarm up hands a session.
+func withoutLaunchEnv(env []string) []string {
+	return slices.DeleteFunc(slices.Clone(env), func(kv string) bool {
+		return strings.HasPrefix(kv, "ABOARD_LAUNCH=") || strings.HasPrefix(kv, "ABOARD_AGENT=")
+	})
 }
 
 func omp(s *session) {
@@ -307,7 +340,9 @@ func headlessTurn(s *session) {
 // runPrompt runs what the prompt asks for, with the session's environment.
 func runPrompt(s *session) {
 	var commands []string
-	if strings.Contains(s.prompt, "Run aboard status") {
+	if c := promptLaunch.FindString(s.prompt); c != "" {
+		commands = append(commands, c)
+	} else if strings.Contains(s.prompt, "Run aboard status") {
 		commands = append(commands, "aboard status")
 	}
 	for _, line := range strings.Split(s.prompt, "\n") {

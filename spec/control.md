@@ -86,7 +86,7 @@ optional; each operation says which it reads.
 | `harness_version` | string | The harness's version, as it reports it |
 | `extension_version` | string | The extension's own version |
 | `subagent` | string | The harness's id for the subagent a hello comes from |
-| `launch` | string | A launch ticket from `ABOARD_LAUNCH`, on `register` or `hello` (see "Launch tickets") |
+| `launch` | string | A launch ticket, from `ABOARD_LAUNCH` or the session's first prompt, on `register` or `hello` (see "Launch tickets") |
 
 A **response** goes from the daemon to a client: the answer to a request, or an event
 on a connection that stays open.
@@ -322,14 +322,21 @@ copying the session's environment.
 How Aboard does it: before it starts a session, `swarm up` writes a **launch ticket**,
 a file `<state>/launches/<ticket>.json` holding the agent (`{"server","board","name"}`),
 and the launcher puts the ticket in the session's environment as `ABOARD_LAUNCH`, with
-`ABOARD_AGENT` naming the agent. The ticket is `lch_` and 24 hex digits. Whatever first
-reports the session to the daemon hands it in as `launch`:
+`ABOARD_AGENT` naming the agent; for a harness whose profile says
+`interactive.launch: prompt`, the ticket goes in the first prompt instead, whose first
+line asks the agent to run `aboard status --launch <ticket>`, and the environment names
+no agent. The ticket is `lch_` and 24 hex digits. Whatever first reports the session to
+the daemon hands it in as `launch`:
 
 | Harness | Hands it in |
 | --- | --- |
 | Claude Code | The session-start hook's `register`, which sees Claude Code's environment |
 | omp | The extension's `hello` |
-| Codex | Its hooks don't see Codex's environment, so the first `aboard` command the session runs sends `register` with it (every Codex command carries `CODEX_THREAD_ID` and `ABOARD_LAUNCH`) |
+| Codex | Codex runs threads, their hooks and their commands in its app server, which may have been started outside the swarm, so nothing it runs is sure to see the environment Codex was started with. The prompt hook finds the ticket on the first prompt's first line (the hook input carries the prompt) and sends `register` with it before `turn_start`; when no hook runs (they aren't trusted yet), `aboard status --launch <ticket>`, which the line asks for, sends the same `register` from the thread's command (which carries `CODEX_THREAD_ID`) |
+
+Only a first line that starts `You are `, as `swarm up` writes it, counts, so a ticket
+quoted in a message, which arrives in a later prompt inside an `<aboard-message>`
+element, is never taken.
 
 The daemon registers the session as usual, then takes the ticket, which removes the
 file, and binds the session to its agent as `bind` would. A ticket works once: a

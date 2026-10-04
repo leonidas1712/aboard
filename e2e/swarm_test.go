@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -77,6 +78,7 @@ type fakeStart struct {
 	Prompt   string   `json:"prompt"`
 	Print    bool     `json:"print"`
 	Agent    string   `json:"agent"`
+	EnvAgent string   `json:"env_agent"`
 	Launch   string   `json:"launch"`
 	Headless string   `json:"headless"`
 	Cwd      string   `json:"cwd"`
@@ -152,7 +154,13 @@ func TestSwarmUpStartsEachHarnessInTmuxWithItsIdentity(t *testing.T) {
 			t.Fatalf("%s started %d times: %+v", name, len(starts), starts)
 		}
 		st := starts[0]
-		if !strings.HasPrefix(st.Launch, "lch_") || st.Cwd != s.dir || !strings.Contains(st.Prompt, "You are "+name+" on the Aboard board trio") {
+		// Codex's ticket is in its first prompt, never its environment (its commands may
+		// run in an app server started elsewhere); the others' is in their environment.
+		identified := strings.HasPrefix(st.Launch, "lch_") && st.EnvAgent == name
+		if name == "codex" {
+			identified = st.Launch == "" && st.EnvAgent == "" && strings.Contains(st.Prompt, "Run aboard status --launch lch_")
+		}
+		if !identified || st.Cwd != s.dir || !strings.Contains(st.Prompt, "You are "+name+" on the Aboard board trio") {
 			t.Fatalf("%s's session started without its identity, folder or first prompt: %+v", name, st)
 		}
 	}
@@ -202,6 +210,51 @@ func TestSwarmUpStartsEachHarnessInTmuxWithItsIdentity(t *testing.T) {
 	members := s.ownerRequest("GET", "/v1/boards/trio/members", nil)["members"].([]any)
 	if len(members) != 4 { // the person and the three agents: the seats stay
 		t.Fatalf("after down the board has %d members, want the person and three agents", len(members))
+	}
+}
+
+// Codex runs its threads, and the commands they run, in its app server, which may be one
+// the person started earlier, outside the swarm: then nothing Codex runs sees the
+// environment swarm up started it with. Codex takes its seat anyway: its first prompt
+// carries its launch ticket, which its prompt hook hands in before the model runs
+// anything, and, while its hooks aren't trusted yet, the aboard status --launch the
+// prompt asks it to run hands it in. Its environment names no agent, so another thread
+// of a shared app server can't act as it.
+func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
+	t.Parallel()
+	for name, fake := range map[string][]string{
+		"by its prompt hook":      {"FAKE_CODEX_HOOKS=trusted", "FAKE_CODEX_RUNS=nothing"},
+		"by the prompt's command": {"FAKE_CODEX_HOOKS=untrusted"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s := newSwarmEnv(t)
+			s.vars = append(append(s.vars, "FAKE_CODEX_APP_SERVER=shared"), fake...)
+			s.writeBoardFile("board: shared\nagents:\n  - {name: codex, harness: codex}\n")
+			r := s.runExit("swarm", "up", "--wait", "20s", "--json")
+			if r.code != 0 {
+				t.Fatalf("codex behind a shared app server should take its seat:\n%s", r)
+			}
+			if ag := agentsByName(t, r.json(t))["codex"]; ag["seated"] != true || !strings.HasPrefix(fmt.Sprint(ag["session"]), "codex:") {
+				t.Fatalf("codex behind a shared app server should take its seat:\n%s", r)
+			}
+			starts := s.starts("codex")
+			if len(starts) != 1 {
+				t.Fatalf("codex started %d times: %+v", len(starts), starts)
+			}
+			st := starts[0]
+			if st.EnvAgent != "" || st.Launch != "" || !strings.Contains(st.Prompt, "aboard status --launch lch_") {
+				t.Fatalf("codex's identity should be in its first prompt, not its environment: %+v", st)
+			}
+			if entries, _ := os.ReadDir(filepath.Join(s.stateDir(), "launches")); len(entries) != 0 {
+				t.Fatalf("the launch ticket was left untaken: %v", entries)
+			}
+			// A later command of that thread acts as codex, with nothing but the thread id.
+			thread := []string{"CODEX_THREAD_ID=" + st.Session, "CODEX_SESSION_ID=" + st.Session}
+			if v := s.exec(thread, "", "status", "--json").json(t); field(t, v, "agent") != "codex" || field(t, v, "board") != "shared" {
+				t.Fatalf("a command in codex's thread should act as codex on shared: %v", v)
+			}
+		})
 	}
 }
 
@@ -287,6 +340,10 @@ func TestSwarmUpRunsHeadlessTurns(t *testing.T) {
 		}
 		return false
 	})
+	// The CLI calls an agent with no session disconnected, as everywhere else.
+	if ps := s.run("swarm", "ps").stdout; !strings.Contains(ps, "disconnected") || strings.Contains(ps, "no_session") {
+		t.Fatalf("swarm ps should show the worker disconnected:\n%s", ps)
+	}
 }
 
 // herdr's launcher, an aboard-launcher-herdr on the PATH speaking the launcher protocol,
@@ -307,6 +364,83 @@ func TestSwarmUpThroughTheHerdrLauncher(t *testing.T) {
 	sessions := filepath.Join(s.varValue("XDG_CONFIG_HOME"), "herdr", "sessions")
 	if entries, _ := os.ReadDir(sessions); len(entries) != 0 {
 		t.Fatalf("herdr's launcher left its session after the last agent stopped: %v", entries)
+	}
+}
+
+// While swarm up works it says so on standard error, one plain line per step when that
+// isn't a terminal: the board, each agent starting with where to watch it, and each
+// seat taken. --json shows none of it, so standard error stays for errors.
+func TestSwarmUpShowsProgressAsPlainLines(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.writeBoardFile(trioFile)
+	r := s.run("swarm", "up")
+	for _, want := range []string{
+		"Created board trio from " + filepath.Join(s.dir, "aboard.yaml"),
+		"claude: starting (claude-code, tmux); watch it with tmux -L aboard-trio-",
+		"codex: starting (codex, tmux)", "omp: starting (omp, tmux)",
+		"claude: seated after ", "codex: seated after ", "omp: seated after ",
+	} {
+		if !strings.Contains(r.stderr, want) {
+			t.Fatalf("swarm up's progress should say %q:\n%s", want, r.stderr)
+		}
+	}
+	if strings.Contains(r.stderr, "\x1b") || strings.Contains(r.stdout, "\x1b") {
+		t.Fatalf("progress to a pipe has control codes:\n%q", r.stderr)
+	}
+	if !strings.Contains(r.stdout, "All 3 agents are seated.") {
+		t.Fatalf("stdout:\n%s", r.stdout)
+	}
+	s.run("swarm", "down")
+	if j := s.run("swarm", "up", "--json"); j.stderr != "" {
+		t.Fatalf("swarm up --json wrote progress to standard error:\n%s", j.stderr)
+	}
+}
+
+// A launcher that can tell a session waits on the person (herdr's "blocked") makes swarm
+// up say so while it waits, with where to answer, instead of sitting silent until --wait
+// runs out; the error says it too.
+func TestSwarmUpSaysWhenASessionWaitsOnAQuestion(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	// A Codex whose hooks wait for review and whose model has run nothing yet.
+	s.vars = append(s.vars, "FAKE_HERDR_BLOCKED=codex", "FAKE_CODEX_HOOKS=untrusted", "FAKE_CODEX_RUNS=nothing")
+	s.writeBoardFile("board: asks\nlauncher: herdr\nagents:\n  - {name: claude, harness: claude-code}\n  - {name: codex, harness: codex}\n")
+	r := s.runExit("swarm", "up", "--wait", "4s")
+	if r.code != 1 {
+		t.Fatalf("swarm up should fail once --wait runs out:\n%s", r)
+	}
+	for _, want := range []string{
+		"claude: seated after ",
+		"codex: waiting on a question in its window, such as trusting the folder; answer it there: herdr session attach aboard-asks-",
+		"codex didn't take its seat within 4s.",
+		"codex waits on a question in its window; answer it there",
+	} {
+		if !strings.Contains(r.stderr, want) {
+			t.Fatalf("swarm up should say %q:\n%s", want, r.stderr)
+		}
+	}
+}
+
+// At a person's terminal swarm up's progress is a line per agent that updates in place,
+// with a spinner while it starts, ✓ once seated and ⚠ while it waits on a question,
+// above which the question's line says where to answer it.
+func TestSwarmUpShowsLiveProgressInATerminal(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.vars = append(s.vars, "FAKE_HERDR_BLOCKED=codex", "FAKE_CODEX_HOOKS=untrusted", "FAKE_CODEX_RUNS=nothing")
+	s.writeBoardFile("board: live\nlauncher: herdr\nagents:\n  - {name: claude, harness: claude-code}\n  - {name: codex, harness: codex}\n")
+	term := s.startTerminal(nil, "swarm", "up", "--wait", "4s")
+	term.waitFor("Created board live from")
+	term.waitFor("✓ claude  claude-code  seated after ")
+	term.waitFor("⚠ codex   codex        waiting on a question in its window")
+	term.waitFor("codex: waiting on a question in its window, such as trusting the folder; answer it there: herdr session attach aboard-live-")
+	if code := term.exit(); code != 1 {
+		t.Fatalf("exit %d:\n%s", code, term.text())
+	}
+	raw := term.raw()
+	if !regexp.MustCompile(`\x1b\[\d+A`).MatchString(raw) || !strings.Contains(raw, "\x1b[3") {
+		t.Fatalf("a terminal should get lines updated in place, in color:\n%q", raw)
 	}
 }
 

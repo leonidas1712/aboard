@@ -71,7 +71,19 @@ type Interactive struct {
 	Start  []string `yaml:"start"`
 	Resume []string `yaml:"resume"`
 	Model  []string `yaml:"model"`
+	// Launch is where swarm up puts a new session's identity: LaunchEnv (the default)
+	// or LaunchPrompt.
+	Launch string `yaml:"launch"`
 }
+
+// Where swarm up puts a new session's identity (Interactive.Launch).
+const (
+	// LaunchEnv is ABOARD_AGENT and ABOARD_LAUNCH in the harness's environment.
+	LaunchEnv = "env"
+	// LaunchPrompt is the launch ticket in the first prompt, for a harness whose
+	// sessions run in a process that may not have been started with that environment.
+	LaunchPrompt = "prompt"
+)
 
 // Headless is how the headless launcher runs one turn of the harness without a
 // terminal: Via is native (Run and Resume below), acp or none.

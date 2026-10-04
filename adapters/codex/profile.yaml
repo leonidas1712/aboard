@@ -63,6 +63,11 @@ interactive:
   start: [codex, "{prompt}"]
   resume: [codex, resume, "{session}", "{prompt}"]
   model: [--model, "{model}"]
+  # Codex runs threads, their hooks and their commands in its app server, which may be
+  # one started earlier from another terminal: the environment swarm up starts codex
+  # with never reaches them, and if this codex starts the app server, its environment
+  # reaches every later thread. So the ticket goes in the first prompt.
+  launch: prompt
 
 # Headless turns go through codex-acp, which starts Codex's own app server, so it runs
 # the real Codex with the user's config, hooks and skills.
@@ -79,8 +84,10 @@ acp:
 identity:
   session: Codex sets CODEX_THREAD_ID in the environment of every command the agent runs.
   launched: >-
-    ABOARD_AGENT in the environment of the commands the agent runs. Codex's hooks don't
-    see the environment Codex was started with, so hooks never rely on it.
+    The launch ticket in the first prompt (interactive.launch), never the environment:
+    Codex's hooks and commands run in its app server, which may have been started
+    outside the swarm. The prompt hook hands the ticket in as the first turn starts, and
+    the aboard status --launch the prompt asks for does when no hook runs.
   kind: env
   env: CODEX_THREAD_ID
   # The root thread's id; equal to CODEX_THREAD_ID in the root conversation.
