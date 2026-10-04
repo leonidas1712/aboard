@@ -151,9 +151,9 @@ test("the board view shows the room live, posts as the person and verifies the r
   // The message box is one field, marked focused while any part of it has focus.
   const field = page.locator(".composer-field");
   await expect(field).not.toHaveAttribute("data-focused", /./);
-  await page.getByRole("textbox", { name: "Message everyone" }).focus();
+  await page.getByRole("combobox", { name: "Message everyone" }).focus();
   await expect(field).toHaveAttribute("data-focused", "true");
-  await page.getByRole("textbox", { name: "Message everyone" }).blur();
+  await page.getByRole("combobox", { name: "Message everyone" }).blur();
   await expect(field).not.toHaveAttribute("data-focused", /./);
 
   // Joins show inline as board events; the Filter panel hides them, a chip says so, and
@@ -182,7 +182,7 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(crew.locator('[data-agent="reviewer"] .presence')).toHaveText("working");
 
   // The browser posts as the person; the CLI reads it back.
-  await page.getByRole("textbox", { name: "Message everyone" }).fill("Thanks both. Ship it after the review.");
+  await page.getByRole("combobox", { name: "Message everyone" }).fill("Thanks both. Ship it after the review.");
   await page.getByRole("button", { name: "Post" }).click();
   await expect(page.locator(".message", { hasText: "Ship it after the review." })).toContainText("You");
   const read = JSON.parse(aboard("read", "--as", "writer", "--json"));
@@ -379,7 +379,7 @@ test("replies form threads that open in place, remember how they were left and s
   // Replying in the thread posts a reply to its first message, shown in the thread.
   await thread.getByRole("button", { name: "Reply in thread" }).click();
   await expect(page.locator(".composer")).toContainText("Replying to writer");
-  await page.getByRole("textbox", { name: "Message writer" }).fill("Looks good once the cap is in.");
+  await page.getByRole("combobox", { name: "Message writer and reviewer" }).fill("Looks good once the cap is in.");
   await page.getByRole("button", { name: "Post" }).click();
   await expect(thread.locator(".message", { hasText: "Looks good once the cap is in." })).toContainText("You");
   expect(aboard("read", "--as", "writer", "--board", board, "--thread", String(ask.seq))).toContain("Looks good once the cap is in.");
@@ -395,7 +395,7 @@ test("replies form threads that open in place, remember how they were left and s
   await expect(asked).toBeInViewport();
   await expect(asked).toContainText("reviewer is waiting for your reply.");
   await asked.getByRole("button", { name: "Reply", exact: true }).click();
-  await page.getByRole("textbox", { name: "Message reviewer" }).fill("Yes, merge it.");
+  await page.getByRole("combobox", { name: "Message reviewer and writer" }).fill("Yes, merge it.");
   await page.getByRole("button", { name: "Post" }).click();
   await expect(asked).not.toContainText("waiting for your reply");
   await expect(page.locator(".now")).toContainText("nothing waiting on you");
@@ -476,4 +476,118 @@ test("reactions show under messages, toggle as the person and follow the board l
   await expect(page.locator(".record")).toContainText(/Record verified · \d+ events/);
   await expect(page.locator(".board-event", { hasText: "react" })).toHaveCount(0);
   await expect(msg.locator('[data-reaction="tada"]')).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the message box addresses by mention, and a reply adds anyone to the thread's people", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Mentions", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  const invite = JSON.parse(aboard("invite", "--board", board, "--json"));
+  aboard("join", invite.join_line, "--name", "scout");
+  const say = (...args: string[]) => JSON.parse(aboard("say", "--board", board, "--json", ...args)).message;
+  type Sent = { body: string; to: string[]; reply_to: string | null };
+  const posted = (body: string) =>
+    (JSON.parse(aboard("read", "--as", "writer", "--board", board, "--json")).messages as Sent[]).find((m) => m.body === body);
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await page.goto(open.url);
+
+  const field = page.getByRole("combobox", { name: /^Message / });
+  const list = page.getByRole("listbox", { name: "People, agents and roles to mention" });
+  const to = page.locator(".to-label");
+  await expect(to).toHaveText("To everyone");
+
+  // Typing "@" offers the board's agents, then its roles; what follows filters them,
+  // names that start with it first.
+  await field.pressSequentially("Hi @");
+  await expect(list).toBeVisible();
+  await expect(field).toHaveAttribute("aria-expanded", "true");
+  await expect(list.getByRole("option", { name: /^scout/ })).toBeVisible();
+  await expect(list.getByRole("option", { name: /^role:reviewer/ })).toBeVisible();
+  await field.pressSequentially("rev");
+  await expect(list.locator(".mention-name")).toHaveText(["reviewer", "role:reviewer"]);
+
+  // Arrow keys move the choice and Enter picks it: the name goes into the text, marked,
+  // and the "To" label follows.
+  await field.press("ArrowDown");
+  await expect(list.getByRole("option").nth(1)).toHaveAttribute("aria-selected", "true");
+  await field.press("ArrowUp");
+  await field.press("Enter");
+  await expect(list).toBeHidden();
+  await expect(field).toHaveValue("Hi @reviewer ");
+  await expect(to).toHaveText("To reviewer");
+  await expect(page.locator(".mention-mark")).toHaveText(["@reviewer"]);
+
+  // A click picks too, and so does Tab; past two names the label counts the others.
+  await field.pressSequentially("and @");
+  await list.getByRole("option", { name: /^scout/ }).click();
+  await expect(to).toHaveText("To reviewer, scout");
+  await field.pressSequentially("and @wri");
+  await field.press("Tab");
+  await expect(to).toHaveText("To reviewer and 2 others");
+  await expect(field).toHaveAccessibleName("Message reviewer, scout and writer");
+
+  // Escape closes the suggestions and leaves the text alone.
+  await field.pressSequentially("@");
+  await expect(list).toBeVisible();
+  await field.press("Escape");
+  await expect(list).toBeHidden();
+  await expect(field).toBeFocused();
+
+  // Taking a mention out of the text takes it out of the recipients; the post sends
+  // exactly the names left, and keeps the text as written.
+  await field.fill("@reviewer and @writer, please check the intro.");
+  await expect(to).toHaveText("To reviewer, writer");
+  await page.getByRole("button", { name: "Post" }).click();
+  const sent = page.locator(".message", { hasText: "please check the intro." });
+  await expect(sent).toContainText("You");
+  expect(posted("@reviewer and @writer, please check the intro.")?.to).toEqual(["@reviewer", "@writer"]);
+  await expect(to).toHaveText("To everyone");
+  // The post is one message on the board, and its body, mentions and all, shows once.
+  const all = JSON.parse(aboard("read", "--as", "writer", "--board", board, "--json")).messages as Sent[];
+  expect(all.filter((m) => m.body === "@reviewer and @writer, please check the intro.")).toHaveLength(1);
+  await expect(sent).toHaveCount(1);
+  await expect(sent.locator(".body")).toHaveCount(1);
+  await expect(sent.locator(".body")).toHaveText("@reviewer and @writer, please check the intro.");
+  expect((await sent.innerText()).split("please check the intro.").length - 1).toBe(1);
+
+  // In the timeline, mentions show as names, in people's and agents' messages alike;
+  // one shows its agent in the board panel.
+  say("--as", "writer", "--to", "@scout", "@scout can you check role:reviewer's notes, ask @role:reviewer, or mail a@b.dev?");
+  const fromAgent = page.locator(".message", { hasText: "can you check" });
+  await expect(fromAgent.locator(".mention")).toHaveText(["@scout", "@role:reviewer"]);
+  await expect(sent.locator(".mention")).toHaveText(["@reviewer", "@writer"]);
+  await sent.locator(".mention", { hasText: "@writer" }).click();
+  await expect(page.locator('[data-agent="writer"]')).toBeInViewport();
+
+  // The "To" menu is the other way to pick: a name ticked there becomes a chip, and the
+  // chip removes it.
+  await to.click();
+  await page.getByRole("menuitemcheckbox", { name: "scout" }).click();
+  await page.keyboard.press("Escape");
+  await expect(to).toHaveText("To scout");
+  await page.getByRole("button", { name: "Remove scout from the recipients" }).click();
+  await expect(to).toHaveText("To everyone");
+
+  // A reply starts from the asker and the thread's people, as chips; a mention adds an
+  // agent who isn't in the thread, a chip comes off, and the post sends that set.
+  const ask = say("--as", "writer", "--to", "@reviewer", "--expect-reply", "Is the retry section clear?");
+  say("--as", "reviewer", "--reply", ask.id, "--to", "@writer", "Mostly; the cap is missing.");
+  const thread = page.locator(`[data-thread="${ask.id}"]`);
+  await thread.locator(".thread-toggle").click();
+  await thread.getByRole("button", { name: "Reply in thread" }).click();
+  await expect(page.locator(".recipient-chip")).toHaveText(["writer", "reviewer"]);
+  await expect(to).toHaveText("To writer, reviewer");
+  await field.pressSequentially("Adding @sc");
+  await field.press("Enter");
+  await expect(to).toHaveText("To writer and 2 others");
+  await page.getByRole("button", { name: "Remove reviewer from the recipients" }).click();
+  await expect(to).toHaveText("To writer, scout");
+  await field.pressSequentially("to look at the cap.");
+  await field.press("Enter");
+  await expect(thread.locator(".message", { hasText: "to look at the cap." })).toContainText("You");
+  const reply = posted("Adding @scout to look at the cap.");
+  expect(reply?.to).toEqual(["@writer", "@scout"]);
+  expect(reply?.reply_to).toBe(ask.id);
+  await expect(page.locator(".recipient-chip")).toHaveCount(0);
 });

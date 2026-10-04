@@ -244,7 +244,7 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
           </h4>
           <ul className="flex flex-col gap-1">
             {people.map((p) => (
-              <li key={p.id} className="flex items-baseline justify-between gap-3">
+              <li key={p.id} className="flex items-baseline justify-between gap-3" data-person={p.name}>
                 <NameButton name={p.name} picked={from === p.name} onPick={() => onPick(p.name)}>
                   {p.name}
                   {p.name === me && <span className="font-normal text-muted"> (you)</span>}

@@ -5,10 +5,11 @@
 // Messages from one sender in a row are grouped under one header, the way chats do.
 
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
-import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardEvent, Message, MemberRef } from "./api";
+import { segments } from "./mentions";
 import { type OnReact, ReactButton, Reactions } from "./reactions";
 import { clockTime, count, displayName, exactTime, markOf, recipients, relativeTime } from "./words";
 
@@ -51,6 +52,10 @@ type Props = {
   answer: (m: Message) => Message | null;
   /** identity is the sender's identity colour, 1 to 8. */
   identity: (from: MemberRef) => number;
+  /** mentionable holds every target a mention may name ("@codex", "role:reviewer"). */
+  mentionable: Set<string>;
+  /** onMention shows a mentioned member or role in the board panel. */
+  onMention: (target: string) => void;
   /** waiting holds the ids of questions waiting for the person's reply. */
   waiting: Set<string>;
   onReply: (m: Message) => void;
@@ -108,6 +113,8 @@ export function Timeline({
   quote,
   answer,
   identity,
+  mentionable,
+  onMention,
   waiting,
   onReply,
   onReact,
@@ -126,6 +133,7 @@ export function Timeline({
   const [unseen, setUnseen] = useState(0);
   const lastCount = useRef({ first: 0, last: 0, height: 0, messages: 0 });
   const now = useNow();
+  const mentions = useMemo(() => ({ known: mentionable, onMention }), [mentionable, onMention]);
 
   const newestSeq = entries.at(-1)?.seq ?? 0;
   // latest is the newest message shown anywhere, replies in threads included.
@@ -235,6 +243,7 @@ export function Timeline({
                       quote={quote(x.m)}
                       answer={x.m.expects_reply ? answer(x.m) : null}
                       identity={identity(x.m.from)}
+                      mentions={mentions}
                       waiting={waiting.has(x.m.id)}
                       onReply={() => onReply(x.m)}
                       onReact={onReact}
@@ -257,6 +266,7 @@ export function Timeline({
                       quote={quote}
                       answer={answer}
                       identity={identity}
+                      mentions={mentions}
                       waitingIds={waiting}
                       onReply={onReply}
                       onReact={onReact}
@@ -406,6 +416,7 @@ function MessageEntry({
   quote,
   answer,
   identity,
+  mentions,
   waiting,
   onReply,
   onReact,
@@ -424,6 +435,7 @@ function MessageEntry({
   quote: string | null;
   answer: Message | null;
   identity: number;
+  mentions: Mentions;
   waiting: boolean;
   onReply: () => void;
   onReact: OnReact;
@@ -538,7 +550,9 @@ function MessageEntry({
             <span className="truncate">{quote ?? "Replying to an earlier message"}</span>
           </p>
         )}
-        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>{m.body}</p>
+        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
+          <Body text={m.body} mentions={mentions} />
+        </p>
         <Reactions m={m} me={me} onReact={onReact} />
         {grouped && <div className="absolute top-0 right-2.5">{actions}</div>}
         {waiting && (
@@ -565,6 +579,7 @@ function ThreadBlock({
   quote,
   answer,
   identity,
+  mentions,
   waitingIds,
   onReply,
   onReact,
@@ -579,6 +594,7 @@ function ThreadBlock({
   quote: (m: Message) => string | null;
   answer: (m: Message) => Message | null;
   identity: (from: MemberRef) => number;
+  mentions: Mentions;
   waitingIds: Set<string>;
   onReply: (m: Message) => void;
   onReact: OnReact;
@@ -650,6 +666,7 @@ function ThreadBlock({
                   quote={quote(r)}
                   answer={r.expects_reply ? answer(r) : null}
                   identity={identity(r.from)}
+                  mentions={mentions}
                   waiting={waitingIds.has(r.id)}
                   onReply={() => onReply(r)}
                   onReact={onReact}
@@ -677,6 +694,32 @@ function ThreadBlock({
         </div>
       )}
     </li>
+  );
+}
+
+/** Mentions is what a message body needs to mark its mentions: who can be named, and what a click does. */
+type Mentions = { known: Set<string>; onMention: (target: string) => void };
+
+/**
+ * Body is a message's text as written, with each mention of a member or role marked
+ * as a button that shows them in the board panel. The text stays text, never HTML.
+ */
+function Body({ text, mentions }: { text: string; mentions: Mentions }) {
+  return segments(text, mentions.known).map((s, i) =>
+    s.target ? (
+      <button
+        key={i}
+        type="button"
+        data-target={s.target}
+        onClick={() => mentions.onMention(s.target!)}
+        className="mention rounded-[4px] bg-[var(--mention)] px-0.5 font-bold text-ink decoration-1 underline-offset-[3px] hover:underline"
+        title={`Show ${s.target.startsWith("@") ? s.target.slice(1) : `the ${s.target.slice(5)} role`} in the board panel`}
+      >
+        {s.text}
+      </button>
+    ) : (
+      <Fragment key={i}>{s.text}</Fragment>
+    ),
   );
 }
 
