@@ -71,9 +71,9 @@ type driver struct {
 // proves Aboard's wiring to a harness, not what a model can do, so each default is a
 // cheap model of the provider the suite logs the harness in to.
 const (
-	defaultClaudeModel = "claude-haiku-4-5"
-	defaultCodexModel  = "gpt-6-luna"
-	defaultOmpModel    = "anthropic/claude-haiku-4-5"
+	defaultClaudeModel = "claude-sonnet-5-5"
+	defaultCodexModel  = "gpt-6.1-sol"
+	defaultOmpModel    = "anthropic/claude-sonnet-5-5"
 )
 
 // liveModel is the model variable names, else def.

@@ -122,13 +122,29 @@ rotate or invalidate it. Each harness's docs page says the same.
   sets to `CLAUDE_CODE_OAUTH_TOKEN`, the token it already uses for Claude Code; an OAuth
   token from the environment has no refresh token, so nothing can rotate it. Without
   the token, the omp tests fail with a message saying to set it; they never skip and
-  never fall back to the person's own login.
+  never fall back to the person's own login. omp loads extensions from its agent folder
+  as it starts, so every start also checks omp's own list (`/extensions`) holds only the
+  project's `aboard`: an extension from the person's `~/.omp` would run inside the test.
+- **Every harness.** Harnesses run in the lab's tmux with exactly the lab's environment,
+  never the person's shell profile, and with a `HOME` in the lab, so nothing the lab
+  runs (aboard, its daemon, the harnesses, their hooks) finds a folder in the person's
+  home: Codex's `~/.agents/skills`, for one, follows `HOME`, not `CODEX_HOME`. Every
+  `aboard doctor` a live test runs fails the test if it names a path in the person's
+  home. The run checks the person's harness config and setup folders by sha256 before
+  and after every test. Variables that name the person's harness session
+  (`CLAUDE*`, `CODEX*`, `ABOARD*`, `TMUX*`, `OMP*`, `PI_*`) or their terminal app
+  (`TERM_PROGRAM`, `ORCA*`, `KITTY*` and the like) are dropped, so a harness neither
+  thinks it runs in the person's session nor reports to the person's apps.
 
 #### Which models the live suite runs
 
 The suite proves Aboard's wiring to a harness, not what a model can do, so each harness
-runs a cheap model by default, passed on every start and resume: Claude Code
-`claude-haiku-4-5`, Codex `gpt-6-luna`, omp `anthropic/claude-haiku-4-5`.
+runs the cheapest model that passes its scenarios, passed on every start and resume:
+Claude Code `claude-sonnet-5-5`, Codex `gpt-6.1-sol`, omp `anthropic/claude-sonnet-5-5`.
+Haiku 4.5 was tried first and missed multi-step scenarios (it skipped turns in the
+ping-pong and never started the wiring check), so Claude Code and omp run Sonnet; Codex's
+`gpt-6-luna` never finished a busy turn that also got the owner's message, so Codex runs
+`gpt-6.1-sol`.
 `LIVE_CLAUDE_MODEL`, `LIVE_CODEX_MODEL` and `LIVE_OMP_MODEL` name another for one run.
 When a scenario is too hard for the cheap model, step it up one tier (Haiku to Sonnet,
 Luna to Sol), never straight to the top model. `make live-smoke` checks each harness

@@ -150,4 +150,5 @@ couldn't do its job exits 0, so it never blocks the thread, and prints one line 
 write. Your login file (`auth.json` in `$CODEX_HOME`, or `~/.codex`) is linked into each
 test's `CODEX_HOME`, never copied: when Codex refreshes the token, it writes through the
 link into your own file, so the refreshed token stays yours and your login keeps working.
-Nothing else of yours is read.
+Each test also has its own `HOME`, so the skills folder Codex finds from it
+(`~/.agents/skills`) is the test's, not yours. Nothing else of yours is read.

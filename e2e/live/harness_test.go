@@ -545,7 +545,7 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 	if err != nil {
 		l.t.Fatal(err)
 	}
-	words := []string{"env"}
+	words := []string{"env", shellQuote("HOME=" + l.home())}
 	for _, kv := range env {
 		for _, name := range []string{"PATH=", "ABOARD_HOME=", "ABOARD_LOCAL_ADDR=", "CODEX_HOME=", exitWithVar + "="} {
 			if strings.HasPrefix(kv, name) {

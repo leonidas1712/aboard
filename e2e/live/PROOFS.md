@@ -42,9 +42,9 @@ Code test fails with that instruction: the suite never falls back to your own co
 | --- | --- |
 | `LIVE_KEEP=1` | Save artifacts for passing tests too |
 | `LIVE_ARTIFACTS=<dir>` | Where artifacts go (default `e2e/live/artifacts/`, git-ignored) |
-| `LIVE_CLAUDE_MODEL=<model>` | The model Claude Code runs with, as `--model` (default `claude-haiku-4-5`) |
-| `LIVE_CODEX_MODEL=<model>` | The model Codex runs with, as `-m`, `codex exec` included (default `gpt-6-luna`) |
-| `LIVE_OMP_MODEL=<model>` | The model omp runs with, as `--model` (default `anthropic/claude-haiku-4-5`, so omp never picks a local model) |
+| `LIVE_CLAUDE_MODEL=<model>` | The model Claude Code runs with, as `--model` (default `claude-sonnet-5-5`) |
+| `LIVE_CODEX_MODEL=<model>` | The model Codex runs with, as `-m`, `codex exec` included (default `gpt-6.1-sol`) |
+| `LIVE_OMP_MODEL=<model>` | The model omp runs with, as `--model` (default `anthropic/claude-sonnet-5-5`, so omp never picks a local model) |
 
 **Models.** The suite proves Aboard's wiring to each harness, not what a model can do,
 so every harness runs a cheap model by default, on every start and every resume. Each
@@ -149,6 +149,14 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
 
 ## How the suite keeps your machine untouched
 
+- **A home folder of its own.** Everything a test runs (aboard and its daemon, the
+  harnesses, their hooks and every command an agent runs) has `HOME` set to a folder in
+  the test's scratch directory, so a folder found from `HOME`, such as Codex's
+  `~/.agents/skills`, is the test's own. omp gets a scratch `HOME` of its own (below).
+  Every `aboard doctor` a test runs fails the test if it names a path in your own home
+  folder (other than a harness program on your `PATH`), and `TestLabStaysOutOfYourHome`
+  runs Aboard's setup for every harness on the machine and checks doctor that way
+  without spending a model turn.
 - **Aboard's state** lives in an `ABOARD_HOME` in the test's scratch directory, the
   product's own way of isolating a copy of Aboard, with the local server on a free port
   (`ABOARD_LOCAL_ADDR`). Harnesses are started with these variables, so their hooks and
@@ -167,19 +175,34 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
   off; aboard's own omp setup follows `PI_CODING_AGENT_DIR`, set to the same scratch
   folder for every command. It logs in to Anthropic from `ANTHROPIC_OAUTH_TOKEN`, set to
   `CLAUDE_CODE_OAUTH_TOKEN`; an OAuth token from the environment has no refresh token, so
-  nothing can rotate it. Your own `~/.omp` is never read or written.
-- **Checksums.** Before the run, the suite records `~/.claude/settings.json`,
-  `~/.codex/config.toml` and `~/.codex/hooks.json`, and whether `~/.local/state/aboard`,
-  `~/.local/share/aboard` and `~/.config/aboard` exist, `~/.omp/agent/config.yml`, and
-  every entry in `~/.omp/agent/extensions` and `~/.omp/agent/skills` (omp's `agent.db`
-  changes whenever you use omp, so the folders a test could write to stand for it).
-  Every test checks them in its cleanup, and the run fails if any changed.
+  nothing can rotate it. Your own `~/.omp` is never read or written. Each time a test
+  starts omp, it opens omp's Extension Control Center (`/extensions`) and fails unless
+  the only extension omp found is the project's `aboard` (or none, in a folder without
+  Aboard's setup), so an extension from your `~/.omp` can never run inside a test. omp
+  runs with images off (`PI_FORCE_IMAGE_PROTOCOL=off`): in the lab's tmux it would
+  otherwise send a Kitty image command that tmux takes as the pane's title, and the
+  suite would never see omp's prompt.
+- **Checksums.** Before the run, the suite records the sha256 of
+  `~/.claude/settings.json`, `~/.codex/config.toml`, `~/.codex/hooks.json` and
+  `~/.omp/agent/config.yml`, and of every entry (a whole folder's tree, or where a link
+  points) in `~/.local/bin`, `~/.local/share/claude/versions`,
+  `~/.omp/agent/extensions`, `~/.omp/agent/skills`, `~/.agents/skills` and
+  `~/.claude/skills`, and whether `~/.local/state/aboard`, `~/.local/share/aboard` and
+  `~/.config/aboard` exist (omp's `agent.db` changes whenever you use omp, so the
+  folders a test could write to stand for it). Every test checks them in its cleanup,
+  and the run fails if any changed. Contents are compared, not times, so a file another
+  app rewrites with the same bytes is no false alarm.
 - **Harness markers.** Every variable starting `CLAUDE`, `CODEX`, `ABOARD`, `TMUX`, `OMP` or `PI_` is
   removed from what harnesses and aboard commands inherit (except `CLAUDE_CONFIG_DIR`).
   Run from inside a Claude Code session, aboard would otherwise think it runs in that
   session; in a remote Claude Code container the remote session's variables even make
   the nested Claude Code take over the outer session's id. Login variables such as
   `ANTHROPIC_*` and `OPENAI_*` are kept.
+- **Terminal markers.** The variables your terminal app sets (`TERM_PROGRAM`,
+  `LC_TERMINAL`, and those starting `KITTY`, `GHOSTTY`, `WEZTERM`, `ITERM`, `VSCODE`,
+  `ALACRITTY`, `WARP`, `ZELLIJ`, `CMUX`, `HERDR` or `ORCA`, among others) are removed too.
+  A harness in the lab draws to the lab's tmux, not to your terminal, and must never
+  report its state to your terminal app.
 - **Teardown.** The tmux server is killed, the suite waits for the harnesses to exit
   (their end hook can start a daemon on the way out), then stops every process running
   the test's aboard binary.
