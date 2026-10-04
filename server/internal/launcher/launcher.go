@@ -106,6 +106,15 @@ type Launcher interface {
 	Stop(ctx context.Context, ref Ref) (State, error)
 }
 
+// Asker is a launcher that can also tell when a running session waits on the person,
+// such as a harness asking a question in its window as it starts. swarm up says so
+// while it waits for the session's seat.
+type Asker interface {
+	// Blocked reports whether the session runs but waits for the person to answer
+	// something in its window.
+	Blocked(ctx context.Context, ref Ref) (bool, error)
+}
+
 // Error is a launcher's error, with a stable code, in the shape every Aboard error has.
 type Error struct {
 	Code    string `json:"code"`
@@ -145,5 +154,8 @@ type Response struct {
 	Attach string   `json:"attach,omitempty"`
 	PID    int      `json:"pid,omitempty"`
 	State  State    `json:"state,omitempty"`
-	Error  *Error   `json:"error,omitempty"`
+	// Blocked is true on a status answer when the session runs but waits for the
+	// person, as far as the launcher can tell.
+	Blocked bool   `json:"blocked,omitempty"`
+	Error   *Error `json:"error,omitempty"`
 }

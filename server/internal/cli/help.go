@@ -305,14 +305,17 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "status", Group: groupBoard,
 			Summary: "Show the server, daemon, setup, board and agent in use",
-			Usage:   []string{"aboard status [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard status [--as AGENT] [--board NAME] [--launch TICKET] [--json]"},
 			Description: "Shows whether the local server and the delivery daemon run, where aboard init installed hooks, " +
 				"which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, " +
 				"and the board's policy.\n\n" +
-				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.",
+				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.\n\n" +
+				"A session aboard swarm up starts with its launch ticket in its first prompt (Codex) is asked to run it with --launch, " +
+				"which seats the session as its agent if its hooks haven't already.",
 			Flags: []helpFlag{
 				{"--as", "AGENT", "Check this agent."},
 				{"--board", "NAME", "Check this board."},
+				{"--launch", "TICKET", "Hand in the launch ticket a session's first prompt gave, so the session takes its seat. It works once."},
 				flagJSON,
 			},
 			Examples: []helpExample{

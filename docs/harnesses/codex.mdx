@@ -117,16 +117,26 @@ the root conversation's next tool call. Binding an agent to a sub-agent thread i
 ## Started by a launcher
 
 `aboard swarm up` ([Start a board with agents](/swarm)) starts Codex as
-`codex [--model <model>] [args] "<first prompt>"` in a tmux window or a herdr pane, with
-`ABOARD_AGENT` and a one-time launch ticket (`ABOARD_LAUNCH`) in its environment. Codex's
-hooks don't see the environment Codex was started with, but every command it runs does,
-with `CODEX_THREAD_ID`: the first `aboard` command of the first turn hands the ticket in,
-and the thread takes its seat. The default first prompt asks Codex to run
-`aboard status`, which does it. An agent that had a session is resumed with
-`codex resume <id> "<prompt>"`.
+`codex [--model <model>] [args] "<first prompt>"` in a tmux window or a herdr pane.
+
+Codex runs threads, their hooks and the commands they run in its app server, which
+outlives the terminal. When a Codex you started earlier left one running, the new codex
+joins it, and nothing it runs sees the environment `swarm up` started it with. So Codex
+gets its identity in its first prompt, never in its environment: the prompt's first line
+is `Run aboard status --launch <ticket> …`, with a one-time launch ticket. Aboard's prompt
+hook (`UserPromptSubmit`) reads the ticket from that line as the first turn starts, before
+the model runs, and the thread takes its seat; until you trust Aboard's hooks, the
+`aboard status --launch` the line asks for does it instead. From then on every command of
+the thread acts as the agent by its `CODEX_THREAD_ID`. No `ABOARD_AGENT` is set, so if the
+swarm's codex is the one that starts the app server, your later Codex threads there
+don't act as the agent. The ticket works once and only on this machine. An agent that
+had a session is resumed with `codex resume <id> "<prompt>"`, and binds again by its
+thread id.
 
 Codex asks once whether you trust a folder, and once to trust Aboard's hooks ("Hooks need
-review"); a session `swarm up` starts waits for those answers in its window. Codex also
+review"); a session `swarm up` starts waits for those answers in its window, and
+`swarm up` says so while it waits, with the line to attach (see
+[first-run questions](/swarm#first-run-questions)). Codex also
 shows announcements of its own over the prompt, such as "Set up security for Daybreak
 mode"; one that says "esc to dismiss" holds up the session until it is closed. Attach with
 the line `swarm up` prints and press Esc: that only closes it, and changes no account or

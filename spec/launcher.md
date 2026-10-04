@@ -78,6 +78,16 @@ session any more) or `unknown` (the launcher can't tell, for example because its
 isn't reachable). Aboard treats `unknown` as running for `swarm up`, so it never starts a
 second session beside one that may still run, and shows it as is in `swarm ps`.
 
+`blocked` is optional: `true` when the session runs but waits for the person, such as a
+harness asking whether to trust the folder as it starts. Only a launcher that can tell
+sends it (the herdr launcher passes on herdr's `agent_status` of `blocked`); leaving it
+out means "can't tell". While `swarm up` waits for a seat, it says which agent waits on a
+question and gives its attach line.
+
+```json
+{"v":1,"state":"running","blocked":true}
+```
+
 ### `stop`: end the session
 
 ```json
@@ -118,12 +128,19 @@ A launched session never pastes a join line. `env` holds:
 | Variable | Meaning |
 | --- | --- |
 | `ABOARD_AGENT` | The agent's name. Every `aboard` command the session runs acts as this agent, and so on its board |
-| `ABOARD_LAUNCH` | A one-time launch ticket. The session's first contact with the delivery daemon (Claude Code's session-start hook, omp's extension, or the first `aboard` command a Codex session runs) hands it in, and the daemon binds the session to the agent the ticket names. A ticket works once: a harness started later from inside that session inherits the variable but can't take the seat (spec/control.md, "Launch tickets") |
+| `ABOARD_LAUNCH` | A one-time launch ticket. The session's first contact with the delivery daemon (Claude Code's session-start hook, omp's extension) hands it in, and the daemon binds the session to the agent the ticket names. A ticket works once: a harness started later from inside that session inherits the variable but can't take the seat (spec/control.md, "Launch tickets") |
 | `ABOARD_HOME`, `ABOARD_LOCAL_ADDR` | Passed on when `swarm up` runs with them, so the session uses the same Aboard |
 
+A harness whose profile says `interactive.launch: prompt` (Codex) gets neither
+`ABOARD_AGENT` nor `ABOARD_LAUNCH`: it runs its sessions and their commands in a
+long-running process that may have been started outside the swarm and may serve the
+person's other sessions, so the environment would either not reach the session or reach
+sessions that aren't the agent. Its ticket is in the first prompt instead (`argv`), on
+a first line asking the agent to run `aboard status --launch <ticket>`.
+
 A session resumed by `swarm up` (the harness's own resume, with the session id the
-agent last had) gets `ABOARD_AGENT` but no ticket: the resumed session binds again to
-its agent by itself.
+agent last had) gets `ABOARD_AGENT` (unless its profile says `launch: prompt`) but no
+ticket: the resumed session binds again to its agent by itself.
 
 ## The kit
 

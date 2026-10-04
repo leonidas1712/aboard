@@ -10,7 +10,8 @@
 // which runs an argument vector with its own environment, folder and label, never
 // through a shell), and stops the server and removes the session once the swarm's last
 // agent stops. A person watches with "herdr session attach <swarm>". herdr reports each
-// agent's state on its own; Aboard needs nothing from it for that.
+// agent's state on its own; status passes on one of them, "blocked" (the agent waits on
+// the person, such as a question as it starts), so swarm up can say so.
 //
 // It uses only the standard library and doesn't import Aboard's code: it is an example of
 // a launcher anyone can write in any language.
@@ -51,13 +52,16 @@ type request struct {
 }
 
 type response struct {
-	V      int       `json:"v"`
-	Name   string    `json:"name,omitempty"`
-	Modes  []string  `json:"modes,omitempty"`
-	Handle string    `json:"handle,omitempty"`
-	Attach string    `json:"attach,omitempty"`
-	State  string    `json:"state,omitempty"`
-	Error  *protoErr `json:"error,omitempty"`
+	V      int      `json:"v"`
+	Name   string   `json:"name,omitempty"`
+	Modes  []string `json:"modes,omitempty"`
+	Handle string   `json:"handle,omitempty"`
+	Attach string   `json:"attach,omitempty"`
+	State  string   `json:"state,omitempty"`
+	// Blocked is herdr's agent_status "blocked" for a running pane: its agent waits on
+	// the person.
+	Blocked bool      `json:"blocked,omitempty"`
+	Error   *protoErr `json:"error,omitempty"`
 }
 
 type protoErr struct {
@@ -183,11 +187,18 @@ func status(ctx context.Context, req request) (response, error) {
 	if !h.answers(ctx) {
 		return response{State: "exited"}, nil
 	}
-	err = h.call(ctx, "pane.get", map[string]any{"pane_id": pane}, nil)
+	// herdr watches the agent in each pane, and says "blocked" when it waits on the
+	// person, such as a question as it starts.
+	var got struct {
+		Pane struct {
+			AgentStatus string `json:"agent_status"`
+		} `json:"pane"`
+	}
+	err = h.call(ctx, "pane.get", map[string]any{"pane_id": pane}, &got)
 	var he *herdrErr
 	switch {
 	case err == nil:
-		return response{State: "running"}, nil
+		return response{State: "running", Blocked: got.Pane.AgentStatus == "blocked"}, nil
 	case errors.As(err, &he) && strings.HasSuffix(he.Code, "not_found"):
 		return response{State: "exited"}, nil
 	}

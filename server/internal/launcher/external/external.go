@@ -64,6 +64,18 @@ func (l Launcher) Status(ctx context.Context, ref launcher.Ref) (launcher.State,
 	return l.state(ctx, launcher.OpStatus, ref)
 }
 
+var _ launcher.Asker = Launcher{}
+
+// Blocked asks the launcher whether a running session waits on the person: its status
+// answer's blocked, which a launcher that can't tell leaves out.
+func (l Launcher) Blocked(ctx context.Context, ref launcher.Ref) (bool, error) {
+	resp, err := l.call(ctx, launcher.Request{Op: launcher.OpStatus, Swarm: ref.Swarm, Agent: ref.Agent, Handle: ref.Handle})
+	if err != nil {
+		return false, err
+	}
+	return resp.State == launcher.Running && resp.Blocked, nil
+}
+
 // Stop asks the launcher to end a session.
 func (l Launcher) Stop(ctx context.Context, ref launcher.Ref) (launcher.State, error) {
 	return l.state(ctx, launcher.OpStop, ref)

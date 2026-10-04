@@ -237,6 +237,16 @@ func newBootID(rnd io.Reader) (string, error) {
 // hands back a waiting hook's wake text: the wake itself, which must not count as the
 // session's next event. A daemon from before turn_start is sent prompt instead.
 func (h hookCall) turnStart(ctx context.Context, wake bool) error {
+	if ticket := h.a.waitingTicket(ticketInPrompt(h.in.Prompt)); ticket != "" {
+		// A session aboard swarm up started with its launch ticket in its first prompt
+		// (Codex): the hook input carries the prompt, so the ticket binds the session to
+		// its agent before the turn starts, whatever process runs the hook.
+		req := h.request(delivery.OpRegister)
+		req.Launch = ticket
+		if _, err := h.a.callDaemon(ctx, req); err != nil {
+			return err
+		}
+	}
 	req := h.request(delivery.OpTurnStart)
 	req.Wake, req.Started = wake, h.started
 	resp, err := h.a.callDaemon(ctx, req)

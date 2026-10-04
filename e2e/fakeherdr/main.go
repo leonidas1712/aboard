@@ -16,7 +16,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -123,7 +125,13 @@ func (s *server) handle(conn net.Conn) {
 }
 
 func (s *server) paneInfo(p *pane) map[string]any {
-	return map[string]any{"pane_id": p.id, "terminal_id": "t" + p.id, "workspace_id": p.workspace, "tab_id": p.workspace + ":t", "focused": false, "agent_status": "unknown", "revision": 0, "label": p.label}
+	// herdr says "blocked" for an agent waiting on the person; the fake says it for the
+	// panes FAKE_HERDR_BLOCKED names by label.
+	status := "unknown"
+	if slices.Contains(strings.Split(os.Getenv("FAKE_HERDR_BLOCKED"), ","), p.label) {
+		status = "blocked"
+	}
+	return map[string]any{"pane_id": p.id, "terminal_id": "t" + p.id, "workspace_id": p.workspace, "tab_id": p.workspace + ":t", "focused": false, "agent_status": status, "revision": 0, "label": p.label}
 }
 
 func (s *server) do(req request) (result map[string]any, code, message string) {

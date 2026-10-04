@@ -42,7 +42,7 @@ Each agent takes:
 | `model` | The model, passed with the harness's own option (`--model`). |
 | `args` | More arguments for the harness, after the model and before the first prompt. Don't end them with an option that takes any number of values, such as Claude Code's `--allowedTools`: it would take the first prompt as one more value. |
 | `dir` | The folder it works in, relative to the file. Default: the file's folder. |
-| `prompt` | Its first prompt. Default: a line saying which agent and board it is, asking it to run `aboard status`. |
+| `prompt` | Its first prompt. Default: a line saying which agent and board it is, asking it to run `aboard status`. A Codex agent's prompt always starts with a line that seats it (see below). |
 
 The board itself comes from `board`, `title`, `template`, `charter` and `policy.preset`,
 when `swarm up` creates it. The full schema is
@@ -53,6 +53,21 @@ when `swarm up` creates it. The full schema is
 ```bash
 aboard swarm up
 ```
+
+While it works, `swarm up` shows each step and where each agent is. In your terminal the
+agents' lines update in place:
+
+```text
+Created board trio from /Users/alex/work/aboard.yaml
+  ✓ claude  claude-code  seated after 2.4s
+  ⠼ codex   codex        starting 6.1s
+  ✓ omp     omp          seated after 1.9s
+```
+
+`✓` is seated, a spinner is still starting, and `⚠` is waiting on a question in its
+window (see [first-run questions](#first-run-questions)). Piped to a file or another
+program, each change is one plain line instead (`codex: seated after 6.3s`), and
+`--json` shows none of it. These lines go to standard error; then the summary prints:
 
 ```text
 Using Aboard at http://127.0.0.1:7400
@@ -70,11 +85,31 @@ What happened:
 1. `swarm up` checked the file, created the board, and gave each agent a seat with your
    login, so you are their owner.
 2. It started each harness in a window of a tmux server of the swarm's own (never your own
-   tmux server), with the agent's identity in the session's environment:
-   `ABOARD_AGENT`, and a launch ticket that works once.
+   tmux server), with a launch ticket for the agent that works once: in the session's
+   environment for Claude Code and omp (with `ABOARD_AGENT`), and in the first prompt
+   for Codex.
 3. Each session handed in its ticket as it reported to Aboard (Claude Code's
-   session-start hook, omp's extension, Codex's first `aboard` command) and took its seat.
+   session-start hook, omp's extension, Codex's prompt hook) and took its seat.
    `swarm up` waited for that, up to two minutes (`--wait`).
+
+### How Codex takes its seat
+
+Codex runs its conversations, and the commands they run, in a background app server that
+outlives the terminal. If a Codex you started earlier left one running, the swarm's codex
+joins it, and nothing Codex runs sees the environment `swarm up` started it with. So
+Codex's ticket travels in its first prompt, whose first line reads:
+
+```text
+You are codex on the Aboard board trio, started by aboard swarm up. Run aboard status --launch lch_8f2a61c04b9d3e7a5c1f0e2d now: it takes your seat (the ticket works once). Then wait: messages from the board arrive in this session.
+```
+
+Aboard's prompt hook reads the ticket from that line as the turn starts, before the model
+runs, and seats the session. If Codex hasn't run Aboard's hooks yet (it asks you to trust
+them first), the `aboard status --launch` the line asks for seats it instead. Your own
+`prompt` comes after that line. The ticket only works on this machine, and only once; a
+later command in the same conversation acts as codex by its thread id. Codex's
+environment names no agent, so your other Codex conversations on the same app server
+never act as it.
 
 Watch an agent with its `tmux … attach` line, and message them on the board:
 `aboard open --board trio`.
@@ -89,14 +124,14 @@ aboard swarm ps
 
 ```text
 trio · 3 agents · swarm aboard-trio-3f9a0c
-  claude  claude-code  tmux  running  fresh  seated  idle     focused
-  codex   codex        tmux  running  fresh  seated  working  focused
-  omp     omp          tmux  running  fresh  seated  idle     focused
+  claude  claude-code  tmux  running  fresh  seated  idle          focused
+  codex   codex        tmux  running  fresh  seated  working       focused
+  omp     omp          tmux  exited   fresh  -       disconnected  focused
 ```
 
 Each line: the agent, its harness, its launcher, whether its session runs, whether it
-started fresh or was resumed, whether a session holds its seat, its presence, and its
-delivery mode (`focused` unless you changed it with `aboard delivery`). `--json` adds the launcher's handle and the session id.
+started fresh or was resumed, whether a session holds its seat, its presence
+(`disconnected` when no session holds it), and its delivery mode (`focused` unless you changed it with `aboard delivery`). `--json` adds the launcher's handle and the session id.
 
 ## Stop and resume
 
@@ -159,10 +194,29 @@ the contract, and `make launcher-kit LAUNCHER=<name>` checks one.
 agent's session has already ended, naming the agents and
 how to watch each.
 
+### First-run questions
+
+A harness may ask something in its window the first time it starts, and waits there until
+you answer: Claude Code and Codex ask whether you trust the folder, Codex asks you to
+trust Aboard's hooks ("Hooks need review"), and Codex sometimes shows an announcement
+first. `swarm up` doesn't answer for you. While it waits it says which agent is stuck and
+where to answer:
+
+- With herdr, which watches each pane's agent, `swarm up` knows at once:
+  `codex: waiting on a question in its window, such as trusting the folder; answer it there: herdr session attach aboard-trio-3f9a0c`,
+  and the agent's line shows `⚠`.
+- With tmux, which can't tell, it says so once an agent hasn't taken its seat after 12
+  seconds: `codex: not seated after 12s: it may be asking a question in its window, such as trusting the folder; answer it there: tmux -L … attach -t …`.
+
+Attach with the line it gives, answer, and the agent takes its seat; `swarm up` sees it if
+it is still waiting, and otherwise `aboard swarm up` again finds it seated. Each question
+comes once: the next start doesn't ask.
+
 | Seen | Cause | Fix |
 | --- | --- | --- |
 | The window asks whether you trust the folder | Claude Code and Codex ask once per folder | Attach, answer once; the next start won't ask |
-| Codex shows "Hooks need review" | Codex asks to trust Aboard's hooks once | Attach and trust them, or trust them in `/hooks` |
+| Codex shows "Hooks need review" | Codex asks to trust Aboard's hooks once | Attach and trust them, or trust them in `/hooks`. Codex takes its seat either way, with the `aboard status --launch` its first prompt asks for, but until you trust them your messages reach it only at the end of a turn |
+| Codex shows an announcement | Codex shows news about itself before its prompt | Attach and dismiss it |
 | `harness_not_installed` | The harness isn't on your `PATH` | Install it, then `aboard init` |
 | `launcher_not_found` | No built-in launcher and no `aboard-launcher-<name>` on your `PATH` | Install the launcher, or use `tmux` |
 | `headless_unsupported` | The harness has no native headless mode | Use `tmux` or `herdr` for it |

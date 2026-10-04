@@ -7,6 +7,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/delivery/launchtickets"
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
@@ -24,8 +25,17 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("status")
 	as := fs.String("as", "", "the agent to check")
 	boardFlag := fs.String("board", "", "the board to check")
+	launch := fs.String("launch", "", "the launch ticket from the session's first prompt")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
+	}
+	if *launch != "" {
+		if !launchtickets.Valid(*launch) {
+			return usageError(fmt.Sprintf("%q is not a launch ticket: one is lch_ and 24 hex digits.", *launch), use)
+		}
+		// The session's first prompt (Codex's, from aboard swarm up) gave the ticket:
+		// hand it in so this session takes its seat, unless its prompt hook already has.
+		a.claimTicket(ctx, *launch)
 	}
 	// Like any command that uses them, status first replaces a local server or daemon
 	// from an older build, so what it reports is what the next command will use.

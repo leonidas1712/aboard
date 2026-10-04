@@ -375,6 +375,97 @@ func TestSwarmUpStartsEveryHarness(t *testing.T) {
 	}
 }
 
+// Codex runs threads, their hooks and their commands in an app server under CODEX_HOME
+// that outlives its terminal, so on a person's machine the swarm's codex usually joins
+// one a Codex started earlier, outside the swarm: nothing it runs sees the environment
+// swarm up started it with. Here the person's own Codex starts first, in a folder with
+// no Aboard setup, and quits, leaving that app server running; then swarm up's codex
+// takes its seat anyway, from the launch ticket in its first prompt, and answers a
+// message. No app server under the lab's CODEX_HOME has ABOARD_AGENT in its environment,
+// so the person's other Codex threads can't act as the agent.
+func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
+	only(t, "codex")
+	requireCodex(t)
+	parallel(t)
+	s := newSwarmLab(t)
+	d := s.driverFor("codex")
+	d.setUp(s.lab)
+	home := filepath.Join(s.lab.dir, "codex-home")
+
+	mineDir := filepath.Join(s.lab.dir, "mine")
+	if err := os.MkdirAll(mineDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	mine := d.startPlain(s.lab, "mine", mineDir)
+	s.waitFor(time.Minute, "the person's Codex to start its app server under the lab's CODEX_HOME", func() bool {
+		return len(codexAppServers(t, home)) > 0
+	})
+	mine.quit()
+	// It must outlive the terminal, or this run doesn't share one.
+	s.neverWithin(5*time.Second, "Codex's app server stopped with its terminal, so this run can't share one", func() bool {
+		return len(codexAppServers(t, home)) == 0
+	})
+	before := codexAppServers(t, home)
+	t.Logf("Codex's app server, started outside the swarm: %v", before)
+
+	s.add(d, "codex")
+	s.writeFile("shared", "tmux")
+	up := s.swarm("up", "--wait", "0")
+	panes := s.swarmPanes(up)
+	s.waitSeated(panes)
+	t.Logf("Codex's app servers once the swarm's codex is seated: %v (before: %v)", codexAppServers(t, home), before)
+	for pid, env := range codexAppServerEnvs(t, home) {
+		if strings.Contains(env, " ABOARD_AGENT=") {
+			t.Fatalf("Codex's app server %d has ABOARD_AGENT in its environment, so every thread it runs would act as that agent", pid)
+		}
+	}
+
+	since := time.Now()
+	s.postAsOwner("shared", "@codex", "Run this command now, and nothing else: aboard say SHARED-PONG")
+	s.waitFor(5*time.Minute, "codex to post SHARED-PONG", func() bool {
+		panes[0].idle() // dismisses an announcement or answers the hooks question
+		msgs, _, _ := s.tryMessages("codex")
+		for _, m := range msgs {
+			if m.From.Name == "codex" && !m.At.Before(since) && strings.Contains(m.Body, "SHARED-PONG") {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// codexAppServers lists the Codex app servers running with CODEX_HOME home.
+func codexAppServers(t *testing.T, home string) []int {
+	t.Helper()
+	var pids []int
+	for pid := range codexAppServerEnvs(t, home) {
+		pids = append(pids, pid)
+	}
+	slices.Sort(pids)
+	return pids
+}
+
+// codexAppServerEnvs maps each Codex app server running with CODEX_HOME home to its
+// command line and environment, as ps shows them for the person's own processes.
+func codexAppServerEnvs(t *testing.T, home string) map[int]string {
+	t.Helper()
+	out, err := command(t.Context(), "ps", "eww", "-ax", "-o", "pid=,command=").Output()
+	if err != nil {
+		t.Fatalf("ps: %v", err)
+	}
+	found := map[int]string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || !strings.Contains(line, "app-server") || !slices.Contains(fields, "CODEX_HOME="+home) {
+			continue
+		}
+		if pid, err := strconv.Atoi(fields[0]); err == nil {
+			found[pid] = line
+		}
+	}
+	return found
+}
+
 // An agent swarm up started, stopped with swarm down, is resumed by the next swarm up in
 // the same harness session, and answers the message that waited for it.
 func TestSwarmUpResumesTheLastSession(t *testing.T) {
