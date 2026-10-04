@@ -102,6 +102,12 @@ ONLY allowed scope for v0.1.
 14. **The target examples follow the code.** As a feature lands, make the CLI match
     [design/TARGET-EXAMPLES.md](design/TARGET-EXAMPLES.md) or update the example, and
     note any deliberate difference there.
+15. **Work in a worktree; leave the main checkout on `main`.** Every session and agent
+    makes its changes in its own git worktree (for example `.claude/worktrees/<name>`, on
+    a branch from `origin/main`), docs-only changes included, and removes it after
+    merging. Never switch branches, pull or commit in the main checkout: the maintainer
+    reads and pulls it, and other sessions run beside you. If you find it off `main`, say
+    so instead of switching it under someone else's work.
 
 ## Repository layout
 
