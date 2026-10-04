@@ -115,6 +115,7 @@ func commands() []command {
 		{"help", runHelp},
 		{"serve", runServe},
 		{"daemon", runDaemon},
+		{"swarm", runSwarm},
 		{"hook", runHook},
 	}
 }

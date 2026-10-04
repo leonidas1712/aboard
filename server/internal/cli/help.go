@@ -440,6 +440,41 @@ func helpText(templates string) []commandHelp {
 			SeeAlso:  []string{"status", "doctor", "down"},
 		},
 		{
+			Name: "swarm", Group: groupRun,
+			Summary: "Start, list and stop a board's agents from its board file",
+			Usage: []string{
+				"aboard swarm up [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]",
+				"aboard swarm ps [--file aboard.yaml | --board NAME] [--json]",
+				"aboard swarm down [agent...] [--file aboard.yaml | --board NAME] [--json]",
+				"aboard swarm runner --harness H [--swarm S] [--model M] [--prompt TEXT] [--fresh] [-- args...]",
+			},
+			Description: "swarm up reads the board file's agents section, creates the board if it doesn't exist, gives each agent a seat on your login the first time, " +
+				"and starts every agent that isn't running through its launcher: tmux (the default, a window each), headless (one non-interactive turn per batch of messages) " +
+				"or any aboard-launcher-<name> on your PATH, such as herdr. " +
+				"Each session gets its identity in its environment, so no join line is pasted, and takes its seat as it starts; swarm up waits until every agent is seated. " +
+				"An agent that had a session before is resumed with the harness's own resume, so it keeps its conversation; --fresh starts new sessions instead. " +
+				"Running it again starts only the agents that aren't running.\n\n" +
+				"swarm ps lists the agents with their launcher, its handle, whether each session runs, whether it was resumed, and its presence. " +
+				"swarm down stops the sessions; the board, the seats and the record stay. " +
+				"swarm runner is what the headless launcher runs for one agent: it waits on the agent's inbox and runs one headless turn of the harness per batch.\n\n" +
+				"These start processes on your machine with your login, so they are a person's commands: inside an agent's session they refuse and hand you the command.",
+			Flags: []helpFlag{
+				{"--file", "PATH", "The board file. Default: aboard.yaml in this directory."},
+				{"--launcher", "L", "The launcher for agents that don't name their own, instead of the file's launcher."},
+				{"--fresh", "", "Start new sessions instead of resuming each agent's last one."},
+				{"--wait", "DURATION", "How long swarm up waits for every agent to take its seat, such as 2m (the default); 0 doesn't wait."},
+				{"--board", "NAME", "The swarm's board, for ps and down without a board file."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard swarm up", "Start the agents in ./aboard.yaml"},
+				{"aboard swarm up --launcher herdr", "The same, in herdr panes"},
+				{"aboard swarm ps", "See what runs"},
+				{"aboard swarm down codex", "Stop one agent; aboard swarm up resumes it"},
+			},
+			SeeAlso: []string{"open", "status", "daemon"},
+		},
+		{
 			Name: "doctor", Group: groupMaintain,
 			Summary: "Check the server, the delivery daemon and each harness's setup",
 			Usage:   []string{"aboard doctor [--json]"},

@@ -51,11 +51,11 @@ func newRig(t *testing.T) *rig {
 	t.Helper()
 	r := &rig{
 		t: t, clock: clock.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
-		claude: deliverytest.NewFakeAdapter("claude-code", true),
-		codex:  deliverytest.NewFakeAdapter("codex", false),
-		server: deliverytest.NewFakeServer(),
-		procs:  deliverytest.NewFakeProcesses(),
-		path:   filepath.Join(t.TempDir(), "delivery.db"),
+		claude:  deliverytest.NewFakeAdapter("claude-code", true),
+		codex:   deliverytest.NewFakeAdapter("codex", false),
+		server:  deliverytest.NewFakeServer(),
+		procs:   deliverytest.NewFakeProcesses(),
+		path:    filepath.Join(t.TempDir(), "delivery.db"),
 		tickets: launchtickets.Dir(t.TempDir()),
 	}
 	r.start()
