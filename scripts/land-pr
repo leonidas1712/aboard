@@ -1,0 +1,387 @@
+#!/bin/sh
+# Lands a pull request with local checks as the merge gate: brings the PR's branch up to
+# date with main, runs the checks its changes call for, pushes, merges the PR on GitHub
+# and cleans up what it set up. It never switches branches, pulls or commits in the main
+# checkout.
+#
+#   scripts/land-pr [--dry-run] [--live] <pr-number>
+#   scripts/land-pr --classify < changed-paths
+#
+# Steps:
+#
+#   1. Ask GitHub (gh) for the PR's branch; the PR must be open, from this repository,
+#      and into main.
+#   2. Use the worktree that already has that branch checked out, or create a temporary
+#      one at .claude/worktrees/land-pr-<number> in the main checkout.
+#   3. Merge origin/main into the branch. On a conflict, stop and name the files.
+#   4. Run checks by what changed against origin/main:
+#        only design/ or engineering/   no code checks
+#        anything else                  make fmt-check lint vet generate-check core-size
+#                                       harness-table-check test e2e
+#        web/ too                       make web-check as well
+#      A change to delivery, setup or upgrades also gets a note that make live must pass
+#      before merging. The script doesn't run make live: it needs harness logins.
+#   5. Push the branch, merge the PR with a merge commit (retrying while GitHub says the
+#      base branch was modified), and confirm GitHub reports it MERGED.
+#   6. Only after a confirmed merge: remove the worktree and local branch if this script
+#      created them, and delete the branch on GitHub.
+#
+# Options:
+#
+#   --dry-run    print the plan (worktree, predicted conflicts, checks) and change
+#                nothing except fetching from origin
+#   --live       also print which harnesses make live-affected would run
+#   --classify   read changed paths on standard input and print the checks they call
+#                for, one line per item ("make <targets>", "live-note"), then exit
+#
+# Exit codes:
+#
+#   0  merged and cleaned up (or the dry-run plan or classification was printed)
+#   1  usage error, a missing tool, or a PR or worktree this script won't touch
+#   2  merging main into the branch conflicted; the merge is left in the worktree
+#   3  a check failed; the log's path is printed
+#   4  pushing or merging failed; nothing was cleaned up
+#   5  merged, but some cleanup failed; what is left is printed
+#
+# Environment:
+#
+#   LAND_PR_MERGE_TRAILER  a line added at the end of the merge-main commit message,
+#                          such as a Co-Authored-By trailer
+#   LAND_PR_RETRY_DELAY    seconds between merge attempts (default 5)
+set -eu
+
+code_checks="fmt-check lint vet generate-check core-size harness-table-check test e2e"
+merge_attempts=5
+
+say() { printf '%s\n' "$*"; }
+fail() {
+	status=$1
+	shift
+	printf 'land-pr: %s\n' "$*" >&2
+	exit "$status"
+}
+
+usage() {
+	say "usage: scripts/land-pr [--dry-run] [--live] <pr-number>" >&2
+	say "       scripts/land-pr --classify < changed-paths" >&2
+	exit 1
+}
+
+# classify reads changed paths on standard input and prints what they call for:
+# "make <targets>" when code checks run, and "live-note" when delivery, setup or
+# upgrades changed. It prints nothing for a change to only design/ and engineering/.
+classify() {
+	code=no
+	web=no
+	live=no
+	any=no
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		any=yes
+		case $path in
+		design/* | engineering/*) ;;
+		web/*)
+			code=yes
+			web=yes
+			;;
+		*) code=yes ;;
+		esac
+		case $path in
+		*_test.go) ;;
+		server/internal/delivery/* | server/internal/harness/* | adapters/* | skills/* | \
+			server/internal/cli/daemon.go | server/internal/cli/delivery*.go | \
+			server/internal/cli/hook.go | server/internal/cli/init*.go | \
+			server/internal/cli/installed.go | server/internal/cli/manifest.go | \
+			server/internal/cli/outdated.go | server/internal/cli/upgrade.go | \
+			server/internal/cli/uninstall.go)
+			live=yes
+			;;
+		esac
+	done
+	[ "$any" = yes ] || return 0
+	if [ "$code" = yes ]; then
+		if [ "$web" = yes ]; then
+			say "make $code_checks web-check"
+		else
+			say "make $code_checks"
+		fi
+	fi
+	if [ "$live" = yes ]; then
+		say "live-note"
+	fi
+}
+
+# explain prints, for a classification, what will run and why.
+explain() {
+	plan=$1
+	make_line=$(printf '%s\n' "$plan" | grep '^make ' || true)
+	if [ -z "$make_line" ]; then
+		say "Checks: none, because the branch changes only design/ and engineering/ (or nothing)."
+	else
+		why="the branch changes files outside design/ and engineering/"
+		case $make_line in
+		*web-check*) why="$why, including web/" ;;
+		esac
+		say "Checks: $make_line"
+		say "  because $why."
+	fi
+	if printf '%s\n' "$plan" | grep -q '^live-note$'; then
+		say "Note: this changes delivery, setup or upgrades. The definition of done needs"
+		say "  make live (or make live-affected) to pass before merging; this script doesn't"
+		say "  run it or check it."
+	fi
+}
+
+dry_run=no
+live=no
+pr=
+while [ $# -gt 0 ]; do
+	case $1 in
+	--dry-run) dry_run=yes ;;
+	--live) live=yes ;;
+	--classify)
+		[ $# -eq 1 ] || usage
+		classify
+		exit 0
+		;;
+	-h | --help) usage ;;
+	-*) usage ;;
+	*)
+		[ -z "$pr" ] || usage
+		pr=$1
+		;;
+	esac
+	shift
+done
+case $pr in
+'' | *[!0-9]*) usage ;;
+esac
+
+command -v gh >/dev/null 2>&1 || fail 1 "gh isn't installed; install GitHub's CLI and run gh auth login"
+command -v git >/dev/null 2>&1 || fail 1 "git isn't installed"
+
+common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) ||
+	fail 1 "run this inside the repository (any worktree of it)"
+main_root=$(dirname "$common_dir")
+[ -d "$main_root/.git" ] || fail 1 "can't find the main checkout from $common_dir"
+temp_wt="$main_root/.claude/worktrees/land-pr-$pr"
+
+info=$(gh pr view "$pr" --json state,headRefName,baseRefName,isCrossRepository,url \
+	--jq '"\(.state) \(.headRefName) \(.baseRefName) \(.isCrossRepository) \(.url)"') ||
+	fail 1 "can't read PR #$pr with gh; check the number and gh auth status"
+# shellcheck disable=SC2086 # the fields have no spaces
+set -- $info
+state=$1 branch=$2 base=$3 cross=$4 url=$5
+say "PR #$pr: $url"
+say "Branch: $branch"
+[ "$state" = OPEN ] || fail 1 "PR #$pr is $state, not open; nothing to land"
+[ "$base" = main ] || fail 1 "PR #$pr goes into $base; this script lands PRs into main only"
+[ "$cross" = false ] || fail 1 "PR #$pr comes from a fork; land it by hand"
+
+say "Fetching origin..."
+git fetch -q origin main "+refs/heads/$branch:refs/remotes/origin/$branch" ||
+	fail 1 "can't fetch main and $branch from origin"
+
+# Find the worktree that has the branch checked out, if any.
+existing_wt=$(git worktree list --porcelain | awk -v ref="refs/heads/$branch" '
+	/^worktree / { wt = substr($0, 10) }
+	$0 == "branch " ref { print wt; exit }')
+
+if [ "$existing_wt" = "$main_root" ]; then
+	fail 1 "the main checkout ($main_root) has $branch checked out, and it should stay on main; switch it back to main yourself if nothing there is in progress, then run this again"
+fi
+
+local_exists=no
+git show-ref --verify --quiet "refs/heads/$branch" && local_exists=yes
+
+if [ "$dry_run" = yes ]; then
+	if [ -n "$existing_wt" ]; then
+		say "Worktree: $existing_wt (already has $branch; it would be used and kept)"
+		head_ref=$(git -C "$existing_wt" rev-parse HEAD)
+		if [ -n "$(git -C "$existing_wt" status --porcelain)" ]; then
+			say "  It has uncommitted changes, so a real run would stop there."
+		fi
+	elif [ "$local_exists" = yes ]; then
+		say "Worktree: would create $temp_wt for the existing local branch $branch, and remove it after merging (the branch would be kept)"
+		head_ref=refs/heads/$branch
+	else
+		say "Worktree: would create $temp_wt with a new local branch $branch, and remove both after merging"
+		head_ref=refs/remotes/origin/$branch
+	fi
+	if git merge-base --is-ancestor origin/main "$head_ref"; then
+		say "Main: the branch already has origin/main"
+	elif conflicts=$(git merge-tree --write-tree --name-only origin/main "$head_ref" 2>/dev/null); then
+		say "Main: would merge origin/main into the branch; it merges cleanly"
+	else
+		say "Main: merging origin/main would conflict in:"
+		printf '%s\n' "$conflicts" | sed -n '2,/^$/p' | sed '/^$/d; s/^/  /'
+	fi
+	plan=$(git diff --name-only "origin/main...$head_ref" | classify)
+	explain "$plan"
+	if [ "$live" = yes ]; then
+		say "Live: a real run prints the make live-affected plan after merging main."
+	fi
+	say "Then: push $branch, gh pr merge $pr --merge, confirm MERGED, clean up, delete origin/$branch."
+	say "Dry run: nothing changed."
+	exit 0
+fi
+
+# Set up the worktree.
+created_wt=no
+created_branch=no
+if [ -n "$existing_wt" ]; then
+	wt=$existing_wt
+	git_dir=$(git -C "$wt" rev-parse --absolute-git-dir)
+	# A worktree a previous run of this script created is still this script's to remove.
+	[ -f "$git_dir/land-pr-created-worktree" ] && created_wt=yes
+	[ -f "$git_dir/land-pr-created-branch" ] && created_branch=yes
+	say "Worktree: $wt (already had $branch)"
+	if [ -n "$(git -C "$wt" status --porcelain)" ]; then
+		fail 1 "$wt has uncommitted changes or an unfinished merge; commit them (or finish the merge) and run this again"
+	fi
+else
+	[ ! -e "$temp_wt" ] || fail 1 "$temp_wt exists but doesn't have $branch checked out; remove it (git worktree remove $temp_wt) and run this again"
+	mkdir -p "$(dirname "$temp_wt")"
+	if [ "$local_exists" = yes ]; then
+		git worktree add -q "$temp_wt" "$branch" || fail 1 "can't create a worktree for $branch at $temp_wt"
+	else
+		git worktree add -q --track -b "$branch" "$temp_wt" "origin/$branch" ||
+			fail 1 "can't create a worktree for $branch at $temp_wt"
+		created_branch=yes
+	fi
+	created_wt=yes
+	wt=$temp_wt
+	git_dir=$(git -C "$wt" rev-parse --absolute-git-dir)
+	: >"$git_dir/land-pr-created-worktree"
+	[ "$created_branch" = no ] || : >"$git_dir/land-pr-created-branch"
+	say "Worktree: created $wt"
+fi
+cd "$wt"
+
+# Catch up with anything pushed to the branch that the worktree doesn't have.
+if ! git merge-base --is-ancestor "origin/$branch" HEAD; then
+	if git merge-base --is-ancestor HEAD "origin/$branch"; then
+		git merge -q --ff-only "origin/$branch"
+		say "Branch: fast-forwarded to origin/$branch"
+	else
+		fail 1 "$branch in $wt and origin/$branch have both moved on; reconcile them there and run this again"
+	fi
+fi
+
+# Merge main.
+if git merge-base --is-ancestor origin/main HEAD; then
+	say "Main: the branch already has origin/main"
+else
+	msg="Merge main into $branch"
+	if [ -n "${LAND_PR_MERGE_TRAILER:-}" ]; then
+		set -- -m "$msg" -m "$LAND_PR_MERGE_TRAILER"
+	else
+		set -- -m "$msg"
+	fi
+	if ! git merge -q --no-edit "$@" origin/main >/dev/null 2>&1; then
+		say "Main: merging origin/main into $branch conflicts in:" >&2
+		git diff --name-only --diff-filter=U | sed 's/^/  /' >&2
+		fail 2 "the merge is left in progress in $wt: resolve the files and commit, then run scripts/land-pr $pr again (or git merge --abort there to give up)"
+	fi
+	say "Main: merged origin/main into $branch"
+fi
+
+# Run the checks.
+plan=$(git diff --name-only origin/main...HEAD | classify)
+explain "$plan"
+make_line=$(printf '%s\n' "$plan" | grep '^make ' || true)
+if [ -n "$make_line" ]; then
+	log="${TMPDIR:-/tmp}"
+	log="${log%/}/land-pr-$pr.log"
+	say "Running: $make_line (in $wt; output in $log)"
+	# shellcheck disable=SC2086 # make_line is "make" and target names, no spaces inside
+	if ! $make_line >"$log" 2>&1; then
+		say "Checks failed. Lines that look like the failure:" >&2
+		grep -E -- '--- FAIL|^FAIL|Error|error:|\*\*\*' "$log" | head -20 | sed 's/^/  /' >&2 || true
+		fail 3 "fix the failure in $wt, commit, and run scripts/land-pr $pr again; full output in $log"
+	fi
+	say "Checks passed."
+fi
+if [ "$live" = yes ]; then
+	if command -v go >/dev/null 2>&1; then
+		say "Live: what make live-affected would run (this script doesn't run it):"
+		if live_plan=$(go run ./e2e/live/affected -base origin/main 2>&1); then
+			printf '%s\n' "$live_plan" | sed 's/^/  /'
+			say "  Run it yourself, with harness logins: cd $wt && make live-affected"
+		else
+			printf '%s\n' "$live_plan" | sed 's/^/  /' >&2
+			say "Live: couldn't work out the plan; run make live-affected in $wt yourself." >&2
+		fi
+	else
+		say "Live: go isn't installed, so the make live-affected plan can't be printed." >&2
+	fi
+fi
+
+# Push and merge.
+head_sha=$(git rev-parse HEAD)
+git push -q origin "HEAD:refs/heads/$branch" ||
+	fail 4 "can't push $branch; if someone else pushed to it, run scripts/land-pr $pr again. Nothing was merged or cleaned up"
+say "Pushed: $branch at $(git rev-parse --short HEAD)"
+
+delay=${LAND_PR_RETRY_DELAY:-5}
+attempt=1
+merged=no
+while [ "$attempt" -le "$merge_attempts" ]; do
+	out=$(gh pr merge "$pr" --merge --match-head-commit "$head_sha" 2>&1) || true
+	if [ "$(gh pr view "$pr" --json state --jq .state 2>/dev/null)" = MERGED ]; then
+		merged=yes
+		break
+	fi
+	case $out in
+	*"ase branch was modified"*)
+		say "GitHub says the base branch was modified; trying again in ${delay}s ($attempt of $merge_attempts)"
+		sleep "$delay"
+		;;
+	*)
+		printf '%s\n' "$out" | sed 's/^/  /' >&2
+		fail 4 "gh pr merge failed (above). $branch is pushed and the worktree $wt is kept; fix the cause and run gh pr merge $pr --merge, or run scripts/land-pr $pr again"
+		;;
+	esac
+	attempt=$((attempt + 1))
+done
+[ "$merged" = yes ] ||
+	fail 4 "PR #$pr isn't merged after $merge_attempts attempts; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
+say "Merged: PR #$pr"
+
+# Clean up only after GitHub confirms the merge.
+cd "$main_root"
+left=
+if [ "$created_wt" = yes ]; then
+	if git worktree remove "$wt" 2>/dev/null; then
+		say "Removed the worktree $wt"
+	else
+		left="$left
+  the worktree $wt has files git doesn't ignore; look, then git worktree remove --force $wt"
+	fi
+else
+	say "Kept the worktree $wt (this script didn't create it)"
+fi
+if [ "$created_branch" = yes ]; then
+	if [ -n "$(git worktree list --porcelain | grep -Fx "branch refs/heads/$branch" || true)" ]; then
+		left="$left
+  the local branch $branch, still checked out in $wt"
+	elif [ "$(git rev-parse "refs/heads/$branch")" != "$head_sha" ]; then
+		left="$left
+  the local branch $branch, which has commits that weren't merged"
+	else
+		git branch -q -D "$branch"
+		say "Deleted the local branch $branch"
+	fi
+fi
+if git push -q origin --delete "$branch" 2>/dev/null; then
+	say "Deleted origin/$branch"
+else
+	left="$left
+  origin/$branch: git push origin --delete $branch"
+fi
+git fetch -q origin main || true
+say "origin/main is now $(git log --oneline -1 origin/main)"
+if [ -n "$left" ]; then
+	say "Left in place:$left" >&2
+	exit 5
+fi
