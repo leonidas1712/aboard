@@ -25,6 +25,13 @@ func TestDigestLine(t *testing.T) {
 			"#6 @writer → @codex, role:reviewer · reply to #4 · urgent · asks for a reply: Draft is in notes.md. Please review it.",
 		},
 		{
+			"reactions after the markers, as the message lists them",
+			func(m *Message) {
+				m.ExpectsReply, m.Reactions = true, []Reaction{{Emoji: "👍", Count: 2}, {Emoji: "👀", Count: 1}}
+			},
+			"#6 @writer → all · asks for a reply · 👍 2 · 👀 1: Draft is in notes.md. Please review it.",
+		},
+		{
 			"the first line that isn't blank", func(m *Message) { m.Body = "\n  \n  First line.  \nSecond line." },
 			"#6 @writer → all: First line.",
 		},

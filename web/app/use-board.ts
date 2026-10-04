@@ -62,7 +62,14 @@ export type BoardState = {
   error: unknown;
   loadEarlier: () => void;
   refresh: () => void;
+  /** replace puts a newer copy of a loaded message in place, as after reacting to it. */
+  replace: (m: Message) => void;
 };
+
+/** isReaction is true for the events that add or take back a reaction, shown on their message instead. */
+function isReaction(e: BoardEvent): boolean {
+  return e.type === "reaction.added" || e.type === "reaction.removed";
+}
 
 type Page = { messages: Message[]; prevBefore: number | null };
 
@@ -82,6 +89,10 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const [extra, setExtra] = useState<Message[]>([]);
   const [rootless, setRootless] = useState<Set<string>>(new Set());
   const requested = useRef<Set<string>>(new Set());
+  // loadedHead is the board's head before the first page of messages was read: those
+  // messages already carry every reaction up to it. knownRef is every loaded message.
+  const loadedHead = useRef(Number.MAX_SAFE_INTEGER);
+  const knownRef = useRef<Message[]>([]);
 
   // Reads run one at a time, so a live update never races a first page. newest is the
   // seq of the newest message loaded, for the timeline and for the filter's matches;
@@ -123,6 +134,14 @@ export function useBoard(name: string, filter: Filter): BoardState {
     });
   }, [run, loadBoards]);
 
+  // replaceMessage puts a newer copy of a message wherever it is loaded.
+  const replaceMessage = useCallback((m: Message) => {
+    const swap = (ms: Message[]) => (ms.some((x) => x.id === m.id) ? ms.map((x) => (x.id === m.id ? m : x)) : ms);
+    setBase((p) => (p ? { ...p, messages: swap(p.messages) } : p));
+    setFiltered((p) => (p ? { ...p, messages: swap(p.messages) } : p));
+    setExtra(swap);
+  }, []);
+
   // after reads every page of messages after seq that match query, and adds them.
   const readAfter = useCallback(
     async (from: { current: number }, query: Record<string, string | boolean | undefined>, add: (ms: Message[]) => void) => {
@@ -160,6 +179,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     // Events after the last verified one: check them, then keep the ones the timeline shows.
     if (broken.current) return;
     const remembered = rememberedHead(b.id);
+    const reacted = new Set<string>();
     for (;;) {
       const page = await get<EventPage>(`${path}/events`, { after: chain.current.lastSeq, limit: EVENT_PAGE });
       if (!live.current) return;
@@ -173,18 +193,34 @@ export function useBoard(name: string, filter: Filter): BoardState {
         setRecord({ state: "failed", problem });
         return;
       }
-      const shown = page.events.filter((e) => e.type !== "message.posted" && !e.type.startsWith("joincode."));
+      const shown = page.events.filter((e) => e.type !== "message.posted" && !e.type.startsWith("joincode.") && !isReaction(e));
       if (shown.length > 0) setEvents((es) => [...es, ...shown]);
+      for (const e of page.events) {
+        const id = (e.data as { message_id?: string } | undefined)?.message_id;
+        if (isReaction(e) && e.seq > loadedHead.current && id) reacted.add(id);
+      }
       if (page.next_after === null || page.events.length === 0) break;
     }
     if (!remembered || chain.current.lastSeq >= remembered.seq) rememberHead(b.id, chain.current.lastSeq, chain.current.lastHash);
     setRecord({ state: "verified", count: chain.current.checked });
-  }, [path, readAfter]);
+
+    // A loaded message someone reacted to since is read again, so its reactions are current.
+    for (const id of reacted) {
+      const m = knownRef.current.find((x) => x.id === id);
+      if (!m) continue;
+      const page = await get<MessagePage>(`${path}/messages`, { after: m.seq - 1, limit: 1 });
+      if (!live.current) return;
+      if (page.messages[0]?.id === id) replaceMessage(page.messages[0]);
+    }
+  }, [path, readAfter, replaceMessage]);
 
   useEffect(() => {
     live.current = true;
     run(async () => {
+      // The head first: every reaction up to it is already on the messages read after it.
+      const head = (await get<Board>(path)).head_seq;
       const [page, who] = await Promise.all([get<MessagePage>(`${path}/messages`, { newest: true, limit: PAGE }), get<Me>("/v1/me")]);
+      loadedHead.current = head;
       if (!live.current) return;
       setMe(who);
       setBase({ messages: page.messages, prevBefore: page.prev_before });
@@ -251,6 +287,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     for (const m of [...extra, ...(base?.messages ?? []), ...(filtered?.messages ?? [])]) out.set(m.id, m);
     return [...out.values()].sort((a, b) => a.seq - b.seq);
   }, [extra, base, filtered]);
+  knownRef.current = known;
 
   // A reply whose thread starts before what is loaded brings its whole thread in, so the
   // reply shows under its first message.
@@ -301,5 +338,6 @@ export function useBoard(name: string, filter: Filter): BoardState {
     error,
     loadEarlier,
     refresh,
+    replace: replaceMessage,
   };
 }

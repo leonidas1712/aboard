@@ -50,6 +50,8 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MessagesBySeq", messagesBySeq},
 		{"InsertMessageCountsItOnItsBoard", insertMessageCountsItOnItsBoard},
 		{"ThreadsReadAndCountOnlyVisibleReplies", threadsReadAndCountOnlyVisibleReplies},
+		{"ReactionsReadBackPerMessageOldestFirst", reactionsReadBackPerMessageOldestFirst},
+		{"ThreadsListNewestActivityFirst", threadsListNewestActivityFirst},
 		{"ReadSeesCommittedWritesOnly", readSeesCommittedWritesOnly},
 	}
 	for _, tt := range tests {
@@ -1226,6 +1228,122 @@ func threadsReadAndCountOnlyVisibleReplies(t *testing.T, st board.Store) {
 		}
 		if none == nil || len(none) != 0 {
 			t.Errorf("ThreadCounts of no threads = %#v, want an empty map", none)
+		}
+		return nil
+	})
+}
+
+// reactionsReadBackPerMessageOldestFirst reacts to the conversation's messages and takes
+// one reaction back.
+func reactionsReadBackPerMessageOldestFirst(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	later := "2026-10-01T16:05:00.000Z"
+	write(t, st, func(tx board.Tx) error {
+		for _, r := range []board.Reaction{
+			{MessageID: "msg_1", MemberID: c.writer.ID, Name: "thumbsup", At: at},
+			{MessageID: "msg_1", MemberID: c.alex.ID, Name: "thumbsup", At: later},
+			{MessageID: "msg_1", MemberID: c.writer.ID, Name: "eyes", At: later},
+			{MessageID: "msg_2", MemberID: c.reviewer.ID, Name: "check", At: at},
+			{MessageID: "msg_2", MemberID: c.other.ID, Name: "check", At: at},
+		} {
+			if err := tx.InsertReaction(r); err != nil {
+				return err
+			}
+		}
+		if err := tx.DeleteReaction("msg_2", c.reviewer.ID, "check"); err != nil {
+			return err
+		}
+		// Taking back a reaction that isn't there changes nothing.
+		return tx.DeleteReaction("msg_3", c.reviewer.ID, "check")
+	})
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.Reactions([]string{"msg_1", "msg_2", "msg_3"})
+		if err != nil {
+			return err
+		}
+		want := map[string][]board.Reaction{
+			"msg_1": {
+				{MessageID: "msg_1", MemberID: c.writer.ID, MemberName: "writer", Name: "thumbsup", At: at},
+				{MessageID: "msg_1", MemberID: c.alex.ID, MemberName: "hum_alex", Name: "thumbsup", At: later},
+				{MessageID: "msg_1", MemberID: c.writer.ID, MemberName: "writer", Name: "eyes", At: later},
+			},
+			"msg_2": {{MessageID: "msg_2", MemberID: c.other.ID, MemberName: "other", Name: "check", At: at}},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Reactions = %+v,\nwant %+v", got, want)
+		}
+		none, err := tx.Reactions(nil)
+		if err != nil {
+			return err
+		}
+		if none == nil || len(none) != 0 {
+			t.Errorf("Reactions of no messages = %#v, want an empty map", none)
+		}
+		return nil
+	})
+}
+
+// threadsListNewestActivityFirst adds replies to the conversation:
+//
+//	6 writer   -> @reviewer  replies to 1
+//	7 other    -> @writer    replies to 2
+//	8 reviewer -> all        replies to 6, in 1's thread
+//	9 writer   -> @other     replies to 3
+func threadsListNewestActivityFirst(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	replies := []struct {
+		from        board.Member
+		to, replyTo string
+		root        string
+	}{
+		{c.writer, "@reviewer", "msg_1", "msg_1"},
+		{c.other, "@writer", "msg_2", "msg_2"},
+		{c.reviewer, "all", "msg_6", "msg_1"},
+		{c.writer, "@other", "msg_3", "msg_3"},
+	}
+	write(t, st, func(tx board.Tx) error {
+		for i, r := range replies {
+			seq := int64(6 + i)
+			err := tx.InsertMessage(board.Message{
+				ID: fmt.Sprintf("msg_%d", seq), BoardID: "brd_docs", Seq: seq, At: at, SenderID: r.from.ID, To: []string{r.to},
+				Body: "reply", ReplyTo: ptr(r.replyTo), ThreadRoot: ptr(r.root),
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	tests := []struct {
+		name    string
+		reader  board.Member
+		readAll bool
+		limit   int
+		want    []board.ThreadInfo
+	}{
+		{"every thread, newest reply first", c.reviewer, true, 10, []board.ThreadInfo{
+			{RootID: "msg_3", Repliers: []string{"writer"}},
+			{RootID: "msg_1", Repliers: []string{"writer", "reviewer"}},
+			{RootID: "msg_2", Repliers: []string{"other"}},
+		}},
+		{"limited", c.reviewer, true, 2, []board.ThreadInfo{
+			{RootID: "msg_3", Repliers: []string{"writer"}},
+			{RootID: "msg_1", Repliers: []string{"writer", "reviewer"}},
+		}},
+		// The reviewer may see 1 and 2 but not 3; of the replies, 6 and 8 but not 7, to @writer.
+		{"only what the reader may see", c.reviewer, false, 10, []board.ThreadInfo{
+			{RootID: "msg_1", Repliers: []string{"writer", "reviewer"}},
+		}},
+	}
+	read(t, st, func(tx board.ReadTx) error {
+		for _, tt := range tests {
+			got, err := tx.Threads("brd_docs", tt.reader, tt.readAll, tt.limit)
+			if err != nil {
+				return err
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("%s: Threads = %+v,\nwant %+v", tt.name, got, tt.want)
+			}
 		}
 		return nil
 	})

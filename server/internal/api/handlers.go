@@ -245,6 +245,46 @@ func (h *handlers) ListMessages(ctx context.Context, req ListMessagesRequestObje
 	}{r.Board.Name, messagesOf(r), r.NextAfter, r.PrevBefore})
 }
 
+func (h *handlers) AddReaction(ctx context.Context, req AddReactionRequestObject) (AddReactionResponseObject, error) {
+	r, err := h.svc.React(ctx, principal(ctx), req.Message, string(req.Reaction), true)
+	if err != nil {
+		return nil, err
+	}
+	return convert[AddReaction200JSONResponse](messagesOf(r)[0])
+}
+
+func (h *handlers) RemoveReaction(ctx context.Context, req RemoveReactionRequestObject) (RemoveReactionResponseObject, error) {
+	r, err := h.svc.React(ctx, principal(ctx), req.Message, string(req.Reaction), false)
+	if err != nil {
+		return nil, err
+	}
+	return convert[RemoveReaction200JSONResponse](messagesOf(r)[0])
+}
+
+func (h *handlers) ListThreads(ctx context.Context, req ListThreadsRequestObject) (ListThreadsResponseObject, error) {
+	l, err := h.svc.Threads(ctx, principal(ctx), req.Board, limitOr(req.Params.Limit))
+	if err != nil {
+		return nil, err
+	}
+	type thread struct {
+		Root         wireMessage `json:"root"`
+		Participants []string    `json:"participants"`
+	}
+	roots := make([]board.Message, 0, len(l.Threads))
+	for _, t := range l.Threads {
+		roots = append(roots, t.Root)
+	}
+	out := struct {
+		Board   string   `json:"board"`
+		Threads []thread `json:"threads"`
+		More    bool     `json:"more"`
+	}{Board: l.Board.Name, Threads: []thread{}, More: l.More}
+	for i, m := range messagesOf(board.Reading{Board: l.Board, Reader: l.Reader, Messages: roots}) {
+		out.Threads = append(out.Threads, thread{Root: m, Participants: l.Threads[i].Participants})
+	}
+	return convert[ListThreads200JSONResponse](out)
+}
+
 func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (GetInboxResponseObject, error) {
 	wait := time.Duration(0)
 	if req.Params.Wait != nil {

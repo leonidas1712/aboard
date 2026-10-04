@@ -36,10 +36,19 @@ type Message struct {
 	// without the "@", or empty.
 	ReplyToFrom string
 	// To are the message's targets: all, @name or role:R. Nil when not known.
-	To   []string
-	Body string
+	To []string
+	// Reactions are the message's reactions, one per emoji, as a digest line counts
+	// them.
+	Reactions []Reaction
+	Body      string
 	// Truncated marks a body cut short to fit where it is shown.
 	Truncated bool
+}
+
+// Reaction is one emoji on a message and how many members reacted with it.
+type Reaction struct {
+	Emoji string
+	Count int
 }
 
 // attrEscaper escapes text for an attribute value.
@@ -185,6 +194,9 @@ func DigestLine(m Message) string {
 	}
 	if m.ExpectsReply {
 		line += " · asks for a reply"
+	}
+	for _, r := range m.Reactions {
+		line += fmt.Sprintf(" · %s %d", r.Emoji, r.Count)
 	}
 	first := ""
 	for l := range strings.SplitSeq(m.Body, "\n") {

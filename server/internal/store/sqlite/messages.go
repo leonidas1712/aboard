@@ -39,7 +39,12 @@ const messageSelect = `SELECT m.id, m.board_id, m.seq, m.at, m.sender_id, m.to_j
 
 // addressedTo is a SQL condition matching messages whose targets include all, @name or
 // role:R. It takes the @name and role:R strings as parameters.
-const addressedTo = `EXISTS (SELECT 1 FROM json_each(m.to_json) WHERE value IN ('all', ?, ?))`
+var addressedTo = addressedToAs("m")
+
+// addressedToAs is addressedTo for the messages table under another alias.
+func addressedToAs(alias string) string {
+	return `EXISTS (SELECT 1 FROM json_each(` + alias + `.to_json) WHERE value IN ('all', ?, ?))`
+}
 
 func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 	rows, err := t.tx.QueryContext(t.ctx, messageSelect+" WHERE "+where, args...)
@@ -117,11 +122,116 @@ func (t *tx) Inbox(reader board.Member, limit int) ([]board.Message, error) {
 
 // visibleTo returns the condition and arguments that keep the messages reader may see.
 func visibleTo(reader board.Member, readAll bool) (cond string, args []any) {
+	return visibleAs("m", reader, readAll)
+}
+
+// visibleAs is visibleTo for the messages table under another alias.
+func visibleAs(alias string, reader board.Member, readAll bool) (cond string, args []any) {
 	if readAll {
 		return "1", nil
 	}
 	name, role := targetsOf(reader)
-	return "(m.sender_id = ? OR " + addressedTo + ")", []any{reader.ID, name, role}
+	return "(" + alias + ".sender_id = ? OR " + addressedToAs(alias) + ")", []any{reader.ID, name, role}
+}
+
+// in returns "(?, ?, …)" for n parameters, and the values as arguments.
+func in(values []string) (list string, args []any) {
+	args = make([]any, 0, len(values))
+	for _, v := range values {
+		args = append(args, v)
+	}
+	return "(?" + strings.Repeat(", ?", len(values)-1) + ")", args
+}
+
+// queryWhere runs from + " WHERE " + where + " " + rest. Every value is a parameter in
+// args; the conditions only hold placeholders.
+func (t *tx) queryWhere(from, where, rest string, args ...any) (*sql.Rows, error) {
+	return t.tx.QueryContext(t.ctx, from+" WHERE "+where+" "+rest, args...)
+}
+
+// Threads lists the board's threads with a reply reader may see whose first message it
+// may see too, the newest such reply first.
+func (t *tx) Threads(boardID string, reader board.Member, readAll bool, limit int) ([]board.ThreadInfo, error) {
+	reply, rargs := visibleAs("m", reader, readAll)
+	root, oargs := visibleAs("r", reader, readAll)
+	rows, err := t.queryWhere("SELECT m.thread_root FROM messages m JOIN messages r ON r.id = m.thread_root",
+		"m.board_id = ? AND "+reply+" AND "+root, "GROUP BY m.thread_root ORDER BY MAX(m.seq) DESC LIMIT ?",
+		append(append(append([]any{boardID}, rargs...), oargs...), limit)...)
+	if err != nil {
+		return nil, err
+	}
+	var out []board.ThreadInfo
+	for rows.Next() {
+		var info board.ThreadInfo
+		if err := rows.Scan(&info.RootID); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		out = append(out, info)
+	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil || len(out) == 0 {
+		return out, err
+	}
+
+	// Who replied in each thread, in the order they first replied.
+	ids := make([]string, 0, len(out))
+	for _, info := range out {
+		ids = append(ids, info.RootID)
+	}
+	list, args := in(ids)
+	rows, err = t.queryWhere("SELECT m.thread_root, s.name FROM messages m JOIN members s ON s.id = m.sender_id",
+		"m.thread_root IN "+list+" AND "+reply, "GROUP BY m.thread_root, m.sender_id ORDER BY MIN(m.seq)",
+		append(args, rargs...)...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }() // rows.Err is checked below
+	repliers := map[string][]string{}
+	for rows.Next() {
+		var rootID, name string
+		if err := rows.Scan(&rootID, &name); err != nil {
+			return nil, err
+		}
+		repliers[rootID] = append(repliers[rootID], name)
+	}
+	for i := range out {
+		out[i].Repliers = repliers[out[i].RootID]
+	}
+	return out, rows.Err()
+}
+
+// InsertReaction adds a member's reaction to a message.
+func (t *tx) InsertReaction(r board.Reaction) error {
+	return t.exec("INSERT INTO reactions (message_id, member_id, name, at) VALUES (?, ?, ?, ?)", r.MessageID, r.MemberID, r.Name, r.At)
+}
+
+// DeleteReaction removes a member's reaction to a message, if there is one.
+func (t *tx) DeleteReaction(messageID, memberID, name string) error {
+	return t.exec("DELETE FROM reactions WHERE message_id = ? AND member_id = ? AND name = ?", messageID, memberID, name)
+}
+
+// Reactions returns the reactions to each message that has any, oldest first.
+func (t *tx) Reactions(messageIDs []string) (map[string][]board.Reaction, error) {
+	out := map[string][]board.Reaction{}
+	if len(messageIDs) == 0 {
+		return out, nil
+	}
+	list, args := in(messageIDs)
+	rows, err := t.queryWhere("SELECT r.message_id, r.member_id, s.name, r.name, r.at FROM reactions r JOIN members s ON s.id = r.member_id",
+		"r.message_id IN "+list, "ORDER BY r.at, r.rowid", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }() // rows.Err is checked below
+	for rows.Next() {
+		var r board.Reaction
+		if err := rows.Scan(&r.MessageID, &r.MemberID, &r.MemberName, &r.Name, &r.At); err != nil {
+			return nil, err
+		}
+		out[r.MessageID] = append(out[r.MessageID], r)
+	}
+	return out, rows.Err()
 }
 
 // countReplies counts the replies matching where in each thread, with the newest time.

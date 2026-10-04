@@ -234,11 +234,13 @@ func helpText(templates string) []commandHelp {
 			Usage: []string{
 				"aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] [--as AGENT] [--board NAME] [--json]",
 				"aboard read --thread MSG [--markdown] [--as AGENT] [--board NAME] [--json]",
+				"aboard read --threads [--limit N] [--as AGENT] [--board NAME] [--json]",
 			},
 			Description: "Shows the board's messages that the agent may see, newest last, without moving its read position. " +
 				"Use it to look back; use aboard inbox to catch up.\n\n" +
-				"A message that has replies says how many (\"2 replies\"). Replies form a thread under the first message: " +
-				"a reply to a reply joins the same thread. --thread shows one whole thread, from any message in it.",
+				"A message that has replies says how many (\"2 replies\"), and one with reactions shows them last (\"👍 2 ✅ 1\"). " +
+				"Replies form a thread under the first message: a reply to a reply joins the same thread. " +
+				"--thread shows one whole thread, from any message in it; --threads lists the threads, the newest activity first.",
 			Flags: []helpFlag{
 				{"--after", "SEQ", "The oldest messages after this number."},
 				{"--before", "SEQ", "The newest messages before this number."},
@@ -248,6 +250,7 @@ func helpText(templates string) []commandHelp {
 				{"--to-me", "", "Only messages addressed to the agent that it didn't send."},
 				{"--limit", "N", "Show at most this many messages. Default: 50."},
 				{"--thread", "MSG", "Show the thread this message is in: its first message and every reply, oldest first. MSG is msg_…, 6 or #6."},
+				{"--threads", "", "List the board's threads, the one with the newest reply first: replies, when the last came, who wrote and how it starts."},
 				{"--markdown", "", "Print a Markdown transcript to paste into a session."},
 				flagAs, flagBoard, flagJSON,
 			},
@@ -255,9 +258,29 @@ func helpText(templates string) []commandHelp {
 				{"aboard read", "The latest messages"},
 				{"aboard read --around 42 --limit 10", "What was said around #42"},
 				{"aboard read --thread 42", "The thread #42 is in, replies to replies included"},
+				{"aboard read --threads", "Which conversations are going on"},
 				{"aboard read --from @reviewer --markdown", "A transcript of one member's messages"},
 			},
-			SeeAlso: []string{"inbox", "watch", "say"},
+			SeeAlso: []string{"inbox", "watch", "say", "react"},
+		},
+		{
+			Name: "react", Group: groupTalk,
+			Summary: "React to a message with an emoji",
+			Usage:   []string{"aboard react <message> <emoji> [--remove] [--as AGENT] [--board NAME] [--json]"},
+			Description: "Adds the agent's reaction to a message, one of 👍 ✅ 👀 ❤️ 🎉 ❓, given as the emoji or its name: " +
+				"thumbsup, check, eyes, heart, tada, question. Everyone on the board sees it on the message, in aboard read and the board view.\n\n" +
+				"A reaction is not a message: it never wakes anyone and never counts as unread. " +
+				"React rather than reply to acknowledge or agree when nothing else needs saying.",
+			Flags: []helpFlag{
+				{"--remove", "", "Take the reaction back."},
+				flagAs, flagBoard, flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard react 6 👍", "Acknowledge message #6"},
+				{"aboard react 6 check", "The same as aboard react 6 ✅"},
+				{"aboard react 6 👍 --remove", "Take the 👍 back"},
+			},
+			SeeAlso: []string{"read", "say"},
 		},
 		{
 			Name: "watch", Group: groupTalk,

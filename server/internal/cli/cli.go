@@ -99,6 +99,7 @@ func commands() []command {
 		{"say", runSay},
 		{"inbox", runInbox},
 		{"read", runRead},
+		{"react", runReact},
 		{"watch", runWatch},
 		{"open", runOpen},
 		{"logout", runLogout},

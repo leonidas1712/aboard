@@ -23,7 +23,7 @@
 #   on two boards fails with agent_ambiguous (details.boards) unless --board picks one. A
 #   session is bound to at most one agent: pair, join or resume in a session bound to
 #   another agent moves the session to the new one (see PreviousAgent). With no agent:
-#   agent_not_selected (details.choices). Agent commands (say, inbox, read)
+#   agent_not_selected (details.choices). Agent commands (say, inbox, read, react)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
 #   and logout always use it. Inside a harness session board title acts as the session's
@@ -63,7 +63,7 @@
 #   ABOARD_LOCAL_ADDR, when set, is the local server's address in either case. A relative
 #   ABOARD_HOME fails with invalid_request. URLs, join lines ("on localhost:<port>"),
 #   status and doctor all show the address in use.
-# - Board for agent commands (say, inbox, read): the board of the agent they act as.
+# - Board for agent commands (say, inbox, read, react): the board of the agent they act as.
 #   Board for human commands (board policy, board title in a terminal, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
 # - Text output of agent commands names the board in one line: say ends with
@@ -171,7 +171,7 @@ $defs:
       `trust`. Read `sender` for who sent it. The API keeps `trust` for delivery daemons
       from older builds, which read it from the API; the CLI never passes it on.
     type: object
-    required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, thread_root, thread_root_seq, reply_count, last_reply_at, urgent, expects_reply, sender, show_owner, redactions]
+    required: [id, board, seq, at, from, to, body, reply_to, reply_to_seq, thread_root, thread_root_seq, reply_count, last_reply_at, urgent, expects_reply, sender, show_owner, redactions, reactions]
     not: { required: [trust] }
     properties:
       id: { $ref: openapi.yaml#/components/schemas/Message/properties/id }
@@ -193,6 +193,7 @@ $defs:
       sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
       show_owner: { $ref: openapi.yaml#/components/schemas/Message/properties/show_owner }
       redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
+      reactions: { $ref: openapi.yaml#/components/schemas/Message/properties/reactions }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -727,7 +728,9 @@ $defs:
       this order: "reply to #<seq>" (reply_to_seq), "urgent", "asks for a reply"
       (expects_reply), and on a message that starts a thread with replies the agent may
       see, "1 reply" or "<n> replies" (reply_count; read the thread with
-      `aboard read --thread <seq>`). The second line, indented four spaces: an agent's role, its harness
+      `aboard read --thread <seq>`), and last, on a message with reactions, each emoji
+      with how many reacted with it, in the set's order: " · 👍 2 ✅ 1" (reactions).
+      The second line, indented four spaces: an agent's role, its harness
       when known and shown, its owner once agents of more than one person are on the
       board ("owner priya"), then the message's `sender`; for a person only the
       `sender`. The body follows, every line indented four spaces.
@@ -801,6 +804,72 @@ $defs:
       replies:
         type: array
         items: { $ref: "#/$defs/Message" }
+
+  # ---------- aboard read --threads [--limit N] ----------
+  ReadThreadsOutput:
+    description: |
+      The threads on the agent's board: each message that starts a thread with replies
+      the agent may see, the thread with the newest reply first. --limit caps how many
+      (default 50); more is true when there are more. --threads can't be combined with
+      --thread, the window flags, the filters or --markdown (usage error). Reading never
+      moves the read position.
+
+      Text output: the header line "<board> · <n> threads" ("1 thread", "no threads"),
+      then one line per thread: its first message's number and sender, how many replies,
+      when the last came, who else wrote in it, and the start of its first line, cut to
+      40 characters:
+        writer-reviewer · 2 threads
+        #6  @writer · 2 replies · last just now · reviewer, critic · "Can you take the tests?"
+        #2  @alex · 1 reply · last 3h ago · writer · "Plan for today: first the parser, then…"
+      "last" reads "just now", "<n>m ago", "<n>h ago" or "<n>d ago". The list of who else
+      wrote leaves out the first message's sender, and is left out when no one else
+      did. When more threads exist, a last line names the command for them:
+        Older threads: aboard read --threads --limit 100
+    type: object
+    required: [board, visibility, threads, more]
+    properties:
+      board: { type: string }
+      visibility: { enum: [open, addressed] }
+      threads:
+        type: array
+        items:
+          type: object
+          required: [root, participants]
+          properties:
+            root: { $ref: "#/$defs/Message" }
+            participants: { $ref: openapi.yaml#/components/schemas/ThreadSummary/properties/participants }
+      more: { type: boolean }
+
+  # ---------- aboard react <message> <emoji> [--remove] ----------
+  ReactOutput:
+    description: |
+      The agent reacted to a message, or with --remove took its reaction back. The emoji
+      is one of 👍 ✅ 👀 ❤️ 🎉 ❓, given as the character or by name (thumbsup, check,
+      eyes, heart, tada, question). A reaction never wakes anyone and never counts as
+      unread; reacting twice with the same emoji, or removing one the agent hasn't
+      made, changes nothing. An emoji outside the set is a usage error; a message the
+      agent may not see fails with message_ref_invalid.
+
+      Text output, one line naming the board, then the message's reactions:
+        Reacted 👍 to #6 on writer-reviewer · 👍 2 ✅ 1
+        Took back 👍 from #6 on writer-reviewer · ✅ 1
+      The reactions part is left out when the message has none.
+    type: object
+    required: [board, message, reaction, removed]
+    properties:
+      board: { type: string }
+      message:
+        description: The message as the agent now sees it, with its reactions.
+        $ref: "#/$defs/Message"
+      reaction:
+        type: object
+        required: [name, emoji]
+        properties:
+          name: { $ref: openapi.yaml#/components/schemas/ReactionName }
+          emoji: { $ref: openapi.yaml#/components/schemas/ReactionEmoji }
+      removed:
+        type: boolean
+        description: True with --remove.
 
   # ---------- aboard watch [--from @NAME] [--role R] [--limit N] [--board NAME] ----------
   WatchOutput:

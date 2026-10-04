@@ -23,6 +23,8 @@ const (
 	JoinCodeCreated    = "joincode.created"
 	JoinCodeRevoked    = "joincode.revoked"
 	MessagePosted      = "message.posted"
+	ReactionAdded      = "reaction.added"
+	ReactionRemoved    = "reaction.removed"
 )
 
 // Actor is who caused an event, taken from the authenticated token.
