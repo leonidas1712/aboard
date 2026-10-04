@@ -144,6 +144,39 @@ messages and then edited for readers: **Added**, **Changed**, **Fixed**, and
 what changed, who is affected (CLI scripts, API clients, delivery daemons, harness
 adapters) and whether it is additive. *To build, with the first release.*
 
+## Landing a pull request
+
+What we want: nothing reaches `main` without passing the checks its change calls for,
+and landing a PR is one command that a person, a session or an agent runs the same way.
+
+GitHub Actions doesn't run the checks today, so local checks are the merge gate, and
+`scripts/land-pr <number>` applies them:
+
+1. It finds the PR's branch with `gh`, and uses the worktree that already has it
+   checked out or creates one at `.claude/worktrees/land-pr-<number>`. It never
+   switches branches, pulls or commits in the main checkout.
+2. It merges `origin/main` into the branch, and stops on a conflict, naming the files
+   and leaving the merge in the worktree to resolve.
+3. It runs the checks for what changed against `origin/main`: none for a change to only
+   `design/` or `engineering/`; otherwise `make fmt-check lint vet generate-check
+   core-size harness-table-check test e2e`, plus `make web-check` when `web/` changed.
+   It says what it runs and why.
+4. It pushes, merges with `gh pr merge --merge` (retrying while GitHub says the base
+   branch was modified), and confirms GitHub reports the PR merged.
+5. Only then does it remove what it created (the temporary worktree and local branch)
+   and delete the branch on GitHub. A failure at any step leaves everything in place
+   and says what to do next.
+
+`--dry-run` prints the plan, including any conflict with `main`, and changes nothing.
+`make live` needs harness logins, so the script never runs it: it notes when a change
+touches delivery, setup or upgrades, which must pass `make live` before merging, and
+`--live` prints which harnesses `make live-affected` would run. The script's header
+lists its exit codes, and `e2e/landpr_test.go` runs it against a local repository
+with a fake `gh`.
+
+Once GitHub Actions runs the checks again, the script merges only after they pass on
+GitHub, and the local run becomes a first check rather than the gate. *To build.*
+
 ## Cutting a release
 
 1. `make check` and `make web-check` pass on `main`.

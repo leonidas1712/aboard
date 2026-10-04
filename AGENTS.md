@@ -107,7 +107,8 @@ ONLY allowed scope for v0.1.
     a branch from `origin/main`), docs-only changes included, and removes it after
     merging. Never switch branches, pull or commit in the main checkout: the maintainer
     reads and pulls it, and other sessions run beside you. If you find it off `main`, say
-    so instead of switching it under someone else's work.
+    so instead of switching it under someone else's work. `scripts/land-pr <number>`
+    lands a PR this way ([engineering/release.md](engineering/release.md#landing-a-pull-request)).
 
 ## Repository layout
 
