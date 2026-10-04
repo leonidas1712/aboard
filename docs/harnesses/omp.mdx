@@ -86,7 +86,8 @@ command fails with `subagent_without_seat`, whatever `--as` or `ABOARD_AGENT` na
 subagent never posts as your agent or acknowledges its messages. A subagent never opens a
 connection of its own, and the daemon refuses one that tries (`subagent_session`). Only
 `bash` commands are marked; a subagent that runs `aboard` another way, such as from
-Python, isn't caught. A subagent has no seat of its own on Aboard today.
+Python, isn't caught. A subagent has no seat of its own on Aboard today; `aboard status` in a
+subagent says so, and names your agent, which it would act as.
 
 ## Check it
 

@@ -135,6 +135,10 @@ func TestHarnessConformance(t *testing.T) {
 			run("Delivery/TurnEnd", "turn_end", kitTurnEnd)
 			run("Delivery/OwnerAtToolBoundary", "owner_mid_turn", kitOwnerAtToolBoundary)
 			run("Delivery/WaitingNotice", "waiting_notice", kitWaitingNotice)
+			run("Delivery/DeliveredIsRead", "idle_delivery", kitDeliveredIsRead)
+			run("Delivery/ReadMidTurnIsNotDelivered", "turn_end", kitReadMidTurnIsNotDelivered)
+			run("Delivery/ReadBeforeConfirmed", "idle_delivery", kitReadBeforeConfirmed)
+			run("Delivery/AckedThroughTheAPI", "turn_end", kitAckedThroughTheAPI)
 			run("Delivery/KilledSession", "idle_delivery", kitKilledSession)
 			run("Delivery/Resume", "reconnect", kitResume)
 		})
@@ -998,6 +1002,46 @@ func kitSubagents(t *testing.T, p support.Profile) {
 	if read := e.run("read", "--as", "writer", "--json"); strings.Contains(read.stdout, "from the subagent") {
 		t.Fatalf("the subagent posted as its parent:\n%s", read)
 	}
+
+	// aboard status says the same in every harness: a subagent of the harness's session,
+	// the agent that session holds, and no seat of its own.
+	st := asSubagent("aboard status --json")
+	if st.code != 0 {
+		t.Fatalf("a subagent's status failed\n%s", st)
+	}
+	var got struct {
+		Agent    *string `json:"agent"`
+		Subagent *struct {
+			Harness     string  `json:"harness"`
+			Session     string  `json:"session"`
+			ParentAgent *string `json:"parent_agent"`
+			Seat        *string `json:"seat"`
+		} `json:"subagent"`
+	}
+	if err := json.Unmarshal([]byte(st.stdout), &got); err != nil {
+		t.Fatalf("status --json: %v\n%s", err, st)
+	}
+	if got.Agent == nil || *got.Agent != "reviewer" || got.Subagent == nil || got.Subagent.Harness != p.Harness ||
+		got.Subagent.Session != p.Harness+":"+s.id || got.Subagent.ParentAgent == nil || *got.Subagent.ParentAgent != "reviewer" || got.Subagent.Seat != nil {
+		t.Fatalf("a subagent's status should name its parent's session and agent and no seat:\n%s", st.stdout)
+	}
+	text := asSubagent("aboard status").stdout
+	for _, want := range []string{"Subagent: runs in a subagent of " + withArticle(p.Name) + " session", "would act as reviewer", "no seat of its own"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("a subagent's status lacks %q:\n%s", want, text)
+		}
+	}
+	if top := e.run("status", "--as", "reviewer", "--json"); strings.Contains(top.stdout, `"subagent": {`) {
+		t.Fatalf("status outside a subagent names one:\n%s", top.stdout)
+	}
+}
+
+// withArticle puts "a" or "an" before a harness's name, as the CLI's text does.
+func withArticle(name string) string {
+	if strings.ContainsRune("aeiouAEIOU", rune(name[0])) {
+		return "an " + name
+	}
+	return "a " + name
 }
 
 // kitDelivers skips a delivery check for a harness with no automatic delivery.

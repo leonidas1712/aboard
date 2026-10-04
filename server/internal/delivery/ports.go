@@ -47,8 +47,10 @@ type Waiter interface {
 
 // Server is one Aboard server, reached with this machine's logins.
 type Server interface {
-	// Follow streams the heads of the human's boards and calls head for each, until
-	// ctx ends or the connection fails. connected is called once the stream is open.
+	// Follow streams the heads of the human's boards and calls head for each, and for
+	// each move of the read position of one of the human's agents (Head.Read), whoever
+	// acknowledged, until ctx ends or the connection fails. connected is called once the
+	// stream is open.
 	Follow(ctx context.Context, connected func(), head func(Head)) error
 	// Inbox returns the agent's unread messages, oldest first, and its read position.
 	Inbox(ctx context.Context, agent AgentRef) (msgs []Message, cursor int, err error)

@@ -207,7 +207,7 @@ func (d *Daemon) newSessionLocked(key SessionKey) *session {
 	s := &session{
 		d: d, key: key, adapter: ad, mail: newMailbox[sessionMsg](),
 		agents: map[AgentRef]*agentState{}, refreshing: map[int64]bool{}, forward: map[AgentRef]*session{},
-		holds:    map[*hold]bool{},
+		holds: map[*hold]bool{}, readers: map[*reading]bool{},
 		reported: map[AgentRef]reportedPresence{},
 	}
 	d.sessions[key] = s
@@ -488,6 +488,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveWait(ctx, conn, r, req)
 	case OpHold:
 		d.serveHold(ctx, conn, r, req)
+	case OpInbox:
+		d.serveInbox(ctx, conn, r, req)
 	case OpHello:
 		d.serveExtension(ctx, conn, r, req)
 	case OpRegister, OpPrompt, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
@@ -736,19 +738,8 @@ func (d *Daemon) serveHold(ctx context.Context, conn net.Conn, r *bufio.Reader, 
 		return
 	}
 	h := &hold{agent: *req.Agent, replyTo: req.ReplyTo}
-	ask := func(m sessionMsg) Response {
-		reply := make(chan Response, 1)
-		m.reply = reply
-		s.mail.put(m)
-		select {
-		case resp := <-reply:
-			return resp
-		case <-ctx.Done():
-			return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again.")
-		}
-	}
 	defer s.mail.put(sessionMsg{unhold: h})
-	if err := WriteFrame(conn, ask(sessionMsg{hold: h})); err != nil {
+	if err := WriteFrame(conn, ask(ctx, s, sessionMsg{hold: h})); err != nil {
 		return
 	}
 	for {
@@ -759,7 +750,47 @@ func (d *Daemon) serveHold(ctx context.Context, conn net.Conn, r *bufio.Reader, 
 		if m.Op != OpClaim {
 			continue
 		}
-		if err := WriteFrame(conn, ask(sessionMsg{claim: &claimRequest{agent: h.agent, seqs: m.Seqs}})); err != nil {
+		if err := WriteFrame(conn, ask(ctx, s, sessionMsg{claim: &claimRequest{agent: h.agent, seqs: m.Seqs}})); err != nil {
+			return
+		}
+	}
+}
+
+// ask sends m to the session and returns its answer.
+func ask(ctx context.Context, s *session, m sessionMsg) Response {
+	reply := make(chan Response, 1)
+	m.reply = reply
+	s.mail.put(m)
+	select {
+	case resp := <-reply:
+		return resp
+	case <-ctx.Done():
+		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again.")
+	}
+}
+
+// serveInbox holds an agent's deliveries and notices while a command reads its inbox,
+// so the session can't be handed what the command shows. How far the command then
+// acknowledged reaches the daemon from the server, as any client's acknowledgement does.
+func (d *Daemon) serveInbox(ctx context.Context, conn net.Conn, r *bufio.Reader, req Request) {
+	if req.Agent == nil {
+		_ = WriteFrame(conn, errorResponse("invalid_request", "An inbox request needs an agent.", "Send the agent's server, board and name."))
+		return
+	}
+	s := d.owner(*req.Agent)
+	if s == nil {
+		_ = WriteFrame(conn, Response{V: ProtocolVersion})
+		return
+	}
+	rd := &reading{agent: *req.Agent}
+	defer s.mail.put(sessionMsg{doneReading: rd})
+	if err := WriteFrame(conn, ask(ctx, s, sessionMsg{req: req, reading: rd})); err != nil {
+		return
+	}
+	// The hold lasts until the command closes the connection; it sends nothing else.
+	for {
+		var m Request
+		if err := ReadFrame(r, &m); err != nil {
 			return
 		}
 	}

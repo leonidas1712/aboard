@@ -89,6 +89,26 @@ func (s Set) Session(e Env) (delivery.SessionKey, bool) {
 	return delivery.SessionKey{}, false
 }
 
+// RootSession returns the session of the conversation a command runs under: the one
+// Session finds, except in a sub-agent of a harness that gives every command both its
+// own thread's id and its root session's (Codex), where it is the root's. A subagent
+// thus finds the same session, and so the same agent, in every harness.
+func (s Set) RootSession(e Env) (delivery.SessionKey, bool) {
+	k, ok := s.Session(e)
+	if !ok {
+		return k, false
+	}
+	if h, known := s.Get(k.Harness); known {
+		id := h.Profile().Identity
+		if id.RootEnv != "" && strings.TrimSpace(e.Getenv(id.Env)) == k.ID {
+			if root := strings.TrimSpace(e.Getenv(id.RootEnv)); root != "" {
+				k.ID = root
+			}
+		}
+	}
+	return k, true
+}
+
 // Subagent returns the id of the subagent a command runs in: from the mark Aboard's hook
 // or extension adds to a subagent's aboard commands, or, for a harness that gives every
 // command both its own thread's id and its root session's (Codex), from the two being

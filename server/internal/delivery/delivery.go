@@ -42,10 +42,19 @@ type AgentRef struct {
 // Message is one board message as the delivery text shows it.
 type Message = deliverytext.Message
 
-// Head is a board's latest sequence number, as a server's stream reports it.
+// Head is what a server's stream reports about a board: its latest sequence number, or,
+// when Read is set, instead that one of the human's agents on it read up to a point.
 type Head struct {
 	Board string
 	Seq   int
+	Read  *ReadPosition
+}
+
+// ReadPosition is an agent's read position as the server reports it: the server is the
+// authority on what an agent has read, whichever client acknowledged.
+type ReadPosition struct {
+	Agent string
+	UpTo  int
 }
 
 // State is where a delivery is in its life.

@@ -48,16 +48,16 @@ var outcomeOrder = []string{outcomeNow, outcomeTurnEnd, outcomeNotWoken, outcome
 // namesShown is how many names a group of recipients or senders lists before counting.
 const namesShown = 5
 
-// unreadAfterSay reads the sender's unread messages without acknowledging them. Nil if
-// they couldn't be read: the note never fails the post.
-func unreadAfterSay(ctx context.Context, c *client) *unreadNote {
-	limit := 200
-	r, err := c.api.GetInboxWithResponse(ctx, &api.GetInboxParams{Limit: &limit})
-	if err != nil || r.JSON200 == nil {
+// unreadAfterSay reads the sender's unread messages without acknowledging them, leaving
+// out those its session on this machine already received. Nil if they couldn't be
+// read: the note never fails the post.
+func (a *app) unreadAfterSay(ctx context.Context, c *client, ref delivery.AgentRef) *unreadNote {
+	in, msgs, _, err := a.readInbox(ctx, c, ref, 200, false, true)
+	if err != nil || in == nil {
 		return nil
 	}
 	n := &unreadNote{Seqs: []int{}, From: []unreadFrom{}}
-	for _, m := range r.JSON200.Messages {
+	for _, m := range msgs {
 		n.Count++
 		n.Seqs = append(n.Seqs, m.Seq)
 		f := unreadFrom{Name: m.From.Name, Sender: string(m.Sender)}

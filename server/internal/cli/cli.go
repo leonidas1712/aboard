@@ -13,6 +13,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
@@ -66,6 +67,8 @@ func isTerminal(f *os.File) bool {
 type app struct {
 	env  Env
 	json bool
+	// started is when the command started.
+	started time.Time
 	// daemonChecked and localChecked are set once this command has checked the running
 	// delivery daemon and local server for an older build, so it checks each only once.
 	daemonChecked bool
@@ -120,7 +123,7 @@ func commands() []command {
 func Run(ctx context.Context, args []string, env Env) int {
 	ctx, stop := exitWith(ctx, env.Getenv(exitWithVar))
 	defer stop()
-	a := &app{env: env, json: wantsJSON(args)}
+	a := &app{env: env, json: wantsJSON(args), started: time.Now()}
 	if len(args) == 0 {
 		_, _ = io.WriteString(env.Stderr, overviewText(a.errStyles()))
 		return exitUsage
@@ -192,7 +195,11 @@ func (a *app) report(err error) int {
 		a.writeJSON(e.wire())
 	} else {
 		st := a.errStyles()
+		// The code is what --json, the docs and the skill name, so text shows it too, quietly.
 		msg := st.render(styleBadBold, "Error:") + " " + e.Message + "\n"
+		if e.Code != "" {
+			msg = st.render(styleBadBold, "Error") + " " + st.dim("("+e.Code+")") + st.render(styleBadBold, ":") + " " + e.Message + "\n"
+		}
 		if e.Hint != "" {
 			msg += st.warn("Hint:") + " " + e.Hint + "\n"
 		}

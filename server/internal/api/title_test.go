@@ -99,9 +99,11 @@ func TestAdminChangesTheTitle(t *testing.T) {
 	}
 }
 
-// Only a board's admins change its title: a member and an agent are refused, and a
-// title must be one line of at most 80 characters.
-func TestOnlyAdminsChangeTheTitle(t *testing.T) {
+// Only a board's admins, and their agents, change its title: a member and a member's
+// agent are refused, an admin's agent may, and the record names the agent and its
+// owner. An agent still can't change the policy. A title must be one line of at most
+// 80 characters.
+func TestOnlyAdminsAndTheirAgentsChangeTheTitle(t *testing.T) {
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -110,6 +112,7 @@ func TestOnlyAdminsChangeTheTitle(t *testing.T) {
 	priya := s.addHuman("priya")
 	j, err := s.client(priya).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
 	mustStatus(t, j, err, 201)
+	priyasAgent := j.JSON201.Token
 
 	title := "Mine now"
 	change := api.UpdateBoardRequest{Title: &title}
@@ -117,9 +120,14 @@ func TestOnlyAdminsChangeTheTitle(t *testing.T) {
 	if c := errorCode(t, u, err, 403); c != "admin_required" {
 		t.Fatalf("title change by a member: %s", c)
 	}
-	u, err = s.client(writer).UpdateBoardWithResponse(ctx, boardName, nil, change)
+	u, err = s.client(priyasAgent).UpdateBoardWithResponse(ctx, boardName, nil, change)
+	if c := errorCode(t, u, err, 403); c != "admin_required" {
+		t.Fatalf("title change by a member's agent: %s", c)
+	}
+	preset := api.PolicyPreset("recommended")
+	u, err = s.client(writer).UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{Title: &title, Policy: &api.PolicyChange{Preset: &preset}})
 	if c := errorCode(t, u, err, 403); c != "human_token_required" {
-		t.Fatalf("title change by an agent: %s", c)
+		t.Fatalf("policy change by an agent: %s", c)
 	}
 	for bad, status := range map[string]int{strings.Repeat("x", 81): 400, "two\nlines": 422} {
 		u, err = s.client(s.owner).UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{Title: &bad})
@@ -133,6 +141,31 @@ func TestOnlyAdminsChangeTheTitle(t *testing.T) {
 	u, err = s.client(s.owner).UpdateBoardWithResponse(ctx, boardName, nil, api.UpdateBoardRequest{})
 	if c := errorCode(t, u, err, 400); c != "invalid_request" {
 		t.Fatalf("empty change: %s", c)
+	}
+
+	u, err = s.client(writer).UpdateBoardWithResponse(ctx, boardName, nil, change)
+	mustStatus(t, u, err, 200)
+	if u.JSON200.Title == nil || *u.JSON200.Title != title {
+		t.Fatalf("title after the admin's agent set it = %v", u.JSON200.Title)
+	}
+	ev, err := s.client(s.owner).ListEventsWithResponse(ctx, boardName, nil)
+	mustStatus(t, ev, err, 200)
+	var page struct {
+		Events []struct {
+			Type  string `json:"type"`
+			Actor struct {
+				Kind  string `json:"kind"`
+				Name  string `json:"name"`
+				Owner string `json:"owner"`
+			} `json:"actor"`
+		} `json:"events"`
+	}
+	if err := json.Unmarshal(ev.Body, &page); err != nil {
+		t.Fatal(err)
+	}
+	last := page.Events[len(page.Events)-1]
+	if last.Type != "board.titled" || last.Actor.Kind != "agent" || last.Actor.Name != "writer" || last.Actor.Owner != "alex" {
+		t.Fatalf("the record should show the agent and its owner set the title: %+v", last)
 	}
 }
 

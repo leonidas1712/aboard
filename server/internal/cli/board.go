@@ -39,11 +39,12 @@ func (a *app) namedBoard(boardFlag string) string {
 var boardUsage = usageOf("board")
 
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset,
-// and "aboard board title <text>", which changes its title. Both use the human login, so
-// they refuse inside a harness session.
+// and "aboard board title <text>", which changes its title. policy uses the human login,
+// so it refuses inside a harness session; an agent may set the title for its owner.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("board")
 	boardFlag := fs.String("board", "", "the board to change")
+	as := fs.String("as", "", "the agent that sets the title, for its owner")
 	pos, err := a.parse(fs, args, boardUsage, 1, -1)
 	if err != nil {
 		return err
@@ -53,27 +54,41 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		if len(pos) != 2 {
 			return usageError("Name one policy preset: starter or recommended.", boardUsage)
 		}
+		if *as != "" {
+			return usageError("Only a person changes a board's policy, so --as works only with title.", boardUsage)
+		}
 		return runBoardPolicy(ctx, a, *boardFlag, pos[1])
 	case "title":
 		if len(pos) < 2 {
 			return usageError("Give the new title, or \"\" to remove it.", boardUsage)
 		}
-		return runBoardTitle(ctx, a, *boardFlag, strings.Join(pos[1:], " "))
+		return runBoardTitle(ctx, a, *boardFlag, *as, strings.Join(pos[1:], " "))
 	}
 	return usageError(fmt.Sprintf("%q is not a board command; use policy or title.", pos[0]), boardUsage)
 }
 
-// runBoardTitle changes a board's title; an empty title removes it.
-func runBoardTitle(ctx context.Context, a *app, boardFlag, title string) error {
+// runBoardTitle changes a board's title; an empty title removes it. In a harness
+// session, or with --as, the agent sets it for its owner, on the agent's board, and the
+// record names the agent; elsewhere the person sets it with their own login.
+func runBoardTitle(ctx context.Context, a *app, boardFlag, asFlag, title string) error {
 	title = strings.TrimSpace(title)
-	if err := a.refuseInSession("Changing a board's title", "aboard board title "+shellWord(title)+boardArg(a.namedBoard(boardFlag))); err != nil {
-		return err
+	var (
+		t   target
+		c   *client
+		err error
+	)
+	if _, inSession := a.inSession(); inSession || asFlag != "" {
+		var cred agentCredential
+		if t, cred, err = a.agentTarget(ctx, boardFlag, asFlag); err != nil {
+			return err
+		}
+		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
+	} else {
+		if t, err = a.selectBoard(boardFlag); err != nil {
+			return err
+		}
+		c, err = a.humanClient(ctx, t)
 	}
-	t, err := a.selectBoard(boardFlag)
-	if err != nil {
-		return err
-	}
-	c, err := a.humanClient(ctx, t)
 	if err != nil {
 		return err
 	}

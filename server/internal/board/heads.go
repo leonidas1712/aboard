@@ -54,6 +54,9 @@ type HeadFeed struct {
 	// presence is, by board id and agent name, the presence last returned, or seen
 	// when the board was first read.
 	presence map[string]map[string]Presence
+	// reads is, by board id and agent name, the read position of the human's own agents
+	// last returned, or seen when the board was first read.
+	reads map[string]map[string]int64
 }
 
 // FollowHeads starts following the heads of the human's boards. Only humans may.
@@ -61,17 +64,28 @@ func (s *Service) FollowHeads(p Principal) (*HeadFeed, error) {
 	if err := requireHuman(p); err != nil {
 		return nil, err
 	}
-	return &HeadFeed{s: s, p: p, sent: map[string]int64{}, presence: map[string]map[string]Presence{}}, nil
+	return &HeadFeed{s: s, p: p, sent: map[string]int64{}, presence: map[string]map[string]Presence{}, reads: map[string]map[string]int64{}}, nil
 }
 
-// Update is what changed on a human's boards: heads that moved and agents whose
-// presence changed.
+// Update is what changed on a human's boards: heads that moved, agents whose presence
+// changed, and the human's own agents whose read position moved.
 type Update struct {
 	Heads    []Head
 	Presence []PresenceChange
+	Reads    []ReadChange
 }
 
-func (u Update) empty() bool { return len(u.Heads) == 0 && len(u.Presence) == 0 }
+func (u Update) empty() bool { return len(u.Heads) == 0 && len(u.Presence) == 0 && len(u.Reads) == 0 }
+
+// ReadChange is the read position of one of the human's agents that moved since a
+// HeadFeed last looked: by its own inbox acknowledgement, its owner's delivery daemon's,
+// or any other client's. Only the agent's owner is told.
+type ReadChange struct {
+	BoardID string
+	Board   string // the board's name
+	Agent   string
+	Cursor  int64
+}
 
 // Next returns what changed since the last call. The first call returns every board's
 // head and no presence: a reader takes the current presence from the members list.
@@ -90,7 +104,8 @@ func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, t
 		for id := range f.sent {
 			cases = append(cases,
 				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(id))},
-				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(presenceKey(id)))})
+				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(presenceKey(id)))},
+				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(readKey(id)))})
 		}
 		if u, err = f.read(ctx); err != nil || !u.empty() {
 			return u, false, err
@@ -126,7 +141,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	f.sent = current
 
-	presence, err := f.s.presenceOn(ctx, ids)
+	presence, reads, err := f.s.presenceOn(ctx, ids, f.p.Human.ID)
 	if err != nil {
 		return Update{}, err
 	}
@@ -144,5 +159,14 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 		}
 	}
 	f.presence = presence
+	for _, id := range ids {
+		before, known := f.reads[id]
+		for _, agent := range slices.Sorted(maps.Keys(reads[id])) {
+			if now := reads[id][agent]; known && now != before[agent] {
+				u.Reads = append(u.Reads, ReadChange{BoardID: id, Board: names[id], Agent: agent, Cursor: now})
+			}
+		}
+	}
+	f.reads = reads
 	return u, nil
 }
