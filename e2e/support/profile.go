@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"path"
 	"slices"
+	"strconv"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 
@@ -90,6 +92,47 @@ type Hook struct {
 	Matcher string         `yaml:"matcher"`
 	Timeout int            `yaml:"timeout"`
 	Options map[string]any `yaml:"options"`
+	// Since is the first version of the harness that runs the hook as written, and
+	// Fallback the events it runs on instead on older versions.
+	Since    string     `yaml:"since"`
+	Fallback []Fallback `yaml:"fallback"`
+}
+
+// Fallback is an event a hook runs on in older versions, with the first version that
+// knows it.
+type Fallback struct {
+	Event string `yaml:"event"`
+	Since string `yaml:"since"`
+}
+
+// VersionAtLeast reports whether the version v is at least minimum, comparing dotted
+// numbers. An empty minimum is always reached.
+func VersionAtLeast(v, minimum string) bool {
+	if minimum == "" {
+		return true
+	}
+	have, want := strings.Split(v, "."), strings.Split(minimum, ".")
+	for i := range want {
+		var h, w int
+		if i < len(have) {
+			h, _ = strconv.Atoi(have[i])
+		}
+		w, _ = strconv.Atoi(want[i])
+		if h != w {
+			return h > w
+		}
+	}
+	return true
+}
+
+// UnmarshalYAML reads a fallback written as an event name or as {event, since}.
+func (f *Fallback) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		f.Event = n.Value
+		return nil
+	}
+	type plain Fallback
+	return n.Decode((*plain)(f))
 }
 
 // Profiles reads every profile built into aboard, in the order of their folders.

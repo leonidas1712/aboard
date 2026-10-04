@@ -239,7 +239,8 @@ func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup,
 		if !ok || !s.Detected || (c.harnesses != nil && !slices.Contains(c.harnesses, s.Name)) {
 			continue
 		}
-		specs := a.withHome(h.Hooks(exe, h.Version(ctx, a.henv())))
+		version := h.Version(ctx, a.henv())
+		specs := a.withHome(h.Hooks(exe, version))
 		hooksAt := -1
 		for _, it := range h.Items(a.installEnv(), c.scope) {
 			switch {
@@ -248,6 +249,7 @@ func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup,
 				if err != nil {
 					return nil, err
 				}
+				hk.note = leftOutNote(h, version)
 				hooksAt = len(s.Changes)
 				s.Changes = append(s.Changes, hk)
 				if scopes, _, err := a.installedScopes(h, specs); err == nil {
@@ -273,6 +275,23 @@ func (a *app) planInit(ctx context.Context, c initChoices, known []harnessSetup,
 	}
 	a.markEdited(setups)
 	return setups, nil
+}
+
+// leftOutNote says which hooks init leaves out for the harness's version, or "".
+func leftOutNote(h harness.Harness, version string) string {
+	left := h.Unsupported(version)
+	if len(left) == 0 {
+		return ""
+	}
+	p := h.Profile()
+	events := make([]string, len(left))
+	for i, s := range left {
+		events[i] = s.Event
+	}
+	if n := harness.VersionNumber(version); n != "" {
+		return p.Name + " " + n + " doesn't run " + harness.AndList(events) + "; aboard doctor says what that leaves out"
+	}
+	return "couldn't read " + p.Name + "'s version, so left out " + harness.AndList(events) + ", which older versions don't run; aboard doctor says more"
 }
 
 // applyInit writes the planned files and sets the delivery mode.

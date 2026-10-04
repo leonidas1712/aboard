@@ -121,6 +121,13 @@ Source: github.com/stablyai/orca.
   app server).
 - **Fragile:** an enormous codebase of special cases; Codex submission relies on a
   blind extra Enter.
+- **Checked against the published builds (2026-10-04):** Orca's table matches the
+  hook event lists in each `@anthropic-ai/claude-code` build on npm, and 2.1.101 is the
+  first that skips only the bad values ("The values listed above were skipped; the
+  rest of the file is in effect.") instead of the whole file. Its table stops before
+  `PostToolBatch` (2.1.118), and it gates only events, not options such as
+  `asyncRewake` (2.1.64), which older versions silently drop. Codex, read from its
+  source at each release tag, ignores unknown hook events in every version.
 
 ## herdr (herdrdev/herdr, Rust terminal multiplexer), 2026-10-04
 

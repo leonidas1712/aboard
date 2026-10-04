@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ func (g *Generic) ConfigDir(e Env) string {
 }
 
 // Version runs the harness's installed check, which prints its version, when one of
-// its hooks depends on the version. It is asked once.
+// its hooks depends on the version. It is asked once. "" means it couldn't be read.
 func (g *Generic) Version(ctx context.Context, e Env) string {
 	if g.version != nil {
 		return *g.version
@@ -101,21 +102,51 @@ func (g *Generic) versionMatters() bool {
 	return false
 }
 
-// Hooks returns the profile's hooks, each running "exe hook <harness> <run>". A hook
-// whose event first appeared after this version is installed on its fallback events.
+// Hooks returns the hook entries aboard init installs for a harness that reports
+// version, each running "exe hook <harness> <run>": every hook that version runs as
+// written, and for one it doesn't, the fallback events it knows. A version that can't be
+// read is taken to be the oldest Aboard works with (checks.min_version), so no entry
+// names an event the installed harness may not know. Newest gives every hook.
 func (g *Generic) Hooks(exe, version string) []Hook {
 	var hooks []Hook
 	for _, s := range g.profile.Delivery.Hooks {
 		h := Handler{Type: "command", Command: ShellWord(exe) + " hook " + g.profile.Harness + " " + s.Run, Timeout: s.Timeout, Options: s.Options}
-		if s.Since != "" && !VersionAtLeast(version, s.Since) {
-			for _, event := range s.Fallback {
-				hooks = append(hooks, Hook{Event: event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
-			}
+		if g.runs(version, s.Since) {
+			hooks = append(hooks, Hook{Event: s.Event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
 			continue
 		}
-		hooks = append(hooks, Hook{Event: s.Event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
+		for _, f := range s.Fallback {
+			if g.runs(version, f.Since) {
+				hooks = append(hooks, Hook{Event: f.Event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
+			}
+		}
 	}
 	return hooks
+}
+
+// Unsupported returns the profile's hooks that a harness reporting version runs neither
+// as written nor on a fallback event, which Hooks leaves out.
+func (g *Generic) Unsupported(version string) []HookSpec {
+	var left []HookSpec
+	for _, s := range g.profile.Delivery.Hooks {
+		fallback := slices.ContainsFunc(s.Fallback, func(f FallbackSpec) bool { return g.runs(version, f.Since) })
+		if !g.runs(version, s.Since) && !fallback {
+			left = append(left, s)
+		}
+	}
+	return left
+}
+
+// runs reports whether a harness reporting version has what came in version since.
+func (g *Generic) runs(version, since string) bool {
+	switch {
+	case since == "" || version == Newest:
+		return true
+	case VersionNumber(version) == "":
+		oldest := g.profile.Checks.MinVersion
+		return oldest == "" || VersionAtLeast(oldest, since)
+	}
+	return VersionAtLeast(version, since)
 }
 
 // Items returns the profile's install items with their paths in a scope.

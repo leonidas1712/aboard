@@ -31,9 +31,13 @@ type Harness interface {
 	// Version is what the harness reports as its version, or "" when no hook depends
 	// on it or it can't be told.
 	Version(ctx context.Context, e Env) string
-	// Hooks are the hook entries aboard init installs for a harness of this version
-	// ("" means the newest), each running exe.
+	// Hooks are the hook entries aboard init installs for a harness that reports
+	// version, each running exe. A version that can't be read gets what the oldest
+	// version Aboard works with runs; Newest gets every hook.
 	Hooks(exe, version string) []Hook
+	// Unsupported are the profile's hooks that Hooks leaves out for version, because
+	// that version runs neither them nor a fallback.
+	Unsupported(version string) []HookSpec
 	// Items are what aboard init installs in a scope, in order, with their paths.
 	Items(e Env, scope string) []Item
 	// InstalledChecks are aboard doctor's checks that the harness is there and can be
@@ -261,6 +265,15 @@ func ShellWord(s string) string {
 }
 
 var plainWord = regexp.MustCompile(`^[A-Za-z0-9_./-]+$`)
+
+// Newest is the version to give Hooks for every hook, as the newest version of the
+// harness runs them, whatever is installed. Doctor and status recognize Aboard's hooks
+// with it.
+const Newest = "newest"
+
+// VersionNumber returns the first dotted version number in text, such as 2.1.288 in
+// "2.1.288 (Claude Code)", or "" when it has none.
+func VersionNumber(text string) string { return versionNumber.FindString(text) }
 
 // VersionAtLeast reports whether the first dotted version number in text, such as
 // "2.1.288 (Claude Code)", is at least minimum. Text without one counts as new enough.

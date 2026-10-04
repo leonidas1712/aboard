@@ -19,7 +19,7 @@ const exe = "/usr/local/bin/aboard"
 // each running bin.
 func hooksOf(t *testing.T, name, bin string) []harness.Hook {
 	t.Helper()
-	return harnessNamed(t, name).Hooks(bin, "")
+	return harnessNamed(t, name).Hooks(bin, harness.Newest)
 }
 
 func harnessNamed(t *testing.T, name string) harness.Harness {
@@ -142,7 +142,8 @@ func initEnv(t *testing.T, home string) (Env, *strings.Builder, string) {
 }
 
 // Doctor compares the files of the scope they are installed in: a project's outdated
-// skill and hooks are reported, with the project fix.
+// skill and hooks are reported, with the project fix. Nothing here reports Claude Code's
+// version, so init wrote the hooks the oldest version Aboard works with runs.
 func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	home := t.TempDir()
 	env, out, project := initEnv(t, home)
@@ -158,7 +159,7 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	if c := a.checkSkill(claude); len(c) != 1 || c[0].Level != levelOK {
 		t.Fatalf("current skill: %+v", c)
 	}
-	if c := a.checkHooksCurrent("claude_hooks", claude, scopes, hooksOf(t, "claude-code", a.hookExe()), okCheck("claude_hooks", "ok")); c.Level != levelOK {
+	if c := a.checkHooksCurrent("claude_hooks", claude, scopes, claude.Hooks(a.hookExe(), ""), okCheck("claude_hooks", "ok")); c.Level != levelOK {
 		t.Fatalf("current hooks: %+v", c)
 	}
 
@@ -172,7 +173,7 @@ func TestDoctorFlagsAnOutdatedProjectSetup(t *testing.T) {
 	if c := a.checkSkill(claude); len(c) != 1 || deref(c[0].Code) != "skill_edited" || !strings.HasPrefix(deref(c[0].Fix), fix) {
 		t.Fatalf("edited skill: %+v", c)
 	}
-	if c := moved.checkHooksCurrent("claude_hooks", claude, scopes, hooksOf(t, "claude-code", moved.hookExe()), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
+	if c := moved.checkHooksCurrent("claude_hooks", claude, scopes, claude.Hooks(moved.hookExe(), ""), okCheck("claude_hooks", "ok")); deref(c.Code) != "hooks_outdated" || deref(c.Fix) != fix {
 		t.Fatalf("outdated hooks: %+v", c)
 	}
 }

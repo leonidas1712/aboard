@@ -7,6 +7,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
 // Where the acting agent came from.
@@ -220,7 +221,7 @@ func (a *app) setupStatus() (r setupReport, line string) {
 	var parts []string
 	for _, h := range a.registry() {
 		name := h.Profile().Harness
-		scopes, _, err := a.installedScopes(h, h.Hooks("aboard", ""))
+		scopes, _, err := a.installedScopes(h, h.Hooks("aboard", harness.Newest))
 		if err != nil || len(scopes) == 0 {
 			continue
 		}

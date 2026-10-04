@@ -11,6 +11,10 @@ checks:
   logged_in:
     run: [claude, auth, status]
     json_true: loggedIn
+  # The first Claude Code whose session-start hook gets CLAUDE_ENV_FILE, which gives a
+  # session's commands their identity (checked in the published builds). A version that
+  # can't be read gets the hooks this one runs.
+  min_version: 2.0.22
 
 sandbox_env: [SANDBOX_RUNTIME]
 sandbox_fix: install Aboard's hooks with aboard init
@@ -77,43 +81,71 @@ lifecycle:
 delivery:
   method: stop-hook
   capabilities: [idle-hook, tool-boundary]
+  # Claude Code 1.0.23 to 2.1.100 ignore the whole settings file, the person's own
+  # settings included, when it names one hook event they don't know; 2.1.101 and later
+  # skip just that entry. So each hook carries the first version that runs it as
+  # written, and aboard init writes only what the installed version runs. The versions
+  # come from the hook event list and settings schema in each published build of
+  # @anthropic-ai/claude-code on npm, and from its CHANGELOG.md.
   hooks:
+    # SessionStart is known since 1.0.62; CLAUDE_ENV_FILE reaches its hooks since 2.0.22.
     - event: SessionStart
       run: session-start
       op: session-start
       timeout: 30
+      since: 2.0.22
       why: registers the session and writes its environment file
+      without: commands in a session can't tell which agent they are
+    # Known since 1.0.53 (CHANGELOG: 1.0.54).
     - event: UserPromptSubmit
       run: prompt
       op: prompt
       timeout: 10
+      since: 1.0.54
       why: marks the session busy and releases a waiting stop hook
-    # The hook waits for as long as the session is idle.
+      without: a session isn't marked busy when you type
+    # The hook waits for as long as the session is idle. Stop is known since 1.0.31, but
+    # asyncRewake only since 2.1.64; an older version drops it and runs the hook in the
+    # foreground, so the session would hang at the end of every turn.
     - event: Stop
       run: stop
       op: wait
       timeout: 86400
       options: {asyncRewake: true}
+      since: 2.1.64
       why: "asyncRewake: waits while idle; exit 2 wakes the session with the bundle"
+      without: an idle session doesn't wake for new messages
+    # PostToolBatch since 2.1.118. PostToolUse is known since 1.0.23 and takes
+    # additionalContext since 1.0.65; PostToolUseFailure is known since 2.0.56.
     - event: PostToolBatch
       run: tool
       op: tool
       timeout: 10
       since: 2.1.118
-      fallback: [PostToolUse, PostToolUseFailure]
+      fallback:
+        - {event: PostToolUse, since: 1.0.65}
+        - {event: PostToolUseFailure, since: 2.0.56}
       why: once a batch of tool calls is done, adds the owner's messages and the waiting notice as additionalContext
+      without: your messages wait for the end of a turn
     # Only shell commands, and only inside a subagent; it never contacts the daemon.
+    # PreToolUse is known since 1.0.23 and takes updatedInput since 2.0.10; hooks see
+    # agent_id since 2.1.69 (CHANGELOG), without which the hook can't tell a subagent.
     - event: PreToolUse
       run: pre-tool
       op: mark-subagent
       matcher: Bash
       timeout: 10
+      since: 2.1.69
       why: inside a subagent, prefixes an aboard command with export ABOARD_SUBAGENT=<agent_id> through updatedInput, so it can't act as the parent; never denies
+      without: a subagent's aboard commands act as your agent
+    # Known since 1.0.85.
     - event: SessionEnd
       run: end
       op: end
       timeout: 10
+      since: 1.0.85
       why: closes the session
+      without: a session you quit stays open until the daemon sees its process gone
   mid_turn: tool-hook
   waiting_notice: true
 

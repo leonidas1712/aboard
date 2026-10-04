@@ -1004,7 +1004,13 @@ $defs:
       0.1.0+dev.3f9a0c1e2b4d installs"). A harness reached through a file Aboard installs
       inside it rather than hooks (omp's extension) has a check named <check>_extension
       instead of <check>_hooks: <check>_extension_missing (an error), extension_outdated
-      or extension_edited.
+      or extension_edited. aboard init writes only the hooks the harness's version runs;
+      a check named <check>_version warns about the rest: <check>_hooks_unsupported names
+      them and what the person loses ("claude-code: Claude Code 2.0.50 doesn't run
+      Aboard's Stop and PreToolUse hooks, so an idle session doesn't wake for new
+      messages and …", fix "update Claude Code to 2.1.69 or later, then run aboard
+      init"), and <check>_version_unknown says the version couldn't be read, so only
+      what the oldest supported version runs was installed.
     type: object
     required: [checks]
     properties:
