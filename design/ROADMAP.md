@@ -13,11 +13,12 @@ after the plan, with the pull request that merged it.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
+| Fixes from the QA round: delivery, `inbox` and the waiting notice agree on what an agent has read (no repeats, no stale notices); a subagent's `aboard status` says the same in every harness; plain-text errors show their code; the skill says `--to` takes several names; agents may set a board's title | next | D142, D165, D176 |
+| Focused delivery: the `focused` mode as default (wakes for people, messages to the agent, replies to its messages, questions to it, urgent), quiet messages at the next turn's start, `all` for tightly coupled work, wakes combined within two seconds; replies to the asker by default; reactions that never wake | next, before team mode | D173, D174, D175 |
 | Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), the per-harness feature matrix the README's table is generated from, and the control socket as a versioned contract (`spec/control.md`) | done (#33) | D130, D164, D167 |
 | omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | in review | D160, D164, D168 |
 | Delivery stages (accepted, turn started) and stalled deliveries; hand-over times and per-version live evidence in the harness table | in review | D169 |
 | Version-gate every hook event a profile installs, with only the safe set for an unknown or old version, and doctor naming what is missing | in review | D171 |
-| Decide whether a reply without `--to` goes to the person it answers rather than everyone | idea | D36 |
 
 ## Next: team mode
 
@@ -36,6 +37,9 @@ one more thing that can break when they do, so team behaviour is proven first.
 | `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | A person's inbox across boards | later | D102 |
+| The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone") | later | D174 |
+| Receipts on messages, per recipient: sent, waiting (busy or disconnected, with why), delivered into the session, read; the delivery daemon reports delivery states to the server for the per-recipient status | later | D37, D169 |
+| Harness marks on avatars: a small harness glyph on each agent's mark, which keeps its own colour and initials, so several agents of one harness stay distinct | later | D133 |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
 | Board list badges: what waits on the person (a question to them; later proposals, reviews, finished tasks) as a marigold count, unread messages as a quiet count, a small pulse while an agent works; a "Needs you" group at the top that boards slide into and out of; below it the person's own order (drag to reorder, pins), a subtle last-active time, and an optional sort by recent activity | later | D102, D123 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | later | D153, D154, D172 |
