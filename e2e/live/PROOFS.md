@@ -15,14 +15,49 @@ make live                                  # every scenario for every harness, a
 make live HARNESS=codex                    # one harness: its scenarios and its own tests
 make live RUN=TestOwnerReachesBusy/claude-code
 LIVE_KEEP=1 make live RUN=TestWakesAndReplies   # keep the panes and logs even on a pass
+make live LIVE_PARALLEL=6                  # at most 6 tests at once (default 12)
+make live-affected                         # only the harnesses your changes against origin/main touch
+make live-affected BASE=HEAD~3             # the same, against another base
 make live-smoke                            # one prompt per harness: does its model answer?
 make harness-table                         # then write the results into the README's table
 ```
 
-`make live` runs `go test -tags live -count=1 -v -timeout 60m ./e2e/live/...`; `RUN` is
-passed to `-run` and `HARNESS` (a harness's name, or several separated by commas) picks
-the harnesses. Tests run in parallel, each with its own scratch directory, port and tmux
-server.
+`make live` runs `go test -tags live -count=1 -v -timeout 60m -parallel 12 ./e2e/live`;
+`RUN` is passed to `-run`, `HARNESS` (a harness's name, or several separated by commas)
+picks the harnesses, and `LIVE_PARALLEL` sets `-parallel`.
+
+**Every test runs in parallel.** Each test has its own lab: scratch directory, `HOME`,
+Aboard state, port and tmux server, so no test waits for another. Every top-level test
+calls `t.Parallel()` (through `parallel(t)` in `timing_test.go`, or in `eachHarness`):
+go test runs a top-level test that doesn't one at a time, holding up the whole run until
+its subtests end. The two things labs could otherwise share are handed out once per
+run: the local server's port, and the length of a test's slow task, which tests find
+with `pgrep "sleep <seconds>"` across the whole machine. `LIVE_PARALLEL` (default 12)
+caps how many run at once; see [engineering/testing.md](../../engineering/testing.md)
+for choosing it. The run ends with a table of how long each test took (from when it
+started running to the end of its teardown), longest first, then their sum, the wall
+time and the effective parallelism: the sum over the wall time.
+
+**Running only what a change touches.** `make live-affected` compares your branch,
+committed or not, with `BASE` (default `origin/main`), and runs `make live` for only the
+harnesses the changed files touch; a harness picked this way runs its own scenarios and
+every cross-harness pair it is in. It prints its decision first, for example
+`runs omp + cross pairs, because adapters/omp/aboard.ts changed`.
+`go run ./e2e/live/affected` prints the decision without running anything. The mapping,
+first match wins, is the table in `e2e/live/affected/main.go`:
+
+| Changed file | Runs |
+| --- | --- |
+| `skills/` (the skill every agent follows) | every harness |
+| `*.md`, `docs/`, `design/`, `web/`, `examples/`, `.github/` | nothing |
+| `e2e/live/support.json`, `e2e/live/affected/` | nothing |
+| `e2e/live/`, `e2e/support/` | every harness |
+| the rest of `e2e/`, and `*_test.go` anywhere else | nothing |
+| `adapters/<harness>/`, `server/internal/harness/<harness>/` | that harness and its cross-harness pairs |
+| `server/internal/delivery/` (daemon, hooks, control socket), `server/internal/cli/`, the rest of `server/` | every harness |
+| anything else | every harness, to be safe |
+
+When every harness is picked one by one, everything runs.
 
 **Prerequisites.** Go, tmux, and the harnesses logged in: Claude Code through
 `CLAUDE_CODE_OAUTH_TOKEN` (below), Codex (`codex login status` succeeds, and `codex

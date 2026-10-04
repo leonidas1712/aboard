@@ -76,7 +76,9 @@ func runTests(m *testing.M) int {
 	}
 	newBinary = filepath.Join(dir, "aboard")
 	go exitWithParent(owned)
+	began := time.Now()
 	code := m.Run()
+	printTimings(os.Stdout, time.Since(began))
 	if err := saveResults(); err != nil {
 		fmt.Fprintln(os.Stderr, "live: save the results for the harness table:", err)
 		code = 1
@@ -421,15 +423,32 @@ func copyFile(t *testing.T, src, dst string) {
 	}
 }
 
+// givenAddrs are the addresses freeAddr has handed out in this run.
+var givenAddrs = struct {
+	sync.Mutex
+	m map[string]bool
+}{m: map[string]bool{}}
+
+// freeAddr returns a local address no process listens on, and never the same one twice
+// in a run: labs run in parallel, and a lab's server starts some time after its address
+// is chosen, so the system could otherwise offer that port to another lab in between.
 func freeAddr(t *testing.T) string {
 	t.Helper()
-	var lc net.ListenConfig
-	l, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	givenAddrs.Lock()
+	defer givenAddrs.Unlock()
+	for {
+		var lc net.ListenConfig
+		l, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr := l.Addr().String()
+		_ = l.Close()
+		if !givenAddrs.m[addr] {
+			givenAddrs.m[addr] = true
+			return addr
+		}
 	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().String()
 }
 
 // home is the lab's home folder: HOME for everything the lab runs but omp, which has a

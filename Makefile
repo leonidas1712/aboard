@@ -17,7 +17,7 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-smoke harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check core-size harness-table-check test e2e extension-test vuln
@@ -114,12 +114,30 @@ extension-test:
 # Run it before a release and after any change to delivery, setup or upgrades. Each
 # scenario's result is saved in e2e/live/support.json; make harness-table then updates
 # the README's table.
+#
+# Every test runs in a lab of its own, so they all run in parallel, at most LIVE_PARALLEL
+# at once. More at once finishes sooner but runs more harnesses side by side: the
+# models' rate limits and the machine's memory and CPU set the ceiling (see
+# engineering/testing.md). The run ends with a table of how long each test took.
+LIVE_PARALLEL ?= 12
 live:
-	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 60m $(if $(RUN),-run '$(RUN)') ./e2e/live/...
+	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 60m -parallel $(LIVE_PARALLEL) $(if $(RUN),-run '$(RUN)') ./e2e/live
+
+## live-affected: make live for only the harnesses the changes against BASE (default origin/main) touch
+# The mapping from changed files to harnesses is the table in e2e/live/affected/main.go.
+# go run ./e2e/live/affected prints the decision without running anything.
+BASE ?= origin/main
+live-affected:
+	@$(REQUIRE_GO); plan="$$(go run ./e2e/live/affected -base '$(BASE)')"; \
+	case "$$plan" in \
+		none) ;; \
+		all) $(MAKE) --no-print-directory live ;; \
+		*) $(MAKE) --no-print-directory live HARNESS="$$plan" ;; \
+	esac
 
 ## live-smoke: start each harness once with the model make live runs it with, and check it answers (one model turn per harness)
 live-smoke:
-	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 10m -run 'TestModelSmoke' ./e2e/live/...
+	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 10m -parallel $(LIVE_PARALLEL) -run 'TestModelSmoke' ./e2e/live
 
 ## harness-table: write the README's harness table from the profiles and the live kit's results
 harness-table:

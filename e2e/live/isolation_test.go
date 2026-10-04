@@ -13,6 +13,7 @@ import (
 // names only the lab's folders. Every other doctor run in the suite is checked the same
 // way (lab.exec). It needs no harness login and spends no model turn.
 func TestLabStaysOutOfYourHome(t *testing.T) {
+	parallel(t)
 	l := newLab(t)
 	l.run("init", "--yes", "--allow-commands")
 	proj := l.project("proj", "codex")

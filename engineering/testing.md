@@ -29,7 +29,7 @@ them where they protect the most, in this order.
 | --- | --- | --- | --- |
 | Contract suites | Every adapter of a port behaves the same | `make quick`, `make check` | Store (`board/boardtest`), delivery adapter, journal and server (`delivery/deliverytest`), the control socket's messages against spec/control.md, every harness (`make conformance`); launcher and monitor suites come with those ports |
 | End-to-end (`/e2e`) | Features work through the real binary, as documented | `make check` | Yes |
-| Live (`e2e/live`) | Delivery, setup and upgrades work in the real harnesses; the support matrix in the README comes from its results | `make live` (`HARNESS=<name>` for one), before each release and after any change to delivery, setup or upgrades | Yes |
+| Live (`e2e/live`) | Delivery, setup and upgrades work in the real harnesses; the support matrix in the README comes from its results | `make live` (`HARNESS=<name>` for one, `make live-affected` for what a change touches), before each release and after any change to delivery, setup or upgrades | Yes |
 | Integration | API behaviour, permissions, error codes, OpenAPI conformance, concurrency | `make quick`, `make check` | Yes |
 | Unit | Pure logic with real edge cases | `make quick`, `make check` | Yes |
 | Docs as tests | Every command the docs show still works, with the output they show | `make check` | The quickstart; the rest as pages are written |
@@ -149,6 +149,28 @@ ping-pong and never started the wiring check), so Claude Code and omp run Sonnet
 When a scenario is too hard for the cheap model, step it up one tier (Haiku to Sonnet,
 Luna to Sol), never straight to the top model. `make live-smoke` checks each harness
 answers one prompt with its model before a full run spends turns.
+
+#### How many live tests run at once
+
+Every live test has a lab of its own, so they all run in parallel, at most
+`LIVE_PARALLEL` at once (default 12, passed to go test as `-parallel`). A full run's
+tests add up to about 28 minutes and a passing one takes under two, so a run takes
+about the sum over `LIVE_PARALLEL` plus the longest test. The run ends with a table of
+each test's time, their sum, the wall time and the effective parallelism, which shows
+the real figures. Two things set the ceiling:
+
+- **Model rate limits.** The Claude Code and omp tests all use the one
+  `CLAUDE_CODE_OAUTH_TOKEN`, and the Codex tests the one Codex login, so more tests at
+  once means more requests at once on the same account. A test that fails with a rate
+  limit error in its pane wants a lower `LIVE_PARALLEL`, not a retry.
+- **The machine.** Each test runs one or two harnesses (a few hundred MB each), an
+  aboard server and a daemon. Some checks are timed (a wake within 2 seconds, a killed
+  session closed within 5), and a machine short of CPU makes them fail for the wrong
+  reason. On a laptop with 16 GB, or when the timed checks fail only in a full run,
+  run with `LIVE_PARALLEL=6`.
+
+`make live-affected` runs only the harnesses a change touches
+([e2e/live/PROOFS.md](../e2e/live/PROOFS.md) has the mapping).
 
 ### Extension tests
 

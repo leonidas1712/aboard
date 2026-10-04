@@ -21,7 +21,7 @@ import (
 func TestCodexWaitsForReplyInItsTurn(t *testing.T) {
 	only(t, "codex")
 	requireCodex(t)
-	t.Parallel()
+	parallel(t)
 	l := newLab(t)
 	l.pairCLI()
 	reviewer := l.startCodex("asker", l.project("project", "codex"))
@@ -57,7 +57,7 @@ func TestCodexWaitsForReplyInItsTurn(t *testing.T) {
 func TestCodexSandboxNeedsTheAllowRule(t *testing.T) {
 	only(t, "codex")
 	setup := requireCodex(t)
-	t.Parallel()
+	parallel(t)
 	l := newLab(t)
 	record(t, l.driverFor("codex"), "SandboxNeedsTheAllowRule")
 	home := l.codexHome(setup)

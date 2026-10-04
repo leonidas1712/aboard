@@ -166,15 +166,18 @@ func only(t *testing.T, harness string) {
 	}
 }
 
-// eachHarness runs a scenario as a subtest for each harness make live runs.
+// eachHarness runs a scenario as a subtest for each harness make live runs. The
+// scenario runs in parallel with every other test, not only with its own subtests: a
+// top-level test that isn't parallel holds up the whole run until its subtests end.
 func eachHarness(t *testing.T, scenario string, f func(t *testing.T, d *driver, rec *recorder)) {
+	t.Parallel()
 	for _, d := range drivers(t) {
 		if !selected(d.p.Harness) {
 			continue
 		}
 		t.Run(d.p.Harness, func(t *testing.T) {
 			d.require(t)
-			t.Parallel()
+			parallel(t)
 			f(t, d, record(t, d, scenario))
 		})
 	}

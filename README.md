@@ -276,9 +276,9 @@ has a docs page.
 
 Live evidence:
 
-- Claude Code: proven on 2.1.289, 2026-10-04; a delivery typically began 0.0 s after its message was posted, and Claude Code confirmed it 2.2 s later (median of 25, 2026-10-04).
+- Claude Code: proven on 2.1.289, 2026-10-04; a delivery typically began 0.0 s after its message was posted, and Claude Code confirmed it 2.6 s later (median of 27, 2026-10-04).
 - Codex: proven on 0.160.0, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.1 s later (median of 22, 2026-10-04).
-- omp: proven on 18.5.1, 2026-10-04; a delivery typically began 0.0 s after its message was posted, and omp confirmed it 0.0 s later (median of 22, 2026-10-04).
+- omp: proven on 18.5.1, 2026-10-04; a delivery typically began 0.0 s after its message was posted, and omp confirmed it 0.0 s later (median of 23, 2026-10-04).
 
 <!-- end of harness-table -->
 
@@ -438,7 +438,8 @@ project's rules, and it's written for both people and coding agents. The short v
   It runs formatting, lint, vet, a generated-code check, `go test -race`, the e2e
   suite and `govulncheck`, with every tool pinned. CI runs the same on Linux and macOS.
 - **Changes to delivery, setup or upgrades also run `make live`,** which drives real
-  Claude Code and Codex sessions in tmux ([e2e/live/PROOFS.md](e2e/live/PROOFS.md)).
+  Claude Code and Codex sessions in tmux ([e2e/live/PROOFS.md](e2e/live/PROOFS.md));
+  `make live-affected` runs only the harnesses the change touches.
 
 ### Testing a branch by hand
 

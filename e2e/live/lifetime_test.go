@@ -34,6 +34,7 @@ type labProcesses struct {
 // and delivery daemon must stop anyway. This spends no model turns: the pane runs a
 // shell command, not a harness.
 func TestLabStopsWhenTheTestThatStartedItIsKilled(t *testing.T) {
+	parallel(t)
 	helper := command(t.Context(), os.Args[0], "-test.run=^TestHelperStartsALab$", "-test.count=1")
 	helper.Env = append(os.Environ(), builtVar+"="+filepath.Dir(newBinary), helperVar+"=1")
 	out, err := helper.StdoutPipe()
