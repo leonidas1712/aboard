@@ -20,7 +20,8 @@
 #                                       harness-table-check test e2e
 #        web/ too                       make web-check as well
 #      A change to delivery, setup or upgrades also gets a note that make live must pass
-#      before merging. The script doesn't run make live: it needs harness logins.
+#      before merging. With --live, the script runs make live-affected, which needs
+#      harness logins, and merges only if it passes.
 #   5. Push the branch, merge the PR with a merge commit (retrying while GitHub says the
 #      base branch was modified), and confirm GitHub reports it MERGED.
 #   6. Only after a confirmed merge: remove the worktree and local branch if this script
@@ -30,7 +31,8 @@
 #
 #   --dry-run    print the plan (worktree, predicted conflicts, checks) and change
 #                nothing except fetching from origin
-#   --live       also print which harnesses make live-affected would run
+#   --live       also run make live-affected after the checks, and merge only if it
+#                passes
 #   --classify   read changed paths on standard input and print the checks they call
 #                for, one line per item ("make <targets>", "live-note"), then exit
 #
@@ -219,7 +221,7 @@ if [ "$dry_run" = yes ]; then
 	plan=$(git diff --name-only "origin/main...$head_ref" | classify)
 	explain "$plan"
 	if [ "$live" = yes ]; then
-		say "Live: a real run prints the make live-affected plan after merging main."
+		say "Live: a real run runs make live-affected after the checks, and merges only if it passes."
 	fi
 	say "Then: push $branch, gh pr merge $pr --merge, confirm MERGED, clean up, delete origin/$branch."
 	say "Dry run: nothing changed."
@@ -303,18 +305,15 @@ if [ -n "$make_line" ]; then
 	say "Checks passed."
 fi
 if [ "$live" = yes ]; then
-	if command -v go >/dev/null 2>&1; then
-		say "Live: what make live-affected would run (this script doesn't run it):"
-		if live_plan=$(go run ./e2e/live/affected -base origin/main 2>&1); then
-			printf '%s\n' "$live_plan" | sed 's/^/  /'
-			say "  Run it yourself, with harness logins: cd $wt && make live-affected"
-		else
-			printf '%s\n' "$live_plan" | sed 's/^/  /' >&2
-			say "Live: couldn't work out the plan; run make live-affected in $wt yourself." >&2
-		fi
-	else
-		say "Live: go isn't installed, so the make live-affected plan can't be printed." >&2
+	live_log="${TMPDIR:-/tmp}"
+	live_log="${live_log%/}/land-pr-$pr-live.log"
+	say "Running: make live-affected (in $wt; output in $live_log)"
+	if ! make live-affected >"$live_log" 2>&1; then
+		say "Live tests failed. Lines that look like the failure:" >&2
+		grep -E -- '--- FAIL|^FAIL|  fail  |\*\*\*' "$live_log" | head -20 | sed 's/^/  /' >&2 || true
+		fail 3 "fix the failure in $wt, commit, and run scripts/land-pr --live $pr again; full output in $live_log"
 	fi
+	say "Live tests passed."
 fi
 
 # Push and merge.

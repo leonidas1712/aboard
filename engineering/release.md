@@ -168,9 +168,9 @@ GitHub Actions doesn't run the checks today, so local checks are the merge gate,
    and says what to do next.
 
 `--dry-run` prints the plan, including any conflict with `main`, and changes nothing.
-`make live` needs harness logins, so the script never runs it: it notes when a change
-touches delivery, setup or upgrades, which must pass `make live` before merging, and
-`--live` prints which harnesses `make live-affected` would run. The script's header
+It notes when a change touches delivery, setup or upgrades, which must pass `make live`
+before merging. `--live` runs `make live-affected` after the checks, which needs harness
+logins, and merges only if it passes; without it, the script doesn't run the live tests. The script's header
 lists its exit codes, and `e2e/landpr_test.go` runs it against a local repository
 with a fake `gh`.
 
