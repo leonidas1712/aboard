@@ -137,6 +137,7 @@ In this order.
 | A nightly live run against the latest Claude Code and Codex | Needs harness logins in CI or a self-hosted runner; `make live` before each release until then |
 | SDKs published to PyPI and npm in step with the API | When the SDK step lands |
 | Versioned docs | Once released versions differ |
+| Aboard that small models use well: tune the skill, delivery text and command output so cheaper models follow multi-step board work (they skipped turns in the live ping-pong), measured with a small-model eval; supports swarms of many cheap workers with a few stronger coordinators | Eval-style work with aboard-lab |
 | A public "add Aboard support" contract for harness makers: report state and session over the control socket with a monotonic sequence, and certify the integration with the conformance kit, with no code in this repository | After omp proves the extension connection |
 | Subagent seats: `aboard sub new` and `aboard sub claim`, a seat linked to its parent, finished when the subagent stops, nested in the board view | D165 |
 | Hermes and OpenClaw support, and automatic delivery for any harness beyond Claude Code, Codex and omp | Needs the maintainer's approval per harness (D130) |
