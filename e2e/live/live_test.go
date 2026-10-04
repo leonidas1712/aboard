@@ -44,19 +44,37 @@ func TestMain(m *testing.M) {
 	os.Exit(runTests(m))
 }
 
+// builtVar names a directory that already holds the aboard binary TestMain builds. A
+// test that runs this test binary again as a helper sets it, so the helper doesn't build
+// it a second time.
+const builtVar = "ABOARD_LIVE_BUILT"
+
+// exitWithVar makes an aboard process stop once the process it names has exited. Each
+// lab sets it to this test process, so a local server, delivery daemon or hook a test
+// started stops even when the test process is killed before its cleanups run.
+const exitWithVar = "ABOARD_EXIT_WITH_PID"
+
 func runTests(m *testing.M) int {
 	realConfig = configSums()
-	dir, err := os.MkdirTemp("", "aboard-live-bin-")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "create temp dir:", err)
-		return 1
+	// owned is the directory this process built aboard into and removes; empty when a
+	// helper reuses the build of the test that runs it.
+	var owned string
+	dir := os.Getenv(builtVar)
+	if dir == "" {
+		tmp, err := os.MkdirTemp("", "aboard-live-bin-")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "create temp dir:", err)
+			return 1
+		}
+		defer func() { _ = os.RemoveAll(tmp) }()
+		if err := buildAboard(context.Background(), filepath.Join(tmp, "aboard"), ""); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		dir, owned = tmp, tmp
 	}
-	defer func() { _ = os.RemoveAll(dir) }()
 	newBinary = filepath.Join(dir, "aboard")
-	if err := buildAboard(context.Background(), newBinary, ""); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
+	go exitWithParent(owned)
 	code := m.Run()
 	if err := saveResults(); err != nil {
 		fmt.Fprintln(os.Stderr, "live: save the results for the harness table:", err)
@@ -67,6 +85,24 @@ func runTests(m *testing.M) int {
 		return 1
 	}
 	return code
+}
+
+// exitWithParent exits this test process once the process that started it (go test)
+// is gone. Killing go test would otherwise leave the test binary running on its own
+// until its timeout, spending model turns; exiting lets each lab's watchdog stop what
+// the lab started. It removes the directory owned, if any, first.
+func exitWithParent(owned string) {
+	parent := os.Getppid()
+	tick := time.NewTicker(200 * time.Millisecond)
+	for range tick.C {
+		if os.Getppid() != parent {
+			fmt.Fprintln(os.Stderr, "live: the process that started the tests is gone; stopping")
+			if owned != "" {
+				_ = os.RemoveAll(owned)
+			}
+			os.Exit(1)
+		}
+	}
 }
 
 // buildAboard builds aboard to out, stamped with version when it isn't empty.
@@ -267,14 +303,62 @@ func newLabWith(t *testing.T, binary string) *lab {
 		"CODEX_HOME="+filepath.Join(dir, "codex-home"),
 		// omp's agent folder in the lab's scratch home for omp, never the person's ~/.omp.
 		"PI_CODING_AGENT_DIR="+filepath.Join(dir, "omp-home", ".omp", "agent"),
+		exitWithVar+"="+strconv.Itoa(os.Getpid()),
 	)
 	if err := os.MkdirAll(filepath.Join(dir, "codex-home"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	l.claudeConfig = filepath.Join(dir, "claude-config")
 	l.vars = append(l.vars, "CLAUDE_CONFIG_DIR="+l.claudeConfig)
+	l.watchdog(sockDir)
 	t.Cleanup(l.teardown)
 	return l
+}
+
+// watchdogScript stops what a lab started once the test process is gone without having
+// run its cleanups: interrupted, timed out or killed. It ends the lab's tmux server,
+// whose panes run the harnesses, kills what is left of them, then every process whose
+// command line names the lab's directory (its aboard and Codex's app server). Its
+// arguments come from the environment, so its own command line names nothing it kills.
+const watchdogScript = `
+while kill -0 "$LAB_OWNER" 2>/dev/null; do sleep 1; done
+panes=$(tmux -S "$LAB_TMUX" list-panes -a -F '#{pane_pid}' 2>/dev/null)
+tmux -S "$LAB_TMUX" kill-server 2>/dev/null
+for _ in 1 2 3 4 5; do
+	running=
+	for p in $panes; do kill -0 "$p" 2>/dev/null && running=1; done
+	[ -z "$running" ] && break
+	sleep 1
+done
+for p in $panes; do kill -KILL -- "-$p" "$p" 2>/dev/null; done
+for sig in TERM TERM KILL; do
+	pkill -"$sig" -f "$LAB_DIR" || break
+	sleep 1
+done
+rm -rf "$LAB_SOCKETS"
+`
+
+// watchdog starts a process that stops what the lab starts if the test process dies
+// before its cleanups run (watchdogScript). It runs in a process group of its own, so an
+// interrupt from the terminal reaches the test but not the watchdog. The lab's cleanup
+// stops it.
+func (l *lab) watchdog(sockDir string) {
+	l.t.Helper()
+	cmd := command(context.Background(), "sh", "-c", watchdogScript)
+	cmd.Env = append(os.Environ(),
+		"LAB_OWNER="+strconv.Itoa(os.Getpid()),
+		"LAB_TMUX="+l.tmux,
+		"LAB_DIR="+l.dir,
+		"LAB_SOCKETS="+sockDir,
+	)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		l.t.Fatalf("start the lab's watchdog: %v", err)
+	}
+	l.t.Cleanup(func() {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) // the script and its sleep
+		_ = cmd.Wait()
+	})
 }
 
 func copyFile(t *testing.T, src, dst string) {

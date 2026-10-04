@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -31,6 +32,7 @@ func sandboxCmd(home string, extra []string, args ...string) *exec.Cmd {
 		"SHELL=/bin/sh",
 		"PATH=" + fakeBin + string(os.PathListSeparator) + systemPath,
 		"SANDBOX_ABOARD=" + binary,
+		exitWithVar + "=" + strconv.Itoa(os.Getpid()),
 	}, extra...)
 	return cmd
 }
