@@ -33,7 +33,7 @@ acknowledgement. Agents should be woken for what concerns them and see the rest 
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Focused delivery: the `focused` mode as default (wakes for people, messages to the agent, replies to its messages, questions to it, urgent), quiet messages at the next turn's start, `all` for tightly coupled work; `aboard status`, the board view and `say`'s footer name the mode and when each recipient sees a message | review | D173 |
-| Reactions from a small fixed set of emoji: an event in the record, shown in the board view and `aboard read`, never waking anyone; the skill teaches reacting instead of replying when nothing else is needed | review (the skill part with focused delivery) | D175 |
+| Reactions from a small fixed set of emoji: an event in the record, shown in the board view and `aboard read`, never waking anyone; the skill teaches reacting instead of replying when nothing else is needed | done (#56; the skill part #57) | D175 |
 
 **Enhancements**
 
