@@ -20,15 +20,16 @@ import (
 
 // swarmAgentRow is one agent of aboard swarm up or ps --json.
 type swarmAgentRow struct {
-	Name    string `json:"name"`
-	Harness string `json:"harness"`
-	Action  string `json:"action"`
-	State   string `json:"state"`
-	Start   string `json:"start"`
-	Session string `json:"session"`
-	Seated  bool   `json:"seated"`
-	Attach  string `json:"attach"`
-	Handle  string `json:"handle"`
+	Name      string `json:"name"`
+	Harness   string `json:"harness"`
+	Action    string `json:"action"`
+	State     string `json:"state"`
+	Start     string `json:"start"`
+	StartNote string `json:"start_note"`
+	Session   string `json:"session"`
+	Seated    bool   `json:"seated"`
+	Attach    string `json:"attach"`
+	Handle    string `json:"handle"`
 }
 
 // swarmOut is what aboard swarm up and ps print with --json.
@@ -125,7 +126,7 @@ func (o swarmOut) agent(t *testing.T, name string) swarmAgentRow {
 // add sets a harness up in a project folder of its own, the way the live kit does for
 // that harness (aboard init in the project; the folder trusted; Codex's hooks trusted;
 // omp's scratch home), and adds the agent to the board file.
-func (s *swarmLab) add(d *driver, name string) {
+func (s *swarmLab) add(d *driver, name string, prompt ...string) {
 	s.t.Helper()
 	dir := s.project(name+"-project", d.p.Harness)
 	var args []string
@@ -167,6 +168,9 @@ func (s *swarmLab) add(d *driver, name string) {
 			quoted[i] = strconv.Quote(a)
 		}
 		entry += "    args: [" + strings.Join(quoted, ", ") + "]\n"
+	}
+	if len(prompt) == 1 {
+		entry += fmt.Sprintf("    prompt: %q\n", prompt[0])
 	}
 	s.entries = append(s.entries, entry)
 }
@@ -374,14 +378,19 @@ func TestSwarmUpResumesTheLastSession(t *testing.T) {
 	eachHarness(t, "SwarmUpResumesTheLastSession", func(t *testing.T, d *driver, _ *recorder) {
 		s := newSwarmLab(t)
 		d.setUp(s.lab)
-		s.add(d, "solo")
+		// A first turn, so the harness has saved the conversation it resumes.
+		s.add(d, "solo", "Run this command now, and nothing else: aboard say FIRST-TURN")
 		s.writeFile("resume", "tmux")
+		since := time.Now()
 		up := s.swarm("up", "--wait", "0")
-		s.waitSeated(s.swarmPanes(up))
+		panes := s.swarmPanes(up)
+		s.waitSeated(panes)
+		s.waitMessage("solo", since, "FIRST-TURN", 5*time.Minute)
+		panes[0].waitIdle(3 * time.Minute)
 		first := s.swarm("ps").agent(t, "solo")
 
 		s.swarm("down", "solo")
-		since := time.Now()
+		since = time.Now()
 		s.postAsOwner("resume", "@solo", "Run this command now, and nothing else: aboard say RESUMED-PONG")
 		again := s.swarm("up", "--wait", "0")
 		if a := again.agent(t, "solo"); a.Action != "resumed" {
@@ -392,6 +401,34 @@ func TestSwarmUpResumesTheLastSession(t *testing.T) {
 			t.Fatalf("solo should be back in %s, resumed: %+v", first.Session, a)
 		}
 		s.waitMessage("solo", since, "RESUMED-PONG", 5*time.Minute)
+	})
+}
+
+// A session that ran no turn has no conversation its harness can resume (Claude Code
+// saves one only from its first turn), so the next swarm up starts it fresh, says why,
+// and the agent takes its seat again. A Codex session exists only from its first turn,
+// so it doesn't apply there.
+func TestSwarmUpStartsFreshAfterNoTurn(t *testing.T) {
+	eachHarness(t, "SwarmUpStartsFreshAfterNoTurn", func(t *testing.T, d *driver, rec *recorder) {
+		if d.p.Lifecycle.ResumeStart != "at-open" {
+			rec.notApplicable(d.p.Harness + "'s session starts only with its first turn")
+		}
+		s := newSwarmLab(t)
+		d.setUp(s.lab)
+		s.add(d, "idle", "")
+		s.writeFile("fresh", "tmux")
+		up := s.swarm("up", "--wait", "0")
+		s.waitSeated(s.swarmPanes(up))
+		first := s.swarm("ps").agent(t, "idle")
+		s.swarm("down", "idle")
+		again := s.swarm("up", "--wait", "0")
+		if a := again.agent(t, "idle"); a.Action != "started" || !strings.Contains(a.StartNote, "never ran a turn") {
+			t.Fatalf("swarm up should start idle fresh, saying why: %+v", a)
+		}
+		s.waitSeated(s.swarmPanes(again))
+		if a := s.swarm("ps").agent(t, "idle"); a.Session == first.Session || a.Start != "fresh" {
+			t.Fatalf("idle should hold a new session: %+v (first %s)", a, first.Session)
+		}
 	})
 }
 

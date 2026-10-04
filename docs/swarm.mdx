@@ -120,6 +120,11 @@ aboard swarm up
   codex   codex        tmux  resumed  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:codex
 ```
 
+Only a session that ran at least one turn is resumed: a harness saves a conversation only
+from its first turn (Claude Code), so an agent whose last session never ran one starts
+fresh, and `swarm up` and `swarm ps` say so ("started fresh: the last session never ran a
+turn"). A resumed session that quits as it starts, because its harness no longer has the
+conversation, is started once more, fresh, and `swarm up` says that too.
 `aboard swarm up --fresh` starts new sessions instead. `aboard swarm down` with no names
 stops every agent.
 

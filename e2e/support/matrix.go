@@ -128,7 +128,7 @@ var Capabilities = []Capability{
 		return Supported, ""
 	}},
 	{
-		ID: "launcher", Label: "Started by a launcher", Scenarios: []string{"SwarmUpStartsEveryHarness", "SwarmUpResumesTheLastSession"},
+		ID: "launcher", Label: "Started by a launcher", Scenarios: []string{"SwarmUpStartsEveryHarness", "SwarmUpResumesTheLastSession", "SwarmUpStartsFreshAfterNoTurn"},
 		declare: func(p Profile) (Status, string) {
 			switch {
 			case len(p.Interactive.Start) == 0:

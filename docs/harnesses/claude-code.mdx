@@ -141,7 +141,9 @@ subagent could remove it.
 `ABOARD_AGENT` and a one-time launch ticket (`ABOARD_LAUNCH`) in its environment. The
 session-start hook sees both, since Claude Code's hooks run with its environment, and
 hands the ticket to the daemon, so the session takes its seat as it opens. An agent that
-had a session is resumed with `claude --resume <id> "<prompt>"`, which keeps the session
+had a session that ran a turn is resumed with `claude --resume <id> "<prompt>"` (Claude
+Code saves a conversation only from its first turn, and quits with "No conversation found"
+when asked to resume one it doesn't have, so a session that ran none starts fresh), which keeps the session
 id, so the session binds again by itself and the messages that waited arrive when the
 prompt's turn ends.
 
