@@ -102,7 +102,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 	scope := flags.String("scope", scopeGlobal, "global: every project (under your home directory); project: only this directory")
 	var harnesses listFlag
 	flags.Var(&harnesses, "harness", "the harnesses to set up, comma separated (default: every one found)")
-	mode := flags.String("delivery", "", "the delivery mode for agents on this machine without their own: auto, humans or off")
+	mode := flags.String("delivery", "", "the delivery mode for agents on this machine without their own: focused, all, humans or off")
 	allow := flags.Bool("allow-commands", false, "let agents run aboard commands without a permission prompt")
 	if _, err := a.parse(flags, args, use, 0, 0); err != nil {
 		return err
@@ -129,7 +129,7 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		known = append(known, harnessSetup{Name: h.Profile().Harness, Detected: h.Detected(a.henv())})
 	}
 	interactive := !*yes && a.interactive()
-	current := delivery.ModeAuto
+	current := delivery.ModeFocused
 	if interactive || c.delivery != "" {
 		// The empty AgentRef holds the mode of agents without their own.
 		if current, err = a.deliveryMode(ctx, delivery.AgentRef{}); err != nil {
@@ -152,6 +152,9 @@ func runInit(ctx context.Context, a *app, args []string) error {
 	}
 	var modeChange *initDelivery
 	if c.delivery != "" {
+		if m, ok := delivery.ParseMode(string(c.delivery)); ok {
+			c.delivery = m // auto is the earlier name of all
+		}
 		modeChange = &initDelivery{Mode: c.delivery, Action: actionUnchanged}
 		if c.delivery != current {
 			modeChange.Action = actionUpdate
@@ -223,10 +226,11 @@ func (a *app) checkInitChoices(c initChoices, use string) error {
 	if c.delivery == "" {
 		return nil
 	}
-	if _, ok := delivery.ParseMode(string(c.delivery)); !ok {
-		return usageError(fmt.Sprintf("%q is not a delivery mode; use auto, humans or off.", c.delivery), use)
+	m, ok := delivery.ParseMode(string(c.delivery))
+	if !ok {
+		return usageError(fmt.Sprintf("%q is not a delivery mode; use focused, all, humans or off.", c.delivery), use)
 	}
-	return a.refuseInSession("Changing the delivery mode", "aboard init --delivery "+string(c.delivery))
+	return a.refuseInSession("Changing the delivery mode", "aboard init --delivery "+string(m))
 }
 
 // planInit works out every file change for the chosen harnesses, without writing.

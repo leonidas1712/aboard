@@ -9,6 +9,8 @@
  *   extension connection in Aboard's spec/control.md). While the session is idle the
  *   daemon sends bundles of messages over it; the extension adds each to the session,
  *   which starts a turn, and confirms it. It reports when turns start and end.
+ * - A turn's start: before the model runs, it asks the daemon for the messages that
+ *   waited quietly for the agent's next turn, and adds them to the turn.
  * - The owner's messages mid-turn: after each step that ran tools, it asks the daemon for
  *   the owner's messages and adds them as an aside, which omp adds at the next step
  *   without interrupting a running tool.
@@ -35,7 +37,7 @@ const INSTALLED_HOME = "{aboard_home}";
 /** The control protocol version this extension speaks. */
 const PROTOCOL = 1;
 /** This extension's version, sent in hello; it changes when the file does. */
-const EXTENSION_VERSION = "1";
+const EXTENSION_VERSION = "2";
 const HARNESS = "omp";
 
 /** One id per omp process, so a bundle handed to an earlier process goes again. */
@@ -221,6 +223,30 @@ class Link {
 	turn(busy: boolean): void {
 		this.#busy = busy;
 		this.#send({ op: busy ? "prompt" : "turn_end" });
+	}
+
+	/**
+	 * As a turn starts, before the model runs, asks the daemon for the messages that
+	 * waited for this turn (in focused mode, the quiet ones too) and returns them, as
+	 * the message before_agent_start adds, or nothing.
+	 */
+	async turnStart(): Promise<{ customType: string; content: string; display: boolean; attribution: "agent" } | undefined> {
+		if (!this.#connected) return undefined;
+		const answer = await ask({
+			op: "turn_start",
+			harness: HARNESS,
+			session: this.#session,
+			boot: BOOT,
+			started: new Date().toISOString(),
+		});
+		if (answer.error) {
+			log("turn start refused", { code: answer.error.code });
+			return undefined;
+		}
+		const text = (answer.bundle ?? "").trim();
+		if (text === "") return undefined;
+		log("turn start", { session: this.#session, bytes: text.length });
+		return { customType: "aboard", content: text, display: true, attribution: "agent" };
 	}
 
 	/** At a tool boundary of a busy turn, adds the owner's messages and the waiting notice. */
@@ -453,6 +479,11 @@ export default function aboard(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => session(ctx));
 	pi.on("session_switch", (_event, ctx) => session(ctx));
 	pi.on("session_branch", (_event, ctx) => session(ctx));
+	pi.on("before_agent_start", async (_event, ctx) => {
+		// The messages that waited quietly for this turn go in before the model runs.
+		const message = await guard("add what waited for the turn", () => (isSubagent(ctx) ? undefined : link.turnStart()));
+		return message ? { message } : undefined;
+	});
 	pi.on("agent_start", (_event, ctx) =>
 		guard("report a turn's start", () => {
 			if (!isSubagent(ctx)) link.turn(true);

@@ -38,12 +38,13 @@ type recipientNote struct {
 const (
 	outcomeNow       = "now"
 	outcomeTurnEnd   = "turn_end"
+	outcomeNextTurn  = "next_turn"
 	outcomeNotWoken  = "not_woken"
 	outcomeNoSession = "no_session"
 	outcomePerson    = "person"
 )
 
-var outcomeOrder = []string{outcomeNow, outcomeTurnEnd, outcomeNotWoken, outcomeNoSession, outcomePerson}
+var outcomeOrder = []string{outcomeNow, outcomeTurnEnd, outcomeNextTurn, outcomeNotWoken, outcomeNoSession, outcomePerson}
 
 // namesShown is how many names a group of recipients or senders lists before counting.
 const namesShown = 5
@@ -77,6 +78,7 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 		return nil
 	}
 	out := []recipientNote{}
+	text := textMessage(*m)
 	for _, mem := range r.JSON200.Members {
 		if mem.Name == m.From.Name || !addressedTo(m.To, mem) {
 			continue
@@ -91,7 +93,7 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 				d := string(*mem.Delivery)
 				n.Delivery = &d
 			}
-			n.Outcome = agentOutcome(n.Presence, n.Delivery)
+			n.Outcome = agentOutcome(n.Presence, n.Delivery, delivery.Concerns(text, mem.Name))
 		}
 		out = append(out, n)
 	}
@@ -117,14 +119,23 @@ func addressedTo(to []api.Target, mem api.Member) bool {
 
 // agentOutcome is when an agent sees a message from another agent: its delivery mode
 // first (off, or humans, never wakes it for an agent's message), then whether a session
-// is open and running a turn. An agent whose mode was never reported counts as auto.
-func agentOutcome(presence, mode *string) string {
-	if mode != nil && (*mode == string(delivery.ModeOff) || *mode == string(delivery.ModeHumans)) {
-		return outcomeNotWoken
+// is open, then, in focused mode, whether the message concerns it (one that doesn't
+// waits for its next turn), then whether a turn runs. An agent whose mode was never
+// reported counts as focused.
+func agentOutcome(presence, mode *string, concerns bool) string {
+	m := delivery.ModeFocused
+	if mode != nil {
+		if parsed, ok := delivery.ParseMode(*mode); ok {
+			m = parsed
+		}
 	}
 	switch {
+	case m == delivery.ModeOff || m == delivery.ModeHumans:
+		return outcomeNotWoken
 	case presence == nil || *presence == "no_session":
 		return outcomeNoSession
+	case m == delivery.ModeFocused && !concerns:
+		return outcomeNextTurn
 	case *presence == "idle":
 		return outcomeNow
 	default:
@@ -171,6 +182,8 @@ func recipientsText(rs []recipientNote) string {
 			parts = append(parts, list+pick(" gets it now.", " get it now."))
 		case outcomeTurnEnd:
 			parts = append(parts, list+pick(" gets it when its turn ends.", " get it when their turn ends."))
+		case outcomeNextTurn:
+			parts = append(parts, list+pick(" sees it at its next turn.", " see it at their next turn."))
 		case outcomeNotWoken:
 			parts = append(parts, list+pick(" won't be woken: it sees it when it checks its inbox.",
 				" won't be woken: they see it when they check their inbox."))

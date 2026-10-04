@@ -22,6 +22,10 @@ const (
 	OpRegister = "register"
 	// OpPrompt reports the session is busy and releases its waiting stop hook.
 	OpPrompt = "prompt"
+	// OpTurnStart does what OpPrompt does, and answers with what the starting turn is
+	// given: in focused mode, every message still waiting for the agent, the quiet ones
+	// included, which the caller adds to the turn before the model runs.
+	OpTurnStart = "turn_start"
 	// OpWait keeps the connection open while the session is idle, until a bundle or a
 	// release is sent back.
 	OpWait = "wait"

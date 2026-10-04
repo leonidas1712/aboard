@@ -37,6 +37,9 @@ export type Me = { id: string; kind: "human" | "agent"; name: string; board: str
 
 export type Presence = "working" | "idle" | "waiting" | "no_session";
 
+/** DeliveryMode is when an agent's session is woken; auto is all's earlier name. */
+export type DeliveryMode = "focused" | "all" | "humans" | "off" | "auto";
+
 export type Member = MemberRef & {
   id: string;
   harness: string | null;
@@ -44,6 +47,8 @@ export type Member = MemberRef & {
   joined_at: string;
   presence: Presence | null;
   presence_since: string | null;
+  /** delivery is the agent's delivery mode as its owner's daemon last reported it; null for people and when never reported. */
+  delivery?: DeliveryMode | null;
 };
 
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";

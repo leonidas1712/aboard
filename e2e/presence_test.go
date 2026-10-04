@@ -28,13 +28,13 @@ func TestStatusShowsTheAgentsPresence(t *testing.T) {
 	becomes("working")
 	stop := reviewer.startHook("stop")
 	becomes("idle")
-	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "Agent:  reviewer (from --as); delivery auto; idle\n") {
+	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "Agent:  reviewer (from --as); delivery focused; idle\n") {
 		t.Fatalf("the Agent line doesn't show idle:\n%s", r)
 	}
 	reviewer.hook("end", "")
 	stop.wait(5 * time.Second)
 	becomes("no_session")
-	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "; delivery auto; disconnected\n") {
+	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "; delivery focused; disconnected\n") {
 		t.Fatalf("the Agent line doesn't say disconnected:\n%s", r)
 	}
 }

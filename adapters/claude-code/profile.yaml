@@ -80,7 +80,7 @@ lifecycle:
 
 delivery:
   method: stop-hook
-  capabilities: [idle-hook, tool-boundary]
+  capabilities: [idle-hook, tool-boundary, turn-start]
   # Claude Code 1.0.23 to 2.1.100 ignore the whole settings file, the person's own
   # settings included, when it names one hook event they don't know; 2.1.101 and later
   # skip just that entry. So each hook carries the first version that runs it as
@@ -102,7 +102,7 @@ delivery:
       op: prompt
       timeout: 10
       since: 1.0.54
-      why: marks the session busy and releases a waiting stop hook
+      why: marks the session busy, releases a waiting stop hook, and adds the messages that waited quietly for the turn as additionalContext
       without: a session isn't marked busy when you type
     # The hook waits for as long as the session is idle. Stop is known since 1.0.31, but
     # asyncRewake only since 2.1.64; an older version drops it and runs the hook in the

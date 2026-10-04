@@ -151,15 +151,46 @@ func (r *rig) status() *delivery.Status {
 // hook is a waiting stop hook.
 type hook struct {
 	t      *testing.T
+	clock  *clock.Fake
 	conn   net.Conn
 	events chan delivery.Response
+}
+
+// passStep and passLimit are how the fake clock moves while a test waits for the daemon
+// to hand something over: by passStep every few milliseconds, up to passLimit in all, as
+// time passes for a real daemon, so messages it gathers for QueueGather go.
+const (
+	passStep  = 250 * time.Millisecond
+	passLimit = delivery.QueueGather + time.Second
+)
+
+// await returns the next value from ch, moving c on as time would pass meanwhile.
+func await[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string) (T, bool) {
+	t.Helper()
+	deadline := time.After(within)
+	moved := time.Duration(0)
+	for {
+		select {
+		case v, ok := <-ch:
+			return v, ok
+		case <-deadline:
+			t.Fatalf("%s got nothing", what)
+			var zero T
+			return zero, false
+		case <-time.After(5 * time.Millisecond): // a poll interval, not a wait for the daemon
+			if c != nil && moved < passLimit {
+				c.Advance(passStep)
+				moved += passStep
+			}
+		}
+	}
 }
 
 // wait connects a stop hook for a Claude Code session.
 func (r *rig) wait(id, boot string, resumed bool) *hook {
 	r.t.Helper()
 	c := r.dial()
-	h := &hook{t: r.t, conn: c, events: make(chan delivery.Response, 4)}
+	h := &hook{t: r.t, clock: r.clock, conn: c, events: make(chan delivery.Response, 4)}
 	registered := make(chan struct{})
 	r.t.Cleanup(func() { _ = c.Close() })
 	go func() {
@@ -202,16 +233,11 @@ func (r *rig) wait(id, boot string, resumed bool) *hook {
 // next returns what the hook got: a bundle or a release.
 func (h *hook) next() delivery.Response {
 	h.t.Helper()
-	select {
-	case resp, ok := <-h.events:
-		if !ok {
-			h.t.Fatal("the hook's connection closed without an event")
-		}
-		return resp
-	case <-time.After(within):
-		h.t.Fatal("the hook got nothing")
+	resp, ok := await(h.t, h.clock, h.events, "the hook")
+	if !ok {
+		h.t.Fatal("the hook's connection closed without an event")
 	}
-	return delivery.Response{}
+	return resp
 }
 
 func (h *hook) bundle() string {
@@ -361,10 +387,10 @@ func (r *rig) setMode(agent delivery.AgentRef, mode delivery.Mode) delivery.Resp
 	return r.ok(delivery.Request{Op: delivery.OpMode, Agent: &agent, Mode: mode})
 }
 
-// A delivery mode is kept across restarts, and an agent nobody set is auto.
+// A delivery mode is kept across restarts, and an agent nobody set is focused.
 func TestDeliveryModeIsKeptAcrossRestarts(t *testing.T) {
 	r := newRig(t)
-	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeAuto || got.Changed {
+	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeFocused || got.Changed {
 		t.Fatalf("default mode: %+v", got)
 	}
 	if got := r.setMode(reviewer, delivery.ModeHumans); got.Mode != delivery.ModeHumans || !got.Changed {
@@ -374,7 +400,7 @@ func TestDeliveryModeIsKeptAcrossRestarts(t *testing.T) {
 	if got := r.setMode(reviewer, ""); got.Mode != delivery.ModeHumans {
 		t.Fatalf("after a restart: %+v", got)
 	}
-	if got := r.setMode(planner, ""); got.Mode != delivery.ModeAuto {
+	if got := r.setMode(planner, ""); got.Mode != delivery.ModeFocused {
 		t.Fatalf("another agent: %+v", got)
 	}
 	if resp := r.call(delivery.Request{Op: delivery.OpMode, Agent: &reviewer, Mode: "sometimes"}); resp.Error == nil {

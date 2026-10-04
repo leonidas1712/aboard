@@ -83,11 +83,7 @@ func runHook(ctx context.Context, a *app, args []string) error {
 			h.startNote(resp)
 		}
 	case harness.OpPrompt:
-		req := h.request(delivery.OpPrompt)
-		// A prompt that hands back a waiting hook's wake text is the wake itself, so it
-		// must not count as the session's next event.
-		req.Wake = call.Wake
-		_, hookErr = h.a.callDaemon(ctx, req)
+		hookErr = h.turnStart(ctx, call.Wake)
 	case harness.OpWait:
 		return h.stop(ctx)
 	case harness.OpTurnEnd:
@@ -226,6 +222,26 @@ func newBootID(rnd io.Reader) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// turnStart reports a turn starting and adds to it, before the model runs, the messages
+// that waited for it (in focused mode, the quiet ones too). wake marks a prompt that
+// hands back a waiting hook's wake text: the wake itself, which must not count as the
+// session's next event. A daemon from before turn_start is sent prompt instead.
+func (h hookCall) turnStart(ctx context.Context, wake bool) error {
+	req := h.request(delivery.OpTurnStart)
+	req.Wake, req.Started = wake, h.started
+	resp, err := h.a.callDaemon(ctx, req)
+	var e *Error
+	if errors.As(err, &e) && e.Code == "invalid_request" {
+		req.Op = delivery.OpPrompt
+		_, err = h.a.callDaemon(ctx, req)
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	return h.addContext(strings.TrimSpace(resp.Bundle), "UserPromptSubmit")
+}
+
 // tool adds to a busy turn, at a tool boundary, the owner's messages and a notice of the
 // other messages waiting. It never blocks or changes the tool call.
 func (h hookCall) tool(ctx context.Context) error {
@@ -235,13 +251,18 @@ func (h hookCall) tool(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	text := strings.TrimSpace(resp.Bundle + "\n\n" + resp.Notice)
+	return h.addContext(strings.TrimSpace(resp.Bundle+"\n\n"+resp.Notice), "PostToolUse")
+}
+
+// addContext prints text as the hook's additionalContext, for the event the hook input
+// names, else fallback. It prints nothing for no text.
+func (h hookCall) addContext(text, fallback string) error {
 	if text == "" {
 		return nil
 	}
 	event := h.in.HookEventName
 	if event == "" {
-		event = "PostToolUse"
+		event = fallback
 	}
 	var out struct {
 		HookSpecificOutput struct {

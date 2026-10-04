@@ -85,6 +85,68 @@ func TestCompose(t *testing.T) {
 	}
 }
 
+func TestConcerns(t *testing.T) {
+	base := Message{FromName: "codex", Sender: "owner_agent", To: []string{"all"}}
+	tests := []struct {
+		name string
+		edit func(*Message)
+		want bool
+	}{
+		{"another agent's message to everyone", func(*Message) {}, false},
+		{"from a person", func(m *Message) { m.FromHuman = true }, true},
+		{"to the agent by name", func(m *Message) { m.To = []string{"@reviewer"} }, true},
+		{"to its role", func(m *Message) { m.To = []string{"role:reviewer"} }, true},
+		{"a reply to its message", func(m *Message) { m.ReplyToSeq, m.ReplyToFrom = 3, "reviewer" }, true},
+		{"a reply to someone else's", func(m *Message) { m.ReplyToSeq, m.ReplyToFrom = 3, "omp" }, false},
+		{"a question to everyone", func(m *Message) { m.ExpectsReply = true }, true},
+		{"urgent", func(m *Message) { m.Urgent = true }, true},
+		{"targets not known", func(m *Message) { m.To = nil }, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := base
+			tt.edit(&m)
+			if got := Concerns(m, "reviewer"); got != tt.want {
+				t.Fatalf("Concerns = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestComposeInFocusedMode(t *testing.T) {
+	docs := AgentRef{Board: "docs", Name: "reviewer"}
+	quiet := func(seq int) Message {
+		m := msg("docs", seq, false, "update "+strings.Repeat("x", 30))
+		m.To = []string{"all"}
+		return m
+	}
+	direct := msg("docs", 20, false, "please review")
+	direct.To = []string{"@reviewer"}
+
+	c := compose([]offer{{agent: docs, mode: ModeFocused, msgs: []Message{quiet(1), direct}}}, BundleLimit)
+	at, away := strings.Index(c.text, "please review"), strings.Index(c.text, "while you were away")
+	if len(c.parts) != 1 || at < 0 || away < at || !strings.Contains(c.text, `quiet="true"`) {
+		t.Fatalf("a small focused bundle: the message to the agent, then the quiet one apart:\n%s", c.text)
+	}
+
+	var many []Message
+	for seq := 1; seq <= 11; seq++ {
+		many = append(many, quiet(seq))
+	}
+	c = compose([]offer{{agent: docs, mode: ModeFocused, msgs: append(many, direct)}}, BundleLimit)
+	if got := seqsOf(c.parts[0].msgs); len(got) != 12 {
+		t.Fatalf("a digest carries all 12 messages, got %v", got)
+	}
+	if !strings.Contains(c.text, `<aboard-digest board="docs" count="11">`) || strings.Count(c.text, "<aboard-message ") != 1 {
+		t.Fatalf("past 10 messages, only the one that concerns the agent is in full:\n%s", c.text)
+	}
+
+	c = compose([]offer{{agent: docs, mode: ModeAll, msgs: append(many, direct)}}, BundleLimit)
+	if strings.Contains(c.text, "aboard-digest") || strings.Count(c.text, "<aboard-message ") != 12 {
+		t.Fatalf("all mode never summarizes:\n%s", c.text)
+	}
+}
+
 func TestBackoffDoublesUpToAMinute(t *testing.T) {
 	want := []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second, time.Minute, time.Minute}
 	for i, w := range want {

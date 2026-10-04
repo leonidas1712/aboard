@@ -28,7 +28,7 @@ func TestResumedSessionReconnectsByItself(t *testing.T) {
 		p, _ := field(t, e.run("status", "--as", "reviewer", "--json").json(t), "presence").(string)
 		return p == "no_session"
 	})
-	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "; delivery auto; disconnected\n") {
+	if r := e.run("status", "--as", "reviewer"); !strings.Contains(r.stdout, "; delivery focused; disconnected\n") {
 		t.Fatalf("the Agent line doesn't say disconnected:\n%s", r)
 	}
 	expectLines(t, writer.run("say", "--to", "@reviewer", "sent while closed"),

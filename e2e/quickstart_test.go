@@ -330,7 +330,7 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 		"Daemon: not running; it starts when a session or command needs it",
 		"Setup:  none; aboard init adds the skill and hooks",
 		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
-		"Agent:  writer (from --as); delivery auto; disconnected",
+		"Agent:  writer (from --as); delivery focused; disconnected",
 		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
 	)
 	v := e.run("status", "--json").json(t)

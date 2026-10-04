@@ -32,7 +32,12 @@ type Message struct {
 	ExpectsReply bool
 	// ReplyToSeq is the sequence number of the message this one replies to, or 0.
 	ReplyToSeq int
-	Body       string
+	// ReplyToFrom is the name of the member who sent the message this one replies to,
+	// without the "@", or empty.
+	ReplyToFrom string
+	// To are the message's targets: all, @name or role:R. Nil when not known.
+	To   []string
+	Body string
 	// Truncated marks a body cut short to fit where it is shown.
 	Truncated bool
 }
@@ -129,6 +134,134 @@ const bundleClose = "</aboard-messages>"
 
 func bundleOpen(board string, count int) string {
 	return `<aboard-messages board="` + attrEscaper.Replace(board) + `" count="` + strconv.Itoa(count) + "\">\n"
+}
+
+// Quiet writes the messages that waited for an agent's next turn without waking it, in
+// a block of their own after an Aboard line that says so.
+func Quiet(board string, ms []Message) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Aboard: while you were away, %s arrived on %s. They didn't wake you; read them, and answer only if one needs you:\n",
+		countOf(len(ms), "other message"), board)
+	b.WriteString(`<aboard-messages board="` + attrEscaper.Replace(board) + `" count="` + strconv.Itoa(len(ms)) + "\" quiet=\"true\">\n")
+	for _, m := range ms {
+		b.WriteString(Format(m) + "\n")
+	}
+	b.WriteString(bundleClose)
+	return b.String()
+}
+
+// Woken writes the messages a bundle or a turn's start carries for an agent that sees
+// some quietly: the ones that concern it, then, in a quiet block, the ones that waited
+// for its next turn. Either may be empty.
+func Woken(board string, concern, quiet []Message) string {
+	var parts []string
+	if len(concern) > 0 {
+		parts = append(parts, Bundle(board, concern))
+	}
+	if len(quiet) > 0 {
+		parts = append(parts, Quiet(board, quiet))
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// digestLineBody is how much of a message's first line a digest line shows, in
+// characters.
+const digestLineBody = 80
+
+// DigestLine is one message in a digest, made the same way every time from the message
+// alone: "#17 @codex → all · reply to #12: the body's first line, cut short…". Any "<"
+// is written "&lt;", so a body can't end the digest's element.
+func DigestLine(m Message) string {
+	to := "all"
+	if len(m.To) > 0 {
+		to = strings.Join(m.To, ", ")
+	}
+	line := fmt.Sprintf("#%d @%s → %s", m.Seq, m.FromName, to)
+	if m.ReplyToSeq > 0 {
+		line += fmt.Sprintf(" · reply to #%d", m.ReplyToSeq)
+	}
+	if m.Urgent {
+		line += " · urgent"
+	}
+	if m.ExpectsReply {
+		line += " · asks for a reply"
+	}
+	first := ""
+	for l := range strings.SplitSeq(m.Body, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			first = l
+			break
+		}
+	}
+	if r := []rune(first); len(r) > digestLineBody {
+		first = strings.TrimSpace(string(r[:digestLineBody])) + "…"
+	}
+	return strings.ReplaceAll(line+": "+first, "<", "&lt;")
+}
+
+// DigestLinesBytes is how long a digest's lines may be together before they are grouped
+// by sender, one line each.
+const DigestLinesBytes = 4 << 10
+
+// digestLines writes one line per message, or, when those pass DigestLinesBytes, one
+// line per sender, in the order of its first message.
+func digestLines(ms []Message) string {
+	lines := make([]string, 0, len(ms))
+	n := 0
+	for _, m := range ms {
+		l := DigestLine(m)
+		lines = append(lines, l)
+		n += len(l) + 1
+	}
+	if n <= DigestLinesBytes {
+		return strings.Join(lines, "\n")
+	}
+	var order []string
+	seqs := map[string][]string{}
+	for _, m := range ms {
+		if _, ok := seqs[m.FromName]; !ok {
+			order = append(order, m.FromName)
+		}
+		seqs[m.FromName] = append(seqs[m.FromName], "#"+strconv.Itoa(m.Seq))
+	}
+	lines = lines[:0]
+	for _, name := range order {
+		lines = append(lines, fmt.Sprintf("@%s: %s: %s", name, countOf(len(seqs[name]), "message"), strings.Join(seqs[name], ", ")))
+	}
+	return strings.ReplaceAll(strings.Join(lines, "\n"), "<", "&lt;")
+}
+
+// Digest writes a big backlog: the messages that concern the agent in full, and one line
+// for every other message, ending with the commands that read them in full. summarized
+// must not be empty.
+func Digest(board string, full, summarized []Message) string {
+	var b strings.Builder
+	total := len(full) + len(summarized)
+	if len(full) == 0 {
+		fmt.Fprintf(&b, "Aboard: while you were away, %s arrived on %s. None of them concerns you; each is one line:\n",
+			countOf(total, "message"), board)
+	} else {
+		fmt.Fprintf(&b, "Aboard: %s arrived on %s. The %d that concern you are in full; the other %d are one line each.\n",
+			countOf(total, "message"), board, len(full), len(summarized))
+		b.WriteString(Bundle(board, full) + "\n")
+	}
+	b.WriteString(`<aboard-digest board="` + attrEscaper.Replace(board) + `" count="` + strconv.Itoa(len(summarized)) + "\">\n")
+	b.WriteString(digestLines(summarized) + "\n</aboard-digest>\n")
+	first := summarized[0].Seq
+	for _, m := range summarized {
+		first = min(first, m.Seq)
+	}
+	fmt.Fprintf(&b, "Read one in full with aboard read --around <seq>, everything from the first with aboard read --after %d, or the board's threads with aboard read --threads.",
+		first-1)
+	return b.String()
+}
+
+// countOf writes "1 message" or "3 messages".
+func countOf(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
 }
 
 // BundleSize is the length in bytes of Bundles(groups), computed without building it.

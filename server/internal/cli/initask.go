@@ -89,7 +89,8 @@ func (a *app) askInit(ctx context.Context, c *initChoices, known []harnessSetup,
 		picked, err := k.pickOne("Delivery for agents on this machine",
 			"When a message wakes an agent's session. aboard delivery sets one agent's own mode.",
 			[]choice{
-				{string(delivery.ModeAuto), "auto: " + modeText[delivery.ModeAuto]},
+				{string(delivery.ModeFocused), "focused: " + modeText[delivery.ModeFocused]},
+				{string(delivery.ModeAll), "all: " + modeText[delivery.ModeAll]},
 				{string(delivery.ModeHumans), "humans: " + modeText[delivery.ModeHumans]},
 				{string(delivery.ModeOff), "off: " + modeText[delivery.ModeOff]},
 			}, string(current))
