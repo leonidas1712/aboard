@@ -183,6 +183,30 @@ violation. (The accessibility check is not added yet.)
 - **Hermetic.** Every test gets its own `ABOARD_HOME`, temp `HOME`, scratch harness
   config folders and a free port. Nothing reads or writes the real config, and tests
   run in parallel.
+- **Nothing outlives the test that started it.** A test process can die before its
+  cleanups run: interrupted, timed out, or killed along with `go test`. What it started
+  must stop anyway, and the local server and the delivery daemon run in sessions of
+  their own, started by hooks and commands rather than by the test, so killing the
+  test's process group doesn't reach them. Three things cover this, and
+  `TestProcessesStopWhenTheTestThatStartedThemIsKilled` (e2e) and
+  `TestLabStopsWhenTheTestThatStartedItIsKilled` (live, no model turns) prove it by
+  killing a helper test with SIGKILL:
+  - Every env and lab sets `ABOARD_EXIT_WITH_PID` to the test process's id. Any
+    `aboard` process started with it, and everything it starts inherits it, checks
+    five times a second that the process still runs and stops as an interrupt would
+    stop it once it doesn't. The fake harness does the same. Unset, which it is for
+    everyone but the tests, nothing changes. `scripts/sandbox` keeps it, so a sandbox a
+    test opens stops with the test.
+  - The test binary exits once `go test`, its parent, is gone, so killing `go test`
+    stops the tests and, through the variable, what they started.
+  - Each live lab starts a watchdog shell in a process group of its own. When the test
+    process is gone it kills the lab's tmux server and what ran in its panes, then
+    every process whose command line names the lab's directory, and removes the tmux
+    socket's directory. The lab's cleanup stops the watchdog after a normal end.
+
+  A process id can be reused, so a process can outlive its test by as long as an
+  unrelated process holds that id; on a test machine that is rare and short.
+  `pgrep -fl aboard-e2e-bin-` after a run shows anything left.
 - **Injected clock and ids.** Behaviour that depends on time or randomness takes a
   `clock.Clock` and a reader for randomness ([go.md](go.md)). Tests move the fake clock
   instead of waiting.

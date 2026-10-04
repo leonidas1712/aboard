@@ -118,6 +118,8 @@ func commands() []command {
 // Run runs the aboard command with args (without the program name) and returns the
 // process exit code.
 func Run(ctx context.Context, args []string, env Env) int {
+	ctx, stop := exitWith(ctx, env.Getenv(exitWithVar))
+	defer stop()
 	a := &app{env: env, json: wantsJSON(args)}
 	if len(args) == 0 {
 		_, _ = io.WriteString(env.Stderr, overviewText(a.errStyles()))

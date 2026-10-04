@@ -103,6 +103,10 @@ func TestInitWritesExactlyTheGoldenFiles(t *testing.T) {
 			"project/.codex/hooks.json":           personHooks,
 		}},
 		{name: "claude-code-older-version", args: []string{"--harness", "claude-code"}, vars: []string{"FAKE_CLAUDE_VERSION=2.1.100"}},
+		// Older than asyncRewake, agent_id in hook input and PostToolUseFailure: init
+		// writes no event this version doesn't know, and doctor says what is left out.
+		{name: "claude-code-old-version", args: []string{"--harness", "claude-code"}, vars: []string{"FAKE_CLAUDE_VERSION=2.0.50"}},
+		{name: "claude-code-unknown-version", args: []string{"--harness", "claude-code"}, vars: []string{"FAKE_CLAUDE_VERSION=unknown"}},
 		{
 			name: "both-config-dirs-allow", args: []string{"--allow-commands"},
 			vars: []string{"CLAUDE_CONFIG_DIR={HOME}/claude-config", "CODEX_HOME={HOME}/codex-home"},

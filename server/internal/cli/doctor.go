@@ -203,11 +203,11 @@ func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck
 		return append(append(checks, a.checkExtension(h)...), a.checkAllow(h, nil)...)
 	}
 	name := p.CheckName + "_hooks"
-	newest := h.Hooks("aboard", "")
-	scopes, files, err := a.installedScopes(h, newest)
+	scopes, files, err := a.installedScopes(h, h.Hooks("aboard", harness.Newest))
 	if err == nil && len(scopes) > 0 {
 		checks = append(checks, a.checkHooksCurrent(name, h, scopes, a.currentHooks(ctx, h),
 			okCheck(name, p.Harness+": "+installedText(scopes, files))))
+		checks = append(checks, a.checkHookVersion(ctx, h)...)
 		return append(checks, a.checkAllow(h, scopes)...)
 	}
 	level, effect := levelError, ""
@@ -220,14 +220,57 @@ func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck
 		}
 	}
 	code := p.CheckName + "_hooks_missing"
-	missing, err2 := hooksMissing(a.hooksFile(h, scopeGlobal), p.Harness, newest)
+	missing, err2 := hooksMissing(a.hooksFile(h, scopeGlobal), p.Harness, a.currentHooks(ctx, h))
 	if err != nil || err2 != nil {
 		checks = append(checks, problem(name, level, code, p.Harness+": "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
 	} else {
 		checks = append(checks, problem(name, level, code,
 			p.Harness+": hooks not installed ("+strings.Join(missing, ", ")+")"+effect, "run aboard init"))
 	}
+	checks = append(checks, a.checkHookVersion(ctx, h)...)
 	return append(checks, a.checkAllow(h, nil)...)
+}
+
+// checkHookVersion names the hooks aboard init leaves out because the harness's version
+// doesn't run them, or because its version can't be read, and what the person loses
+// without them. aboard init never writes an event the harness may not know: Claude Code
+// before 2.1.101 ignores the whole settings file over one.
+func (a *app) checkHookVersion(ctx context.Context, h harness.Harness) []doctorCheck {
+	version := h.Version(ctx, a.henv())
+	left := h.Unsupported(version)
+	if len(left) == 0 {
+		return nil
+	}
+	p := h.Profile()
+	var events, losses []string
+	need := ""
+	for _, s := range left {
+		events = append(events, s.Event)
+		if s.Without != "" {
+			losses = append(losses, s.Without)
+		}
+		if need == "" || !harness.VersionAtLeast(need, s.Since) {
+			need = s.Since
+		}
+	}
+	hooks, them := "hook", "it"
+	if len(events) > 1 {
+		hooks, them = "hooks", "them"
+	}
+	effect, unknownEffect := "", ""
+	if len(losses) > 0 {
+		effect, unknownEffect = ", so "+harness.AndList(losses), "; without "+them+", "+harness.AndList(losses)
+	}
+	name := p.CheckName + "_version"
+	if n := harness.VersionNumber(version); n != "" {
+		return []doctorCheck{problem(name, levelWarning, p.CheckName+"_hooks_unsupported",
+			fmt.Sprintf("%s: %s %s doesn't run Aboard's %s %s%s", p.Harness, p.Name, n, harness.AndList(events), hooks, effect),
+			fmt.Sprintf("update %s to %s or later, then run aboard init", p.Name, need))}
+	}
+	return []doctorCheck{problem(name, levelWarning, p.CheckName+"_version_unknown",
+		fmt.Sprintf("%s: couldn't read %s's version, so aboard init left out Aboard's %s %s, which older versions don't run%s",
+			p.Harness, p.Name, harness.AndList(events), hooks, unknownEffect),
+		fmt.Sprintf("check that %s prints %s's version, then run aboard init", strings.Join(p.Checks.Installed.Run, " "), p.Name))}
 }
 
 // fromHarness turns a harness's own check into a line of aboard doctor.

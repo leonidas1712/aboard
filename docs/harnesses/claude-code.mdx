@@ -51,6 +51,33 @@ nothing, so it never makes Claude Code ask again unless a hook entry really chan
 with nothing in it is deleted. It deletes the skill, unless you edited it, which it
 keeps and names.
 
+## Versions
+
+Claude Code 1.0.23 to 2.1.100 ignore the whole settings file, your own settings
+included, when it names one hook event they don't know. So `aboard init` runs `claude
+--version` and writes only the hooks that version runs:
+
+| Hook | Needs Claude Code | Without it |
+| --- | --- | --- |
+| `SessionStart` | 2.0.22 (`CLAUDE_ENV_FILE`) | Commands in a session can't tell which agent they are |
+| `UserPromptSubmit` | 1.0.54 | A session isn't marked busy when you type |
+| `Stop` | 2.1.64 (`asyncRewake`) | An idle session doesn't wake for new messages |
+| `PostToolBatch` | 2.1.118 | Installed on `PostToolUse` (1.0.65) and `PostToolUseFailure` (2.0.56) instead |
+| `PreToolUse` | 2.1.69 (`agent_id` in hook input) | A subagent's `aboard` commands act as your agent |
+| `SessionEnd` | 1.0.85 | A session you quit stays open until the daemon sees its process gone |
+
+Aboard works with Claude Code 2.0.22 and later. When `claude --version` prints no
+version (for example, `claude` isn't on the `PATH`), `aboard init` writes only what
+2.0.22 runs. `aboard doctor` names the hooks left out and why:
+
+```
+! claude-code: Claude Code 2.0.50 doesn't run Aboard's Stop and PreToolUse hooks, so an idle session doesn't wake for new messages and a subagent's aboard commands act as your agent
+```
+
+After updating Claude Code, run `aboard init --yes` once to add the rest; Claude Code
+then asks you to trust the hooks again. The versions come from the hook events and
+settings each published build of Claude Code accepts, and its changelog.
+
 ## What Aboard never touches
 
 Your login and credentials, `~/.claude.json`, your other settings and hooks, `CLAUDE.md`
@@ -58,10 +85,6 @@ files, transcripts, and any project setting outside `settings.local.json`.
 
 ## Quirks and limits
 
-- **Older Claude Code.** `PostToolBatch` first appears in Claude Code 2.1.118. `aboard
-  init` reads `claude --version` and, for an older one, installs the tool hook on
-  `PostToolUse` and `PostToolUseFailure` instead. After updating Claude Code, run
-  `aboard init --yes` once to move it; Claude Code then asks to trust the hooks again.
 - **The wake comes back as a prompt.** Claude Code submits a stop hook's output as the
   next prompt, so the prompt hook sees the messages again; that prompt is the wake, not
   a new turn from you.
@@ -134,6 +157,8 @@ starting `aboard hook:` on standard error.
 | `claude_hooks_missing` | The hooks aren't installed | `aboard init --yes` |
 | `hooks_outdated` | An older `aboard` wrote the hooks, or `aboard` moved | `aboard init --yes`, then trust the hooks in `/hooks` |
 | `hooks_edited` | Aboard's entries were changed by hand | `aboard init --yes` rewrites only Aboard's entries |
+| `claude_hooks_unsupported` | This Claude Code doesn't run some of Aboard's hooks (see [Versions](#versions)) | Update Claude Code, then `aboard init --yes` |
+| `claude_version_unknown` | `claude --version` printed no version, so only the hooks every supported version runs are installed | Put `claude` on the `PATH`, then `aboard init --yes` |
 | `session_unknown` from `aboard resume` | The session started before the hooks were installed or trusted | Restart the session, or use `--as` |
 | Messages arrive only after you type | The stop hook isn't trusted, so it never runs | Review the hooks in `/hooks`, then restart the session |
 | `daemon_in_sandbox` | A sandboxed command found no daemon | Install the hooks with `aboard init`, or run `aboard daemon start` in a terminal |

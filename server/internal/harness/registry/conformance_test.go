@@ -111,7 +111,8 @@ func fakeCodexQueued(t *testing.T, thread string) []string {
 // TestHarnessConformance is the in-process part of the harness conformance kit. For
 // every harness in the registry: its profile matches the schema, every capability it
 // declares has code behind it, its delivery adapter passes the delivery port's contract,
-// and its markers find its sessions, giving way where the profile says.
+// its markers find its sessions, giving way where the profile says, and aboard init
+// never writes a hook event the harness's version doesn't run.
 func TestHarnessConformance(t *testing.T) {
 	schema := profileSchema(t)
 	for _, h := range Harnesses() {
@@ -124,6 +125,7 @@ func TestHarnessConformance(t *testing.T) {
 			t.Run("Capabilities", func(t *testing.T) { checkCapabilities(t, h) })
 			t.Run("AdapterContract", func(t *testing.T) { checkAdapter(t, h) })
 			t.Run("Identity", func(t *testing.T) { checkIdentity(t, h) })
+			t.Run("Versions", func(t *testing.T) { checkVersions(t, h) })
 		})
 	}
 }
@@ -172,17 +174,136 @@ func checkProfile(t *testing.T, schema *jsonschema.Schema, h harness.Harness) {
 	if err := schema.Validate(inst); err != nil {
 		t.Fatalf("adapters/%s/profile.yaml doesn't match spec/harness-profile.schema.json: %v", p.Harness, err)
 	}
+	if versioned(p) && p.Checks.MinVersion == "" {
+		t.Errorf("its hooks depend on the version, so checks.min_version names what a version that can't be read gets")
+	}
 	for _, s := range p.Delivery.Hooks {
 		if s.Op == "" {
 			t.Errorf("hook %s runs %s and doesn't say what it does (op)", s.Event, s.Run)
 		}
-		if s.Since != "" && len(s.Fallback) == 0 {
-			t.Errorf("hook %s came with version %s but names no events for older versions (fallback)", s.Event, s.Since)
+		if versioned(p) && s.Since == "" {
+			t.Errorf("hook %s has no since: in a profile where one hook depends on the version, every hook names the first version that runs it", s.Event)
+		}
+		for _, f := range s.Fallback {
+			if f.Since == "" {
+				t.Errorf("hook %s falls back to %s without naming the first version that knows it (since)", s.Event, f.Event)
+			}
+		}
+		if s.Since != "" && len(s.Fallback) == 0 && s.Without == "" {
+			t.Errorf("hook %s needs version %s and has no fallback, so it says what a person loses without it (without)", s.Event, s.Since)
 		}
 		if c, ok := h.HookCall(s.Run, harness.HookInput{}); !ok || c.Op != s.Op {
 			t.Errorf("aboard hook %s %s does %q; the profile says %q", p.Harness, s.Run, c.Op, s.Op)
 		}
 	}
+}
+
+// versioned reports whether one of a profile's hooks depends on the harness's version.
+func versioned(p *harness.Profile) bool {
+	return slices.ContainsFunc(p.Delivery.Hooks, func(s harness.HookSpec) bool { return s.Since != "" })
+}
+
+// checkVersions checks that aboard init writes only hook events the harness's version
+// runs, since an unknown one can make it ignore the whole settings file: just below the
+// version each hook came in, that hook is left out; an old version and one that can't
+// be read get only what checks.min_version runs; the newest gets every hook.
+func checkVersions(t *testing.T, h harness.Harness) {
+	p := h.Profile()
+	if !versioned(p) {
+		t.Skip("no hook depends on the harness's version")
+	}
+	versions := []string{"0.0.1", p.Checks.MinVersion, below(p.Checks.MinVersion)}
+	for _, s := range p.Delivery.Hooks {
+		versions = append(versions, s.Since, below(s.Since))
+		for _, f := range s.Fallback {
+			versions = append(versions, f.Since, below(f.Since))
+		}
+	}
+	for _, v := range versions {
+		hooks := h.Hooks("aboard", v)
+		for _, hk := range hooks {
+			first, ok := firstVersion(p, hk)
+			if !ok {
+				t.Errorf("at %s, aboard init writes %s for %s, which the profile doesn't list", v, hk.Event, hk.Arg)
+			} else if !harness.VersionAtLeast(v, first) {
+				t.Errorf("at %s, aboard init writes %s, which needs %s", v, hk.Event, first)
+			}
+		}
+		for _, s := range h.Unsupported(v) {
+			if slices.ContainsFunc(hooks, func(hk harness.Hook) bool { return hk.Arg == s.Run }) {
+				t.Errorf("at %s, %s is reported unsupported but aboard init writes it", v, s.Event)
+			}
+		}
+		for _, s := range p.Delivery.Hooks {
+			if harness.VersionAtLeast(v, s.Since) && !slices.ContainsFunc(hooks, func(hk harness.Hook) bool { return hk.Event == s.Event && hk.Arg == s.Run }) {
+				t.Errorf("at %s, aboard init leaves out %s, which that version runs", v, s.Event)
+			}
+		}
+	}
+	if got := h.Hooks("aboard", "0.0.1"); len(got) != 0 {
+		t.Errorf("a version older than every hook gets %d hooks", len(got))
+	}
+	oldest := h.Hooks("aboard", p.Checks.MinVersion)
+	for _, unknown := range []string{"", "unknown (" + p.Name + ")"} {
+		if got := h.Hooks("aboard", unknown); !slices.EqualFunc(got, oldest, sameHook) {
+			t.Errorf("a version that can't be read (%q) gets %v; want what %s gets, %v", unknown, events(got), p.Checks.MinVersion, events(oldest))
+		}
+	}
+	newest := h.Hooks("aboard", harness.Newest)
+	if len(newest) != len(p.Delivery.Hooks) || len(h.Unsupported(harness.Newest)) != 0 {
+		t.Errorf("the newest version gets %v; want every hook the profile lists", events(newest))
+	}
+	for i, hk := range newest {
+		if s := p.Delivery.Hooks[i]; hk.Event != s.Event || hk.Arg != s.Run {
+			t.Errorf("the newest version gets %s for %s; the profile lists %s", hk.Event, hk.Arg, s.Event)
+		}
+	}
+}
+
+// firstVersion returns the first version that runs a hook entry, from the profile hook or
+// fallback it came from.
+func firstVersion(p *harness.Profile, hk harness.Hook) (string, bool) {
+	for _, s := range p.Delivery.Hooks {
+		if s.Run != hk.Arg {
+			continue
+		}
+		if s.Event == hk.Event {
+			return s.Since, true
+		}
+		for _, f := range s.Fallback {
+			if f.Event == hk.Event {
+				return f.Since, true
+			}
+		}
+	}
+	return "", false
+}
+
+// below returns a version just older than v: 2.1.117 for 2.1.118, 0.113.999 for 0.114.0.
+func below(v string) string {
+	parts := strings.Split(v, ".")
+	for i := len(parts) - 1; i >= 0; i-- {
+		n := 0
+		_, _ = fmt.Sscan(parts[i], &n)
+		if n > 0 {
+			parts[i] = fmt.Sprint(n - 1)
+			for j := i + 1; j < len(parts); j++ {
+				parts[j] = "999"
+			}
+			return strings.Join(parts, ".")
+		}
+	}
+	return v
+}
+
+func sameHook(a, b harness.Hook) bool { return a.Event == b.Event && a.Arg == b.Arg }
+
+func events(hooks []harness.Hook) []string {
+	out := make([]string, len(hooks))
+	for i, h := range hooks {
+		out[i] = h.Event
+	}
+	return out
 }
 
 // hasOp reports whether the profile has a hook of an operation.
