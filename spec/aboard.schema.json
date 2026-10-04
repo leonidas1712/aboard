@@ -11,6 +11,11 @@
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"
     },
+    "title": {
+      "description": "The board's title: free text people read beside its name, on one line. Read by `aboard swarm up` when it creates the board.",
+      "type": "string",
+      "maxLength": 80
+    },
     "template": {
       "description": "Built-in template that fills in anything left out of this file.",
       "type": "string",
@@ -53,9 +58,83 @@
       ],
       "minItems": 2,
       "maxItems": 2
+    },
+    "launcher": {
+      "description": "Read only by `aboard swarm up`: the launcher that starts the agents that don't name their own. Built in: tmux (a terminal session per agent) and headless (one non-interactive turn per batch of messages). Any other name runs the `aboard-launcher-<name>` command on the PATH, such as herdr. Default: tmux.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "examples": [
+        "tmux",
+        "headless",
+        "herdr"
+      ]
+    },
+    "agents": {
+      "description": "Read only by `aboard swarm up`: the agents to start, each with its own seat on the board. `swarm up` creates each seat once and starts its session through its launcher; `swarm down` stops the sessions and keeps the seats and the record.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/agent"
+      }
     }
   },
   "$defs": {
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "harness"
+      ],
+      "properties": {
+        "name": {
+          "description": "The agent's name on the board. `swarm up` finds the same seat by it on every run.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "harness": {
+          "description": "The harness that runs the agent, by its profile's name.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "examples": [
+            "claude-code",
+            "codex",
+            "omp"
+          ]
+        },
+        "role": {
+          "description": "The agent's role on the board. Default: member.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "launcher": {
+          "description": "The launcher for this agent, instead of the file's `launcher`.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "model": {
+          "description": "The model the harness runs, passed with the option its profile names.",
+          "type": "string",
+          "minLength": 1
+        },
+        "args": {
+          "description": "More arguments for the harness, after the model and before the first prompt.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dir": {
+          "description": "The folder the session runs in, relative to the board file's folder. Default: the board file's folder.",
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt": {
+          "description": "The session's first prompt. Default: a line naming the agent and the board that asks it to run aboard status. An empty string starts the session with no prompt; a harness whose session starts only with its first turn (Codex) then fills its seat only once someone types in it.",
+          "type": "string",
+          "maxLength": 8000
+        }
+      }
+    },
     "role": {
       "type": "object",
       "additionalProperties": false,

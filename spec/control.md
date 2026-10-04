@@ -86,6 +86,7 @@ optional; each operation says which it reads.
 | `harness_version` | string | The harness's version, as it reports it |
 | `extension_version` | string | The extension's own version |
 | `subagent` | string | The harness's id for the subagent a hello comes from |
+| `launch` | string | A launch ticket from `ABOARD_LAUNCH`, on `register` or `hello` (see "Launch tickets") |
 
 A **response** goes from the daemon to a client: the answer to a request, or an event
 on a connection that stays open.
@@ -125,6 +126,15 @@ session reconnects by itself).
 ```json
 {"v":1,"op":"register","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","source":"resume","process":{"pid":4182,"start":1759500000}}
 {"v":1,"boot":"9a1f0c2b7d4e6f80","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}],"reopened":true}
+```
+
+With `launch`, the session was started by `aboard swarm up` (see "Launch tickets"
+below): once registered, it is bound to the agent the ticket names, and the answer's
+`agents` names that agent.
+
+```json
+{"v":1,"op":"register","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000002","boot":"7c3e1a9b0d2f4e68","source":"startup","launch":"lch_8f2a61c04b9d3e7a5c1f0e2d"}
+{"v":1,"boot":"7c3e1a9b0d2f4e68","agents":[{"server":"http://127.0.0.1:7400","board":"docs","name":"claude"}]}
 ```
 
 A new boot id makes every bundle handed to the session's old process and not confirmed
@@ -234,11 +244,14 @@ as the server's `GET /v1/info`; a daemon whose status has none is from an older 
 `stalled` lists deliveries handed to an idle session that started no turn within 10
 seconds (reason `no_turn_started`), until a turn starts or the session closes; they are
 never handed again because of it. A daemon from before stalls were tracked leaves the
-field out.
+field out. `bindings` lists every agent with a session, the session as
+`<harness>:<id>`; `open` is true while that session is open. A closed session keeps its
+agent until another session takes it, which is how `aboard swarm up` finds the session
+to resume.
 
 ```json
 {"v":1,"op":"status"}
-{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"stalled":[{"id":14,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"},"seqs":[11],"reason":"no_turn_started"}],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001"}]}}
+{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"stalled":[{"id":14,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"},"seqs":[11],"reason":"no_turn_started"}],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001","open":true}]}}
 ```
 
 ## Connections that stay open
@@ -297,6 +310,31 @@ acknowledgement does.
 {"v":1,"held":true,"received":[13]}
 ```
 
+## Launch tickets
+
+What we want: a session `aboard swarm up` starts fills its agent's seat as it starts,
+with no join line pasted and no command typed, and nothing else can take that seat by
+copying the session's environment.
+
+How Aboard does it: before it starts a session, `swarm up` writes a **launch ticket**,
+a file `<state>/launches/<ticket>.json` holding the agent (`{"server","board","name"}`),
+and the launcher puts the ticket in the session's environment as `ABOARD_LAUNCH`, with
+`ABOARD_AGENT` naming the agent. The ticket is `lch_` and 24 hex digits. Whatever first
+reports the session to the daemon hands it in as `launch`:
+
+| Harness | Hands it in |
+| --- | --- |
+| Claude Code | The session-start hook's `register`, which sees Claude Code's environment |
+| omp | The extension's `hello` |
+| Codex | Its hooks don't see Codex's environment, so the first `aboard` command the session runs sends `register` with it (every Codex command carries `CODEX_THREAD_ID` and `ABOARD_LAUNCH`) |
+
+The daemon registers the session as usual, then takes the ticket, which removes the
+file, and binds the session to its agent as `bind` would. A ticket works once: a
+harness started later from inside that session inherits `ABOARD_LAUNCH`, but the ticket
+is gone, so it gets no seat. A ticket that is missing or malformed binds nothing and is
+no error; the session goes on with no agent, and its commands still act as
+`ABOARD_AGENT`. `swarm down`, and a later `swarm up`, remove tickets no session took.
+
 ## Who sends what
 
 | Client | Operations |
@@ -314,7 +352,8 @@ acknowledgement does.
 | `aboard say --wait-reply` | `hold`, then `claim` |
 | `aboard inbox` | `inbox` |
 | `aboard say` | `inbox`, for its note about the agent's own inbox |
-| `aboard doctor`, `status`, `down` | `status` |
+| `aboard doctor`, `status`, `down`, `swarm up`, `swarm ps` | `status` |
+| An `aboard` command in a Codex session whose launch ticket is still waiting | `register` with `launch` |
 | A harness extension | The extension connection, below, `turn_start` and `boundary` |
 
 A hook that gets an error, or can't reach the daemon, prints one line starting

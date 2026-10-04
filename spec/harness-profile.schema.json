@@ -102,8 +102,9 @@
       "additionalProperties": false,
       "required": ["start"],
       "properties": {
-        "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt." },
-        "resume": { "$ref": "#/$defs/argv", "description": "Opens an earlier session again by its id, {session}, in a terminal. The live conformance kit resumes sessions with it." }
+        "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt. An element that is exactly {prompt} is the first prompt, and is left out when there is none." },
+        "resume": { "$ref": "#/$defs/argv", "description": "Opens an earlier session again by its id, {session}, in a terminal, with {prompt} as for start. aboard swarm up resumes an agent's last session with it; the live conformance kit too." },
+        "model": { "$ref": "#/$defs/argv", "description": "How to choose the model, {model}: put right after the program name in start and resume, followed by the board file's args." }
       }
     },
     "headless": {
@@ -118,7 +119,9 @@
         },
         "run": { "$ref": "#/$defs/argv", "description": "Runs one turn and prints machine-readable output." },
         "resume": { "$ref": "#/$defs/argv", "description": "Runs one turn in an earlier session." },
-        "session_from": { "type": "string", "description": "Where the session id to resume is found in the run's output." }
+        "session_from": { "type": "string", "description": "Where the session id to resume is found in the run's output." },
+        "session_field": { "type": "string", "description": "The key of the JSON object the run prints that holds the session id, which the headless launcher resumes with." },
+        "model": { "$ref": "#/$defs/argv", "description": "How to choose the model, {model}: put right after the program name in run and resume." }
       }
     },
     "acp": {

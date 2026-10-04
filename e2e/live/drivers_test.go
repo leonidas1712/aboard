@@ -103,6 +103,9 @@ func (d *driver) resumeArgv(l *lab, id string) []string {
 	}
 	var args []string
 	for _, a := range d.p.Interactive.Resume[1:] {
+		if a == "{prompt}" {
+			continue // the suite resumes with no first prompt
+		}
 		args = append(args, strings.ReplaceAll(a, "{session}", id))
 	}
 	return d.argv(l, args...)

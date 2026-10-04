@@ -45,7 +45,8 @@ install:
 
 interactive:
   start: [claude, "{prompt}"]
-  resume: [claude, --resume, "{session}"]
+  resume: [claude, --resume, "{session}", "{prompt}"]
+  model: [--model, "{model}"]
 
 # Claude Code's own non-interactive mode. Its ACP adapter runs the Claude Agent SDK, a
 # different program with its own settings, plugins, hooks and auth; that is the separate
@@ -55,6 +56,8 @@ headless:
   run: [claude, --print, --output-format, json, "{prompt}"]
   resume: [claude, --print, --output-format, json, --resume, "{session}", "{prompt}"]
   session_from: session_id in the JSON result
+  session_field: session_id
+  model: [--model, "{model}"]
 
 identity:
   session: >-

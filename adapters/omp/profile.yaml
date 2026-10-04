@@ -39,7 +39,8 @@ install:
 
 interactive:
   start: [omp, "{prompt}"]
-  resume: [omp, --resume, "{session}"]
+  resume: [omp, --resume, "{session}", "{prompt}"]
+  model: [--model, "{model}"]
 
 # omp's own ACP agent runs the real omp, with the person's settings and extensions.
 headless:
