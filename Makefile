@@ -169,7 +169,8 @@ web:
 ## install: build the web UI, then install aboard with the UI embedded
 install: web
 	go install -tags ui ./server/cmd/aboard
-	go install ./launchers/...
+	@gobin="$$(go env GOBIN)"; [ -n "$$gobin" ] || gobin="$$(go env GOPATH)/bin"; \
+	for d in launchers/*/; do n=$$(basename $$d); go build -o "$$gobin/aboard-launcher-$$n" ./$$d && echo "Installed $$gobin/aboard-launcher-$$n"; done
 
 # A dev build's version is the source's version with build metadata naming the commit,
 # such as 0.1.0+dev.1d0e798ab12c (".dirty" with uncommitted changes). Build metadata
