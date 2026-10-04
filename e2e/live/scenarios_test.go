@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -47,17 +48,32 @@ func checkWake(t *testing.T, d *driver, posted message, wake handover) {
 	}
 }
 
-// slowFor is how long a scenario's slow task takes for a harness: base plus the
-// harness's place among the drivers, so the scenario running for two harnesses at once
-// never takes the other's sleep for its own.
-func slowFor(t *testing.T, d *driver, base int) int {
-	t.Helper()
-	return base + slices.Index(drivers(t), d)
+// slowTaken are the slow tasks' lengths in seconds handed out in this run.
+var slowTaken = struct {
+	sync.Mutex
+	m map[int]bool
+}{m: map[int]bool{}}
+
+// slowSeconds is how long a test's slow task takes: the first whole number of seconds
+// from base that no other test in the run has. Tests find their slow task running with
+// pgrep "sleep <seconds>", which sees every process on the machine, and tests run in
+// parallel, so no two may share a length. A length is never handed out again, since a
+// failed test's sleep can outlive it.
+func slowSeconds(base int) int {
+	slowTaken.Lock()
+	defer slowTaken.Unlock()
+	secs := base
+	for slowTaken.m[secs] {
+		secs++
+	}
+	slowTaken.m[secs] = true
+	return secs
 }
 
 // TestEveryHarnessHasALiveDriver checks the live kit can run every harness with a
 // profile. It starts no harness.
 func TestEveryHarnessHasALiveDriver(t *testing.T) {
+	parallel(t)
 	profiles, err := support.Profiles()
 	if err != nil {
 		t.Fatal(err)
@@ -191,6 +207,7 @@ func TestPingPong(t *testing.T) {
 // After one prompt to a session of one harness, it and a session of another run the
 // wiring check to PING 3 with no one typing. Each pair of harnesses runs once.
 func TestPingPongAcrossHarnesses(t *testing.T) {
+	t.Parallel() // the pairs run in parallel with every other test, not only each other
 	all := drivers(t)
 	for i, a := range all {
 		for _, b := range all[i+1:] {
@@ -200,7 +217,7 @@ func TestPingPongAcrossHarnesses(t *testing.T) {
 			t.Run(a.p.Harness+"-with-"+b.p.Harness, func(t *testing.T) {
 				a.require(t)
 				b.require(t)
-				t.Parallel()
+				parallel(t)
 				record(t, a, "PingPongAcrossHarnesses")
 				record(t, b, "PingPongAcrossHarnesses")
 				l := newLab(t)
@@ -306,7 +323,7 @@ func TestOwnerReachesBusy(t *testing.T) {
 		d.setUp(l)
 		board := l.pairCLI()
 		proj := l.project("project", d.p.Harness)
-		secs := slowFor(t, d, 20)
+		secs := slowSeconds(20)
 		writeSlowTask(t, proj, secs)
 		writer := d.start(l, "writer", proj)
 		writer.bind("writer")
@@ -381,7 +398,7 @@ func TestPeerWaitsButNoticeArrives(t *testing.T) {
 		d.setUp(l)
 		l.pairCLI()
 		proj := l.project("project", d.p.Harness)
-		secs := slowFor(t, d, 25)
+		secs := slowSeconds(25)
 		writeSlowTask(t, proj, secs)
 		writer := d.start(l, "writer", proj)
 		writer.bind("writer")
@@ -454,7 +471,7 @@ func TestKilledSessionRedelivers(t *testing.T) {
 		d.setUp(l)
 		l.pairCLI()
 		proj := l.project("project", d.p.Harness)
-		secs := slowFor(t, d, 30)
+		secs := slowSeconds(30)
 		writeSlowTask(t, proj, secs)
 		first := d.start(l, "first", proj)
 		first.bind("writer")

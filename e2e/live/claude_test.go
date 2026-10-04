@@ -19,7 +19,7 @@ import (
 func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 	only(t, "claude-code")
 	requireClaude(t)
-	t.Parallel()
+	parallel(t)
 	l := newLab(t)
 	board := l.pairCLI()
 	writer := l.startClaude("writer", l.project("project", "claude-code"))
@@ -54,7 +54,7 @@ func TestHumansModeWakesOnlyForPeople(t *testing.T) {
 func TestUpgradeWithSessionOpen(t *testing.T) {
 	only(t, "claude-code")
 	requireClaude(t)
-	t.Parallel()
+	parallel(t)
 	const oldVersion = "0.0.1"
 	old := filepath.Join(t.TempDir(), "aboard")
 	if err := buildAboard(t.Context(), old, oldVersion); err != nil {
@@ -145,7 +145,7 @@ func readFile(t *testing.T, path string) []byte {
 func TestSessionMovesBetweenBoards(t *testing.T) {
 	only(t, "claude-code")
 	requireClaude(t)
-	t.Parallel()
+	parallel(t)
 	l := newLab(t)
 	type paired struct {
 		Board struct {

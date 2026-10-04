@@ -16,13 +16,14 @@ const smokeReply = "SMOKE-OK"
 // Aboard setup, and answers one prompt. It checks a model id and a login with one turn
 // per harness, before make live spends many; make live-smoke runs only this test.
 func TestModelSmoke(t *testing.T) {
+	t.Parallel()
 	for _, d := range drivers(t) {
 		if !selected(d.p.Harness) {
 			continue
 		}
 		t.Run(d.p.Harness, func(t *testing.T) {
 			d.require(t)
-			t.Parallel()
+			parallel(t)
 			l := newLab(t)
 			d.setUp(l)
 			// The same project set-up as the scenarios, so the harness starts as it does there.
