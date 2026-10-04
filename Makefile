@@ -142,7 +142,7 @@ live-smoke:
 ## launchers: build the launchers that live outside aboard into .bin: aboard-launcher-herdr
 launchers:
 	@$(REQUIRE_GO); go build -o $(BIN)/aboard-launcher-herdr ./launchers/herdr; \
-	echo "Built $(BIN)/aboard-launcher-herdr; copy it onto your PATH to use aboard swarm up --launcher herdr"
+	echo "Built $(BIN)/aboard-launcher-herdr (make install also installs it next to aboard)"
 
 ## launcher-kit: run the launcher kit against one launcher (LAUNCHER=tmux, headless, or <name> for aboard-launcher-<name> on the PATH)
 # make test already runs it against tmux, headless and the herdr launcher with a stand-in
@@ -169,6 +169,8 @@ web:
 ## install: build the web UI, then install aboard with the UI embedded
 install: web
 	go install -tags ui ./server/cmd/aboard
+	@gobin="$$(go env GOBIN)"; [ -n "$$gobin" ] || gobin="$$(go env GOPATH)/bin"; \
+	for d in launchers/*/; do n=$$(basename $$d); go build -o "$$gobin/aboard-launcher-$$n" ./$$d && echo "Installed $$gobin/aboard-launcher-$$n"; done
 
 # A dev build's version is the source's version with build metadata naming the commit,
 # such as 0.1.0+dev.1d0e798ab12c (".dirty" with uncommitted changes). Build metadata
