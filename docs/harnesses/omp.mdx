@@ -130,3 +130,11 @@ environment; it has no refresh token, so nothing can rotate it. Without it, the 
 tests fail with a message saying to set it; they never skip and never fall back to your
 own login. omp runs Claude Haiku (`anthropic/claude-haiku-4-5`), or the model
 `LIVE_OMP_MODEL` names.
+
+Your own extensions never run in a test. omp reads its agent folder from the test's
+`HOME` and `PI_CODING_AGENT_DIR`, both in the scratch folder, and the suite drops your
+terminal app's variables (such as `TERM_PROGRAM` and `ORCA_*`) along with omp's own
+(`OMP_*`, `PI_*`). Each time a test starts omp, it opens omp's extension list
+(`/extensions`) and fails unless the only extension there is the project's `aboard`.
+The suite also checks, after every test, that your `~/.omp/agent/config.yml` and every
+file in `~/.omp/agent/extensions` and `~/.omp/agent/skills` are unchanged.

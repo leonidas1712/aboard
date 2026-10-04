@@ -25,8 +25,7 @@ func TestModelSmoke(t *testing.T) {
 			t.Parallel()
 			l := newLab(t)
 			d.setUp(l)
-			// The same project set-up as the scenarios: omp, started in a folder without
-			// Aboard's extension, keeps a spinner in its title and never reads as ready.
+			// The same project set-up as the scenarios, so the harness starts as it does there.
 			p := d.start(l, "smoke", l.project("smoke", d.p.Harness))
 			p.submit("Reply with exactly " + smokeReply)
 			// The prompt shows the word once; the model's answer shows it again.

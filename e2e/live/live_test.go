@@ -153,8 +153,8 @@ func configSums() map[string]string {
 	// every entry there and every installed Claude Code version must stay as it was: a
 	// link must point where it pointed, a file keep its size and time.
 	// omp's login is in ~/.omp/agent/agent.db, which omp itself changes as the person uses
-	// it, so what is checked are the folders a test could write into: its extensions and
-	// skills.
+	// it, so what is checked are its config and the folders a test could write into: its
+	// extensions and skills. Each lab checks these again as it ends (teardown).
 	for _, d := range []string{".local/bin", ".local/share/claude/versions", ".omp/agent/extensions", ".omp/agent/skills"} {
 		entries, err := os.ReadDir(filepath.Join(home, d))
 		if err != nil {
@@ -163,6 +163,14 @@ func configSums() map[string]string {
 		for _, e := range entries {
 			path := filepath.Join(home, d, e.Name())
 			sums[path] = entryState(path)
+		}
+	}
+	// omp runs every file in its extensions folder, so their contents are checked too.
+	exts, _ := filepath.Glob(filepath.Join(home, ".omp", "agent", "extensions", "*"))
+	for _, path := range exts {
+		if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
+			sum := sha256.Sum256(raw)
+			sums[path] += ", sha256 " + hex.EncodeToString(sum[:])
 		}
 	}
 	return sums
@@ -208,15 +216,23 @@ func configDiff(before, after map[string]string) string {
 // they make the nested Claude Code take over the outer session's id.
 var harnessMarkers = regexp.MustCompile(`^(CLAUDE|CODEX|ABOARD|TMUX|OMP|PI_)[A-Z0-9_]*=`)
 
-// cleanEnv is this process's environment without harness markers, keeping what the
-// harnesses need for their login (HOME, ANTHROPIC_*, OPENAI_*, CLAUDE_CONFIG_DIR, and
-// CLAUDE_CODE_OAUTH_TOKEN, which logs Claude Code in with a scratch config directory).
+// terminalMarkers are the variables the person's terminal app sets to say which terminal
+// a program draws to, and to let agents running in it report back to the app. A harness
+// the suite starts draws to the lab's tmux, not to that terminal, and must never report
+// to the person's app, so it doesn't inherit them.
+var terminalMarkers = regexp.MustCompile(`^(TERM_PROGRAM|TERM_PROGRAM_VERSION|TERM_SESSION_ID|LC_TERMINAL|LC_TERMINAL_VERSION|` +
+	`WT_SESSION|STY|__CFBundleIdentifier|(KITTY|GHOSTTY|WEZTERM|ITERM|VSCODE|ALACRITTY|WARP|ZELLIJ|CMUX|HERDR|ORCA)[A-Z0-9_]*)=`)
+
+// cleanEnv is this process's environment without harness and terminal markers, keeping
+// what the harnesses need for their login (HOME, ANTHROPIC_*, OPENAI_*,
+// CLAUDE_CONFIG_DIR, and CLAUDE_CODE_OAUTH_TOKEN, which logs Claude Code in with a
+// scratch config directory).
 func cleanEnv() []string {
 	var out []string
 	for _, kv := range os.Environ() {
 		switch {
 		case strings.HasPrefix(kv, "CLAUDE_CONFIG_DIR="), strings.HasPrefix(kv, "CLAUDE_CODE_OAUTH_TOKEN="):
-		case harnessMarkers.MatchString(kv),
+		case harnessMarkers.MatchString(kv), terminalMarkers.MatchString(kv),
 			strings.HasPrefix(kv, "XDG_CONFIG_HOME="), strings.HasPrefix(kv, "XDG_DATA_HOME="),
 			strings.HasPrefix(kv, "XDG_STATE_HOME="), strings.HasPrefix(kv, "PATH="):
 			continue

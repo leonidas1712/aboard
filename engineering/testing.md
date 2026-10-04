@@ -122,7 +122,14 @@ rotate or invalidate it. Each harness's docs page says the same.
   sets to `CLAUDE_CODE_OAUTH_TOKEN`, the token it already uses for Claude Code; an OAuth
   token from the environment has no refresh token, so nothing can rotate it. Without
   the token, the omp tests fail with a message saying to set it; they never skip and
-  never fall back to the person's own login.
+  never fall back to the person's own login. omp loads extensions from its agent folder
+  as it starts, so every start also checks omp's own list (`/extensions`) holds only the
+  project's `aboard`: an extension from the person's `~/.omp` would run inside the test.
+- **Every harness.** Harnesses run in the lab's tmux with exactly the lab's environment,
+  never the person's shell profile. Variables that name the person's harness session
+  (`CLAUDE*`, `CODEX*`, `ABOARD*`, `TMUX*`, `OMP*`, `PI_*`) or their terminal app
+  (`TERM_PROGRAM`, `ORCA*`, `KITTY*` and the like) are dropped, so a harness neither
+  thinks it runs in the person's session nor reports to the person's apps.
 
 #### Which models the live suite runs
 

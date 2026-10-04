@@ -167,19 +167,31 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
   off; aboard's own omp setup follows `PI_CODING_AGENT_DIR`, set to the same scratch
   folder for every command. It logs in to Anthropic from `ANTHROPIC_OAUTH_TOKEN`, set to
   `CLAUDE_CODE_OAUTH_TOKEN`; an OAuth token from the environment has no refresh token, so
-  nothing can rotate it. Your own `~/.omp` is never read or written.
+  nothing can rotate it. Your own `~/.omp` is never read or written. Each time a test
+  starts omp, it opens omp's Extension Control Center (`/extensions`) and fails unless
+  the only extension omp found is the project's `aboard` (or none, in a folder without
+  Aboard's setup), so an extension from your `~/.omp` can never run inside a test. omp
+  runs with images off (`PI_FORCE_IMAGE_PROTOCOL=off`): in the lab's tmux it would
+  otherwise send a Kitty image command that tmux takes as the pane's title, and the
+  suite would never see omp's prompt.
 - **Checksums.** Before the run, the suite records `~/.claude/settings.json`,
   `~/.codex/config.toml` and `~/.codex/hooks.json`, and whether `~/.local/state/aboard`,
   `~/.local/share/aboard` and `~/.config/aboard` exist, `~/.omp/agent/config.yml`, and
-  every entry in `~/.omp/agent/extensions` and `~/.omp/agent/skills` (omp's `agent.db`
-  changes whenever you use omp, so the folders a test could write to stand for it).
-  Every test checks them in its cleanup, and the run fails if any changed.
+  every entry in `~/.omp/agent/extensions` (with its contents' checksum) and
+  `~/.omp/agent/skills` (omp's `agent.db` changes whenever you use omp, so the folders a
+  test could write to stand for it). Every test checks them in its cleanup, and the run
+  fails if any changed.
 - **Harness markers.** Every variable starting `CLAUDE`, `CODEX`, `ABOARD`, `TMUX`, `OMP` or `PI_` is
   removed from what harnesses and aboard commands inherit (except `CLAUDE_CONFIG_DIR`).
   Run from inside a Claude Code session, aboard would otherwise think it runs in that
   session; in a remote Claude Code container the remote session's variables even make
   the nested Claude Code take over the outer session's id. Login variables such as
   `ANTHROPIC_*` and `OPENAI_*` are kept.
+- **Terminal markers.** The variables your terminal app sets (`TERM_PROGRAM`,
+  `LC_TERMINAL`, and those starting `KITTY`, `GHOSTTY`, `WEZTERM`, `ITERM`, `VSCODE`,
+  `ALACRITTY`, `WARP`, `ZELLIJ`, `CMUX`, `HERDR` or `ORCA`, among others) are removed too.
+  A harness in the lab draws to the lab's tmux, not to your terminal, and must never
+  report its state to your terminal app.
 - **Teardown.** The tmux server is killed, the suite waits for the harnesses to exit
   (their end hook can start a daemon on the way out), then stops every process running
   the test's aboard binary.
