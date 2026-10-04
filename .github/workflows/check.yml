@@ -26,6 +26,9 @@ jobs:
           go-version-file: go.mod
       # omp's extension is TypeScript that omp's Bun runs; make check tests it with Bun.
       - uses: oven-sh/setup-bun@v2
+      # The tmux launcher's kit and the swarm tests start tmux servers of their own.
+      - name: Install tmux
+        run: command -v tmux || { if [ "$RUNNER_OS" = macOS ]; then brew install tmux; else sudo apt-get update && sudo apt-get install -y tmux; fi; }
       - name: make check
         run: make check
 

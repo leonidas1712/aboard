@@ -17,7 +17,7 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check core-size harness-table-check test e2e extension-test vuln
@@ -138,6 +138,18 @@ live-affected:
 ## live-smoke: start each harness once with the model make live runs it with, and check it answers (one model turn per harness)
 live-smoke:
 	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 10m -parallel $(LIVE_PARALLEL) -run 'TestModelSmoke' ./e2e/live
+
+## launchers: build the launchers that live outside aboard into .bin: aboard-launcher-herdr
+launchers:
+	@$(REQUIRE_GO); go build -o $(BIN)/aboard-launcher-herdr ./launchers/herdr; \
+	echo "Built $(BIN)/aboard-launcher-herdr; copy it onto your PATH to use aboard swarm up --launcher herdr"
+
+## launcher-kit: run the launcher kit against one launcher (LAUNCHER=tmux, headless, or <name> for aboard-launcher-<name> on the PATH)
+# make test already runs it against tmux, headless and the herdr launcher with a stand-in
+# for herdr. Against the real herdr it starts a herdr session of its own, in your herdr
+# config folder, and removes it at the end.
+launcher-kit:
+	@$(REQUIRE_GO); LAUNCHER='$(LAUNCHER)' go test -tags launcherkit -count=1 -v -run '^TestLauncherKit$$' ./server/internal/launcher/launchertest/
 
 ## harness-table: write the README's harness table from the profiles and the live kit's results
 harness-table:
