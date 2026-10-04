@@ -258,11 +258,10 @@ has a docs page.
 
 | Harness | Baseline | Wakes when idle | Peers at turn end | Owner mid-turn | Waiting notice | Presence | Reconnects on resume | Subagents | Project setup | Started by a launcher | Sandbox check |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | partial | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
+| [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
 | [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | – | ✓ |
-| [omp](docs/harnesses/omp.mdx) | ✓ | partial | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | n/a |
+| [omp](docs/harnesses/omp.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | n/a |
 
-- Claude Code, wakes when idle: failed live: PingPongAcrossHarnesses 2026-10-04.
 - Claude Code, subagents: marked: a subagent's commands may only read.
 - Claude Code, started by a launcher: no launcher starts sessions in this aboard.
 - Codex, baseline: needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it.
@@ -272,15 +271,14 @@ has a docs page.
 - Codex, subagents: marked: a subagent's commands may only read.
 - Codex, started by a launcher: no launcher starts sessions in this aboard.
 - omp, baseline: identity comes from Aboard's extension.
-- omp, wakes when idle: failed live: PingPongAcrossHarnesses 2026-10-04.
 - omp, subagents: marked: a subagent's commands may only read.
 - omp, started by a launcher: no launcher starts sessions in this aboard.
 
 Live evidence:
 
-- Claude Code: proven on 2.1.288, 2026-10-04; a delivery typically began 0.5 s after its message was posted, and Claude Code confirmed it 2.6 s later (median of 3, 2026-10-04).
-- Codex: proven on 0.160.0, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.1 s later (median of 5, 2026-10-04).
-- omp: proven on 18.5.1, 2026-10-04; a delivery typically began 0.0 s after its message was posted, and omp confirmed it 0.0 s later (median of 2, 2026-10-04).
+- Claude Code: proven on 2.1.289, 2026-10-04; a delivery typically began 49.9 s after its message was posted, and Claude Code confirmed it 2.7 s later (median of 1, 2026-10-04).
+- Codex: proven on 0.160.0, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.1 s later (median of 1, 2026-10-04).
+- omp: proven on 18.5.1, 2026-10-04; a delivery typically began 51.4 s after its message was posted, and omp confirmed it 0.0 s later (median of 1, 2026-10-04).
 
 <!-- end of harness-table -->
 
