@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -378,11 +379,13 @@ func TestSwarmUpStartsEveryHarness(t *testing.T) {
 // Codex runs threads, their hooks and their commands in an app server under CODEX_HOME
 // that outlives its terminal, so on a person's machine the swarm's codex usually joins
 // one a Codex started earlier, outside the swarm: nothing it runs sees the environment
-// swarm up started it with. Here the person's own Codex starts first, in a folder with
-// no Aboard setup, and quits, leaving that app server running; then swarm up's codex
-// takes its seat anyway, from the launch ticket in its first prompt, and answers a
-// message. No app server under the lab's CODEX_HOME has ABOARD_AGENT in its environment,
-// so the person's other Codex threads can't act as the agent.
+// swarm up started it with. Here Codex's app server daemon starts first (codex
+// app-server daemon start, under the lab's CODEX_HOME, with the lab's environment and
+// none of the swarm's), as a Codex the person ran earlier leaves it; then swarm up's
+// codex runs its thread on that app server (its prompt hook runs under it), takes its
+// seat anyway, from the launch ticket in its first prompt, and answers a message. No
+// app server under the lab's CODEX_HOME has ABOARD_AGENT in its environment, so the
+// person's other Codex threads can't act as the agent.
 func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
 	only(t, "codex")
 	requireCodex(t)
@@ -392,20 +395,18 @@ func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
 	d.setUp(s.lab)
 	home := filepath.Join(s.lab.dir, "codex-home")
 
-	mineDir := filepath.Join(s.lab.dir, "mine")
-	if err := os.MkdirAll(mineDir, 0o750); err != nil {
-		t.Fatal(err)
+	daemon := command(t.Context(), "codex", "app-server", "daemon", "start")
+	daemon.Dir, daemon.Env = s.lab.dir, slices.Clone(s.vars)
+	// Stops it even when the test fails: the daemon detaches from this process, so
+	// nothing else would. The lab's watchdog stops it if the test process dies first.
+	t.Cleanup(func() { stopCodexAppServers(s.lab, home) })
+	if out, err := daemon.CombinedOutput(); err != nil {
+		t.Fatalf("codex app-server daemon start under the lab's CODEX_HOME: %v\n%s", err, out)
 	}
-	mine := d.startPlain(s.lab, "mine", mineDir)
-	s.waitFor(time.Minute, "the person's Codex to start its app server under the lab's CODEX_HOME", func() bool {
-		return len(codexAppServers(t, home)) > 0
+	s.waitFor(time.Minute, "Codex's app server daemon to run under the lab's CODEX_HOME", func() bool {
+		return len(codexAppServers(t.Context(), home)) > 0
 	})
-	mine.quit()
-	// It must outlive the terminal, or this run doesn't share one.
-	s.neverWithin(5*time.Second, "Codex's app server stopped with its terminal, so this run can't share one", func() bool {
-		return len(codexAppServers(t, home)) == 0
-	})
-	before := codexAppServers(t, home)
+	before := codexAppServers(t.Context(), home)
 	t.Logf("Codex's app server, started outside the swarm: %v", before)
 
 	s.add(d, "codex")
@@ -413,8 +414,19 @@ func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
 	up := s.swarm("up", "--wait", "0")
 	panes := s.swarmPanes(up)
 	s.waitSeated(panes)
-	t.Logf("Codex's app servers once the swarm's codex is seated: %v (before: %v)", codexAppServers(t, home), before)
-	for pid, env := range codexAppServerEnvs(t, home) {
+	after := codexAppServers(t.Context(), home)
+	t.Logf("Codex's app servers once the swarm's codex is seated: %v (before: %v)", after, before)
+	// The swarm's codex ran its thread on the app server started before it: that server
+	// ran its prompt hook, and no other app server started.
+	runners := s.codexHookRunners("prompt")
+	if !slices.ContainsFunc(runners, func(pid int) bool { return slices.Contains(before, pid) }) {
+		t.Fatalf("the swarm's codex didn't run on the app server started before it (%v): its prompt hook ran under %v, and the app servers are now %v",
+			before, runners, after)
+	}
+	if !slices.Equal(after, before) {
+		t.Fatalf("the swarm's codex started an app server of its own: %v, before %v", after, before)
+	}
+	for pid, env := range codexAppServerEnvs(t.Context(), home) {
 		if strings.Contains(env, " ABOARD_AGENT=") {
 			t.Fatalf("Codex's app server %d has ABOARD_AGENT in its environment, so every thread it runs would act as that agent", pid)
 		}
@@ -434,11 +446,28 @@ func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
 	})
 }
 
+// stopCodexAppServers stops the Codex app server daemon running under CODEX_HOME home:
+// with codex app-server daemon stop, then by signal, so none outlives the test.
+func stopCodexAppServers(l *lab, home string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	stop := command(ctx, "codex", "app-server", "daemon", "stop")
+	stop.Dir, stop.Env = l.dir, slices.Clone(l.vars)
+	_ = stop.Run()
+	for _, sig := range []syscall.Signal{syscall.SIGTERM, syscall.SIGKILL} {
+		if waitQuietly(5*time.Second, func() bool { return len(codexAppServers(ctx, home)) == 0 }) {
+			return
+		}
+		for _, pid := range codexAppServers(ctx, home) {
+			_ = syscall.Kill(pid, sig)
+		}
+	}
+}
+
 // codexAppServers lists the Codex app servers running with CODEX_HOME home.
-func codexAppServers(t *testing.T, home string) []int {
-	t.Helper()
+func codexAppServers(ctx context.Context, home string) []int {
 	var pids []int
-	for pid := range codexAppServerEnvs(t, home) {
+	for pid := range codexAppServerEnvs(ctx, home) {
 		pids = append(pids, pid)
 	}
 	slices.Sort(pids)
@@ -446,12 +475,12 @@ func codexAppServers(t *testing.T, home string) []int {
 }
 
 // codexAppServerEnvs maps each Codex app server running with CODEX_HOME home to its
-// command line and environment, as ps shows them for the person's own processes.
-func codexAppServerEnvs(t *testing.T, home string) map[int]string {
-	t.Helper()
-	out, err := command(t.Context(), "ps", "eww", "-ax", "-o", "pid=,command=").Output()
+// command line and environment, as ps shows them for the person's own processes. The
+// environment is what tells the lab's apart: the daemon's command line names no folder.
+func codexAppServerEnvs(ctx context.Context, home string) map[int]string {
+	out, err := command(ctx, "ps", "eww", "-ax", "-o", "pid=,command=").Output()
 	if err != nil {
-		t.Fatalf("ps: %v", err)
+		return nil
 	}
 	found := map[int]string{}
 	for _, line := range strings.Split(string(out), "\n") {

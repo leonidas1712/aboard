@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -571,8 +572,9 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 		}
 	}
 	// "<bin> hook codex <event>" becomes
-	// env <vars> sh -c 'echo "$1" >> <log>; exec "$0" hook codex "$1"' <bin> <event>
-	script := fmt.Sprintf(`echo "$1" >> %s; exec "$0" hook codex "$1"`, l.codexHookLog())
+	// env <vars> sh -c 'echo "$1 <parent> <grandparent>" >> <log>; exec "$0" hook codex "$1"' <bin> <event>
+	// The two processes above the hook show which Codex process ran it (codexHookRunners).
+	script := fmt.Sprintf(`echo "$1 $PPID $(ps -o ppid= -p $PPID)" >> %s; exec "$0" hook codex "$1"`, l.codexHookLog())
 	words = append(words, "sh", "-c", "'"+script+"'", l.bin)
 	quoted, err := json.Marshal(strings.Join(words, " ") + " ")
 	if err != nil {
@@ -594,6 +596,25 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 
 // codexHookLog is where the lab's Codex hooks write each event they run, one per line.
 func (l *lab) codexHookLog() string { return filepath.Join(l.dir, "codex-hooks.log") }
+
+// codexHookRunners lists the processes just above each run of event's hook: the Codex
+// process that ran it, and the shell between them, if any.
+func (l *lab) codexHookRunners(event string) []int {
+	raw, _ := os.ReadFile(l.codexHookLog())
+	var pids []int
+	for _, line := range strings.Split(string(raw), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 0 || f[0] != event {
+			continue
+		}
+		for _, s := range f[1:] {
+			if pid, err := strconv.Atoi(s); err == nil {
+				pids = append(pids, pid)
+			}
+		}
+	}
+	return pids
+}
 
 // codexHooksRan reports whether each event's hook has run at least once.
 func (l *lab) codexHooksRan(events ...string) bool {
