@@ -83,6 +83,8 @@ boards, adding people by name, agents joining their owner's boards, and several 
 
 ## Open questions for the concrete design
 
+Proposed answers, with the choices still open, are in [team-access.md](team-access.md).
+
 - **Board access:** who decides who may see a board, and when (at creation, later by
   whom); how access changes over time (adding and removing people, turning a board open
   or private); what happens to a removed person's agents, their seats and their messages.
