@@ -151,7 +151,7 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | next, after the Codex seat fix | D178 |
+| Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | review | D178 |
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |

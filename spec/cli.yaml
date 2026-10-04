@@ -31,7 +31,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, invite, watch, logout --browsers, swarm up, ps and down, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, invite, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -131,7 +131,11 @@ $defs:
       but this machine holds no credential for it) · swarm_not_ready (swarm up's --wait
       ran out before every agent was seated, or a session ended before its agent took the
       seat; details.agents names them, details.exited the ones whose session ended, and the
-      hint how to watch each) · swarm_not_found (ps or down found no swarm for the board).
+      hint how to watch each) · swarm_not_found (ps, down or show found no swarm for the
+      board, or --swarm names no swarm this machine started) · swarm_not_selected (there's
+      no board file here and this machine has several swarms, or --swarm names a board
+      several of its swarms are on; details.choices lists the swarms' names,
+      details.boards their boards).
   ServerRef:
     type: object
     required: [name, url]
@@ -1452,6 +1456,13 @@ $defs:
   SwarmUpOutput:
     description: |
       aboard swarm up [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]
+      aboard swarm up --swarm NAME [--file PATH] [--launcher L] [--fresh] [--wait 2m] [--json]
+      With --swarm, a swarm this machine started (by its name or its board's), from any
+      folder: it reads the board file swarm up last read for that swarm, on the server the
+      swarm is on. If that file moved or was deleted it refuses with board_file_not_found
+      (details.swarm, details.file) and the hint names --file; --file then gives where it
+      is now, and must name the swarm's board (board_file_invalid otherwise). Without
+      --swarm and with no ./aboard.yaml, the hint says how to start a recorded swarm.
       Reads the board file (default ./aboard.yaml) and checks it against
       spec/aboard.schema.json; creates the board if it doesn't exist (from template,
       charter, title and policy.preset); creates each agent's seat with the person's
@@ -1511,17 +1522,21 @@ $defs:
 
   SwarmPsOutput:
     description: |
-      aboard swarm ps [--file aboard.yaml | --board B] [--json]
+      aboard swarm ps [--file aboard.yaml | --board B | --swarm NAME] [--json]
       The swarm's agents: each one's launcher, the launcher's handle and whether the
       session runs, whether it was started fresh or resumed, the session that holds its
-      seat, and its presence and delivery mode. The swarm is --board's, else the board
-      file's (default ./aboard.yaml), else the only swarm on this machine. Text output:
+      seat, its presence and delivery mode, and the launcher's line to watch it. The swarm
+      is --swarm's (a swarm this machine started, by its name or its board's, from any
+      folder), else --board's, else the board file's (default ./aboard.yaml), else the
+      only swarm on this machine; with several and none of these, it fails with
+      swarm_not_selected. Text output:
         trio · 3 agents · swarm aboard-trio-3f9a0c
-          claude  claude-code  tmux  running  fresh    seated  idle          focused
-          codex   codex        tmux  running  resumed  seated  working       focused
-          omp     omp          tmux  exited   fresh    -       disconnected  focused
+          claude  claude-code  tmux  running  fresh    seated  idle          focused  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:claude
+          codex   codex        tmux  running  resumed  seated  working       focused  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:codex
+          omp     omp          tmux  exited   fresh    -       disconnected  focused  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:omp
       The text calls an agent with no session disconnected, as the rest of the CLI does;
-      presence in the JSON is the API's no_session.
+      presence in the JSON is the API's no_session. When the swarm's board file is no
+      longer where swarm up last read it, a last line says so.
     type: object
     required: [server, board, swarm, agents]
     properties:
@@ -1532,8 +1547,10 @@ $defs:
 
   SwarmDownOutput:
     description: |
-      aboard swarm down [agent…] [--file aboard.yaml | --board B] [--json]
-      Stops the swarm's sessions, or only the named agents', through their launchers.
+      aboard swarm down [agent…] [--file aboard.yaml | --board B | --swarm NAME] [--json]
+      Stops the swarm's sessions, or only the named agents', through their launchers. The
+      swarm is found as for swarm ps; down needs no board file, so it works for a swarm
+      whose file moved.
       The board, the seats and the record stay: aboard swarm up starts them again, and
       resumes each session where the harness can. A person's command, like swarm up.
       Text output:
@@ -1546,3 +1563,117 @@ $defs:
       swarm: { type: string }
       stopped: { type: array, items: { type: string }, description: Agents whose sessions this run stopped. }
       not_running: { type: array, items: { type: string }, description: Agents named, or in the swarm, whose sessions weren't running. }
+
+  SwarmSummary:
+    description: |
+      A swarm this machine started, from its record in the state folder (swarms/): one
+      per board and server, written by swarm up.
+    type: object
+    required: [swarm, server, board, title, file, folder, file_exists, launchers, agents_running, agents_total, last_up]
+    properties:
+      swarm:
+        type: string
+        description: The swarm's name, which --swarm takes (as does its board's name).
+        examples: [aboard-trio-3f9a0c]
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string, examples: [trio] }
+      title:
+        type: [string, "null"]
+        description: The board's title when swarm up last ran; null when it had none.
+      file: { type: string, description: The board file swarm up last read for the swarm, as an absolute path. }
+      folder: { type: string, description: The folder holding the board file. }
+      file_exists:
+        type: boolean
+        description: False when the board file is no longer there (moved or deleted). The swarm is still listed; swarm up --swarm then needs --file.
+      launchers:
+        type: array
+        items: { type: string }
+        description: The launchers holding the swarm's agents, sorted.
+        examples: [[tmux], [headless, herdr]]
+      agents_running: { type: integer, description: Agents whose launcher says their session runs. }
+      agents_total: { type: integer, description: Agents swarm up started, and those the board file names that it never started. }
+      last_up:
+        type: [string, "null"]
+        format: date-time
+        description: When swarm up last ran for the swarm; null when this machine doesn't know.
+
+  SwarmListOutput:
+    description: |
+      aboard swarm list [--json]
+      Every swarm this machine started, newest swarm up first, including swarms whose
+      board file moved or was deleted (file_exists false). It asks each launcher whether
+      the sessions run and never contacts the server. A person's command, like swarm up.
+      Text output:
+        2 swarms on this machine:
+          aboard-trio-3f9a0c  trio  Three harnesses  2 of 3 running  tmux   up 5m ago  /Users/alex/work
+          aboard-docs-81b2e0  docs  -                0 of 1 running  herdr  up 2d ago  /Users/alex/docs (aboard.yaml is gone)
+        From any folder: aboard swarm show <swarm>, or --swarm <swarm> on swarm up, ps or down.
+      With none: "This machine hasn't started a swarm. Start one with aboard swarm up in
+      the folder of a board file."
+    type: object
+    required: [swarms]
+    properties:
+      swarms: { type: array, items: { $ref: "#/$defs/SwarmSummary" } }
+
+  SwarmShowOutput:
+    description: |
+      aboard swarm show [NAME] [--file PATH] [--json]
+      One swarm in full: where its board file is, its server, launchers and last swarm up,
+      each agent as swarm ps shows it, and the commands a person runs for it: per agent
+      the launcher's line to watch the session (tmux: tmux -L <swarm> attach -t
+      <swarm>:<agent>; herdr: herdr session attach <swarm>; headless: tail -f of the
+      runner's log), and the commands that stop it and start it again; for the swarm, the
+      board view and the swarm's ps, up and down. NAME is the swarm's name or its board's;
+      without it, the swarm is found as for swarm ps. A person's command, like swarm up.
+      Text output:
+        trio · Three harnesses · swarm aboard-trio-3f9a0c
+          file      /Users/alex/work/aboard.yaml
+          server    http://127.0.0.1:7400
+          launcher  tmux
+          last up   5m ago
+          running   2 of 3 agents
+
+        claude · claude-code · tmux · running · seated · idle · fresh
+          session  claude-code:5f1c2d3e-0000-4000-8000-000000000001
+          watch    tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:claude
+          stop     aboard swarm down claude --swarm aboard-trio-3f9a0c
+
+        omp · omp · tmux · exited · not seated · disconnected · fresh
+          watch    tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:omp
+          start    aboard swarm up --swarm aboard-trio-3f9a0c
+
+        Watch and message them: aboard open --board trio
+        Stop them all: aboard swarm down --swarm aboard-trio-3f9a0c
+    allOf:
+      - $ref: "#/$defs/SwarmSummary"
+      - type: object
+        required: [agents, commands]
+        properties:
+          agents:
+            type: array
+            items:
+              allOf:
+                - $ref: "#/$defs/SwarmAgent"
+                - type: object
+                  required: [commands]
+                  properties:
+                    commands:
+                      type: object
+                      required: [watch, stop, start]
+                      properties:
+                        watch:
+                          type: [string, "null"]
+                          description: The launcher's line to watch the session (its attach line); null when the agent never started on this machine.
+                        stop: { type: string, examples: ["aboard swarm down claude --swarm aboard-trio-3f9a0c"] }
+                        start:
+                          type: string
+                          description: Starts every agent of the swarm that isn't running, this one among them, resuming its session where the harness can.
+                          examples: ["aboard swarm up --swarm aboard-trio-3f9a0c"]
+          commands:
+            type: object
+            required: [open, ps, up, down]
+            properties:
+              open: { type: string, examples: ["aboard open --board trio"] }
+              ps: { type: string, examples: ["aboard swarm ps --swarm aboard-trio-3f9a0c"] }
+              up: { type: string, examples: ["aboard swarm up --swarm aboard-trio-3f9a0c"] }
+              down: { type: string, examples: ["aboard swarm down --swarm aboard-trio-3f9a0c"] }

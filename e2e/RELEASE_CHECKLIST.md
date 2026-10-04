@@ -73,7 +73,8 @@ the harnesses and for herdr (`e2e/swarm_test.go`); the launchers pass the launch
 - [ ] The page's board file, with one Claude Code, one Codex and one omp, started by `aboard swarm up`: each agent takes its seat with no join line pasted, and a message from one agent to another is answered. **Automated**, `TestSwarmUpStartsEveryHarness/tmux`.
 - [ ] The same with `aboard swarm up --launcher herdr`, after `go build -o ~/.local/bin/aboard-launcher-herdr ./launchers/herdr`. **Automated**, `TestSwarmUpStartsEveryHarness/herdr`; the herdr launcher against the real herdr, `TestHerdrLauncherPassesTheKit`.
 - [ ] `aboard swarm down codex`, then `aboard swarm up`: codex comes back in the same session (`swarm ps` says resumed) and answers a message that waited. **Automated** per harness, `TestSwarmUpResumesTheLastSession`.
-- [ ] Each attach line `swarm up` prints works from a terminal: `tmux -L <swarm> attach -t <swarm>:<agent>` shows that agent's session, and `herdr session attach <swarm>` shows the swarm's herdr session with one tab per agent.
+- [ ] `aboard swarm list`, `swarm show <board>` and `--swarm` on `up`, `ps` and `down`, run from another folder, act on swarms started in two folders; a swarm whose file moved is listed as gone and `swarm up --swarm` asks for `--file`. **Automated**, `TestSwarmsAreManagedFromAnyFolder` and `TestSwarmShowGivesEachLaunchersCommands`.
+- [ ] Each attach line `swarm up`, `swarm ps` and `swarm show` print works from a terminal: `tmux -L <swarm> attach -t <swarm>:<agent>` shows that agent's session, and `herdr session attach <swarm>` shows the swarm's herdr session with one tab per agent.
 - [ ] In a folder Claude Code or Codex has never opened, `aboard swarm up` stops with `swarm_not_ready` naming the agent and its attach line; answering the trust question there seats it, and `aboard swarm ps` shows it seated.
 
 ## Extending Aboard ([docs/extending.mdx](../docs/extending.mdx))

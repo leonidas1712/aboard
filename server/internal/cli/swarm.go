@@ -34,7 +34,7 @@ const defaultLauncher = tmux.Name
 // defaultSwarmWait is how long swarm up waits for every agent to take its seat.
 const defaultSwarmWait = 2 * time.Minute
 
-// runSwarm runs "aboard swarm up|ps|down|runner".
+// runSwarm runs "aboard swarm up|ps|down|list|show|runner".
 func runSwarm(ctx context.Context, a *app, args []string) error {
 	if len(args) > 0 && strings.HasPrefix(args[0], "-") {
 		// --help, -h or --json before the subcommand: help, or a usage error.
@@ -43,7 +43,7 @@ func runSwarm(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return usageError("Name what to do: aboard swarm up, ps or down.", swarmUsage)
+		return usageError("Name what to do: aboard swarm up, ps, down, list or show.", swarmUsage)
 	}
 	switch args[0] {
 	case "up":
@@ -52,6 +52,10 @@ func runSwarm(ctx context.Context, a *app, args []string) error {
 		return runSwarmPs(ctx, a, args[1:])
 	case "down":
 		return runSwarmDown(ctx, a, args[1:])
+	case "list":
+		return runSwarmList(ctx, a, args[1:])
+	case "show":
+		return runSwarmShow(ctx, a, args[1:])
 	case "runner":
 		return runSwarmRunner(ctx, a, args[1:])
 	}
@@ -61,10 +65,14 @@ func runSwarm(ctx context.Context, a *app, args []string) error {
 // swarmRecord is what this machine keeps about a swarm it started: which launcher holds
 // each agent's session, and the launcher's handle for it. It holds no token.
 type swarmRecord struct {
-	Server string                       `json:"server"`
-	Board  string                       `json:"board"`
+	Server string `json:"server"`
+	Board  string `json:"board"`
+	// Title is the board's title when swarm up last ran, for swarm list.
+	Title  string                       `json:"title,omitempty"`
 	File   string                       `json:"file"`
 	Agents map[string]*swarmAgentRecord `json:"agents"`
+	// UpAt is when swarm up last ran for the swarm.
+	UpAt time.Time `json:"up_at,omitzero"`
 }
 
 // swarmAgentRecord is one agent of a swarm record.
@@ -221,28 +229,38 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	launcherFlag := flags.String("launcher", "", "the launcher of agents that don't name their own")
 	fresh := flags.Bool("fresh", false, "start new sessions instead of resuming")
 	wait := flags.Duration("wait", defaultSwarmWait, "how long to wait for every agent to take its seat")
+	swarmFlag := flags.String("swarm", "", "a swarm this machine started, by its name or its board's")
 	if _, err := a.parse(flags, args, swarmUsage, 0, 0); err != nil {
 		return err
 	}
 	if *wait < 0 {
 		return usageError("--wait can't be negative.", swarmUsage)
 	}
-	command := "aboard swarm up"
+	command := "aboard swarm up" + swarmArg(*swarmFlag)
 	if *file != "" {
 		command += " --file " + shellWord(*file)
 	}
 	if err := a.refuseInSession("Starting agents", command); err != nil {
 		return err
 	}
-	f, err := a.readSwarmFile(*file)
+	var f swarmFile
+	var srv serverRef
+	var started bool
+	var err error
+	if *swarmFlag != "" {
+		f, srv, started, err = a.recordedSwarmFile(ctx, *swarmFlag, *file)
+	} else {
+		f, err = a.readSwarmFile(*file)
+		if err == nil {
+			srv, started, err = a.swarmServer(ctx)
+		} else if *file == "" {
+			err = a.noBoardFileHere(err)
+		}
+	}
 	if err != nil {
 		return err
 	}
 	prog := a.swarmProgress()
-	srv, started, err := a.swarmServer(ctx)
-	if err != nil {
-		return err
-	}
 	if started {
 		prog.step("Started local Aboard at " + srv.URL)
 	}
@@ -268,7 +286,7 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	rec.Server, rec.Board, rec.File = srv.URL, board.Name, f.path
+	rec.Server, rec.Board, rec.File, rec.Title, rec.UpAt = srv.URL, board.Name, f.path, deref(board.Title), time.Now().UTC()
 	members, err := boardMembers(ctx, c, board.Name)
 	if err != nil {
 		return err
@@ -935,9 +953,28 @@ func swarmTable[T any](_ styles, rows []T, cells func(T) []string) string {
 	return strings.ReplaceAll(b.String(), " \n", "\n")
 }
 
-// swarmTarget finds a swarm for ps and down: --board's, else the board file's, else the
-// only swarm on this machine.
-func (a *app) swarmTarget(ctx context.Context, boardFlag, file string) (string, *swarmRecord, *swarmFile, error) {
+// swarmTarget finds a swarm for ps, down and show: --swarm's, else --board's, else the
+// board file's, else the only swarm on this machine. The board file is nil when there is
+// none to read, such as for a recorded swarm whose file moved.
+func (a *app) swarmTarget(boardFlag, swarmFlag, file string) (string, *swarmRecord, *swarmFile, error) {
+	if swarmFlag != "" {
+		id, rec, err := a.findSwarm(swarmFlag)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		if file != "" {
+			// A file named outright must be the swarm's.
+			sf, err := a.readSwarmFile(file)
+			if err != nil {
+				return "", nil, nil, err
+			}
+			if sf.Board != rec.Board {
+				return "", nil, nil, boardMismatch(sf, id, rec)
+			}
+			return id, rec, &sf, nil
+		}
+		return id, rec, a.recordedFile(rec), nil
+	}
 	p, err := a.paths()
 	if err != nil {
 		return "", nil, nil, err
@@ -956,20 +993,15 @@ func (a *app) swarmTarget(ctx context.Context, boardFlag, file string) (string, 
 		}
 	}
 	if board == "" {
-		entries, _ := os.ReadDir(p.swarms())
-		var names []string
-		for _, e := range entries {
-			if n, ok := strings.CutSuffix(e.Name(), ".json"); ok {
-				names = append(names, n)
-			}
+		all, err := a.recordedSwarms()
+		if err != nil {
+			return "", nil, nil, err
 		}
-		if len(names) != 1 {
-			e := newError("swarm_not_found", "There's no board file here, and this machine has "+fmt.Sprint(len(names))+" swarms.",
-				"Pass --board with the swarm's board, or --file with its board file.")
-			return "", nil, nil, e
+		if len(all) != 1 {
+			return "", nil, nil, chooseSwarm(all)
 		}
-		rec, _, err := a.readSwarm(names[0])
-		return names[0], rec, nil, err
+		rec := all[0].rec
+		return all[0].id, rec, a.recordedFile(rec), nil
 	}
 	name := swarmName(srv.URL, p.state, board)
 	rec, found, err := a.readSwarm(name)
@@ -980,10 +1012,9 @@ func (a *app) swarmTarget(ctx context.Context, boardFlag, file string) (string, 
 		rec.Server, rec.Board = srv.URL, board
 		if f == nil {
 			return "", nil, nil, newError("swarm_not_found", "This machine hasn't started a swarm on board "+board+".",
-				"Start one with aboard swarm up, from the board file's folder.")
+				"Start one with aboard swarm up, from the board file's folder; aboard swarm list shows the swarms this machine started.")
 		}
 	}
-	_ = ctx
 	return name, rec, f, nil
 }
 
@@ -992,13 +1023,14 @@ func runSwarmPs(ctx context.Context, a *app, args []string) error {
 	flags := a.flags("swarm")
 	file := flags.String("file", "", "the board file")
 	boardFlag := flags.String("board", "", "the swarm's board")
+	swarmFlag := flags.String("swarm", "", "a swarm this machine started, by its name or its board's")
 	if _, err := a.parse(flags, args, swarmUsage, 0, 0); err != nil {
 		return err
 	}
-	if err := a.refuseInSession("Listing a swarm's sessions", "aboard swarm ps"+boardArg(*boardFlag)); err != nil {
+	if err := a.refuseInSession("Listing a swarm's sessions", "aboard swarm ps"+swarmArg(*swarmFlag)+boardArg(*boardFlag)); err != nil {
 		return err
 	}
-	name, rec, f, err := a.swarmTarget(ctx, *boardFlag, *file)
+	name, rec, f, err := a.swarmTarget(*boardFlag, *swarmFlag, *file)
 	if err != nil {
 		return err
 	}
@@ -1020,8 +1052,11 @@ func runSwarmPs(ctx context.Context, a *app, args []string) error {
 		if r.Presence != nil && *r.Presence != "" {
 			presence = presenceText(*r.Presence)
 		}
-		return []string{r.Name, r.Harness, r.Launcher, r.State, orDash(r.Start), seated, presence, orDash(r.Delivery)}
+		return []string{r.Name, r.Harness, r.Launcher, r.State, orDash(r.Start), seated, presence, orDash(r.Delivery), orDash(r.Attach)}
 	})
+	if rec.File != "" && !fileExists(rec.File) {
+		text += st.warn(swarmFileGone(name, rec.File)+" Start it from where it is now with aboard swarm up --swarm "+name+" --file <path>.") + "\n"
+	}
 	a.emit(struct {
 		Server serverRef    `json:"server"`
 		Board  string       `json:"board"`
@@ -1094,18 +1129,20 @@ func runSwarmDown(ctx context.Context, a *app, args []string) error {
 	flags := a.flags("swarm")
 	file := flags.String("file", "", "the board file")
 	boardFlag := flags.String("board", "", "the swarm's board")
+	swarmFlag := flags.String("swarm", "", "a swarm this machine started, by its name or its board's")
 	pos, err := a.parse(flags, args, swarmUsage, 0, -1)
 	if err != nil {
 		return err
 	}
-	command := "aboard swarm down" + boardArg(*boardFlag)
+	command := "aboard swarm down"
 	for _, n := range pos {
 		command += " " + shellWord(n)
 	}
+	command += swarmArg(*swarmFlag) + boardArg(*boardFlag)
 	if err := a.refuseInSession("Stopping agents", command); err != nil {
 		return err
 	}
-	name, rec, _, err := a.swarmTarget(ctx, *boardFlag, *file)
+	name, rec, _, err := a.swarmTarget(*boardFlag, *swarmFlag, *file)
 	if err != nil {
 		return err
 	}
@@ -1157,8 +1194,8 @@ func runSwarmDown(ctx context.Context, a *app, args []string) error {
 	}
 	text := "Nothing was running on " + rec.Board + ".\n"
 	if len(stopped) > 0 {
-		text = fmt.Sprintf("Stopped %s on %s. The board, the seats and the record stay; aboard swarm up starts them again.\n",
-			harness.AndList(stopped), rec.Board)
+		text = fmt.Sprintf("Stopped %s on %s. The board, the seats and the record stay; aboard swarm up%s starts them again.\n",
+			harness.AndList(stopped), rec.Board, swarmArg(*swarmFlag))
 	}
 	a.emit(struct {
 		Server     serverRef `json:"server"`

@@ -50,6 +50,17 @@ func newSwarmEnv(t *testing.T) *swarmEnv {
 	)
 	t.Cleanup(func() {
 		_ = e.exec(nil, "", "swarm", "down", "--json")
+		// Every swarm the test started, wherever its board file is.
+		var list struct {
+			Swarms []struct {
+				Swarm string `json:"swarm"`
+			} `json:"swarms"`
+		}
+		if json.Unmarshal([]byte(e.exec(nil, "", "swarm", "list", "--json").stdout), &list) == nil {
+			for _, sw := range list.Swarms {
+				_ = e.exec(nil, "", "swarm", "down", "--swarm", sw.Swarm, "--json")
+			}
+		}
 		if entries, _ := os.ReadDir(filepath.Join(sockets, "tmux-"+strconv.Itoa(os.Getuid()))); len(entries) != 0 {
 			for _, sock := range entries {
 				kill := exec.Command("tmux", "-L", sock.Name(), "kill-server")
@@ -460,7 +471,7 @@ func TestSwarmCommandsRefuseInsideASession(t *testing.T) {
 	t.Parallel()
 	s := newSwarmEnv(t)
 	s.writeBoardFile(trioFile)
-	for _, args := range [][]string{{"swarm", "up"}, {"swarm", "ps"}, {"swarm", "down"}} {
+	for _, args := range [][]string{{"swarm", "up"}, {"swarm", "ps"}, {"swarm", "down"}, {"swarm", "list"}, {"swarm", "show"}} {
 		r := s.exec([]string{"CLAUDECODE=1"}, "", append(args, "--json")...)
 		if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" ||
 			!strings.Contains(field(t, r.json(t), "error.hint").(string), "aboard "+strings.Join(args, " ")) {
