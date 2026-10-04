@@ -163,7 +163,7 @@ describe("identity and hello", () => {
 			process: { pid: process.pid },
 			cwd: "/work/project",
 			harness_version: "18.5.1",
-			extension_version: "1",
+			extension_version: "2",
 		});
 		expect(hello.boot).toMatch(/^[0-9a-f]{16}$/);
 		expect(hello.resumed).toBeUndefined();
@@ -249,6 +249,32 @@ describe("delivery", () => {
 		expect(omp.sent).toHaveLength(1);
 		expect(omp.sent[0].options).toEqual({ deliverAs: "aside" });
 		expect(omp.sent[0].message.content).toBe("Aboard: your owner sent this\n\n<aboard-notice>1 waiting</aboard-notice>");
+	});
+
+	test("as a turn starts, the messages that waited for it go in before the model runs", async () => {
+		const { omp, c } = await started();
+		let request: Record<string, unknown> | undefined;
+		daemon.onRequest = (conn, req) => {
+			request = req;
+			conn.send({ v: 1, bundle: "Aboard: while you were away, 1 other message arrived on docs." });
+		};
+		const result = (await omp.emit("before_agent_start", { type: "before_agent_start", prompt: "go", systemPrompt: [] }, c)) as
+			| { message?: Record<string, unknown> }
+			| undefined;
+		expect(request).toMatchObject({ v: 1, op: "turn_start", harness: "omp", session: ID });
+		expect(request?.boot).toMatch(/^[0-9a-f]{16}$/);
+		expect(result?.message).toMatchObject({
+			customType: "aboard",
+			content: "Aboard: while you were away, 1 other message arrived on docs.",
+			display: true,
+		});
+		expect(omp.sent).toHaveLength(0);
+
+		daemon.onRequest = conn => conn.send({ v: 1 });
+		const nothing = await omp.emit("before_agent_start", { type: "before_agent_start", prompt: "go", systemPrompt: [] }, c);
+		expect(nothing).toBeUndefined();
+		const sub = await omp.emit("before_agent_start", { type: "before_agent_start", prompt: "go", systemPrompt: [] }, omp.ctx(ID, "sub"));
+		expect(sub).toBeUndefined();
 	});
 
 	test("a session that comes back is told which agent it is again", async () => {

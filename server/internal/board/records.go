@@ -105,6 +105,9 @@ type Message struct {
 	Body       string
 	ReplyTo    *string
 	ReplyToSeq *int64
+	// ReplyToFrom is the name of the member who sent the message this one replies to;
+	// the store fills it when it reads a message.
+	ReplyToFrom *string
 	// ThreadRoot is the first message of the reply's thread; nil for a message that
 	// replies to nothing. The store fills ThreadRootSeq when it reads a message.
 	ThreadRoot    *string

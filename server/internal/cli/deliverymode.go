@@ -45,9 +45,10 @@ func (a *app) refuseInSession(what, command string) error {
 
 // modeText explains what each delivery mode does, for text output.
 var modeText = map[delivery.Mode]string{
-	delivery.ModeAuto:   "wakes for every message",
-	delivery.ModeHumans: "wakes only for messages from people",
-	delivery.ModeOff:    "delivers nothing; the agent reads its inbox itself",
+	delivery.ModeFocused: "wakes for messages that concern it; the rest arrive at its next turn",
+	delivery.ModeAll:     "wakes for every message",
+	delivery.ModeHumans:  "wakes only for messages from people",
+	delivery.ModeOff:     "delivers nothing; the agent reads its inbox itself",
 }
 
 // runDelivery shows the acting agent's delivery mode, or changes it. Changing it is a
@@ -65,7 +66,7 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 	if len(pos) == 1 {
 		m, ok := delivery.ParseMode(pos[0])
 		if !ok {
-			return usageError(fmt.Sprintf("%q is not a delivery mode; use auto, humans or off.", pos[0]), use)
+			return usageError(fmt.Sprintf("%q is not a delivery mode; use focused, all, humans or off.", pos[0]), use)
 		}
 		want = m
 		if _, in := a.inSession(); in {
@@ -102,6 +103,9 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 		out.Mode, out.Changed = resp.Mode, resp.Changed
+		if m, ok := delivery.ParseMode(string(out.Mode)); ok {
+			out.Mode = m // an older daemon answers auto for all
+		}
 	}
 	now := ""
 	if out.Changed {
@@ -113,7 +117,7 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 
 // deliveryMode reads an agent's delivery mode from the daemon's journal, without
 // starting the daemon. An agent without its own mode has the machine's default, kept
-// under the empty AgentRef.
+// under the empty AgentRef, else focused. A mode saved as auto reads as all.
 func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delivery.Mode, error) {
 	p, err := a.paths()
 	if err != nil {
@@ -123,11 +127,12 @@ func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delive
 	if err != nil {
 		return "", fmt.Errorf("read delivery modes: %w", err)
 	}
-	if m, ok := modes[agent]; ok {
-		return m, nil
+	for _, ref := range []delivery.AgentRef{agent, {}} {
+		if m, ok := modes[ref]; ok {
+			if parsed, ok := delivery.ParseMode(string(m)); ok {
+				return parsed, nil
+			}
+		}
 	}
-	if m, ok := modes[delivery.AgentRef{}]; ok {
-		return m, nil
-	}
-	return delivery.ModeAuto, nil
+	return delivery.ModeFocused, nil
 }

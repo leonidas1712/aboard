@@ -74,7 +74,7 @@ var Capabilities = []Capability{
 		return Unsupported, ""
 	}},
 	{ID: "owner_mid_turn", Label: "Owner mid-turn", Scenarios: []string{"OwnerReachesBusy"}, declare: func(p Profile) (Status, string) {
-		if p.Has("tool-boundary") || p.Has("turn-start") || p.Has("extension") {
+		if p.Has("tool-boundary") || p.Has("extension") {
 			return Supported, ""
 		}
 		return Unsupported, "the owner's messages wait for the turn's end"

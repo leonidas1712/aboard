@@ -283,5 +283,14 @@ func TextMessage(m api.Message) deliverytext.Message {
 	if m.ReplyToSeq != nil {
 		t.ReplyToSeq = *m.ReplyToSeq
 	}
+	if m.ReplyToFrom != nil {
+		t.ReplyToFrom = *m.ReplyToFrom
+	}
+	for _, to := range m.To {
+		t.To = append(t.To, string(to))
+	}
+	for _, r := range m.Reactions {
+		t.Reactions = append(t.Reactions, deliverytext.Reaction{Emoji: string(r.Emoji), Count: r.Count})
+	}
 	return t
 }

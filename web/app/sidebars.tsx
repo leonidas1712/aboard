@@ -13,7 +13,7 @@ import type { Board, Member } from "./api";
 import { AddAgent, Details } from "./board-details";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
-import { boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
+import { boardLabel, charterBlocks, count, deliveryWords, harnessName, presenceWords, rules } from "./words";
 
 /** BoardNav lists the boards this person is on, with how many messages each has. */
 export function BoardNav({ current, boards }: { current: string; boards: Board[] | null }) {
@@ -339,6 +339,12 @@ function AgentItem({
           <>
             <dt className={label}>Harness</dt>
             <dd>{harnessName(agent.harness)}</dd>
+          </>
+        )}
+        {agent.delivery && (
+          <>
+            <dt className={label}>Delivery</dt>
+            <dd className="delivery">{deliveryWords[agent.delivery]}</dd>
           </>
         )}
       </dl>

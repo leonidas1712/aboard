@@ -41,21 +41,34 @@ func (e *env) postAsOwner(board, body string, urgent bool) {
 	}
 }
 
-// An agent nobody set delivers in auto mode, and both aboard delivery and aboard status
-// say so, inside the session too.
-func TestDeliveryModeIsAutoByDefault(t *testing.T) {
+// An agent nobody set delivers in focused mode, and both aboard delivery and aboard
+// status say so, inside the session too. auto, all's earlier name, is taken and shown as
+// all.
+func TestDeliveryModeIsFocusedByDefault(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	_, reviewer := pairedClaudeSessions(t, e)
 
-	expectLines(t, reviewer.run("delivery"), "reviewer on writer-reviewer: delivery auto (wakes for every message)")
+	expectLines(t, reviewer.run("delivery"),
+		"reviewer on writer-reviewer: delivery focused (wakes for messages that concern it; the rest arrive at its next turn)")
 	out := reviewer.run("delivery", "--json").json(t)
-	if field(t, out, "mode") != "auto" || field(t, out, "changed") != false || field(t, out, "agent") != "reviewer" || field(t, out, "board") != "writer-reviewer" {
+	matchesCLISpec(t, "DeliveryOutput", out)
+	if field(t, out, "mode") != "focused" || field(t, out, "changed") != false || field(t, out, "agent") != "reviewer" || field(t, out, "board") != "writer-reviewer" {
 		t.Fatalf("delivery --json: %v", out)
 	}
-	if got := field(t, reviewer.run("status", "--json").json(t), "delivery"); got != "auto" {
-		t.Fatalf("status delivery %v, want auto", got)
+	if got := field(t, reviewer.run("status", "--json").json(t), "delivery"); got != "focused" {
+		t.Fatalf("status delivery %v, want focused", got)
 	}
+
+	out = e.run("delivery", "auto", "--as", "reviewer", "--json").json(t)
+	matchesCLISpec(t, "DeliveryOutput", out)
+	if field(t, out, "mode") != "all" || field(t, out, "changed") != true {
+		t.Fatalf("delivery auto --json: %v", out)
+	}
+	if got := field(t, reviewer.run("status", "--json").json(t), "delivery"); got != "all" {
+		t.Fatalf("status delivery %v after auto, want all", got)
+	}
+	e.presenceIs("writer-reviewer", "reviewer", "idle", "all")
 }
 
 // In humans mode a peer's message doesn't wake the session; a person's message does,
@@ -151,12 +164,12 @@ func TestOffModeDeliversNothing(t *testing.T) {
 		t.Fatalf("the stop hook should be released by a prompt\n%s", r)
 	}
 
-	// Back to auto: the next message wakes the session again.
-	e.run("delivery", "auto", "--as", "reviewer")
+	// Back to focused: a message to the agent wakes the session again.
+	e.run("delivery", "focused", "--as", "reviewer")
 	stop = reviewer.startHook("stop")
 	writer.run("say", "--to", "@reviewer", "back on")
 	if woke := stop.wait(5 * time.Second); woke.code != 2 || !strings.Contains(woke.stderr, "back on") {
-		t.Fatalf("auto mode should wake the session again\n%s", woke)
+		t.Fatalf("focused mode should wake the session again\n%s", woke)
 	}
 }
 
@@ -182,7 +195,8 @@ func TestDeliveryModeCannotBeChangedInsideASession(t *testing.T) {
 	if r := codex.runExit("delivery", "humans", "--as", "reviewer", "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
 		t.Fatalf("changing the mode inside Codex should refuse\n%s", r)
 	}
-	expectLines(t, reviewer.run("delivery"), "reviewer on writer-reviewer: delivery auto (wakes for every message)")
+	expectLines(t, reviewer.run("delivery"),
+		"reviewer on writer-reviewer: delivery focused (wakes for messages that concern it; the rest arrive at its next turn)")
 }
 
 // Commands that act or read with the person's login refuse inside a harness session,

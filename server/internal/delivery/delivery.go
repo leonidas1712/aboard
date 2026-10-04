@@ -7,6 +7,7 @@ package delivery
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -138,22 +139,39 @@ type Mode string
 
 // Delivery modes.
 const (
-	// ModeAuto wakes the session for every message.
-	ModeAuto Mode = "auto"
+	// ModeFocused, the default, wakes the session only for messages that concern the
+	// agent (Concerns); the rest arrive quietly at the start of its next turn.
+	ModeFocused Mode = "focused"
+	// ModeAll wakes the session for every message.
+	ModeAll Mode = "all"
 	// ModeHumans wakes the session only for a message from a person; that bundle carries
 	// every unread message, peer ones too.
 	ModeHumans Mode = "humans"
 	// ModeOff delivers nothing; the agent reads its inbox itself.
 	ModeOff Mode = "off"
+	// ModeAuto is the earlier name of ModeAll. It is still accepted, and read as ModeAll.
+	ModeAuto Mode = "auto"
 )
 
-// ParseMode reads a mode's name.
+// ParseMode reads a mode's name. auto, the earlier name of all, is read as all.
 func ParseMode(s string) (Mode, bool) {
 	switch m := Mode(s); m {
-	case ModeAuto, ModeHumans, ModeOff:
+	case ModeFocused, ModeAll, ModeHumans, ModeOff:
 		return m, true
+	case ModeAuto:
+		return ModeAll, true
 	}
 	return "", false
+}
+
+// Concerns reports whether m concerns the agent called name, so that in focused mode it
+// wakes the agent's session: a person sent it, it is addressed to the agent or its role
+// (an inbox holds only messages addressed to the agent, its role or everyone, so any
+// target but all), it replies to one of the agent's messages, it asks for a reply, or it
+// is urgent. A message whose targets aren't known counts as addressed.
+func Concerns(m Message, name string) bool {
+	return m.FromHuman || m.Urgent || m.ExpectsReply || m.ReplyToFrom == name ||
+		len(m.To) == 0 || !slices.Contains(m.To, "all")
 }
 
 // Reason codes recorded on failed or skipped deliveries and reported by aboard doctor.
@@ -202,9 +220,16 @@ const (
 	// LivenessCheck is how often the daemon checks that each open session's harness
 	// process still runs.
 	LivenessCheck = 5 * time.Second
-	// QueueGather is how long the daemon waits for more messages before handing a
-	// bundle to a harness that queues, so messages close together arrive together.
+	// QueueGather is how long the daemon waits for more messages, from the first one that
+	// would wake a session, before handing a bundle to any harness, so messages close
+	// together wake the session once.
 	QueueGather = 2 * time.Second
+	// DigestMessages and DigestBytes are how many messages, and how many bytes of them in
+	// the delivery format, a bundle carries in full; past either, in focused and humans
+	// mode, it carries in full only those that concern the agent and one line for each
+	// other (deliverytext.Digest).
+	DigestMessages = 10
+	DigestBytes    = 8 << 10
 	// ShutdownGrace is how long in-flight harness calls may run after shutdown starts.
 	ShutdownGrace = 5 * time.Second
 	// PresenceRenew is how often the daemon reports an agent's presence again while it

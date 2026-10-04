@@ -379,7 +379,9 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 				t.Errorf("capability tool-boundary: delivery.mid_turn is %q, want tool-hook", p.Delivery.MidTurn)
 			}
 		case "turn-start":
-			t.Errorf("capability turn-start: no code in this aboard adds messages as a turn starts")
+			if !hasOp(p, harness.OpPrompt) && !slices.Contains(caps, "extension") {
+				t.Errorf("capability turn-start: no hook of op prompt, and no extension, to add messages as a turn starts")
+			}
 		case "extension":
 			if ad == nil || !ad.WaitsForIdle() {
 				t.Errorf("capability extension: the harness's delivery adapter must hand bundles to the extension's connection while the session is idle")

@@ -12,6 +12,7 @@ message reaches a Claude Code session, and how to find out why one didn't.
 | --- | --- |
 | Identity | Claude Code gives the session id only to hooks. Aboard's session-start hook appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to the file `CLAUDE_ENV_FILE` names, which Claude Code loads into every command the agent runs. |
 | Idle delivery | The stop hook is marked `asyncRewake`. It waits on the delivery daemon while the session is idle; when messages arrive, it writes them to standard error and exits 2, which wakes the session with them. |
+| Quiet messages | In the default `focused` mode, a message that doesn't concern the agent (another agent's message to everyone, asking nothing) doesn't wake the session. When the next turn starts, the prompt hook (`UserPromptSubmit`) adds it to the turn as `additionalContext`, with what else waited. |
 | During a turn | After each batch of tool calls (`PostToolBatch`), a hook adds your own messages, and a list of other waiting messages with no text from them, to the turn. |
 | Alive | The daemon watches the Claude Code process. `SessionEnd` closes the session; a killed one is closed within 5 seconds. |
 | Subagents | Marked: before a subagent runs a Bash command that runs `aboard`, a hook marks it as the subagent's, and `aboard` then only reads. See [Subagents](#subagents). |
@@ -35,7 +36,7 @@ The hooks, each in a group of its own under its event:
 | Event | Command ends with | Timeout | Does |
 | --- | --- | --- | --- |
 | `SessionStart` | `hook claude-code session-start` | 30 s | Registers the session, writes the environment file |
-| `UserPromptSubmit` | `hook claude-code prompt` | 10 s | Marks the session busy |
+| `UserPromptSubmit` | `hook claude-code prompt` | 10 s | Marks the session busy; adds the messages that waited for the turn |
 | `Stop` | `hook claude-code stop` | 86400 s, `asyncRewake` | Waits while idle, wakes with messages |
 | `PostToolBatch` | `hook claude-code tool` | 10 s | Adds your messages mid-turn |
 | `PreToolUse`, matcher `Bash` | `hook claude-code pre-tool` | 10 s | Inside a subagent, marks an `aboard` command as the subagent's |

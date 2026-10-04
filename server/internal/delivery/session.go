@@ -201,6 +201,7 @@ func (s *session) run(ctx context.Context) error {
 		case <-timer:
 			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
+			s.reportPresence(false)
 		}
 	}
 }
@@ -277,7 +278,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
-	case OpPrompt:
+	case OpPrompt, OpTurnStart:
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true
@@ -288,6 +289,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil
+		}
+		if req.Op == OpTurnStart {
+			ok.Bundle = s.atTurnStart(ctx)
 		}
 	case OpBoundary, OpUrgent:
 		s.busyAt = s.now()
@@ -679,7 +683,9 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 		}
 	}
 	slices.SortFunc(a.unread, func(x, y Message) int { return cmp.Compare(x.Seq, y.Seq) })
-	if !s.adapter.WaitsForIdle() && s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
+	if s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
+		// The first message that would wake the session: wait for more, so messages close
+		// together wake it once.
 		s.gatherUntil = s.now().Add(QueueGather)
 	}
 	s.maybeAck(a)
@@ -730,6 +736,9 @@ const (
 	// owner reaches it mid-turn.
 	ownerOnly
 	notOwner
+	// turnStart is what a turn's start carries for an agent in focused mode: everything
+	// still waiting for it, quiet messages included.
+	turnStart
 )
 
 // fromOwner reports whether the agent's owner sent m. Only the owner's messages reach a
@@ -746,7 +755,7 @@ func (f filter) allows(m Message) bool {
 		return fromOwner(m)
 	case notOwner:
 		return !fromOwner(m)
-	case allMessages:
+	case allMessages, turnStart:
 	}
 	return true
 }
@@ -804,10 +813,10 @@ func (s *session) onClaim(ctx context.Context, c claimRequest) []int {
 	return seqs
 }
 
-// queueNow lets a queueing harness be handed what is waiting at once, after something
-// that kept it back ended.
+// queueNow lets the session be handed what is waiting at once, after something that kept
+// it back ended.
 func (s *session) queueNow() {
-	if !s.adapter.WaitsForIdle() && s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
+	if s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
 		s.gatherUntil = s.now()
 	}
 }
@@ -946,7 +955,10 @@ func (s *session) onAck(ctx context.Context, r ackResult) {
 // offers returns, per agent, what the next bundle should carry: a delivery to hand
 // again, or new messages that pass f and the agent's delivery mode. An agent with a
 // delivery waiting for a retry or for attention gets nothing, so its messages stay in
-// order.
+// order. In focused mode a bundle that would wake the session carries something only
+// when a message in it concerns the agent, and then it carries every message waiting,
+// a delivery handed again and new messages together; a turn's start (turnStart) carries
+// them all, and is given nothing in any other mode.
 func (s *session) offers(f filter) []offer {
 	now := s.now()
 	var out []offer
@@ -954,6 +966,9 @@ func (s *session) offers(f filter) []offer {
 		a := s.agents[ref]
 		mode := s.d.mode(ref)
 		if a.adopting || !a.fetched || a.problem != "" || mode == ModeOff || s.beingRead(ref) {
+			continue
+		}
+		if f == turnStart && mode != ModeFocused {
 			continue
 		}
 		var again *Delivery
@@ -979,28 +994,53 @@ func (s *session) offers(f filter) []offer {
 		if blocked {
 			continue
 		}
-		if again != nil {
-			if f == ownerOnly {
-				continue
+		if f == ownerOnly {
+			// Only the owner's new messages go mid-turn, in full.
+			if msgs := s.newMessages(a, f); again == nil && len(msgs) > 0 {
+				orderForBundle(msgs)
+				out = append(out, offer{agent: ref, mode: ModeAll, msgs: msgs})
 			}
-			msgs := s.messagesFor(a, again.Seqs)
-			if len(msgs) == 0 {
-				continue
-			}
-			orderForBundle(msgs)
-			out = append(out, offer{agent: ref, redeliver: again.ID, msgs: msgs})
 			continue
 		}
-		msgs := s.newMessages(a, f)
-		if mode == ModeHumans {
-			msgs = forHumansMode(msgs, f)
+		var agentOffers []offer
+		if again != nil {
+			if msgs := s.messagesFor(a, again.Seqs); len(msgs) > 0 {
+				orderForBundle(msgs)
+				agentOffers = append(agentOffers, offer{agent: ref, mode: mode, redeliver: again.ID, msgs: msgs})
+			}
 		}
-		if len(msgs) > 0 {
-			orderForBundle(msgs)
-			out = append(out, offer{agent: ref, msgs: msgs})
+		// A delivery handed again goes on its own, as it went before, unless it holds only
+		// quiet messages, which wait with the new ones for a message that wakes the agent,
+		// or for its next turn's start, which takes everything.
+		if again == nil || (mode == ModeFocused && (f == turnStart || !anyConcerns(agentOffers, ref.Name))) {
+			msgs := s.newMessages(a, f)
+			if mode == ModeHumans {
+				msgs = forHumansMode(msgs, f)
+			}
+			if len(msgs) > 0 {
+				orderForBundle(msgs)
+				agentOffers = append(agentOffers, offer{agent: ref, mode: mode, msgs: msgs})
+			}
 		}
+		if mode == ModeFocused && f != turnStart && !anyConcerns(agentOffers, ref.Name) {
+			// Quiet messages never start a turn; they wait for the agent's next one.
+			continue
+		}
+		out = append(out, agentOffers...)
 	}
 	return out
+}
+
+// anyConcerns reports whether a message in offers concerns the agent called name.
+func anyConcerns(offers []offer, name string) bool {
+	for _, o := range offers {
+		for _, m := range o.msgs {
+			if Concerns(m, name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // forHumansMode narrows new messages for an agent that wakes only for people: nothing
@@ -1043,14 +1083,10 @@ func (s *session) earliestRetry() time.Time {
 
 // tryDeliver hands the next bundle over if the session can take one now.
 func (s *session) tryDeliver(ctx context.Context) {
-	if !s.open || len(s.refreshing) > 0 {
+	if !s.open || len(s.refreshing) > 0 || !s.canTake() {
 		return
 	}
-	if s.adapter.WaitsForIdle() {
-		if s.waiter == nil {
-			return
-		}
-	} else if s.gatherUntil.IsZero() || s.now().Before(s.gatherUntil) {
+	if s.gatherUntil.IsZero() || s.now().Before(s.gatherUntil) {
 		return
 	}
 	s.gatherUntil = time.Time{}
@@ -1105,7 +1141,8 @@ func (s *session) tryDeliver(ctx context.Context) {
 	for _, a := range s.agents {
 		s.maybeAck(a)
 	}
-	if !s.adapter.WaitsForIdle() && len(s.offers(s.queueFilter())) > 0 {
+	if s.gatherUntil.IsZero() && len(s.offers(s.queueFilter())) > 0 {
+		// What didn't fit, or came while handing, has waited already.
 		s.gatherUntil = s.now()
 	}
 	s.scheduleRetry()
@@ -1177,14 +1214,25 @@ func (s *session) forgetAwaiting() {
 	s.awaitingTurn, s.stallAt = nil, time.Time{}
 }
 
-// nextTimer is when the session next has something to do on its own: hand a bundle to a
-// queueing harness, or check for stalls; zero for nothing.
+// canTake reports whether the session can be handed a bundle now: a queueing harness
+// always can, one that waits for idle only while its hook or extension waits.
+func (s *session) canTake() bool {
+	return !s.adapter.WaitsForIdle() || s.waiter != nil
+}
+
+// nextTimer is when the session next has something to do on its own: hand a bundle once
+// its messages are gathered, or check for stalls; zero for nothing.
 func (s *session) nextTimer() time.Time {
+	gather := s.gatherUntil
+	if !s.canTake() {
+		// Nothing can be handed until a waiter comes, which runs the session anyway.
+		gather = time.Time{}
+	}
 	switch {
-	case s.gatherUntil.IsZero():
+	case gather.IsZero():
 		return s.stallAt
-	case s.stallAt.IsZero() || s.gatherUntil.Before(s.stallAt):
-		return s.gatherUntil
+	case s.stallAt.IsZero() || gather.Before(s.stallAt):
+		return gather
 	}
 	return s.stallAt
 }
@@ -1374,6 +1422,29 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 		s.d.log.Info("tool boundary", "session", s.key.String(), "seqs", partSeqs(c.parts), "announced", announced, "bytes", len(bundle)+len(notice))
 	}
 	return bundle, notice
+}
+
+// atTurnStart answers a turn's start: in focused mode, every message still waiting for
+// the agent, quiet ones included, under MidTurnLimit bytes. They are handed into a turn
+// that is starting, so the session's next event confirms them, as it does a bundle. A
+// message too large for here waits for the next bundle.
+func (s *session) atTurnStart(ctx context.Context) string {
+	if !s.open || len(s.offers(turnStart)) == 0 {
+		return ""
+	}
+	// The server is the authority on what the agent has read.
+	s.recheck(ctx)
+	c := compose(s.offers(turnStart), MidTurnLimit)
+	if len(c.parts) == 0 {
+		return ""
+	}
+	now := s.now()
+	for _, dl := range s.record(ctx, c.parts, StateHanded) {
+		dl.AcceptedAt, dl.TurnStartedAt = now, now
+		s.saveDelivery(ctx, dl)
+	}
+	s.d.log.Info("turn start", "session", s.key.String(), "board", partBoard(c.parts), "seqs", partSeqs(c.parts), "bytes", len(c.text))
+	return c.text
 }
 
 // partSeqs lists the sequence numbers in a bundle's parts, for the log.

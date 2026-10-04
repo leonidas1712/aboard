@@ -37,7 +37,7 @@
           "result": "pass",
           "date": "2026-10-04",
           "version": "2.1.289 (Claude Code)",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -45,11 +45,23 @@
           "version": "2.1.289 (Claude Code)",
           "test": "TestProjectScopeSetup/claude-code"
         },
+        "QuietArrivesWithTheNextPrompt": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "2.1.289 (Claude Code)",
+          "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/claude-code"
+        },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-04",
           "version": "2.1.289 (Claude Code)",
           "test": "TestRepliesReachPromptly/claude-code"
+        },
+        "ReplyWakesOnlyTheAsker": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "2.1.289 (Claude Code)",
+          "test": "TestReplyWakesOnlyTheAsker/claude-code"
         },
         "RestartsLoseNothing": {
           "result": "pass",
@@ -77,9 +89,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 5,
-        "harness_ms": 1953,
-        "deliveries": 25,
+        "aboard_ms": 2007,
+        "harness_ms": 2404,
+        "deliveries": 23,
         "date": "2026-10-04"
       }
     },
@@ -133,11 +145,23 @@
           "version": "codex-cli 0.160.0",
           "test": "TestProjectScopeSetup/codex"
         },
+        "QuietArrivesWithTheNextPrompt": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
+          "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/codex"
+        },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-04",
           "version": "codex-cli 0.160.0",
           "test": "TestRepliesReachPromptly/codex"
+        },
+        "ReplyWakesOnlyTheAsker": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
+          "test": "TestReplyWakesOnlyTheAsker/codex"
         },
         "RestartsLoseNothing": {
           "result": "pass",
@@ -171,9 +195,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2007,
-        "harness_ms": 72,
-        "deliveries": 22,
+        "aboard_ms": 2005,
+        "harness_ms": 67,
+        "deliveries": 21,
         "date": "2026-10-04"
       }
     },
@@ -222,11 +246,23 @@
           "version": "omp/18.5.1",
           "test": "TestProjectScopeSetup/omp"
         },
+        "QuietArrivesWithTheNextPrompt": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/omp"
+        },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-04",
           "version": "omp/18.5.1",
           "test": "TestRepliesReachPromptly/omp"
+        },
+        "ReplyWakesOnlyTheAsker": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestReplyWakesOnlyTheAsker/omp"
         },
         "RestartsLoseNothing": {
           "result": "pass",
@@ -254,9 +290,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 5,
+        "aboard_ms": 2006,
         "harness_ms": 1,
-        "deliveries": 22,
+        "deliveries": 21,
         "date": "2026-10-04"
       }
     }

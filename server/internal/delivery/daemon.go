@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net"
 	"slices"
 	"strings"
@@ -63,7 +62,7 @@ type Daemon struct {
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
 	problems map[AgentRef]string
-	// modes holds each agent's delivery mode; an agent not in it is auto.
+	// modes holds each agent's delivery mode; an agent not in it has the default.
 	modes map[AgentRef]Mode
 	// stalled are the deliveries handed to an idle session that started no turn, by id.
 	stalled map[int64]StatusItem
@@ -130,7 +129,12 @@ func (d *Daemon) restore(ctx context.Context) error {
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	maps.Copy(d.modes, modes)
+	for a, m := range modes {
+		// A mode an earlier build saved as auto is all.
+		if parsed, ok := ParseMode(string(m)); ok {
+			d.modes[a] = parsed
+		}
+	}
 	for _, r := range records {
 		s := d.newSessionLocked(r.Key)
 		if s == nil {
@@ -336,7 +340,7 @@ func (d *Daemon) setProblem(agent AgentRef, reason string) {
 }
 
 // mode returns the agent's delivery mode: its own, else the machine's default (kept
-// under the empty AgentRef), else auto.
+// under the empty AgentRef), else focused.
 func (d *Daemon) mode(agent AgentRef) Mode {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -346,7 +350,7 @@ func (d *Daemon) mode(agent AgentRef) Mode {
 	if m, ok := d.modes[AgentRef{}]; ok {
 		return m
 	}
-	return ModeAuto
+	return ModeFocused
 }
 
 // setMode answers OpMode: it shows the agent's delivery mode, or saves a new one and has
@@ -358,12 +362,17 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	}
 	agent := *req.Agent
 	prev := d.mode(agent)
-	if req.Mode == "" || req.Mode == prev {
+	if req.Mode == "" {
 		return Response{V: ProtocolVersion, Mode: prev}
 	}
-	if _, ok := ParseMode(string(req.Mode)); !ok {
-		return errorResponse("invalid_request", fmt.Sprintf("%q is not a delivery mode.", req.Mode), "Use auto, humans or off.")
+	mode, ok := ParseMode(string(req.Mode))
+	if !ok {
+		return errorResponse("invalid_request", fmt.Sprintf("%q is not a delivery mode.", req.Mode), "Use focused, all, humans or off.")
 	}
+	if mode == prev {
+		return Response{V: ProtocolVersion, Mode: prev}
+	}
+	req.Mode = mode
 	if err := d.cfg.Journal.SetMode(ctx, agent, req.Mode); err != nil {
 		return errorResponse("internal", "Couldn't save the delivery mode: "+err.Error(), "Look at the daemon log.")
 	}
@@ -492,7 +501,7 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveInbox(ctx, conn, r, req)
 	case OpHello:
 		d.serveExtension(ctx, conn, r, req)
-	case OpRegister, OpPrompt, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
+	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),

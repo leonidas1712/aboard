@@ -72,7 +72,7 @@ lifecycle:
 
 delivery:
   method: extension
-  capabilities: [extension]
+  capabilities: [extension, turn-start]
   mid_turn: tool-hook
   waiting_notice: true
 
@@ -82,6 +82,7 @@ notes:
   - A session counts as resumed when its file already holds messages as it starts.
   - omp loads extensions at start only; a session running before aboard init has no identity until omp starts again.
   - "Bundles at idle go in with sendMessage(…, {triggerTurn: true}). The owner's messages mid-turn go in with deliverAs: aside, which omp injects at the next step boundary without interrupting the tool batch; a tool_call handler's additionalContext is discarded when the call fails or is denied, so it isn't used."
+  - "As a turn starts, before the model runs, the extension's before_agent_start handler asks for the messages that waited quietly for the turn (turn_start) and returns them as the handler's message, which omp adds to the turn (the event and its message result are in omp 18.5.1's extension types)."
   - The extension asks for the owner's messages after each omp turn (one model response and its tools) that ran tools, and reports a turn's end on agent_end, unless omp continues by itself (willContinue).
   - Subagents run in omp's own process and share its environment, so they inherit ABOARD_SESSION; only the marking keeps them from acting as the main agent. Advisor tool calls reach the extension as a subagent's too.
   - omp loads foreign project skill folders (.claude/skills, .agents/skills) by default; the same Aboard skill there collapses into one, and a different version shows under a namespaced name.

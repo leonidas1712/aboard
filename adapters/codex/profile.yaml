@@ -98,7 +98,7 @@ lifecycle:
 
 delivery:
   method: queue
-  capabilities: [queue, tool-boundary]
+  capabilities: [queue, tool-boundary, turn-start]
   queue: [codex, queue, --thread, "{session}", --message, "{bundle}"]
   # Each hook carries the first Codex release that runs it as written, from the event
   # list Codex reads hooks.json with (codex-rs/hooks/src/engine/config.rs, later
@@ -114,12 +114,16 @@ delivery:
       since: 0.114.0
       why: registers the thread
       without: Codex sessions aren't registered when they start
+    # Its additionalContext (in 0.160.0's hook output schema) carries the messages that
+    # waited quietly for the turn; additionalContextLimit, read since 0.145.0 and
+    # ignored before, keeps Codex from shortening them, as for PreToolUse.
     - event: UserPromptSubmit
       run: prompt
       op: prompt
       timeout: 10
+      options: {additionalContextLimit: 8192}
       since: 0.116.0
-      why: marks a turn running, so the owner's messages wait for a tool call instead of the queue
+      why: marks a turn running, so the owner's messages wait for a tool call instead of the queue, and adds the messages that waited quietly for the turn as additionalContext
       without: your messages wait for the end of a turn
     - event: Stop
       run: stop

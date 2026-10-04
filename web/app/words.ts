@@ -1,7 +1,7 @@
 // The words the board view puts on screen, built from facts the API returns. Nothing
 // here is generated prose: each sentence comes from a fixed form.
 
-import type { Board, BoardEvent, Member, MemberRef, Message, Policy, Presence } from "./api";
+import type { Board, BoardEvent, DeliveryMode, Member, MemberRef, Message, Policy, Presence } from "./api";
 
 const harnessNames: Record<string, string> = {
   "claude-code": "Claude Code",
@@ -24,6 +24,15 @@ export const presenceWords: Record<Presence, string> = {
   waiting: "waiting",
   // The API says no_session; people read "disconnected".
   no_session: "disconnected",
+};
+
+/** deliveryWords says when each delivery mode wakes an agent's session. */
+export const deliveryWords: Record<DeliveryMode, string> = {
+  focused: "focused: woken for what concerns it; the rest at its next turn",
+  all: "all: woken for every message",
+  auto: "all: woken for every message",
+  humans: "humans: woken only for people's messages",
+  off: "off: never woken; it reads its inbox",
 };
 
 /** boardLabel is what people call a board: its title, else its name. */

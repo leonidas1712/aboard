@@ -191,7 +191,8 @@ Nothing to change.
           {
             "type": "command",
             "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
-            "timeout": 10
+            "timeout": 10,
+            "additionalContextLimit": 8192
           }
         ]
       }

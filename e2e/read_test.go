@@ -146,7 +146,7 @@ func TestReadShowsWhatEachMessageAsks(t *testing.T) {
 		fmt.Sprintf("#%d  @writer → @reviewer · asks for a reply · 1 reply", ask),
 		"    writer · owner_agent",
 		"    Can you take the tests?",
-		fmt.Sprintf("#%d  @reviewer → all · reply to #%d · urgent", reply, ask),
+		fmt.Sprintf("#%d  @reviewer → @writer · reply to #%d · urgent", reply, ask),
 		"    reviewer · self",
 		"    Yes. The build is broken first.",
 		fmt.Sprintf("#%d  @alex → @reviewer", reply+1),
@@ -189,7 +189,7 @@ func TestReadMarkdownTranscript(t *testing.T) {
 		"",
 		"> Draft is in notes.md. Please review it.",
 		"",
-		"**#7 @reviewer** (reviewer, owner_agent) → all · reply to #6",
+		"**#7 @reviewer** (reviewer, owner_agent) → @writer · reply to #6",
 		"",
 		"> Reviewed. Approved.",
 		">",
@@ -330,7 +330,7 @@ func TestWatchFollowsTheBoardLive(t *testing.T) {
 	w.expect(w.stderr, "Watching writer-reviewer. Stop with Ctrl-C.")
 
 	e.run("say", "--as", "reviewer", "--reply", "6", "--urgent", "second")
-	w.expect(w.stdout, "#7  @reviewer → all · reply to #6 · urgent", "    reviewer · owner_agent", "    second")
+	w.expect(w.stdout, "#7  @reviewer → @writer · reply to #6 · urgent", "    reviewer · owner_agent", "    second")
 
 	// The stream drops when the server stops. Once it is back, watch reconnects and
 	// prints what it missed.

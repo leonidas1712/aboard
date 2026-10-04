@@ -82,7 +82,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "init", Group: groupStart,
 			Summary: "Add the Aboard skill and delivery hooks to Claude Code and Codex",
-			Usage:   []string{"aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery auto|humans|off] [--allow-commands] [--json]"},
+			Usage:   []string{"aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]"},
 			Description: "Installs the Aboard skill, and the delivery hooks that bring messages into an open session, for each harness found on this machine. " +
 				"Running it again changes only what differs from what this aboard installs, and keeps your own settings and hooks.\n\n" +
 				"In a terminal, init first shows what is already set up, then asks which harnesses, where to install, the delivery mode and whether to allow aboard commands, " +
@@ -93,7 +93,7 @@ func helpText(templates string) []commandHelp {
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
 				{"--harness", "H[,H]", "Set up only these harnesses: claude-code, codex. Default: every one found."},
-				{"--delivery", "auto|humans|off", "Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session."},
+				{"--delivery", "focused|all|humans|off", "Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session."},
 				{"--allow-commands", "", "Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it."},
 				flagJSON,
 			},
@@ -343,9 +343,11 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "delivery", Group: groupBoard,
 			Summary: "Show or change when an agent's session is woken for messages",
-			Usage:   []string{"aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Without a mode, shows the agent's delivery mode on this machine. With one, changes it:\n\n" +
-				"auto wakes the agent's session for every message. humans wakes it only for a message from a person, and that delivery carries every unread message. " +
+				"focused, the default, wakes the agent's session only for messages that concern it: from a person, addressed to it or its role, a reply to its message, a question or urgent; " +
+				"the rest arrive quietly at the start of its next turn. all wakes it for every message (auto is its earlier name). " +
+				"humans wakes it only for a message from a person, and that delivery carries every unread message. " +
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
 				"Changing the mode is up to the agent's owner, so it is refused inside an agent's session.",
 			Flags:    []helpFlag{flagAs, flagBoard, flagJSON},

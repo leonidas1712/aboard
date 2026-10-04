@@ -732,8 +732,9 @@ type message struct {
 		Name string `json:"name"`
 		Kind string `json:"kind"`
 	} `json:"from"`
-	ReplyToSeq *int `json:"reply_to_seq"`
-	Urgent     bool `json:"urgent"`
+	ReplyToSeq *int     `json:"reply_to_seq"`
+	Urgent     bool     `json:"urgent"`
+	To         []string `json:"to"`
 }
 
 // messages reads the board as agent, oldest first.
@@ -889,8 +890,9 @@ type handover struct {
 }
 
 // logged lists the daemon log lines with message msg, oldest first: "bundle handed",
-// "tool boundary" (the owner's messages and the waiting notice added to a busy turn) or
-// "claimed by a command" (aboard say --wait-reply showed them).
+// "tool boundary" (the owner's messages and the waiting notice added to a busy turn),
+// "turn start" (what a starting turn was given) or "claimed by a command" (aboard say
+// --wait-reply showed them).
 func (l *lab) logged(msg string) []handover {
 	raw, err := os.ReadFile(filepath.Join(l.stateDir(), "daemon.log"))
 	if err != nil {
@@ -941,7 +943,7 @@ func (l *lab) starts() []sessionStart {
 // daemon's log: handed in a bundle, added at a tool boundary, or shown by aboard say
 // --wait-reply. ok is false if it hasn't.
 func (l *lab) reached(seq int) (at time.Time, how string, ok bool) {
-	for _, msg := range []string{"bundle handed", "tool boundary", "claimed by a command"} {
+	for _, msg := range []string{"bundle handed", "tool boundary", "turn start", "claimed by a command"} {
 		for _, h := range l.logged(msg) {
 			if slices.Contains(h.Seqs, seq) && h.Error == "" && (!ok || h.Time.Before(at)) {
 				at, how, ok = h.Time, msg, true

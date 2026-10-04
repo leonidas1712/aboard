@@ -28,21 +28,19 @@ import (
 // wakeBound is how soon an idle session must be handed a message once it is posted.
 const wakeBound = 2 * time.Second
 
-// queueGather is how long the daemon gathers messages before handing them to a harness
-// whose own queue takes them (spec/delivery.md, Codex).
+// queueGather is how long the daemon gathers an agent's messages, from the first that
+// would wake its session, before handing them to any harness, so messages close
+// together wake it once (spec/delivery.md, "Delivering to each harness").
 const queueGather = 2 * time.Second
 
 // pongBound is how soon a reply must reach a session that asked for it.
 const pongBound = 30 * time.Second
 
-// checkWake fails the test if the session was handed the message later than the bound
-// for its harness.
-func checkWake(t *testing.T, d *driver, posted message, wake handover) {
+// checkWake fails the test if the session was handed the message later than the bound:
+// the daemon's gathering, then the wake itself.
+func checkWake(t *testing.T, _ *driver, posted message, wake handover) {
 	t.Helper()
-	bound := wakeBound
-	if !d.p.HoldsWhileBusy() {
-		bound += queueGather
-	}
+	bound := wakeBound + queueGather
 	if dur := wake.Time.Sub(posted.At); dur > bound {
 		t.Errorf("the idle session was handed message #%d %s after it was posted; want within %s", posted.Seq, dur, bound)
 	}

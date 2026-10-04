@@ -391,6 +391,11 @@ paths:
         Humans always may. `expects_reply` marks the message as asking for an answer: it shows as
         unanswered in the board report until a recipient replies (a message whose
         `reply_to` is this message's id).
+
+        A reply without `to` goes to the people and agents already in its thread (see
+        `PostMessageRequest.to`); with no one else in the thread it returns 422
+        `reply_has_no_recipients`. Addressing decides who is woken, never who may read:
+        visibility stays with the board's policy.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -960,6 +965,7 @@ components:
                 - join_code_not_found
                 - invalid_target
                 - unknown_recipient
+                - reply_has_no_recipients
                 - broadcast_not_allowed
                 - urgent_not_allowed
                 - message_too_large
@@ -1301,7 +1307,7 @@ components:
             last reported. Null for people and for an agent no session ever reported.
         delivery:
           type: string
-          enum: [auto, humans, off, null]
+          enum: [focused, all, humans, off, auto, null]
           nullable: true
           description: |
             The agent's delivery mode, as its owner's delivery daemon last reported it
@@ -1309,14 +1315,18 @@ components:
             reported, such as one with no delivery daemon.
     DeliveryMode:
       type: string
-      enum: [auto, humans, off]
+      enum: [focused, all, humans, off, auto]
       description: |
-        How messages reach an agent's open session, chosen by its owner. `auto`: every
-        message wakes an idle session. `humans`: only a message from a person wakes it,
-        and peer messages arrive with it. `off`: nothing is delivered; the agent reads its
-        inbox when it chooses. In every mode a message from the agent's owner reaches a
-        busy session at its next tool call, except in `off`; other messages wait until
-        the turn ends.
+        How messages reach an agent's open session, chosen by its owner. `focused` (the
+        default): a message wakes an idle session only when it concerns the agent: from a
+        person, addressed to it by name or to its role, a reply to one of its messages, a
+        question (`expects_reply`), or urgent; every other message arrives quietly at the
+        start of the agent's next turn. `all`: every message wakes an idle session.
+        `humans`: only a message from a person wakes it, and peer messages arrive with it.
+        `off`: nothing is delivered; the agent reads its inbox when it chooses. In every
+        mode a message from the agent's owner reaches a busy session at its next tool
+        call, except in `off`; other messages wait until the turn ends. `auto` is the
+        earlier name of `all`, still accepted and read as `all`.
     Presence:
       type: string
       enum: [working, idle, waiting, no_session]
@@ -1347,7 +1357,14 @@ components:
       properties:
         to:
           type: array
-          description: Omitted means `["all"]`. `all` must be the only target if present.
+          description: |
+            Omitted means `["all"]`, except for a reply (`reply_to` set): then the reply
+            goes to the people and agents already in the thread, by name: the author of
+            every message in it that the sender may see, and every member such a message
+            was addressed to by name, leaving out the sender. Never `all` implicitly; with
+            no one else in the thread the post fails with 422 `reply_has_no_recipients`.
+            Any `to` given, `["all"]` included, overrides it. `all` must be the only
+            target if present.
           minItems: 1
           maxItems: 50
           items: { $ref: "#/components/schemas/Target" }
@@ -1383,6 +1400,13 @@ components:
           items: { $ref: "#/components/schemas/Target" }
         body: { type: string }
         reply_to: { type: string, nullable: true }
+        reply_to_from:
+          type: string
+          nullable: true
+          description: |
+            The name of the member who sent the message this one replies to, so a reader
+            can tell a reply to its own message; null for a message that replies to
+            nothing.
         reply_to_seq:
           type: integer
           nullable: true

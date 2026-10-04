@@ -56,11 +56,12 @@ func TestSayTellsTheSenderWhatWaitsAndWhenRecipientsSeeIt(t *testing.T) {
 	coder.run("join", line, "--name", "coder")
 	e.run("join", line, "--name", "bot") // in a terminal: no session
 	e.run("delivery", "humans", "--as", "coder")
+	e.run("delivery", "all", "--as", "reviewer")
 
 	reviewer.startHook("stop")
 	third.hook("prompt", `"prompt":"long task"`)
-	e.presenceIs("writer-reviewer", "reviewer", "idle", "auto")
-	e.presenceIs("writer-reviewer", "third", "working", "auto")
+	e.presenceIs("writer-reviewer", "reviewer", "idle", "all")
+	e.presenceIs("writer-reviewer", "third", "working", "focused")
 	e.presenceIs("writer-reviewer", "coder", "idle", "humans")
 	first := e.sayAs("bot", "--to", "@writer", "a question for the writer")
 	second := e.sayAs("bot", "--to", "@writer", "and another")
@@ -73,13 +74,19 @@ func TestSayTellsTheSenderWhatWaitsAndWhenRecipientsSeeIt(t *testing.T) {
 	want := []string{
 		got[0],
 		"2 unread on writer-reviewer: #" + itoa(first) + ", #" + itoa(second) + "; run aboard inbox",
-		"@reviewer gets it now. @third gets it when its turn ends. @coder won't be woken: it sees it when it checks its inbox. " +
+		"@reviewer gets it now. @third sees it at its next turn. @coder won't be woken: it sees it when it checks its inbox. " +
 			"@bot is disconnected: it sees it in its inbox or when its session reconnects. @alex sees it on the board or in their inbox.",
 	}
 	if !strings.HasPrefix(got[0], "Sent #") || !strings.HasSuffix(got[0], " to all on writer-reviewer") {
 		t.Fatalf("first line: %s", got[0])
 	}
 	expectLines(t, r, want...)
+
+	// Addressed to it, the busy agent in focused mode gets it when its turn ends.
+	r = writer.run("say", "--to", "@third", "Third: can you check plan.md?")
+	if last := r.lines()[len(r.lines())-1]; last != "@third gets it when its turn ends." {
+		t.Fatalf("say to @third:\n%s", r.stdout)
+	}
 
 	out := writer.run("say", "--to", "@coder,@bot", "--json", "Two of you.").json(t)
 	matchesCLISpec(t, "SayOutput", out)

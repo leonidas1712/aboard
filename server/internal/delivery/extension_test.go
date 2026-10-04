@@ -12,12 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // ext is a harness extension's connection to the daemon, as omp's extension holds one.
 type ext struct {
 	t      *testing.T
+	clock  *clock.Fake
 	conn   net.Conn
 	frames chan delivery.Response
 }
@@ -28,7 +30,7 @@ func (r *rig) connect(hello delivery.Request) (*ext, delivery.Response) {
 	r.t.Helper()
 	c := r.dial()
 	r.t.Cleanup(func() { _ = c.Close() })
-	e := &ext{t: r.t, conn: c, frames: make(chan delivery.Response, 16)}
+	e := &ext{t: r.t, clock: r.clock, conn: c, frames: make(chan delivery.Response, 16)}
 	go func() {
 		defer close(e.frames)
 		br := bufio.NewReader(c)
@@ -70,16 +72,11 @@ func (e *ext) send(req delivery.Request) {
 // next returns the next frame the daemon sends on the connection.
 func (e *ext) next() delivery.Response {
 	e.t.Helper()
-	select {
-	case resp, ok := <-e.frames:
-		if !ok {
-			e.t.Fatal("the daemon closed the extension's connection")
-		}
-		return resp
-	case <-time.After(within):
-		e.t.Fatal("the extension got nothing")
+	resp, ok := await(e.t, e.clock, e.frames, "the extension")
+	if !ok {
+		e.t.Fatal("the daemon closed the extension's connection")
 	}
-	return delivery.Response{}
+	return resp
 }
 
 // deliver waits for a bundle, and confirms it unless confirm is false.
