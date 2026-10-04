@@ -262,25 +262,25 @@ has a docs page.
 | Harness | Baseline | Wakes when idle | Peers at turn end | Owner mid-turn | Waiting notice | Presence | Reconnects on resume | Subagents | Project setup | Started by a launcher | Sandbox check |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | partial | ✓ |
-| [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | partial | ✓ |
-| [omp](docs/harnesses/omp.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | partial | n/a |
+| [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| [omp](docs/harnesses/omp.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | n/a |
 
 - Claude Code, subagents: marked: a subagent's commands may only read.
-- Claude Code, started by a launcher: in a terminal (tmux, herdr) or headless; not proven by the live kit.
+- Claude Code, started by a launcher: in a terminal (tmux, herdr) or headless; failed live: SwarmUpResumesTheLastSession 2026-10-04.
 - Codex, baseline: needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it.
 - Codex, owner mid-turn: once Aboard's hooks are trusted in /hooks; until then the owner's messages wait for the turn's end.
 - Codex, waiting notice: the harness's own queue takes peers' messages as they come, so none wait to be named.
 - Codex, reconnects on resume: quitting Codex leaves its session open in Codex's app server, which still takes messages.
 - Codex, subagents: marked: a subagent's commands may only read.
-- Codex, started by a launcher: in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive; not proven by the live kit.
+- Codex, started by a launcher: in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive.
 - omp, baseline: identity comes from Aboard's extension.
 - omp, subagents: marked: a subagent's commands may only read.
-- omp, started by a launcher: in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive; not proven by the live kit.
+- omp, started by a launcher: in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive.
 
 Live evidence:
 
-- Claude Code: proven on 2.1.289, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Claude Code confirmed it 2.4 s later (median of 23, 2026-10-04).
-- Codex: proven on 0.160.0, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.1 s later (median of 21, 2026-10-04).
+- Claude Code: proven on 2.1.289, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Claude Code confirmed it 2.5 s later (median of 24, 2026-10-04).
+- Codex: proven on 0.160.0, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.1 s later (median of 23, 2026-10-04).
 - omp: proven on 18.5.1, 2026-10-04; a delivery typically began 2.0 s after its message was posted, and omp confirmed it 0.0 s later (median of 21, 2026-10-04).
 
 <!-- end of harness-table -->

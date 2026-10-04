@@ -37,7 +37,7 @@
           "result": "pass",
           "date": "2026-10-04",
           "version": "2.1.289 (Claude Code)",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -81,6 +81,18 @@
           "version": "2.1.289 (Claude Code)",
           "test": "TestSubagentCannotActAsItsParent/claude-code"
         },
+        "SwarmUpResumesTheLastSession": {
+          "result": "fail",
+          "date": "2026-10-04",
+          "version": "2.1.289 (Claude Code)",
+          "test": "TestSwarmUpResumesTheLastSession/claude-code"
+        },
+        "SwarmUpStartsEveryHarness": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "2.1.289 (Claude Code)",
+          "test": "TestSwarmUpStartsEveryHarness/herdr"
+        },
         "WakesAndReplies": {
           "result": "pass",
           "date": "2026-10-04",
@@ -89,9 +101,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2007,
-        "harness_ms": 2404,
-        "deliveries": 23,
+        "aboard_ms": 2009,
+        "harness_ms": 2502,
+        "deliveries": 24,
         "date": "2026-10-04"
       }
     },
@@ -187,6 +199,18 @@
           "version": "codex-cli 0.160.0",
           "test": "TestSubagentCannotActAsItsParent/codex"
         },
+        "SwarmUpResumesTheLastSession": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
+          "test": "TestSwarmUpResumesTheLastSession/codex"
+        },
+        "SwarmUpStartsEveryHarness": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "codex-cli 0.160.0",
+          "test": "TestSwarmUpStartsEveryHarness/herdr"
+        },
         "WakesAndReplies": {
           "result": "pass",
           "date": "2026-10-04",
@@ -195,9 +219,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2005,
-        "harness_ms": 67,
-        "deliveries": 21,
+        "aboard_ms": 2008,
+        "harness_ms": 86,
+        "deliveries": 23,
         "date": "2026-10-04"
       }
     },
@@ -282,6 +306,18 @@
           "version": "omp/18.5.1",
           "test": "TestSubagentCannotActAsItsParent/omp"
         },
+        "SwarmUpResumesTheLastSession": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestSwarmUpResumesTheLastSession/omp"
+        },
+        "SwarmUpStartsEveryHarness": {
+          "result": "pass",
+          "date": "2026-10-04",
+          "version": "omp/18.5.1",
+          "test": "TestSwarmUpStartsEveryHarness/herdr"
+        },
         "WakesAndReplies": {
           "result": "pass",
           "date": "2026-10-04",
@@ -290,8 +326,8 @@
         }
       },
       "handover": {
-        "aboard_ms": 2006,
-        "harness_ms": 1,
+        "aboard_ms": 2007,
+        "harness_ms": 2,
         "deliveries": 21,
         "date": "2026-10-04"
       }
