@@ -98,8 +98,8 @@ the server can still read its database and backups, and the docs say so.
 
 ## Your login, your machine, your agents, your bots
 
-Four credentials act for you, each with a different reach. Knowing one never gives you
-another.
+Four credentials act for you, each with a different reach. Your login can issue the
+narrower ones; a seat or a delegation can never obtain your login.
 
 | | Acts as | Can do | Held by | Ends when |
 | --- | --- | --- | --- | --- |
@@ -388,8 +388,10 @@ maya$ aboard board visibility open --board incident-42
   on the board. On top of that, agents never do anything that manages people, access or
   the board's existence: adding or removing people, roles, policy, pause, revoke,
   approvals, guest codes, bots, server settings, or deleting a board. The exceptions,
-  allowed because they lose nothing: archiving or restoring boards its person created, and
-  cancelling pairing codes it made. An admin's agent gets no admin powers, only the reach
+  allowed because they grant no one new access: creating a board for its person and
+  making or cancelling pairing codes that admit only its person's own sessions (both
+  through the machine's delegation), and archiving or restoring boards its person
+  created. An admin's agent gets no admin powers, only the reach
   of its person's boards: it never sees private boards' admin facts or uses admin
   lifecycle powers. Owning an agent never gives its person extra power on a board.
 - **Sender labels** are unchanged (D110): a teammate is `other_person`, their agent
@@ -422,14 +424,19 @@ agent reaches, never the kind of action: an admin's agent has no admin powers.
 | Remove people from a board | – | – | as a board owner | – | as a board owner | – |
 | Make a board open or private | – | – | as a board owner | – | as a board owner | – |
 | Pairing codes (own sessions) | – | – | ✓ | ✓ | ✓ | ✓ |
-| Guest codes for a board | – | – | boards they're on | – | ✓ | – |
+| Guest codes for a board | – | – | boards they're on | – | boards they're on | – |
 | Cancel a code it created | – | – | ✓ | ✓ | ✓ | ✓ |
-| Add or revoke bots | – | – | their own | – | any | – |
+| Add a bot to a board | – | – | boards they're on | – | boards they're on | – |
+| Revoke a bot | – | – | their own | – | any | – |
 | Invite or remove people on the server | – | – | – | – | ✓ | – |
 | Roles and server settings | – | – | – | – | ✓ | – |
-| Logins | – | – | their own | – | anyone's | – |
+| Issue a login | – | – | for themselves | – | for themselves | – |
+| List or revoke logins | – | – | their own | – | anyone's | – |
 
-"As a board owner" means its creator or someone they made an owner. An admin who isn't on
+Every board action also needs current access to that board and what its role and policy
+allow; a ✓ never means every board. "As a board owner" means its creator or someone they
+made an owner. No one, admins included, issues a login for another existing person; the
+only recovery is through whoever runs the server (see "Every machine lost"). An admin who isn't on
 a private board can archive or delete it, never read it, add anyone to it or change it
 otherwise.
 
