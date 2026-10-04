@@ -296,7 +296,10 @@ func ompDriver(p support.Profile) *driver {
 // hooks question if Codex asks one mid-session.
 func codexIdle(p *pane) bool {
 	s := p.screen()
-	if p.dismissCodexAnnouncement(s) {
+	running := strings.Contains(s, "Working") || strings.Contains(s, "esc to interrupt")
+	// An announcement can open while a turn runs. Esc then would interrupt the turn
+	// too, so it waits for the turn to end.
+	if !running && p.dismissCodexAnnouncement(s) {
 		return false
 	}
 	if strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue") {
@@ -307,8 +310,7 @@ func codexIdle(p *pane) bool {
 	}
 	// Older Codex shows how much context is left under its prompt; newer shows "? for
 	// shortcuts" there instead.
-	return (strings.Contains(s, "context left") || strings.Contains(s, "? for shortcuts")) &&
-		!strings.Contains(s, "Working") && !strings.Contains(s, "esc to interrupt")
+	return (strings.Contains(s, "context left") || strings.Contains(s, "? for shortcuts")) && !running
 }
 
 // recorder records one scenario's outcome for one harness in the live kit's results,

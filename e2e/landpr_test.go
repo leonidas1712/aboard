@@ -80,9 +80,14 @@ case "$1 $2" in
 esac
 `
 
-// fakeMake records the targets it was asked to run.
+// fakeMake records the targets it was asked to run, and fails make live-affected while
+// $GH_STATE/live-fails exists.
 const fakeMake = `#!/bin/sh
 echo "$*" >>"$GH_STATE/make"
+if [ "$*" = live-affected ] && [ -f "$GH_STATE/live-fails" ]; then
+	echo "--- FAIL: TestPingPong/codex"
+	exit 2
+fi
 `
 
 func newLandPRRepo(t *testing.T) *landPRRepo {
@@ -324,5 +329,42 @@ func TestLandPRKeepsAnExistingWorktree(t *testing.T) {
 	}
 	if got := r.git(r.origin, "branch", "--list", "feature"); got != "" {
 		t.Errorf("origin still has %q", got)
+	}
+}
+
+// With --live, make live-affected runs after the checks, and a failure stops before the
+// push and the merge; once it passes, the PR merges.
+func TestLandPRRunsTheLiveTestsWithLive(t *testing.T) {
+	t.Parallel()
+	r := newLandPRRepo(t)
+	r.branch("server/internal/delivery/daemon.go", "package delivery\n")
+	r.write(filepath.Join(r.ghState, "live-fails"), "")
+
+	out, code := r.land("--live", "7")
+	if code != 3 {
+		t.Fatalf("land-pr exited %d, want 3:\n%s", code, out)
+	}
+	if !strings.Contains(out, "--- FAIL: TestPingPong/codex") {
+		t.Errorf("output doesn't show the live failure:\n%s", out)
+	}
+	if r.read("merges") != "" {
+		t.Errorf("merged after the live tests failed")
+	}
+	if got := r.git(r.origin, "rev-parse", "main"); got != r.git(r.main, "rev-parse", "HEAD") {
+		t.Errorf("origin's main moved to %s", got)
+	}
+
+	if err := os.Remove(filepath.Join(r.ghState, "live-fails")); err != nil {
+		t.Fatal(err)
+	}
+	out, code = r.land("--live", "7")
+	if code != 0 {
+		t.Fatalf("land-pr exited %d:\n%s", code, out)
+	}
+	if !strings.Contains(out, "Live tests passed.") || !strings.Contains(out, "Merged: PR #7") {
+		t.Errorf("output doesn't say the live tests passed and the PR merged:\n%s", out)
+	}
+	if got := strings.Count(r.read("make"), "live-affected"); got != 2 {
+		t.Errorf("make live-affected ran %d times, want 2:\n%s", got, r.read("make"))
 	}
 }
