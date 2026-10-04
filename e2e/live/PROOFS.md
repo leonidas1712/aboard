@@ -142,6 +142,14 @@ measured on Claude Code 2.1.287 with its default model.
 | `TestProjectScopeSetup` | `aboard init --scope project` writes every install item into the project; doctor and status name the project's setup; a session started there runs the hooks and one started elsewhere doesn't; your own config is untouched. | Project setup | 0 (1 for a harness that runs its session-start hook only at the first prompt) |
 | `TestResumeReconnects` | A session that quits (the agent shows as disconnected; for a harness whose sessions outlive the terminal, its background process is stopped too) and is resumed with the profile's `interactive.resume` in the same pane keeps its session id and is its agent again with no `aboard resume`: the message sent while it was closed, which wakes nothing, is handed when its first turn ends and answered. | Reconnects on resume | 3 |
 | `TestSubagentCannotActAsItsParent` | The session has one subagent run `aboard status` and `aboard say`; the subagent's commands are refused (`subagent_without_seat` in the transcripts, and the mark where a hook adds it), nothing reaches the board, and the session reports with `SUBAGENT-DONE`. For Claude Code it also logs the hook input, whether SubagentStart and SubagentStop fired, and whether Claude Code asked before the marked command. | Subagents | 1 |
+| `TestSwarmUpResumesTheLastSession` | An agent `aboard swarm up` started in tmux, stopped with `swarm down`, is resumed by the next `swarm up` with the profile's `interactive.resume` and its last session id (`swarm ps` says resumed, same session), and answers the message the owner posted while it was stopped. | Started by a launcher | 2 |
+
+Swarm tests, every harness at once:
+
+| Test | Proves | Turns |
+| --- | --- | --- |
+| `TestSwarmUpStartsEveryHarness` | `aboard swarm up` with a board file of one Claude Code, one Codex and one omp, each in a project folder set up as the kit sets up that harness, starts each through the launcher (subtests `tmux` and `herdr`, the herdr launcher built from `launchers/herdr`), with its identity in its environment: every agent is seated with no join line, claude's message asks codex for `PONG-SWARM` and codex posts it, and `swarm down` leaves every session exited. Recorded as started by a launcher. tmux and herdr keep their sockets, and herdr its sessions, in a folder of the test's own; omp gets its scratch home through a wrapper on the swarm's `PATH`. | 4 per launcher |
+| `TestHerdrLauncherPassesTheKit` | The launcher kit against the real herdr, with a home and config folders of the test's own: no model, only herdr. | 0 |
 
 `TestEveryHarnessHasALiveDriver` checks every harness with a profile has a driver, and
 starts no harness. `TestModelSmoke` starts each harness with its model in a folder with

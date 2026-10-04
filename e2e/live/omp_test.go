@@ -137,7 +137,7 @@ func (l *lab) startOmp(name, dir string) *pane {
 // meantime, and it clears the pane's history after, so nothing it showed stays there.
 func (p *pane) checkOmpExtensions(want []string) {
 	p.l.t.Helper()
-	p.l.tmuxRun("send-keys", "-t", p.target(), "-l", "/extensions")
+	p.tmuxRun("send-keys", "-t", p.target(), "-l", "/extensions")
 	p.l.waitFor(5*time.Second, p.name+": omp to take /extensions", func() bool {
 		return strings.Contains(ompInput(p.screen()), "/extensions")
 	})
@@ -159,7 +159,7 @@ func (p *pane) checkOmpExtensions(want []string) {
 	p.l.waitFor(10*time.Second, p.name+": omp to close its extension list", func() bool {
 		return !strings.Contains(p.screen(), "Extension Control Center") && ompIdle(p)
 	})
-	p.l.tmuxRun("clear-history", "-t", p.target())
+	p.tmuxRun("clear-history", "-t", p.target())
 	if !slices.Equal(listed, want) {
 		p.l.t.Fatalf("%s: omp runs the extensions %q, and only %q may run in a test; omp is reading extensions from "+
 			"outside the lab (the person's ~/.omp, a configured path or a plugin)", p.name, listed, want)
@@ -195,7 +195,7 @@ func ompExtensionModules(screen string) []string {
 
 // title is the terminal title the harness in the pane set.
 func (p *pane) title() string {
-	return strings.TrimSpace(p.l.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_title}"))
+	return strings.TrimSpace(p.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_title}"))
 }
 
 // ompIdle reports whether omp shows its prompt with no turn running. omp's terminal

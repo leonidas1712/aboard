@@ -115,14 +115,14 @@ func claudeArgv(args ...string) []string {
 func (p *pane) quit() {
 	p.l.t.Helper()
 	p.l.waitFor(30*time.Second, p.name+": the harness to exit", func() bool {
-		if strings.TrimSpace(p.l.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_dead}")) == "1" {
+		if strings.TrimSpace(p.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_dead}")) == "1" {
 			return true
 		}
 		p.keys("C-c")
 		time.Sleep(300 * time.Millisecond) // the second Ctrl-C must come after the first shows its hint
 		p.keys("C-c")
 		return waitQuietly(3*time.Second, func() bool {
-			return strings.TrimSpace(p.l.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_dead}")) == "1"
+			return strings.TrimSpace(p.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_dead}")) == "1"
 		})
 	})
 }
