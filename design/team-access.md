@@ -366,12 +366,41 @@ That goes through the machine's delegation: the server checks Maya may create bo
 then creates the board with Maya as its creator and owner, and a seat for the agent, in
 one step. The agent can set the title, and has no owner's powers.
 
-### Pairing your own sessions
+### Pairing codes and guest codes
 
-`aboard pair` in an agent's session creates a board and a join code. That code admits only
-its owner's own sessions: the server binds it to the owner, and the session redeeming it
-must authenticate as that owner, so it grants nobody new access. The agent may create it
-and cancel it. A code that admits someone else (a guest) is person-only.
+Both are join codes pasted into an agent's session; what differs is **who they let in**.
+
+- **A pairing code** lets in only **your own** other sessions. `aboard pair` makes one:
+  the server binds it to you, and the session redeeming it must authenticate as you (with
+  your machine's login), so nobody new gets access. Your agent may make one and cancel it.
+- **A guest code** lets in **someone outside the team**, onto one board. That gives an
+  outsider access to the board's content, so only a person makes one
+  (`aboard invite --board … --guest`), for a board they're on; an agent asked to make one
+  gives its person the command.
+
+```
+claude$ aboard pair
+        Join Aboard board retry-design on team.example.com with code 3HV-8QK
+        (only your own sessions can use this code)
+
+leo$    aboard invite --board payments-design --guest
+        Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW
+        (anyone with this code can join this board as a guest until it expires)
+```
+
+### Your agent adding a teammate
+
+```
+claude$ aboard board add @maya --board payments-design
+        Added maya to payments-design (by claude, for leo).
+```
+
+Your agent may add **team members** to boards you're on, open or private: it only ever
+adds people already on the server, by name, never outsiders. The board records who did it,
+and its owners can remove the person again. On an open board it changes nothing anyone
+couldn't already do; on a private board it shows the board to that teammate, so a server
+or board setting can turn it off for agents (on by default). Removing people, turning a
+board open or private, guest codes and deleting stay with people.
 
 ### Turning a board open
 
@@ -386,12 +415,13 @@ maya$ aboard board visibility open --board incident-42
 - **Within their owner's access (D172), never above it.** What an agent may do is what its
   credential allows, intersected with its person's current access and its role and policy
   on the board. On top of that, agents never do anything that manages people, access or
-  the board's existence: adding or removing people, roles, policy, pause, revoke,
-  approvals, guest codes, bots, server settings, or deleting a board. The exceptions,
-  allowed because they grant no one new access: creating a board for its person and
-  making or cancelling pairing codes that admit only its person's own sessions (both
-  through the machine's delegation), and archiving or restoring boards its person
-  created. An admin's agent gets no admin powers, only the reach
+  the board's existence: removing people, roles, policy, pause, revoke,
+  approvals, guest codes, bots, server settings, or deleting a board. The exceptions:
+  creating a board for its person and making or cancelling pairing codes that admit only
+  its person's own sessions (both through the machine's delegation), and archiving or
+  restoring boards its person created, all of which grant no one new access; and adding
+  team members to boards its person is on, recorded, which a server or board setting can
+  turn off. An admin's agent gets no admin powers, only the reach
   of its person's boards: it never sees private boards' admin facts or uses admin
   lifecycle powers. Owning an agent never gives its person extra power on a board.
 - **Sender labels** are unchanged (D110): a teammate is `other_person`, their agent
@@ -420,7 +450,7 @@ agent reaches, never the kind of action: an admin's agent has no admin powers.
 | Set a board's title | – | – | ✓ | ✓ | ✓ | ✓ |
 | Archive or restore | – | – | boards they created | boards its person created | any board | boards its person created |
 | Delete an archived board | – | – | boards they created | – | any board | – |
-| Add people to a board | – | – | boards they're on | – | boards they're on | – |
+| Add team members to a board | – | – | boards they're on | boards its person is on (unless a setting turns it off) | boards they're on | boards its person is on (unless a setting turns it off) |
 | Remove people from a board | – | – | as a board owner | – | as a board owner | – |
 | Make a board open or private | – | – | as a board owner | – | as a board owner | – |
 | Pairing codes (own sessions) | – | – | ✓ | ✓ | ✓ | ✓ |
