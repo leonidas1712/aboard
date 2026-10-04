@@ -25,6 +25,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -126,20 +127,18 @@ func command(ctx context.Context, name string, args ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, name, args...) //nolint:gosec // the suite's own commands
 }
 
-// configSums records the person's harness config files and Aboard state directories: a
-// sha256 per file, or "absent". Live runs must leave every one of them as it was.
+// configSums records the person's harness config files, the folders Aboard's setup or a
+// harness could write into, and whether Aboard's state directories exist: a sha256 of
+// each file's contents (and of each folder's whole tree), where each link points, or
+// "absent". Live runs must leave every one of them as it was. A file rewritten with the
+// same bytes counts as unchanged: apps such as a terminal's agent integration rewrite
+// their own files while a run goes on.
 func configSums() map[string]string {
 	home, _ := os.UserHomeDir()
 	sums := map[string]string{}
 	for _, f := range []string{".claude/settings.json", ".codex/config.toml", ".codex/hooks.json", ".omp/agent/config.yml"} {
 		path := filepath.Join(home, f)
-		raw, err := os.ReadFile(filepath.Clean(path))
-		if err != nil {
-			sums[path] = "absent"
-			continue
-		}
-		sum := sha256.Sum256(raw)
-		sums[path] = hex.EncodeToString(sum[:])
+		sums[path] = treeSum(path)
 	}
 	for _, d := range []string{".local/state/aboard", ".local/share/aboard", ".config/aboard"} {
 		path := filepath.Join(home, d)
@@ -150,35 +149,36 @@ func configSums() map[string]string {
 		}
 	}
 	// Harnesses install their commands into ~/.local/bin and keep versions beside it, so
-	// every entry there and every installed Claude Code version must stay as it was: a
-	// link must point where it pointed, a file keep its size and time.
+	// every entry there and every installed Claude Code version must stay as it was.
 	// omp's login is in ~/.omp/agent/agent.db, which omp itself changes as the person uses
 	// it, so what is checked are its config and the folders a test could write into: its
-	// extensions and skills. Each lab checks these again as it ends (teardown).
-	for _, d := range []string{".local/bin", ".local/share/claude/versions", ".omp/agent/extensions", ".omp/agent/skills"} {
+	// extensions and skills. ~/.agents/skills is where Codex finds skills everywhere, and
+	// ~/.claude/skills where Claude Code does. Each lab checks these again as it ends
+	// (teardown).
+	for _, d := range []string{
+		".local/bin", ".local/share/claude/versions", ".omp/agent/extensions", ".omp/agent/skills",
+		".agents/skills", ".claude/skills",
+	} {
 		entries, err := os.ReadDir(filepath.Join(home, d))
 		if err != nil {
 			continue
 		}
 		for _, e := range entries {
 			path := filepath.Join(home, d, e.Name())
-			sums[path] = entryState(path)
-		}
-	}
-	// omp runs every file in its extensions folder, so their contents are checked too.
-	exts, _ := filepath.Glob(filepath.Join(home, ".omp", "agent", "extensions", "*"))
-	for _, path := range exts {
-		if raw, err := os.ReadFile(filepath.Clean(path)); err == nil {
-			sum := sha256.Sum256(raw)
-			sums[path] += ", sha256 " + hex.EncodeToString(sum[:])
+			sums[path] = treeSum(path)
 		}
 	}
 	return sums
 }
 
-// entryState describes a file or link without reading its contents, which for an
-// installed binary can be hundreds of megabytes.
-func entryState(path string) string {
+// fileSums caches each file's sha256 by its path, size and modification time, so the
+// installed harness binaries, hundreds of megabytes each, are read once per run rather
+// than at every test's end; a file whose size or time changed is read again.
+var fileSums sync.Map
+
+// treeSum describes path for configSums: "absent", where a link points, the sha256 of a
+// file's contents, or, for a folder, the sha256 of every entry under it by name.
+func treeSum(path string) string {
 	info, err := os.Lstat(path)
 	switch {
 	case err != nil:
@@ -189,9 +189,35 @@ func entryState(path string) string {
 			return "unreadable link"
 		}
 		return "link to " + target
-	default:
-		return fmt.Sprintf("%d bytes, modified %s", info.Size(), info.ModTime().UTC().Format(time.RFC3339Nano))
+	case info.IsDir():
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return "unreadable folder"
+		}
+		h := sha256.New()
+		for _, e := range entries {
+			_, _ = fmt.Fprintf(h, "%s %s\n", e.Name(), treeSum(filepath.Join(path, e.Name())))
+		}
+		return "folder, sha256 " + hex.EncodeToString(h.Sum(nil))
 	}
+	key := fmt.Sprintf("%s %d %d", path, info.Size(), info.ModTime().UnixNano())
+	if sum, ok := fileSums.Load(key); ok {
+		if s, ok := sum.(string); ok {
+			return s
+		}
+	}
+	f, err := os.Open(filepath.Clean(path))
+	if err != nil {
+		return "unreadable file"
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "unreadable file"
+	}
+	sum := "sha256 " + hex.EncodeToString(h.Sum(nil))
+	fileSums.Store(key, sum)
+	return sum
 }
 
 // configDiff lists every path whose checksum or presence changed.
@@ -307,15 +333,22 @@ func newLabWith(t *testing.T, binary string) *lab {
 	}
 	copyFile(t, binary, l.bin)
 	state := filepath.Join(dir, "state")
+	if err := os.MkdirAll(l.home(), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	l.vars = append(cleanEnv(),
 		"PATH="+filepath.Dir(l.bin)+string(os.PathListSeparator)+os.Getenv("PATH"),
+		// Everything the lab runs (aboard and its daemon, the harnesses and their hooks)
+		// has a home folder of the lab's own, so a folder found from HOME, such as Codex's
+		// ~/.agents/skills, is the lab's and never the person's.
+		"HOME="+l.home(),
 		"ABOARD_HOME="+state,
 		"ABOARD_LOCAL_ADDR="+l.addr,
 		// A harness updating itself during a test would change the person's own install,
 		// so updates are off.
 		"DISABLE_AUTOUPDATER=1",
-		// Aboard's global setup follows these (D92), so every command the lab runs, aboard
-		// doctor and init included, looks in the test's own folders and never the person's.
+		// Aboard's global setup follows these (D92) where a harness has them, so aboard
+		// doctor and init look in the test's own folders here too.
 		"CODEX_HOME="+filepath.Join(dir, "codex-home"),
 		// omp's agent folder in the lab's scratch home for omp, never the person's ~/.omp.
 		"PI_CODING_AGENT_DIR="+filepath.Join(dir, "omp-home", ".omp", "agent"),
@@ -398,6 +431,10 @@ func freeAddr(t *testing.T) string {
 	defer func() { _ = l.Close() }()
 	return l.Addr().String()
 }
+
+// home is the lab's home folder: HOME for everything the lab runs but omp, which has a
+// scratch home of its own (ompHome).
+func (l *lab) home() string { return filepath.Join(l.dir, "home") }
 
 func (l *lab) stateDir() string  { return filepath.Join(l.dir, "state", "state") }
 func (l *lab) dataDir() string   { return filepath.Join(l.dir, "state", "data") }
@@ -584,6 +621,13 @@ func (l *lab) exec(ctx context.Context, dir string, args ...string) result {
 	default:
 		r.code = -1
 		r.stderr += err.Error()
+	}
+	// doctor names every file it reads, so it shows whether anything the lab runs looks in
+	// the person's own home folder.
+	if len(args) > 0 && args[0] == "doctor" {
+		if paths := l.realHomePaths(r.stdout + r.stderr); len(paths) > 0 {
+			l.t.Errorf("aboard doctor in the lab names paths in your own home folder, so the lab isn't isolated from it: %q\n%s", paths, r)
+		}
 	}
 	return r
 }

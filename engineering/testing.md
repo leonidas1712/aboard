@@ -126,7 +126,12 @@ rotate or invalidate it. Each harness's docs page says the same.
   as it starts, so every start also checks omp's own list (`/extensions`) holds only the
   project's `aboard`: an extension from the person's `~/.omp` would run inside the test.
 - **Every harness.** Harnesses run in the lab's tmux with exactly the lab's environment,
-  never the person's shell profile. Variables that name the person's harness session
+  never the person's shell profile, and with a `HOME` in the lab, so nothing the lab
+  runs (aboard, its daemon, the harnesses, their hooks) finds a folder in the person's
+  home: Codex's `~/.agents/skills`, for one, follows `HOME`, not `CODEX_HOME`. Every
+  `aboard doctor` a live test runs fails the test if it names a path in the person's
+  home. The run checks the person's harness config and setup folders by sha256 before
+  and after every test. Variables that name the person's harness session
   (`CLAUDE*`, `CODEX*`, `ABOARD*`, `TMUX*`, `OMP*`, `PI_*`) or their terminal app
   (`TERM_PROGRAM`, `ORCA*`, `KITTY*` and the like) are dropped, so a harness neither
   thinks it runs in the person's session nor reports to the person's apps.

@@ -149,6 +149,14 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
 
 ## How the suite keeps your machine untouched
 
+- **A home folder of its own.** Everything a test runs (aboard and its daemon, the
+  harnesses, their hooks and every command an agent runs) has `HOME` set to a folder in
+  the test's scratch directory, so a folder found from `HOME`, such as Codex's
+  `~/.agents/skills`, is the test's own. omp gets a scratch `HOME` of its own (below).
+  Every `aboard doctor` a test runs fails the test if it names a path in your own home
+  folder (other than a harness program on your `PATH`), and `TestLabStaysOutOfYourHome`
+  runs Aboard's setup for every harness on the machine and checks doctor that way
+  without spending a model turn.
 - **Aboard's state** lives in an `ABOARD_HOME` in the test's scratch directory, the
   product's own way of isolating a copy of Aboard, with the local server on a free port
   (`ABOARD_LOCAL_ADDR`). Harnesses are started with these variables, so their hooks and
@@ -174,13 +182,16 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
   runs with images off (`PI_FORCE_IMAGE_PROTOCOL=off`): in the lab's tmux it would
   otherwise send a Kitty image command that tmux takes as the pane's title, and the
   suite would never see omp's prompt.
-- **Checksums.** Before the run, the suite records `~/.claude/settings.json`,
-  `~/.codex/config.toml` and `~/.codex/hooks.json`, and whether `~/.local/state/aboard`,
-  `~/.local/share/aboard` and `~/.config/aboard` exist, `~/.omp/agent/config.yml`, and
-  every entry in `~/.omp/agent/extensions` (with its contents' checksum) and
-  `~/.omp/agent/skills` (omp's `agent.db` changes whenever you use omp, so the folders a
-  test could write to stand for it). Every test checks them in its cleanup, and the run
-  fails if any changed.
+- **Checksums.** Before the run, the suite records the sha256 of
+  `~/.claude/settings.json`, `~/.codex/config.toml`, `~/.codex/hooks.json` and
+  `~/.omp/agent/config.yml`, and of every entry (a whole folder's tree, or where a link
+  points) in `~/.local/bin`, `~/.local/share/claude/versions`,
+  `~/.omp/agent/extensions`, `~/.omp/agent/skills`, `~/.agents/skills` and
+  `~/.claude/skills`, and whether `~/.local/state/aboard`, `~/.local/share/aboard` and
+  `~/.config/aboard` exist (omp's `agent.db` changes whenever you use omp, so the
+  folders a test could write to stand for it). Every test checks them in its cleanup,
+  and the run fails if any changed. Contents are compared, not times, so a file another
+  app rewrites with the same bytes is no false alarm.
 - **Harness markers.** Every variable starting `CLAUDE`, `CODEX`, `ABOARD`, `TMUX`, `OMP` or `PI_` is
   removed from what harnesses and aboard commands inherit (except `CLAUDE_CONFIG_DIR`).
   Run from inside a Claude Code session, aboard would otherwise think it runs in that

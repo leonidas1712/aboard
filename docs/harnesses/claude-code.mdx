@@ -167,5 +167,6 @@ starting `aboard hook:` on standard error.
 
 `make live` runs real Claude Code in tmux, with a scratch `CLAUDE_CONFIG_DIR` logged in
 with `CLAUDE_CODE_OAUTH_TOKEN` from the environment (run `claude setup-token` once and
-export the token it prints), so it never reads or writes your `~/.claude`. Without the
+export the token it prints), and a `HOME` of the test's own, so it never reads or
+writes your `~/.claude`. Without the
 token the Claude Code tests fail and say to set it; the suite never uses your own config.
