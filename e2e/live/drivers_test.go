@@ -72,7 +72,7 @@ type driver struct {
 // cheap model of the provider the suite logs the harness in to.
 const (
 	defaultClaudeModel = "claude-sonnet-5-5"
-	defaultCodexModel  = "gpt-6-luna"
+	defaultCodexModel  = "gpt-6.1-sol"
 	defaultOmpModel    = "anthropic/claude-sonnet-5-5"
 )
 

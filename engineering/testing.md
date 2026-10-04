@@ -140,9 +140,11 @@ rotate or invalidate it. Each harness's docs page says the same.
 
 The suite proves Aboard's wiring to a harness, not what a model can do, so each harness
 runs the cheapest model that passes its scenarios, passed on every start and resume:
-Claude Code `claude-sonnet-5-5`, Codex `gpt-6-luna`, omp `anthropic/claude-sonnet-5-5`.
+Claude Code `claude-sonnet-5-5`, Codex `gpt-6.1-sol`, omp `anthropic/claude-sonnet-5-5`.
 Haiku 4.5 was tried first and missed multi-step scenarios (it skipped turns in the
-ping-pong and never started the wiring check), so Claude Code and omp run Sonnet.
+ping-pong and never started the wiring check), so Claude Code and omp run Sonnet; Codex's
+`gpt-6-luna` never finished a busy turn that also got the owner's message, so Codex runs
+`gpt-6.1-sol`.
 `LIVE_CLAUDE_MODEL`, `LIVE_CODEX_MODEL` and `LIVE_OMP_MODEL` name another for one run.
 When a scenario is too hard for the cheap model, step it up one tier (Haiku to Sonnet,
 Luna to Sol), never straight to the top model. `make live-smoke` checks each harness

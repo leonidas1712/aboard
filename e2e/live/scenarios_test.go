@@ -329,8 +329,11 @@ func TestOwnerReachesBusy(t *testing.T) {
 		if !ok || how != "tool boundary" {
 			t.Fatalf("the owner's message reached the session by %q; want at a tool boundary of the busy turn", how)
 		}
-		if !ownerAck.At.Before(done.At) {
-			t.Errorf("OWNER-ACK came after DONE: the owner's message wasn't acted on in the busy turn")
+		// The busy turn ends with DONE; the peers' messages start the next one. A model may
+		// post OWNER-ACK and DONE as parallel commands in the same step, so OWNER-ACK only
+		// has to come before the peers' turn, not strictly before DONE.
+		if !ownerAck.At.Before(peerAck.At) {
+			t.Errorf("OWNER-ACK came after PEER-ACK: the owner's message wasn't acted on in the busy turn")
 		}
 		for _, h := range l.logged("bundle handed") {
 			if slices.Contains(h.Seqs, own.Seq) {

@@ -1,85 +1,85 @@
 {
   "harnesses": {
     "claude-code": {
-      "version": "2.1.288 (Claude Code)",
+      "version": "2.1.289 (Claude Code)",
       "scenarios": {
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         },
         "KilledSessionRedelivers": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestKilledSessionRedelivers/claude-code"
         },
         "OwnerReachesBusy": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestOwnerReachesBusy/claude-code"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestPeerWaitsButNoticeArrives/claude-code"
         },
         "PingPong": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestPingPong/claude-code"
         },
         "PingPongAcrossHarnesses": {
-          "result": "fail",
+          "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
+          "version": "2.1.289 (Claude Code)",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestProjectScopeSetup/claude-code"
         },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestRepliesReachPromptly/claude-code"
         },
         "RestartsLoseNothing": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestRestartsLoseNothing/claude-code"
         },
         "ResumeReconnects": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestResumeReconnects/claude-code"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestSubagentCannotActAsItsParent/claude-code"
         },
         "WakesAndReplies": {
           "result": "pass",
           "date": "2026-10-04",
-          "version": "2.1.288 (Claude Code)",
+          "version": "2.1.289 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         }
       },
       "handover": {
-        "aboard_ms": 465,
-        "harness_ms": 2626,
-        "deliveries": 3,
+        "aboard_ms": 49927,
+        "harness_ms": 2655,
+        "deliveries": 1,
         "date": "2026-10-04"
       }
     },
@@ -171,9 +171,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2006,
-        "harness_ms": 95,
-        "deliveries": 5,
+        "aboard_ms": 1987,
+        "harness_ms": 56,
+        "deliveries": 1,
         "date": "2026-10-04"
       }
     },
@@ -211,10 +211,10 @@
           "test": "TestPingPong/omp"
         },
         "PingPongAcrossHarnesses": {
-          "result": "fail",
+          "result": "pass",
           "date": "2026-10-04",
           "version": "omp/18.5.1",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
+          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -254,9 +254,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 4,
-        "harness_ms": 1,
-        "deliveries": 2,
+        "aboard_ms": 51425,
+        "harness_ms": 0,
+        "deliveries": 1,
         "date": "2026-10-04"
       }
     }
