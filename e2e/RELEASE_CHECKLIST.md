@@ -76,6 +76,15 @@ the harnesses and for herdr (`e2e/swarm_test.go`); the launchers pass the launch
 - [ ] Each attach line `swarm up` prints works from a terminal: `tmux -L <swarm> attach -t <swarm>:<agent>` shows that agent's session, and `herdr session attach <swarm>` shows the swarm's herdr session with one tab per agent.
 - [ ] In a folder Claude Code or Codex has never opened, `aboard swarm up` stops with `swarm_not_ready` naming the agent and its attach line; answering the trust question there seats it, and `aboard swarm ps` shows it seated.
 
+## Extending Aboard ([docs/extending.mdx](../docs/extending.mdx))
+
+`aboard join`, `say`, `inbox --wait` and `watch --json` are covered by e2e; the kits by
+`make check`. By hand, in a sandbox:
+
+- [ ] The page's `aboard-launcher-bg`, saved on the `PATH`, passes `make launcher-kit LAUNCHER=bg`.
+- [ ] The page's bridge: after `aboard invite` and `aboard join "<line>" --name relay --harness relay`, the loop prints `member: <body>` for a message sent `--to @relay`, and `aboard say --as relay` posts as `relay`.
+- [ ] Every status the page gives (built, not built yet) still matches the code and design/ROADMAP.md.
+
 ## Install, update and remove ([docs/install.mdx](../docs/install.mdx))
 
 The page's `aboard` commands and their checks are **automated**, `TestInstallPageCommands`;
