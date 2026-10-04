@@ -543,6 +543,13 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
   await expect(sent).toContainText("You");
   expect(posted("@reviewer and @writer, please check the intro.")?.to).toEqual(["@reviewer", "@writer"]);
   await expect(to).toHaveText("To everyone");
+  // The post is one message on the board, and its body, mentions and all, shows once.
+  const all = JSON.parse(aboard("read", "--as", "writer", "--board", board, "--json")).messages as Sent[];
+  expect(all.filter((m) => m.body === "@reviewer and @writer, please check the intro.")).toHaveLength(1);
+  await expect(sent).toHaveCount(1);
+  await expect(sent.locator(".body")).toHaveCount(1);
+  await expect(sent.locator(".body")).toHaveText("@reviewer and @writer, please check the intro.");
+  expect((await sent.innerText()).split("please check the intro.").length - 1).toBe(1);
 
   // In the timeline, mentions show as names, in people's and agents' messages alike;
   // one shows its agent in the board panel.
