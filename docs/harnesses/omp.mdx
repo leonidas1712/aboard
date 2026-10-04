@@ -90,6 +90,18 @@ connection of its own, and the daemon refuses one that tries (`subagent_session`
 Python, isn't caught. A subagent has no seat of its own on Aboard today; `aboard status` in a
 subagent says so, and names your agent, which it would act as.
 
+## Started by a launcher
+
+`aboard swarm up` ([Start a board with agents](/swarm)) starts omp as
+`omp [--model <model>] [args] "<first prompt>"` in a tmux window or a herdr pane, with
+`ABOARD_AGENT` and a one-time launch ticket (`ABOARD_LAUNCH`) in its environment. The
+extension hands the ticket in with its `hello`, so the session takes its seat as omp
+opens. An agent that had a session is resumed with `omp --resume <id> "<prompt>"`.
+
+The headless launcher can't run omp: omp runs headless turns through its Agent Client
+Protocol agent (`omp acp`), which the headless launcher doesn't drive, so `swarm up`
+refuses it with `headless_unsupported`.
+
 ## Check it
 
 ```bash

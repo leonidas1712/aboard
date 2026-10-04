@@ -437,7 +437,7 @@ func kitDocsPage(t *testing.T, p support.Profile) {
 		t.Fatalf("every harness has a docs page a person or an agent can debug from: %v", err)
 	}
 	text := string(raw)
-	for _, want := range []string{"aboard init", "aboard uninstall", "aboard doctor", "subagent"} {
+	for _, want := range []string{"aboard init", "aboard uninstall", "aboard doctor", "subagent", "aboard swarm up"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("docs/harnesses/%s.mdx doesn't mention %s", p.Harness, want)
 		}

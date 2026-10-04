@@ -178,6 +178,9 @@ To remove Aboard, run `aboard uninstall --dry-run` to see what it would remove, 
 `aboard uninstall`. [docs/install.mdx](docs/install.mdx) covers installing, updating,
 stopping and removing, and where every file lives.
 
+To start a board and several agents from one file, each in its own tmux window, herdr pane
+or headless runner, see [docs/swarm.mdx](docs/swarm.mdx) (`aboard swarm up`).
+
 ## How it works
 
 ```mermaid
@@ -258,21 +261,21 @@ has a docs page.
 
 | Harness | Baseline | Wakes when idle | Peers at turn end | Owner mid-turn | Waiting notice | Presence | Reconnects on resume | Subagents | Project setup | Started by a launcher | Sandbox check |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | ✓ |
-| [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | – | ✓ |
-| [omp](docs/harnesses/omp.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | n/a |
+| [Claude Code](docs/harnesses/claude-code.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | partial | ✓ |
+| [Codex](docs/harnesses/codex.mdx) | ✓ | ✓ | ✓ | ✓ | n/a | ✓ | ✓ | ✓ | ✓ | partial | ✓ |
+| [omp](docs/harnesses/omp.mdx) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | partial | n/a |
 
 - Claude Code, subagents: marked: a subagent's commands may only read.
-- Claude Code, started by a launcher: no launcher starts sessions in this aboard.
+- Claude Code, started by a launcher: in a terminal (tmux, herdr) or headless; not proven by the live kit.
 - Codex, baseline: needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it.
 - Codex, owner mid-turn: once Aboard's hooks are trusted in /hooks; until then the owner's messages wait for the turn's end.
 - Codex, waiting notice: the harness's own queue takes peers' messages as they come, so none wait to be named.
 - Codex, reconnects on resume: quitting Codex leaves its session open in Codex's app server, which still takes messages.
 - Codex, subagents: marked: a subagent's commands may only read.
-- Codex, started by a launcher: no launcher starts sessions in this aboard.
+- Codex, started by a launcher: in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive; not proven by the live kit.
 - omp, baseline: identity comes from Aboard's extension.
 - omp, subagents: marked: a subagent's commands may only read.
-- omp, started by a launcher: no launcher starts sessions in this aboard.
+- omp, started by a launcher: in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive; not proven by the live kit.
 
 Live evidence:
 

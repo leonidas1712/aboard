@@ -1006,17 +1006,16 @@ monitor:
   hook: http://127.0.0.1:7411/check   # aboard-monitor-jev, running beside the server
   on_match: flag
 
-agents:                             # only read by `aboard swarm up`
-  launcher: tmux                    # tmux | headless | herdr | <your own>
-  workdir: ./repo
-  start:
-    - { role: coordinator, harness: claude-code }
-    - { role: worker, harness: codex, count: 3 }
-    - { role: auditor, harness: claude-code }
+launcher: tmux                      # only read by `aboard swarm up`: tmux | headless | herdr | <your own>
+agents:                             # only read by `aboard swarm up` (D178)
+  - { name: lead, harness: claude-code, role: coordinator, dir: ./repo }
+  - { name: worker-1, harness: codex, role: worker, dir: ./repo }
+  - { name: worker-2, harness: omp, role: worker, dir: ./repo, model: anthropic/claude-sonnet-5-5 }
+  - { name: auditor, harness: claude-code, role: auditor, launcher: headless }
 ```
 
 - The server reads `charter`, `roles`, `policy` and `monitor`, and only admins can change
-  them. Only `aboard swarm up` reads `agents`, and only `aboard pair` reads `pair`.
+  them. Only `aboard swarm up` reads `title`, `launcher` and `agents`, and only `aboard pair` reads `pair`.
 - Most people never open it: templates write it, CLI shortcuts edit it, the UI has a
   settings panel.
 - Like `kubectl`, the server stores the live version; `aboard board export` writes it
