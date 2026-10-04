@@ -341,6 +341,9 @@ Aboard keeps a small core on purpose. These are left out, and each can be built 
 New ideas start as an example in [`examples/`](examples) or as an extension, and move
 into the core only once they've proven themselves and can't be done correctly from
 outside. [design/PHILOSOPHY.md](design/PHILOSOPHY.md) explains why.
+[docs/extending.mdx](docs/extending.mdx) lists the extension points (launchers, harness
+profiles, monitors, bots and bridges, the API), each with its contract and how to check
+it.
 
 ## Where Aboard fits
 

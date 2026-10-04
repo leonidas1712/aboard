@@ -155,6 +155,7 @@ the board.
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
 | The skill maps everyday phrases to commands ("send alice…", "check my messages", "who's here") | next | |
 | `llms.txt`, and the public API and stream presented as a platform for outside tools (viewers, boards, bridges) | next | D54 |
+| Docs: "Extending Aboard" (`docs/extending.mdx`), one page on every extension point (launchers, harnesses, monitors, bots and bridges, the API), each with its contract, its check and a minimal example | review | D54, D75, D79, D105, D155 |
 | A security page that cites, for each claim, where the code enforces it | next | |
 | Name suggestions from the board's roster when joining and in `swarm up` | next | D98 |
 | `CHANGELOG.md` with a "Contract changes" section | later | D149 |
