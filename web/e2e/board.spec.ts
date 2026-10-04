@@ -412,3 +412,68 @@ test("replies form threads that open in place, remember how they were left and s
   await page.getByRole("button", { name: "Remove filter: From writer" }).click();
   await expect(thread.locator(".thread-toggle")).toContainText("6 replies");
 });
+
+test("reactions show under messages, toggle as the person and follow the board live, in threads too", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Reactions", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  const say = (...args: string[]) => JSON.parse(aboard("say", "--board", board, "--json", ...args)).message;
+  const react = (...args: string[]) => aboard("react", "--board", board, ...args);
+  const ask = say("--as", "writer", "--to", "@reviewer", "The draft is ready. Can you look?");
+  const answer = say("--as", "reviewer", "--reply", ask.id, "--to", "@writer", "Looking now.");
+  react("--as", "reviewer", String(ask.seq), "👍");
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await page.goto(open.url);
+
+  // A reaction shows under the message with how many, and who on hover.
+  const msg = page.locator(`.message[data-id="${ask.id}"]`);
+  const thumbs = msg.locator('[data-reaction="thumbsup"]');
+  await expect(thumbs).toHaveText("👍1");
+  await expect(thumbs).toHaveAttribute("aria-pressed", "false");
+  await thumbs.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("reviewer reacted with 👍");
+
+  // Clicking it adds the person's own, which the CLI then reads, and clicking again takes it back.
+  await thumbs.click();
+  await expect(thumbs).toHaveAttribute("aria-pressed", "true");
+  await expect(thumbs).toHaveText("👍2");
+  await expect(thumbs).toHaveAccessibleName("thumbs up 👍, 2: reviewer and You. Take yours back");
+  expect(aboard("read", "--as", "writer", "--board", board)).toContain(`#${ask.seq}  @writer → @reviewer · 1 reply · 👍 2`);
+  await thumbs.click();
+  await expect(thumbs).toHaveAttribute("aria-pressed", "false");
+  await expect(thumbs).toHaveText("👍1");
+
+  // The React button beside Reply offers the whole set.
+  await msg.hover();
+  await msg.getByRole("button", { name: "React to writer" }).click();
+  await expect(page.getByRole("menuitem")).toHaveCount(6);
+  await page.getByRole("menuitem", { name: "React with celebrate" }).click();
+  await expect(msg.locator('[data-reaction="tada"]')).toHaveAttribute("aria-pressed", "true");
+
+  // An agent's reaction appears live, and goes when it is taken back.
+  react("--as", "writer", String(ask.seq), "eyes");
+  await expect(msg.locator('[data-reaction="eyes"]')).toHaveText("👀1");
+  react("--as", "writer", String(ask.seq), "eyes", "--remove");
+  await expect(msg.locator('[data-reaction="eyes"]')).toHaveCount(0);
+
+  // Replies in a thread take reactions the same way, live and from the person.
+  const thread = page.locator(`[data-thread="${ask.id}"]`);
+  await thread.locator(".thread-toggle").click();
+  const reply = thread.locator(`.message[data-id="${answer.id}"]`);
+  react("--as", "writer", String(answer.seq), "heart");
+  await expect(reply.locator('[data-reaction="heart"]')).toHaveText("❤️1");
+  await reply.hover();
+  await reply.getByRole("button", { name: "React to reviewer" }).click();
+  await page.getByRole("menuitem", { name: "React with done" }).click();
+  await expect(reply.locator('[data-reaction="check"]')).toHaveAttribute("aria-pressed", "true");
+  expect(aboard("read", "--as", "reviewer", "--board", board, "--thread", String(ask.seq))).toContain(
+    `#${answer.seq}  @reviewer → @writer · reply to #${ask.seq} · ✅ 1 ❤️ 1`,
+  );
+
+  // Reactions are part of the record, and it still verifies; they never show as board events.
+  await page.reload();
+  await expect(page.locator(".record")).toContainText(/Record verified · \d+ events/);
+  await expect(page.locator(".board-event", { hasText: "react" })).toHaveCount(0);
+  await expect(msg.locator('[data-reaction="tada"]')).toHaveAttribute("aria-pressed", "true");
+});

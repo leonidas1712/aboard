@@ -70,8 +70,8 @@ func senderText(m api.Message) string {
 }
 
 // markersText lists what a message is besides its text, as the board view marks it:
-// what it replies to, whether it is urgent, whether it asks for a reply, and how many
-// replies the thread it starts has.
+// what it replies to, whether it is urgent, whether it asks for a reply, how many
+// replies the thread it starts has, and its reactions.
 func markersText(m api.Message) string {
 	var b strings.Builder
 	if m.ReplyToSeq != nil {
@@ -86,6 +86,7 @@ func markersText(m api.Message) string {
 	if m.ReplyCount > 0 {
 		b.WriteString(" · " + repliesText(m.ReplyCount, ""))
 	}
+	b.WriteString(reactionsText(m))
 	return b.String()
 }
 

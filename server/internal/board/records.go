@@ -116,6 +116,9 @@ type Message struct {
 	Urgent       bool
 	ExpectsReply bool
 	Redactions   []Redaction
+	// Reactions are the reactions on the message as its reader sees them, in the set's
+	// order. The service fills them for each reader.
+	Reactions []ReactionCount
 
 	// Sender fields, filled in by the store when it reads a message.
 	SenderName    string
@@ -126,4 +129,23 @@ type Message struct {
 	SenderHarness *string
 	// AgentOwners is how many people have agents on the board, when the message was read.
 	AgentOwners int
+}
+
+// Reaction is one member's reaction to a message: a read model kept from the
+// reaction.added and reaction.removed events.
+type Reaction struct {
+	MessageID string
+	MemberID  string
+	// Name is the reaction's name in the set, such as "thumbsup".
+	Name string
+	At   string
+	// MemberName is filled in by the store when it reads a reaction.
+	MemberName string
+}
+
+// ThreadInfo is a thread a reader may see, as the store lists them: its first message
+// and the names of the members who replied in it, in the order they first replied.
+type ThreadInfo struct {
+	RootID   string
+	Repliers []string
 }

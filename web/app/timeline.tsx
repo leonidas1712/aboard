@@ -9,6 +9,7 @@ import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useR
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardEvent, Message, MemberRef } from "./api";
+import { type OnReact, ReactButton, Reactions } from "./reactions";
 import { clockTime, count, displayName, exactTime, markOf, recipients, relativeTime } from "./words";
 
 /**
@@ -53,6 +54,10 @@ type Props = {
   /** waiting holds the ids of questions waiting for the person's reply. */
   waiting: Set<string>;
   onReply: (m: Message) => void;
+  /** onReact adds or takes back the person's reaction to a message. */
+  onReact: OnReact;
+  /** me is the person's name, so their own reactions read "You". */
+  me: string | null;
   /** onToggle opens or closes a thread, by its first message's id. */
   onToggle: (root: string, open: boolean) => void;
   /** onShow scrolls to a message, opening its thread first if it is closed. */
@@ -105,6 +110,8 @@ export function Timeline({
   identity,
   waiting,
   onReply,
+  onReact,
+  me,
   onToggle,
   onShow,
   onSeen,
@@ -230,6 +237,8 @@ export function Timeline({
                       identity={identity(x.m.from)}
                       waiting={waiting.has(x.m.id)}
                       onReply={() => onReply(x.m)}
+                      onReact={onReact}
+                      me={me}
                       onShow={onShow}
                       grouped={!divider && continues(entries[i - 1], x)}
                       groupGoesOn={!x.thread && !nextDivider && next !== undefined && continues(x, next)}
@@ -250,6 +259,8 @@ export function Timeline({
                       identity={identity}
                       waitingIds={waiting}
                       onReply={onReply}
+                      onReact={onReact}
+                      me={me}
                       onToggle={onToggle}
                       onShow={onShow}
                       openedAt={openedAt.current!}
@@ -397,6 +408,8 @@ function MessageEntry({
   identity,
   waiting,
   onReply,
+  onReact,
+  me,
   onShow,
   grouped,
   groupGoesOn,
@@ -413,6 +426,8 @@ function MessageEntry({
   identity: number;
   waiting: boolean;
   onReply: () => void;
+  onReact: OnReact;
+  me: string | null;
   onShow: (id: string) => void;
   /** grouped is true when the message shows under the header of the one before. */
   grouped: boolean;
@@ -444,6 +459,12 @@ function MessageEntry({
     >
       Reply
     </button>
+  );
+  const actions = (
+    <span className="flex shrink-0 items-center gap-0.5 self-center">
+      <ReactButton m={m} onReact={onReact} label={self ? "your message" : m.from.name} />
+      {replyButton}
+    </span>
   );
   return (
     <li
@@ -507,7 +528,7 @@ function MessageEntry({
                   <span className="ml-2 text-meta text-muted">Asks for a reply</span>
                 ))}
             </p>
-            {replyButton}
+            {actions}
             <Time at={m.at} now={now} />
           </div>
         )}
@@ -517,8 +538,9 @@ function MessageEntry({
             <span className="truncate">{quote ?? "Replying to an earlier message"}</span>
           </p>
         )}
-        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-16")}>{m.body}</p>
-        {grouped && <div className="absolute top-0 right-2.5">{replyButton}</div>}
+        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>{m.body}</p>
+        <Reactions m={m} me={me} onReact={onReact} />
+        {grouped && <div className="absolute top-0 right-2.5">{actions}</div>}
         {waiting && (
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
             <p>{m.from.name} is waiting for your reply.</p>
@@ -545,6 +567,8 @@ function ThreadBlock({
   identity,
   waitingIds,
   onReply,
+  onReact,
+  me,
   onToggle,
   onShow,
   openedAt,
@@ -557,6 +581,8 @@ function ThreadBlock({
   identity: (from: MemberRef) => number;
   waitingIds: Set<string>;
   onReply: (m: Message) => void;
+  onReact: OnReact;
+  me: string | null;
   onToggle: (root: string, open: boolean) => void;
   onShow: (id: string) => void;
   openedAt: number;
@@ -626,6 +652,8 @@ function ThreadBlock({
                   identity={identity(r.from)}
                   waiting={waitingIds.has(r.id)}
                   onReply={() => onReply(r)}
+                  onReact={onReact}
+                  me={me}
                   onShow={onShow}
                   grouped={prev !== undefined && follows(prev, r)}
                   groupGoesOn={next !== undefined && follows(r, next)}

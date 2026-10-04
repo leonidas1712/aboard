@@ -92,6 +92,9 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	if !strings.Contains(policy.stdout, "recommended") {
 		t.Fatalf("policy output doesn't name the new preset\n%s", policy)
 	}
+
+	// React instead of replying.
+	expectLines(t, e.run("react", "7", "👍", "--as", "member"), "Reacted 👍 to #7 on general · 👍 1")
 }
 
 // TestPairWriterReviewer checks that a template named on pair is used instead of the

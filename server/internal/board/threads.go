@@ -2,9 +2,9 @@ package board
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
@@ -74,27 +74,9 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 		var r ThreadReading
 		var boardID string
 		err := s.st.Read(ctx, func(tx ReadTx) error {
-			m, err := tx.MessageByID(messageID)
-			if errors.Is(err, ErrNotFound) {
-				return messageNotFound()
-			}
+			m, b, me, err := visibleMessage(tx, p, messageID)
 			if err != nil {
 				return err
-			}
-			b, err := tx.BoardByID(m.BoardID)
-			if err != nil {
-				return err
-			}
-			b, me, err := access(tx, p, b.Name)
-			var e *apierr.Error
-			if errors.As(err, &e) && e.Code == "board_not_found" {
-				return messageNotFound()
-			}
-			if err != nil {
-				return err
-			}
-			if !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
-				return messageNotFound()
 			}
 			boardID = b.ID
 			r = ThreadReading{Board: b, Reader: me}
@@ -118,14 +100,16 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 				replies = replies[:limit]
 				r.NextAfter = ptr(replies[limit-1].Seq)
 			}
-			r.Replies = replies
 			if r.Root != nil {
-				roots := []Message{*r.Root}
-				if err := countReplies(tx, b, me, roots); err != nil {
-					return err
-				}
-				r.Root = &roots[0]
+				replies = append([]Message{*r.Root}, replies...)
 			}
+			if err := annotate(tx, b, me, replies); err != nil {
+				return err
+			}
+			if r.Root != nil {
+				r.Root, replies = &replies[0], replies[1:]
+			}
+			r.Replies = replies
 			return nil
 		})
 		if err != nil || len(r.Replies) > 0 || wait <= 0 {
@@ -145,4 +129,62 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 			return ThreadReading{}, fmt.Errorf("wait for replies: %w", ctx.Err())
 		}
 	}
+}
+
+// ThreadList is a board's threads as one reader sees them.
+type ThreadList struct {
+	Board   Board
+	Reader  Member
+	Threads []ThreadEntry
+	// More is set when limit cut the list short.
+	More bool
+}
+
+// ThreadEntry is one thread in a ThreadList: its first message, with its replies
+// counted, and who wrote in it.
+type ThreadEntry struct {
+	Root Message
+	// Participants are the first message's sender, then each replier in the order they
+	// first replied.
+	Participants []string
+}
+
+// Threads returns up to limit of the board's threads that the caller may see, the one
+// with the newest reply first.
+func (s *Service) Threads(ctx context.Context, p Principal, boardName string, limit int) (ThreadList, error) {
+	var out ThreadList
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		b, me, err := access(tx, p, boardName)
+		if err != nil {
+			return err
+		}
+		infos, err := tx.Threads(b.ID, me, readsAll(b, me), limit+1)
+		if err != nil {
+			return err
+		}
+		out = ThreadList{Board: b, Reader: me, More: len(infos) > limit}
+		infos = infos[:min(len(infos), limit)]
+		roots := make([]Message, 0, len(infos))
+		for _, info := range infos {
+			root, err := tx.MessageByID(info.RootID)
+			if err != nil {
+				return fmt.Errorf("thread root %s: %w", info.RootID, err)
+			}
+			roots = append(roots, root)
+		}
+		if err := annotate(tx, b, me, roots); err != nil {
+			return err
+		}
+		for i, root := range roots {
+			who := []string{root.SenderName}
+			for _, name := range infos[i].Repliers {
+				if !slices.Contains(who, name) {
+					who = append(who, name)
+				}
+			}
+			out.Threads = append(out.Threads, ThreadEntry{Root: root, Participants: who})
+		}
+		return nil
+	})
+	return out, err
 }

@@ -192,7 +192,7 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 		if err != nil {
 			return err
 		}
-		if err := countReplies(tx, b, me, msgs); err != nil {
+		if err := annotate(tx, b, me, msgs); err != nil {
 			return err
 		}
 		r = Reading{Board: b, Reader: me, Messages: msgs}
@@ -250,7 +250,7 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if len(msgs) > limit {
 				msgs, more = msgs[:limit], true
 			}
-			if err := countReplies(tx, b, me, msgs); err != nil {
+			if err := annotate(tx, b, me, msgs); err != nil {
 				return err
 			}
 			r = Reading{Board: b, Reader: me, Messages: msgs}
@@ -341,7 +341,19 @@ func (s *Service) Events(ctx context.Context, p Principal, boardName string, aft
 			return err
 		}
 		for i := range evs {
-			if m, ok := msgs[evs[i].Seq]; ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+			m, ok := msgs[evs[i].Seq]
+			// A reaction is withheld with the message it is on.
+			if evs[i].Type == events.ReactionAdded || evs[i].Type == events.ReactionRemoved {
+				id, err := reactionTarget(evs[i])
+				if err != nil {
+					return err
+				}
+				if m, err = tx.MessageByID(id); err != nil {
+					return fmt.Errorf("message of reaction %d: %w", evs[i].Seq, err)
+				}
+				ok = true
+			}
+			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
 				evs[i].Data, evs[i].DataWithheld = nil, true
 			}
 		}

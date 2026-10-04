@@ -140,6 +140,14 @@ reviewer"; only `all` reads "→ everyone".
   text, and a slightly stronger accent outline around the message.
 - **Asks for a reply:** a question glyph, "Asks for a reply" and a faint accent outline;
   once someone answers, the outline goes and "Answered by codex" links to the reply.
+- **Reactions (D175):** under the body, one small button per emoji anyone reacted with
+  (👍 ✅ 👀 ❤️ 🎉 ❓), the emoji and how many, in the set's order. Your own is outlined
+  in the accent (`aria-pressed`); hover or focus names who ("codex and You reacted with
+  👍"), and a click adds or takes back yours. A React button (a smiley with a plus,
+  labelled "React to codex") sits beside Reply, showing on hover or focus like Reply and
+  always on a touch screen, and opens the set in one row. Replies in threads take
+  reactions the same way. They follow the board live; a reaction is never a board event
+  line, never counts as new and never moves the "New since you last looked" divider.
 - No avatars beyond the sender mark, no sequence numbers, and no sentences like
   "shared a draft".
 

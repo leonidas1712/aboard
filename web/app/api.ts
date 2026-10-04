@@ -67,7 +67,24 @@ export type Message = {
   expects_reply: boolean;
   sender: Sender;
   show_owner: boolean;
+  /** reactions are the emoji on the message, in the set's order; empty when there are none. */
+  reactions: Reaction[];
 };
+
+export type ReactionName = "thumbsup" | "check" | "eyes" | "heart" | "tada" | "question";
+
+/** Reaction is one emoji on a message: who reacted with it, earliest first, and whether you did. */
+export type Reaction = { name: ReactionName; emoji: string; count: number; by: string[]; mine: boolean };
+
+/** reactionSet is every reaction there is, in the order they are shown, with a word for each. */
+export const reactionSet: { name: ReactionName; emoji: string; word: string }[] = [
+  { name: "thumbsup", emoji: "👍", word: "thumbs up" },
+  { name: "check", emoji: "✅", word: "done" },
+  { name: "eyes", emoji: "👀", word: "looking" },
+  { name: "heart", emoji: "❤️", word: "heart" },
+  { name: "tada", emoji: "🎉", word: "celebrate" },
+  { name: "question", emoji: "❓", word: "question" },
+];
 
 export type MessagePage = { messages: Message[]; next_after: number | null; prev_before: number | null };
 
@@ -188,6 +205,18 @@ export async function post<T>(path: string, body: unknown, key: string = crypto.
   });
   if (resp.ok) return (await resp.json()) as T;
   throw await failure(resp);
+}
+
+/** send makes a write without a body, such as PUT or DELETE, with an Idempotency-Key. */
+export async function send<T>(method: "PUT" | "DELETE", path: string, key: string = crypto.randomUUID()): Promise<T> {
+  const resp = await fetch(path, { method, credentials: "omit", headers: { ...headers(), "Idempotency-Key": key } });
+  if (resp.ok) return (await resp.json()) as T;
+  throw await failure(resp);
+}
+
+/** react adds the person's reaction to a message, or takes it back, and returns the message. */
+export function react(message: string, name: ReactionName, add: boolean): Promise<Message> {
+  return send<Message>(add ? "PUT" : "DELETE", `/v1/messages/${encodeURIComponent(message)}/reactions/${name}`);
 }
 
 // The server sends a keepalive comment every 25 seconds; a stream silent for longer

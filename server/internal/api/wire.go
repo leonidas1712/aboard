@@ -74,6 +74,15 @@ type wireMessage struct {
 	ShowOwner     bool              `json:"show_owner"`
 	Trust         string            `json:"trust"`
 	Redactions    []board.Redaction `json:"redactions"`
+	Reactions     []wireReaction    `json:"reactions"`
+}
+
+type wireReaction struct {
+	Name  string   `json:"name"`
+	Emoji string   `json:"emoji"`
+	Count int      `json:"count"`
+	By    []string `json:"by"`
+	Mine  bool     `json:"mine"`
 }
 
 type wireJoinCode struct {
@@ -169,6 +178,10 @@ func trust(m board.Message, reader board.Member) string {
 }
 
 func messageOf(m board.Message, boardName string, reader board.Member) wireMessage {
+	reactions := make([]wireReaction, 0, len(m.Reactions))
+	for _, r := range m.Reactions {
+		reactions = append(reactions, wireReaction{Name: r.Name, Emoji: r.Emoji, Count: len(r.By), By: r.By, Mine: r.Mine})
+	}
 	return wireMessage{
 		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
@@ -176,6 +189,7 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 		ThreadRoot: m.ThreadRoot, ThreadRootSeq: m.ThreadRootSeq, ReplyCount: m.ReplyCount, LastReplyAt: m.LastReplyAt,
 		Urgent: m.Urgent, ExpectsReply: m.ExpectsReply,
 		Sender: sender(m, reader), ShowOwner: m.AgentOwners > 1, Trust: trust(m, reader), Redactions: m.Redactions,
+		Reactions: reactions,
 	}
 }
 

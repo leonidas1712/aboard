@@ -68,6 +68,13 @@ type ReadTx interface {
 	// how many such replies it has and when the newest was posted. readAll means as for
 	// Timeline.
 	ThreadCounts(reader Member, readAll bool, rootIDs []string) (map[string]ThreadCount, error)
+	// Threads returns up to limit of the board's threads that have a reply reader may
+	// see and whose first message reader may see too, the one with the newest such reply
+	// first. Repliers counts only the replies reader may see. readAll means as for
+	// Timeline.
+	Threads(boardID string, reader Member, readAll bool, limit int) ([]ThreadInfo, error)
+	// Reactions returns the reactions to each of messageIDs that has any, oldest first.
+	Reactions(messageIDs []string) (map[string][]Reaction, error)
 }
 
 // ThreadCount counts the replies in one thread that a reader may see.
@@ -127,6 +134,10 @@ type Tx interface {
 	// InsertMessage adds a message and counts it on its board (MessageCount,
 	// LastMessageAt).
 	InsertMessage(m Message) error
+	// InsertReaction adds a member's reaction to a message, which it hasn't made yet.
+	InsertReaction(r Reaction) error
+	// DeleteReaction removes a member's reaction to a message, if there is one.
+	DeleteReaction(messageID, memberID, name string) error
 }
 
 // Notifier wakes readers waiting on a board, or on a human's list of boards. It only
