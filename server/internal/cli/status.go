@@ -51,6 +51,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Agents         []string     `json:"agents"`
 		Policy         *api.Policy  `json:"policy"`
 		People         []person     `json:"people"`
+		Subagent       *subagentOf  `json:"subagent"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -81,6 +82,11 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		}
 	}
 
+	var subLine string
+	if _, sub := a.registry().Subagent(a.henv()); sub {
+		out.Subagent, subLine = a.subagentStatus(ctx, creds)
+	}
+
 	t, err := a.selectBoard(*boardFlag)
 	switch {
 	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):
@@ -93,6 +99,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, out.Server)
 		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
+		text.WriteString(subLine)
 		a.emit(out, styleStatus(text.String(), a.out()))
 		return nil
 	}
@@ -146,9 +153,43 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		}
 		text.WriteString(line + "\n")
 	}
+	text.WriteString(subLine)
 	text.WriteString(boardLines.String())
 	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil
+}
+
+// subagentOf is the subagent aboard status runs in: the harness session it belongs to,
+// the agent that session holds, which the subagent's commands would act as, and its own
+// seat, which it never has today.
+type subagentOf struct {
+	Harness     string  `json:"harness"`
+	Session     string  `json:"session"`
+	ParentAgent *string `json:"parent_agent"`
+	Seat        *string `json:"seat"`
+}
+
+// subagentStatus describes the subagent a command runs in, and its Subagent line. A
+// subagent inherits its parent's session, so it finds the parent's agent there.
+func (a *app) subagentStatus(ctx context.Context, creds credentials) (so *subagentOf, line string) {
+	so = &subagentOf{}
+	title := "a harness"
+	if key, ok := a.sessionKey(); ok {
+		so.Harness, so.Session = key.Harness, key.String()
+		if h, known := a.registry().Get(key.Harness); known {
+			title = withArticle(h.Profile().Name)
+		}
+		if _, cred, found, err := a.sessionAgent(ctx, creds, key, ""); err == nil && found {
+			so.ParentAgent = &cred.Name
+		}
+	}
+	const reads = "so it may only read: aboard read, aboard status, aboard inbox --peek"
+	line = "Subagent: runs in a subagent of " + title + " session, which has no agent; it has no seat of its own, " + reads + "\n"
+	if so.ParentAgent != nil {
+		line = "Subagent: runs in a subagent of " + title + " session; it would act as " + *so.ParentAgent +
+			", the session's agent, but has no seat of its own, " + reads + "\n"
+	}
+	return so, line
 }
 
 // presenceText is a presence in words. An agent with no session is "disconnected": its

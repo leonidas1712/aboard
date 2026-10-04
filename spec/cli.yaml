@@ -39,7 +39,9 @@
 #   CODEX_SESSION_ID, as in a Codex sub-agent), only reading commands run: read, status,
 #   inbox --peek, doctor, audit, help, version and hook. Every other command refuses with
 #   subagent_without_seat and exits 1 before it does anything, whatever --as or
-#   ABOARD_AGENT name.
+#   ABOARD_AGENT name. A subagent's commands find its parent's session, and so its
+#   parent's agent, in every harness: a Codex sub-agent's through CODEX_SESSION_ID,
+#   the root conversation's thread. status says it runs in a subagent (subagent).
 # - Session precedence: a harness variable that every command of a session carries
 #   (CODEX_THREAD_ID) wins over an ABOARD_SESSION naming a harness that gives way to it
 #   (Claude Code's, inherited by a Codex started inside it).
@@ -1190,6 +1192,29 @@ $defs:
           properties:
             name: { type: string }
             access: { enum: [admin, member] }
+      subagent:
+        description: |
+          Set when status runs in a subagent of a harness session (see "Inside a subagent"
+          above), the same in every harness; null otherwise. A line after the Agent line
+          says so: "Subagent: runs in a subagent of a Codex session; it would act as
+          reviewer, the session's agent, but has no seat of its own, so it may only read:
+          aboard read, aboard status, aboard inbox --peek", or, when the session holds no
+          agent, "… a Codex session, which has no agent; it has no seat of its own, …".
+        type: [object, "null"]
+        required: [harness, session, parent_agent, seat]
+        properties:
+          harness:
+            type: string
+            description: The harness of the session the subagent runs in; empty when it can't be told.
+          session:
+            type: string
+            description: That session, as `<harness>:<id>`, the root conversation's (for a Codex sub-agent, CODEX_SESSION_ID's thread).
+          parent_agent:
+            type: [string, "null"]
+            description: The agent that session holds, which the subagent's commands would act as; null when it holds none.
+          seat:
+            type: [string, "null"]
+            description: The subagent's own seat; always null, since a subagent has none.
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:

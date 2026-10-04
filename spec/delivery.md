@@ -94,8 +94,10 @@ and the CLI lets them only read (`read`, `status`, `inbox --peek`, `doctor`, `au
 is marked through its `PreToolUse` hook (below). Codex marks them itself: a sub-agent's
 commands carry its own thread id in `CODEX_THREAD_ID` and the root's in
 `CODEX_SESSION_ID` (`identity.root_env`), and a command whose two ids differ is a
-sub-agent's. omp's extension marks a subagent's bash commands that run `aboard` itself
-(below). `seats`: marked, and a subagent can have a seat of its own (not built yet).
+sub-agent's; it takes the root's id as its session. omp's extension marks a subagent's
+bash commands that run `aboard` itself (below). In every harness a subagent's commands
+thus find its parent's session and agent, and `aboard status` there says it runs in a
+subagent of that session, names the agent it would act as, and that it has no seat. `seats`: marked, and a subagent can have a seat of its own (not built yet).
 
 Every hook whose input has `agent_id` fired inside a subagent and takes nothing and
 changes nothing, except Claude Code's pre-tool hook, which marks commands. Codex gives
