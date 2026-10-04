@@ -292,6 +292,9 @@ type lab struct {
 	codexReady bool
 	tmux       string
 	panes      []*pane
+	// extra are more artifacts to save, by file name: what a test captured itself, such
+	// as the panes of a swarm's own tmux server or herdr session before they stop.
+	extra map[string][]byte
 	// typed counts the prompts typed into harnesses, for the turn estimate.
 	typed int
 }
@@ -568,6 +571,9 @@ func (l *lab) saveArtifacts() {
 	}
 	for _, p := range l.panes {
 		write("pane-"+p.name+".txt", []byte(p.scrollback()))
+	}
+	for name, data := range l.extra {
+		write(name, data)
 	}
 	for name, path := range map[string]string{
 		"daemon.log": filepath.Join(l.stateDir(), "daemon.log"),

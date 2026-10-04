@@ -3,9 +3,11 @@
 package live
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -76,6 +78,8 @@ func newSwarmLab(t *testing.T) *swarmLab {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
+		// The swarm's panes stop with it, so what they show is kept first.
+		s.capturePanes(ctx)
 		_ = s.cmd(ctx, "swarm", "down", "--json").Run()
 		entries, _ := os.ReadDir(filepath.Join(sockets, "tmux-"+strconv.Itoa(os.Getuid())))
 		for _, e := range entries {
@@ -128,7 +132,8 @@ func (s *swarmLab) add(d *driver, name string) {
 	switch d.p.Harness {
 	case "claude-code":
 		s.trustInClaude(dir)
-		args = claudeArgv()[3:] // after claude --model <model>
+		// Not the suite's other options: --allowedTools takes any number of values, so it
+		// would swallow the first prompt that swarm up puts after the options.
 	case "codex":
 		home := s.codexHome(requireCodex(s.t))
 		appendFile(s.t, filepath.Join(home, "config.toml"), fmt.Sprintf("[projects.%q]\ntrust_level = \"trusted\"\n", dir))
@@ -179,17 +184,107 @@ func (s *swarmLab) writeFile(board, launcher string) {
 // windows it answers the questions a harness asks on the way, as the kit's drivers do.
 func (s *swarmLab) waitSeated(panes []*pane) {
 	s.t.Helper()
-	s.waitFor(5*time.Minute, "every agent of the swarm to take its seat", func() bool {
+	var last swarmOut
+	ok := waitQuietly(5*time.Minute, func() bool {
 		for _, p := range panes {
 			p.idle() // answers a hooks or trust question, if one shows
 		}
-		for _, a := range s.swarm("ps").Agents {
+		last = s.swarm("ps")
+		for _, a := range last.Agents {
+			if a.State == "exited" {
+				// Waiting can't help: the window, kept open, says why it ended.
+				s.t.Fatalf("%s's session ended before it took its seat (see its pane in the artifacts):\n%+v", a.Name, last.Agents)
+			}
+		}
+		for _, a := range last.Agents {
 			if !a.Seated {
 				return false
 			}
 		}
 		return true
 	})
+	if !ok {
+		s.t.Fatalf("timed out after 5m0s waiting for every agent of the swarm to take its seat; swarm ps said:\n%+v", last.Agents)
+	}
+}
+
+// capturePanes saves what every pane of the swarm's own tmux servers and herdr sessions
+// shows, as artifacts of the lab.
+func (s *swarmLab) capturePanes(ctx context.Context) {
+	if s.extra == nil {
+		s.extra = map[string][]byte{}
+	}
+	tmuxDir := filepath.Join(s.sockets, "tmux-"+strconv.Itoa(os.Getuid()))
+	servers, _ := os.ReadDir(tmuxDir)
+	for _, srv := range servers {
+		sock := filepath.Join(tmuxDir, srv.Name())
+		out, err := command(ctx, "tmux", "-S", sock, "list-windows", "-a", "-F", "#{window_id} #{window_name}").Output()
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			id, name, ok := strings.Cut(line, " ")
+			if !ok {
+				continue
+			}
+			text, _ := command(ctx, "tmux", "-S", sock, "capture-pane", "-p", "-J", "-S", "-", "-t", id).Output()
+			s.extra["pane-"+srv.Name()+"-"+name+".txt"] = text
+		}
+	}
+	sessions, _ := os.ReadDir(filepath.Join(s.sockets, "herdr", "sessions"))
+	for _, sess := range sessions {
+		sock := filepath.Join(s.sockets, "herdr", "sessions", sess.Name(), "herdr.sock")
+		var list struct {
+			Panes []struct {
+				PaneID string `json:"pane_id"`
+				Label  string `json:"label"`
+			} `json:"panes"`
+		}
+		if herdrCall(ctx, sock, "pane.list", map[string]any{}, &list) != nil {
+			continue
+		}
+		for _, p := range list.Panes {
+			var read struct {
+				Text string `json:"text"`
+			}
+			if herdrCall(ctx, sock, "pane.read", map[string]any{"pane_id": p.PaneID, "source": "recent_unwrapped", "lines": 2000}, &read) == nil {
+				s.extra["pane-"+sess.Name()+"-"+p.Label+".txt"] = []byte(read.Text)
+			}
+		}
+	}
+}
+
+// herdrCall sends one request on a herdr session's socket, as the herdr launcher does.
+func herdrCall(ctx context.Context, sock, method string, params, out any) error {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "unix", sock)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	line, err := json.Marshal(map[string]any{"id": "live", "method": method, "params": params})
+	if err != nil {
+		return err
+	}
+	if _, err := conn.Write(append(line, '\n')); err != nil {
+		return err
+	}
+	reply, err := bufio.NewReader(conn).ReadBytes('\n')
+	if err != nil {
+		return err
+	}
+	var resp struct {
+		Result json.RawMessage `json:"result"`
+		Error  json.RawMessage `json:"error"`
+	}
+	if err := json.Unmarshal(reply, &resp); err != nil {
+		return err
+	}
+	if len(resp.Error) > 0 && string(resp.Error) != "null" {
+		return fmt.Errorf("herdr %s: %s", method, resp.Error)
+	}
+	return json.Unmarshal(resp.Result, out)
 }
 
 // swarmPanes are the tmux windows the swarm's tmux launcher opened, driven like the
