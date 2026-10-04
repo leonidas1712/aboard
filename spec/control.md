@@ -48,7 +48,7 @@ version **1**.
   {"v":1,"error":{"code":"daemon_protocol_mismatch","message":"The running delivery daemon (aboard 0.1.0) speaks control protocol 1; this aboard speaks 2.","hint":"Install the same aboard as the running daemon, or run aboard down so this one starts its own."}}
   ```
 
-- Later messages on the same connection (`received`, `claim`, and the extension
+- Later messages on the same connection (`received`, `claim`, `acked`, and the extension
   connection's messages after `hello`) also carry `v`, and are read as the version the
   connection opened with.
 - Additions don't change the version: new operations, new events, new optional fields
@@ -75,12 +75,13 @@ optional; each operation says which it reads.
 | `source` | string | What started the session: `startup`, `resume`, `clear` or `compact` |
 | `resumed` | boolean | The client reconnects after the daemon went away, so this isn't the session's next event |
 | `wake` | boolean | A prompt that is the bundle a waiting hook just woke the session with, not a later event |
-| `started` | string | When the hook's process started (RFC 3339) |
+| `started` | string | When the hook's or command's process started (RFC 3339) |
 | `agent` | object | An agent: `{"server","board","name"}` |
 | `mode` | string | A delivery mode to set: `auto`, `humans` or `off` |
 | `process` | object | The harness process the request came from: `{"pid","start"}`, `start` in the system's own units, so a reused pid isn't mistaken for it |
 | `reply_to` | integer | The message whose replies a hold keeps out of bundles |
 | `seqs` | array of integers | Messages a claim records as received |
+| `up_to` | integer | How far a command acknowledged an agent's messages, sent on an inbox connection |
 | `id` | integer | The delivery an extension confirms |
 | `cwd` | string | The extension session's working directory |
 | `harness_version` | string | The harness's version, as it reports it |
@@ -104,8 +105,9 @@ on a connection that stays open.
 | `previous` | agent | The agent a bind moved the session away from |
 | `mode` | string | An agent's delivery mode |
 | `changed` | boolean | The request changed the mode |
-| `held` | boolean | A hold took effect |
+| `held` | boolean | A hold, or an inbox read's hold on the agent's deliveries, took effect |
 | `claimed` | array of integers | The messages a claim recorded |
+| `received` | array of integers | The agent's messages past its read position that a session here has received |
 | `status` | object | The daemon's state, for `aboard doctor` (below) |
 | `error` | object | `{"code","message","hint"}`, the same shape the CLI prints |
 
@@ -256,6 +258,28 @@ handed to the session. The hold ends when the connection closes.
 {"v":1,"claimed":[10]}
 ```
 
+### `inbox`: a command reads an agent's inbox
+
+`aboard inbox` and `aboard say` hold a connection while they read the agent's inbox on
+the server, so a message can't reach the agent's session and the command at the same
+time: until the connection closes, the daemon hands nothing to the agent's session and
+gives no waiting notice for it (delivery.md, "Received once"). The answer lists in
+`received` the agent's messages past its read position that a session here has
+received, which the command leaves out; `held` is false, and nothing is held, when no
+session here holds the agent. A command that runs in the agent's own session (not in a
+subagent, and not `aboard inbox --peek`, which changes nothing) sends its `harness`,
+`session`, `boot` and `started`: it is that session's next event, so a bundle handed
+before `started` is confirmed first. After acknowledging on the server, `aboard inbox`
+sends `acked` with the new read position: every delivery of messages up to it is done,
+even one handed and not yet confirmed, and none of them is handed or named again.
+
+```json
+{"v":1,"op":"inbox","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","started":"2026-10-03T14:02:11.5Z","agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}}
+{"v":1,"held":true,"received":[13]}
+{"v":1,"op":"acked","up_to":14}
+{"v":1}
+```
+
 ## Who sends what
 
 | Client | Operations |
@@ -271,6 +295,8 @@ handed to the session. The hold ends when the connection closes.
 | Any command that needs the session's agent | `agents`, or `register` for a session the daemon doesn't know yet |
 | `aboard delivery`, `aboard init` | `mode` |
 | `aboard say --wait-reply` | `hold`, then `claim` |
+| `aboard inbox` | `inbox`, then `acked` unless `--peek` |
+| `aboard say` | `inbox`, for its note about the agent's own inbox |
 | `aboard doctor`, `status`, `down` | `status` |
 | A harness extension | The extension connection, below, and `boundary` |
 

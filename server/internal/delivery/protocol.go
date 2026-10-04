@@ -50,6 +50,15 @@ const (
 	// OpClaim, sent on a hold's connection, records messages the command showed as
 	// received, so they are acknowledged and never handed to a session.
 	OpClaim = "claim"
+	// OpInbox opens a connection held while a command reads an agent's inbox: nothing is
+	// handed to the agent and no notice names its messages until the connection closes.
+	// From a command run in the agent's own session, it confirms what the session was
+	// handed before the command started. The answer lists the messages past the read
+	// position that the session has received, which the command leaves out.
+	OpInbox = "inbox"
+	// OpAcked, sent on an inbox connection, says the command acknowledged the agent's
+	// messages up to a sequence number, so none of them is handed or named again.
+	OpAcked = "acked"
 	// OpHello opens an extension connection: a harness extension registers its session
 	// and keeps the connection open for as long as the session runs (spec/control.md).
 	OpHello = "hello"
@@ -97,6 +106,8 @@ type Request struct {
 	ReplyTo int `json:"reply_to,omitempty"`
 	// Seqs are the messages an OpClaim records as received.
 	Seqs []int `json:"seqs,omitempty"`
+	// UpTo is the sequence number an OpAcked says the agent's read position moved to.
+	UpTo int `json:"up_to,omitempty"`
 	// ID is the delivery an extension's OpReceived confirms.
 	ID int64 `json:"id,omitempty"`
 	// Cwd, HarnessVersion and ExtensionVersion describe an extension's session in its
@@ -141,8 +152,11 @@ type Response struct {
 	// Held says an OpHold took effect: the agent is bound to an open session here.
 	Held bool `json:"held,omitempty"`
 	// Claimed are the messages an OpClaim recorded; one already handed to a session isn't.
-	Claimed []int      `json:"claimed,omitempty"`
-	Error   *WireError `json:"error,omitempty"`
+	Claimed []int `json:"claimed,omitempty"`
+	// Received, in answer to OpInbox, are the agent's messages past its read position
+	// that a session here has received; a command reading the inbox leaves them out.
+	Received []int      `json:"received,omitempty"`
+	Error    *WireError `json:"error,omitempty"`
 }
 
 // WireError is an error reported over the control socket, in the shape the CLI prints.

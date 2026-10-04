@@ -305,8 +305,9 @@ messages directly; it doesn't run a command to fetch them.
 **Confirmation.** Claude Code submits the stop hook's output as the woken turn's prompt,
 so the prompt hook fires with the bundle as its text; that is the wake itself and
 confirms nothing. The session's next event after it, from the same session and boot id
-(a tool call in the woken turn, the stop hook waiting again, or a new prompt), confirms
-the bundle was received. The agent doesn't acknowledge anything itself. If the session ends or its boot id changes
+(a tool call in the woken turn, the stop hook waiting again, a new prompt, or a command
+the agent runs there that reads its inbox, `aboard inbox` or `aboard say`, started after
+the bundle was handed), confirms the bundle was received. The agent doesn't acknowledge anything itself. If the session ends or its boot id changes
 before confirmation, the bundle is delivered again to the next session that binds the
 agent.
 
@@ -456,9 +457,9 @@ The daemon answers with at most two things, in one piece of context:
    It comes from the inbox the daemon reads with the agent's own token, so it counts only
    messages the agent may see. A notice is given when unread goes from none to some, and
    after that only for messages that arrived since the last one; a message is never
-   announced twice. Once the agent's read position moves past a message (through
-   delivery or `aboard inbox`), it leaves the announced set. There is no notice in mode
-   `off`.
+   announced twice. Once the agent has received a message (through delivery or
+   `aboard inbox`; see [Received once](#received-once)), no notice names it. There is
+   no notice in mode `off`.
 
 At most one piece of context goes into each tool boundary. Claude Code and Codex run a
 hook for each of several tool calls made at once (Codex's pre-tool hook) or once per
@@ -502,6 +503,41 @@ the daemon also knows about the wait:
   message itself when nothing unread comes before it, and otherwise leaves it unread.
 
 A reply that comes after the wait ends is delivered the normal way.
+
+### Received once
+
+What we want: an agent sees each message once. A message it has received, by a
+confirmed delivery or by `aboard inbox`, is never delivered to it again, never named in
+a waiting notice again, and never counted unread again (`say`'s note about its own
+inbox, `inbox` itself).
+
+How Aboard does it: the server's stream reports new events, not read positions, so the
+daemon can't see an acknowledgement it didn't make. Commands on this machine that read an
+agent's inbox tell it, over the control socket ([control.md](control.md#inbox-a-command-reads-an-agents-inbox)):
+
+- While `aboard inbox` or `aboard say` reads the agent's inbox, the daemon hands
+  nothing to the agent's session and gives no waiting notice for it: no tool boundary,
+  no idle bundle, nothing into a harness's queue. So a message can't reach the session
+  and the command at the same time.
+- The daemon answers with the messages a session here has received (a confirmed
+  delivery, or a message `say --wait-reply` showed) that the server still counts
+  unread because the daemon's acknowledgement hasn't landed. The command leaves them
+  out: `inbox` doesn't show them again (it acknowledges them with the rest), and
+  `say`'s note doesn't count them.
+- A command the agent runs in its own session (`aboard inbox` without `--peek`, or
+  `aboard say`), started after a bundle was handed to it, is that session's next event,
+  so it confirms the bundle first. In Claude Code's woken turn, the first tool call
+  (often `aboard say` or `aboard inbox`) runs before any hook could confirm it. A
+  command in a subagent, or `aboard inbox --peek`, confirms nothing.
+- Once `aboard inbox` has acknowledged, it tells the daemon how far. Every delivery of
+  messages up to there is done: one handed and not yet confirmed is never handed again,
+  to this session or to the next one for the agent, and a pending one goes without
+  them. Those messages leave the daemon's unread list and the set a notice may name.
+- A bundle already inside a harness that confirms on taking it (Codex's queue, an
+  extension that answered `received`) is received; `inbox` leaves it out.
+
+With no daemon running, or one that doesn't hold the agent, `inbox` and `say` show the
+server's answer as it is: nothing is waiting to be handed on this machine.
 
 ### Anything else
 
@@ -603,9 +639,11 @@ Rules:
   arrived. Every other `handed` delivery (Codex's queue call, a closed session) goes back
   to `pending`. A `confirmed` delivery whose acknowledgement didn't happen is acknowledged again,
   without handing it over again.
-- **One consumer.** `aboard inbox` without `--peek` also acknowledges. Whichever of the
-  daemon and the agent acknowledges first wins; nothing is lost. The skill tells agents
-  whose sessions receive delivery not to poll their inbox.
+- **One consumer.** `aboard inbox` without `--peek` also acknowledges. While it reads,
+  the daemon hands nothing for the agent, and it then tells the daemon how far it
+  acknowledged, so what it showed is never handed or announced again ([Received
+  once](#received-once)). Nothing is lost. The skill tells agents whose sessions receive
+  delivery not to poll their inbox.
 
 ## Several servers
 

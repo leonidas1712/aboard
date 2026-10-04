@@ -100,7 +100,8 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		return apiError(r.StatusCode(), r.Body)
 	}
 	m := r.JSON201
-	unread, recipients := unreadAfterSay(ctx, c), recipientsOf(ctx, c, m)
+	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
+	unread, recipients := a.unreadAfterSay(ctx, c, agent), recipientsOf(ctx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients}
 	text := fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board) + unreadText(m.Board, unread) + recipientsText(recipients)
 	if *waitFor > 0 {
@@ -110,8 +111,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		}
 		wctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(*waitFor)*time.Second+requestTimeout)
 		defer cancel()
-		ref := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
-		w, err := a.waitForReply(wctx, wc, ref, m, time.Duration(*waitFor)*time.Second)
+		w, err := a.waitForReply(wctx, wc, agent, m, time.Duration(*waitFor)*time.Second)
 		if err != nil {
 			return err
 		}
@@ -168,38 +168,34 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	params := &api.GetInboxParams{}
-	if *wait > 0 {
-		params.Wait = wait
-	}
-	if *limit > 0 {
-		params.Limit = limit
-	}
-	r, err := c.api.GetInboxWithResponse(ctx, params)
-	if err != nil {
-		return c.unreachable(err)
-	}
-	if r.JSON200 == nil {
-		return apiError(r.StatusCode(), r.Body)
-	}
-	in := r.JSON200
-	msgs := in.Messages
-	if msgs == nil {
-		msgs = []api.Message{}
-	}
-
-	// Acknowledge before printing, so no message is shown as read without the server
-	// knowing it was delivered.
-	var acked *int
-	if !*peek && len(msgs) > 0 {
-		ack, err := c.api.AckInboxWithResponse(ctx, &api.AckInboxParams{}, api.AckInboxJSONRequestBody{UpTo: msgs[len(msgs)-1].Seq})
-		if err != nil {
-			return c.unreachable(err)
+	ref := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
+	deadline := time.Now().Add(time.Duration(*wait) * time.Second)
+	var (
+		in    *api.Inbox
+		msgs  []api.Message
+		acked *int
+	)
+	for {
+		if left := time.Until(deadline); *wait > 0 && left > 0 {
+			// Wait on the server for something unread first, so the daemon holds the
+			// agent's deliveries only while the command reads and acknowledges.
+			secs := int((left + time.Second - 1) / time.Second)
+			r, err := c.api.GetInboxWithResponse(ctx, &api.GetInboxParams{Wait: &secs, Limit: ptrTo(1)})
+			if err != nil {
+				return c.unreachable(err)
+			}
+			if r.JSON200 == nil {
+				return apiError(r.StatusCode(), r.Body)
+			}
 		}
-		if ack.JSON200 == nil {
-			return apiError(ack.StatusCode(), ack.Body)
+		if in, msgs, acked, err = a.readInbox(ctx, c, ref, *limit, !*peek, !*peek); err != nil {
+			return err
 		}
-		acked = &ack.JSON200.Cursor
+		// A message a session here already received isn't shown again. When that was
+		// all there was, a wait goes on for something new.
+		if len(msgs) > 0 || *wait == 0 || *peek || !time.Now().Before(deadline) {
+			break
+		}
 	}
 
 	wrapped := make([]string, 0, len(msgs))
@@ -223,6 +219,43 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		Bundle    *string      `json:"bundle"`
 	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle}, text)
 	return nil
+}
+
+// readInbox reads the agent's unread messages, leaving out those a session on this
+// machine already received, and with ack acknowledges what it read, telling the
+// delivery daemon so it never hands or names those messages again. It acknowledges
+// before returning, so no message is shown as read without the server knowing. With
+// confirm, a command run in the agent's own session confirms what was handed to it.
+func (a *app) readInbox(ctx context.Context, c *client, ref delivery.AgentRef, limit int, ack, confirm bool) (*api.Inbox, []api.Message, *int, error) {
+	rd := a.startInboxRead(ctx, ref, confirm)
+	defer rd.done()
+	params := &api.GetInboxParams{}
+	if limit > 0 {
+		params.Limit = &limit
+	}
+	r, err := c.api.GetInboxWithResponse(ctx, params)
+	if err != nil {
+		return nil, nil, nil, c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return nil, nil, nil, apiError(r.StatusCode(), r.Body)
+	}
+	in := r.JSON200
+	msgs := rd.unread(in.Messages)
+	if !ack || len(in.Messages) == 0 {
+		return in, msgs, nil, nil
+	}
+	// Up to the last message read, including any a session already received: they are
+	// read either way.
+	res, err := c.api.AckInboxWithResponse(ctx, &api.AckInboxParams{}, api.AckInboxJSONRequestBody{UpTo: in.Messages[len(in.Messages)-1].Seq})
+	if err != nil {
+		return nil, nil, nil, c.unreachable(err)
+	}
+	if res.JSON200 == nil {
+		return nil, nil, nil, apiError(res.StatusCode(), res.Body)
+	}
+	rd.acked(res.JSON200.Cursor)
+	return in, msgs, &res.JSON200.Cursor, nil
 }
 
 // readUsage is the usage line of aboard read.

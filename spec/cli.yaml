@@ -486,7 +486,11 @@ $defs:
       or hold up the post (each is null when it couldn't be worked out):
 
       - `unread`: the sender's own unread messages on the board, whatever the message's
-        target, so it doesn't post without knowing what is waiting for it.
+        target, so it doesn't post without knowing what is waiting for it. A message its
+        session on this machine already received through a delivery isn't counted, even
+        before the delivery daemon's acknowledgement lands (spec/delivery.md, "Received
+        once"); run in the agent's own session, say also confirms a bundle handed to it
+        before the command started, as inbox does.
       - `recipients`: when each recipient will see the message, from its presence and
         delivery mode as the board's members list shows them. `outcome` is `now` (its
         session is idle and delivery wakes it), `turn_end` (its session is working; it
@@ -604,6 +608,17 @@ $defs:
       Without --peek, the CLI acks up to the last returned message's seq before
       printing. If the ack fails, the command fails and prints nothing, so no message
       is shown as read without being acknowledged.
+
+      A message the agent already received through a delivery on this machine, which
+      the server still counts unread only because the delivery daemon's acknowledgement
+      hasn't landed yet, is left out of `messages` (and acknowledged with the rest); with
+      --wait, the command then goes on waiting for something new. While the command
+      reads, the daemon hands nothing to the agent's session, and once it has
+      acknowledged, the daemon never hands, or names in a waiting notice, what the
+      command read (spec/delivery.md, "Received once"). Run in the agent's own session,
+      without --peek, it also counts as that session's next event, confirming a bundle
+      handed before the command started. With no daemon running, the server's answer is
+      shown as it is.
     type: object
     required: [board, agent, messages, acked_up_to, more]
     properties:
