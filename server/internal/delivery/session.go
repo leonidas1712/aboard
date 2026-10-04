@@ -264,6 +264,22 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
 	s.noteProcess(ctx, req)
 	switch req.Op {
+	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent:
+		if s.started && !s.open {
+			// A turn runs, so the session is open again, with the agent it still holds: a
+			// harness that resumes a session without running its session-start hook (Codex
+			// 0.160 resuming a thread) reports in with its first turn instead. The process
+			// the turn runs under is the session's now, as a register's would be.
+			if req.Process != nil {
+				p := *req.Process
+				s.proc = &p
+			}
+			s.setOpen(ctx, true)
+			s.d.log.Info("session started", "session", s.key.String(), "source", "turn", "reopened", true,
+				"agents", len(s.agents), "lost", false)
+		}
+	}
+	switch req.Op {
 	case OpRegister:
 		// A session that closed and starts again with the same id (the harness resumed it)
 		// is still bound to the agent it filled, unless another session resumed that

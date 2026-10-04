@@ -52,6 +52,22 @@ func TestStatusSaysWhetherASessionHasRunATurn(t *testing.T) {
 	}
 }
 
+// A session that ended and runs a turn again (a harness that resumes it without its
+// session-start hook, as Codex does) is open again, with the agent it still holds.
+func TestATurnOpensAnEndedSessionAgain(t *testing.T) {
+	r := newRig(t)
+	r.register("s-1", "b1")
+	r.bind("claude-code", "s-1", reviewer)
+	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: "claude-code", Session: "s-1"})
+	if b := r.status().Bindings[0]; b.Open {
+		t.Fatalf("after end: %+v", b)
+	}
+	r.ok(delivery.Request{Op: delivery.OpTurnStart, Harness: "claude-code", Session: "s-1"})
+	if b := r.status().Bindings[0]; !b.Open || b.Agent != reviewer {
+		t.Fatalf("after a turn: %+v", b)
+	}
+}
+
 // An extension's hello hands in the ticket the same way.
 func TestLaunchTicketBindsAnExtensionSession(t *testing.T) {
 	r := newRig(t)

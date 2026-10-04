@@ -145,7 +145,10 @@ the agent while this one was closed, the answer has no `agents` and names it in 
 
 The session is busy: a waiting hook is released, and only the owner's messages reach it
 until the turn ends. Unless `wake` is set, it is the session's next event and confirms
-what was handed to it.
+what was handed to it. A session that had ended and runs a turn (`prompt`, `turn_start`
+or `boundary`) is open again, with the agent it still holds, and the process the request
+names is its process: a harness that resumes a session without running its session-start
+hook (Codex 0.160 resuming a thread) reports in this way.
 
 ```json
 {"v":1,"op":"prompt","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","wake":true}

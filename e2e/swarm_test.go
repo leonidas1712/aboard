@@ -492,6 +492,32 @@ func TestSwarmUpResumeDoesNotReplayTheFirstPrompt(t *testing.T) {
 	})
 }
 
+// A resumed Codex thread runs no session-start hook (Codex 0.160): it reports in with
+// its first turn's hooks, which open its session again. After swarm down (which ends the
+// session) and swarm up, ps shows Codex seated in the same thread, and the message that
+// waited comes with the resumed turn.
+func TestSwarmUpResumedCodexTakesItsSeatAtItsFirstTurn(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.writeBoardFile("board: thread\nagents:\n  - {name: codex, harness: codex}\n")
+	first := agentsByName(t, s.run("swarm", "up", "--json").json(t))["codex"]
+	s.run("swarm", "down")
+	s.postAsOwnerTo("thread", "@codex", "WAITED-FOR-CODEX")
+	ag := agentsByName(t, s.run("swarm", "up", "--wait", "30s", "--json").json(t))["codex"]
+	if ag["action"] != "resumed" || ag["session"] != first["session"] || ag["seated"] != true {
+		t.Fatalf("codex should be seated again in %v: %v", first["session"], ag)
+	}
+	if ps := agentsByName(t, s.run("swarm", "ps", "--json").json(t))["codex"]; ps["seated"] != true || ps["state"] != "running" {
+		t.Fatalf("ps: %v", ps)
+	}
+	starts := s.starts("codex")
+	last := starts[len(starts)-1]
+	eventually(t, 10*time.Second, "the waiting message to come with the resumed turn", func() bool {
+		raw, _ := os.ReadFile(s.log + ".context-" + last.Session)
+		return strings.Contains(string(raw), "WAITED-FOR-CODEX")
+	})
+}
+
 func testSwarmUpStartsFreshWhenAResumeFails(t *testing.T) {
 	t.Parallel()
 	s := newSwarmEnv(t)

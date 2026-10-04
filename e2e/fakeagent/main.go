@@ -212,9 +212,13 @@ func codex(s *session) {
 		hookEnv := slices.DeleteFunc(slices.Clone(s.env), func(kv string) bool {
 			return strings.HasPrefix(kv, "ABOARD_LAUNCH=") || strings.HasPrefix(kv, "ABOARD_AGENT=")
 		})
-		hook(s, "session-start", hookEnv, map[string]any{"hook_event_name": "SessionStart", "source": s.source})
+		if s.source != "resume" {
+			// Codex 0.160 runs no SessionStart hook for a resumed thread: it reports in
+			// with the first turn's hooks only.
+			hook(s, "session-start", hookEnv, map[string]any{"hook_event_name": "SessionStart", "source": s.source})
+		}
 		saveConversation(s)
-		hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
+		appendContext(s, hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt}))
 		s.env = append(s.env, "CODEX_THREAD_ID="+s.id, "CODEX_SESSION_ID="+s.id)
 		runPrompt(s)
 	}
