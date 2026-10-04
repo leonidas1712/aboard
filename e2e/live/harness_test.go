@@ -528,10 +528,27 @@ func (p *pane) waitCodexReady() {
 			p.keys("Enter")
 			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Hooks need review") })
 			return false
+		case p.dismissCodexAnnouncement(s):
+			return false
 		}
 		// Codex shows its prompt box while it is still loading a resumed session.
 		return p.idle() && !strings.Contains(s, "Resuming session")
 	})
+}
+
+// dismissCodexAnnouncement closes an announcement Codex shows over its prompt, such as
+// "Set up security for Daybreak mode", with Esc, and reports whether it did. Only a
+// dialog that offers "esc to dismiss" is closed, and only by dismissing it, which changes
+// nothing: the suite never picks one of its options, which could change the account or
+// its security settings. Codex's trust and update questions are answered before this.
+func (p *pane) dismissCodexAnnouncement(screen string) bool {
+	if !strings.Contains(screen, "esc to dismiss") {
+		return false
+	}
+	p.l.t.Logf("%s: Codex shows an announcement; dismissing it with Esc", p.name)
+	p.keys("Escape")
+	waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "esc to dismiss") })
+	return true
 }
 
 // scopeCodexHooks puts the lab's variables into each hook command in the project's

@@ -396,11 +396,28 @@ func TestSwarmUpResumesTheLastSession(t *testing.T) {
 		if a := again.agent(t, "solo"); a.Action != "resumed" {
 			t.Fatalf("swarm up should resume solo's session %s: %+v", first.Session, a)
 		}
-		s.waitSeated(s.swarmPanes(again))
+		resumed := s.swarmPanes(again)
+		s.waitSeated(resumed)
 		if a := s.swarm("ps").agent(t, "solo"); a.Session != first.Session || a.Start != "resumed" {
 			t.Fatalf("solo should be back in %s, resumed: %+v", first.Session, a)
 		}
-		s.waitMessage("solo", since, "RESUMED-PONG", 5*time.Minute)
+		// The harness may show an announcement meanwhile (Codex's), which idle dismisses.
+		s.waitFor(5*time.Minute, "solo to post RESUMED-PONG", func() bool {
+			resumed[0].idle()
+			msgs, _, _ := s.tryMessages("solo")
+			for _, m := range msgs {
+				if m.From.Name == "solo" && !m.At.Before(since) && strings.Contains(m.Body, "RESUMED-PONG") {
+					return true
+				}
+			}
+			return false
+		})
+		// Never the first prompt again: the conversation already has it.
+		for _, m := range s.messages("solo") {
+			if m.From.Name == "solo" && !m.At.Before(since) && strings.Contains(m.Body, "FIRST-TURN") {
+				t.Fatalf("the resumed session ran its first prompt again: #%d %s", m.Seq, m.Body)
+			}
+		}
 	})
 }
 

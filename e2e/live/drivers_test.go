@@ -296,6 +296,9 @@ func ompDriver(p support.Profile) *driver {
 // hooks question if Codex asks one mid-session.
 func codexIdle(p *pane) bool {
 	s := p.screen()
+	if p.dismissCodexAnnouncement(s) {
+		return false
+	}
 	if strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue") {
 		// Trusting records the hooks in the test's own CODEX_HOME, never the person's.
 		p.keys("2")
