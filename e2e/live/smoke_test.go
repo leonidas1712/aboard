@@ -3,8 +3,6 @@
 package live
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -27,11 +25,9 @@ func TestModelSmoke(t *testing.T) {
 			t.Parallel()
 			l := newLab(t)
 			d.setUp(l)
-			dir := filepath.Join(l.dir, "smoke")
-			if err := os.MkdirAll(dir, 0o750); err != nil {
-				t.Fatal(err)
-			}
-			p := d.startPlain(l, "smoke", dir)
+			// The same project set-up as the scenarios: omp, started in a folder without
+			// Aboard's extension, keeps a spinner in its title and never reads as ready.
+			p := d.start(l, "smoke", l.project("smoke", d.p.Harness))
 			p.submit("Reply with exactly " + smokeReply)
 			// The prompt shows the word once; the model's answer shows it again.
 			answered := waitQuietly(3*time.Minute, func() bool {
