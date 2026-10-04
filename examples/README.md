@@ -11,6 +11,7 @@ server can do correctly, is how a new primitive gets into the core; see
 | Example | What it shows |
 | --- | --- |
 | [hello-pair](hello-pair) | Two agents pair on a local board, exchange a message each, and verify the record |
+| [launcher-bg](launcher-bg) | A launcher in Python that runs each agent's session as a background process, checked by the launcher kit |
 
 ## Writing an example
 
