@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+# aboard-launcher-bg: runs each agent's session as a background process.
+import json, os, signal, subprocess, sys, tempfile, time
+
+def answer(resp, status=0):
+    print(json.dumps({"v": 1, **resp}))
+    sys.exit(status)
+
+def fail(code, message):
+    answer({"error": {"code": code, "message": message}}, 1)
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+req = json.load(sys.stdin)
+if req.get("v") != 1:
+    fail("launcher_protocol_mismatch", "This launcher speaks protocol 1.")
+op = req.get("op")
+if op == "info":
+    answer({"name": "bg", "modes": ["headless"]})
+if op not in ("start", "status", "stop"):
+    fail("invalid_request", f"Unknown op {op!r}.")
+
+pidfile = os.path.join(tempfile.gettempdir(), "aboard-launcher-bg", req["swarm"], req["agent"])
+
+if op == "start":
+    if req["mode"] != "headless":
+        fail("mode_unsupported", "This launcher only starts headless sessions.")
+    if os.path.exists(pidfile) and alive(int(open(pidfile).read())):
+        fail("already_running", f"{req['agent']} already runs in swarm {req['swarm']}.")
+    proc = subprocess.Popen(  # an argument vector, never through a shell
+        req["argv"], cwd=req["dir"], env={**os.environ, **req["env"]},
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True)
+    os.makedirs(os.path.dirname(pidfile), exist_ok=True)
+    with open(pidfile, "w") as f:
+        f.write(str(proc.pid))
+    answer({"handle": str(proc.pid), "pid": proc.pid})
+
+pid = int(req["handle"])
+if op == "stop":
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        if alive(pid):
+            os.killpg(pid, sig)
+        for _ in range(50):
+            if not alive(pid):
+                break
+            time.sleep(0.1)
+answer({"state": "running" if alive(pid) else "exited"})

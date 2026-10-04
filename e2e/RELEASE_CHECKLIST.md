@@ -79,9 +79,11 @@ the harnesses and for herdr (`e2e/swarm_test.go`); the launchers pass the launch
 ## Extending Aboard ([docs/extending.mdx](../docs/extending.mdx))
 
 `aboard join`, `say`, `inbox --wait` and `watch --json` are covered by e2e; the kits by
-`make check`. By hand, in a sandbox:
+`make check`. The page's `aboard-launcher-bg` is **automated**: it is
+`examples/launcher-bg/aboard-launcher-bg` (`TestExtendingPageShowsTheExampleLauncher`),
+and it passes the launcher kit (`TestExampleLauncherPassesTheKit`). By hand, in a
+sandbox:
 
-- [ ] The page's `aboard-launcher-bg`, saved on the `PATH`, passes `make launcher-kit LAUNCHER=bg`.
 - [ ] The page's bridge: after `aboard invite` and `aboard join "<line>" --name relay --harness relay`, the loop prints `member: <body>` for a message sent `--to @relay`, and `aboard say --as relay` posts as `relay`.
 - [ ] Every status the page gives (built, not built yet) still matches the code and design/ROADMAP.md.
 
