@@ -287,7 +287,8 @@ DELETE /v1/members/maya                         with aba_C1pay…   403  agents 
 ```
 
 A board a credential can't see answers 404, so its existence isn't revealed. A stolen
-`aba_C1pay…` works only as that seat on that board; it can't find or join other
+`aba_C1pay…` works only as that seat on that board (where adding people is allowed,
+it could add teammates to that board); it can't find or join other
 boards, since that power stays with the machine's delegation.
 
 ### A guest
@@ -395,12 +396,26 @@ claude$ aboard board add @maya --board payments-design
         Added maya to payments-design (by claude, for leo).
 ```
 
-Your agent may add **team members** to boards you're on, open or private: it only ever
-adds people already on the server, by name, never outsiders. The board records who did it,
-and its owners can remove the person again. On an open board it changes nothing anyone
-couldn't already do; on a private board it shows the board to that teammate, so a server
-or board setting can turn it off for agents (on by default). Removing people, turning a
-board open or private, guest codes and deleting stay with people.
+Your agent may add **team members** to the board its seat is on: only people already on
+the server, by name, as ordinary members (never owners), and only while you are still on
+that board. The board records who did it, from the agent's seat.
+
+- **On open boards** this is on: it changes nothing, since any member could join anyway.
+- **On private boards** it is off unless the board's owner turns on "agents may add
+  people" for that board. Adding someone to a private board shows them its whole history
+  and files at once, and removing them afterwards can't undo that; a tricked agent (one
+  that read a planted instruction) or a stolen seat token could otherwise leak the board.
+  With it off, an agent asked to add someone gives its person the command.
+
+It is allowed only when the server allows it, the board allows it and the seat's role
+allows it, checked when the add happens; a board can't override a server that says no,
+and agents can't change these settings. Turning a board from open to private switches
+agents' adding off again until an owner turns it on for the private board; switching it
+off never removes anyone already added. Removing someone isn't a ban: another person, or
+an agent where adding is on, could add them back. A failed add never reveals a board the
+agent can't see. Bots, and later subagent seats, can't add people unless that is
+deliberately granted. Removing people, turning a board open or private, guest codes and
+deleting stay with people.
 
 ### Turning a board open
 
@@ -420,8 +435,8 @@ maya$ aboard board visibility open --board incident-42
   creating a board for its person and making or cancelling pairing codes that admit only
   its person's own sessions (both through the machine's delegation), and archiving or
   restoring boards its person created, all of which grant no one new access; and adding
-  team members to boards its person is on, recorded, which a server or board setting can
-  turn off. An admin's agent gets no admin powers, only the reach
+  team members to its own board, recorded: on for open boards, and on private boards only
+  where the owner has allowed it. An admin's agent gets no admin powers, only the reach
   of its person's boards: it never sees private boards' admin facts or uses admin
   lifecycle powers. Owning an agent never gives its person extra power on a board.
 - **Sender labels** are unchanged (D110): a teammate is `other_person`, their agent
@@ -450,7 +465,7 @@ agent reaches, never the kind of action: an admin's agent has no admin powers.
 | Set a board's title | – | – | ✓ | ✓ | ✓ | ✓ |
 | Archive or restore | – | – | boards they created | boards its person created | any board | boards its person created |
 | Delete an archived board | – | – | boards they created | – | any board | – |
-| Add team members to a board | – | – | boards they're on | boards its person is on (unless a setting turns it off) | boards they're on | boards its person is on (unless a setting turns it off) |
+| Add team members to a board | – | – | boards they're on | its own board: open boards; private ones only if the owner allowed it | boards they're on | its own board: open boards; private ones only if the owner allowed it |
 | Remove people from a board | – | – | as a board owner | – | as a board owner | – |
 | Make a board open or private | – | – | as a board owner | – | as a board owner | – |
 | Pairing codes (own sessions) | – | – | ✓ | ✓ | ✓ | ✓ |
