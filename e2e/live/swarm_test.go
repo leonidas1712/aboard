@@ -51,6 +51,8 @@ type swarmLab struct {
 	env     []string
 	sockets string
 	entries []string
+	// lastOut is what the last swarm command printed, for failure messages.
+	lastOut string
 }
 
 func newSwarmLab(t *testing.T) *swarmLab {
@@ -104,6 +106,7 @@ func (s *swarmLab) swarm(args ...string) swarmOut {
 	ctx, cancel := context.WithTimeout(s.t.Context(), 3*time.Minute)
 	defer cancel()
 	out, err := s.cmd(ctx, append([]string{"swarm"}, append(args, "--json")...)...).CombinedOutput()
+	s.lastOut = string(out)
 	var v swarmOut
 	if err != nil || json.Unmarshal(out, &v) != nil {
 		s.t.Fatalf("aboard swarm %s: %v\n%s", strings.Join(args, " "), err, out)
@@ -197,7 +200,7 @@ func (s *swarmLab) waitSeated(panes []*pane) {
 		for _, a := range last.Agents {
 			if a.State == "exited" {
 				// Waiting can't help: the window, kept open, says why it ended.
-				s.t.Fatalf("%s's session ended before it took its seat (see its pane in the artifacts):\n%+v", a.Name, last.Agents)
+				s.t.Fatalf("%s's session ended before it took its seat (see its pane in the artifacts); swarm ps --json said:\n%s", a.Name, s.lastOut)
 			}
 		}
 		for _, a := range last.Agents {
@@ -208,7 +211,7 @@ func (s *swarmLab) waitSeated(panes []*pane) {
 		return true
 	})
 	if !ok {
-		s.t.Fatalf("timed out after 5m0s waiting for every agent of the swarm to take its seat; swarm ps said:\n%+v", last.Agents)
+		s.t.Fatalf("timed out after 5m0s waiting for every agent of the swarm to take its seat (%d agents); swarm ps --json said:\n%s", len(last.Agents), s.lastOut)
 	}
 }
 
