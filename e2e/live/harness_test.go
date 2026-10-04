@@ -550,7 +550,7 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 	}
 	words := []string{"env"}
 	for _, kv := range env {
-		for _, name := range []string{"PATH=", "ABOARD_HOME=", "ABOARD_LOCAL_ADDR=", "CODEX_HOME="} {
+		for _, name := range []string{"PATH=", "ABOARD_HOME=", "ABOARD_LOCAL_ADDR=", "CODEX_HOME=", exitWithVar + "="} {
 			if strings.HasPrefix(kv, name) {
 				words = append(words, shellQuote(kv))
 			}

@@ -17,8 +17,10 @@
 #   shell/          the shell start-up files that put the sandbox's name in the prompt
 #
 # The shell drops the variables a harness or another Aboard sets (CLAUDE*, CODEX*,
-# ABOARD*), keeps CLAUDE_CODE_OAUTH_TOKEN, and turns harness auto-updates off. Programs
-# started from it, a terminal manager and its panes included, inherit all of this.
+# ABOARD*), keeps CLAUDE_CODE_OAUTH_TOKEN and ABOARD_EXIT_WITH_PID (set by a test that
+# opens a sandbox, so the sandbox's server and daemon stop with the test), and turns
+# harness auto-updates off. Programs started from it, a terminal manager and its panes
+# included, inherit all of this.
 #
 # SANDBOX_ABOARD names another aboard binary to link. SANDBOX_CMD runs that one command
 # in the sandbox instead of an interactive shell (the tests use it).
@@ -51,7 +53,10 @@ prefix="(aboard:$name)"
 # runs: aboard would otherwise take this shell for that session, or use another home.
 drop_markers() {
 	for v in $(env | sed -E -n 's/^((CLAUDE|CODEX|ABOARD)[A-Za-z0-9_]*)=.*/\1/p'); do
-		[ "$v" = CLAUDE_CODE_OAUTH_TOKEN ] || unset "$v"
+		case $v in
+		CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) ;;
+		*) unset "$v" ;;
+		esac
 	done
 }
 

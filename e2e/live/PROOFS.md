@@ -170,6 +170,11 @@ These stay as steps in [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md):
 - **Teardown.** The tmux server is killed, the suite waits for the harnesses to exit
   (their end hook can start a daemon on the way out), then stops every process running
   the test's aboard binary.
+- **A killed run.** When the test process dies before its teardown (interrupted, timed
+  out, killed), each lab's watchdog does the same: it kills the tmux server and what
+  ran in its panes, then every process naming the lab's directory. Aboard's own
+  processes also stop by themselves, since the lab sets `ABOARD_EXIT_WITH_PID`
+  ([engineering/testing.md](../../engineering/testing.md)).
 
 ## What we learned driving the real harnesses
 
