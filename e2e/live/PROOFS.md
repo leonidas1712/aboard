@@ -15,6 +15,7 @@ make live                                  # every scenario for every harness, a
 make live HARNESS=codex                    # one harness: its scenarios and its own tests
 make live RUN=TestOwnerReachesBusy/claude-code
 LIVE_KEEP=1 make live RUN=TestWakesAndReplies   # keep the panes and logs even on a pass
+make live-smoke                            # one prompt per harness: does its model answer?
 make harness-table                         # then write the results into the README's table
 ```
 
@@ -41,8 +42,19 @@ Code test fails with that instruction: the suite never falls back to your own co
 | --- | --- |
 | `LIVE_KEEP=1` | Save artifacts for passing tests too |
 | `LIVE_ARTIFACTS=<dir>` | Where artifacts go (default `e2e/live/artifacts/`, git-ignored) |
-| `LIVE_CLAUDE_MODEL=<model>` | Pass `--model` to Claude Code |
-| `LIVE_OMP_MODEL=<model>` | The model omp runs with (default `anthropic/claude-sonnet-4-6`, so omp never picks a local model) |
+| `LIVE_CLAUDE_MODEL=<model>` | The model Claude Code runs with, as `--model` (default `claude-haiku-4-5`) |
+| `LIVE_CODEX_MODEL=<model>` | The model Codex runs with, as `-m`, `codex exec` included (default `gpt-6-luna`) |
+| `LIVE_OMP_MODEL=<model>` | The model omp runs with, as `--model` (default `anthropic/claude-haiku-4-5`, so omp never picks a local model) |
+
+**Models.** The suite proves Aboard's wiring to each harness, not what a model can do,
+so every harness runs a cheap model by default, on every start and every resume. Each
+variable above names another for one run, for example `LIVE_CODEX_MODEL=gpt-5.6-luna
+make live HARNESS=codex`. When a scenario is too hard for the cheap model, step up one
+tier (Haiku to Sonnet, Luna to Sol), not to the top model, and say so in the scenario's
+comment. After changing a default, run `make live-smoke` first: it starts each harness
+once in a lab like every other test's, with the model the suite would use, asks it to
+reply with exactly `SMOKE-OK`, and prints whether that came back (`TestModelSmoke`, one
+turn per harness, `HARNESS` picks harnesses as for `make live`).
 
 **Artifacts.** When a test fails, it writes each pane's full scrollback, Claude Code's
 transcripts (every command an agent ran and its output), `daemon.log`, `server.log`,
@@ -95,7 +107,8 @@ measured on Claude Code 2.1.287 with its default model.
 | `TestSubagentCannotActAsItsParent` | The session has one subagent run `aboard status` and `aboard say`; the subagent's commands are refused (`subagent_without_seat` in the transcripts, and the mark where a hook adds it), nothing reaches the board, and the session reports with `SUBAGENT-DONE`. For Claude Code it also logs the hook input, whether SubagentStart and SubagentStop fired, and whether Claude Code asked before the marked command. | Subagents | 1 |
 
 `TestEveryHarnessHasALiveDriver` checks every harness with a profile has a driver, and
-starts no harness.
+starts no harness. `TestModelSmoke` starts each harness with its model in a folder with
+no Aboard setup and checks it answers `SMOKE-OK`; it records nothing in the table.
 
 Tests about one harness stay as they were, skipped when `HARNESS` leaves that harness
 out:

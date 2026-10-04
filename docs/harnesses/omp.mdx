@@ -128,4 +128,5 @@ deletes, and your own `~/.omp` is never read or written. omp logs in to Anthropi
 already uses for Claude Code (from `claude setup-token`). That token stays in the
 environment; it has no refresh token, so nothing can rotate it. Without it, the omp
 tests fail with a message saying to set it; they never skip and never fall back to your
-own login. omp uses its default Anthropic model, or the one `LIVE_OMP_MODEL` names.
+own login. omp runs Claude Haiku (`anthropic/claude-haiku-4-5`), or the model
+`LIVE_OMP_MODEL` names.

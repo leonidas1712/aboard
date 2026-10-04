@@ -17,7 +17,7 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-smoke harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check core-size harness-table-check test e2e extension-test vuln
@@ -116,6 +116,10 @@ extension-test:
 # the README's table.
 live:
 	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 60m $(if $(RUN),-run '$(RUN)') ./e2e/live/...
+
+## live-smoke: start each harness once with the model make live runs it with, and check it answers (one model turn per harness)
+live-smoke:
+	@$(REQUIRE_GO); HARNESS='$(HARNESS)' go test -tags live -count=1 -v -timeout 10m -run 'TestModelSmoke' ./e2e/live/...
 
 ## harness-table: write the README's harness table from the profiles and the live kit's results
 harness-table:
