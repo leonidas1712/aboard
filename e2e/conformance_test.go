@@ -126,6 +126,7 @@ func TestHarnessConformance(t *testing.T) {
 			run("DocsPage", "baseline", kitDocsPage)
 			run("Init/global", "baseline", func(t *testing.T, p support.Profile) { kitInit(t, p, "global") })
 			run("Init/project", "project_scope", func(t *testing.T, p support.Profile) { kitInit(t, p, "project") })
+			run("Init/versions", "baseline", kitVersions)
 			run("Doctor", "baseline", kitDoctor)
 			run("Identity", "baseline", kitIdentity)
 			run("Hooks", "presence", kitHooks)
@@ -553,6 +554,98 @@ func kitInit(t *testing.T, p support.Profile, scope string) {
 			}
 		}
 	}
+}
+
+// kitVersions checks aboard init writes only the hook events the installed version of
+// the harness runs, reading the version from its command: the oldest version Aboard
+// works with, one just older, and one that can't be read (which gets what the oldest
+// runs) each get exactly the hooks and fallbacks whose since they have reached.
+func kitVersions(t *testing.T, p support.Profile) {
+	if !slices.ContainsFunc(p.Delivery.Hooks, func(h support.Hook) bool { return h.Since != "" }) {
+		t.Skip("no hook depends on the harness's version")
+	}
+	oldest := p.Checks.MinVersion
+	cases := []struct{ prints, as string }{
+		{oldest, oldest},
+		{kitBelow(oldest), kitBelow(oldest)},
+		{"unknown", oldest},
+	}
+	for _, c := range cases {
+		t.Run(c.prints, func(t *testing.T) {
+			e := kitEnv(t, p)
+			bin := filepath.Join(e.home, "version-bin")
+			if err := os.MkdirAll(bin, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(bin, p.Command), []byte("#!/bin/sh\necho '"+c.prints+" ("+p.Name+")'\n"), 0o755); err != nil { //nolint:gosec // a test program
+				t.Fatal(err)
+			}
+			for i, kv := range e.vars {
+				if path, ok := strings.CutPrefix(kv, "PATH="); ok {
+					e.vars[i] = "PATH=" + bin + string(os.PathListSeparator) + path
+				}
+			}
+			e.run("init", "--yes", "--harness", p.Harness)
+			it, _ := p.Item("hooks")
+			var file struct {
+				Hooks map[string][]struct {
+					Hooks []struct {
+						Command string `json:"command"`
+					} `json:"hooks"`
+				} `json:"hooks"`
+			}
+			content := ""
+			if raw, err := os.ReadFile(filepath.Join(e.home, kitItemPath(p, it, "global"))); err == nil {
+				content = string(raw)
+				if err := json.Unmarshal(raw, &file); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var want []string
+			for _, h := range p.Delivery.Hooks {
+				if support.VersionAtLeast(c.as, h.Since) {
+					want = append(want, h.Event+" "+h.Run)
+					continue
+				}
+				for _, f := range h.Fallback {
+					if support.VersionAtLeast(c.as, f.Since) {
+						want = append(want, f.Event+" "+h.Run)
+					}
+				}
+			}
+			var got []string
+			for event, groups := range file.Hooks {
+				for _, g := range groups {
+					for _, entry := range g.Hooks {
+						if _, run, ok := strings.Cut(entry.Command, " hook "+p.Harness+" "); ok {
+							got = append(got, event+" "+run)
+						}
+					}
+				}
+			}
+			slices.Sort(got)
+			slices.Sort(want)
+			if !slices.Equal(got, want) {
+				t.Fatalf("%s printing %q: aboard init wrote %q, want %q\n%s", p.Command, c.prints, got, want, content)
+			}
+		})
+	}
+}
+
+// kitBelow returns a version just older than v: 2.0.21 for 2.0.22, 0.148.999 for
+// 0.149.0.
+func kitBelow(v string) string {
+	parts := strings.Split(v, ".")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if n, err := strconv.Atoi(parts[i]); err == nil && n > 0 {
+			parts[i] = strconv.Itoa(n - 1)
+			for j := i + 1; j < len(parts); j++ {
+				parts[j] = "999"
+			}
+			break
+		}
+	}
+	return strings.Join(parts, ".")
 }
 
 // kitCheckHooksFile checks a JSON hooks file holds exactly the profile's hooks, each

@@ -10,6 +10,9 @@ checks:
     run: [codex, --version]
   logged_in:
     run: [codex, login, status]
+  # The first Codex with codex queue, which delivery needs (0.149.0 release notes). A
+  # version that can't be read gets the hooks this one runs.
+  min_version: 0.149.0
 
 sandbox_env: [CODEX_SANDBOX, CODEX_SANDBOX_NETWORK_DISABLED]
 sandbox_network_env: [CODEX_SANDBOX_NETWORK_DISABLED]
@@ -97,35 +100,53 @@ delivery:
   method: queue
   capabilities: [queue, tool-boundary]
   queue: [codex, queue, --thread, "{session}", --message, "{bundle}"]
+  # Each hook carries the first Codex release that runs it as written, from the event
+  # list Codex reads hooks.json with (codex-rs/hooks/src/engine/config.rs, later
+  # codex-rs/config/src/hook_config.rs) at each release tag, and the release notes.
+  # Codex reads hooks.json since 0.114.0 and runs hooks without a feature flag since
+  # 0.124.0. It ignores an event it doesn't know and keeps the rest of the file, but
+  # aboard init still writes only what the installed version runs.
   hooks:
     - event: SessionStart
       run: session-start
       op: session-start
       timeout: 30
+      since: 0.114.0
       why: registers the thread
+      without: Codex sessions aren't registered when they start
     - event: UserPromptSubmit
       run: prompt
       op: prompt
       timeout: 10
+      since: 0.116.0
       why: marks a turn running, so the owner's messages wait for a tool call instead of the queue
+      without: your messages wait for the end of a turn
     - event: Stop
       run: stop
       op: turn-end
       timeout: 10
+      since: 0.114.0
       why: confirms what the turn's tool calls received and marks the turn ended; the owner's messages no tool call took go into the queue
+      without: a turn's end isn't seen
     # additionalContextLimit is in tokens: well above the 9,000 bytes the daemon adds at
-    # one tool boundary, so Codex never shortens it.
+    # one tool boundary, so Codex never shortens it. PreToolUse is known since 0.117.0
+    # and its additionalContext reaches the model since 0.129.0; additionalContextLimit
+    # is read since 0.145.0, and older versions ignore it.
     - event: PreToolUse
       run: tool
       op: tool
       timeout: 30
       options: {additionalContextLimit: 8192}
+      since: 0.129.0
       why: before each tool call, adds the owner's messages and the waiting notice as additionalContext; never denies
+      without: your messages wait for the end of a turn
     - event: SessionEnd
       run: end
       op: end
       timeout: 3
+      since: 0.145.0
       why: closes the session (Codex allows 3 seconds); 0.159.3 was not seen to run it on quit or when its app server stopped
+      without: a session closes only when the daemon sees Codex's app server gone
   mid_turn: tool-hook
   waiting_notice: true
 

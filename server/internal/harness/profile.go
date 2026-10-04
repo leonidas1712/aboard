@@ -19,8 +19,10 @@ type Profile struct {
 	Command   string `yaml:"command"`
 	CheckName string `yaml:"check_name"`
 	Checks    struct {
-		Installed  Check  `yaml:"installed"`
-		LoggedIn   Check  `yaml:"logged_in"`
+		Installed Check `yaml:"installed"`
+		LoggedIn  Check `yaml:"logged_in"`
+		// MinVersion is the oldest version Aboard works with. A harness whose version
+		// can't be read gets the hooks this version runs.
 		MinVersion string `yaml:"min_version"`
 	} `yaml:"checks"`
 	SandboxEnv        []string `yaml:"sandbox_env"`
@@ -105,14 +107,37 @@ type HooksMissing struct {
 
 // HookSpec is one hook a profile lists.
 type HookSpec struct {
-	Event    string         `yaml:"event"`
-	Run      string         `yaml:"run"`
-	Op       Op             `yaml:"op"`
-	Matcher  string         `yaml:"matcher"`
-	Timeout  int            `yaml:"timeout"`
-	Options  map[string]any `yaml:"options"`
-	Since    string         `yaml:"since"`
-	Fallback []string       `yaml:"fallback"`
+	Event   string         `yaml:"event"`
+	Run     string         `yaml:"run"`
+	Op      Op             `yaml:"op"`
+	Matcher string         `yaml:"matcher"`
+	Timeout int            `yaml:"timeout"`
+	Options map[string]any `yaml:"options"`
+	// Since is the first version of the harness that runs the hook as written: it knows
+	// the event, and honors its options and the output the hook gives.
+	Since string `yaml:"since"`
+	// Fallback are the events that run the same command on a version older than Since.
+	Fallback []FallbackSpec `yaml:"fallback"`
+	// Without is what the person loses on a version that runs neither the hook nor a
+	// fallback, such as "idle sessions don't wake for new messages".
+	Without string `yaml:"without"`
+}
+
+// FallbackSpec is one event a hook falls back to on an older version, with the first
+// version that knows it. A profile may name the event alone, which any version knows.
+type FallbackSpec struct {
+	Event string `yaml:"event"`
+	Since string `yaml:"since"`
+}
+
+// UnmarshalYAML reads a fallback written as an event name or as {event, since}.
+func (f *FallbackSpec) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		f.Event = n.Value
+		return nil
+	}
+	type plain FallbackSpec
+	return n.Decode((*plain)(f))
 }
 
 // LoadProfile reads the profile built into aboard for a harness.

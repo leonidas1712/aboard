@@ -122,8 +122,20 @@ Aboard owns, such as an extension; `consent` is a step the person takes.
 
 **Hooks and delivery.** Each hook names the harness's event, the argument to `aboard
 hook <harness>`, what it does (`op`: `session-start`, `prompt`, `wait`, `turn-end`,
-`tool`, `end`), its timeout and any options its entry needs. A hook that appeared in a
-later version names its `since` and the `fallback` events older versions use:
+`tool`, `end`), its timeout and any options its entry needs.
+
+**Versions.** Some harnesses ignore their whole settings file when it names one hook
+event they don't know (Claude Code 1.0.23 to 2.1.100), so every hook carries `since`: the
+first version that runs it as written, its event and every option and output it relies
+on (`Stop` with `asyncRewake` needs Claude Code 2.1.64, though `Stop` is older). Find it
+in the harness's published builds or source at each release, not only its changelog, and
+put the source in a comment beside it. `aboard init` reads the version from the
+`installed` check and writes only the hooks that version has reached; for one it hasn't,
+the `fallback` events it knows, each with its own `since`, or nothing. A version that
+can't be read counts as `checks.min_version`, the oldest Aboard works with, so a profile
+with `since` needs one. A hook without a fallback says what the person loses without it
+(`without`), which `aboard doctor` shows. The fast kit checks that no version gets an
+event above it:
 
 ```yaml
 delivery:
@@ -135,12 +147,16 @@ delivery:
       op: wait
       timeout: 86400
       options: {asyncRewake: true}
+      since: 2.1.64
+      without: an idle session doesn't wake for new messages
     - event: PostToolBatch
       run: tool
       op: tool
       timeout: 10
       since: 2.1.118
-      fallback: [PostToolUse, PostToolUseFailure]
+      fallback:
+        - {event: PostToolUse, since: 1.0.65}
+        - {event: PostToolUseFailure, since: 2.0.56}
 ```
 
 The hook entry is written type, command, timeout, then the options in key order, the

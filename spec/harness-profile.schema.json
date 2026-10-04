@@ -40,7 +40,7 @@
       "properties": {
         "installed": { "$ref": "#/$defs/check" },
         "logged_in": { "$ref": "#/$defs/check" },
-        "min_version": { "type": "string", "description": "The oldest version of the harness Aboard works with, compared with the first version number its installed check prints. Read by the conformance kit." }
+        "min_version": { "type": "string", "description": "The oldest version of the harness Aboard works with, compared with the first version number its installed check prints. When the check prints no version, aboard init installs the hooks this version runs (see since). Read by the conformance kit." }
       }
     },
     "sandbox_env": {
@@ -223,8 +223,26 @@
               "matcher": { "type": "string", "description": "The harness's matcher for the hook's group, such as Bash for a hook that only sees shell commands. Without it, the group has no matcher and the hook fires for every tool." },
               "timeout": { "type": "integer", "minimum": 1, "description": "The hook's timeout in seconds, written into its entry." },
               "options": { "type": "object", "description": "More settings of the hook's entry, in the harness's own words, written after its timeout: asyncRewake for Claude Code, additionalContextLimit for Codex." },
-              "since": { "type": "string", "description": "The first version of the harness with this hook event. aboard init installs it when the harness reports this version or later, or no version, and the fallback events otherwise." },
-              "fallback": { "type": "array", "items": { "type": "string" }, "description": "With since: the hook events that run the same command on older versions." },
+              "since": { "type": "string", "description": "The first version of the harness that runs this hook as written: it knows the event, and honors the hook's options and the output Aboard's hook gives. aboard init runs the harness's installed check and installs the hook when the version it prints is this one or later; otherwise it installs the fallback events that version knows, and nothing else. A version it can't read counts as checks.min_version, so aboard init never writes an event the installed harness may not know (Claude Code 1.0.23 to 2.1.100 ignore the whole settings file over one). Without since, every version gets the hook." },
+              "fallback": {
+                "type": "array",
+                "description": "With since: the hook events that run the same command on older versions, each the event's name or {event, since} with the first version that knows it.",
+                "items": {
+                  "oneOf": [
+                    { "type": "string" },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["event", "since"],
+                      "properties": {
+                        "event": { "type": "string" },
+                        "since": { "type": "string" }
+                      }
+                    }
+                  ]
+                }
+              },
+              "without": { "type": "string", "description": "What the person loses on a version that runs neither the hook nor a fallback, as aboard doctor says it after \"so\": \"an idle session doesn't wake for new messages\"." },
               "why": { "type": "string" }
             }
           }

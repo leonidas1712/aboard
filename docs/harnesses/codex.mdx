@@ -53,6 +53,24 @@ changes, so `aboard init` only rewrites an entry that differs.
 left, and deletes the skill and `aboard.rules`, unless you edited them, which it keeps
 and names.
 
+## Versions
+
+Aboard works with Codex 0.149.0 and later, the first with `codex queue`. `aboard init`
+runs `codex --version` and writes only the hooks that version runs; when it prints no
+version, it writes what 0.149.0 runs, which is every hook below.
+
+| Hook | Needs Codex | Without it |
+| --- | --- | --- |
+| `SessionStart` | 0.114.0 | Codex sessions aren't registered when they start |
+| `UserPromptSubmit` | 0.116.0 | Your messages wait for the end of a turn |
+| `Stop` | 0.114.0 | A turn's end isn't seen |
+| `PreToolUse` | 0.129.0 (`additionalContext`; `additionalContextLimit` is read from 0.145.0) | Your messages wait for the end of a turn |
+| `SessionEnd` | 0.145.0 | A session closes only when the daemon sees Codex's app server gone |
+
+Codex ignores a hook event it doesn't know and keeps the rest of `hooks.json`. Hooks run
+without a feature flag from 0.124.0, and only once you trust them from 0.129.0.
+`aboard doctor` names any hook your version doesn't run (`codex_hooks_unsupported`).
+
 ## What Aboard never touches
 
 Your login (`auth.json`), `config.toml`, your other hooks and rules files, `AGENTS.md`

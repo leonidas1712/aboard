@@ -18,8 +18,7 @@ import (
 )
 
 // Every profile in adapters/ matches the schema and is in the registry, and every
-// harness in the registry has one. A profile's hooks each say what they do, and a hook
-// that came with a version names the events older versions use instead.
+// harness in the registry has one. A profile's hooks each say what they do.
 func TestEveryProfileMatchesTheSchemaAndIsRegistered(t *testing.T) {
 	raw, err := os.ReadFile("../../../../spec/harness-profile.schema.json")
 	if err != nil {
@@ -74,9 +73,6 @@ func TestEveryProfileMatchesTheSchemaAndIsRegistered(t *testing.T) {
 			for _, s := range h.Profile().Delivery.Hooks {
 				if s.Op == "" {
 					t.Errorf("hook %s runs %s and doesn't say what it does (op)", s.Event, s.Run)
-				}
-				if s.Since != "" && len(s.Fallback) == 0 {
-					t.Errorf("hook %s came with version %s but names no events for older versions", s.Event, s.Since)
 				}
 				if c, ok := h.HookCall(s.Run, harness.HookInput{}); !ok || c.Op != s.Op {
 					t.Errorf("aboard hook %s %s does %v, the profile says %s", name, s.Run, c.Op, s.Op)
