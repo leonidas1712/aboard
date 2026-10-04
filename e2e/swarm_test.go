@@ -463,6 +463,36 @@ func TestSwarmUpStartsFreshWhenTheLastSessionRanNoTurn(t *testing.T) {
 // A resumed session that ends as it starts (its harness lost the conversation) is
 // started once more, fresh, and the agent takes its seat; swarm up says so.
 func TestSwarmUpStartsFreshWhenAResumeFails(t *testing.T) {
+	testSwarmUpStartsFreshWhenAResumeFails(t)
+}
+
+// A resumed session never gets its first prompt again: the conversation has it, and an
+// instruction such as "do only this" would make the agent turn down what waited. It gets
+// a short note that it was restarted instead, and the message that waited for it comes
+// with that turn.
+func TestSwarmUpResumeDoesNotReplayTheFirstPrompt(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.writeBoardFile("board: replay\nagents:\n  - {name: claude, harness: claude-code, prompt: \"Do only this. run: aboard say FIRST-TURN\"}\n")
+	s.run("swarm", "up", "--json")
+	s.run("swarm", "down")
+	s.postAsOwnerTo("replay", "@claude", "WAITED-FOR-YOU")
+	ag := agentsByName(t, s.run("swarm", "up", "--json").json(t))["claude"]
+	if ag["action"] != "resumed" {
+		t.Fatalf("claude should be resumed: %v", ag)
+	}
+	starts := s.starts("claude")
+	last := starts[len(starts)-1]
+	if strings.Contains(last.Prompt, "FIRST-TURN") || !strings.Contains(last.Prompt, "restarted this session") {
+		t.Fatalf("the resumed session's prompt should be the restart note, not the first prompt: %q", last.Prompt)
+	}
+	eventually(t, 10*time.Second, "the waiting message to come with the resumed turn", func() bool {
+		raw, _ := os.ReadFile(s.log + ".context-" + last.Session)
+		return strings.Contains(string(raw), "WAITED-FOR-YOU")
+	})
+}
+
+func testSwarmUpStartsFreshWhenAResumeFails(t *testing.T) {
 	t.Parallel()
 	s := newSwarmEnv(t)
 	s.writeBoardFile("board: lost\nagents:\n  - {name: claude, harness: claude-code}\n")

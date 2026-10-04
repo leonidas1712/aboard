@@ -614,15 +614,24 @@ func (a *app) sessionEnv(agent string) map[string]string {
 // is. A resumed session is told it was resumed, so its first turn ends and the messages
 // that waited for it arrive.
 func firstPrompt(spec swarmSpec, board string, resumed bool) string {
+	if resumed {
+		// Never the first prompt again: the conversation already has it, and repeating an
+		// instruction such as "do only this" would make the agent turn down what waited.
+		// A short turn of its own lets every harness take what waited: added to this turn
+		// as it starts, or handed when it ends.
+		return resumePrompt(spec.Name, board)
+	}
 	if spec.Prompt != nil {
 		return *spec.Prompt
 	}
-	if resumed {
-		return fmt.Sprintf("aboard swarm up resumed this session as %s on the Aboard board %s. Run aboard status now; "+
-			"messages that waited for you arrive after this turn.", spec.Name, board)
-	}
 	return fmt.Sprintf("You are %s on the Aboard board %s, started by aboard swarm up. Run aboard status now, "+
 		"then wait: messages from the board arrive in this session.", spec.Name, board)
+}
+
+// resumePrompt is the prompt a resumed session gets.
+func resumePrompt(agent, board string) string {
+	return fmt.Sprintf("Aboard: aboard swarm up restarted this session; you are still %s on the board %s. "+
+		"Messages that waited for you come with this prompt or right after it: act on them as you would have.", agent, board)
 }
 
 // harnessArgv fills a profile's command line: the model option and the file's args go

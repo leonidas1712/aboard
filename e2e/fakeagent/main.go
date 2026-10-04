@@ -145,13 +145,29 @@ func logStart(s *session) {
 	_ = f.Close()
 }
 
-// hook runs one of Aboard's hooks as the harness does, with env as its environment.
-func hook(s *session, run string, env []string, input map[string]any) {
+// hook runs one of Aboard's hooks as the harness does, with env as its environment, and
+// returns what it printed.
+func hook(s *session, run string, env []string, input map[string]any) string {
 	input["session_id"] = s.id
 	raw, _ := json.Marshal(input)
 	cmd := exec.CommandContext(context.Background(), "aboard", "hook", s.harness, run) //nolint:gosec // the harness's own name
-	cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = env, strings.NewReader(string(raw)), os.Stderr, os.Stderr
+	var out strings.Builder
+	cmd.Env, cmd.Stdin, cmd.Stdout, cmd.Stderr = env, strings.NewReader(string(raw)), &out, os.Stderr
 	_ = cmd.Run()
+	return out.String()
+}
+
+// appendContext keeps what a hook added to a turn beside FAKE_AGENT_LOG, by session.
+func appendContext(s *session, text string) {
+	if text == "" {
+		return
+	}
+	f, err := os.OpenFile(os.Getenv("FAKE_AGENT_LOG")+".context-"+s.id, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // beside the test's log
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString(text + "\n")
+	_ = f.Close()
 }
 
 func claude(s *session) {
@@ -178,8 +194,11 @@ func claude(s *session) {
 	}
 	_ = os.Remove(envFile) //nolint:gosec // a file of this process's own
 	if s.prompt != "" {
-		hook(s, "prompt", s.env, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
+		// What the hook adds to the turn, as Claude Code adds it to the model's context.
+		// Saved as the prompt is submitted, before the prompt hook reports the turn.
 		saveConversation(s)
+		added := hook(s, "prompt", s.env, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
+		appendContext(s, added)
 	}
 	runPrompt(s)
 	waitUntilStopped()
@@ -194,8 +213,8 @@ func codex(s *session) {
 			return strings.HasPrefix(kv, "ABOARD_LAUNCH=") || strings.HasPrefix(kv, "ABOARD_AGENT=")
 		})
 		hook(s, "session-start", hookEnv, map[string]any{"hook_event_name": "SessionStart", "source": s.source})
-		hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
 		saveConversation(s)
+		hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
 		s.env = append(s.env, "CODEX_THREAD_ID="+s.id, "CODEX_SESSION_ID="+s.id)
 		runPrompt(s)
 	}

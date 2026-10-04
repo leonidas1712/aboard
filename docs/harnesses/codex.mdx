@@ -126,7 +126,11 @@ and the thread takes its seat. The default first prompt asks Codex to run
 `codex resume <id> "<prompt>"`.
 
 Codex asks once whether you trust a folder, and once to trust Aboard's hooks ("Hooks need
-review"); a session `swarm up` starts waits for those answers in its window. Quitting
+review"); a session `swarm up` starts waits for those answers in its window. Codex also
+shows announcements of its own over the prompt, such as "Set up security for Daybreak
+mode"; one that says "esc to dismiss" holds up the session until it is closed. Attach with
+the line `swarm up` prints and press Esc: that only closes it, and changes no account or
+security setting. Aboard never answers these for you. Quitting
 Codex leaves its thread open in Codex's app server, so after `aboard swarm down` the
 thread may still take messages until that app server stops.
 

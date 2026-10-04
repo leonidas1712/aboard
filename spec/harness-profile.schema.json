@@ -103,7 +103,7 @@
       "required": ["start"],
       "properties": {
         "start": { "$ref": "#/$defs/argv", "description": "Starts a session with a first prompt. An element that is exactly {prompt} is the first prompt, and is left out when there is none." },
-        "resume": { "$ref": "#/$defs/argv", "description": "Opens an earlier session again by its id, {session}, in a terminal, with {prompt} as for start. aboard swarm up resumes an agent's last session with it; the live conformance kit too." },
+        "resume": { "$ref": "#/$defs/argv", "description": "Opens an earlier session again by its id, {session}, in a terminal. {prompt} here is never the first prompt again, which the conversation already has: aboard swarm up gives a short note that the session was restarted, so its turn takes the messages that waited. aboard swarm up resumes an agent's last session with it; the live conformance kit too, with no prompt." },
         "model": { "$ref": "#/$defs/argv", "description": "How to choose the model, {model}: put right after the program name in start and resume, followed by the board file's args." }
       }
     },
