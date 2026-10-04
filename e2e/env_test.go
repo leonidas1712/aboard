@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // binary is the aboard executable built once for all tests.
@@ -56,23 +57,77 @@ func withoutCommand(path, name string) string {
 	return strings.Join(keep, string(os.PathListSeparator))
 }
 
+// builtVar names a directory that already holds the programs TestMain builds. A test
+// that runs this test binary again as a helper sets it, so the helper doesn't build
+// them a second time.
+const builtVar = "ABOARD_E2E_BUILT"
+
+// exitWithVar makes an aboard process stop once the process it names has exited. Each
+// env sets it to this test process, so a local server, delivery daemon or hook a test
+// started stops even when the test process is killed before its cleanups run.
+const exitWithVar = "ABOARD_EXIT_WITH_PID"
+
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "aboard-e2e-bin-")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "create temp dir:", err)
-		os.Exit(1)
+	// owned is the directory this process built the programs into and removes; empty
+	// when a helper reuses the build of the test that runs it.
+	var owned string
+	dir := os.Getenv(builtVar)
+	if dir == "" {
+		tmp, err := os.MkdirTemp("", "aboard-e2e-bin-")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "create temp dir:", err)
+			os.Exit(1)
+		}
+		buildPrograms(tmp)
+		dir, owned = tmp, tmp
 	}
 	binary = filepath.Join(dir, "aboard")
-	build := exec.Command("go", "build", "-race", "-o", binary, "./server/cmd/aboard")
+	// Named aboard too, as an installed binary is: aboard only stops processes by that name.
+	oldBinary = filepath.Join(dir, "old", "aboard")
+	unstampedBinary = filepath.Join(dir, "unstamped", "aboard")
+	// A test's machine has no omp unless the test puts one there (the conformance kit
+	// does, with a stand-in that only reports its version), so no test runs the person's
+	// own omp or finds it installed.
+	systemPath = withoutCommand(os.Getenv("PATH"), "omp")
+	fakeHarness = filepath.Join(dir, "fakeharness")
+	fakeBin = filepath.Join(dir, "fakebin")
+	go exitWithParent(owned)
+	code := m.Run()
+	if owned != "" {
+		_ = os.RemoveAll(owned)
+	}
+	os.Exit(code)
+}
+
+// exitWithParent exits this test process once the process that started it (go test)
+// is gone. Killing go test would otherwise leave the test binary running on its own
+// until its timeout; exiting lets everything the tests started stop with it
+// (exitWithVar). It removes the directory owned, if any, first.
+func exitWithParent(owned string) {
+	parent := os.Getppid()
+	tick := time.NewTicker(200 * time.Millisecond)
+	for range tick.C {
+		if os.Getppid() != parent {
+			fmt.Fprintln(os.Stderr, "e2e: the process that started the tests is gone; stopping")
+			if owned != "" {
+				_ = os.RemoveAll(owned)
+			}
+			os.Exit(1)
+		}
+	}
+}
+
+// buildPrograms builds aboard, its older and unstamped builds and the fake harnesses
+// into dir, or exits.
+func buildPrograms(dir string) {
+	build := exec.Command("go", "build", "-race", "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")
 	build.Dir = ".."
 	build.Stdout, build.Stderr = os.Stderr, os.Stderr
 	if err := build.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard:", err)
 		os.Exit(1)
 	}
-	// Named aboard too, as an installed binary is: aboard only stops processes by that name.
-	oldBinary = filepath.Join(dir, "old", "aboard")
-	old := exec.Command("go", "build", "-race", "-o", oldBinary,
+	old := exec.Command("go", "build", "-race", "-o", filepath.Join(dir, "old", "aboard"),
 		"-ldflags", "-X github.com/leonidas1712/aboard/server/internal/cli.version="+oldVersion, "./server/cmd/aboard")
 	old.Dir = ".."
 	old.Stdout, old.Stderr = os.Stderr, os.Stderr
@@ -80,8 +135,7 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
 		os.Exit(1)
 	}
-	unstampedBinary = filepath.Join(dir, "unstamped", "aboard")
-	unstamped := exec.Command("go", "build", "-race", "-buildvcs=false", "-o", unstampedBinary, "./server/cmd/aboard")
+	unstamped := exec.Command("go", "build", "-race", "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")
 	unstamped.Dir = ".."
 	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
 	if err := unstamped.Run(); err != nil {
@@ -109,15 +163,6 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "write fake claude:", err)
 		os.Exit(1)
 	}
-	// A test's machine has no omp unless the test puts one there (the conformance kit
-	// does, with a stand-in that only reports its version), so no test runs the person's
-	// own omp or finds it installed.
-	systemPath = withoutCommand(os.Getenv("PATH"), "omp")
-	fakeHarness = filepath.Join(dir, "fakeharness")
-	fakeBin = filepath.Join(dir, "fakebin")
-	code := m.Run()
-	_ = os.RemoveAll(dir)
-	os.Exit(code)
 }
 
 // env is one isolated machine: its own home, working directory and local server port.
@@ -153,6 +198,7 @@ func newEnv(t *testing.T) *env {
 		"FAKE_CODEX_THREADS=" + filepath.Join(home, "fake-codex-threads.json"),
 		"ABOARD_HOME=" + filepath.Join(home, "aboard"),
 		"ABOARD_LOCAL_ADDR=" + e.addr,
+		exitWithVar + "=" + strconv.Itoa(os.Getpid()),
 	}
 	t.Cleanup(e.stopServer)
 	return e
