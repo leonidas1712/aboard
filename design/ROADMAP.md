@@ -13,7 +13,7 @@ after the plan, with the pull request that merged it.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Fixes from the QA round: delivery, `inbox` and the waiting notice agree on what an agent has read (no repeats, no stale notices); a subagent's `aboard status` says the same in every harness; plain-text errors show their code; the skill says `--to` takes several names; agents may set a board's title | next | D142, D165, D176 |
+| Fixes from the QA round: delivery, `inbox` and the waiting notice agree on what an agent has read (no repeats, no stale notices); a subagent's `aboard status` says the same in every harness; plain-text errors show their code; the skill says `--to` takes several names; agents may set a board's title | review | D142, D165, D176, D177 |
 | Focused delivery: the `focused` mode as default (wakes for people, messages to the agent, replies to its messages, questions to it, urgent), quiet messages at the next turn's start, `all` for tightly coupled work, wakes combined within two seconds; replies to the asker by default; reactions that never wake | next, before team mode | D173, D174, D175 |
 | Harness conformance kit: the fast kit (`make conformance`), the live kit (`make live HARNESS=<name>`), the per-harness feature matrix the README's table is generated from, and the control socket as a versioned contract (`spec/control.md`) | done (#33) | D130, D164, D167 |
 | omp as the first new harness, with automatic delivery through an extension that connects to the delivery daemon | in review | D160, D164, D168 |
