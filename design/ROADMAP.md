@@ -21,6 +21,9 @@ after the plan, with the pull request that merged it.
 
 ## Next: team mode
 
+The target experience, and the questions to settle before building, are in
+[team-model.md](team-model.md).
+
 Team mode comes right after omp. Every feature added before people share a server is
 one more thing that can break when they do, so team behaviour is proven first.
 
