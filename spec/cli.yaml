@@ -183,6 +183,7 @@ $defs:
       body: { $ref: openapi.yaml#/components/schemas/Message/properties/body }
       reply_to: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to }
       reply_to_seq: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to_seq }
+      reply_to_from: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_to_from }
       thread_root: { $ref: openapi.yaml#/components/schemas/Message/properties/thread_root }
       thread_root_seq: { $ref: openapi.yaml#/components/schemas/Message/properties/thread_root_seq }
       reply_count: { $ref: openapi.yaml#/components/schemas/Message/properties/reply_count }
@@ -501,11 +502,15 @@ $defs:
       - `recipients`: when each recipient will see the message, from its presence and
         delivery mode as the board's members list shows them. `outcome` is `now` (its
         session is idle and delivery wakes it), `turn_end` (its session is working; it
-        gets the message when its turn ends), `not_woken` (its delivery mode is `off`, or
-        `humans` and the sender is an agent; it sees the message when it checks its
-        inbox), `no_session` (disconnected: no session is open for it; it sees the message
-        in its inbox or when its session reconnects, or another session resumes it) or
-        `person` (a person; they see it on the board or in their inbox).
+        gets the message when its turn ends), `next_turn` (its mode is `focused` and the
+        message doesn't concern it, so it doesn't wake it: it sees the message at the
+        start of its next turn; spec/delivery.md, "Delivery modes"), `not_woken` (its
+        delivery mode is `off`, or `humans` and the sender is an agent; it sees the
+        message when it checks its inbox), `no_session` (disconnected: no session is open
+        for it; it sees the message in its inbox or when its session reconnects, or
+        another session resumes it) or `person` (a person; they see it on the board or in
+        their inbox). A reply without --to goes to the people and agents already in its
+        thread (openapi.yaml, PostMessageRequest.to), which the first line names.
 
       Text output: "Sent #<seq> to <targets> on <board>", then a line about the sender's
       unread messages when there are any, then one line about the recipients, grouped by
@@ -513,7 +518,8 @@ $defs:
         Sent #8 to all on general
         2 unread on general: #6, #7; run aboard inbox
         @reviewer gets it now. @codex, @claude-2 get it when their turn ends. @alex sees it on the board or in their inbox.
-      The other groups read "@bot won't be woken: it sees it when it checks its inbox."
+      The other groups read "@omp sees it at its next turn." ("@omp, @codex see it at
+      their next turn."), "@bot won't be woken: it sees it when it checks its inbox."
       and "@old is disconnected: it sees it in its inbox or when its session
       reconnects.", with "they … their" for several ("are disconnected … when their
       sessions reconnect").
@@ -568,10 +574,10 @@ $defs:
               description: Null for a person.
             delivery:
               type: [string, "null"]
-              enum: [auto, humans, off, null]
-              description: The agent's delivery mode as last reported; null for a person or when never reported (treated as auto).
+              enum: [focused, all, humans, off, auto, null]
+              description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
-              enum: [now, turn_end, not_woken, no_session, person]
+              enum: [now, turn_end, next_turn, not_woken, no_session, person]
       outcome:
         description: Present with --wait-reply.
         enum: [reply, owner_message, timeout]
@@ -711,7 +717,7 @@ $defs:
         #6  @writer → @reviewer · asks for a reply · 1 reply
             writer · self
             Draft is in notes.md. Can you review it?
-        #7  @reviewer → all · reply to #6 · urgent
+        #7  @reviewer → @writer · reply to #6 · urgent
             reviewer · codex · owner_agent
             Reviewed. Approved.
         #8  @alex → @reviewer
@@ -736,7 +742,7 @@ $defs:
 
         > Draft is in notes.md. Please review it.
 
-        **#7 @reviewer** (reviewer, owner_agent) → all · reply to #6
+        **#7 @reviewer** (reviewer, owner_agent) → @writer · reply to #6
 
         > Reviewed. Approved.
       Each heading carries the same markers as the text output. In the brackets: an
@@ -772,10 +778,10 @@ $defs:
         #6  @writer → @reviewer · asks for a reply · 2 replies
             writer · owner_agent
             Can you take the tests?
-        #7  @reviewer → all · reply to #6
+        #7  @reviewer → @writer · reply to #6
             reviewer · self
             Yes. The build is broken first.
-        #9  @writer → all · reply to #7
+        #9  @writer → @reviewer · reply to #7
             writer · owner_agent
             Thanks.
       When the agent may not see the first message (it was addressed to someone else),
@@ -974,7 +980,7 @@ $defs:
         description: The delivery mode for agents without their own; null when not asked to set it.
         required: [mode, action]
         properties:
-          mode: { enum: [auto, humans, off] }
+          mode: { enum: [focused, all, humans, off] }
           action: { enum: [update, unchanged] }
       allow_commands: { type: boolean }
       harnesses:
@@ -1063,16 +1069,21 @@ $defs:
       pid: { type: integer }
       started: { type: boolean, description: "False when it was already running." }
 
-  # ---------- aboard delivery [auto|humans|off] [--as AGENT] [--board NAME] ----------
+  # ---------- aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] ----------
   DeliveryOutput:
     description: |
       Shows or changes the acting agent's delivery mode on this machine. The mode is kept
-      by the delivery daemon, per agent; an agent nobody set is auto.
-        auto    wakes the agent's session for every message
+      by the delivery daemon, per agent; an agent nobody set has the machine's default
+      (aboard init --delivery), else focused.
+        focused wakes the agent's session only for messages that concern it: from a
+                person, addressed to it or its role, a reply to its message, a question,
+                or urgent; the rest arrive quietly at the start of its next turn
+        all     wakes the agent's session for every message
         humans  wakes it only for a message from a person (its owner or another human); that
                 bundle carries every unread message, peer ones too. Peer messages alone,
                 urgent ones included, never wake or interrupt it.
         off     delivers nothing; the agent reads its inbox itself
+      auto, the earlier name of all, is still accepted and shown as all.
       With no argument it shows the mode, anywhere, without starting the daemon. With a
       mode it changes it: a human action, so it refuses with human_command_in_session
       when run inside a harness session (any of the variables in a harness profile's
@@ -1081,13 +1092,14 @@ $defs:
       the operation, the command fails with daemon_outdated. Text output:
         reviewer on writer-reviewer: delivery humans (wakes only for messages from people)
         reviewer on writer-reviewer: delivery now off (delivers nothing; the agent reads its inbox itself)
-      "now" marks a change. auto reads "(wakes for every message)".
+      "now" marks a change. all reads "(wakes for every message)" and focused "(wakes
+      for messages that concern it; the rest arrive at its next turn)".
     type: object
     required: [board, agent, mode, changed]
     properties:
       board: { type: string }
       agent: { type: string }
-      mode: { enum: [auto, humans, off] }
+      mode: { enum: [focused, all, humans, off] }
       changed: { type: boolean, description: "True when this command changed the mode." }
 
   # ---------- aboard status [--as AGENT] [--board NAME] ----------
@@ -1104,7 +1116,7 @@ $defs:
         Daemon: running (pid 4182), 2 open sessions
         Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
-        Agent:  writer (from --as); delivery auto; idle
+        Agent:  writer (from --as); delivery focused; idle
         Policy: starter (a starting point; tighten with aboard board policy recommended)
         People: alex (admin), sam (member)
       The People line appears only when more than one person is on the board; with one
@@ -1168,7 +1180,7 @@ $defs:
         enum: [flag, env, session, none]
         description: "flag: --as. env: ABOARD_AGENT. session: the agent bound to this harness session."
       delivery:
-        enum: [auto, humans, off, null]
+        enum: [focused, all, humans, off, null]
         description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
       presence:
         enum: [working, idle, waiting, no_session, null]

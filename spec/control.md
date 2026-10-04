@@ -77,7 +77,7 @@ optional; each operation says which it reads.
 | `wake` | boolean | A prompt that is the bundle a waiting hook just woke the session with, not a later event |
 | `started` | string | When the hook's or command's process started (RFC 3339) |
 | `agent` | object | An agent: `{"server","board","name"}` |
-| `mode` | string | A delivery mode to set: `auto`, `humans` or `off` |
+| `mode` | string | A delivery mode to set: `focused`, `all`, `humans` or `off` (`auto`, the earlier name of `all`, is accepted and saved as `all`) |
 | `process` | object | The harness process the request came from: `{"pid","start"}`, `start` in the system's own units, so a reused pid isn't mistaken for it |
 | `reply_to` | integer | The message whose replies a hold keeps out of bundles |
 | `seqs` | array of integers | Messages a claim records as received |
@@ -140,6 +140,23 @@ what was handed to it.
 ```json
 {"v":1,"op":"prompt","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","wake":true}
 {"v":1}
+```
+
+### `turn_start`: a turn started, and what it is given
+
+Sent by a hook of op `prompt` (Claude Code's and Codex's `UserPromptSubmit`) and by a
+harness extension as a turn starts, before the model runs (omp: `before_agent_start`,
+on a one-shot connection of its own). It does what `prompt` does, `wake` included, and
+its answer's `bundle` carries every message still waiting for the agent in `focused`
+mode, the quiet ones in their "while you were away" block (delivery.md, "Delivery
+modes"), under 9,000 bytes; empty in any other mode or when nothing waits. The caller
+adds it to the turn (as `additionalContext`, or as a message); it is confirmed by the
+session's next event. A daemon from before this operation answers `invalid_request`, and
+the hook then sends `prompt`.
+
+```json
+{"v":1,"op":"turn_start","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","started":"2026-10-03T14:02:11.5Z"}
+{"v":1,"bundle":"Aboard: while you were away, 1 other message arrived on writer-reviewer. They didn't wake you; read them, and answer only if one needs you:\n<aboard-messages board=\"writer-reviewer\" count=\"1\" quiet=\"true\">…</aboard-messages>"}
 ```
 
 ### `turn_end`: a turn ended
@@ -206,6 +223,9 @@ agent names the default for agents without a mode of their own.
 {"v":1,"op":"mode","agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"mode":"humans"}
 {"v":1,"mode":"humans","changed":true}
 ```
+
+An agent with no mode of its own, and no default, is `focused`. A mode saved as `auto` by
+an earlier build is answered as `all`.
 
 ### `status`: the daemon's state
 
@@ -282,7 +302,7 @@ acknowledgement does.
 | Client | Operations |
 | --- | --- |
 | A hook of op `session-start` | `register` |
-| A hook of op `prompt` | `prompt` (with `wake` when the harness hands back a waiting hook's bundle as the prompt) |
+| A hook of op `prompt` | `turn_start` (with `wake` when the harness hands back a waiting hook's bundle as the prompt), or `prompt` when the daemon doesn't know `turn_start` |
 | A hook of op `wait` | `wait`, then `received` |
 | A hook of op `turn-end` | `turn_end` |
 | A hook of op `tool` | `boundary` |
@@ -295,7 +315,7 @@ acknowledgement does.
 | `aboard inbox` | `inbox` |
 | `aboard say` | `inbox`, for its note about the agent's own inbox |
 | `aboard doctor`, `status`, `down` | `status` |
-| A harness extension | The extension connection, below, and `boundary` |
+| A harness extension | The extension connection, below, `turn_start` and `boundary` |
 
 A hook that gets an error, or can't reach the daemon, prints one line starting
 `aboard hook:` to standard error and exits 0, so a broken daemon never blocks a session.
@@ -386,6 +406,10 @@ back for `prompt`, `turn_end`, `received` or `goodbye`.
   `boot`, and adds what comes back to the running turn (omp: `sendMessage` delivered as
   an aside). Its answer is confirmed by the session's next `prompt`, `turn_end` or
   `boundary`.
+- **A turn's start.** Before the model runs a turn, the extension sends `turn_start` on
+  a separate, one-shot connection, with `harness`, `session` and `boot`, and adds what
+  comes back to the turn (omp: the message `before_agent_start` returns). Its answer is
+  confirmed by the `prompt` that follows it on the connection.
 - **Presence.** `prompt` reports the agent `working` and `turn_end` reports it `idle`,
   as the hooks do.
 - **Closing.** `goodbye` closes the session as `end` does, and the daemon closes the
