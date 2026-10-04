@@ -195,7 +195,11 @@ func (a *app) report(err error) int {
 		a.writeJSON(e.wire())
 	} else {
 		st := a.errStyles()
+		// The code is what --json, the docs and the skill name, so text shows it too, quietly.
 		msg := st.render(styleBadBold, "Error:") + " " + e.Message + "\n"
+		if e.Code != "" {
+			msg = st.render(styleBadBold, "Error") + " " + st.dim("("+e.Code+")") + st.render(styleBadBold, ":") + " " + e.Message + "\n"
+		}
 		if e.Hint != "" {
 			msg += st.warn("Hint:") + " " + e.Hint + "\n"
 		}

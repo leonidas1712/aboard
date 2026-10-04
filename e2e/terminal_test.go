@@ -299,7 +299,7 @@ func TestColorOnlyForAPersonAtATerminal(t *testing.T) {
 		}
 	}
 	term = e.startTerminal(nil, "nope")
-	if code := term.exit(); code != 2 || !strings.Contains(term.raw(), "\x1b[") || !strings.Contains(term.text(), "Error: \"nope\" is not an aboard command.") {
+	if code := term.exit(); code != 2 || !strings.Contains(term.raw(), "\x1b[") || !strings.Contains(term.text(), "Error (invalid_request): \"nope\" is not an aboard command.") {
 		t.Fatalf("an error in a terminal: exit %d\n%q", code, term.raw())
 	}
 }

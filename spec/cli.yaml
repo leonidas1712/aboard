@@ -8,6 +8,8 @@
 #   to stderr only when stderr is a terminal.
 # - On failure the object is the API error shape {"error":{code,message,hint,details?}},
 #   whether the error came from the server or the CLI. CLI-only codes are listed below.
+#   Without --json the error goes to stderr as "Error (<code>): <message>", then
+#   "Hint: <hint>" on its own line when there is one.
 # - Exit codes: 0 ok · 1 error · 2 usage error · 3 a check ran and failed.
 # - Text output is colored only when it goes to a terminal, NO_COLOR is unset, TERM
 #   isn't dumb, --json wasn't given and the command doesn't run inside a harness session
