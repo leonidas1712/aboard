@@ -16,6 +16,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/deliverytest"
 	"github.com/leonidas1712/aboard/server/internal/delivery/extension"
+	"github.com/leonidas1712/aboard/server/internal/delivery/launchtickets"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
 )
 
@@ -41,6 +42,7 @@ type rig struct {
 	path    string
 	ctl     *deliverytest.PipeControl
 	journal *sqlitejournal.Journal
+	tickets launchtickets.Dir
 	cancel  context.CancelFunc
 	done    chan error
 }
@@ -49,11 +51,12 @@ func newRig(t *testing.T) *rig {
 	t.Helper()
 	r := &rig{
 		t: t, clock: clock.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
-		claude: deliverytest.NewFakeAdapter("claude-code", true),
-		codex:  deliverytest.NewFakeAdapter("codex", false),
-		server: deliverytest.NewFakeServer(),
-		procs:  deliverytest.NewFakeProcesses(),
-		path:   filepath.Join(t.TempDir(), "delivery.db"),
+		claude:  deliverytest.NewFakeAdapter("claude-code", true),
+		codex:   deliverytest.NewFakeAdapter("codex", false),
+		server:  deliverytest.NewFakeServer(),
+		procs:   deliverytest.NewFakeProcesses(),
+		path:    filepath.Join(t.TempDir(), "delivery.db"),
+		tickets: launchtickets.Dir(t.TempDir()),
 	}
 	r.start()
 	t.Cleanup(r.stop)
@@ -73,6 +76,7 @@ func (r *rig) start() {
 		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex, extension.Adapter{Name: "omp"}},
 		Connect: func(string) delivery.Server { return r.server },
 		Control: r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
+		Tickets: r.tickets,
 	}
 	go func() { r.done <- delivery.Run(ctx, cfg) }()
 }

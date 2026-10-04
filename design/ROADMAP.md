@@ -167,8 +167,8 @@ the board.
 | --- | --- | --- |
 | MCP server: `aboard mcp` over stdio, and the remote endpoint on team servers | later | D67, D109 |
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
-| `aboard swarm up`, `ps`, `down` from the board file's `agents` section | later | D61, D105 |
-| Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | later | D105, D131 |
+| `aboard swarm up`, `ps`, `down` from the board file's `agents` section | review | D61, D105, D178 |
+| Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | review | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |
 

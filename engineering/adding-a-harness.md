@@ -45,7 +45,7 @@ shows each one per harness, with a note where it is partial:
 | Reconnects on resume | `lifecycle.resume_keeps_id`, `interactive.resume` | Fast kit: resume. Live: `TestResumeReconnects` |
 | Subagents | `subagent_identity` | Fast kit: a marked subagent may only read. Live: `TestSubagentCannotActAsItsParent` |
 | Project setup | A `project` path on each install item | Fast kit: init in the project scope. Live: `TestProjectScopeSetup` |
-| Started by a launcher | `headless` | Not yet: no launcher starts sessions |
+| Started by a launcher | `interactive.start`, `interactive.resume` and `interactive.model`; `headless` (`via: native` with `run`, `resume` and `session_field` for the headless launcher) | e2e: `TestSwarmUp*` with `e2e/fakeagent`, which needs a mode for the harness. Live: `TestSwarmUpStartsEveryHarness`, `TestSwarmUpResumesTheLastSession`. See [adding-a-launcher.md](adding-a-launcher.md) |
 | Sandbox check | `sandbox_env`, `sandbox_network_env` | Fast kit (e2e sandbox tests); live where the sandbox blocks the network |
 
 ## 1. The profile

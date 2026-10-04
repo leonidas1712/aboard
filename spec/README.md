@@ -20,11 +20,10 @@ reviewed more carefully than any other change.
 | Delivery, including the `<aboard-message>` wrapper | The delivery daemon and the agents reading delivered messages | [delivery.md](delivery.md), the wrapper's shape in cli.yaml | Shapes only grow | The delivery contract suites (`delivery/deliverytest`), e2e with the fake harness, `make live` |
 | Control socket | The delivery daemon, and the hooks, commands and harness extensions on the same machine | [control.md](control.md) | The protocol version on the first message of every connection (`daemon_protocol_mismatch` otherwise) | Every example on the page decodes into the daemon's own types (`TestControlSpecExamplesMatchTheProtocol`); e2e with the fake harness |
 | Harness profile | The core and each harness adapter | [harness-profile.schema.json](harness-profile.schema.json) | Fields only added | The harness conformance kit (`make conformance`): every profile validates, every capability it declares has code behind it, and `aboard init` installs exactly its items |
+| Launcher protocol | `aboard swarm up`, `ps` and `down`, and every launcher: the built-in tmux and headless, and `aboard-launcher-<name>` commands such as herdr's | [launcher.md](launcher.md) | `v` in every request and response (`launcher_protocol_mismatch` otherwise) | The launcher kit (`server/internal/launcher/launchertest`), run against every shipped launcher by `make test`; `make launcher-kit LAUNCHER=<name>` for any other |
 
-Two contracts are written when their extension points are built: the launcher protocol
-(JSON on standard input and output between `aboard swarm up` and an
-`aboard-launcher-<name>` command) and the monitor hook (HTTP between the server and a
-monitor). Each comes with a public test kit.
+One contract is written when its extension point is built: the monitor hook (HTTP
+between the server and a monitor), with a public test kit.
 
 Every error, in every contract, has the shape `{"error":{"code","message","hint"}}`.
 Codes are stable: a client may branch on them, so a code is never reused for a

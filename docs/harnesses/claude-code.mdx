@@ -134,6 +134,28 @@ asks, Claude Code asks before a subagent's `aboard` command runs. The mark keeps
 subagents from acting as your agent by mistake; it is not a security boundary, since a
 subagent could remove it.
 
+## Started by a launcher
+
+`aboard swarm up` ([Start a board with agents](/swarm)) starts Claude Code as
+`claude [--model <model>] [args] "<first prompt>"` in a tmux window or a herdr pane, with
+`ABOARD_AGENT` and a one-time launch ticket (`ABOARD_LAUNCH`) in its environment. The
+session-start hook sees both, since Claude Code's hooks run with its environment, and
+hands the ticket to the daemon, so the session takes its seat as it opens. An agent that
+had a session that ran a turn is resumed with `claude --resume <id> "<note>"` (Claude
+Code saves a conversation only from its first turn, and quits with "No conversation found"
+when asked to resume one it doesn't have, so a session that ran none starts fresh), which
+keeps the session id, so the session binds again by itself. The note says the session was
+restarted; it is never the first prompt again. The messages that waited come with the
+note's turn, through the prompt hook.
+
+The headless launcher runs Claude Code's own non-interactive mode, one turn per batch of
+messages: `claude --print --output-format json [--resume <id>] "<messages>"`, keeping the
+`session_id` it prints for the next turn. `ABOARD_HEADLESS=1` in that turn's environment
+makes Aboard's hooks do nothing there, since the runner hands the turn its messages.
+
+Claude Code asks once whether you trust a folder; a session `swarm up` starts in a new
+folder waits for that answer in its window.
+
 ## Check it
 
 ```bash

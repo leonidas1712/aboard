@@ -46,6 +46,10 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	name, event := pos[0], pos[1]
+	if a.env.Getenv(headlessEnv) != "" {
+		// A headless turn: its runner hands it the messages and reads none back.
+		return hookExit(0)
+	}
 	started := time.Now()
 	var in harness.HookInput
 	data, err := io.ReadAll(io.LimitReader(a.env.Stdin, hookInputLimit))
@@ -117,7 +121,13 @@ type hookCall struct {
 }
 
 func (h hookCall) request(op string) delivery.Request {
-	return delivery.Request{Op: op, Harness: h.harness, Session: h.in.SessionID, Boot: h.boot, Source: h.in.Source}
+	req := delivery.Request{Op: op, Harness: h.harness, Session: h.in.SessionID, Boot: h.boot, Source: h.in.Source}
+	if op == delivery.OpRegister {
+		// A session aboard swarm up started carries its launch ticket, which binds it to
+		// its agent as it starts.
+		req.Launch = h.a.launchTicket()
+	}
+	return req
 }
 
 func (h hookCall) call(ctx context.Context, op string) (delivery.Response, error) {

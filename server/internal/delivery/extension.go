@@ -55,6 +55,13 @@ func (d *Daemon) serveExtension(ctx context.Context, conn net.Conn, r *bufio.Rea
 	}
 	c := &extConn{conn: conn, took: map[int64]bool{}, signal: make(chan struct{}, 1), gone: make(chan struct{})}
 	s.mail.put(sessionMsg{req: hello, ext: c})
+	if hello.Launch != "" {
+		// The bind goes through the session's mailbox after the hello, so the session is
+		// registered first.
+		if resp := d.bindLaunch(ctx, hello, hello.Launch, Response{}); resp.Error != nil {
+			d.log.Warn("launch ticket: couldn't bind the session", "session", key.String(), "error", resp.Error.Message)
+		}
+	}
 	goodbye := false
 	for !goodbye {
 		var m Request

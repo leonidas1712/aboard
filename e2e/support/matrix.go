@@ -127,9 +127,18 @@ var Capabilities = []Capability{
 		}
 		return Supported, ""
 	}},
-	{ID: "launcher", Label: "Started by a launcher", declare: func(Profile) (Status, string) {
-		return Unsupported, "no launcher starts sessions in this aboard"
-	}},
+	{
+		ID: "launcher", Label: "Started by a launcher", Scenarios: []string{"SwarmUpStartsEveryHarness", "SwarmUpResumesTheLastSession", "SwarmUpStartsFreshAfterNoTurn"},
+		declare: func(p Profile) (Status, string) {
+			switch {
+			case len(p.Interactive.Start) == 0:
+				return Unsupported, "the profile says no way to start a session"
+			case p.Headless.Via == "native":
+				return Supported, "in a terminal (tmux, herdr) or headless"
+			}
+			return Supported, "in a terminal (tmux, herdr); its headless turns go through ACP, which the headless launcher doesn't drive"
+		},
+	},
 	{
 		ID: "sandbox", Label: "Sandbox check", Scenarios: []string{"SandboxNeedsTheAllowRule"},
 		// Only a sandbox that blocks the network has a live scenario; detecting one that

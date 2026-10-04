@@ -33,8 +33,10 @@ type Profile struct {
 		Env     string `yaml:"env"`
 		Default string `yaml:"default"`
 	} `yaml:"config_dir"`
-	Install  []InstallSpec `yaml:"install"`
-	Identity struct {
+	Install     []InstallSpec `yaml:"install"`
+	Interactive Interactive   `yaml:"interactive"`
+	Headless    Headless      `yaml:"headless"`
+	Identity    struct {
 		Kind       string   `yaml:"kind"`
 		Env        string   `yaml:"env"`
 		RootEnv    string   `yaml:"root_env"`
@@ -61,6 +63,24 @@ type Profile struct {
 		// WaitingNotice is true when the tool hook also names the other waiting messages.
 		WaitingNotice bool `yaml:"waiting_notice"`
 	} `yaml:"delivery"`
+}
+
+// Interactive is how a launcher starts and resumes the harness in a terminal. Start and
+// Resume hold {prompt} and {session}; Model holds {model}.
+type Interactive struct {
+	Start  []string `yaml:"start"`
+	Resume []string `yaml:"resume"`
+	Model  []string `yaml:"model"`
+}
+
+// Headless is how the headless launcher runs one turn of the harness without a
+// terminal: Via is native (Run and Resume below), acp or none.
+type Headless struct {
+	Via          string   `yaml:"via"`
+	Run          []string `yaml:"run"`
+	Resume       []string `yaml:"resume"`
+	SessionField string   `yaml:"session_field"`
+	Model        []string `yaml:"model"`
 }
 
 // Check is a command that checks something about the harness.

@@ -116,7 +116,10 @@ type SessionRecord struct {
 	Process *Process
 	// Lost is the agent another session resumed while this one held it, or nil. The
 	// session doesn't take it back when it starts again; it says so instead.
-	Lost      *AgentRef
+	Lost *AgentRef
+	// Turned is true once the session has run a turn, which a harness needs before it
+	// can resume the session (Claude Code saves a conversation only from its first turn).
+	Turned    bool
 	UpdatedAt time.Time
 }
 

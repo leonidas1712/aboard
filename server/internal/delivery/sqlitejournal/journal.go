@@ -168,12 +168,13 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 	}
 	return j.write(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, turned, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (harness, session_id) DO UPDATE SET boot = excluded.boot, open = excluded.open,
 				pid = excluded.pid, pid_start = excluded.pid_start, lost_server = excluded.lost_server,
-				lost_board = excluded.lost_board, lost_agent = excluded.lost_agent, updated_at = excluded.updated_at`,
-			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, lost.Server, lost.Board, lost.Name, formatTime(s.UpdatedAt))
+				lost_board = excluded.lost_board, lost_agent = excluded.lost_agent, turned = excluded.turned,
+				updated_at = excluded.updated_at`,
+			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, lost.Server, lost.Board, lost.Name, s.Turned, formatTime(s.UpdatedAt))
 		if err != nil {
 			return fmt.Errorf("save session %s: %w", s.Key, err)
 		}
@@ -184,7 +185,7 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 // Sessions returns every recorded session.
 func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error) {
 	rows, err := j.db.QueryContext(ctx, `
-		SELECT harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, updated_at
+		SELECT harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, turned, updated_at
 		FROM sessions ORDER BY harness, session_id`)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -197,7 +198,7 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 		var lost delivery.AgentRef
 		var updated string
 		if err := rows.Scan(&s.Key.Harness, &s.Key.ID, &s.Boot, &s.Open, &p.PID, &p.Start,
-			&lost.Server, &lost.Board, &lost.Name, &updated); err != nil {
+			&lost.Server, &lost.Board, &lost.Name, &s.Turned, &updated); err != nil {
 			return nil, fmt.Errorf("read session: %w", err)
 		}
 		if p.PID != 0 {

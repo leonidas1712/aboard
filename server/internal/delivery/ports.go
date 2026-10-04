@@ -88,6 +88,14 @@ type Control interface {
 	Close() error
 }
 
+// Tickets holds launch tickets: what aboard swarm up gives a session it starts, so the
+// session's first contact with the daemon binds it to its agent with no join line.
+type Tickets interface {
+	// Take returns the agent a ticket names and removes the ticket, so it works once. ok
+	// is false for a ticket that doesn't exist or was already taken.
+	Take(ticket string) (agent AgentRef, ok bool, err error)
+}
+
 // Processes reports whether a harness process still runs, so a session whose harness
 // died without running its end hook is closed.
 type Processes interface {

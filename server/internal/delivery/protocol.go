@@ -117,6 +117,9 @@ type Request struct {
 	// Subagent is the harness's id for the subagent an OpHello comes from, or empty for
 	// the session's own conversation.
 	Subagent string `json:"subagent,omitempty"`
+	// Launch is a launch ticket from ABOARD_LAUNCH, on a register or a hello: the daemon
+	// binds the session to the agent the ticket names, once.
+	Launch string `json:"launch,omitempty"`
 }
 
 // Key returns the session the request is about.
@@ -220,6 +223,10 @@ type AgentProblem struct {
 type BindingStatus struct {
 	Agent   AgentRef `json:"agent"`
 	Session string   `json:"session"`
+	// Open is true while the session is open.
+	Open bool `json:"open,omitempty"`
+	// Turned is true once the session has run a turn, so the harness can resume it.
+	Turned bool `json:"turned,omitempty"`
 }
 
 // ErrFrameTooLarge means a control socket message was larger than MaxFrame.

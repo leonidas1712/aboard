@@ -156,6 +156,27 @@ func buildPrograms(dir string) {
 		fmt.Fprintln(os.Stderr, "build fake harness:", err)
 		os.Exit(1)
 	}
+	// The harnesses swarm up starts: one program that plays claude, codex and omp by the
+	// name it runs as. And herdr's launcher, with a stand-in for herdr.
+	for _, b := range []struct{ out, pkg string }{
+		{filepath.Join(dir, "fakeagents", "claude"), "./e2e/fakeagent"},
+		{filepath.Join(dir, "herdrbin", "herdr"), "./e2e/fakeherdr"},
+		{filepath.Join(dir, "herdrbin", "aboard-launcher-herdr"), "./launchers/herdr"},
+	} {
+		build := exec.Command("go", "build", "-o", b.out, b.pkg)
+		build.Dir = ".."
+		build.Stdout, build.Stderr = os.Stderr, os.Stderr
+		if err := build.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "build", b.pkg+":", err)
+			os.Exit(1)
+		}
+	}
+	for _, name := range []string{"codex", "omp"} {
+		if err := os.Link(filepath.Join(dir, "fakeagents", "claude"), filepath.Join(dir, "fakeagents", name)); err != nil {
+			fmt.Fprintln(os.Stderr, "link the fake agent:", err)
+			os.Exit(1)
+		}
+	}
 	// A stand-in claude that only reports its version, so no test runs the person's own
 	// Claude Code. FAKE_CLAUDE_VERSION plays an older one.
 	fakeClaude := "#!/bin/sh\necho \"${FAKE_CLAUDE_VERSION:-2.1.288} (Claude Code)\"\n"

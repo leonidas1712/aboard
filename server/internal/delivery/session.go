@@ -130,6 +130,10 @@ type session struct {
 	// daemon can tell a session that started no turn from one whose turns it can't see
 	// (Codex with untrusted hooks).
 	seenTurns bool
+	// turned is true once the session has run a turn, which is kept in the journal: a
+	// harness can resume a session only after it, since only then does it save the
+	// conversation.
+	turned bool
 	// awaitingTurn are deliveries handed to the session while it was idle, waiting for
 	// the turn they should start; stallAt is when they count as stalled.
 	awaitingTurn []*Delivery
@@ -260,6 +264,22 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
 	s.noteProcess(ctx, req)
 	switch req.Op {
+	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent:
+		if s.started && !s.open {
+			// A turn runs, so the session is open again, with the agent it still holds: a
+			// harness that resumes a session without running its session-start hook (Codex
+			// 0.160 resuming a thread) reports in with its first turn instead. The process
+			// the turn runs under is the session's now, as a register's would be.
+			if req.Process != nil {
+				p := *req.Process
+				s.proc = &p
+			}
+			s.setOpen(ctx, true)
+			s.d.log.Info("session started", "session", s.key.String(), "source", "turn", "reopened", true,
+				"agents", len(s.agents), "lost", false)
+		}
+	}
+	switch req.Op {
 	case OpRegister:
 		// A session that closed and starts again with the same id (the harness resumed it)
 		// is still bound to the agent it filled, unless another session resumed that
@@ -304,6 +324,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		ok.Bundle, ok.Notice = s.boundary(ctx)
 	case OpTurnEnd:
+		s.markTurned(ctx)
 		s.event(ctx, req.Boot)
 		s.inTurn, s.working = false, false
 		s.seenTurns = true
@@ -315,6 +336,10 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil
+		}
+		if s.open {
+			// Logged like a start, so a session that ends early shows in the log.
+			s.d.log.Info("session ended", "session", s.key.String(), "agents", len(s.agents))
 		}
 		s.setOpen(ctx, false)
 	case OpBind:
@@ -463,8 +488,18 @@ func (s *session) setOpen(ctx context.Context, open bool) {
 	}
 }
 
+// markTurned records that the session has run a turn.
+func (s *session) markTurned(ctx context.Context) {
+	if s.turned {
+		return
+	}
+	s.turned = true
+	s.d.setTurned(s.key)
+	s.saveSession(ctx)
+}
+
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -1172,6 +1207,7 @@ func (s *session) accepted(ctx context.Context, ds []*Delivery, idle bool) {
 // one that had stalled no longer has.
 func (s *session) turnStarted(ctx context.Context) {
 	s.seenTurns = true
+	s.markTurned(ctx)
 	now := s.now()
 	for _, dl := range s.awaitingTurn {
 		dl.TurnStartedAt = now

@@ -63,6 +63,19 @@ trusted in each harness.
 - [ ] `aboard doctor` shows every check green on this machine.
 - [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. **Automated**, `TestHumansModeWakesOnlyForPeople`. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`: covered by e2e.
 
+## Start a board with agents ([docs/swarm.mdx](../docs/swarm.mdx))
+
+`aboard swarm up`, `ps` and `down` through tmux, headless and the herdr launcher, the
+resume and `--fresh`, and every refusal on the page are covered by e2e with stand-ins for
+the harnesses and for herdr (`e2e/swarm_test.go`); the launchers pass the launcher kit in
+`make test`.
+
+- [ ] The page's board file, with one Claude Code, one Codex and one omp, started by `aboard swarm up`: each agent takes its seat with no join line pasted, and a message from one agent to another is answered. **Automated**, `TestSwarmUpStartsEveryHarness/tmux`.
+- [ ] The same with `aboard swarm up --launcher herdr`, after `go build -o ~/.local/bin/aboard-launcher-herdr ./launchers/herdr`. **Automated**, `TestSwarmUpStartsEveryHarness/herdr`; the herdr launcher against the real herdr, `TestHerdrLauncherPassesTheKit`.
+- [ ] `aboard swarm down codex`, then `aboard swarm up`: codex comes back in the same session (`swarm ps` says resumed) and answers a message that waited. **Automated** per harness, `TestSwarmUpResumesTheLastSession`.
+- [ ] Each attach line `swarm up` prints works from a terminal: `tmux -L <swarm> attach -t <swarm>:<agent>` shows that agent's session, and `herdr session attach <swarm>` shows the swarm's herdr session with one tab per agent.
+- [ ] In a folder Claude Code or Codex has never opened, `aboard swarm up` stops with `swarm_not_ready` naming the agent and its attach line; answering the trust question there seats it, and `aboard swarm ps` shows it seated.
+
 ## Install, update and remove ([docs/install.mdx](../docs/install.mdx))
 
 The page's `aboard` commands and their checks are **automated**, `TestInstallPageCommands`;

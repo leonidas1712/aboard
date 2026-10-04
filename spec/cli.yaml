@@ -31,7 +31,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, invite, watch, logout --browsers, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, invite, watch, logout --browsers, swarm up, ps and down, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -118,7 +118,20 @@ $defs:
       details.new_board, the command that starts another board) · join_line_invalid ·
       message_ref_invalid · check_failed · confirmation_required (the command would
       delete data and needs a person's yes, but can't ask: standard input isn't a
-      terminal, or --json was given; the hint names the command again with --yes).
+      terminal, or --json was given; the hint names the command again with --yes) ·
+      board_file_not_found · board_file_invalid (the board file doesn't match
+      spec/aboard.schema.json, or swarm up can't apply what it sets; details.errors lists
+      each problem with its place in the file) · harness_unknown (an agent names a harness
+      with no profile) · harness_not_installed (its command isn't on the PATH) ·
+      launcher_not_found (no built-in launcher and no aboard-launcher-<name> on the PATH)
+      · launcher_failed (the launcher answered with an error; details.code, details.stderr)
+      · launcher_broken (an external launcher didn't keep to spec/launcher.md) ·
+      headless_unsupported (the harness has no native headless mode the headless
+      launcher can run) · agent_seat_elsewhere (the board has an agent with that name,
+      but this machine holds no credential for it) · swarm_not_ready (swarm up's --wait
+      ran out before every agent was seated, or a session ended before its agent took the
+      seat; details.agents names them, details.exited the ones whose session ended, and the
+      hint how to watch each) · swarm_not_found (ps or down found no swarm for the board).
   ServerRef:
     type: object
     required: [name, url]
@@ -1372,3 +1385,147 @@ $defs:
           seq: { type: integer }
           hash: { type: string }
           matches: { type: boolean }
+
+  # ---------- aboard swarm up | ps | down ----------
+  SwarmAgent:
+    description: |
+      One agent of a swarm: its seat on the board, how its session was started on this
+      machine and whether it runs. swarm up, ps and down read the swarm's record on this
+      machine (in the state folder, swarms/), the launcher's status, the delivery
+      daemon's bindings and the board's members.
+    type: object
+    required: [name, harness, role, launcher, mode, dir, handle, attach, state, start, start_note, session, seated, presence, delivery]
+    properties:
+      name: { type: string, examples: [claude] }
+      harness: { type: string, examples: [claude-code] }
+      role: { type: string, examples: [member] }
+      launcher: { type: string, examples: [tmux, headless, herdr] }
+      mode:
+        enum: [interactive, headless]
+        description: interactive for a terminal launcher; headless for the headless launcher, whose runner runs one turn per batch of messages.
+      dir: { type: string, description: The folder the session runs in. }
+      handle:
+        type: [string, "null"]
+        description: The launcher's handle for the session (spec/launcher.md); null before the agent was ever started here.
+        examples: ["aboard-docs-3f9a0c/@3", "aboard-docs-3f9a0c/w1:p4", "48213:1759500321"]
+      attach:
+        type: [string, "null"]
+        description: The line a person runs to watch the session, when the launcher gives one.
+        examples: ["tmux -L aboard-docs-3f9a0c attach -t aboard-docs-3f9a0c:claude", "herdr session attach aboard-docs-3f9a0c"]
+      state:
+        enum: [running, exited, unknown, not_started]
+        description: What the launcher says of the session; not_started when this machine never started one.
+      start:
+        enum: [fresh, resumed, null]
+        description: |
+          How swarm up last started the session: fresh, a new session; resumed, the
+          harness's own resume of the session the agent last had, so it keeps its
+          conversation (interactive.resume in the harness's profile; for a headless agent,
+          the runner resumes the harness session its last turn used). An agent's last
+          session is resumed only if it ran a turn: a harness saves a conversation only
+          from its first turn (Claude Code), so one that ran none starts fresh. A resumed
+          session that ends as it starts is started once more, fresh.
+      start_note:
+        type: [string, "null"]
+        description: 'Why an agent that had a session started fresh; null otherwise. Text output adds a line "<agent> started fresh: <note>."'
+        examples: ["the last session never ran a turn, so there was nothing to resume", "resuming the last session failed: it ended as it started, so a new one started"]
+      session:
+        type: [string, "null"]
+        description: The harness session that holds the agent's seat, as <harness>:<id>, from the delivery daemon; null when none has.
+        examples: ["claude-code:5f1c2d3e-0000-4000-8000-000000000001"]
+      seated:
+        type: boolean
+        description: |
+          Whether the agent's session has taken its seat: for an interactive agent, an
+          open session holds it; for a headless one, its runner is waiting on the inbox.
+      presence:
+        type: [string, "null"]
+        description: The agent's presence on the board (working, idle, waiting, no_session).
+      delivery:
+        type: [string, "null"]
+        description: The agent's delivery mode as the board shows it.
+
+  SwarmUpOutput:
+    description: |
+      aboard swarm up [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]
+      Reads the board file (default ./aboard.yaml) and checks it against
+      spec/aboard.schema.json; creates the board if it doesn't exist (from template,
+      charter, title and policy.preset); creates each agent's seat with the person's
+      login the first time; and starts every agent whose session isn't running through
+      its launcher, with its identity in the session's environment (ABOARD_AGENT and a
+      one-time launch ticket, spec/launcher.md), so no join line is pasted. An agent
+      whose session runs is left as it is. An agent that had a session before is resumed
+      with the harness's own resume, so it keeps its conversation, unless --fresh is
+      given or the harness can't resume. --launcher sets the launcher of agents that
+      don't name their own. Then it waits, up to --wait, until every agent is seated;
+      --wait 0 doesn't wait. A person's command: inside a harness session it refuses with
+      human_command_in_session. It starts sessions once and never schedules anything.
+      Text output:
+        Using local Aboard at http://127.0.0.1:7400
+        Created board trio from aboard.yaml
+        Swarm aboard-trio-3f9a0c on trio:
+          claude  claude-code  tmux  started  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:claude
+          codex   codex        tmux  resumed  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:codex
+          omp     omp          tmux  running  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:omp
+        All 3 agents are seated. Watch and message them with: aboard open --board trio
+    type: object
+    required: [server, server_started, file, board, board_created, swarm, policy_notice, agents]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      server_started: { type: boolean }
+      file: { type: string, description: The board file's absolute path. }
+      board: { $ref: openapi.yaml#/components/schemas/Board }
+      board_created: { type: boolean }
+      swarm:
+        type: string
+        description: The swarm's name on this machine, which launchers name their tmux server or herdr session after.
+        examples: [aboard-trio-3f9a0c]
+      policy_notice: { $ref: "#/$defs/PolicyNotice" }
+      agents:
+        type: array
+        items:
+          allOf:
+            - $ref: "#/$defs/SwarmAgent"
+            - type: object
+              required: [action, seat_created]
+              properties:
+                action:
+                  enum: [started, resumed, already_running]
+                  description: What this run did with the agent's session.
+                seat_created: { type: boolean, description: True when this run created the agent's seat. }
+
+  SwarmPsOutput:
+    description: |
+      aboard swarm ps [--file aboard.yaml | --board B] [--json]
+      The swarm's agents: each one's launcher, the launcher's handle and whether the
+      session runs, whether it was started fresh or resumed, the session that holds its
+      seat, and its presence and delivery mode. The swarm is --board's, else the board
+      file's (default ./aboard.yaml), else the only swarm on this machine. Text output:
+        trio · 3 agents · swarm aboard-trio-3f9a0c
+          claude  claude-code  tmux  running  fresh    seated  idle        focused
+          codex   codex        tmux  running  resumed  seated  working     focused
+          omp     omp          tmux  exited   fresh    -       no_session  focused
+    type: object
+    required: [server, board, swarm, agents]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string }
+      swarm: { type: string }
+      agents: { type: array, items: { $ref: "#/$defs/SwarmAgent" } }
+
+  SwarmDownOutput:
+    description: |
+      aboard swarm down [agent…] [--file aboard.yaml | --board B] [--json]
+      Stops the swarm's sessions, or only the named agents', through their launchers.
+      The board, the seats and the record stay: aboard swarm up starts them again, and
+      resumes each session where the harness can. A person's command, like swarm up.
+      Text output:
+        Stopped claude, codex and omp on trio. The board, the seats and the record stay; aboard swarm up starts them again.
+    type: object
+    required: [server, board, swarm, stopped, not_running]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string }
+      swarm: { type: string }
+      stopped: { type: array, items: { type: string }, description: Agents whose sessions this run stopped. }
+      not_running: { type: array, items: { type: string }, description: Agents named, or in the swarm, whose sessions weren't running. }

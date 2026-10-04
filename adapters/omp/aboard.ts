@@ -37,7 +37,7 @@ const INSTALLED_HOME = "{aboard_home}";
 /** The control protocol version this extension speaks. */
 const PROTOCOL = 1;
 /** This extension's version, sent in hello; it changes when the file does. */
-const EXTENSION_VERSION = "2";
+const EXTENSION_VERSION = "3";
 const HARNESS = "omp";
 
 /** One id per omp process, so a bundle handed to an earlier process goes again. */
@@ -298,6 +298,9 @@ class Link {
 					cwd: ctx?.cwd,
 					harness_version: (this.#pi as { pi?: { VERSION?: string } }).pi?.VERSION,
 					extension_version: EXTENSION_VERSION,
+					// The launch ticket aboard swarm up started omp with, if any: the daemon
+					// binds the session to the agent it names. A ticket works once.
+					launch: process.env.ABOARD_LAUNCH || undefined,
 				})}\n`,
 			);
 		});

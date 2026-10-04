@@ -138,7 +138,8 @@ func command(ctx context.Context, name string, args ...string) *exec.Cmd {
 func configSums() map[string]string {
 	home, _ := os.UserHomeDir()
 	sums := map[string]string{}
-	for _, f := range []string{".claude/settings.json", ".codex/config.toml", ".codex/hooks.json", ".omp/agent/config.yml"} {
+	// herdr's config: the swarm tests run herdr only with a config folder of their own.
+	for _, f := range []string{".claude/settings.json", ".codex/config.toml", ".codex/hooks.json", ".omp/agent/config.yml", ".config/herdr/config.toml"} {
 		path := filepath.Join(home, f)
 		sums[path] = treeSum(path)
 	}
@@ -291,6 +292,9 @@ type lab struct {
 	codexReady bool
 	tmux       string
 	panes      []*pane
+	// extra are more artifacts to save, by file name: what a test captured itself, such
+	// as the panes of a swarm's own tmux server or herdr session before they stop.
+	extra map[string][]byte
 	// typed counts the prompts typed into harnesses, for the turn estimate.
 	typed int
 }
@@ -472,7 +476,7 @@ func (l *lab) teardown() {
 	// the harnesses to be gone before stopping aboard.
 	var harnesses []int
 	for _, p := range l.panes {
-		out, err := command(ctx, "tmux", "-S", l.tmux, "display-message", "-p", "-t", p.target(), "#{pane_pid}").Output()
+		out, err := command(ctx, "tmux", "-S", p.socket(), "display-message", "-p", "-t", p.target(), "#{pane_pid}").Output()
 		if pid, convErr := strconv.Atoi(strings.TrimSpace(string(out))); err == nil && convErr == nil {
 			harnesses = append(harnesses, pid)
 		}
@@ -567,6 +571,9 @@ func (l *lab) saveArtifacts() {
 	}
 	for _, p := range l.panes {
 		write("pane-"+p.name+".txt", []byte(p.scrollback()))
+	}
+	for name, data := range l.extra {
+		write(name, data)
 	}
 	for name, path := range map[string]string{
 		"daemon.log": filepath.Join(l.stateDir(), "daemon.log"),
@@ -1041,6 +1048,9 @@ type pane struct {
 	harness string
 	// d drives the harness the pane runs.
 	d *driver
+	// sock and session are the tmux server and session the pane is in: the lab's own
+	// ("live"), unless aboard swarm up's tmux launcher started it in the swarm's.
+	sock, session string
 }
 
 // driverFor returns the driver of the harness whose command is name.
@@ -1055,7 +1065,30 @@ func (l *lab) driverFor(name string) *driver {
 	return nil
 }
 
-func (p *pane) target() string { return "live:" + p.name }
+func (p *pane) target() string {
+	if p.session != "" {
+		return p.session + ":" + p.name
+	}
+	return "live:" + p.name
+}
+
+// socket is the tmux server the pane is in.
+func (p *pane) socket() string {
+	if p.sock != "" {
+		return p.sock
+	}
+	return p.l.tmux
+}
+
+// tmuxRun runs a tmux command on the pane's tmux server.
+func (p *pane) tmuxRun(args ...string) string {
+	p.l.t.Helper()
+	out, err := command(context.Background(), "tmux", append([]string{"-S", p.socket()}, args...)...).CombinedOutput()
+	if err != nil {
+		p.l.t.Fatalf("tmux %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return string(out)
+}
 
 // tmuxRun runs a tmux command on the lab's own tmux server.
 func (l *lab) tmuxRun(args ...string) string {
@@ -1089,7 +1122,7 @@ func (l *lab) start(name, dir string, env, argv []string) *pane {
 func (p *pane) respawn(env, argv []string) {
 	p.l.t.Helper()
 	path := p.l.launchScript(p.name+"-again", env, argv)
-	p.l.tmuxRun("respawn-pane", "-t", p.target(), "-c", p.dir, path)
+	p.tmuxRun("respawn-pane", "-t", p.target(), "-c", p.dir, path)
 	p.l.waitFor(10*time.Second, p.name+": the pane to run again", func() bool { return !strings.Contains(p.screen(), "Pane is dead") })
 }
 
@@ -1122,7 +1155,7 @@ func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''
 
 // screen is what the pane shows now, with wrapped lines joined.
 func (p *pane) screen() string {
-	out, err := command(context.Background(), "tmux", "-S", p.l.tmux, "capture-pane", "-p", "-J", "-t", p.target()).Output()
+	out, err := command(context.Background(), "tmux", "-S", p.socket(), "capture-pane", "-p", "-J", "-t", p.target()).Output()
 	if err != nil {
 		return ""
 	}
@@ -1131,7 +1164,7 @@ func (p *pane) screen() string {
 
 // scrollback is everything the pane has shown.
 func (p *pane) scrollback() string {
-	out, err := command(context.Background(), "tmux", "-S", p.l.tmux, "capture-pane", "-p", "-J", "-S", "-", "-t", p.target()).Output()
+	out, err := command(context.Background(), "tmux", "-S", p.socket(), "capture-pane", "-p", "-J", "-S", "-", "-t", p.target()).Output()
 	if err != nil {
 		return ""
 	}
@@ -1140,7 +1173,7 @@ func (p *pane) scrollback() string {
 
 // keys sends tmux key names, such as Enter or Down.
 func (p *pane) keys(keys ...string) {
-	p.l.tmuxRun(append([]string{"send-keys", "-t", p.target()}, keys...)...)
+	p.tmuxRun(append([]string{"send-keys", "-t", p.target()}, keys...)...)
 }
 
 // typeInto types text into the harness and submits it. The text and the Enter are sent
@@ -1148,7 +1181,7 @@ func (p *pane) keys(keys ...string) {
 // a paste.
 func (p *pane) typeInto(text string) {
 	p.l.t.Helper()
-	p.l.tmuxRun("send-keys", "-t", p.target(), "-l", text)
+	p.tmuxRun("send-keys", "-t", p.target(), "-l", text)
 	prefix := text
 	if len(prefix) > 30 {
 		prefix = prefix[:30]
@@ -1161,7 +1194,7 @@ func (p *pane) typeInto(text string) {
 // pid is the harness's process id: the launch script execs it in the pane.
 func (p *pane) pid() int {
 	p.l.t.Helper()
-	pid, err := strconv.Atoi(strings.TrimSpace(p.l.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_pid}")))
+	pid, err := strconv.Atoi(strings.TrimSpace(p.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_pid}")))
 	if err != nil {
 		p.l.t.Fatalf("read the pane's process: %v", err)
 	}
