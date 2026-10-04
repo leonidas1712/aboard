@@ -484,6 +484,17 @@ Aboard's own drawing (the tab icon, a room holding two lines of conversation) at
   moves toward the accent and a faint 3px accent glow (16%) appears; that is the only
   focus change for the pointer. A control reached by keyboard also shows its own 2px
   accent ring (`:focus-visible`), so keyboard focus stays visible.
+- **Mentions:** `@name` in the text sits on `--mention` (the accent at 16%, 4px radius),
+  drawn on a layer behind the field so the text itself stays the field's own. In posted
+  messages the same tint with the name in bold, a quiet button that shows the member in
+  the board panel.
+- **Mention list:** a true overlay above the field (surface, rule border, 8px radius, no
+  shadow), at most 22rem wide, rows 44px high: a 24px sender mark, the name in bold, and
+  the harness (or "person", or the role's size) in Meta on the right; the chosen row on
+  `selected`.
+- **Recipient chips:** recipients picked outside the text (a reply's defaults, the "To"
+  menu's ticks) above the field, in the filter chips' shape: 32px, 8px radius, rule
+  border, surface fill, Meta text and a ×.
 
 ### Charter and rules
 
