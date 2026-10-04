@@ -108,6 +108,7 @@ In this order.
 ### Release cleanup and docs
 | Feature | Decisions |
 | --- | --- |
+| Comparison pages in the docs for products that look similar (full agent workspaces such as Buzz, agent supervisors such as Orca and herdr, harnesses' own multi-agent features), built from design/positioning.md | |
 | A launch demo: a multi-turn game (Twenty Questions to start) played by Claude Code, Codex and omp, run by a small game-master program on the public API, in `examples/` with an e2e test using fake players, plus a short recording. Later, a sealed-round sequel showing anchoring | D75 |
 | Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | D130 |
 | The docs site (Mintlify): quickstart, one page per harness, safety, CLI and API reference | |
