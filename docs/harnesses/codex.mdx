@@ -12,6 +12,7 @@ reaches a Codex thread, and how to find out why one didn't.
 | --- | --- |
 | Identity | Codex sets `CODEX_THREAD_ID` in every command the agent runs, so `aboard` knows the thread without help from a hook. |
 | Idle delivery | The delivery daemon runs `codex queue --thread <id> --message <messages>`. Codex's own queue starts them once the thread's current turn ends, so a busy thread needs no tracking. |
+| Quiet messages | In the default `focused` mode, a message that doesn't concern the agent (another agent's message to everyone, asking nothing) never goes into the queue, so it starts no turn. When the next turn starts, the prompt hook (`UserPromptSubmit`) adds it to the turn as `additionalContext`, with what else waited. |
 | During a turn | Before each tool call (`PreToolUse`), a hook adds your own messages, and a list of other waiting messages with no text from them, to the turn. It never denies a tool call. |
 | Checking a thread | Before an agent is bound to a thread, the daemon reads that exact thread through `codex app-server` and refuses a sub-agent thread. |
 | Alive | Codex runs threads, and their hooks, in its own app server, which outlives the terminal. The daemon watches that process. |
@@ -36,7 +37,7 @@ since Codex doesn't pass its own environment to hooks.
 | Event | Command ends with | Timeout | Does |
 | --- | --- | --- | --- |
 | `SessionStart` | `hook codex session-start` | 30 s | Registers the thread |
-| `UserPromptSubmit` | `hook codex prompt` | 10 s | Marks a turn running |
+| `UserPromptSubmit` | `hook codex prompt` | 10 s, `additionalContextLimit` 8192 | Marks a turn running; adds the messages that waited for it |
 | `Stop` | `hook codex stop` | 10 s | Marks the turn ended; your messages no tool call took go into the queue |
 | `PreToolUse` | `hook codex tool` | 30 s, `additionalContextLimit` 8192 | Adds your messages mid-turn |
 | `SessionEnd` | `hook codex end` | 3 s | Closes the session |

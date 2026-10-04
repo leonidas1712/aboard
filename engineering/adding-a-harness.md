@@ -38,8 +38,9 @@ shows each one per harness, with a note where it is partial:
 | Baseline | `identity`, `session_env`, an install item of kind `skill` | Fast kit: init, uninstall, doctor, identity, docs page. Live: `TestWakesAndReplies` (pairing in plain words) |
 | Wakes when idle | `delivery.capabilities`: `idle-hook`, `queue` or `extension` | Fast kit: idle delivery, a killed session, resume. Live: `TestWakesAndReplies`, `TestPingPong`, `TestRepliesReachPromptly`, `TestKilledSessionRedelivers`, `TestRestartsLoseNothing` |
 | Peers at turn end, bundled | Automatic delivery | Fast kit: a busy turn. Live: `TestOwnerReachesBusy` |
-| Owner mid-turn | `tool-boundary` (or `turn-start`, `extension`) | Fast kit: a tool boundary. Live: `TestOwnerReachesBusy` |
+| Owner mid-turn | `tool-boundary` (or `extension`) | Fast kit: a tool boundary. Live: `TestOwnerReachesBusy` |
 | Waiting notice | `delivery.waiting_notice` | Fast kit and live: `TestPeerWaitsButNoticeArrives` |
+| Quiet messages at a turn's start | `turn-start`: a hook of op `prompt` that prints what its answer carries, or the extension's own turn-start event | Fast kit: the focused delivery checks (`kitfocused_test.go`). Live: `TestQuietMessageArrivesWithTheOwnersNextPrompt` |
 | Presence | Hooks of op `prompt`, `wait` or `turn-end`, and `end` | Fast kit: hooks. Live: `TestWakesAndReplies` |
 | Reconnects on resume | `lifecycle.resume_keeps_id`, `interactive.resume` | Fast kit: resume. Live: `TestResumeReconnects` |
 | Subagents | `subagent_identity` | Fast kit: a marked subagent may only read. Live: `TestSubagentCannotActAsItsParent` |
@@ -242,7 +243,7 @@ It runs two halves, both driven by the profile, so nothing in them names a harne
 
 - `server/internal/harness/registry/conformance_test.go`, in process: the profile
   matches the schema; every capability, identity kind, liveness, install item and
-  subagent level it declares has code behind it (declaring `turn-start` or `seats`
+  subagent level it declares has code behind it (declaring `seats`
   today fails, naming what is missing); its delivery adapter passes the
   delivery port's contract (`deliverytest.RunAdapter`); its markers find its sessions,
   a harness started inside one of its sessions is taken for itself, and two harnesses
