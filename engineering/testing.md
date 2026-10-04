@@ -122,7 +122,17 @@ rotate or invalidate it. Each harness's docs page says the same.
   sets to `CLAUDE_CODE_OAUTH_TOKEN`, the token it already uses for Claude Code; an OAuth
   token from the environment has no refresh token, so nothing can rotate it. Without
   the token, the omp tests fail with a message saying to set it; they never skip and
-  never fall back to the person's own login. `LIVE_OMP_MODEL` picks the model.
+  never fall back to the person's own login.
+
+#### Which models the live suite runs
+
+The suite proves Aboard's wiring to a harness, not what a model can do, so each harness
+runs a cheap model by default, passed on every start and resume: Claude Code
+`claude-haiku-4-5`, Codex `gpt-6-luna`, omp `anthropic/claude-haiku-4-5`.
+`LIVE_CLAUDE_MODEL`, `LIVE_CODEX_MODEL` and `LIVE_OMP_MODEL` name another for one run.
+When a scenario is too hard for the cheap model, step it up one tier (Haiku to Sonnet,
+Luna to Sol), never straight to the top model. `make live-smoke` checks each harness
+answers one prompt with its model before a full run spends turns.
 
 ### Extension tests
 

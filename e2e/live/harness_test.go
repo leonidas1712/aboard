@@ -106,10 +106,7 @@ func (l *lab) startClaude(name, dir string) *pane {
 // a session id).
 func claudeArgv(args ...string) []string {
 	// The slow task is how tests keep a turn busy; aboard itself is allowed by aboard init.
-	argv := []string{"claude", "--allowedTools", "Bash(./" + slowTask + ")"}
-	if model := os.Getenv("LIVE_CLAUDE_MODEL"); model != "" {
-		argv = append(argv, "--model", model)
-	}
+	argv := []string{"claude", "--model", claudeModel(), "--allowedTools", "Bash(./" + slowTask + ")"}
 	return append(argv, args...)
 }
 
@@ -500,7 +497,7 @@ func (l *lab) startCodex(name, dir string) *pane {
 // id).
 func (l *lab) codexArgv(args ...string) []string {
 	return append([]string{
-		"codex", "-s", "workspace-write",
+		"codex", "-m", codexModel(), "-s", "workspace-write",
 		"--add-dir", filepath.Join(l.dir, "state"), "--add-dir", fmt.Sprintf("/tmp/aboard-%d", os.Getuid()),
 		"-a", "on-request",
 	}, args...)

@@ -110,7 +110,7 @@ func (l *lab) codexExec(dir, prompt string) string {
 	l.typed++
 	ctx, cancel := context.WithTimeout(l.t.Context(), 4*time.Minute)
 	defer cancel()
-	cmd := command(ctx, "codex", "exec", "--json", "--skip-git-repo-check", "-s", "workspace-write", "-C", dir, prompt)
+	cmd := command(ctx, "codex", "exec", "--json", "--skip-git-repo-check", "-m", codexModel(), "-s", "workspace-write", "-C", dir, prompt)
 	cmd.Dir, cmd.Env = dir, l.vars
 	raw, err := cmd.Output()
 	if err != nil {

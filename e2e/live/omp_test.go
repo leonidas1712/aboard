@@ -76,15 +76,6 @@ func detectOmp(p support.Profile) ompSetup {
 	return ompSetup{}
 }
 
-// ompModel is the model the suite runs omp with: LIVE_OMP_MODEL, else an Anthropic model,
-// so omp never picks a local or another provider's model that happens to be set up.
-func ompModel() string {
-	if m := os.Getenv("LIVE_OMP_MODEL"); m != "" {
-		return m
-	}
-	return "anthropic/claude-sonnet-4-6"
-}
-
 // ompHome is the scratch home folder omp runs with in this lab, set up on first use:
 // past omp's first-run setup, and with update checks off, since an update offered in the
 // middle of a test would change the person's own install.

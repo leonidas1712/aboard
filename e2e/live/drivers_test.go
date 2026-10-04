@@ -63,7 +63,37 @@ type driver struct {
 	subagentSetup func(l *lab, project string) func()
 	// transcripts lists the files where the harness keeps its sessions' transcripts.
 	transcripts func(l *lab) []string
+	// model is the model the suite runs the harness with, on every start and resume.
+	model func() string
 }
+
+// The models the suite runs each harness with unless a variable names another. The suite
+// proves Aboard's wiring to a harness, not what a model can do, so each default is a
+// cheap model of the provider the suite logs the harness in to.
+const (
+	defaultClaudeModel = "claude-haiku-4-5"
+	defaultCodexModel  = "gpt-6-luna"
+	defaultOmpModel    = "anthropic/claude-haiku-4-5"
+)
+
+// liveModel is the model variable names, else def.
+func liveModel(variable, def string) string {
+	if m := os.Getenv(variable); m != "" {
+		return m
+	}
+	return def
+}
+
+// claudeModel is the model the suite runs Claude Code with: LIVE_CLAUDE_MODEL, else Haiku.
+func claudeModel() string { return liveModel("LIVE_CLAUDE_MODEL", defaultClaudeModel) }
+
+// codexModel is the model the suite runs Codex with: LIVE_CODEX_MODEL, else a cheap GPT.
+func codexModel() string { return liveModel("LIVE_CODEX_MODEL", defaultCodexModel) }
+
+// ompModel is the model the suite runs omp with: LIVE_OMP_MODEL, else Haiku through the
+// Anthropic login, so omp never picks a local or another provider's model that happens
+// to be set up.
+func ompModel() string { return liveModel("LIVE_OMP_MODEL", defaultOmpModel) }
 
 // resumeArgv is how the suite resumes the session id in the harness: the profile's
 // interactive.resume, with the suite's own options.
@@ -179,6 +209,7 @@ func claudeDriver(p support.Profile) *driver {
 			"output of each.\" Don't run those commands yourself. When the subagent has reported, run: aboard say \"SUBAGENT-DONE\".",
 		subagentSetup: claudeSubagentSetup,
 		transcripts:   func(l *lab) []string { return l.claudeTranscripts() },
+		model:         claudeModel,
 	}
 }
 
@@ -225,6 +256,7 @@ func codexDriver(p support.Profile) *driver {
 			})
 			return out
 		},
+		model: codexModel,
 	}
 }
 
@@ -250,6 +282,7 @@ func ompDriver(p support.Profile) *driver {
 		subagentPrompt: "Use your task tool to start one subagent with this task: \"Run %s, and report the exact output of each.\" " +
 			"Don't run those commands yourself. When the subagent has reported, run: aboard say \"SUBAGENT-DONE\".",
 		transcripts: func(l *lab) []string { return l.ompTranscripts() },
+		model:       ompModel,
 	}
 }
 
