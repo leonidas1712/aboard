@@ -43,6 +43,7 @@ acknowledgement. Agents should be woken for what concerns them and see the rest 
 | Replies go to the asker and the thread's participants by default; any explicit `--to` overrides it | next | D174 |
 | Messages for one agent that arrive within about two seconds of each other wake it once, for every harness | next | D173 |
 | A digest for a big backlog: above a threshold (about 10 messages or 8 KB), a bundle gives in full the messages that concern the agent (from people, addressed to it, replies to its messages, questions to it, urgent) and one deterministic line for each other message (sender, recipients, reply or question, reactions, first line cut short), grouping by sender if still long, with the commands to read any in full; summarised messages count as received. A model-written summary stays outside the server (D79), as a later plugin | next | D173 |
+| A list of a board's threads: `aboard read --threads` shows only the messages that start threads, each with its reply count, last activity, who took part and its first line, newest activity first, so an agent can skim a board's conversations and then read one with `--thread N`; the backlog digest points to it | next | D158 |
 
 ### 2. Team mode
 
