@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -91,4 +92,117 @@ func readmeOutput(t *testing.T, readme, prompt string) string {
 		t.Fatalf("%s: the code block after %q doesn't end", readme, prompt)
 	}
 	return out
+}
+
+// launcherExample is the example launcher docs/extending.mdx shows, relative to /e2e.
+const launcherExample = "../examples/launcher-bg/aboard-launcher-bg"
+
+// TestExtendingPageShowsTheExampleLauncher checks that the launcher docs/extending.mdx
+// shows is examples/launcher-bg/aboard-launcher-bg byte for byte, so the code a reader
+// copies is the code TestExampleLauncherPassesTheKit checks.
+func TestExtendingPageShowsTheExampleLauncher(t *testing.T) {
+	t.Parallel()
+	file, err := os.ReadFile(launcherExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := os.ReadFile("../docs/extending.mdx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, after, ok := strings.Cut(string(page), "```python\n")
+	if !ok {
+		t.Fatal("docs/extending.mdx has no python code block")
+	}
+	block, _, ok := strings.Cut(after, "```\n")
+	if !ok {
+		t.Fatal("docs/extending.mdx: the python code block doesn't end")
+	}
+	if block != string(file) {
+		t.Fatalf("docs/extending.mdx's launcher differs from examples/launcher-bg/aboard-launcher-bg; copy the file into the page\npage:\n%s\nfile:\n%s", block, file)
+	}
+}
+
+// TestExampleLauncherPassesTheKit runs the launcher kit against
+// examples/launcher-bg/aboard-launcher-bg, as make launcher-kit LAUNCHER=bg does with
+// the script saved on the PATH, so a change to the launcher protocol that breaks the
+// example fails here. It runs with a home, Aboard home and temporary folder of its own.
+func TestExampleLauncherPassesTheKit(t *testing.T) {
+	t.Parallel()
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Fatal("The example launcher needs Python 3, and python3 isn't on the PATH. Install it " +
+			"(macOS: brew install python, or xcode-select --install; Debian or Ubuntu: apt install python3) and run the tests again.")
+	}
+	// The interpreter itself, not a version manager's shim (pyenv, asdf), which looks
+	// for its settings in the home this test replaces.
+	out, err := exec.Command(python, "-c", "import sys; print(sys.executable)").Output()
+	if err != nil {
+		t.Fatalf("python3 -c 'import sys; print(sys.executable)': %v", err)
+	}
+	interpreter := strings.TrimSpace(string(out))
+
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	if err := os.Mkdir(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	example, err := filepath.Abs(launcherExample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, target := range map[string]string{"aboard-launcher-bg": example, "python3": interpreter} {
+		if err := os.Symlink(target, filepath.Join(bin, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// go test keeps this machine's Go settings and caches, found before HOME changes,
+	// so the kit doesn't build everything again in the test's home.
+	goVars := []string{"GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"}
+	goEnv, err := exec.Command("go", append([]string{"env"}, goVars...)...).Output()
+	if err != nil {
+		t.Fatalf("go env: %v", err)
+	}
+	goValues := strings.Split(strings.TrimSuffix(string(goEnv), "\n"), "\n")
+	if len(goValues) != len(goVars) {
+		t.Fatalf("go env printed %q, want %d lines", goEnv, len(goVars))
+	}
+	vars := []string{
+		"LAUNCHER=bg",
+		"PATH=" + bin + string(os.PathListSeparator) + systemPath,
+		"HOME=" + filepath.Join(root, "home"),
+		"ABOARD_HOME=" + filepath.Join(root, "aboard"),
+		"TMPDIR=" + filepath.Join(root, "tmp"),
+	}
+	for i, name := range goVars {
+		vars = append(vars, name+"="+goValues[i])
+	}
+	for _, dir := range []string{"home", "aboard", "tmp"} {
+		if err := os.Mkdir(filepath.Join(root, dir), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		switch {
+		case name == "PATH", name == "HOME", name == "TMPDIR", name == "LAUNCHER",
+			strings.HasPrefix(name, "ABOARD_"), slices.Contains(goVars, name):
+		default:
+			vars = append(vars, kv)
+		}
+	}
+
+	cmd := exec.Command("go", "test", "-tags", "launcherkit", "-count=1", "-v",
+		"-run", "^TestLauncherKit$", "./server/internal/launcher/launchertest/")
+	cmd.Dir = ".."
+	cmd.Env = vars
+	var output bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &output, &output
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("the launcher kit failed against examples/launcher-bg/aboard-launcher-bg: %v\n%s", err, output.String())
+	}
+	if !strings.Contains(output.String(), "--- PASS: TestLauncherKit") {
+		t.Fatalf("the launcher kit didn't run:\n%s", output.String())
+	}
 }

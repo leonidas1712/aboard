@@ -81,7 +81,9 @@ make launcher-kit LAUNCHER=<name>
 **A minimal launcher.** This one runs each session as a background process, as the
 built-in `headless` launcher does. Its `info` lists only the `headless` mode, so
 `swarm up` gives it the command of Aboard's headless runner, which waits on the agent's
-inbox and runs one turn per batch of messages (Claude Code's `--print`). Save it as
+inbox and runs one turn per batch of messages (Claude Code's `--print`). It is
+[examples/launcher-bg/aboard-launcher-bg](https://github.com/leonidas1712/aboard/blob/main/examples/launcher-bg/aboard-launcher-bg),
+which an end-to-end test runs through the launcher kit on every change. Save it as
 `aboard-launcher-bg` on your `PATH` and make it executable:
 
 ```python
