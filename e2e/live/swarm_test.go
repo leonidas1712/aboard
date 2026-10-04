@@ -414,17 +414,21 @@ func TestSwarmUpSeatsCodexBehindASharedAppServer(t *testing.T) {
 	up := s.swarm("up", "--wait", "0")
 	panes := s.swarmPanes(up)
 	s.waitSeated(panes)
-	after := codexAppServers(t.Context(), home)
-	t.Logf("Codex's app servers once the swarm's codex is seated: %v (before: %v)", after, before)
-	// The swarm's codex ran its thread on the app server started before it: that server
-	// ran its prompt hook, and no other app server started.
+	parents := codexAppServerParents(t.Context(), home)
+	t.Logf("Codex's app servers once the swarm's codex is seated, as pid: parent: %v (before: %v)", parents, before)
+	// The swarm's codex ran its thread on the app server daemon started before it: the
+	// daemon, or a server it started (it may replace its managed server), ran its prompt
+	// hook, and no app server started outside it. A server that went away is no concern.
+	shared := func(pid int) bool { return slices.Contains(before, pid) || slices.Contains(before, parents[pid]) }
 	runners := s.codexHookRunners("prompt")
-	if !slices.ContainsFunc(runners, func(pid int) bool { return slices.Contains(before, pid) }) {
-		t.Fatalf("the swarm's codex didn't run on the app server started before it (%v): its prompt hook ran under %v, and the app servers are now %v",
-			before, runners, after)
+	if !slices.ContainsFunc(runners, shared) {
+		t.Fatalf("the swarm's codex didn't run on the app server started before it (%v): its prompt hook ran under %v, and the app servers are now %v (pid: parent)",
+			before, runners, parents)
 	}
-	if !slices.Equal(after, before) {
-		t.Fatalf("the swarm's codex started an app server of its own: %v, before %v", after, before)
+	for pid := range parents {
+		if !shared(pid) {
+			t.Fatalf("the swarm's codex started an app server of its own, %d: the app servers are now %v (pid: parent), before %v", pid, parents, before)
+		}
 	}
 	for pid, env := range codexAppServerEnvs(t.Context(), home) {
 		if strings.Contains(env, " ABOARD_AGENT=") {
@@ -490,6 +494,28 @@ func codexAppServerEnvs(ctx context.Context, home string) map[int]string {
 		}
 		if pid, err := strconv.Atoi(fields[0]); err == nil {
 			found[pid] = line
+		}
+	}
+	return found
+}
+
+// codexAppServerParents maps each Codex app server running with CODEX_HOME home to its
+// parent process.
+func codexAppServerParents(ctx context.Context, home string) map[int]int {
+	out, err := command(ctx, "ps", "eww", "-ax", "-o", "pid=,ppid=,command=").Output()
+	if err != nil {
+		return nil
+	}
+	found := map[int]int{}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || !strings.Contains(line, "app-server") || !slices.Contains(fields, "CODEX_HOME="+home) {
+			continue
+		}
+		pid, errPid := strconv.Atoi(fields[0])
+		ppid, errParent := strconv.Atoi(fields[1])
+		if errPid == nil && errParent == nil {
+			found[pid] = ppid
 		}
 	}
 	return found

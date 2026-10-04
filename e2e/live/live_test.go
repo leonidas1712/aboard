@@ -505,8 +505,12 @@ func (l *lab) teardown() {
 	}
 	// Codex runs its hooks from an app server of its own, started from the test's
 	// CODEX_HOME, which outlives the session; stopping it runs the session-end hook,
-	// which can start a daemon, so it stops before aboard does.
+	// which can start a daemon, so it stops before aboard does. Its managed daemon names
+	// no folder on its command line, so it is also found by its environment.
 	l.stopProcesses(filepath.Join(l.dir, "codex-home"))
+	if l.codexReady {
+		stopCodexAppServers(l, filepath.Join(l.dir, "codex-home"))
+	}
 	// A stop hook that loses its daemon starts another, so stop every process running
 	// this lab's binary until none is left.
 	deadline := time.Now().Add(15 * time.Second)
