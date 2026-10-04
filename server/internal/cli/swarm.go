@@ -282,7 +282,7 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 		out = append(out, ag)
 	}
 	if *wait > 0 {
-		if err := a.waitSeated(ctx, c, board.Name, out, *wait); err != nil {
+		if err := a.waitSeated(ctx, c, board.Name, name, out, *wait); err != nil {
 			return err
 		}
 	} else {
@@ -610,11 +610,27 @@ func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delive
 		if m.Delivery != nil {
 			row.Delivery = optional(string(*m.Delivery))
 		}
-		if ar.Mode == launcher.ModeHeadless && row.Presence != nil && (*row.Presence == "idle" || *row.Presence == "working") {
-			row.Seated = state == string(launcher.Running)
+		// The board shows a presence only while a session holds the agent: the delivery
+		// daemon reports it from the moment a session takes the seat, before any turn. It
+		// is the seat's second witness, for when this command couldn't read the daemon's
+		// bindings; a headless agent's runner reports it itself.
+		if present(row.Presence) && state != string(launcher.Exited) && state != "not_started" {
+			row.Seated = true
 		}
 	}
 	return row
+}
+
+// present reports whether a presence says a session holds the agent.
+func present(p *string) bool {
+	if p == nil {
+		return false
+	}
+	switch api.MemberPresence(*p) {
+	case api.MemberPresenceIdle, api.MemberPresenceWorking, api.MemberPresenceWaiting:
+		return true
+	}
+	return false
 }
 
 // fillSeats refreshes each row's session, seat, presence and delivery mode.
@@ -633,10 +649,13 @@ func (a *app) fillSeats(ctx context.Context, c *client, board string, row func(i
 }
 
 // waitSeated waits until every agent has taken its seat, for at most d.
-func (a *app) waitSeated(ctx context.Context, c *client, board string, out []swarmUpAgent, d time.Duration) error {
+func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, out []swarmUpAgent, d time.Duration) error {
 	deadline := time.Now().Add(d)
 	row := func(i int) *swarmAgent { return &out[i].swarmAgent }
 	for !a.fillSeats(ctx, c, board, row, len(out)) {
+		if err := a.exitedUnseated(ctx, swarm, out); err != nil {
+			return err
+		}
 		if time.Now().After(deadline) || ctx.Err() != nil {
 			var waiting, watch []string
 			for _, ag := range out {
@@ -661,6 +680,35 @@ func (a *app) waitSeated(ctx context.Context, c *client, board string, out []swa
 		case <-ctx.Done():
 		case <-time.After(250 * time.Millisecond):
 		}
+	}
+	return nil
+}
+
+// exitedUnseated fails when a session swarm up started has already ended without its
+// agent taking the seat: waiting longer can't help, and its window, where the launcher
+// keeps one, says why.
+func (a *app) exitedUnseated(ctx context.Context, swarm string, out []swarmUpAgent) error {
+	for i := range out {
+		ag := &out[i]
+		if ag.Seated || ag.Handle == nil {
+			continue
+		}
+		l, err := a.launcherFor(ag.Launcher)
+		if err != nil {
+			continue
+		}
+		st, err := l.Status(ctx, launcher.Ref{Swarm: swarm, Agent: ag.Name, Handle: *ag.Handle})
+		if err != nil || st != launcher.Exited {
+			continue
+		}
+		ag.State = string(launcher.Exited)
+		hint := "Start it again with aboard swarm up once the cause is fixed; aboard swarm ps shows the swarm."
+		if ag.Attach != nil {
+			hint = "See why with " + *ag.Attach + ", which shows its last output. " + hint
+		}
+		e := newError("swarm_not_ready", fmt.Sprintf("%s's %s session ended before it took its seat.", ag.Name, ag.Harness), hint)
+		e.Details = map[string]any{"agents": []string{ag.Name}, "exited": []string{ag.Name}}
+		return e
 	}
 	return nil
 }

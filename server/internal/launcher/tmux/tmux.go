@@ -56,6 +56,17 @@ func (l Launcher) Start(ctx context.Context, req launcher.StartRequest) (launche
 		return launcher.Started{}, launcher.Errorf("already_running", "Stop it first with aboard swarm down "+req.Agent+".",
 			"%s already runs in window %s of tmux server %s.", req.Agent, wins[i].id, req.Swarm)
 	}
+	// A window whose program ended stays until the agent starts again, so a person can
+	// read why it ended; it goes now.
+	live := wins[:0]
+	for _, w := range wins {
+		if w.name == req.Agent && w.dead {
+			_, _ = l.run(ctx, req.Swarm, "kill-window", "-t", w.id)
+			continue
+		}
+		live = append(live, w)
+	}
+	wins = live
 	args := []string{"new-window", "-d", "-t", req.Swarm + ":", "-n", req.Agent, "-c", req.Dir, "-P", "-F", "#{window_id} #{pane_pid}"}
 	if len(wins) == 0 {
 		args = []string{"new-session", "-d", "-s", req.Swarm, "-n", req.Agent, "-c", req.Dir, "-x", "200", "-y", "50", "-P", "-F", "#{window_id} #{pane_pid}"}
@@ -68,11 +79,16 @@ func (l Launcher) Start(ctx context.Context, req launcher.StartRequest) (launche
 		args = append(args, k+"="+req.Env[k])
 	}
 	args = append(args, req.Argv...)
+	// A window whose program ends stays open, dead, showing its last output: a harness
+	// that exits as it starts says why there. The option is set first, in the same
+	// command list, so it holds before the program can end.
+	args = append([]string{"start-server", ";", "set-option", "-g", "remain-on-exit", "on", ";"}, args...)
 	out, err := l.run(ctx, req.Swarm, args...)
 	if err != nil {
 		return launcher.Started{}, err
 	}
-	id, pid, _ := strings.Cut(strings.TrimSpace(out), " ")
+	first, _, _ := strings.Cut(strings.TrimSpace(out), "\n")
+	id, pid, _ := strings.Cut(first, " ")
 	n, _ := strconv.Atoi(pid)
 	return launcher.Started{
 		Handle: req.Swarm + "/" + id, PID: n,

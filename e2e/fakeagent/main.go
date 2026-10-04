@@ -155,6 +155,12 @@ func hook(s *session, run string, env []string, input map[string]any) {
 }
 
 func claude(s *session) {
+	if slices.Contains(strings.Split(os.Getenv("FAKE_AGENT_EXIT"), ","), os.Getenv("ABOARD_AGENT")) {
+		// Plays a harness that quits as it starts, before any hook, as Claude Code does on
+		// a fatal error such as a bad option: it says why and exits.
+		fmt.Println("fakeagent: quitting at start, as FAKE_AGENT_EXIT asks")
+		os.Exit(1)
+	}
 	envFile := filepath.Join(os.TempDir(), "fakeagent-env-"+s.id)
 	_ = os.Remove(envFile) //nolint:gosec // a file of this process's own
 	hook(s, "session-start", append(slices.Clone(s.env), "CLAUDE_ENV_FILE="+envFile), map[string]any{"hook_event_name": "SessionStart", "source": s.source})

@@ -375,3 +375,63 @@ func TestSwarmUpRefusesWhatItCantStart(t *testing.T) {
 		t.Fatal("a refused swarm up started sessions")
 	}
 }
+
+// A session holds its seat from the moment it reports in, with no turn: swarm ps shows
+// each agent seated within seconds, for every harness. Claude Code and omp start with no
+// first prompt, so they run no turn at all; a Codex session exists only from its first
+// turn, so it keeps the default prompt.
+func TestSwarmPsShowsTheSeatWithNoTurn(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.writeBoardFile("board: seats\nagents:\n" +
+		"  - {name: claude, harness: claude-code, prompt: \"\"}\n" +
+		"  - {name: omp, harness: omp, prompt: \"\"}\n" +
+		"  - {name: codex, harness: codex}\n")
+	s.run("swarm", "up", "--wait", "0")
+	eventually(t, 10*time.Second, "swarm ps to show every agent seated", func() bool {
+		for _, ag := range agentsByName(t, s.run("swarm", "ps", "--json").json(t)) {
+			if ag["seated"] != true || ag["session"] == nil {
+				return false
+			}
+		}
+		return true
+	})
+	for _, name := range []string{"claude", "omp"} {
+		if p := s.starts(name)[0].Prompt; p != "" {
+			t.Fatalf("%s started with the prompt %q, want none", name, p)
+		}
+	}
+}
+
+// A harness that quits as it starts fails swarm up at once, not after --wait, naming the
+// agent and how to see why; its tmux window stays, dead, showing its last output.
+func TestSwarmUpReportsASessionThatEndedBeforeItsSeat(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.vars = append(s.vars, "FAKE_AGENT_EXIT=solo")
+	s.writeBoardFile("board: quits\nagents:\n  - {name: solo, harness: claude-code}\n")
+	began := time.Now()
+	r := s.runExit("swarm", "up", "--wait", "60s", "--json")
+	v := r.json(t)
+	if r.code != 1 || field(t, v, "error.code") != "swarm_not_ready" || time.Since(began) > 20*time.Second {
+		t.Fatalf("swarm up should fail at once when the session ends (took %s):\n%s", time.Since(began), r)
+	}
+	if ex := field(t, v, "error.details.exited").([]any); len(ex) != 1 || ex[0] != "solo" {
+		t.Fatalf("details.exited = %v", ex)
+	}
+	hint := field(t, v, "error.hint").(string)
+	if !strings.Contains(hint, "tmux -L ") {
+		t.Fatalf("the hint should say how to see why: %s", hint)
+	}
+	ps := agentsByName(t, s.run("swarm", "ps", "--json").json(t))["solo"]
+	if ps["state"] != "exited" || ps["seated"] != false {
+		t.Fatalf("ps: %v", ps)
+	}
+	swarm := strings.Fields(strings.SplitN(hint, "tmux -L ", 2)[1])[0]
+	capture := exec.CommandContext(t.Context(), "tmux", "-L", swarm, "capture-pane", "-p", "-S", "-", "-t", swarm+":solo")
+	capture.Env = s.vars
+	out, err := capture.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "quitting at start") {
+		t.Fatalf("the dead window should show the harness's last output: %v\n%s", err, out)
+	}
+}

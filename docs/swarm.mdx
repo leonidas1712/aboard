@@ -40,7 +40,7 @@ Each agent takes:
 | `role` | Its role on the board. Default: `member`. |
 | `launcher` | `tmux`, `headless`, or any other launcher; default: the file's `launcher`, else `tmux`. |
 | `model` | The model, passed with the harness's own option (`--model`). |
-| `args` | More arguments for the harness, after the model. |
+| `args` | More arguments for the harness, after the model and before the first prompt. Don't end them with an option that takes any number of values, such as Claude Code's `--allowedTools`: it would take the first prompt as one more value. |
 | `dir` | The folder it works in, relative to the file. Default: the file's folder. |
 | `prompt` | Its first prompt. Default: a line saying which agent and board it is, asking it to run `aboard status`. |
 
@@ -150,7 +150,8 @@ the contract, and `make launcher-kit LAUNCHER=<name>` checks one.
 
 ## When an agent doesn't take its seat
 
-`swarm up` stops waiting after `--wait` with `swarm_not_ready`, naming the agents and
+`swarm up` stops waiting after `--wait` with `swarm_not_ready`, or at once when an
+agent's session has already ended, naming the agents and
 how to watch each.
 
 | Seen | Cause | Fix |
@@ -161,6 +162,7 @@ how to watch each.
 | `launcher_not_found` | No built-in launcher and no `aboard-launcher-<name>` on your `PATH` | Install the launcher, or use `tmux` |
 | `headless_unsupported` | The harness has no native headless mode | Use `tmux` or `herdr` for it |
 | `agent_seat_elsewhere` | The board already has an agent with that name, joined on another machine | Rename the agent in the file |
+| `swarm_not_ready`, "session ended before it took its seat" | The harness quit as it started, for example on an option it doesn't know | Its tmux window stays open, dead, with its last output: run the attach line to read it, fix the board file, then `aboard swarm up` |
 | `human_command_in_session` | `swarm up` ran inside an agent's session | Run it in your own terminal: it starts processes with your login |
 
 `aboard swarm ps` shows where each agent is. The swarm's record is in Aboard's state folder

@@ -129,8 +129,9 @@ $defs:
       headless_unsupported (the harness has no native headless mode the headless
       launcher can run) · agent_seat_elsewhere (the board has an agent with that name,
       but this machine holds no credential for it) · swarm_not_ready (swarm up's --wait
-      ran out before every agent was seated; details.agents names them, and the hint how
-      to watch each) · swarm_not_found (ps or down found no swarm for the board).
+      ran out before every agent was seated, or a session ended before its agent took the
+      seat; details.agents names them, details.exited the ones whose session ended, and the
+      hint how to watch each) · swarm_not_found (ps or down found no swarm for the board).
   ServerRef:
     type: object
     required: [name, url]

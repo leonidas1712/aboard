@@ -316,6 +316,10 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			s.waiter.Release()
 			s.waiter = nil
 		}
+		if s.open {
+			// Logged like a start, so a session that ends early shows in the log.
+			s.d.log.Info("session ended", "session", s.key.String(), "agents", len(s.agents))
+		}
 		s.setOpen(ctx, false)
 	case OpBind:
 		ok.Previous = s.bind(ctx, *req.Agent)
