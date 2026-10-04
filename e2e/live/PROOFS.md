@@ -42,9 +42,9 @@ Code test fails with that instruction: the suite never falls back to your own co
 | --- | --- |
 | `LIVE_KEEP=1` | Save artifacts for passing tests too |
 | `LIVE_ARTIFACTS=<dir>` | Where artifacts go (default `e2e/live/artifacts/`, git-ignored) |
-| `LIVE_CLAUDE_MODEL=<model>` | The model Claude Code runs with, as `--model` (default `claude-haiku-4-5`) |
+| `LIVE_CLAUDE_MODEL=<model>` | The model Claude Code runs with, as `--model` (default `claude-sonnet-5-5`) |
 | `LIVE_CODEX_MODEL=<model>` | The model Codex runs with, as `-m`, `codex exec` included (default `gpt-6-luna`) |
-| `LIVE_OMP_MODEL=<model>` | The model omp runs with, as `--model` (default `anthropic/claude-haiku-4-5`, so omp never picks a local model) |
+| `LIVE_OMP_MODEL=<model>` | The model omp runs with, as `--model` (default `anthropic/claude-sonnet-5-5`, so omp never picks a local model) |
 
 **Models.** The suite proves Aboard's wiring to each harness, not what a model can do,
 so every harness runs a cheap model by default, on every start and every resume. Each
