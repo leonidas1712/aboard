@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ApiError, type MemberRef, type Message, type ReactionName, react } from "./api";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
+import { knownTargets, replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
@@ -54,6 +55,9 @@ export default function BoardView({ name }: { name: string }) {
   const me = s.me?.name ?? null;
   const agents = useMemo(() => (s.members ?? []).filter((m) => m.kind === "agent"), [s.members]);
   const people = useMemo(() => (s.members ?? []).filter((m) => m.kind === "human"), [s.members]);
+  const roles = useMemo(() => Object.keys(s.board?.roles ?? {}).sort(), [s.board]);
+  // Every name and role a message can mention, so the timeline marks only real mentions.
+  const mentionable = useMemo(() => knownTargets(s.members ?? [], roles), [s.members, roles]);
 
   // Every loaded message: the timeline, the filter's matches and threads read whole.
   const known = s.known;
@@ -244,6 +248,32 @@ export default function BoardView({ name }: { name: string }) {
     [right, setRight],
   );
 
+  // Who a reply goes to unless the person changes it: the asker and the thread's people.
+  const replyDefault = useMemo(() => {
+    if (!replyTo) return [];
+    const root = replyTo.thread_root ?? replyTo.id;
+    const first = byId.get(root);
+    return replyRecipients(replyTo, [...(first ? [first] : []), ...(threads.get(root) ?? [])], s.members ?? [], me);
+  }, [replyTo, byId, threads, s.members, me]);
+
+  // A mention in a message opens the board panel at its members and marks the one named.
+  const onMention = useCallback(
+    (target: string) => {
+      show("board-agents");
+      if (!target.startsWith("@")) return;
+      const who = CSS.escape(target.slice(1));
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLElement>(`[data-agent="${who}"], [data-person="${who}"]`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        el.classList.remove("flash");
+        void el.offsetWidth;
+        el.classList.add("flash");
+      });
+    },
+    [show],
+  );
+
   const pick = useCallback(
     (member: string) =>
       setFilter((f) => ({
@@ -343,6 +373,8 @@ export default function BoardView({ name }: { name: string }) {
                 quote={quote}
                 answer={answer}
                 identity={identity}
+                mentionable={mentionable}
+                onMention={onMention}
                 waiting={waiting}
                 onReply={setReplyTo}
                 onReact={onReact}
@@ -358,8 +390,12 @@ export default function BoardView({ name }: { name: string }) {
             <div className={column}>
               <Composer
                 board={name}
-                agents={agents}
+                members={s.members ?? []}
+                roles={roles}
+                me={me}
                 replyTo={replyTo}
+                replyDefault={replyDefault}
+                identity={identity}
                 onCancelReply={() => setReplyTo(null)}
                 onPosted={(m) => {
                   setPostError(null);

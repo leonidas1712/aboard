@@ -135,6 +135,8 @@
   /* The message box while it has focus: a slightly stronger edge and a faint glow. */
   --field-focus: color-mix(in oklab, var(--accent) 55%, var(--field-border));
   --focus-glow: color-mix(in oklab, var(--accent) 16%, transparent);
+  /* A mention of a name or role, in the message box and in posted messages. */
+  --mention: color-mix(in oklab, var(--accent) 16%, transparent);
   /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
 }

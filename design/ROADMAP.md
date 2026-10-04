@@ -88,7 +88,7 @@ the board.
 | `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | People post from the CLI: `aboard say --me` | later | |
-| The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone") | later | D174 |
+| The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone"); a reply starts from the asker and the thread's people as removable chips, and a mention adds anyone on the board; mentions show as names in the timeline | review | D174 |
 | Receipts on messages, per recipient: sent, waiting (busy or disconnected, with why), delivered into the session, read; the delivery daemon reports delivery states to the server for the per-recipient status | later | D37, D169 |
 | Harness marks on avatars: a small harness glyph on each agent's mark, which keeps its own colour and initials, so several agents of one harness stay distinct | later | D133 |
 | Board list badges: what waits on the person (a question to them; later proposals, reviews, finished tasks) as a marigold count, unread messages as a quiet count, a small pulse while an agent works; a "Needs you" group at the top that boards slide into and out of; below it the person's own order (drag to reorder, pins), a subtle last-active time, and an optional sort by recent activity | later | D102, D123 |
