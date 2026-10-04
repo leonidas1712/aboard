@@ -21,6 +21,9 @@ after the plan, with the pull request that merged it.
 
 ## Next: team mode
 
+The target experience, and the questions to settle before building, are in
+[team-model.md](team-model.md).
+
 Team mode comes right after omp. Every feature added before people share a server is
 one more thing that can break when they do, so team behaviour is proven first.
 
@@ -33,6 +36,9 @@ one more thing that can break when they do, so team behaviour is proven first.
 | `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | A person's inbox across boards | later | D102 |
+| Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | later | D153, D154, D172 |
+| An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers | later | D172 |
+| Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | later | D172 |
 | Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines | later | D102 |
 | People post from the CLI: `aboard say --me` | later | |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
@@ -60,6 +66,7 @@ release is in engineering/testing.md and engineering/release.md.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
+| Live tests driven headless where a harness offers a long-lived machine interface (omp `--mode rpc`, Claude Code stream-json, Codex's app server), after checking each runs Aboard's hooks and extensions exactly as its terminal session does; a smaller set stays in a real terminal for what only it proves (an idle session woken there, resume, start-up dialogs, `codex queue` into an open session), so headless passes never stand in for the real thing | next, after the omp isolation fix; low priority | D144 |
 | Request ids from the CLI through the server to the daemon's deliveries, in logs and error bodies | next | D150 |
 | `GET /v1/info` reports the API version and supported features; clients check them | next | D151 |
 | Fixtures recorded from real harness payloads during `make live`, replayed by fake-harness tests | next | D144 |
@@ -78,6 +85,7 @@ In this order.
 | Feature | Decisions |
 | --- | --- |
 | Per-recipient message status (the endpoint is specified; replies are done) | D37 |
+| `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | D172 |
 | Board list badges: what waits on the person (a question to them; later proposals, reviews, finished tasks) as a marigold count, unread messages as a quiet count, a small pulse while an agent works; a "Needs you" group at the top that boards slide into and out of; below it the person's own order (drag to reorder, pins), a subtle last-active time, and an optional sort by recent activity | D102, D123 |
 | Tasks as a kanban: claim, release, wait with a reason, done, labels, order | D12, D32 |
 | Notes, verified when citing a board file by hash | D14 |
@@ -129,6 +137,7 @@ In this order.
 | A nightly live run against the latest Claude Code and Codex | Needs harness logins in CI or a self-hosted runner; `make live` before each release until then |
 | SDKs published to PyPI and npm in step with the API | When the SDK step lands |
 | Versioned docs | Once released versions differ |
+| Aboard that small models use well: tune the skill, delivery text and command output so cheaper models follow multi-step board work (they skipped turns in the live ping-pong), measured with a small-model eval; supports swarms of many cheap workers with a few stronger coordinators | Eval-style work with aboard-lab |
 | A public "add Aboard support" contract for harness makers: report state and session over the control socket with a monotonic sequence, and certify the integration with the conformance kit, with no code in this repository | After omp proves the extension connection |
 | Subagent seats: `aboard sub new` and `aboard sub claim`, a seat linked to its parent, finished when the subagent stops, nested in the board view | D165 |
 | Hermes and OpenClaw support, and automatic delivery for any harness beyond Claude Code, Codex and omp | Needs the maintainer's approval per harness (D130) |
