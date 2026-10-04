@@ -770,8 +770,8 @@ func ask(ctx context.Context, s *session, m sessionMsg) Response {
 }
 
 // serveInbox holds an agent's deliveries and notices while a command reads its inbox,
-// and records how far the command acknowledged, so the session never hands or names
-// what the command showed.
+// so the session can't be handed what the command shows. How far the command then
+// acknowledged reaches the daemon from the server, as any client's acknowledgement does.
 func (d *Daemon) serveInbox(ctx context.Context, conn net.Conn, r *bufio.Reader, req Request) {
 	if req.Agent == nil {
 		_ = WriteFrame(conn, errorResponse("invalid_request", "An inbox request needs an agent.", "Send the agent's server, board and name."))
@@ -787,15 +787,10 @@ func (d *Daemon) serveInbox(ctx context.Context, conn net.Conn, r *bufio.Reader,
 	if err := WriteFrame(conn, ask(ctx, s, sessionMsg{req: req, reading: rd})); err != nil {
 		return
 	}
+	// The hold lasts until the command closes the connection; it sends nothing else.
 	for {
 		var m Request
 		if err := ReadFrame(r, &m); err != nil {
-			return
-		}
-		if m.Op != OpAcked {
-			continue
-		}
-		if err := WriteFrame(conn, ask(ctx, s, sessionMsg{acked: &ackedRequest{agent: rd.agent, upTo: m.UpTo}})); err != nil {
 			return
 		}
 	}

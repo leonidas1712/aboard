@@ -97,6 +97,43 @@ func RunServer(t *testing.T, f ServerFixture) {
 		}
 	})
 
+	t.Run("FollowReportsReadPositions", func(t *testing.T) {
+		srv, to, post := f.New(t)
+		first := post("first", false)
+		post("second", false)
+		fctx, cancel := context.WithCancel(ctx)
+		connected := make(chan struct{})
+		heads := make(chan delivery.Head, 64)
+		done := make(chan error, 1)
+		go func() {
+			done <- srv.Follow(fctx, func() { close(connected) }, func(h delivery.Head) { heads <- h })
+		}()
+		t.Cleanup(func() {
+			cancel()
+			<-done
+		})
+		select {
+		case <-connected:
+		case <-time.After(streamWait):
+			t.Fatal("Follow didn't connect")
+		}
+		// Any client's acknowledgement moves the read position; this one is the port's.
+		must(t, srv.Ack(ctx, to, first))
+		deadline := time.After(streamWait)
+		var seen []delivery.Head
+		for {
+			select {
+			case h := <-heads:
+				seen = append(seen, h)
+				if h.Read != nil && h.Board == to.Board && h.Read.Agent == to.Name && h.Read.UpTo == first {
+					return
+				}
+			case <-deadline:
+				t.Fatalf("no read position %d for %s; saw %+v", first, to.Name, seen)
+			}
+		}
+	})
+
 	t.Run("FollowEndsWhenTheContextEnds", func(t *testing.T) {
 		srv, _, _ := f.New(t)
 		fctx, cancel := context.WithCancel(ctx)

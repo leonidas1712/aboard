@@ -43,10 +43,10 @@ type sessionMsg struct {
 	// claim records messages a command showed as received, answered on reply.
 	claim *claimRequest
 	// reading starts holding an agent's deliveries while a command reads its inbox, with
-	// the command's request in req, answered on reply; doneReading ends it; acked says
-	// how far the command acknowledged, answered on reply.
+	// the command's request in req, answered on reply; doneReading ends it.
 	reading, doneReading *reading
-	acked                *ackedRequest
+	// read says the server reports an agent's read position moved.
+	read *readMove
 	// ext is a harness extension's connection, set with its hello in req; from is the
 	// connection a later report in req came on; extGone reports a connection closed
 	// without a goodbye.
@@ -73,8 +73,8 @@ type reading struct {
 	agent AgentRef
 }
 
-// ackedRequest says a command acknowledged an agent's messages up to upTo.
-type ackedRequest struct {
+// readMove says an agent's read position on its server is now upTo.
+type readMove struct {
 	agent AgentRef
 	upTo  int
 }
@@ -242,9 +242,8 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 	case m.doneReading != nil:
 		delete(s.readers, m.doneReading)
 		s.queueNow()
-	case m.acked != nil:
-		s.onAcked(ctx, *m.acked)
-		m.reply <- Response{V: ProtocolVersion}
+	case m.read != nil:
+		s.onRead(ctx, *m.read)
 	case m.ext != nil:
 		s.onHello(ctx, m.req, m.ext)
 	case m.from != nil:
@@ -849,10 +848,11 @@ func (s *session) received(a *agentState) []int {
 	return seqs
 }
 
-// onAcked records that a command acknowledged the agent's messages up to upTo, which the
-// server's stream doesn't report: a delivery of them, even one handed and not yet
-// confirmed, is done, and none of them is handed or named in a notice again.
-func (s *session) onAcked(ctx context.Context, r ackedRequest) {
+// onRead follows the agent's read position on its server, the authority on what the
+// agent has read, whichever client acknowledged: a delivery of messages at or below it,
+// even one handed and not yet confirmed, is done, and none of them is handed or named in
+// a notice again.
+func (s *session) onRead(ctx context.Context, r readMove) {
 	a, ok := s.agents[r.agent]
 	if !ok || a.adopting || r.upTo <= a.ackedUpTo {
 		return
@@ -865,7 +865,7 @@ func (s *session) onAcked(ctx context.Context, r ackedRequest) {
 		}
 	}
 	a.unread = kept
-	s.d.log.Info("read with aboard inbox", "session", s.key.String(), "agent", a.ref.Name, "board", a.ref.Board, "up_to", r.upTo)
+	s.d.log.Info("read position moved", "session", s.key.String(), "agent", a.ref.Name, "board", a.ref.Board, "up_to", r.upTo)
 	s.maybeAck(a)
 }
 
@@ -1054,7 +1054,14 @@ func (s *session) tryDeliver(ctx context.Context) {
 		return
 	}
 	s.gatherUntil = time.Time{}
-	c := compose(s.offers(s.queueFilter()), BundleLimit)
+	offers := s.offers(s.queueFilter())
+	if len(offers) > 0 {
+		// The server is the authority on what the agent has read: check just before
+		// handing, in case a read the stream reports hasn't arrived yet.
+		s.recheck(ctx)
+		offers = s.offers(s.queueFilter())
+	}
+	c := compose(offers, BundleLimit)
 	s.skip(ctx, c.tooLarge)
 	if len(c.parts) == 0 {
 		s.scheduleRetry()
@@ -1325,6 +1332,9 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if !s.open {
 		return "", ""
 	}
+	if len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce() {
+		s.recheck(ctx)
+	}
 	c := compose(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame))
 	text := c.text
 	if len(c.parts) > 0 {
@@ -1387,8 +1397,21 @@ func previewText(m Message) string {
 // noticeFor names the agent's waiting messages, other than its owner's, that no notice
 // has named yet; empty when there are none, or the agent's mode delivers nothing.
 func (s *session) noticeFor(a *agentState) (notice string, seqs []int) {
-	if a.adopting || !a.fetched || a.problem != "" || s.d.mode(a.ref) == ModeOff || s.beingRead(a.ref) {
+	fresh := s.toAnnounce(a)
+	if len(fresh) == 0 {
 		return "", nil
+	}
+	for _, m := range fresh {
+		a.announced[m.Seq] = true
+	}
+	return deliverytext.Notice(a.ref.Board, fresh), seqsOf(fresh)
+}
+
+// toAnnounce returns the agent's waiting messages, other than its owner's, that no
+// notice has named yet; none when the agent's mode delivers nothing.
+func (s *session) toAnnounce(a *agentState) []Message {
+	if a.adopting || !a.fetched || a.problem != "" || s.d.mode(a.ref) == ModeOff || s.beingRead(a.ref) {
+		return nil
 	}
 	t := taken(a)
 	var fresh []Message
@@ -1398,13 +1421,42 @@ func (s *session) noticeFor(a *agentState) (notice string, seqs []int) {
 		}
 		fresh = append(fresh, m)
 	}
-	if len(fresh) == 0 {
-		return "", nil
+	return fresh
+}
+
+// anyToAnnounce reports whether a notice would name anything now.
+func (s *session) anyToAnnounce() bool {
+	for _, a := range s.agents {
+		if len(s.toAnnounce(a)) > 0 {
+			return true
+		}
 	}
-	for _, m := range fresh {
-		a.announced[m.Seq] = true
+	return false
+}
+
+// recheckTimeout bounds the read of an agent's inbox just before a hand or a notice. It
+// holds up the session, and a tool hook waiting for its answer, so it is short; a read
+// that fails goes by what the server's stream reported.
+const recheckTimeout = 5 * time.Second
+
+// recheck reads each agent's inbox and read position from its server now, in the
+// session's goroutine, so a bundle or a notice never carries a message the agent read
+// through any client a moment ago, before the stream's report of it arrived. It costs
+// one request per agent, made only when there is something to hand or announce.
+func (s *session) recheck(ctx context.Context) {
+	for _, ref := range s.agentRefs() {
+		if a := s.agents[ref]; a.adopting {
+			continue
+		}
+		rctx, cancel := context.WithTimeout(ctx, recheckTimeout)
+		msgs, cursor, err := s.d.server(ref.Server).srv.Inbox(rctx, ref)
+		cancel()
+		if err != nil && !errors.Is(err, ErrUnauthorized) {
+			s.d.log.Warn("recheck inbox", "agent", ref.Name, "board", ref.Board, "error", err)
+			continue
+		}
+		s.onInbox(ctx, inboxResult{agent: ref, msgs: msgs, cursor: cursor, err: err})
 	}
-	return deliverytext.Notice(a.ref.Board, fresh), seqsOf(fresh)
 }
 
 func newAgentState(ref AgentRef, adopting bool) *agentState {

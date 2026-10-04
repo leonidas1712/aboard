@@ -222,10 +222,11 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 }
 
 // readInbox reads the agent's unread messages, leaving out those a session on this
-// machine already received, and with ack acknowledges what it read, telling the
-// delivery daemon so it never hands or names those messages again. It acknowledges
-// before returning, so no message is shown as read without the server knowing. With
-// confirm, a command run in the agent's own session confirms what was handed to it.
+// machine already received, and with ack acknowledges what it read; the server then
+// tells the delivery daemon, so it never hands or names those messages again. It
+// acknowledges before returning, so no message is shown as read without the server
+// knowing. With confirm, a command run in the agent's own session confirms what was
+// handed to it.
 func (a *app) readInbox(ctx context.Context, c *client, ref delivery.AgentRef, limit int, ack, confirm bool) (*api.Inbox, []api.Message, *int, error) {
 	rd := a.startInboxRead(ctx, ref, confirm)
 	defer rd.done()
@@ -254,7 +255,6 @@ func (a *app) readInbox(ctx context.Context, c *client, ref delivery.AgentRef, l
 	if res.JSON200 == nil {
 		return nil, nil, nil, apiError(res.StatusCode(), res.Body)
 	}
-	rd.acked(res.JSON200.Cursor)
 	return in, msgs, &res.JSON200.Cursor, nil
 }
 

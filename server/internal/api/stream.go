@@ -41,6 +41,14 @@ type presenceEvent struct {
 	PresenceSince *string `json:"presence_since"`
 }
 
+// readEvent is the data of one `read` event, the ReadEvent schema.
+type readEvent struct {
+	Board    string `json:"board"`
+	BoardID  string `json:"board_id"`
+	Agent    string `json:"agent"`
+	ReadUpTo int64  `json:"read_up_to"`
+}
+
 func presenceEventOf(pc board.PresenceChange) presenceEvent {
 	return presenceEvent{Board: pc.Board, BoardID: pc.BoardID, Agent: pc.Agent, Presence: pc.Presence.State, PresenceSince: nullable(pc.Presence.Since)}
 }
@@ -117,6 +125,9 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 		}
 		for _, pc := range u.Presence {
 			writeEvent(&buf, "presence", presenceEventOf(pc))
+		}
+		for _, rc := range u.Reads {
+			writeEvent(&buf, "read", readEvent{Board: rc.Board, BoardID: rc.BoardID, Agent: rc.Agent, ReadUpTo: rc.Cursor})
 		}
 		if ticked {
 			keepalive = s.clk.After(keepaliveEvery)

@@ -15,7 +15,8 @@ import (
 // inboxRead is a command reading an agent's inbox while the delivery daemon on this
 // machine holds the agent's deliveries, so a message the command shows can't also be
 // handed to the agent's session, and the session never gets or is told about it again.
-// With no daemon, or none holding the agent, it does nothing.
+// How far the command then acknowledges reaches the daemon from the server. With no
+// daemon, or none holding the agent, it does nothing.
 type inboxRead struct {
 	conn net.Conn
 	r    *bufio.Reader
@@ -62,17 +63,6 @@ func (a *app) startInboxRead(ctx context.Context, agent delivery.AgentRef, confi
 // here already has.
 func (rd *inboxRead) unread(msgs []api.Message) []api.Message {
 	return slices.DeleteFunc(slices.Clone(msgs), func(m api.Message) bool { return slices.Contains(rd.received, m.Seq) })
-}
-
-// acked tells the daemon the command acknowledged the agent's messages up to upTo.
-func (rd *inboxRead) acked(upTo int) {
-	if rd.conn == nil {
-		return
-	}
-	var resp delivery.Response
-	_ = rd.conn.SetDeadline(time.Now().Add(daemonCallTimeout))
-	_ = delivery.WriteFrame(rd.conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpAcked, UpTo: upTo})
-	_ = delivery.ReadFrame(rd.r, &resp)
 }
 
 // done ends the hold.

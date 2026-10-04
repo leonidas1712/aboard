@@ -621,8 +621,9 @@ $defs:
       hasn't landed yet, is left out of `messages` (and acknowledged with the rest); with
       --wait, the command then goes on waiting for something new. While the command
       reads, the daemon hands nothing to the agent's session, and once it has
-      acknowledged, the daemon never hands, or names in a waiting notice, what the
-      command read (spec/delivery.md, "Received once"). Run in the agent's own session,
+      acknowledged, the server reports the new read position to the daemon, which never
+      hands, or names in a waiting notice, what the command read (spec/delivery.md,
+      "Received once"). Run in the agent's own session,
       without --peek, it also counts as that session's next event, confirming a bundle
       handed before the command started. With no daemon running, the server's answer is
       shown as it is.

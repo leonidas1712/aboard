@@ -76,6 +76,13 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		switch {
 		case m.watch != nil:
 			c.watched[*m.watch] = true
+		case m.head != nil && m.head.Read != nil:
+			// The server says an agent read up to a point, whoever acknowledged: its session
+			// drops what is at or below it from what it would hand over or announce.
+			agent := AgentRef{Server: c.url, Board: m.head.Board, Name: m.head.Read.Agent}
+			if s := c.d.owner(agent); s != nil {
+				s.mail.put(sessionMsg{read: &readMove{agent: agent, upTo: m.head.Read.UpTo}})
+			}
 		case m.head != nil:
 			boards[m.head.Board] = true
 		case m.connected:

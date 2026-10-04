@@ -48,7 +48,7 @@ version **1**.
   {"v":1,"error":{"code":"daemon_protocol_mismatch","message":"The running delivery daemon (aboard 0.1.0) speaks control protocol 1; this aboard speaks 2.","hint":"Install the same aboard as the running daemon, or run aboard down so this one starts its own."}}
   ```
 
-- Later messages on the same connection (`received`, `claim`, `acked`, and the extension
+- Later messages on the same connection (`received`, `claim`, and the extension
   connection's messages after `hello`) also carry `v`, and are read as the version the
   connection opened with.
 - Additions don't change the version: new operations, new events, new optional fields
@@ -81,7 +81,6 @@ optional; each operation says which it reads.
 | `process` | object | The harness process the request came from: `{"pid","start"}`, `start` in the system's own units, so a reused pid isn't mistaken for it |
 | `reply_to` | integer | The message whose replies a hold keeps out of bundles |
 | `seqs` | array of integers | Messages a claim records as received |
-| `up_to` | integer | How far a command acknowledged an agent's messages, sent on an inbox connection |
 | `id` | integer | The delivery an extension confirms |
 | `cwd` | string | The extension session's working directory |
 | `harness_version` | string | The harness's version, as it reports it |
@@ -269,15 +268,13 @@ received, which the command leaves out; `held` is false, and nothing is held, wh
 session here holds the agent. A command that runs in the agent's own session (not in a
 subagent, and not `aboard inbox --peek`, which changes nothing) sends its `harness`,
 `session`, `boot` and `started`: it is that session's next event, so a bundle handed
-before `started` is confirmed first. After acknowledging on the server, `aboard inbox`
-sends `acked` with the new read position: every delivery of messages up to it is done,
-even one handed and not yet confirmed, and none of them is handed or named again.
+before `started` is confirmed first. The command sends nothing more; how far it then
+acknowledges reaches the daemon from the server's stream, as any client's
+acknowledgement does.
 
 ```json
 {"v":1,"op":"inbox","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","started":"2026-10-03T14:02:11.5Z","agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}}
 {"v":1,"held":true,"received":[13]}
-{"v":1,"op":"acked","up_to":14}
-{"v":1}
 ```
 
 ## Who sends what
@@ -295,7 +292,7 @@ even one handed and not yet confirmed, and none of them is handed or named again
 | Any command that needs the session's agent | `agents`, or `register` for a session the daemon doesn't know yet |
 | `aboard delivery`, `aboard init` | `mode` |
 | `aboard say --wait-reply` | `hold`, then `claim` |
-| `aboard inbox` | `inbox`, then `acked` unless `--peek` |
+| `aboard inbox` | `inbox` |
 | `aboard say` | `inbox`, for its note about the agent's own inbox |
 | `aboard doctor`, `status`, `down` | `status` |
 | A harness extension | The extension connection, below, and `boundary` |

@@ -138,6 +138,7 @@ func TestHarnessConformance(t *testing.T) {
 			run("Delivery/DeliveredIsRead", "idle_delivery", kitDeliveredIsRead)
 			run("Delivery/ReadMidTurnIsNotDelivered", "turn_end", kitReadMidTurnIsNotDelivered)
 			run("Delivery/ReadBeforeConfirmed", "idle_delivery", kitReadBeforeConfirmed)
+			run("Delivery/AckedThroughTheAPI", "turn_end", kitAckedThroughTheAPI)
 			run("Delivery/KilledSession", "idle_delivery", kitKilledSession)
 			run("Delivery/Resume", "reconnect", kitResume)
 		})
