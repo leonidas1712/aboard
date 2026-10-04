@@ -64,6 +64,7 @@ type wireMessage struct {
 	Body          string            `json:"body"`
 	ReplyTo       *string           `json:"reply_to"`
 	ReplyToSeq    *int64            `json:"reply_to_seq"`
+	ReplyToFrom   *string           `json:"reply_to_from"`
 	ThreadRoot    *string           `json:"thread_root"`
 	ThreadRootSeq *int64            `json:"thread_root_seq"`
 	ReplyCount    int               `json:"reply_count"`
@@ -172,7 +173,7 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 	return wireMessage{
 		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
-		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq,
+		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq, ReplyToFrom: m.ReplyToFrom,
 		ThreadRoot: m.ThreadRoot, ThreadRootSeq: m.ThreadRootSeq, ReplyCount: m.ReplyCount, LastReplyAt: m.LastReplyAt,
 		Urgent: m.Urgent, ExpectsReply: m.ExpectsReply,
 		Sender: sender(m, reader), ShowOwner: m.AgentOwners > 1, Trust: trust(m, reader), Redactions: m.Redactions,

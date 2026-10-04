@@ -26,16 +26,13 @@ type NewMessage struct {
 // as soon as the message is stored.
 func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string, in NewMessage) (Message, error) {
 	to := in.To
-	if len(to) == 0 {
+	if len(to) == 0 && in.ReplyTo == nil {
 		to = []string{rules.TargetAll}
 	}
 	var msg Message
 	err := s.st.Write(ctx, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
-			return err
-		}
-		if to, err = checkTargets(tx, b, to); err != nil {
 			return err
 		}
 		var replyToSeq *int64
@@ -50,6 +47,14 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 				return err
 			}
 			replyToSeq, threadRoot = ptr(orig.Seq), threadRootOf(orig)
+			if len(to) == 0 {
+				if to, err = replyRecipients(tx, b, me, orig); err != nil {
+					return err
+				}
+			}
+		}
+		if to, err = checkTargets(tx, b, to); err != nil {
+			return err
 		}
 		var role rules.Role
 		if me.Role != nil {

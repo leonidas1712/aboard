@@ -32,10 +32,10 @@ func (t *tx) InsertMessage(m board.Message) error {
 
 const messageSelect = `SELECT m.id, m.board_id, m.seq, m.at, m.sender_id, m.to_json, m.body, m.reply_to,
 	m.urgent, m.expects_reply, m.redactions_json, s.name, s.kind, s.role, s.owner, s.human_id, s.harness, r.seq,
-	m.thread_root, tr.seq,
+	m.thread_root, tr.seq, rs.name,
 	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent')
 	FROM messages m JOIN members s ON s.id = m.sender_id LEFT JOIN messages r ON r.id = m.reply_to
-	LEFT JOIN messages tr ON tr.id = m.thread_root`
+	LEFT JOIN members rs ON rs.id = r.sender_id LEFT JOIN messages tr ON tr.id = m.thread_root`
 
 // addressedTo is a SQL condition matching messages whose targets include all, @name or
 // role:R. It takes the @name and role:R strings as parameters.
@@ -53,7 +53,7 @@ func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 		var to, red string
 		if err := rows.Scan(&m.ID, &m.BoardID, &m.Seq, &m.At, &m.SenderID, &to, &m.Body, &m.ReplyTo,
 			&m.Urgent, &m.ExpectsReply, &red, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq,
-			&m.ThreadRoot, &m.ThreadRootSeq, &m.AgentOwners); err != nil {
+			&m.ThreadRoot, &m.ThreadRootSeq, &m.ReplyToFrom, &m.AgentOwners); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(to), &m.To); err != nil {

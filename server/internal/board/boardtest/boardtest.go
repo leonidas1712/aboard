@@ -1036,7 +1036,7 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 		}
 		return tx.InsertMessage(plain)
 	})
-	want.ReplyToSeq = ptr(int64(2))
+	want.ReplyToSeq, want.ReplyToFrom = ptr(int64(2)), ptr(c.writer.Name)
 	want.SenderName, want.SenderKind, want.SenderRole = c.writer.Name, c.writer.Kind, c.writer.Role
 	want.SenderOwner, want.SenderHuman, want.SenderHarness, want.AgentOwners = c.writer.Owner, c.writer.HumanID, c.writer.Harness, 1
 	read(t, st, func(tx board.ReadTx) error {

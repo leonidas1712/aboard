@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
@@ -47,6 +48,69 @@ func countReplies(tx ReadTx, b Board, me Member, msgs []Message) error {
 		}
 	}
 	return nil
+}
+
+// threadScanLimit bounds how many replies replyRecipients reads from one thread.
+const threadScanLimit = 1000
+
+// replyRecipients is who a reply to orig goes to when it names no one: the author
+// of every message in orig's thread that me may see, orig's author first, and every
+// member such a message was addressed to by name, in the order they first appear,
+// leaving out me and anyone no longer on the board. It never returns all; with no one
+// else in the thread it fails with reply_has_no_recipients.
+func replyRecipients(tx ReadTx, b Board, me Member, orig Message) ([]string, error) {
+	rootID := orig.ID
+	var thread []Message
+	if rules.CanRead(b.Policy, orig.To, orig.SenderID, me.Rules()) {
+		thread = append(thread, orig)
+	}
+	if orig.ThreadRoot != nil {
+		rootID = *orig.ThreadRoot
+		root, err := tx.MessageByID(rootID)
+		if err != nil {
+			return nil, fmt.Errorf("thread root %s: %w", rootID, err)
+		}
+		if rules.CanRead(b.Policy, root.To, root.SenderID, me.Rules()) {
+			thread = append(thread, root)
+		}
+	}
+	replies, err := tx.Thread(rootID, me, readsAll(b, me), 0, threadScanLimit)
+	if err != nil {
+		return nil, err
+	}
+	thread = append(thread, replies...)
+	var to []string
+	add := func(name string) error {
+		target := "@" + name
+		if name == me.Name || slices.Contains(to, target) {
+			return nil
+		}
+		if _, err := tx.MemberByName(b.ID, name); errors.Is(err, ErrNotFound) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		to = append(to, target)
+		return nil
+	}
+	for _, m := range thread {
+		if err := add(m.SenderName); err != nil {
+			return nil, err
+		}
+		for _, t := range m.To {
+			if kind, name, ok := rules.ParseTarget(t); ok && kind == rules.TargetName {
+				if err := add(name); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	if len(to) == 0 {
+		return nil, apierr.New(http.StatusUnprocessableEntity, "reply_has_no_recipients",
+			"No one else is in this thread, so the reply has no one to go to.",
+			"Address it: --to all, --to @name or --to role:R.")
+	}
+	return to, nil
 }
 
 // ThreadReading is one thread as its reader sees it.

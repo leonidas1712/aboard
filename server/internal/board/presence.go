@@ -34,12 +34,13 @@ type Presence struct {
 	State string // one of the Presence* states; empty for a person, or never reported
 	Since string // when State began
 	At    string // when it was last reported
-	// Delivery is the agent's delivery mode (auto, humans or off) as last reported, or
-	// empty if none was. It doesn't run out with the presence.
+	// Delivery is the agent's delivery mode (focused, all, humans or off; auto from an
+	// older daemon) as last reported, or empty if none was. It doesn't run out with the
+	// presence.
 	Delivery string
 }
 
-var deliveryModes = []string{"auto", "humans", "off"}
+var deliveryModes = []string{"focused", "all", "humans", "off", "auto"}
 
 // presenceKey is the Notifier key that changes when an agent's presence on the board
 // changes. Board ids start with "brd_", so it never names a board.
