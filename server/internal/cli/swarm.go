@@ -78,6 +78,8 @@ type swarmAgentRecord struct {
 	Attach   string `json:"attach,omitempty"`
 	// Start is fresh or resumed: how its session last started.
 	Start string `json:"start,omitempty"`
+	// StartNote says why an agent that had a session started fresh.
+	StartNote string `json:"start_note,omitempty"`
 	// Ticket is the launch ticket the session was started with, removed by down if no
 	// session took it.
 	Ticket    string    `json:"ticket,omitempty"`
@@ -190,10 +192,12 @@ type swarmAgent struct {
 	Attach   *string `json:"attach"`
 	State    string  `json:"state"`
 	Start    *string `json:"start"`
-	Session  *string `json:"session"`
-	Seated   bool    `json:"seated"`
-	Presence *string `json:"presence"`
-	Delivery *string `json:"delivery"`
+	// StartNote says why an agent that had a session started fresh, or is null.
+	StartNote *string `json:"start_note"`
+	Session   *string `json:"session"`
+	Seated    bool    `json:"seated"`
+	Presence  *string `json:"presence"`
+	Delivery  *string `json:"delivery"`
 }
 
 // swarmUpAgent is one agent in swarm up's output.
@@ -267,12 +271,15 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	}
 	tickets := launchtickets.Dir(p.launches())
 	var out []swarmUpAgent
+	var inputs []upInput
 	for _, spec := range f.Agents {
-		ag, err := a.upAgent(ctx, upInput{
+		in := upInput{
 			c: c, srv: srv, board: board.Name, swarm: name, file: f, spec: spec, rec: rec,
 			members: members, bindings: bindings, creds: creds, tickets: tickets,
 			launcherFlag: *launcherFlag, fresh: *fresh,
-		})
+		}
+		inputs = append(inputs, in)
+		ag, err := a.upAgent(ctx, in)
 		if saveErr := a.saveSwarm(name, rec); saveErr != nil && err == nil {
 			err = saveErr
 		}
@@ -282,7 +289,23 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 		out = append(out, ag)
 	}
 	if *wait > 0 {
-		if err := a.waitSeated(ctx, c, board.Name, name, out, *wait); err != nil {
+		// A resumed session that ends at once couldn't be resumed (its harness lost the
+		// conversation): such an agent starts once more, fresh.
+		retry := func(i int) error {
+			in := inputs[i]
+			in.fresh, in.note = true, "resuming the last session failed: it ended as it started, so a new one started"
+			ag, err := a.upAgent(ctx, in)
+			if saveErr := a.saveSwarm(name, rec); saveErr != nil && err == nil {
+				err = saveErr
+			}
+			if err != nil {
+				return err
+			}
+			ag.SeatCreated = out[i].SeatCreated
+			out[i] = ag
+			return nil
+		}
+		if err := a.waitSeated(ctx, c, board.Name, name, out, *wait, retry); err != nil {
 			return err
 		}
 	} else {
@@ -366,15 +389,21 @@ func boardMembers(ctx context.Context, c *client, board string) (map[string]api.
 // daemonBindings asks the delivery daemon which session holds each agent, starting the
 // daemon if it isn't running. It returns none when the daemon can't be reached.
 func (a *app) daemonBindings(ctx context.Context) map[delivery.AgentRef]delivery.BindingStatus {
+	out, _ := a.readBindings(ctx)
+	return out
+}
+
+// readBindings is daemonBindings, and whether the daemon answered.
+func (a *app) readBindings(ctx context.Context) (map[delivery.AgentRef]delivery.BindingStatus, bool) {
 	out := map[delivery.AgentRef]delivery.BindingStatus{}
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpStatus})
 	if err != nil || resp.Status == nil {
-		return out
+		return out, false
 	}
 	for _, b := range resp.Status.Bindings {
 		out[b.Agent] = b
 	}
-	return out
+	return out, true
 }
 
 // upInput is what swarm up knows when it starts one agent.
@@ -391,6 +420,8 @@ type upInput struct {
 	tickets      launchtickets.Dir
 	launcherFlag string
 	fresh        bool
+	// note says why the agent starts fresh, when swarm up already knows.
+	note string
 }
 
 // upAgent gives an agent its seat if it has none, and starts its session unless one runs.
@@ -476,13 +507,20 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 			}
 		}
 		_ = in.tickets.Remove(ar.Ticket)
+		// Its process is gone, so its session has ended, whether or not its end hook ran:
+		// a resumed session must report in again before it counts as seated.
+		if b, ok := in.bindings[ref]; ok && b.Open {
+			a.endSession(ctx, b.Session)
+			b.Open = false
+			in.bindings[ref] = b
+		}
 	}
 
 	req := launcher.StartRequest{
 		Swarm: in.swarm, Agent: spec.Name, Harness: spec.Harness, Mode: mode, Dir: dir,
 		Env: a.sessionEnv(spec.Name),
 	}
-	start, ticket := "fresh", ""
+	start, ticket, note := "fresh", "", in.note
 	if mode == launcher.ModeHeadless {
 		exe, err := a.env.Executable()
 		if err != nil {
@@ -495,7 +533,14 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 	} else {
 		session := ""
 		if b, bound := in.bindings[ref]; bound && !in.fresh && len(prof.Interactive.Resume) > 0 {
-			if key, ok := delivery.ParseSessionKey(b.Session); ok && key.Harness == spec.Harness {
+			key, ok := delivery.ParseSessionKey(b.Session)
+			switch {
+			case !ok || key.Harness != spec.Harness:
+			case !b.Turned:
+				// A harness saves a conversation only from its first turn (Claude Code), so a
+				// session that ran none can't be resumed, and has nothing to keep.
+				note = "the last session never ran a turn, so there was nothing to resume"
+			default:
 				session = key.ID
 			}
 		}
@@ -518,7 +563,7 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 	}
 	ar = &swarmAgentRecord{
 		Harness: spec.Harness, Role: spec.role(), Launcher: launcherName, Mode: mode, Dir: dir,
-		Handle: got.Handle, Attach: got.Attach, Start: start, Ticket: ticket, StartedAt: time.Now().UTC(),
+		Handle: got.Handle, Attach: got.Attach, Start: start, StartNote: note, Ticket: ticket, StartedAt: time.Now().UTC(),
 	}
 	in.rec.Agents[spec.Name] = ar
 	action := actionStarted
@@ -526,6 +571,14 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		action = actionResumed
 	}
 	return swarmUpAgent{swarmAgent: a.swarmRow(spec.Name, ar, string(launcher.Running), delivery.BindingStatus{}, in.members), Action: action, SeatCreated: seatCreated}, nil
+}
+
+// endSession tells the delivery daemon a session has ended, for one whose process a
+// launcher stopped or saw gone.
+func (a *app) endSession(ctx context.Context, session string) {
+	if key, ok := delivery.ParseSessionKey(session); ok {
+		_, _ = a.callDaemon(ctx, delivery.Request{Op: delivery.OpEnd, Harness: key.Harness, Session: key.ID})
+	}
 }
 
 func viaText(via string) string {
@@ -598,6 +651,7 @@ func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delive
 	row := swarmAgent{
 		Name: name, Harness: ar.Harness, Role: ar.Role, Launcher: ar.Launcher, Mode: ar.Mode, Dir: ar.Dir,
 		Handle: optional(ar.Handle), Attach: optional(ar.Attach), State: state, Start: optional(ar.Start),
+		StartNote: optional(ar.StartNote),
 	}
 	if b.Session != "" {
 		row.Session = optional(b.Session)
@@ -610,11 +664,8 @@ func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delive
 		if m.Delivery != nil {
 			row.Delivery = optional(string(*m.Delivery))
 		}
-		// The board shows a presence only while a session holds the agent: the delivery
-		// daemon reports it from the moment a session takes the seat, before any turn. It
-		// is the seat's second witness, for when this command couldn't read the daemon's
-		// bindings; a headless agent's runner reports it itself.
-		if present(row.Presence) && state != string(launcher.Exited) && state != "not_started" {
+		// A headless agent's runner reports its presence itself, and holds no session.
+		if ar.Mode == launcher.ModeHeadless && present(row.Presence) && state == string(launcher.Running) {
 			row.Seated = true
 		}
 	}
@@ -629,31 +680,39 @@ func present(p *string) bool {
 	switch api.MemberPresence(*p) {
 	case api.MemberPresenceIdle, api.MemberPresenceWorking, api.MemberPresenceWaiting:
 		return true
+	case api.MemberPresenceNoSession, api.MemberPresenceLessThannil:
+		return false
 	}
 	return false
 }
 
 // fillSeats refreshes each row's session, seat, presence and delivery mode.
 func (a *app) fillSeats(ctx context.Context, c *client, board string, row func(int) *swarmAgent, n int) bool {
-	bindings := a.daemonBindings(ctx)
+	bindings, asked := a.readBindings(ctx)
 	members, _ := boardMembers(ctx, c, board)
 	srv := c.server
 	all := true
 	for i := range n {
 		r := row(i)
-		ar := &swarmAgentRecord{Harness: r.Harness, Role: r.Role, Launcher: r.Launcher, Mode: r.Mode, Dir: r.Dir, Handle: deref(r.Handle), Attach: deref(r.Attach), Start: deref(r.Start)}
+		ar := &swarmAgentRecord{Harness: r.Harness, Role: r.Role, Launcher: r.Launcher, Mode: r.Mode, Dir: r.Dir, Handle: deref(r.Handle), Attach: deref(r.Attach), Start: deref(r.Start), StartNote: deref(r.StartNote)}
 		*r = a.swarmRow(r.Name, ar, r.State, bindings[delivery.AgentRef{Server: srv.URL, Board: board, Name: r.Name}], members)
+		// The board shows a presence only while a session holds the agent: the daemon
+		// reports it from the moment a session takes the seat, before any turn. It
+		// witnesses the seat when this command couldn't read the daemon's bindings.
+		if !asked && present(r.Presence) && r.State == string(launcher.Running) {
+			r.Seated = true
+		}
 		all = all && r.Seated
 	}
 	return all
 }
 
 // waitSeated waits until every agent has taken its seat, for at most d.
-func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, out []swarmUpAgent, d time.Duration) error {
+func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, out []swarmUpAgent, d time.Duration, retry func(int) error) error {
 	deadline := time.Now().Add(d)
 	row := func(i int) *swarmAgent { return &out[i].swarmAgent }
 	for !a.fillSeats(ctx, c, board, row, len(out)) {
-		if err := a.exitedUnseated(ctx, swarm, out); err != nil {
+		if err := a.exitedUnseated(ctx, swarm, out, retry); err != nil {
 			return err
 		}
 		if time.Now().After(deadline) || ctx.Err() != nil {
@@ -687,7 +746,7 @@ func (a *app) waitSeated(ctx context.Context, c *client, board, swarm string, ou
 // exitedUnseated fails when a session swarm up started has already ended without its
 // agent taking the seat: waiting longer can't help, and its window, where the launcher
 // keeps one, says why.
-func (a *app) exitedUnseated(ctx context.Context, swarm string, out []swarmUpAgent) error {
+func (a *app) exitedUnseated(ctx context.Context, swarm string, out []swarmUpAgent, retry func(int) error) error {
 	for i := range out {
 		ag := &out[i]
 		if ag.Seated || ag.Handle == nil {
@@ -702,6 +761,12 @@ func (a *app) exitedUnseated(ctx context.Context, swarm string, out []swarmUpAge
 			continue
 		}
 		ag.State = string(launcher.Exited)
+		if ag.Action == actionResumed && retry != nil {
+			if err := retry(i); err != nil {
+				return err
+			}
+			continue
+		}
 		hint := "Start it again with aboard swarm up once the cause is fixed; aboard swarm ps shows the swarm."
 		if ag.Attach != nil {
 			hint = "See why with " + *ag.Attach + ", which shows its last output. " + hint
@@ -740,6 +805,11 @@ func (a *app) swarmUpText(srv serverRef, started bool, f swarmFile, board *api.B
 		state := strings.ReplaceAll(r.Action, "already_running", "running")
 		return []string{r.Name, r.Harness, r.Launcher, state, deref(r.Attach)}
 	}))
+	for _, r := range out {
+		if r.StartNote != nil && r.Action == actionStarted {
+			fmt.Fprintf(&b, "%s started fresh: %s.\n", r.Name, *r.StartNote)
+		}
+	}
 	seated := 0
 	for _, r := range out {
 		if r.Seated {
@@ -965,6 +1035,7 @@ func runSwarmDown(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	tickets := launchtickets.Dir(p.launches())
+	bindings := a.daemonBindings(ctx)
 	stopped, notRunning := []string{}, []string{}
 	for _, n := range names {
 		ar, ok := rec.Agents[n]
@@ -985,6 +1056,9 @@ func runSwarmDown(ctx context.Context, a *app, args []string) error {
 			return launcherError(ar.Launcher, "stop "+n, err)
 		}
 		_ = tickets.Remove(ar.Ticket)
+		if b, ok := bindings[delivery.AgentRef{Server: rec.Server, Board: rec.Board, Name: n}]; ok && b.Open {
+			a.endSession(ctx, b.Session)
+		}
 		ar.Ticket = ""
 		if before == launcher.Exited {
 			notRunning = append(notRunning, n)

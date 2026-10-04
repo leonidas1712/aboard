@@ -64,6 +64,8 @@ type Daemon struct {
 	owners   map[AgentRef]*session
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
+	// turned holds the sessions that have run a turn, for status.
+	turned   map[SessionKey]bool
 	problems map[AgentRef]string
 	// modes holds each agent's delivery mode; an agent not in it has the default.
 	modes map[AgentRef]Mode
@@ -81,7 +83,7 @@ func Run(ctx context.Context, cfg Config) error {
 	d := &Daemon{
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		sessions: map[SessionKey]*session{}, owners: map[AgentRef]*session{},
-		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, problems: map[AgentRef]string{},
+		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentRef]string{},
 		modes: map[AgentRef]Mode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
@@ -143,8 +145,9 @@ func (d *Daemon) restore(ctx context.Context) error {
 		if s == nil {
 			continue
 		}
-		s.boot, s.open, s.proc, s.lost, s.started = r.Boot, r.Open, r.Process, r.Lost, true
+		s.boot, s.open, s.proc, s.lost, s.started, s.turned = r.Boot, r.Open, r.Process, r.Lost, true, r.Turned
 		d.open[r.Key] = r.Open
+		d.turned[r.Key] = r.Turned
 	}
 	for _, b := range bindings {
 		s := d.sessions[b.Session]
@@ -304,6 +307,13 @@ func (d *Daemon) setOpen(key SessionKey, open bool) {
 		default:
 		}
 	}
+}
+
+// setTurned records, for status, that a session has run a turn.
+func (d *Daemon) setTurned(key SessionKey) {
+	d.mu.Lock()
+	d.turned[key] = true
+	d.mu.Unlock()
 }
 
 func (d *Daemon) openCount() int {
@@ -739,7 +749,7 @@ func (d *Daemon) status(ctx context.Context) Response {
 		st.Agents = append(st.Agents, AgentProblem{Agent: a, Reason: reason})
 	}
 	for a, s := range d.owners {
-		st.Bindings = append(st.Bindings, BindingStatus{Agent: a, Session: s.key.String(), Open: d.open[s.key]})
+		st.Bindings = append(st.Bindings, BindingStatus{Agent: a, Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
 	}
 	d.mu.Unlock()
 	slices.SortFunc(st.Servers, func(a, b ServerStatus) int { return strings.Compare(a.URL, b.URL) })

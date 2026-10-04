@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -433,5 +434,50 @@ func TestSwarmUpReportsASessionThatEndedBeforeItsSeat(t *testing.T) {
 	out, err := capture.CombinedOutput()
 	if err != nil || !strings.Contains(string(out), "quitting at start") {
 		t.Fatalf("the dead window should show the harness's last output: %v\n%s", err, out)
+	}
+}
+
+// A session that never ran a turn has no conversation to resume (Claude Code saves one
+// only from its first turn, and quits when asked to resume one it doesn't have), so the
+// next swarm up starts it fresh, says why, and the agent takes its seat again.
+func TestSwarmUpStartsFreshWhenTheLastSessionRanNoTurn(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.writeBoardFile("board: idle\nagents:\n" +
+		"  - {name: claude, harness: claude-code, prompt: \"\"}\n" +
+		"  - {name: omp, harness: omp, prompt: \"\"}\n")
+	first := agentsByName(t, s.run("swarm", "up", "--json").json(t))
+	s.run("swarm", "down")
+	again := s.run("swarm", "up", "--wait", "30s", "--json")
+	for name, ag := range agentsByName(t, again.json(t)) {
+		if ag["action"] != "started" || ag["start"] != "fresh" || ag["seated"] != true || ag["session"] == first[name]["session"] ||
+			!strings.Contains(fmt.Sprint(ag["start_note"]), "never ran a turn") {
+			t.Fatalf("%s should start fresh, seated, saying why:\n%v", name, ag)
+		}
+	}
+	if text := s.run("swarm", "ps", "--json"); !strings.Contains(text.stdout, "never ran a turn") {
+		t.Fatalf("ps should say why the agents started fresh:\n%s", text)
+	}
+}
+
+// A resumed session that ends as it starts (its harness lost the conversation) is
+// started once more, fresh, and the agent takes its seat; swarm up says so.
+func TestSwarmUpStartsFreshWhenAResumeFails(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	s.writeBoardFile("board: lost\nagents:\n  - {name: claude, harness: claude-code}\n")
+	first := agentsByName(t, s.run("swarm", "up", "--json").json(t))["claude"]
+	s.run("swarm", "down")
+	if err := os.RemoveAll(s.log + ".conversations"); err != nil {
+		t.Fatal(err)
+	}
+	ag := agentsByName(t, s.run("swarm", "up", "--wait", "30s", "--json").json(t))["claude"]
+	if ag["action"] != "started" || ag["seated"] != true || ag["session"] == first["session"] ||
+		!strings.Contains(fmt.Sprint(ag["start_note"]), "resuming the last session failed") {
+		t.Fatalf("claude should start fresh after its resume failed:\n%v", ag)
+	}
+	starts := s.starts("claude")
+	if len(starts) != 3 || starts[1].Source != "resume" || starts[2].Source != "startup" {
+		t.Fatalf("want a start, a failed resume and a fresh start: %+v", starts)
 	}
 }

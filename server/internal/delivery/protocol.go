@@ -225,6 +225,8 @@ type BindingStatus struct {
 	Session string   `json:"session"`
 	// Open is true while the session is open.
 	Open bool `json:"open,omitempty"`
+	// Turned is true once the session has run a turn, so the harness can resume it.
+	Turned bool `json:"turned,omitempty"`
 }
 
 // ErrFrameTooLarge means a control socket message was larger than MaxFrame.

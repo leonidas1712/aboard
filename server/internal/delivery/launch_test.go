@@ -33,6 +33,25 @@ func TestLaunchTicketBindsTheSessionOnce(t *testing.T) {
 	}
 }
 
+// A session counts as turned once it has run a turn, which status reports and the
+// journal keeps across a restart: only such a session can be resumed by its harness.
+func TestStatusSaysWhetherASessionHasRunATurn(t *testing.T) {
+	r := newRig(t)
+	r.register("s-1", "b1")
+	r.bind("claude-code", "s-1", reviewer)
+	if b := r.status().Bindings[0]; b.Turned {
+		t.Fatalf("a session that ran no turn is turned: %+v", b)
+	}
+	r.ok(delivery.Request{Op: delivery.OpTurnStart, Harness: "claude-code", Session: "s-1"})
+	if b := r.status().Bindings[0]; !b.Turned {
+		t.Fatalf("after a turn: %+v", b)
+	}
+	r.restart()
+	if b := r.status().Bindings[0]; !b.Turned {
+		t.Fatalf("after a restart: %+v", b)
+	}
+}
+
 // An extension's hello hands in the ticket the same way.
 func TestLaunchTicketBindsAnExtensionSession(t *testing.T) {
 	r := newRig(t)

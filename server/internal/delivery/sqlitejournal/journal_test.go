@@ -117,6 +117,7 @@ func TestMigrationKeepsEachSessionsLatestBinding(t *testing.T) {
 		"ALTER TABLE deliveries DROP COLUMN accepted_at",
 		"ALTER TABLE deliveries DROP COLUMN turn_started_at",
 		"ALTER TABLE deliveries DROP COLUMN stalled",
+		"ALTER TABLE sessions DROP COLUMN turned",
 		"DROP INDEX bindings_one_per_session",
 		"PRAGMA user_version = 3",
 		`INSERT INTO bindings VALUES

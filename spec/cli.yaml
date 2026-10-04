@@ -1394,7 +1394,7 @@ $defs:
       machine (in the state folder, swarms/), the launcher's status, the delivery
       daemon's bindings and the board's members.
     type: object
-    required: [name, harness, role, launcher, mode, dir, handle, attach, state, start, session, seated, presence, delivery]
+    required: [name, harness, role, launcher, mode, dir, handle, attach, state, start, start_note, session, seated, presence, delivery]
     properties:
       name: { type: string, examples: [claude] }
       harness: { type: string, examples: [claude-code] }
@@ -1421,7 +1421,14 @@ $defs:
           How swarm up last started the session: fresh, a new session; resumed, the
           harness's own resume of the session the agent last had, so it keeps its
           conversation (interactive.resume in the harness's profile; for a headless agent,
-          the runner resumes the harness session its last turn used).
+          the runner resumes the harness session its last turn used). An agent's last
+          session is resumed only if it ran a turn: a harness saves a conversation only
+          from its first turn (Claude Code), so one that ran none starts fresh. A resumed
+          session that ends as it starts is started once more, fresh.
+      start_note:
+        type: [string, "null"]
+        description: 'Why an agent that had a session started fresh; null otherwise. Text output adds a line "<agent> started fresh: <note>."'
+        examples: ["the last session never ran a turn, so there was nothing to resume", "resuming the last session failed: it ended as it started, so a new one started"]
       session:
         type: [string, "null"]
         description: The harness session that holds the agent's seat, as <harness>:<id>, from the delivery daemon; null when none has.

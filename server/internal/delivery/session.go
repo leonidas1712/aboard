@@ -130,6 +130,10 @@ type session struct {
 	// daemon can tell a session that started no turn from one whose turns it can't see
 	// (Codex with untrusted hooks).
 	seenTurns bool
+	// turned is true once the session has run a turn, which is kept in the journal: a
+	// harness can resume a session only after it, since only then does it save the
+	// conversation.
+	turned bool
 	// awaitingTurn are deliveries handed to the session while it was idle, waiting for
 	// the turn they should start; stallAt is when they count as stalled.
 	awaitingTurn []*Delivery
@@ -304,6 +308,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		ok.Bundle, ok.Notice = s.boundary(ctx)
 	case OpTurnEnd:
+		s.markTurned(ctx)
 		s.event(ctx, req.Boot)
 		s.inTurn, s.working = false, false
 		s.seenTurns = true
@@ -467,8 +472,18 @@ func (s *session) setOpen(ctx context.Context, open bool) {
 	}
 }
 
+// markTurned records that the session has run a turn.
+func (s *session) markTurned(ctx context.Context) {
+	if s.turned {
+		return
+	}
+	s.turned = true
+	s.d.setTurned(s.key)
+	s.saveSession(ctx)
+}
+
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -1176,6 +1191,7 @@ func (s *session) accepted(ctx context.Context, ds []*Delivery, idle bool) {
 // one that had stalled no longer has.
 func (s *session) turnStarted(ctx context.Context) {
 	s.seenTurns = true
+	s.markTurned(ctx)
 	now := s.now()
 	for _, dl := range s.awaitingTurn {
 		dl.TurnStartedAt = now

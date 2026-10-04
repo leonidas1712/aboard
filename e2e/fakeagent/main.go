@@ -161,6 +161,12 @@ func claude(s *session) {
 		fmt.Println("fakeagent: quitting at start, as FAKE_AGENT_EXIT asks")
 		os.Exit(1)
 	}
+	if s.source == "resume" && !hasConversation(s) {
+		// Claude Code saves a conversation only from its first turn, so it can't resume a
+		// session that ran none, and quits saying so.
+		fmt.Println("No conversation found with session ID: " + s.id)
+		os.Exit(1)
+	}
 	envFile := filepath.Join(os.TempDir(), "fakeagent-env-"+s.id)
 	_ = os.Remove(envFile) //nolint:gosec // a file of this process's own
 	hook(s, "session-start", append(slices.Clone(s.env), "CLAUDE_ENV_FILE="+envFile), map[string]any{"hook_event_name": "SessionStart", "source": s.source})
@@ -171,6 +177,10 @@ func claude(s *session) {
 		}
 	}
 	_ = os.Remove(envFile) //nolint:gosec // a file of this process's own
+	if s.prompt != "" {
+		hook(s, "prompt", s.env, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
+		saveConversation(s)
+	}
 	runPrompt(s)
 	waitUntilStopped()
 	hook(s, "end", s.env, map[string]any{"hook_event_name": "SessionEnd"})
@@ -184,6 +194,8 @@ func codex(s *session) {
 			return strings.HasPrefix(kv, "ABOARD_LAUNCH=") || strings.HasPrefix(kv, "ABOARD_AGENT=")
 		})
 		hook(s, "session-start", hookEnv, map[string]any{"hook_event_name": "SessionStart", "source": s.source})
+		hook(s, "prompt", hookEnv, map[string]any{"hook_event_name": "UserPromptSubmit", "prompt": s.prompt})
+		saveConversation(s)
 		s.env = append(s.env, "CODEX_THREAD_ID="+s.id, "CODEX_SESSION_ID="+s.id)
 		runPrompt(s)
 	}
@@ -204,11 +216,35 @@ func omp(s *session) {
 		fail("no welcome from the daemon: %q %v", welcome, err)
 	}
 	s.env = append(s.env, "ABOARD_SESSION=omp:"+s.id)
+	if s.prompt != "" {
+		for _, op := range []string{"prompt", "turn_end"} {
+			msg, _ := json.Marshal(map[string]any{"v": 1, "op": op})
+			_, _ = conn.Write(append(msg, '\n'))
+		}
+		saveConversation(s)
+	}
 	runPrompt(s)
 	waitUntilStopped()
 	bye, _ := json.Marshal(map[string]any{"v": 1, "op": "goodbye"})
 	_, _ = conn.Write(append(bye, '\n'))
 	_ = conn.Close()
+}
+
+// conversation is where the fake keeps that a session ran a turn, as a harness keeps
+// its transcript: beside FAKE_AGENT_LOG.
+func conversation(s *session) string {
+	return filepath.Join(os.Getenv("FAKE_AGENT_LOG")+".conversations", s.harness+"-"+s.id)
+}
+
+func saveConversation(s *session) {
+	path := conversation(s)
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)      //nolint:gosec // beside the test's log
+	_ = os.WriteFile(path, []byte(s.prompt), 0o600) //nolint:gosec // beside the test's log
+}
+
+func hasConversation(s *session) bool {
+	_, err := os.Stat(conversation(s))
+	return err == nil
 }
 
 // connect reaches the delivery daemon's socket (spec/control.md, Transport), starting

@@ -245,13 +245,13 @@ as the server's `GET /v1/info`; a daemon whose status has none is from an older 
 seconds (reason `no_turn_started`), until a turn starts or the session closes; they are
 never handed again because of it. A daemon from before stalls were tracked leaves the
 field out. `bindings` lists every agent with a session, the session as
-`<harness>:<id>`; `open` is true while that session is open. A closed session keeps its
+`<harness>:<id>`; `open` is true while that session is open, and `turned` once it has run a turn, which a harness needs before it can resume the session. A closed session keeps its
 agent until another session takes it, which is how `aboard swarm up` finds the session
 to resume.
 
 ```json
 {"v":1,"op":"status"}
-{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"stalled":[{"id":14,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"},"seqs":[11],"reason":"no_turn_started"}],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001","open":true}]}}
+{"v":1,"status":{"pid":4182,"build":{"version":"0.1.0","commit":"3f9a0c1e2b4d","commit_time":"2026-10-03T09:00:00Z"},"open_sessions":2,"servers":[{"url":"http://127.0.0.1:7400","connected":true}],"attention":[{"id":12,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"seqs":[9],"reason":"harness_error"}],"skipped":[],"stalled":[{"id":14,"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"},"seqs":[11],"reason":"no_turn_started"}],"agents":[],"bindings":[{"agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"session":"claude-code:5f1c2d3e-0000-4000-8000-000000000001","open":true,"turned":true}]}}
 ```
 
 ## Connections that stay open
