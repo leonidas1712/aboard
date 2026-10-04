@@ -7,7 +7,7 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type MemberRef, type Message } from "./api";
+import { ApiError, type MemberRef, type Message, type ReactionName, react } from "./api";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
 import { FilterChips, FilterControl } from "./filter";
@@ -217,6 +217,21 @@ export default function BoardView({ name }: { name: string }) {
 
   const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
+  // A reaction shows at once from the answer; everyone else's view follows the stream.
+  const { replace } = s;
+  const onReact = useCallback(
+    (m: Message, name: ReactionName, add: boolean) => {
+      react(m.id, name, add).then(
+        (updated) => {
+          setPostError(null);
+          replace(updated);
+        },
+        (e: unknown) => setPostError(e),
+      );
+    },
+    [replace],
+  );
+
   const mine = (s.members ?? []).find((m) => m.kind === "human" && m.name === me);
   const myAccess = mine?.access ?? null;
 
@@ -330,6 +345,8 @@ export default function BoardView({ name }: { name: string }) {
                 identity={identity}
                 waiting={waiting}
                 onReply={setReplyTo}
+                onReact={onReact}
+                me={me}
                 onToggle={onToggle}
                 onShow={onShow}
                 onSeen={onSeen}

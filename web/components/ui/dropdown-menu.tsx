@@ -38,6 +38,10 @@ export function DropdownMenuSeparator({ className, ...props }: ComponentProps<ty
   return <DropdownMenuPrimitive.Separator className={cn("my-1 h-px bg-rule", className)} {...props} />;
 }
 
+export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof DropdownMenuPrimitive.Item>) {
+  return <DropdownMenuPrimitive.Item className={cn(itemClass, className)} {...props} />;
+}
+
 export function DropdownMenuRadioItem({ className, children, ...props }: ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
   return (
     <DropdownMenuPrimitive.RadioItem

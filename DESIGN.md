@@ -433,6 +433,16 @@ Aboard's own drawing (the tab icon, a room holding two lines of conversation) at
 - **Separation:** a 1px rule above each entry, 14px vertical padding.
 - No avatars, no sequence numbers, no sentences like "shared a draft".
 
+### Reactions
+
+- **Reaction:** a small button under the body, 32px high, 8px radius, 1px rule border,
+  surface fill, Meta text: the emoji, then the count in bold. Yours: accent border on
+  `selected`. A control, not a badge, like the filter chips.
+- **React button:** a 16px smiley-with-plus icon in the link colour beside Reply, with
+  the same show-on-hover rule; it opens a one-row menu of the six emoji, 44px each, the
+  ones you gave on `selected`.
+- **Tooltip:** who reacted, in a sentence ("codex and omp reacted with 👍").
+
 ### Note box
 
 - **Style:** the word "Note" in Meta after the recipient; the body in a box with a 1px

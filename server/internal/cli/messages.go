@@ -302,6 +302,7 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	limit := fs.Int("limit", 0, "the most messages to show (default 50)")
 	markdown := fs.Bool("markdown", false, "print a Markdown transcript to paste into a session")
 	thread := fs.String("thread", "", "show the whole thread this message is in: msg_…, 6 or #6")
+	threads := fs.Bool("threads", false, "list the board's threads, the newest activity first")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board")
 	if _, err := a.parse(fs, args, readUsage, 0, 0); err != nil {
@@ -320,6 +321,9 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if *thread != "" && (windows > 0 || *from != "" || *role != "" || *toMe || *limit > 0) {
 		return usageError("--thread shows a whole thread, so it can't be combined with --after, --before, --around, --from, --role, --to-me or --limit.", readUsage)
 	}
+	if *threads && (*thread != "" || windows > 0 || *from != "" || *role != "" || *toMe || *markdown) {
+		return usageError("--threads lists every thread, so it can't be combined with --thread, --after, --before, --around, --from, --role, --to-me or --markdown.", readUsage)
+	}
 	f := readFilter{from: strings.TrimPrefix(*from, "@"), role: *role, toMe: *toMe, limit: *limit}
 	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 	if err != nil {
@@ -337,6 +341,9 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	}
 	if *thread != "" {
 		return readThread(ctx, a, c, t, cred, b, *thread, *markdown)
+	}
+	if *threads {
+		return readThreads(ctx, a, c, b, *limit, readHintArgs(readFilter{}, *as, *boardFlag))
 	}
 	page, err := readPage(ctx, c, t.board, f, *after, *before, *around)
 	if err != nil {
