@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Page, type Response, expect, test } from "@playwright/test";
+import { modeRules, settableModes } from "../app/delivery-modes.gen";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -594,6 +595,14 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
   await sent.locator(".mention", { hasText: "@writer" }).click();
   await expect(page.locator('[data-agent="writer"]')).toBeInViewport();
 
+  // The timeline marks the mentions the server recorded when the message was posted:
+  // never a name in code, and never someone who joined after it.
+  say("--as", "writer", "Run `aboard say --to @scout` when @scout is free, and @late too.");
+  aboard("join", invite.join_line, "--name", "late");
+  await page.reload();
+  const coded = page.locator(".message", { hasText: "when @scout is free" });
+  await expect(coded.locator(".mention")).toHaveText(["@scout"]);
+
   // The "To" menu is the other way to pick: a name ticked there becomes a chip, and the
   // chip removes it.
   await to.click();
@@ -939,4 +948,63 @@ test("the header, the board list and the people on a board show open, private an
   const alone = page.locator(".board-row", { hasText: "Docs review" });
   await expect(alone).toBeVisible();
   await expect(alone.locator(".visibility")).toHaveCount(0);
+});
+
+test("each agent shows its delivery mode, and its person changes it from a menu with each mode's rule", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Delivery check", "--json"));
+  const board: string = pair.board.name;
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // kim, another person on the server, has an agent on alex's board too.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  const kim = await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "kim", key_name: "laptop" });
+  const kimKey = (kim.key as { token: string }).token;
+  await api(kimKey, "POST", `/v1/boards/${board}/people`, { handle: "kim" });
+  const kimAgent = ((await api(kimKey, "POST", "/v1/join", { board, role: "reviewer" })).agent as { name: string }).name;
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Delivery check" });
+  const writer = panel.locator('[data-agent="writer"]');
+
+  // alex's own agent's mode is a menu; kim's agent shows its mode as a label only.
+  const theirs = panel.locator(`[data-agent="${kimAgent}"]`);
+  await expect(theirs.locator(".delivery-mode")).toHaveText("focused");
+  await expect(theirs.locator(".delivery-mode")).toHaveAttribute("title", modeRules.focused);
+  await expect(theirs.getByRole("button", { name: /^Delivery mode of/ })).toHaveCount(0);
+
+  for (const theme of ["Dark", "Light"]) {
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    await page.getByRole("menuitemradio", { name: theme }).click();
+    await page.keyboard.press("Escape");
+    await writer.getByRole("button", { name: "Delivery mode of writer: focused. Change it" }).click();
+    // Each mode comes with the rule the agent is told, in the same words as the CLI's.
+    const menu = page.locator(".delivery-modes");
+    for (const mode of settableModes) {
+      await expect(menu.getByRole("menuitemradio", { name: new RegExp(`^${mode}`) })).toContainText(modeRules[mode]);
+    }
+    await expect(menu.getByRole("menuitemradio", { name: /^focused/ })).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+  }
+
+  await writer.getByRole("button", { name: /^Delivery mode of writer/ }).click();
+  await page.getByRole("menuitemradio", { name: /^off/ }).click();
+  await expect(writer.getByRole("button", { name: "Delivery mode of writer: off. Change it" })).toBeVisible();
+
+  // The server holds it: the CLI reads the same mode, and the record says who changed it.
+  expect(JSON.parse(aboard("delivery", "--as", "writer", "--board", board, "--json")).mode).toBe("off");
+  await expect(page.locator(".board-event", { hasText: "alex set writer's delivery mode to off" })).toBeVisible();
+
+  // A change made elsewhere shows live.
+  aboard("delivery", "humans", "--as", "writer", "--board", board);
+  await expect(writer.getByRole("button", { name: "Delivery mode of writer: humans. Change it" })).toBeVisible();
+
+  // kim's agent is kim's to set: alex is refused, through the API too.
+  const refused = await fetch(`http://${env.ABOARD_LOCAL_ADDR}/v1/boards/${board}/members/${kimAgent}/delivery`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${owner}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "off" }),
+  });
+  expect(refused.status).toBe(403);
+  expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
 });

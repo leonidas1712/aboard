@@ -135,7 +135,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name})
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}, heldModeOf(joined.Agent))
 	text.WriteString(mode.line())
 	if notice != nil {
 		text.WriteString(st.warn(notice.Message) + "\n")
@@ -277,7 +277,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if inSession {
 		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
 	}
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name})
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}, heldModeOf(agent))
 	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent))
 	if guest {
 		text += fmt.Sprintf("You're a guest on %s: you and your agents reach only the boards you're invited to. This machine's key, %q, is saved.\n",

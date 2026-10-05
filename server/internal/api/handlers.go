@@ -138,9 +138,14 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 		Browser     bool    `json:"browser"`
 		ServerRole  *string `json:"server_role"`
 		DisplayName *string `json:"display_name"`
+		// DeliveryMode and DeliveryRevision are an agent's; null for a person.
+		DeliveryMode     *string `json:"delivery_mode"`
+		DeliveryRevision *int64  `json:"delivery_revision"`
 	}{Browser: me.Browser}
 	if me.Agent != nil {
 		out.ID, out.Kind, out.Name, out.Board, out.Owner = me.Agent.ID, "agent", me.Agent.Name, &me.Board, me.Agent.Owner
+		mode, rev := me.Agent.Delivery.Current(), me.Agent.Delivery.Seq
+		out.DeliveryMode, out.DeliveryRevision = &mode, &rev
 	} else {
 		out.ID, out.Kind, out.Name = me.Human.ID, "human", me.Human.Name
 		out.ServerRole, out.DisplayName = &me.Human.Role, me.Human.DisplayName
@@ -346,12 +351,25 @@ func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (Get
 		return nil, err
 	}
 	return convert[GetInbox200JSONResponse](struct {
-		Board    string        `json:"board"`
-		Agent    string        `json:"agent"`
-		Messages []wireMessage `json:"messages"`
-		Cursor   int64         `json:"cursor"`
-		More     bool          `json:"more"`
-	}{r.Board.Name, r.Reader.Name, messagesOf(r), r.Reader.Cursor, more})
+		Board            string        `json:"board"`
+		Agent            string        `json:"agent"`
+		Messages         []wireMessage `json:"messages"`
+		Cursor           int64         `json:"cursor"`
+		More             bool          `json:"more"`
+		DeliveryMode     string        `json:"delivery_mode"`
+		DeliveryRevision int64         `json:"delivery_revision"`
+	}{r.Board.Name, r.Reader.Name, messagesOf(r), r.Reader.Cursor, more, r.Reader.Delivery.Current(), r.Reader.Delivery.Seq})
+}
+
+func (h *handlers) SetDeliveryMode(ctx context.Context, req SetDeliveryModeRequestObject) (SetDeliveryModeResponseObject, error) {
+	c, err := h.svc.SetDeliveryMode(ctx, principal(ctx), req.Board, req.Member, string(req.Body.Mode))
+	if err != nil {
+		return nil, err
+	}
+	return SetDeliveryMode200JSONResponse{
+		Board: c.Board.Name, Agent: c.Agent.Name, Mode: DeliveryModeSetting(c.Agent.Delivery.Current()),
+		Revision: int(c.Agent.Delivery.Seq), Changed: c.Changed,
+	}, nil
 }
 
 func (h *handlers) AckInbox(ctx context.Context, req AckInboxRequestObject) (AckInboxResponseObject, error) {

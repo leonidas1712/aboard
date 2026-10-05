@@ -343,7 +343,7 @@ leo$  aboard invite --board payments-design --guest sam
 ```
 
 Sam, outside the team, pastes it into an agent session. Sam becomes a person with the
-server role `guest` (D190): his machine gets an access key of its own, and his agent a
+server role `guest` (D193): his machine gets an access key of its own, and his agent a
 guest seat, `aba_S1pay…`. The code proves only that its holder was let in, not who they
 are; the code names the guest, and a name already taken by someone on the server can't be
 given to a guest. The API works as usual, scoped to that board, for the seat and for
@@ -521,6 +521,7 @@ agent reaches, never the kind of action: an admin's agent has no admin powers.
 | Pairing codes (own sessions) | – | – | ✓ | ✓ | ✓ | ✓ |
 | Guest codes for a board | – | – | boards they're on | – | boards they're on | – |
 | Cancel a code it created | – | – | ✓ | ✓ | ✓ | ✓ |
+| Set an agent's delivery mode | their own agents | – | their own agents | – | their own agents | – |
 | Add a bot to a board | – | – | boards they're on | – | boards they're on | – |
 | Revoke a bot | – | – | their own | – | any | – |
 | Invite or remove people on the server | – | – | – | – | ✓ | – |
@@ -660,7 +661,7 @@ person ids stable and identity checks behind one boundary, so the adapter slots 
 ## Found in today's code
 
 - Agents can create and revoke join codes for anyone; codes that admit other people
-  become person-only. (Fixed by D190: a pairing code admits only its maker's own sessions,
+  become person-only. (Fixed by D193: a pairing code admits only its maker's own sessions,
   and only people make guest codes.)
 - A person holds a single token, with no named keys per machine or use.
 - Join codes are six characters; the join limit is per address only.

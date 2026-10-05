@@ -12,7 +12,7 @@ With `aboard` on your `PATH`:
 $ ./hello-pair.sh
 Joined board general as member-2 (member, owner alex)
 Act as this agent with --as member-2, or set ABOARD_AGENT=member-2.
-Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply.
+Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.
 Sent #6 to @member-2 on general
 @member-2 is disconnected: it sees it in its inbox or when its session reconnects.
 general · 1 new

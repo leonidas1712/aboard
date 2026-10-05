@@ -23,15 +23,22 @@ func (t *tx) InsertMessage(m board.Message) error {
 	if err != nil {
 		return fmt.Errorf("encode redactions: %w", err)
 	}
-	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red)); err != nil {
+	if m.Mentions == nil {
+		m.Mentions = []board.Mention{}
+	}
+	men, err := json.Marshal(m.Mentions)
+	if err != nil {
+		return fmt.Errorf("encode mentions: %w", err)
+	}
+	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json, mentions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red), string(men)); err != nil {
 		return err
 	}
 	return t.exec("UPDATE boards SET message_count = message_count + 1, last_message_at = ? WHERE id = ?", m.At, m.BoardID)
 }
 
 const messageSelect = `SELECT m.id, m.board_id, m.seq, m.at, m.sender_id, m.to_json, m.body, m.reply_to,
-	m.urgent, m.expects_reply, m.redactions_json, s.name, s.kind, s.role, s.owner, s.human_id, s.harness, r.seq,
+	m.urgent, m.expects_reply, m.redactions_json, m.mentions_json, s.name, s.kind, s.role, s.owner, s.human_id, s.harness, r.seq,
 	m.thread_root, tr.seq, rs.name,
 	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent')
 	FROM messages m JOIN members s ON s.id = m.sender_id LEFT JOIN messages r ON r.id = m.reply_to
@@ -55,9 +62,9 @@ func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 	var out []board.Message
 	for rows.Next() {
 		var m board.Message
-		var to, red string
+		var to, red, men string
 		if err := rows.Scan(&m.ID, &m.BoardID, &m.Seq, &m.At, &m.SenderID, &to, &m.Body, &m.ReplyTo,
-			&m.Urgent, &m.ExpectsReply, &red, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq,
+			&m.Urgent, &m.ExpectsReply, &red, &men, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq,
 			&m.ThreadRoot, &m.ThreadRootSeq, &m.ReplyToFrom, &m.AgentOwners); err != nil {
 			return nil, err
 		}
@@ -66,6 +73,9 @@ func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 		}
 		if err := json.Unmarshal([]byte(red), &m.Redactions); err != nil {
 			return nil, fmt.Errorf("message %s redactions: %w", m.ID, err)
+		}
+		if err := json.Unmarshal([]byte(men), &m.Mentions); err != nil {
+			return nil, fmt.Errorf("message %s mentions: %w", m.ID, err)
 		}
 		out = append(out, m)
 	}
@@ -112,12 +122,14 @@ func (t *tx) Timeline(boardID string, reader board.Member, readAll bool, q board
 	return ms, err
 }
 
-// Inbox returns messages after the reader's cursor that are addressed to it and that it
-// didn't send, oldest first.
-func (t *tx) Inbox(reader board.Member, limit int) ([]board.Message, error) {
+// Inbox returns messages after the reader's cursor that it didn't send and that are
+// addressed to it or, when mentions is true, mention it with wakes set, oldest first.
+func (t *tx) Inbox(reader board.Member, mentions bool, limit int) ([]board.Message, error) {
 	name, role := targetsOf(reader)
-	return t.queryMessages("m.board_id = ? AND m.seq > ? AND m.sender_id <> ? AND "+addressedTo+" ORDER BY m.seq LIMIT ?",
-		reader.BoardID, reader.Cursor, reader.ID, name, role, limit)
+	return t.queryMessages("m.board_id = ? AND m.seq > ? AND m.sender_id <> ? AND ("+addressedTo+
+		" OR (? AND EXISTS (SELECT 1 FROM json_each(m.mentions_json) WHERE json_extract(value, '$.id') = ? AND json_extract(value, '$.wakes'))))"+
+		" ORDER BY m.seq LIMIT ?",
+		reader.BoardID, reader.Cursor, reader.ID, name, role, mentions, reader.ID, limit)
 }
 
 // visibleTo returns the condition and arguments that keep the messages reader may see.

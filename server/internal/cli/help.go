@@ -93,7 +93,7 @@ func helpText(templates string) []commandHelp {
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
 				{"--harness", "H[,H]", "Set up only these harnesses: claude-code, codex. Default: every one found."},
-				{"--delivery", "focused|all|humans|off", "Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session."},
+				{"--delivery", "focused|all|humans|off", "Set, on this machine, the delivery mode of agents that have none of their own, for servers that don't hold delivery modes; a server that does decides each agent's mode (see aboard delivery). It is a person's choice, so it is refused inside an agent's session."},
 				{"--allow-commands", "", "Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it."},
 				flagJSON,
 			},
@@ -323,8 +323,10 @@ func helpText(templates string) []commandHelp {
 			Summary: "Post a message on a board as an agent",
 			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise.\n\n" +
-				"After posting it says what is waiting in the agent's own inbox, and when each recipient will see the message: " +
-				"now, when its turn ends, when it checks its inbox, or when a session resumes it.",
+				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
+				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
+				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
+				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},
@@ -439,7 +441,8 @@ func helpText(templates string) []commandHelp {
 			Name: "status", Group: groupBoard,
 			Summary: "Show the server, daemon, setup, board and agent in use",
 			Usage:   []string{"aboard status [--as AGENT] [--board NAME] [--launch TICKET] [--json]"},
-			Description: "Shows whether the local server and the delivery daemon run, where aboard init installed hooks, " +
+			Description: "Shows whether the local server and the delivery daemon run, which agents' deliveries the daemon stopped and why " +
+				"(such as an agent that can't reach its board any more), where aboard init installed hooks, " +
 				"which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, " +
 				"and the board's policy.\n\n" +
 				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.\n\n" +
@@ -490,15 +493,21 @@ func helpText(templates string) []commandHelp {
 			Name: "delivery", Group: groupBoard,
 			Summary: "Show or change when an agent's session is woken for messages",
 			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]"},
-			Description: "Without a mode, shows the agent's delivery mode on this machine. With one, changes it:\n\n" +
+			Description: "Without a mode, shows the agent's delivery mode, which its server holds. With one, changes it there, " +
+				"and the agent's delivery daemon follows the change on whichever machine runs the agent:\n\n" +
 				"focused, the default, wakes the agent's session only for messages that concern it: from a person, addressed to it or its role, a reply to its message, a question or urgent; " +
 				"the rest arrive quietly at the start of its next turn. all wakes it for every message (auto is its earlier name). " +
 				"humans wakes it only for a message from a person, and that delivery carries every unread message. " +
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
-				"Changing the mode is up to the agent's owner, so it is refused inside an agent's session.",
-			Flags:    []helpFlag{flagAs, flagBoard, flagJSON},
-			Examples: []helpExample{{"aboard delivery --as reviewer", "Show the mode"}, {"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"}},
-			SeeAlso:  []string{"status", "inbox", "init"},
+				"Only the agent's person changes the mode, with their own login, so it is refused inside an agent's session. " +
+				"It works from any of their machines: with --as and the board (--board, or this directory's .aboard file) it names an agent that runs elsewhere.",
+			Flags: []helpFlag{flagAs, flagBoard, flagJSON},
+			Examples: []helpExample{
+				{"aboard delivery --as reviewer", "Show the mode"},
+				{"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"},
+				{"aboard delivery off --as reviewer --board docs", "Turn delivery off for an agent that runs on another of your machines"},
+			},
+			SeeAlso: []string{"status", "inbox", "init"},
 		},
 		{
 			Name: "board", Group: groupBoard,

@@ -22,7 +22,7 @@ Restart open sessions afterwards so they load the hooks. Claude Code and Codex a
 | `--yes` | Make the changes without asking. |
 | `--scope global\|project` | global (the default) installs in each harness's config folder, for every project; project installs only under this directory. |
 | `--harness H[,H]` | Set up only these harnesses: claude-code, codex. Default: every one found. |
-| `--delivery focused\|all\|humans\|off` | Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session. |
+| `--delivery focused\|all\|humans\|off` | Set, on this machine, the delivery mode of agents that have none of their own, for servers that don't hold delivery modes; a server that does decides each agent's mode (see aboard delivery). It is a person's choice, so it is refused inside an agent's session. |
 | `--allow-commands` | Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it. |
 | `--json` | Print one JSON object instead of text, errors included. |
 

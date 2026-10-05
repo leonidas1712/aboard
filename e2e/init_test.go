@@ -108,9 +108,12 @@ func TestInitProjectScopeWritesOnlyUnderTheProject(t *testing.T) {
 	}
 }
 
-// aboard init --delivery sets the mode of agents without their own, and is refused inside
-// a harness session, where an agent would be choosing it.
-func TestInitSetsTheDefaultDeliveryMode(t *testing.T) {
+// aboard init --delivery keeps a default mode on this machine, and is refused inside a
+// harness session, where an agent would be choosing it. The server holds each agent's
+// mode, so the machine's default no longer applies: nothing moves it to the server by
+// itself, and doctor names each agent it differs for and the person's command that
+// would keep it.
+func TestAModeKeptOnThisMachineIsNamedByDoctor(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.harnessHome()
@@ -125,10 +128,63 @@ func TestInitSetsTheDefaultDeliveryMode(t *testing.T) {
 	if field(t, out, "delivery.mode") != "off" || field(t, out, "delivery.action") != "update" {
 		t.Fatalf("init: %v", out)
 	}
-	expectLines(t, e.run("delivery", "--as", "writer"),
-		"writer on writer-reviewer: delivery off (delivers nothing; the agent reads its inbox itself)")
+	shown := e.run("delivery", "--as", "writer", "--json").json(t)
+	matchesCLISpec(t, "DeliveryOutput", shown)
+	if field(t, shown, "mode") != "focused" || field(t, shown, "revision") != 0.0 {
+		t.Fatalf("the server's mode applies, never set: %v", shown)
+	}
+
+	kept := func() []any {
+		var found []any
+		doctor := e.runExit("doctor", "--json").json(t)
+		matchesCLISpec(t, "DoctorOutput", doctor)
+		for _, c := range field(t, doctor, "checks").([]any) {
+			if field(t, c, "name") == "delivery_mode" {
+				found = append(found, c)
+			}
+		}
+		return found
+	}
+	checks := kept()
+	if len(checks) != 1 || field(t, checks[0], "code") != "delivery_mode_kept_here" || field(t, checks[0], "level") != "warning" ||
+		field(t, checks[0], "message") != "writer on writer-reviewer: this machine kept delivery mode off for it, which its server doesn't hold, so it is focused now" ||
+		field(t, checks[0], "fix") != "to keep off, run aboard delivery off --as writer in a terminal; to keep focused, run aboard delivery focused --as writer" {
+		t.Fatalf("doctor should name the mode kept here and the fix: %v", checks)
+	}
+	if text := e.runExit("doctor").stdout; !strings.Contains(text, "! writer on writer-reviewer: this machine kept delivery mode off for it") {
+		t.Fatalf("doctor's text:\n%s", text)
+	}
+
+	expectLines(t, e.run("delivery", "off", "--as", "writer"),
+		"writer on writer-reviewer: delivery now off (delivers nothing; the agent reads its inbox itself)")
+	if checks := kept(); len(checks) != 0 {
+		t.Fatalf("doctor still warns once the person set the mode on the server: %v", checks)
+	}
 	if got := field(t, e.run("init", "--yes", "--delivery", "off", "--json").json(t), "delivery.action"); got != "unchanged" {
 		t.Fatalf("second init: %v", got)
+	}
+
+	// With the server down, the mode shown is the one this machine kept, and says so.
+	e.run("down")
+	expectLines(t, e.run("delivery", "--as", "writer"),
+		"writer on writer-reviewer: delivery off (kept on this machine; the server couldn't be reached) (delivers nothing; the agent reads its inbox itself)")
+	shown = e.run("delivery", "--as", "writer", "--json").json(t)
+	matchesCLISpec(t, "DeliveryOutput", shown)
+	if field(t, shown, "unconfirmed") != true || field(t, shown, "revision") != nil {
+		t.Fatalf("a mode the server couldn't confirm: %v", shown)
+	}
+	status := e.run("status", "--as", "writer", "--json").json(t)
+	matchesCLISpec(t, "StatusOutput", status)
+	if field(t, status, "delivery") != "off" || field(t, status, "delivery_unconfirmed") != true {
+		t.Fatalf("status with the server down: %v", status)
+	}
+	if text := e.run("status", "--as", "writer").stdout; !strings.Contains(text, "delivery off (kept on this machine; the server couldn't be reached)") {
+		t.Fatalf("status text with the server down:\n%s", text)
+	}
+	checks = kept()
+	if len(checks) != 1 || field(t, checks[0], "code") != "delivery_mode_unconfirmed" ||
+		field(t, checks[0], "message") != "writer on writer-reviewer: delivery off (kept on this machine; the server couldn't be reached)" {
+		t.Fatalf("doctor with the server down: %v", checks)
 	}
 }
 

@@ -21,23 +21,30 @@ type wireMemberRef struct {
 }
 
 type wireMember struct {
-	ID      string  `json:"id"`
-	Board   string  `json:"board"`
-	Name    string  `json:"name"`
-	Kind    string  `json:"kind"`
-	Role    *string `json:"role"`
-	Owner   *string `json:"owner"`
-	Harness *string `json:"harness"`
-	Access  *string `json:"access"`
+	ID    string  `json:"id"`
+	Board string  `json:"board"`
+	Name  string  `json:"name"`
+	Kind  string  `json:"kind"`
+	Role  *string `json:"role"`
+	Owner *string `json:"owner"`
+	// OwnerID is an agent's person's id; null for people.
+	OwnerID  *string `json:"owner_id"`
+	Harness  *string `json:"harness"`
+	Access   *string `json:"access"`
+	Status   string  `json:"status"`
+	JoinedAt string  `json:"joined_at"`
 	// ServerRole is a person's role on the server; null for agents.
 	ServerRole *string `json:"server_role"`
-	Status     string  `json:"status"`
-	JoinedAt   string  `json:"joined_at"`
 	// Presence and PresenceSince are null for people.
 	Presence      *string `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
-	// Delivery is the agent's delivery mode as last reported; null for people.
+	// Delivery is the agent's delivery mode as its daemon last reported it; null for
+	// people.
 	Delivery *string `json:"delivery"`
+	// DeliveryMode and DeliveryRevision are the agent's delivery mode as its person set
+	// it and the seq of the event that set it; null for people.
+	DeliveryMode     *string `json:"delivery_mode"`
+	DeliveryRevision *int64  `json:"delivery_revision"`
 }
 
 type wireBoard struct {
@@ -80,6 +87,7 @@ type wireMessage struct {
 	Trust         string            `json:"trust"`
 	Redactions    []board.Redaction `json:"redactions"`
 	Reactions     []wireReaction    `json:"reactions"`
+	Mentions      []board.Mention   `json:"mentions"`
 }
 
 type wireReaction struct {
@@ -138,6 +146,8 @@ func memberOf(m board.Member, boardName string) wireMember {
 			state = board.PresenceNoSession
 		}
 		w.Presence, w.PresenceSince, w.Delivery = &state, nullable(m.Presence.Since), nullable(m.Presence.Delivery)
+		mode, rev, owner := m.Delivery.Current(), m.Delivery.Seq, m.HumanID
+		w.DeliveryMode, w.DeliveryRevision, w.OwnerID = &mode, &rev, &owner
 	}
 	return w
 }
@@ -192,8 +202,12 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 	for _, r := range m.Reactions {
 		reactions = append(reactions, wireReaction{Name: r.Name, Emoji: r.Emoji, Count: len(r.By), By: r.By, Mine: r.Mine})
 	}
+	mentions := m.Mentions
+	if mentions == nil {
+		mentions = []board.Mention{}
+	}
 	return wireMessage{
-		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
+		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
 		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq, ReplyToFrom: m.ReplyToFrom,
 		ThreadRoot: m.ThreadRoot, ThreadRootSeq: m.ThreadRootSeq, ReplyCount: m.ReplyCount, LastReplyAt: m.LastReplyAt,

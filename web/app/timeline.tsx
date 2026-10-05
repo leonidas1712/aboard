@@ -9,7 +9,7 @@ import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useM
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardEvent, Message, MemberRef } from "./api";
-import { segments } from "./mentions";
+import { mentionedTargets, segments } from "./mentions";
 import { type OnReact, ReactButton, Reactions } from "./reactions";
 import { clockTime, count, displayName, exactTime, markOf, recipients, relativeTime } from "./words";
 
@@ -52,8 +52,6 @@ type Props = {
   answer: (m: Message) => Message | null;
   /** identity is the sender's identity colour, 1 to 8. */
   identity: (from: MemberRef) => number;
-  /** mentionable holds every target a mention may name ("@codex", "role:reviewer"). */
-  mentionable: Set<string>;
   /** onMention shows a mentioned member or role in the board panel. */
   onMention: (target: string) => void;
   /** waiting holds the ids of questions waiting for the person's reply. */
@@ -113,7 +111,6 @@ export function Timeline({
   quote,
   answer,
   identity,
-  mentionable,
   onMention,
   waiting,
   onReply,
@@ -133,7 +130,7 @@ export function Timeline({
   const [unseen, setUnseen] = useState(0);
   const lastCount = useRef({ first: 0, last: 0, height: 0, messages: 0 });
   const now = useNow();
-  const mentions = useMemo(() => ({ known: mentionable, onMention }), [mentionable, onMention]);
+  const mentions = useMemo(() => ({ onMention }), [onMention]);
 
   const newestSeq = entries.at(-1)?.seq ?? 0;
   // latest is the newest message shown anywhere, replies in threads included.
@@ -551,7 +548,7 @@ function MessageEntry({
           </p>
         )}
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
-          <Body text={m.body} mentions={mentions} />
+          <Body m={m} mentions={mentions} />
         </p>
         <Reactions m={m} me={me} onReact={onReact} />
         {grouped && <div className="absolute top-0 right-2.5">{actions}</div>}
@@ -697,15 +694,16 @@ function ThreadBlock({
   );
 }
 
-/** Mentions is what a message body needs to mark its mentions: who can be named, and what a click does. */
-type Mentions = { known: Set<string>; onMention: (target: string) => void };
+/** Mentions is what a message body needs to mark its mentions: what a click on one does. */
+type Mentions = { onMention: (target: string) => void };
 
 /**
- * Body is a message's text as written, with each mention of a member or role marked
- * as a button that shows them in the board panel. The text stays text, never HTML.
+ * Body is a message's text as written, with each mention the server recorded when it
+ * was posted marked as a button that shows the member or role in the board panel. The
+ * text stays text, never HTML.
  */
-function Body({ text, mentions }: { text: string; mentions: Mentions }) {
-  return segments(text, mentions.known).map((s, i) =>
+function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
+  return segments(m.body, mentionedTargets(m)).map((s, i) =>
     s.target ? (
       <button
         key={i}
