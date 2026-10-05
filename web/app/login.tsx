@@ -202,7 +202,7 @@ export function ConfirmSignIn({ pending, session, onSignedIn, onCancel }: Confir
  */
 export function SignedInNotice({ session, note, onClose }: { session: Session; note?: string; onClose: () => void }) {
   return (
-    <div role="status" className="signed-in-as flex items-center gap-3 border-b border-rule bg-selected px-4 py-1 sm:px-5">
+    <div role="status" className="signed-in-as flex shrink-0 items-center gap-3 border-b border-rule bg-selected px-4 py-1 sm:px-5">
       <p className="min-w-0 flex-1">
         {note && <>{note} </>}
         {note ? "You're still signed in as " : "Signed in as "}

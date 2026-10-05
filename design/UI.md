@@ -279,7 +279,9 @@ line.
 
 The view is an app shell: the panels are docked to the window's edges on their own
 surface, and the conversation sits in a centred reading column that the "Now:" line,
-the filter and the message box share. The message box is one field holding the
+the filter and the message box share. On a wide screen the shell fills the viewport;
+only the timeline and panel contents scroll. Revealing a message or panel section
+keeps the page and message box in place. The message box is one field holding the
 recipient picker, the text and Post. Each panel has one job: the left one moves between
 boards, the right one is the board on screen. Both side panels collapse to a thin strip
 with a button that opens them again, and can be resized within limits; every section of
