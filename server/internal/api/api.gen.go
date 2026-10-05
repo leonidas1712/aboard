@@ -269,6 +269,8 @@ const (
 	KeyNotFound             ErrorErrorCode = "key_not_found"
 	LastOwner               ErrorErrorCode = "last_owner"
 	LoginCodeInvalid        ErrorErrorCode = "login_code_invalid"
+	MachineRequestInvalid   ErrorErrorCode = "machine_request_invalid"
+	MachineRequestRefused   ErrorErrorCode = "machine_request_refused"
 	MemberNotFound          ErrorErrorCode = "member_not_found"
 	MessageNotFound         ErrorErrorCode = "message_not_found"
 	MessageTooLarge         ErrorErrorCode = "message_too_large"
@@ -339,6 +341,10 @@ func (e ErrorErrorCode) Valid() bool {
 	case LastOwner:
 		return true
 	case LoginCodeInvalid:
+		return true
+	case MachineRequestInvalid:
+		return true
+	case MachineRequestRefused:
 		return true
 	case MemberNotFound:
 		return true
@@ -420,6 +426,42 @@ const (
 func (e JoinCodeRevokedEventType) Valid() bool {
 	switch e {
 	case JoincodeRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MachineRequestState.
+const (
+	MachineRequestStateApproved MachineRequestState = "approved"
+	MachineRequestStatePending  MachineRequestState = "pending"
+	MachineRequestStateRefused  MachineRequestState = "refused"
+)
+
+// Valid indicates whether the value is a known member of the MachineRequestState enum.
+func (e MachineRequestState) Valid() bool {
+	switch e {
+	case MachineRequestStateApproved:
+		return true
+	case MachineRequestStatePending:
+		return true
+	case MachineRequestStateRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MachineRequestPendingState.
+const (
+	MachineRequestPendingStatePending MachineRequestPendingState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the MachineRequestPendingState enum.
+func (e MachineRequestPendingState) Valid() bool {
+	switch e {
+	case MachineRequestPendingStatePending:
 		return true
 	default:
 		return false
@@ -1094,19 +1136,19 @@ func (e ReactionRemovedEventType) Valid() bool {
 
 // Defines values for RecipientStatusState.
 const (
-	Pending  RecipientStatusState = "pending"
-	Received RecipientStatusState = "received"
-	Replied  RecipientStatusState = "replied"
+	RecipientStatusStatePending  RecipientStatusState = "pending"
+	RecipientStatusStateReceived RecipientStatusState = "received"
+	RecipientStatusStateReplied  RecipientStatusState = "replied"
 )
 
 // Valid indicates whether the value is a known member of the RecipientStatusState enum.
 func (e RecipientStatusState) Valid() bool {
 	switch e {
-	case Pending:
+	case RecipientStatusStatePending:
 		return true
-	case Received:
+	case RecipientStatusStateReceived:
 		return true
-	case Replied:
+	case RecipientStatusStateReplied:
 		return true
 	default:
 		return false
@@ -1505,6 +1547,12 @@ type BrowserTokensEnded struct {
 	Ended int `json:"ended"`
 }
 
+// CollectMachineRequest defines model for CollectMachineRequest.
+type CollectMachineRequest struct {
+	// Secret The `secret` from `POST /v1/machine-requests`.
+	Secret string `json:"secret"`
+}
+
 // ConnectRequest defines model for ConnectRequest.
 type ConnectRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
@@ -1802,6 +1850,60 @@ type LoginCode struct {
 	// Example: abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl
 	Code      string    `json:"code"`
 	ExpiresAt Timestamp `json:"expires_at"`
+}
+
+// MachineRequest defines model for MachineRequest.
+type MachineRequest struct {
+	CreatedAt Timestamp `json:"created_at"`
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// Label The name the requesting machine gave itself. It is the machine's own claim, not proof of anything.
+	//
+	// Example: maya-desktop
+	Label  string `json:"label"`
+	Person Person `json:"person"`
+
+	// RequestedFrom The client address the request came from, as the server saw it.
+	//
+	// Example: 203.0.113.7
+	RequestedFrom string              `json:"requested_from"`
+	State         MachineRequestState `json:"state"`
+}
+
+// MachineRequestState defines model for MachineRequest.State.
+type MachineRequestState string
+
+// MachineRequestCode defines model for MachineRequestCode.
+type MachineRequestCode struct {
+	// Code The short code the requesting machine shows, in any case, with or without its dash.
+	//
+	// Example: 4KQ-7ZX
+	Code string `json:"code"`
+}
+
+// MachineRequestPending defines model for MachineRequestPending.
+type MachineRequestPending struct {
+	ExpiresAt           Timestamp                  `json:"expires_at"`
+	PollIntervalSeconds int                        `json:"poll_interval_seconds"`
+	State               MachineRequestPendingState `json:"state"`
+}
+
+// MachineRequestPendingState defines model for MachineRequestPending.State.
+type MachineRequestPendingState string
+
+// MachineRequestStarted defines model for MachineRequestStarted.
+type MachineRequestStarted struct {
+	// Code The short code a person types to approve the request. It can't collect the key.
+	//
+	// Example: 4KQ-7ZX
+	Code      string    `json:"code"`
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// PollIntervalSeconds How long to wait between collection attempts.
+	PollIntervalSeconds int `json:"poll_interval_seconds"`
+
+	// Secret Kept only by the requesting machine, which collects its key with it. Shown once.
+	Secret string `json:"secret"`
 }
 
 // Me defines model for Me.
@@ -2583,6 +2685,19 @@ type SetVisibilityRequest struct {
 	Visibility BoardVisibility `json:"visibility"`
 }
 
+// StartMachineRequest defines model for StartMachineRequest.
+type StartMachineRequest struct {
+	// Handle The person the machine is for. Only their own key can approve the request.
+	//
+	// Example: maya
+	Handle string `json:"handle"`
+
+	// Label The name the machine gives itself, usually its host name. It names the key it collects.
+	//
+	// Example: maya-desktop
+	Label string `json:"label"`
+}
+
 // Target `all`, `@name`, or `role:R`. New kinds may be added; clients must not reject unknown ones.
 //
 // Example: @reviewer
@@ -2813,6 +2928,31 @@ type CreateLoginCodeParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// StartMachineRequestParams defines parameters for StartMachineRequest.
+type StartMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ApproveMachineRequestParams defines parameters for ApproveMachineRequest.
+type ApproveMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CollectMachineRequestParams defines parameters for CollectMachineRequest.
+type CollectMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// LookupMachineRequestParams defines parameters for LookupMachineRequest.
+type LookupMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RefuseMachineRequestParams defines parameters for RefuseMachineRequest.
+type RefuseMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // GetInboxParams defines parameters for GetInbox.
 type GetInboxParams struct {
 	// Wait Seconds to wait for a message when none is unread.
@@ -2919,6 +3059,21 @@ type JoinJSONRequestBody = JoinRequest
 
 // CreateKeyJSONRequestBody defines body for CreateKey for application/json ContentType.
 type CreateKeyJSONRequestBody = CreateKeyRequest
+
+// StartMachineRequestJSONRequestBody defines body for StartMachineRequest for application/json ContentType.
+type StartMachineRequestJSONRequestBody = StartMachineRequest
+
+// ApproveMachineRequestJSONRequestBody defines body for ApproveMachineRequest for application/json ContentType.
+type ApproveMachineRequestJSONRequestBody = MachineRequestCode
+
+// CollectMachineRequestJSONRequestBody defines body for CollectMachineRequest for application/json ContentType.
+type CollectMachineRequestJSONRequestBody = CollectMachineRequest
+
+// LookupMachineRequestJSONRequestBody defines body for LookupMachineRequest for application/json ContentType.
+type LookupMachineRequestJSONRequestBody = MachineRequestCode
+
+// RefuseMachineRequestJSONRequestBody defines body for RefuseMachineRequest for application/json ContentType.
+type RefuseMachineRequestJSONRequestBody = MachineRequestCode
 
 // AckInboxJSONRequestBody defines body for AckInbox for application/json ContentType.
 type AckInboxJSONRequestBody AckInboxJSONBody
@@ -4233,6 +4388,198 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
 	CreateLoginCode(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// StartMachineRequestWithBody Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequestWithBody(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartMachineRequest Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequest(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveMachineRequestWithBody Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequestWithBody(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequest(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CollectMachineRequestWithBody Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequestWithBody(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CollectMachineRequest Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequest(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupMachineRequestWithBody See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequestWithBody(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupMachineRequest See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequest(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefuseMachineRequestWithBody Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequestWithBody(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefuseMachineRequest Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequest(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMe Who this token acts as
 	//
 	// Any token. For a person's login or browser, the person; for an agent's token, the
@@ -5483,6 +5830,298 @@ func (c *Client) RevokeKey(ctx context.Context, key string, params *RevokeKeyPar
 // Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
 func (c *Client) CreateLoginCode(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateLoginCodeRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartMachineRequestWithBody Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *Client) StartMachineRequestWithBody(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartMachineRequest Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *Client) StartMachineRequest(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveMachineRequestWithBody Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *Client) ApproveMachineRequestWithBody(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *Client) ApproveMachineRequest(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CollectMachineRequestWithBody Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *Client) CollectMachineRequestWithBody(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCollectMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CollectMachineRequest Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *Client) CollectMachineRequest(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCollectMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupMachineRequestWithBody See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *Client) LookupMachineRequestWithBody(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupMachineRequest See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *Client) LookupMachineRequest(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RefuseMachineRequestWithBody Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *Client) RefuseMachineRequestWithBody(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefuseMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RefuseMachineRequest Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *Client) RefuseMachineRequest(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefuseMachineRequestRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7352,6 +7991,281 @@ func NewCreateLoginCodeRequest(server string, params *CreateLoginCodeParams) (*h
 	return req, nil
 }
 
+// NewStartMachineRequestRequest calls the generic StartMachineRequest builder with application/json body
+func NewStartMachineRequestRequest(server string, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewStartMachineRequestRequestWithBody constructs an http.Request for the StartMachineRequest method, with any body, and a specified content type
+func NewStartMachineRequestRequestWithBody(server string, params *StartMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewApproveMachineRequestRequest calls the generic ApproveMachineRequest builder with application/json body
+func NewApproveMachineRequestRequest(server string, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewApproveMachineRequestRequestWithBody constructs an http.Request for the ApproveMachineRequest method, with any body, and a specified content type
+func NewApproveMachineRequestRequestWithBody(server string, params *ApproveMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/approve")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCollectMachineRequestRequest calls the generic CollectMachineRequest builder with application/json body
+func NewCollectMachineRequestRequest(server string, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCollectMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCollectMachineRequestRequestWithBody constructs an http.Request for the CollectMachineRequest method, with any body, and a specified content type
+func NewCollectMachineRequestRequestWithBody(server string, params *CollectMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/collect")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewLookupMachineRequestRequest calls the generic LookupMachineRequest builder with application/json body
+func NewLookupMachineRequestRequest(server string, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewLookupMachineRequestRequestWithBody constructs an http.Request for the LookupMachineRequest method, with any body, and a specified content type
+func NewLookupMachineRequestRequestWithBody(server string, params *LookupMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/lookup")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRefuseMachineRequestRequest calls the generic RefuseMachineRequest builder with application/json body
+func NewRefuseMachineRequestRequest(server string, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRefuseMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewRefuseMachineRequestRequestWithBody constructs an http.Request for the RefuseMachineRequest method, with any body, and a specified content type
+func NewRefuseMachineRequestRequestWithBody(server string, params *RefuseMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/refuse")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetMeRequest constructs an http.Request for the GetMe method
 func NewGetMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -8615,6 +9529,198 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
 	CreateLoginCodeWithResponse(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*CreateLoginCodeResponse, error)
+
+	// StartMachineRequestWithBodyWithResponse Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequestWithBodyWithResponse(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error)
+
+	// StartMachineRequestWithResponse Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequestWithResponse(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error)
+
+	// ApproveMachineRequestWithBodyWithResponse Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequestWithBodyWithResponse(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error)
+
+	// ApproveMachineRequestWithResponse Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequestWithResponse(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error)
+
+	// CollectMachineRequestWithBodyWithResponse Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequestWithBodyWithResponse(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error)
+
+	// CollectMachineRequestWithResponse Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequestWithResponse(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error)
+
+	// LookupMachineRequestWithBodyWithResponse See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequestWithBodyWithResponse(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error)
+
+	// LookupMachineRequestWithResponse See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequestWithResponse(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error)
+
+	// RefuseMachineRequestWithBodyWithResponse Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequestWithBodyWithResponse(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error)
+
+	// RefuseMachineRequestWithResponse Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequestWithResponse(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error)
 
 	// GetMeWithResponse Who this token acts as
 	//
@@ -10667,6 +11773,407 @@ func (r CreateLoginCodeResponse) ContentType() string {
 	return ""
 }
 
+// StartMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for StartMachineRequest
+type StartMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type StartMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *MachineRequestStarted
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *StartMachineRequestResponse429Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartMachineRequestResponse) GetJSON201() *MachineRequestStarted {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r StartMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r StartMachineRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r StartMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r StartMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// ApproveMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for ApproveMachineRequest
+type ApproveMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type ApproveMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MachineRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *ApproveMachineRequestResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON200() *MachineRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CollectMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for CollectMachineRequest
+type CollectMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type CollectMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Connected
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *MachineRequestPending
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *CollectMachineRequestResponse429Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON201() *Connected {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON202() *MachineRequestPending {
+	return r.JSON202
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r CollectMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CollectMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CollectMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CollectMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// LookupMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for LookupMachineRequest
+type LookupMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type LookupMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MachineRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *LookupMachineRequestResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON200() *MachineRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RefuseMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for RefuseMachineRequest
+type RefuseMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type RefuseMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MachineRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *RefuseMachineRequestResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON200() *MachineRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r RefuseMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RefuseMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefuseMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefuseMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12252,6 +13759,258 @@ func (c *ClientWithResponses) CreateLoginCodeWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseCreateLoginCodeResponse(rsp)
+}
+
+// StartMachineRequestWithBodyWithResponse Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *ClientWithResponses) StartMachineRequestWithBodyWithResponse(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error) {
+	rsp, err := c.StartMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartMachineRequestResponse(rsp)
+}
+
+// StartMachineRequestWithResponse Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *ClientWithResponses) StartMachineRequestWithResponse(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error) {
+	rsp, err := c.StartMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartMachineRequestResponse(rsp)
+}
+
+// ApproveMachineRequestWithBodyWithResponse Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *ClientWithResponses) ApproveMachineRequestWithBodyWithResponse(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error) {
+	rsp, err := c.ApproveMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveMachineRequestResponse(rsp)
+}
+
+// ApproveMachineRequestWithResponse Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *ClientWithResponses) ApproveMachineRequestWithResponse(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error) {
+	rsp, err := c.ApproveMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveMachineRequestResponse(rsp)
+}
+
+// CollectMachineRequestWithBodyWithResponse Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *ClientWithResponses) CollectMachineRequestWithBodyWithResponse(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error) {
+	rsp, err := c.CollectMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCollectMachineRequestResponse(rsp)
+}
+
+// CollectMachineRequestWithResponse Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *ClientWithResponses) CollectMachineRequestWithResponse(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error) {
+	rsp, err := c.CollectMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCollectMachineRequestResponse(rsp)
+}
+
+// LookupMachineRequestWithBodyWithResponse See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *ClientWithResponses) LookupMachineRequestWithBodyWithResponse(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error) {
+	rsp, err := c.LookupMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupMachineRequestResponse(rsp)
+}
+
+// LookupMachineRequestWithResponse See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *ClientWithResponses) LookupMachineRequestWithResponse(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error) {
+	rsp, err := c.LookupMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupMachineRequestResponse(rsp)
+}
+
+// RefuseMachineRequestWithBodyWithResponse Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *ClientWithResponses) RefuseMachineRequestWithBodyWithResponse(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error) {
+	rsp, err := c.RefuseMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefuseMachineRequestResponse(rsp)
+}
+
+// RefuseMachineRequestWithResponse Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *ClientWithResponses) RefuseMachineRequestWithResponse(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error) {
+	rsp, err := c.RefuseMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefuseMachineRequestResponse(rsp)
 }
 
 // GetMeWithResponse Who this token acts as
@@ -13988,6 +15747,362 @@ func ParseCreateLoginCodeResponse(rsp *http.Response) (*CreateLoginCodeResponse,
 	return response, nil
 }
 
+// ParseStartMachineRequestResponse parses an HTTP response from a StartMachineRequestWithResponse call
+func ParseStartMachineRequestResponse(rsp *http.Response) (*StartMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest MachineRequestStarted
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers StartMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseApproveMachineRequestResponse parses an HTTP response from a ApproveMachineRequestWithResponse call
+func ParseApproveMachineRequestResponse(rsp *http.Response) (*ApproveMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MachineRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers ApproveMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCollectMachineRequestResponse parses an HTTP response from a CollectMachineRequestWithResponse call
+func ParseCollectMachineRequestResponse(rsp *http.Response) (*CollectMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CollectMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Connected
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest MachineRequestPending
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers CollectMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseLookupMachineRequestResponse parses an HTTP response from a LookupMachineRequestWithResponse call
+func ParseLookupMachineRequestResponse(rsp *http.Response) (*LookupMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MachineRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers LookupMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRefuseMachineRequestResponse parses an HTTP response from a RefuseMachineRequestWithResponse call
+func ParseRefuseMachineRequestResponse(rsp *http.Response) (*RefuseMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefuseMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MachineRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers RefuseMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
 func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -14577,6 +16692,21 @@ type ServerInterface interface {
 	// CreateLoginCode Get a one-time code that logs a browser in
 	// (POST /v1/login-codes)
 	CreateLoginCode(w http.ResponseWriter, r *http.Request, params CreateLoginCodeParams)
+	// StartMachineRequest Ask to connect a new machine, for a person to approve
+	// (POST /v1/machine-requests)
+	StartMachineRequest(w http.ResponseWriter, r *http.Request, params StartMachineRequestParams)
+	// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+	// (POST /v1/machine-requests/approve)
+	ApproveMachineRequest(w http.ResponseWriter, r *http.Request, params ApproveMachineRequestParams)
+	// CollectMachineRequest Collect the key of an approved machine request
+	// (POST /v1/machine-requests/collect)
+	CollectMachineRequest(w http.ResponseWriter, r *http.Request, params CollectMachineRequestParams)
+	// LookupMachineRequest See a pending machine request before approving it
+	// (POST /v1/machine-requests/lookup)
+	LookupMachineRequest(w http.ResponseWriter, r *http.Request, params LookupMachineRequestParams)
+	// RefuseMachineRequest Refuse a machine request
+	// (POST /v1/machine-requests/refuse)
+	RefuseMachineRequest(w http.ResponseWriter, r *http.Request, params RefuseMachineRequestParams)
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
@@ -15815,6 +17945,211 @@ func (siw *ServerInterfaceWrapper) CreateLoginCode(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// StartMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) StartMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) ApproveMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CollectMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) CollectMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CollectMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CollectMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LookupMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) LookupMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LookupMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LookupMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefuseMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) RefuseMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefuseMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefuseMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
@@ -16380,6 +18715,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/keys", wrapper.CreateKey)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/keys/{key}", wrapper.RevokeKey)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/connect", wrapper.Connect)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests", wrapper.StartMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/lookup", wrapper.LookupMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/approve", wrapper.ApproveMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/refuse", wrapper.RefuseMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/collect", wrapper.CollectMachineRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards", wrapper.ListBoards)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards", wrapper.CreateBoard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}", wrapper.GetBoard)
@@ -18391,6 +20731,493 @@ func (response CreateLoginCode403JSONResponse) VisitCreateLoginCodeResponse(w ht
 	return err
 }
 
+type StartMachineRequestRequestObject struct {
+	Params StartMachineRequestParams
+	Body   *StartMachineRequestJSONRequestBody
+}
+
+type StartMachineRequestResponseObject interface {
+	VisitStartMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type StartMachineRequest201JSONResponse MachineRequestStarted
+
+func (response StartMachineRequest201JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response StartMachineRequest400JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartMachineRequest422JSONResponse Error
+
+func (response StartMachineRequest422JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type StartMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers StartMachineRequest429ResponseHeaders
+}
+
+func (response StartMachineRequest429JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequestRequestObject struct {
+	Params ApproveMachineRequestParams
+	Body   *ApproveMachineRequestJSONRequestBody
+}
+
+type ApproveMachineRequestResponseObject interface {
+	VisitApproveMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type ApproveMachineRequest200JSONResponse MachineRequest
+
+func (response ApproveMachineRequest200JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ApproveMachineRequest400JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest401JSONResponse Error
+
+func (response ApproveMachineRequest401JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest403JSONResponse Error
+
+func (response ApproveMachineRequest403JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest404JSONResponse Error
+
+func (response ApproveMachineRequest404JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type ApproveMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers ApproveMachineRequest429ResponseHeaders
+}
+
+func (response ApproveMachineRequest429JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequestRequestObject struct {
+	Params CollectMachineRequestParams
+	Body   *CollectMachineRequestJSONRequestBody
+}
+
+type CollectMachineRequestResponseObject interface {
+	VisitCollectMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type CollectMachineRequest201JSONResponse Connected
+
+func (response CollectMachineRequest201JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest202JSONResponse MachineRequestPending
+
+func (response CollectMachineRequest202JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CollectMachineRequest400JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest403JSONResponse Error
+
+func (response CollectMachineRequest403JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest404JSONResponse Error
+
+func (response CollectMachineRequest404JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type CollectMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers CollectMachineRequest429ResponseHeaders
+}
+
+func (response CollectMachineRequest429JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequestRequestObject struct {
+	Params LookupMachineRequestParams
+	Body   *LookupMachineRequestJSONRequestBody
+}
+
+type LookupMachineRequestResponseObject interface {
+	VisitLookupMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type LookupMachineRequest200JSONResponse MachineRequest
+
+func (response LookupMachineRequest200JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response LookupMachineRequest400JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest401JSONResponse Error
+
+func (response LookupMachineRequest401JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest403JSONResponse Error
+
+func (response LookupMachineRequest403JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest404JSONResponse Error
+
+func (response LookupMachineRequest404JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type LookupMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers LookupMachineRequest429ResponseHeaders
+}
+
+func (response LookupMachineRequest429JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequestRequestObject struct {
+	Params RefuseMachineRequestParams
+	Body   *RefuseMachineRequestJSONRequestBody
+}
+
+type RefuseMachineRequestResponseObject interface {
+	VisitRefuseMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type RefuseMachineRequest200JSONResponse MachineRequest
+
+func (response RefuseMachineRequest200JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response RefuseMachineRequest400JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest401JSONResponse Error
+
+func (response RefuseMachineRequest401JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest403JSONResponse Error
+
+func (response RefuseMachineRequest403JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest404JSONResponse Error
+
+func (response RefuseMachineRequest404JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type RefuseMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers RefuseMachineRequest429ResponseHeaders
+}
+
+func (response RefuseMachineRequest429JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMeRequestObject struct {
 }
 
@@ -19187,6 +22014,21 @@ type StrictServerInterface interface {
 	// CreateLoginCode Get a one-time code that logs a browser in
 	// (POST /v1/login-codes)
 	CreateLoginCode(ctx context.Context, request CreateLoginCodeRequestObject) (CreateLoginCodeResponseObject, error)
+	// StartMachineRequest Ask to connect a new machine, for a person to approve
+	// (POST /v1/machine-requests)
+	StartMachineRequest(ctx context.Context, request StartMachineRequestRequestObject) (StartMachineRequestResponseObject, error)
+	// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+	// (POST /v1/machine-requests/approve)
+	ApproveMachineRequest(ctx context.Context, request ApproveMachineRequestRequestObject) (ApproveMachineRequestResponseObject, error)
+	// CollectMachineRequest Collect the key of an approved machine request
+	// (POST /v1/machine-requests/collect)
+	CollectMachineRequest(ctx context.Context, request CollectMachineRequestRequestObject) (CollectMachineRequestResponseObject, error)
+	// LookupMachineRequest See a pending machine request before approving it
+	// (POST /v1/machine-requests/lookup)
+	LookupMachineRequest(ctx context.Context, request LookupMachineRequestRequestObject) (LookupMachineRequestResponseObject, error)
+	// RefuseMachineRequest Refuse a machine request
+	// (POST /v1/machine-requests/refuse)
+	RefuseMachineRequest(ctx context.Context, request RefuseMachineRequestRequestObject) (RefuseMachineRequestResponseObject, error)
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
@@ -20061,6 +22903,171 @@ func (sh *strictHandler) CreateLoginCode(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// StartMachineRequest operation middleware
+func (sh *strictHandler) StartMachineRequest(w http.ResponseWriter, r *http.Request, params StartMachineRequestParams) {
+	var request StartMachineRequestRequestObject
+
+	request.Params = params
+
+	var body StartMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartMachineRequest(ctx, request.(StartMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartMachineRequestResponseObject); ok {
+		if err := validResponse.VisitStartMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveMachineRequest operation middleware
+func (sh *strictHandler) ApproveMachineRequest(w http.ResponseWriter, r *http.Request, params ApproveMachineRequestParams) {
+	var request ApproveMachineRequestRequestObject
+
+	request.Params = params
+
+	var body ApproveMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveMachineRequest(ctx, request.(ApproveMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveMachineRequestResponseObject); ok {
+		if err := validResponse.VisitApproveMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CollectMachineRequest operation middleware
+func (sh *strictHandler) CollectMachineRequest(w http.ResponseWriter, r *http.Request, params CollectMachineRequestParams) {
+	var request CollectMachineRequestRequestObject
+
+	request.Params = params
+
+	var body CollectMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CollectMachineRequest(ctx, request.(CollectMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CollectMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CollectMachineRequestResponseObject); ok {
+		if err := validResponse.VisitCollectMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LookupMachineRequest operation middleware
+func (sh *strictHandler) LookupMachineRequest(w http.ResponseWriter, r *http.Request, params LookupMachineRequestParams) {
+	var request LookupMachineRequestRequestObject
+
+	request.Params = params
+
+	var body LookupMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LookupMachineRequest(ctx, request.(LookupMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LookupMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupMachineRequestResponseObject); ok {
+		if err := validResponse.VisitLookupMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefuseMachineRequest operation middleware
+func (sh *strictHandler) RefuseMachineRequest(w http.ResponseWriter, r *http.Request, params RefuseMachineRequestParams) {
+	var request RefuseMachineRequestRequestObject
+
+	request.Params = params
+
+	var body RefuseMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefuseMachineRequest(ctx, request.(RefuseMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefuseMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefuseMachineRequestResponseObject); ok {
+		if err := validResponse.VisitRefuseMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	var request GetMeRequestObject
@@ -20372,376 +23379,409 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -256,11 +256,12 @@ pasted into it.
 
 ```
 maya-desktop$ aboard connect https://team.example.com
-              Approve this machine from one where you're signed in:
-                aboard approve 4KQ-7ZX     (expires in 5 minutes)
-              Or paste a key with: aboard login
+              Your handle on team.example.com: maya
+              Connecting this machine ("maya-desktop") to https://team.example.com as maya.
+              On a machine where @maya is signed in, run: aboard approve 4KQ-7ZX --server https://team.example.com
+              The code expires in 5 minutes. Or paste a key with: aboard login https://team.example.com
 
-maya-laptop$  aboard approve 4KQ-7ZX
+maya-laptop$  aboard approve 4KQ-7ZX --server https://team.example.com
               Approve "maya-desktop" connecting to team.example.com as maya? [y/N] y
               Approved.
 
@@ -271,8 +272,9 @@ Behind it: when the desktop starts, it gets two things, the short code it shows 
 long secret it keeps to itself. After the laptop approves the short code, the desktop
 collects its new key (`abh_M2desk…`) with the long secret, once; it may ask only a limited
 number of times before the request expires. Someone who only saw the short code can't
-collect the key. The name "maya-desktop" is a label the requesting machine chose, not proof
-of anything: approve only a request you started yourself, a moment ago. Pasting a key with
+collect the key. The request names Maya, so only her own key can approve it; anyone else
+with the code is refused as if the code were wrong. The name "maya-desktop" is a label the
+requesting machine chose, not proof of anything: approve only a request you started yourself, a moment ago. Pasting a key with
 `aboard login` works too; approving gives the desktop a key of its own without copying one.
 
 ### A lost laptop

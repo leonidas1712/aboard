@@ -134,6 +134,22 @@ var writes = map[string]func(ctx context.Context, w *keyWorld, person, agent boa
 		_, err := w.svc.EndBrowserLogins(ctx, person)
 		return err
 	},
+	"approve a machine": func(ctx context.Context, w *keyWorld, person, _ board.Principal) error {
+		r, err := w.svc.StartMachineRequest(ctx, "alex", "desktop", "127.0.0.1")
+		if err != nil {
+			return err
+		}
+		_, err = w.svc.ApproveMachineRequest(ctx, person, r.Code)
+		return err
+	},
+	"refuse a machine": func(ctx context.Context, w *keyWorld, person, _ board.Principal) error {
+		r, err := w.svc.StartMachineRequest(ctx, "alex", "desktop", "127.0.0.1")
+		if err != nil {
+			return err
+		}
+		_, err = w.svc.RefuseMachineRequest(ctx, person, r.Code)
+		return err
+	},
 	"post as the person": func(ctx context.Context, w *keyWorld, person, _ board.Principal) error {
 		_, err := w.svc.PostMessage(ctx, person, w.board, board.NewMessage{Body: "hi"})
 		return err

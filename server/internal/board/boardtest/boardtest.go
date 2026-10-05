@@ -29,6 +29,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"KeysListRevokeAndRecordUse", keysListRevokeAndRecordUse},
 		{"ServerInvitesAreUsedOnce", serverInvitesAreUsedOnce},
 		{"BrowserLoginsRoundTripAndEnd", browserLoginsRoundTripAndEnd},
+		{"MachineRequestsAreDecidedAndCollectedOnce", machineRequestsAreDecidedAndCollectedOnce},
 		{"BoardRoundTripsEveryField", boardRoundTripsEveryField},
 		{"BoardNameTaken", boardNameTaken},
 		{"SetBoardPolicyReplacesPolicy", setBoardPolicyReplacesPolicy},
@@ -182,14 +183,19 @@ func missingRecordsAreNotFound(t *testing.T, st board.Store) {
 		"HumanByName":          func(tx board.ReadTx) error { _, err := tx.HumanByName("nope"); return err },
 		"ServerInviteByDigest": func(tx board.ReadTx) error { _, err := tx.ServerInviteByDigest("nope"); return err },
 		"BrowserLoginByDigest": func(tx board.ReadTx) error { _, err := tx.BrowserLoginByDigest("nope"); return err },
-		"BoardByName":          func(tx board.ReadTx) error { _, err := tx.BoardByName("nope"); return err },
-		"BoardByID":            func(tx board.ReadTx) error { _, err := tx.BoardByID("nope"); return err },
-		"MemberByTokenDigest":  func(tx board.ReadTx) error { _, err := tx.MemberByTokenDigest("nope"); return err },
-		"HumanMember":          func(tx board.ReadTx) error { _, err := tx.HumanMember("brd_docs", "hum_nope"); return err },
-		"MemberByName":         func(tx board.ReadTx) error { _, err := tx.MemberByName("brd_docs", "nope"); return err },
-		"JoinCodeByDigest":     func(tx board.ReadTx) error { _, err := tx.JoinCodeByDigest("nope"); return err },
-		"JoinCodeByID":         func(tx board.ReadTx) error { _, err := tx.JoinCodeByID("nope"); return err },
-		"MessageByID":          func(tx board.ReadTx) error { _, err := tx.MessageByID("nope"); return err },
+		"MachineRequestByCode": func(tx board.ReadTx) error { _, err := tx.MachineRequestByCode("nope"); return err },
+		"MachineRequestBySecret": func(tx board.ReadTx) error {
+			_, err := tx.MachineRequestBySecret("nope")
+			return err
+		},
+		"BoardByName":         func(tx board.ReadTx) error { _, err := tx.BoardByName("nope"); return err },
+		"BoardByID":           func(tx board.ReadTx) error { _, err := tx.BoardByID("nope"); return err },
+		"MemberByTokenDigest": func(tx board.ReadTx) error { _, err := tx.MemberByTokenDigest("nope"); return err },
+		"HumanMember":         func(tx board.ReadTx) error { _, err := tx.HumanMember("brd_docs", "hum_nope"); return err },
+		"MemberByName":        func(tx board.ReadTx) error { _, err := tx.MemberByName("brd_docs", "nope"); return err },
+		"JoinCodeByDigest":    func(tx board.ReadTx) error { _, err := tx.JoinCodeByDigest("nope"); return err },
+		"JoinCodeByID":        func(tx board.ReadTx) error { _, err := tx.JoinCodeByID("nope"); return err },
+		"MessageByID":         func(tx board.ReadTx) error { _, err := tx.MessageByID("nope"); return err },
 	}
 	for name, lookup := range lookups {
 		err := st.Read(context.Background(), lookup)
@@ -373,6 +379,88 @@ func serverInvitesAreUsedOnce(t *testing.T, st board.Store) {
 		}
 		if !reflect.DeepEqual(got, inv) {
 			t.Errorf("ServerInviteByDigest = %+v, want %+v", got, inv)
+		}
+		return nil
+	})
+}
+
+// A machine request is found by either of its digests, decided once, counted, collected
+// once, and deleted once it has ended.
+func machineRequestsAreDecidedAndCollectedOnce(t *testing.T, st board.Store) {
+	req := board.MachineRequest{
+		ID: "mrq_a", CodeDigest: "c-a", SecretDigest: "s-a", Label: "maya-desktop", Handle: "maya", RequestedFrom: "203.0.113.7",
+		CreatedAt: at, ExpiresAt: "2026-10-01T16:05:00.000Z", State: board.MachinePending,
+	}
+	later := req
+	later.ID, later.CodeDigest, later.SecretDigest, later.ExpiresAt = "mrq_b", "c-b", "s-b", "2026-10-01T16:09:00.000Z"
+	write(t, st, func(tx board.Tx) error {
+		if err := tx.InsertHuman(human("hum_maya")); err != nil {
+			return err
+		}
+		for _, id := range []string{"key_laptop", "key_desktop"} {
+			if err := tx.InsertAccessKey(board.AccessKey{ID: id, HumanID: "hum_maya", Name: id, Digest: "d-" + id, CreatedAt: at}); err != nil {
+				return err
+			}
+		}
+		if err := tx.InsertMachineRequest(req); err != nil {
+			return err
+		}
+		return tx.InsertMachineRequest(later)
+	})
+	write(t, st, func(tx board.Tx) error {
+		if collected, err := tx.CollectMachineRequest(req.ID, "key_desktop"); err != nil || collected {
+			t.Errorf("CollectMachineRequest before approval = %v, %v; want false", collected, err)
+		}
+		if err := tx.CountMachineRequestPoll(req.ID); err != nil {
+			return err
+		}
+		first, err := tx.DecideMachineRequest(req.ID, board.MachineApproved, "hum_maya", "key_laptop", at)
+		if err != nil {
+			return err
+		}
+		again, err := tx.DecideMachineRequest(req.ID, board.MachineRefused, "hum_maya", "key_laptop", at)
+		if err != nil {
+			return err
+		}
+		if !first || again {
+			t.Errorf("DecideMachineRequest twice = %v, %v; want true, false", first, again)
+		}
+		first, err = tx.CollectMachineRequest(req.ID, "key_desktop")
+		if err != nil {
+			return err
+		}
+		again, err = tx.CollectMachineRequest(req.ID, "key_desktop")
+		if err != nil {
+			return err
+		}
+		if !first || again {
+			t.Errorf("CollectMachineRequest twice = %v, %v; want true, false", first, again)
+		}
+		return nil
+	})
+	req.State, req.DecidedBy, req.DecidedKey, req.DecidedAt = board.MachineCollected, ptr("hum_maya"), ptr("key_laptop"), ptr(at)
+	req.KeyID, req.Polls = ptr("key_desktop"), 1
+	read(t, st, func(tx board.ReadTx) error {
+		byCode, err := tx.MachineRequestByCode(req.CodeDigest)
+		if err != nil {
+			return err
+		}
+		bySecret, err := tx.MachineRequestBySecret(req.SecretDigest)
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(byCode, req) || !reflect.DeepEqual(bySecret, req) {
+			t.Errorf("the collected request = %+v and %+v, want %+v", byCode, bySecret, req)
+		}
+		return nil
+	})
+	write(t, st, func(tx board.Tx) error { return tx.DeleteEndedMachineRequests(req.ExpiresAt) })
+	read(t, st, func(tx board.ReadTx) error {
+		if _, err := tx.MachineRequestByCode(req.CodeDigest); !errors.Is(err, board.ErrNotFound) {
+			t.Errorf("the ended request after DeleteEndedMachineRequests: %v, want board.ErrNotFound", err)
+		}
+		if _, err := tx.MachineRequestByCode(later.CodeDigest); err != nil {
+			t.Errorf("the live request after DeleteEndedMachineRequests: %v", err)
 		}
 		return nil
 	})
