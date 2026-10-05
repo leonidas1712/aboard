@@ -135,6 +135,14 @@ func messageNotFound() error {
 func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wait time.Duration, after int64, limit int) (ThreadReading, error) {
 	deadline := s.clk.After(wait)
 	for {
+		var cred credentialEnd
+		if wait > 0 {
+			// A wait ends with the credential it was made with.
+			var err error
+			if cred, err = s.watchCredential(ctx, p); err != nil {
+				return ThreadReading{}, err
+			}
+		}
 		var r ThreadReading
 		var boardID string
 		err := s.st.Read(ctx, func(tx ReadTx) error {
@@ -187,6 +195,8 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 		}
 		select {
 		case <-changed:
+		case <-cred.changed:
+		case <-cred.expires:
 		case <-deadline:
 			return r, nil
 		case <-ctx.Done():

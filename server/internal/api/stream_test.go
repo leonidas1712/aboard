@@ -126,13 +126,18 @@ func (st *eventStream) keepalive() {
 	}
 }
 
-// ends fails unless the stream's body ends in time.
+// ends fails unless the stream's body ends in time, reading past anything still on it.
 func (st *eventStream) ends() {
 	st.t.Helper()
-	select {
-	case <-st.done:
-	case <-time.After(streamWait):
-		st.t.Fatal("the stream is still open")
+	timeout := time.After(streamWait)
+	for {
+		select {
+		case <-st.done:
+			return
+		case <-st.blocks:
+		case <-timeout:
+			st.t.Fatal("the stream is still open")
+		}
 	}
 }
 

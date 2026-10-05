@@ -234,6 +234,14 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 	}
 	deadline := s.clk.After(wait)
 	for {
+		var cred credentialEnd
+		if wait > 0 {
+			// A wait ends with the credential it was made with.
+			var err error
+			if cred, err = s.watchCredential(ctx, p); err != nil {
+				return Reading{}, false, err
+			}
+		}
 		changed := s.notify.Watch(p.Agent.BoardID)
 		var r Reading
 		var more bool
@@ -266,6 +274,8 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 		}
 		select {
 		case <-changed:
+		case <-cred.changed:
+		case <-cred.expires:
 		case <-deadline:
 			return r, false, nil
 		case <-ctx.Done():

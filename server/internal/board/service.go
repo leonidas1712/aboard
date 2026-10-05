@@ -37,12 +37,13 @@ type Service struct {
 	cfg    Config
 	log    *slog.Logger
 	codes  *loginCodes
+	uses   *keyUses
 }
 
 // New returns a Service that keeps its data in st and wakes waiting readers through
 // notify. key must be the server's secret digest key.
 func New(st Store, notify Notifier, clk clock.Clock, gen *ids.Generator, key []byte, cfg Config, log *slog.Logger) *Service {
-	return &Service{st: st, notify: notify, clk: clk, gen: gen, key: key, cfg: cfg, log: log, codes: newLoginCodes()}
+	return &Service{st: st, notify: notify, clk: clk, gen: gen, key: key, cfg: cfg, log: log, codes: newLoginCodes(), uses: &keyUses{last: map[string]time.Time{}}}
 }
 
 // Config returns the server description the Service was created with.

@@ -38,6 +38,12 @@ type Principal struct {
 	// started their browser login, or the key the agent's token came from. Empty for an
 	// agent from before keys were recorded.
 	KeyID string
+	// browserDigest is the digest of a browser token, whose login is checked again with
+	// the key.
+	browserDigest string
+	// keyUsedBefore is, for a person's own key, when it was last used before this
+	// request.
+	keyUsedBefore *string
 }
 
 // keyWorks reports whether an access key may still be used at now.
@@ -47,15 +53,15 @@ func keyWorks(k AccessKey, now string) bool {
 
 // workingKey finds the access key id and fails with ErrNotFound unless it still works,
 // so anything started with a revoked or expired key stops with it.
-func workingKey(tx ReadTx, id, now string) error {
+func workingKey(tx ReadTx, id, now string) (AccessKey, error) {
 	k, err := tx.AccessKeyByID(id)
 	if err != nil {
-		return err
+		return AccessKey{}, err
 	}
 	if !keyWorks(k, now) {
-		return ErrNotFound
+		return AccessKey{}, ErrNotFound
 	}
-	return nil
+	return k, nil
 }
 
 // writeAs runs fn in a write transaction on behalf of p, after checking, inside that
@@ -72,32 +78,49 @@ func (s *Service) writeAs(ctx context.Context, p Principal, fn func(Tx) error) e
 }
 
 // stillValid checks that the access key behind p still works and still belongs to p's
-// person. An agent from before keys were recorded has no key to check.
+// person, and for a browser that its login hasn't ended. An agent from before keys were
+// recorded has no key to check.
 func stillValid(tx ReadTx, p Principal, now string) error {
+	_, err := credentialState(tx, p, now)
+	return err
+}
+
+// credentialState checks p's credential as stillValid does and returns when it expires:
+// the earlier of its key's expiry and its browser login's, or nil if neither expires.
+func credentialState(tx ReadTx, p Principal, now string) (*string, error) {
 	if p.KeyID == "" {
 		if p.Human != nil {
-			return apierr.Unauthorized()
+			return nil, apierr.Unauthorized()
 		}
-		return nil
+		return nil, nil
 	}
 	k, err := tx.AccessKeyByID(p.KeyID)
 	if errors.Is(err, ErrNotFound) {
-		return apierr.Unauthorized()
+		return nil, apierr.Unauthorized()
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	owner := ""
-	switch {
-	case p.Human != nil:
-		owner = p.Human.ID
-	case p.Agent != nil:
-		owner = p.Agent.HumanID
+	if !keyWorks(k, now) || k.HumanID != p.personID() {
+		return nil, apierr.Unauthorized()
 	}
-	if !keyWorks(k, now) || k.HumanID != owner {
-		return apierr.Unauthorized()
+	end := k.ExpiresAt
+	if p.browserDigest != "" {
+		l, err := tx.BrowserLoginByDigest(p.browserDigest)
+		if errors.Is(err, ErrNotFound) {
+			return nil, browserLoginEnded()
+		}
+		if err != nil {
+			return nil, err
+		}
+		if l.ExpiresAt <= now {
+			return nil, browserLoginEnded()
+		}
+		if end == nil || l.ExpiresAt < *end {
+			end = &l.ExpiresAt
+		}
 	}
-	return nil
+	return end, nil
 }
 
 // Authenticate resolves a bearer token to a person, through their access key or a
@@ -109,6 +132,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 	digest := ids.Digest(s.key, token)
 	now := stamp(s.clk.Now())
 	var p Principal
+	var used *AccessKey
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		switch {
 		case strings.HasPrefix(token, accessKeyPrefix):
@@ -123,17 +147,18 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 			if err != nil {
 				return err
 			}
-			p.Human, p.KeyID = &h, k.ID
+			p.Human, p.KeyID, p.keyUsedBefore, used = &h, k.ID, k.LastUsedAt, &k
 		case strings.HasPrefix(token, "aba_"):
 			m, err := tx.MemberByTokenDigest(digest)
 			if err != nil {
 				return err
 			}
 			if m.KeyID != nil {
-				if err := workingKey(tx, *m.KeyID, now); err != nil {
+				k, err := workingKey(tx, *m.KeyID, now)
+				if err != nil {
 					return err
 				}
-				p.KeyID = *m.KeyID
+				p.KeyID, used = k.ID, &k
 			}
 			p.Agent = &m
 		default:
@@ -146,6 +171,11 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 	}
 	if err != nil {
 		return Principal{}, fmt.Errorf("authenticate: %w", err)
+	}
+	if used != nil {
+		if err := s.recordUse(ctx, p, *used); err != nil {
+			return Principal{}, err
+		}
 	}
 	return p, nil
 }
@@ -172,7 +202,9 @@ func (s *Service) BootstrapOwner(ctx context.Context, name, machine string) (str
 		if err := tx.InsertHuman(h); err != nil {
 			return err
 		}
-		token, _, err = s.newKey(tx, h.ID, machine, now)
+		// The local server's own key doesn't expire: it is kept beside the database it
+		// unlocks, so whoever can read it can read the database too.
+		token, _, err = s.newKey(tx, h.ID, machine, now, nil, nil)
 		return err
 	})
 	if err != nil {
@@ -182,13 +214,18 @@ func (s *Service) BootstrapOwner(ctx context.Context, name, machine string) (str
 }
 
 // newKey stores a new access key for a person and returns its secret, which exists only
-// here.
-func (s *Service) newKey(tx Tx, humanID, name string, now time.Time) (string, AccessKey, error) {
+// here. It expires at expires (never when nil), or, with idle set, that long after its
+// last use.
+func (s *Service) newKey(tx Tx, humanID, name string, now time.Time, expires *string, idle *time.Duration) (string, AccessKey, error) {
 	token, err := s.gen.Token(strings.TrimSuffix(accessKeyPrefix, "_"))
 	if err != nil {
 		return "", AccessKey{}, err
 	}
-	k := AccessKey{HumanID: humanID, Name: name, Digest: ids.Digest(s.key, token), CreatedAt: stamp(now)}
+	k := AccessKey{HumanID: humanID, Name: name, Digest: ids.Digest(s.key, token), CreatedAt: stamp(now), ExpiresAt: expires}
+	if idle != nil {
+		k.ExpiresAt = ptr(stamp(now.Add(*idle)))
+		k.IdleSeconds = ptr(int64(idle.Seconds()))
+	}
 	if k.ID, err = s.gen.ID("key", now); err != nil {
 		return "", AccessKey{}, err
 	}
@@ -339,7 +376,7 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 		if err := tx.InsertHuman(h); err != nil {
 			return fmt.Errorf("insert person: %w", err)
 		}
-		token, key, err := s.newKey(tx, h.ID, in.KeyName, now)
+		token, key, err := s.newKey(tx, h.ID, in.KeyName, now, nil, ptr(MachineKeyIdle))
 		if err != nil {
 			return err
 		}
