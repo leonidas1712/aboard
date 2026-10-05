@@ -317,6 +317,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
           board={name}
           title={s.board?.title}
           starter={s.board?.policy.preset === "starter"}
+          visibility={s.board?.visibility}
+          shared={people.length > 1}
           onTitle={s.board ? () => show("board-details") : undefined}
           onStarter={() => show("rules")}
           account={<Account admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}

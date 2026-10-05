@@ -14,7 +14,7 @@ var openUsage = usageOf("open")
 
 // runOpen opens the web UI in the browser, logged in as the local owner, through a
 // one-time login link: the owner's token never appears in a URL, and the link's code
-// only in its fragment. Inside a harness session an agent runs it for its person, so it
+// only in its fragment. Inside a harness session, or with ABOARD_AGENT set, an agent runs it for its person, so it
 // never shows the link there: with the code, the agent could log in before the browser
 // and read the board as the person.
 func runOpen(ctx context.Context, a *app, args []string) error {
@@ -23,7 +23,7 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, openUsage, 0, 0); err != nil {
 		return err
 	}
-	_, inSession := a.inSession()
+	inSession := a.actsForAgent()
 	srv := a.localServer()
 	board := *boardFlag
 	if p, ok, err := a.readProject(); err != nil {

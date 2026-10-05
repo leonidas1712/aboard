@@ -282,6 +282,8 @@ func TestACookieSessionCantManageKeysOrSessions(t *testing.T) {
 		{http.MethodDelete, "/v1/browser-sessions/" + b.id, nil},
 		{http.MethodDelete, "/v1/browser-tokens", nil},
 		{http.MethodPost, "/v1/invites", map[string]any{}},
+		{http.MethodPost, "/v1/machine-requests/approve", map[string]any{"code": "7Q4-K2M"}},
+		{http.MethodPost, "/v1/machine-requests/refuse", map[string]any{"code": "7Q4-K2M"}},
 	} {
 		if got := b.do(req.method, req.path, req.body); got.status != http.StatusForbidden || got.code() != "human_token_required" {
 			t.Errorf("%s %s with the cookie: %d %s", req.method, req.path, got.status, got.raw)
@@ -367,7 +369,7 @@ func TestRevokingTheKeyEndsTheCookieSessionAndItsStream(t *testing.T) {
 }
 
 func TestSignInIsRateLimitedPerAddressAndAcrossTheServer(t *testing.T) {
-	s := newTestServer(t, func(o *api.Options) { o.SignInsPerMinute, o.SignInsPerMinuteServer = 3, 5 })
+	s := newTestServer(t, func(o *api.Options) { o.SignInFailures = api.Limits{PerAddr: 3, Server: 5} })
 	h := s.srv.Config.Handler
 	try := func(addr string) int {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, s.url+"/v1/browser-sessions", strings.NewReader(`{"key":"abh_guess"}`))
@@ -643,8 +645,8 @@ func TestPreviewingALoginCodeNamesItsPersonAndKeepsIt(t *testing.T) {
 // still bounds them, previews and sign-ins together.
 func TestEveryAttemptMeetsTheHigherLimit(t *testing.T) {
 	s := newTestServer(t, func(o *api.Options) {
-		o.SignInsPerMinute, o.SignInsPerMinuteServer = 1, 1
-		o.SignInAttemptsPerMinute, o.SignInAttemptsPerMinuteServer = 3, 100
+		o.SignInFailures = api.Limits{PerAddr: 1, Server: 1}
+		o.SignInAttempts = api.Limits{PerAddr: 3, Server: 100}
 	})
 	code := s.loginCode(s.owner)
 	for range 2 {
@@ -663,7 +665,7 @@ func TestEveryAttemptMeetsTheHigherLimit(t *testing.T) {
 // Guesses are what the limit is for: a wrong code, previewed or used, counts; a preview or
 // sign-in that works doesn't.
 func TestFailedPreviewsAndSignInsShareTheLimit(t *testing.T) {
-	s := newTestServer(t, func(o *api.Options) { o.SignInsPerMinute, o.SignInsPerMinuteServer = 2, 100 })
+	s := newTestServer(t, func(o *api.Options) { o.SignInFailures = api.Limits{PerAddr: 2, Server: 100} })
 	code := s.loginCode(s.owner)
 	for range 5 {
 		if got := s.preview(code, s.fromPage); got.status != http.StatusOK {

@@ -31,7 +31,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 	}
 	var msg Message
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ type TimelineFilter struct {
 func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f TimelineFilter) (Reading, error) {
 	var r Reading
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -246,16 +246,12 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 		var r Reading
 		var more bool
 		err := s.st.Read(ctx, func(tx ReadTx) error {
-			// Messages are read with the credential checked in the same transaction, so a
-			// wait whose key ended meanwhile reads nothing new.
+			// The credential and the seat are checked in the same transaction as the read,
+			// so a wait ends once the key ends or the agent or its person leaves.
 			if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
 				return err
 			}
-			b, err := tx.BoardByID(p.Agent.BoardID)
-			if err != nil {
-				return err
-			}
-			me, err := tx.MemberByName(b.ID, p.Agent.Name)
+			b, me, err := seatOf(tx, *p.Agent)
 			if err != nil {
 				return err
 			}
@@ -299,7 +295,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 		moved  bool
 	)
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, err := tx.BoardByID(p.Agent.BoardID)
+		b, _, err := seatOf(tx, *p.Agent)
 		if err != nil {
 			return err
 		}
@@ -342,7 +338,7 @@ type Log struct {
 func (s *Service) Events(ctx context.Context, p Principal, boardName string, after int64, limit int) (Log, error) {
 	var out Log
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}

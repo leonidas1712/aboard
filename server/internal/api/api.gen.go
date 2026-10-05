@@ -66,6 +66,21 @@ func (e ActorKind) Valid() bool {
 	}
 }
 
+// Defines values for BoardCreatedEventDataVisibility.
+const (
+	BoardCreatedEventDataVisibilityPrivate BoardCreatedEventDataVisibility = "private"
+)
+
+// Valid indicates whether the value is a known member of the BoardCreatedEventDataVisibility enum.
+func (e BoardCreatedEventDataVisibility) Valid() bool {
+	switch e {
+	case BoardCreatedEventDataVisibilityPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BoardCreatedEventType.
 const (
 	BoardCreated BoardCreatedEventType = "board.created"
@@ -75,6 +90,24 @@ const (
 func (e BoardCreatedEventType) Valid() bool {
 	switch e {
 	case BoardCreated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BoardCreation.
+const (
+	Admins  BoardCreation = "admins"
+	Members BoardCreation = "members"
+)
+
+// Valid indicates whether the value is a known member of the BoardCreation enum.
+func (e BoardCreation) Valid() bool {
+	switch e {
+	case Admins:
+		return true
+	case Members:
 		return true
 	default:
 		return false
@@ -117,6 +150,24 @@ func (e BoardPolicyChangedEventType) Valid() bool {
 	}
 }
 
+// Defines values for BoardRole.
+const (
+	BoardRoleMember BoardRole = "member"
+	BoardRoleOwner  BoardRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the BoardRole enum.
+func (e BoardRole) Valid() bool {
+	switch e {
+	case BoardRoleMember:
+		return true
+	case BoardRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BoardTitledEventType.
 const (
 	BoardTitled BoardTitledEventType = "board.titled"
@@ -126,6 +177,39 @@ const (
 func (e BoardTitledEventType) Valid() bool {
 	switch e {
 	case BoardTitled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BoardVisibility.
+const (
+	BoardVisibilityOpen    BoardVisibility = "open"
+	BoardVisibilityPrivate BoardVisibility = "private"
+)
+
+// Valid indicates whether the value is a known member of the BoardVisibility enum.
+func (e BoardVisibility) Valid() bool {
+	switch e {
+	case BoardVisibilityOpen:
+		return true
+	case BoardVisibilityPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BoardVisibilityChangedEventType.
+const (
+	BoardVisibilityChanged BoardVisibilityChangedEventType = "board.visibility_changed"
+)
+
+// Valid indicates whether the value is a known member of the BoardVisibilityChangedEventType enum.
+func (e BoardVisibilityChangedEventType) Valid() bool {
+	switch e {
+	case BoardVisibilityChanged:
 		return true
 	default:
 		return false
@@ -183,6 +267,8 @@ const (
 	AckOutOfRange                   ErrorErrorCode = "ack_out_of_range"
 	AdminRequired                   ErrorErrorCode = "admin_required"
 	AgentTokenRequired              ErrorErrorCode = "agent_token_required"
+	AlreadyOnBoard                  ErrorErrorCode = "already_on_board"
+	BoardCreationRestricted         ErrorErrorCode = "board_creation_restricted"
 	BoardNameTaken                  ErrorErrorCode = "board_name_taken"
 	BoardNotFound                   ErrorErrorCode = "board_not_found"
 	BroadcastNotAllowed             ErrorErrorCode = "broadcast_not_allowed"
@@ -204,15 +290,21 @@ const (
 	JoinCodeNotFound                ErrorErrorCode = "join_code_not_found"
 	KeyNameTaken                    ErrorErrorCode = "key_name_taken"
 	KeyNotFound                     ErrorErrorCode = "key_not_found"
+	LastOwner                       ErrorErrorCode = "last_owner"
 	LoginCodeInvalid                ErrorErrorCode = "login_code_invalid"
+	MachineRequestInvalid           ErrorErrorCode = "machine_request_invalid"
+	MachineRequestRefused           ErrorErrorCode = "machine_request_refused"
 	MemberNotFound                  ErrorErrorCode = "member_not_found"
 	MessageNotFound                 ErrorErrorCode = "message_not_found"
 	MessageTooLarge                 ErrorErrorCode = "message_too_large"
 	NameTaken                       ErrorErrorCode = "name_taken"
 	NotFound                        ErrorErrorCode = "not_found"
 	NotImplemented                  ErrorErrorCode = "not_implemented"
+	NotOnBoard                      ErrorErrorCode = "not_on_board"
 	OriginNotAllowed                ErrorErrorCode = "origin_not_allowed"
+	OwnerRequired                   ErrorErrorCode = "owner_required"
 	PersonNotFound                  ErrorErrorCode = "person_not_found"
+	PersonNotOnBoard                ErrorErrorCode = "person_not_on_board"
 	RateLimited                     ErrorErrorCode = "rate_limited"
 	ReplyHasNoRecipients            ErrorErrorCode = "reply_has_no_recipients"
 	RoleNotFound                    ErrorErrorCode = "role_not_found"
@@ -233,6 +325,10 @@ func (e ErrorErrorCode) Valid() bool {
 	case AdminRequired:
 		return true
 	case AgentTokenRequired:
+		return true
+	case AlreadyOnBoard:
+		return true
+	case BoardCreationRestricted:
 		return true
 	case BoardNameTaken:
 		return true
@@ -276,7 +372,13 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case KeyNotFound:
 		return true
+	case LastOwner:
+		return true
 	case LoginCodeInvalid:
+		return true
+	case MachineRequestInvalid:
+		return true
+	case MachineRequestRefused:
 		return true
 	case MemberNotFound:
 		return true
@@ -290,9 +392,15 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case NotImplemented:
 		return true
+	case NotOnBoard:
+		return true
 	case OriginNotAllowed:
 		return true
+	case OwnerRequired:
+		return true
 	case PersonNotFound:
+		return true
+	case PersonNotOnBoard:
 		return true
 	case RateLimited:
 		return true
@@ -309,6 +417,21 @@ func (e ErrorErrorCode) Valid() bool {
 	case UnknownRecipient:
 		return true
 	case UrgentNotAllowed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HiddenBoardVisibility.
+const (
+	HiddenBoardVisibilityPrivate HiddenBoardVisibility = "private"
+)
+
+// Valid indicates whether the value is a known member of the HiddenBoardVisibility enum.
+func (e HiddenBoardVisibility) Valid() bool {
+	switch e {
+	case HiddenBoardVisibilityPrivate:
 		return true
 	default:
 		return false
@@ -339,6 +462,42 @@ const (
 func (e JoinCodeRevokedEventType) Valid() bool {
 	switch e {
 	case JoincodeRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MachineRequestState.
+const (
+	MachineRequestStateApproved MachineRequestState = "approved"
+	MachineRequestStatePending  MachineRequestState = "pending"
+	MachineRequestStateRefused  MachineRequestState = "refused"
+)
+
+// Valid indicates whether the value is a known member of the MachineRequestState enum.
+func (e MachineRequestState) Valid() bool {
+	switch e {
+	case MachineRequestStateApproved:
+		return true
+	case MachineRequestStatePending:
+		return true
+	case MachineRequestStateRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MachineRequestPendingState.
+const (
+	MachineRequestPendingStatePending MachineRequestPendingState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the MachineRequestPendingState enum.
+func (e MachineRequestPendingState) Valid() bool {
+	switch e {
+	case MachineRequestPendingStatePending:
 		return true
 	default:
 		return false
@@ -672,6 +831,81 @@ func (e Permission) Valid() bool {
 	}
 }
 
+// Defines values for PersonAddedEventType.
+const (
+	PersonAdded PersonAddedEventType = "person.added"
+)
+
+// Valid indicates whether the value is a known member of the PersonAddedEventType enum.
+func (e PersonAddedEventType) Valid() bool {
+	switch e {
+	case PersonAdded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonEventDataAccess.
+const (
+	PersonEventDataAccessMember PersonEventDataAccess = "member"
+)
+
+// Valid indicates whether the value is a known member of the PersonEventDataAccess enum.
+func (e PersonEventDataAccess) Valid() bool {
+	switch e {
+	case PersonEventDataAccessMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonLeftEventType.
+const (
+	PersonLeft PersonLeftEventType = "person.left"
+)
+
+// Valid indicates whether the value is a known member of the PersonLeftEventType enum.
+func (e PersonLeftEventType) Valid() bool {
+	switch e {
+	case PersonLeft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonMadeOwnerEventType.
+const (
+	PersonMadeOwner PersonMadeOwnerEventType = "person.made_owner"
+)
+
+// Valid indicates whether the value is a known member of the PersonMadeOwnerEventType enum.
+func (e PersonMadeOwnerEventType) Valid() bool {
+	switch e {
+	case PersonMadeOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonRemovedEventType.
+const (
+	PersonRemoved PersonRemovedEventType = "person.removed"
+)
+
+// Valid indicates whether the value is a known member of the PersonRemovedEventType enum.
+func (e PersonRemovedEventType) Valid() bool {
+	switch e {
+	case PersonRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PolicyBroadcast.
 const (
 	PolicyBroadcastEveryone PolicyBroadcast = "everyone"
@@ -938,19 +1172,19 @@ func (e ReactionRemovedEventType) Valid() bool {
 
 // Defines values for RecipientStatusState.
 const (
-	Pending  RecipientStatusState = "pending"
-	Received RecipientStatusState = "received"
-	Replied  RecipientStatusState = "replied"
+	RecipientStatusStatePending  RecipientStatusState = "pending"
+	RecipientStatusStateReceived RecipientStatusState = "received"
+	RecipientStatusStateReplied  RecipientStatusState = "replied"
 )
 
 // Valid indicates whether the value is a known member of the RecipientStatusState enum.
 func (e RecipientStatusState) Valid() bool {
 	switch e {
-	case Pending:
+	case RecipientStatusStatePending:
 		return true
-	case Received:
+	case RecipientStatusStateReceived:
 		return true
-	case Replied:
+	case RecipientStatusStateReplied:
 		return true
 	default:
 		return false
@@ -1084,6 +1318,14 @@ type Actor struct {
 // ActorKind defines model for Actor.Kind.
 type ActorKind string
 
+// AddPersonRequest defines model for AddPersonRequest.
+type AddPersonRequest struct {
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle Handle `json:"handle"`
+}
+
 // Board defines model for Board.
 type Board struct {
 	Charter   string    `json:"charter"`
@@ -1104,8 +1346,13 @@ type Board struct {
 	MessageCount *int `json:"message_count"`
 
 	// Name Example: writer-reviewer
-	Name   BoardName `json:"name"`
-	Policy Policy    `json:"policy"`
+	Name BoardName `json:"name"`
+
+	// OnBoard Whether the caller is on the board: a person on it, or an agent on its own
+	// board. False for an open board a person can see but hasn't joined; they read
+	// its messages after adding themselves (`POST /boards/{board}/people`).
+	OnBoard bool   `json:"on_board"`
+	Policy  Policy `json:"policy"`
 
 	// Roles Role name to role. Always includes `member`.
 	Roles map[string]Role `json:"roles"`
@@ -1115,6 +1362,11 @@ type Board struct {
 
 	// Title Null when the board has no title.
 	Title *BoardTitle `json:"title"`
+
+	// Visibility Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Visibility BoardVisibility `json:"visibility"`
 }
 
 // BoardCreatedEvent defines model for BoardCreatedEvent.
@@ -1134,6 +1386,9 @@ type BoardCreatedEvent struct {
 
 		// Title Present only when the board was made with a title.
 		Title *BoardTitle `json:"title,omitempty"`
+
+		// Visibility Present only for a board created private; a board without it was created open.
+		Visibility *BoardCreatedEventDataVisibility `json:"visibility,omitempty"`
 	} `json:"data,omitempty"`
 	DataHash Hash `json:"data_hash"`
 
@@ -1148,11 +1403,53 @@ type BoardCreatedEvent struct {
 	Type BoardCreatedEventType `json:"type"`
 }
 
+// BoardCreatedEventDataVisibility Present only for a board created private; a board without it was created open.
+type BoardCreatedEventDataVisibility string
+
 // BoardCreatedEventType defines model for BoardCreatedEvent.Type.
 type BoardCreatedEventType string
 
+// BoardCreation Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+type BoardCreation string
+
 // BoardName Example: writer-reviewer
 type BoardName = string
+
+// BoardPeople defines model for BoardPeople.
+type BoardPeople struct {
+	// Board Example: writer-reviewer
+	Board  BoardName     `json:"board"`
+	People []BoardPerson `json:"people"`
+
+	// Visibility Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Visibility BoardVisibility `json:"visibility"`
+}
+
+// BoardPerson defines model for BoardPerson.
+type BoardPerson struct {
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// BoardRole A person's role on a board. `owner`: the creator, and anyone an owner made one;
+	// owners remove people, make others owners, turn the board open or private, and
+	// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+	// everyone else. Agents have no board role.
+	BoardRole   BoardRole `json:"board_role"`
+	DisplayName *string   `json:"display_name"`
+
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle   Handle    `json:"handle"`
+	Id       string    `json:"id"`
+	JoinedAt Timestamp `json:"joined_at"`
+	MemberId string    `json:"member_id"`
+
+	// Name The person's member name on the board, usually their handle.
+	Name MemberName `json:"name"`
+}
 
 // BoardPolicyChangedEvent defines model for BoardPolicyChangedEvent.
 type BoardPolicyChangedEvent struct {
@@ -1182,6 +1479,12 @@ type BoardPolicyChangedEventDataPresetApplied string
 
 // BoardPolicyChangedEventType defines model for BoardPolicyChangedEvent.Type.
 type BoardPolicyChangedEventType string
+
+// BoardRole A person's role on a board. `owner`: the creator, and anyone an owner made one;
+// owners remove people, make others owners, turn the board open or private, and
+// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+// everyone else. Agents have no board role.
+type BoardRole string
 
 // BoardTitle Free text people read, such as `Payments retry design`, on one line. The board's
 // name stays its address; clients show the title with the name beside it, and the
@@ -1215,6 +1518,46 @@ type BoardTitledEvent struct {
 
 // BoardTitledEventType defines model for BoardTitledEvent.Type.
 type BoardTitledEventType string
+
+// BoardVisibility Who can see the board. `open`: every person on the server sees it and may join
+// it. `private`: only the people on it. Not to be confused with the policy's
+// `visibility`, which decides who reads which messages inside a board.
+type BoardVisibility string
+
+// BoardVisibilityChangedEvent defines model for BoardVisibilityChangedEvent.
+type BoardVisibilityChangedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		// After Who can see the board. `open`: every person on the server sees it and may join
+		// it. `private`: only the people on it. Not to be confused with the policy's
+		// `visibility`, which decides who reads which messages inside a board.
+		After BoardVisibility `json:"after"`
+
+		// Before Who can see the board. `open`: every person on the server sees it and may join
+		// it. `private`: only the people on it. Not to be confused with the policy's
+		// `visibility`, which decides who reads which messages inside a board.
+		Before BoardVisibility `json:"before"`
+
+		// Reveals For a private board turning open, how many messages and files it held then. Null otherwise.
+		Reveals *Reveals `json:"reveals"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                             `json:"seq"`
+	Type BoardVisibilityChangedEventType `json:"type"`
+}
+
+// BoardVisibilityChangedEventType defines model for BoardVisibilityChangedEvent.Type.
+type BoardVisibilityChangedEventType string
 
 // BrowserSession defines model for BrowserSession.
 type BrowserSession struct {
@@ -1289,6 +1632,12 @@ type BrowserTokensEnded struct {
 	Ended int `json:"ended"`
 }
 
+// CollectMachineRequest defines model for CollectMachineRequest.
+type CollectMachineRequest struct {
+	// Secret The `secret` from `POST /v1/machine-requests`.
+	Secret string `json:"secret"`
+}
+
 // ConnectRequest defines model for ConnectRequest.
 type ConnectRequest struct {
 	DisplayName *string `json:"display_name,omitempty"`
@@ -1331,6 +1680,9 @@ type CreateBoardRequest struct {
 	//
 	// Example: Payments retry design
 	Title *BoardTitle `json:"title,omitempty"`
+
+	// Visibility `open` unless given.
+	Visibility *BoardVisibility `json:"visibility,omitempty"`
 }
 
 // CreateInviteRequest defines model for CreateInviteRequest.
@@ -1450,6 +1802,21 @@ type Harness = string
 
 // Hash defines model for Hash.
 type Hash = string
+
+// HiddenBoard A private board a server admin isn't on, as they see it: that it exists, and
+// nothing of its name, title, people or content.
+type HiddenBoard struct {
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy PersonRef `json:"created_by"`
+	Id        string    `json:"id"`
+
+	// People How many people are on it.
+	People     int                   `json:"people"`
+	Visibility HiddenBoardVisibility `json:"visibility"`
+}
+
+// HiddenBoardVisibility defines model for HiddenBoard.Visibility.
+type HiddenBoardVisibility string
 
 // Inbox defines model for Inbox.
 type Inbox struct {
@@ -1595,6 +1962,60 @@ type LoginCodePreview struct {
 	// Key The access key a browser session belongs to; the session ends with it.
 	Key    BrowserSessionKey `json:"key"`
 	Person Person            `json:"person"`
+}
+
+// MachineRequest defines model for MachineRequest.
+type MachineRequest struct {
+	CreatedAt Timestamp `json:"created_at"`
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// Label The name the requesting machine gave itself. It is the machine's own claim, not proof of anything.
+	//
+	// Example: maya-desktop
+	Label  string `json:"label"`
+	Person Person `json:"person"`
+
+	// RequestedFrom The client address the request came from, as the server saw it.
+	//
+	// Example: 203.0.113.7
+	RequestedFrom string              `json:"requested_from"`
+	State         MachineRequestState `json:"state"`
+}
+
+// MachineRequestState defines model for MachineRequest.State.
+type MachineRequestState string
+
+// MachineRequestCode defines model for MachineRequestCode.
+type MachineRequestCode struct {
+	// Code The short code the requesting machine shows, in any case, with or without its dash.
+	//
+	// Example: 4KQ-7ZX
+	Code string `json:"code"`
+}
+
+// MachineRequestPending defines model for MachineRequestPending.
+type MachineRequestPending struct {
+	ExpiresAt           Timestamp                  `json:"expires_at"`
+	PollIntervalSeconds int                        `json:"poll_interval_seconds"`
+	State               MachineRequestPendingState `json:"state"`
+}
+
+// MachineRequestPendingState defines model for MachineRequestPending.State.
+type MachineRequestPendingState string
+
+// MachineRequestStarted defines model for MachineRequestStarted.
+type MachineRequestStarted struct {
+	// Code The short code a person types to approve the request. It can't collect the key.
+	//
+	// Example: 4KQ-7ZX
+	Code      string    `json:"code"`
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// PollIntervalSeconds How long to wait between collection attempts.
+	PollIntervalSeconds int `json:"poll_interval_seconds"`
+
+	// Secret Kept only by the requesting machine, which collects its key with it. Shown once.
+	Secret string `json:"secret"`
 }
 
 // Me defines model for Me.
@@ -1956,6 +2377,136 @@ type Person struct {
 	ServerRole ServerRole `json:"server_role"`
 }
 
+// PersonAddedEvent defines model for PersonAddedEvent.
+type PersonAddedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type PersonAddedEventType `json:"type"`
+}
+
+// PersonAddedEventType defines model for PersonAddedEvent.Type.
+type PersonAddedEventType string
+
+// PersonEventData The person the event is about. Who did it is the event's actor.
+type PersonEventData struct {
+	// Access In `person.added` only, the access the person comes back or comes in with.
+	Access *PersonEventDataAccess `json:"access,omitempty"`
+
+	// Agents In `person.removed` and `person.left`: the member ids of the person's agents on
+	// the board, which end with them for good. Their tokens never work on the board
+	// again, even if the person is added back. Absent from events written before
+	// agents ended this way.
+	Agents   *[]string `json:"agents,omitempty"`
+	MemberId string    `json:"member_id"`
+
+	// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
+	//
+	// Example: reviewer
+	Name     MemberName `json:"name"`
+	PersonId string     `json:"person_id"`
+
+	// Rejoined In `person.added` only. True for a person who was on the board before, back under their old member id and name.
+	Rejoined *bool `json:"rejoined,omitempty"`
+}
+
+// PersonEventDataAccess In `person.added` only, the access the person comes back or comes in with.
+type PersonEventDataAccess string
+
+// PersonLeftEvent defines model for PersonLeftEvent.
+type PersonLeftEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                 `json:"seq"`
+	Type PersonLeftEventType `json:"type"`
+}
+
+// PersonLeftEventType defines model for PersonLeftEvent.Type.
+type PersonLeftEventType string
+
+// PersonMadeOwnerEvent defines model for PersonMadeOwnerEvent.
+type PersonMadeOwnerEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                      `json:"seq"`
+	Type PersonMadeOwnerEventType `json:"type"`
+}
+
+// PersonMadeOwnerEventType defines model for PersonMadeOwnerEvent.Type.
+type PersonMadeOwnerEventType string
+
+// PersonRef defines model for PersonRef.
+type PersonRef struct {
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle Handle `json:"handle"`
+	Id     string `json:"id"`
+}
+
+// PersonRemovedEvent defines model for PersonRemovedEvent.
+type PersonRemovedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                    `json:"seq"`
+	Type PersonRemovedEventType `json:"type"`
+}
+
+// PersonRemovedEventType defines model for PersonRemovedEvent.Type.
+type PersonRemovedEventType string
+
 // Policy defines model for Policy.
 type Policy struct {
 	// Broadcast `everyone`: any member may post to `all`. `granted`: only roles with `broadcast`.
@@ -2159,6 +2710,12 @@ type ReplyPage struct {
 	Root *Message `json:"root"`
 }
 
+// Reveals defines model for Reveals.
+type Reveals struct {
+	Files    int `json:"files"`
+	Messages int `json:"messages"`
+}
+
 // Role defines model for Role.
 type Role struct {
 	Can     []PermissionGrant `json:"can"`
@@ -2217,6 +2774,42 @@ type ServerInviteServerRole string
 // The first person on a server is its admin.
 type ServerRole string
 
+// ServerSettings defines model for ServerSettings.
+type ServerSettings struct {
+	// BoardCreation Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+	BoardCreation BoardCreation `json:"board_creation"`
+}
+
+// ServerSettingsChange defines model for ServerSettingsChange.
+type ServerSettingsChange struct {
+	// BoardCreation Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+	BoardCreation *BoardCreation `json:"board_creation,omitempty"`
+}
+
+// SetVisibilityRequest defines model for SetVisibilityRequest.
+type SetVisibilityRequest struct {
+	// DryRun Say what the change would do without making it.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Visibility Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Visibility BoardVisibility `json:"visibility"`
+}
+
+// StartMachineRequest defines model for StartMachineRequest.
+type StartMachineRequest struct {
+	// Handle The person the machine is for. Only their own key can approve the request.
+	//
+	// Example: maya
+	Handle string `json:"handle"`
+
+	// Label The name the machine gives itself, usually its host name. It names the key it collects.
+	//
+	// Example: maya-desktop
+	Label string `json:"label"`
+}
+
 // Target `all`, `@name`, or `role:R`. New kinds may be added; clients must not reject unknown ones.
 //
 // Example: @reviewer
@@ -2256,6 +2849,32 @@ type UpdateBoardRequest struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// VisibilityChange defines model for VisibilityChange.
+type VisibilityChange struct {
+	// After Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	After BoardVisibility `json:"after"`
+
+	// Before Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Before BoardVisibility `json:"before"`
+
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// Changed False when the board already had that visibility; nothing was recorded.
+	Changed bool `json:"changed"`
+	DryRun  bool `json:"dry_run"`
+
+	// JoinCodesCanceled For an open board turning private, how many working join codes were (or, with `dry_run`, would be) canceled.
+	JoinCodesCanceled int `json:"join_codes_canceled"`
+
+	// Reveals For a private board turning open, the history every person on the server can then read. Null otherwise.
+	Reveals *Reveals `json:"reveals"`
+}
+
 // After defines model for After.
 type After = int
 
@@ -2290,6 +2909,12 @@ type SenderRole = string
 // ToMe defines model for ToMe.
 type ToMe = bool
 
+// ListBoardsParams defines parameters for ListBoards.
+type ListBoardsParams struct {
+	// All Also list open boards the caller isn't on, and for a server admin, private boards they aren't on.
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
 // CreateBoardParams defines parameters for CreateBoard.
 type CreateBoardParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -2314,6 +2939,11 @@ type CreateJoinCodeParams struct {
 
 // RevokeJoinCodeParams defines parameters for RevokeJoinCode.
 type RevokeJoinCodeParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// LeaveBoardParams defines parameters for LeaveBoard.
+type LeaveBoardParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -2344,9 +2974,29 @@ type PostMessageParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// AddOwnerParams defines parameters for AddOwner.
+type AddOwnerParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AddPersonParams defines parameters for AddPerson.
+type AddPersonParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RemovePersonParams defines parameters for RemovePerson.
+type RemovePersonParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ListThreadsParams defines parameters for ListThreads.
 type ListThreadsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SetVisibilityParams defines parameters for SetVisibility.
+type SetVisibilityParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
 // ListBrowserSessionsParams defines parameters for ListBrowserSessions.
@@ -2398,6 +3048,31 @@ type RevokeKeyParams struct {
 
 // CreateLoginCodeParams defines parameters for CreateLoginCode.
 type CreateLoginCodeParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// StartMachineRequestParams defines parameters for StartMachineRequest.
+type StartMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ApproveMachineRequestParams defines parameters for ApproveMachineRequest.
+type ApproveMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CollectMachineRequestParams defines parameters for CollectMachineRequest.
+type CollectMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// LookupMachineRequestParams defines parameters for LookupMachineRequest.
+type LookupMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RefuseMachineRequestParams defines parameters for RefuseMachineRequest.
+type RefuseMachineRequestParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -2472,6 +3147,11 @@ type ListRepliesParams struct {
 	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
 }
 
+// UpdateSettingsParams defines parameters for UpdateSettings.
+type UpdateSettingsParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // CreateBoardJSONRequestBody defines body for CreateBoard for application/json ContentType.
 type CreateBoardJSONRequestBody = CreateBoardRequest
 
@@ -2483,6 +3163,15 @@ type CreateJoinCodeJSONRequestBody = CreateJoinCodeRequest
 
 // PostMessageJSONRequestBody defines body for PostMessage for application/json ContentType.
 type PostMessageJSONRequestBody = PostMessageRequest
+
+// AddOwnerJSONRequestBody defines body for AddOwner for application/json ContentType.
+type AddOwnerJSONRequestBody = AddPersonRequest
+
+// AddPersonJSONRequestBody defines body for AddPerson for application/json ContentType.
+type AddPersonJSONRequestBody = AddPersonRequest
+
+// SetVisibilityJSONRequestBody defines body for SetVisibility for application/json ContentType.
+type SetVisibilityJSONRequestBody = SetVisibilityRequest
 
 // StartBrowserSessionJSONRequestBody defines body for StartBrowserSession for application/json ContentType.
 type StartBrowserSessionJSONRequestBody = BrowserSessionRequest
@@ -2507,11 +3196,29 @@ type CreateKeyJSONRequestBody = CreateKeyRequest
 // PreviewLoginCodeJSONRequestBody defines body for PreviewLoginCode for application/json ContentType.
 type PreviewLoginCodeJSONRequestBody = BrowserTokenRequest
 
+// StartMachineRequestJSONRequestBody defines body for StartMachineRequest for application/json ContentType.
+type StartMachineRequestJSONRequestBody = StartMachineRequest
+
+// ApproveMachineRequestJSONRequestBody defines body for ApproveMachineRequest for application/json ContentType.
+type ApproveMachineRequestJSONRequestBody = MachineRequestCode
+
+// CollectMachineRequestJSONRequestBody defines body for CollectMachineRequest for application/json ContentType.
+type CollectMachineRequestJSONRequestBody = CollectMachineRequest
+
+// LookupMachineRequestJSONRequestBody defines body for LookupMachineRequest for application/json ContentType.
+type LookupMachineRequestJSONRequestBody = MachineRequestCode
+
+// RefuseMachineRequestJSONRequestBody defines body for RefuseMachineRequest for application/json ContentType.
+type RefuseMachineRequestJSONRequestBody = MachineRequestCode
+
 // AckInboxJSONRequestBody defines body for AckInbox for application/json ContentType.
 type AckInboxJSONRequestBody AckInboxJSONBody
 
 // SetPresenceJSONRequestBody defines body for SetPresence for application/json ContentType.
 type SetPresenceJSONRequestBody SetPresenceJSONBody
+
+// UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
+type UpdateSettingsJSONRequestBody = ServerSettingsChange
 
 // AsBoardCreatedEvent returns the union data inside the Event as a BoardCreatedEvent
 func (t Event) AsBoardCreatedEvent() (BoardCreatedEvent, error) {
@@ -2819,6 +3526,176 @@ func (t *Event) MergeReactionRemovedEvent(v ReactionRemovedEvent) error {
 	return err
 }
 
+// AsPersonAddedEvent returns the union data inside the Event as a PersonAddedEvent
+func (t Event) AsPersonAddedEvent() (PersonAddedEvent, error) {
+	var body PersonAddedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonAddedEvent overwrites any union data inside the Event as the provided PersonAddedEvent
+func (t *Event) FromPersonAddedEvent(v PersonAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.added"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonAddedEvent performs a merge with any union data inside the Event, using the provided PersonAddedEvent
+func (t *Event) MergePersonAddedEvent(v PersonAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.added"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonRemovedEvent returns the union data inside the Event as a PersonRemovedEvent
+func (t Event) AsPersonRemovedEvent() (PersonRemovedEvent, error) {
+	var body PersonRemovedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonRemovedEvent overwrites any union data inside the Event as the provided PersonRemovedEvent
+func (t *Event) FromPersonRemovedEvent(v PersonRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.removed"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonRemovedEvent performs a merge with any union data inside the Event, using the provided PersonRemovedEvent
+func (t *Event) MergePersonRemovedEvent(v PersonRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.removed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonLeftEvent returns the union data inside the Event as a PersonLeftEvent
+func (t Event) AsPersonLeftEvent() (PersonLeftEvent, error) {
+	var body PersonLeftEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonLeftEvent overwrites any union data inside the Event as the provided PersonLeftEvent
+func (t *Event) FromPersonLeftEvent(v PersonLeftEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.left"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonLeftEvent performs a merge with any union data inside the Event, using the provided PersonLeftEvent
+func (t *Event) MergePersonLeftEvent(v PersonLeftEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.left"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonMadeOwnerEvent returns the union data inside the Event as a PersonMadeOwnerEvent
+func (t Event) AsPersonMadeOwnerEvent() (PersonMadeOwnerEvent, error) {
+	var body PersonMadeOwnerEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonMadeOwnerEvent overwrites any union data inside the Event as the provided PersonMadeOwnerEvent
+func (t *Event) FromPersonMadeOwnerEvent(v PersonMadeOwnerEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.made_owner"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonMadeOwnerEvent performs a merge with any union data inside the Event, using the provided PersonMadeOwnerEvent
+func (t *Event) MergePersonMadeOwnerEvent(v PersonMadeOwnerEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.made_owner"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBoardVisibilityChangedEvent returns the union data inside the Event as a BoardVisibilityChangedEvent
+func (t Event) AsBoardVisibilityChangedEvent() (BoardVisibilityChangedEvent, error) {
+	var body BoardVisibilityChangedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBoardVisibilityChangedEvent overwrites any union data inside the Event as the provided BoardVisibilityChangedEvent
+func (t *Event) FromBoardVisibilityChangedEvent(v BoardVisibilityChangedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"board.visibility_changed"}`))
+	t.union = b
+	return err
+}
+
+// MergeBoardVisibilityChangedEvent performs a merge with any union data inside the Event, using the provided BoardVisibilityChangedEvent
+func (t *Event) MergeBoardVisibilityChangedEvent(v BoardVisibilityChangedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"board.visibility_changed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Event) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2839,6 +3716,8 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsBoardPolicyChangedEvent()
 	case "board.titled":
 		return t.AsBoardTitledEvent()
+	case "board.visibility_changed":
+		return t.AsBoardVisibilityChangedEvent()
 	case "joincode.created":
 		return t.AsJoinCodeCreatedEvent()
 	case "joincode.revoked":
@@ -2847,6 +3726,14 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsMemberJoinedEvent()
 	case "message.posted":
 		return t.AsMessagePostedEvent()
+	case "person.added":
+		return t.AsPersonAddedEvent()
+	case "person.left":
+		return t.AsPersonLeftEvent()
+	case "person.made_owner":
+		return t.AsPersonMadeOwnerEvent()
+	case "person.removed":
+		return t.AsPersonRemovedEvent()
 	case "reaction.added":
 		return t.AsReactionAddedEvent()
 	case "reaction.removed":
@@ -3002,17 +3889,29 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
-	// ListBoards List boards the caller is a member of
+	// ListBoards List boards the caller is on, or every board it can see
+	//
+	// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+	// board. With `all=true`, a person also gets the open boards they aren't on
+	// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+	// boards they aren't on, each with only its id, when and by whom it was created and
+	// how many people are on it, never its name, title, people or content. An agent
+	// gets its own board either way.
 	//
 	// Corresponds with GET /v1/boards (the `ListBoards` operationId).
-	ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListBoards(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateBoardWithBody Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -3022,9 +3921,14 @@ type ClientInterface interface {
 	// CreateBoard Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -3032,6 +3936,9 @@ type ClientInterface interface {
 	CreateBoard(ctx context.Context, params *CreateBoardParams, body CreateBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetBoard Get one board
+	//
+	// Any board the caller can see: one it is on, or for a person, an open board
+	// (`on_board` says which). Anything else is 404 `board_not_found`.
 	//
 	// Corresponds with GET /v1/boards/{board} (the `GetBoard` operationId).
 	GetBoard(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3109,6 +4016,17 @@ type ClientInterface interface {
 	// Corresponds with DELETE /v1/boards/{board}/join-codes/{join_code} (the `RevokeJoinCode` operationId).
 	RevokeJoinCode(ctx context.Context, board BoardParam, joinCode string, params *RevokeJoinCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// LeaveBoard Leave a board
+	//
+	// The caller, a person, leaves the board: writes `person.left`; they lose access to
+	// it at once, their agents on it end for good as on removal, and the join codes they
+	// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+	// hint says to make someone else an owner first. An agent gets 403
+	// `human_token_required`.
+	//
+	// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+	LeaveBoard(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListMembers List members of a board
 	//
 	// Corresponds with GET /v1/boards/{board}/members (the `ListMembers` operationId).
@@ -3184,6 +4102,95 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
 	PostMessage(ctx context.Context, board BoardParam, params *PostMessageParams, body PostMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AddOwnerWithBody Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwnerWithBody(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddOwner Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwner(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPeople List the people on a board, with their board role
+	//
+	// The people on the board, in the order they came onto it, each an `owner` or a
+	// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+	// the board may list its people: the people on it, their agents, and on an open
+	// board every person on the server.
+	//
+	// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+	ListPeople(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddPersonWithBody Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPersonWithBody(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddPerson Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPerson(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemovePerson Remove a person from the board
+	//
+	// Owners only, with a person's own token: anyone else on the board gets 403
+	// `owner_required`, whose hint names the owners, and an agent 403
+	// `human_token_required`. Writes `person.removed`. The person loses access to the
+	// board at once, and their agents on it end for good (named in the event's
+	// `agents`): their tokens never work on the board again, even if the person is
+	// added back, when they join with new agents. The join codes they or their agents
+	// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+	// the record.
+	// Removing someone from an open board doesn't keep them out, since anyone on the
+	// server may join it again; making the board private does.
+	//
+	// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+	// Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+	RemovePerson(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListThreads List the board's threads
 	//
 	// The messages on the board that start a thread with replies, the thread with the
@@ -3197,6 +4204,48 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/boards/{board}/threads (the `ListThreads` operationId).
 	ListThreads(ctx context.Context, board BoardParam, params *ListThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetVisibilityWithBody Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibilityWithBody(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetVisibility Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibility(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListBrowserSessions List your browser sessions
 	//
@@ -3643,6 +4692,198 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
 	PreviewLoginCode(ctx context.Context, body PreviewLoginCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// StartMachineRequestWithBody Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequestWithBody(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartMachineRequest Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequest(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveMachineRequestWithBody Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequestWithBody(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequest(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CollectMachineRequestWithBody Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequestWithBody(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CollectMachineRequest Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequest(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupMachineRequestWithBody See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequestWithBody(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupMachineRequest See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequest(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefuseMachineRequestWithBody Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequestWithBody(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefuseMachineRequest Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequest(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMe Who this token acts as
 	//
 	// Any token. For a person's login or browser, the person; for an agent's token, the
@@ -3836,6 +5077,35 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/messages/{message}/replies (the `ListReplies` operationId).
 	ListReplies(ctx context.Context, message MessageParam, params *ListRepliesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetSettings Read the server's settings
+	//
+	// People only; an agent gets 403 `human_token_required`.
+	//
+	// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+	GetSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSettingsWithBody Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettingsWithBody(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSettings Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettings(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Stream Follow the heads of your boards
 	//
 	// Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -3870,11 +5140,18 @@ type ClientInterface interface {
 	Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-// ListBoards List boards the caller is a member of
+// ListBoards List boards the caller is on, or every board it can see
+//
+// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+// board. With `all=true`, a person also gets the open boards they aren't on
+// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+// boards they aren't on, each with only its id, when and by whom it was created and
+// how many people are on it, never its name, title, people or content. An agent
+// gets its own board either way.
 //
 // Corresponds with GET /v1/boards (the `ListBoards` operationId).
-func (c *Client) ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListBoardsRequest(c.Server)
+func (c *Client) ListBoards(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBoardsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3888,9 +5165,14 @@ func (c *Client) ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) 
 // CreateBoardWithBody Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes any type of body and a specified content type.
 //
@@ -3910,9 +5192,14 @@ func (c *Client) CreateBoardWithBody(ctx context.Context, params *CreateBoardPar
 // CreateBoard Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3930,6 +5217,9 @@ func (c *Client) CreateBoard(ctx context.Context, params *CreateBoardParams, bod
 }
 
 // GetBoard Get one board
+//
+// Any board the caller can see: one it is on, or for a person, an open board
+// (`on_board` says which). Anything else is 404 `board_not_found`.
 //
 // Corresponds with GET /v1/boards/{board} (the `GetBoard` operationId).
 func (c *Client) GetBoard(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -4077,6 +5367,27 @@ func (c *Client) RevokeJoinCode(ctx context.Context, board BoardParam, joinCode 
 	return c.Client.Do(req)
 }
 
+// LeaveBoard Leave a board
+//
+// The caller, a person, leaves the board: writes `person.left`; they lose access to
+// it at once, their agents on it end for good as on removal, and the join codes they
+// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+// hint says to make someone else an owner first. An agent gets 403
+// `human_token_required`.
+//
+// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+func (c *Client) LeaveBoard(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLeaveBoardRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListMembers List members of a board
 //
 // Corresponds with GET /v1/boards/{board}/members (the `ListMembers` operationId).
@@ -4192,6 +5503,155 @@ func (c *Client) PostMessage(ctx context.Context, board BoardParam, params *Post
 	return c.Client.Do(req)
 }
 
+// AddOwnerWithBody Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *Client) AddOwnerWithBody(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOwnerRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddOwner Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *Client) AddOwner(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOwnerRequest(c.Server, board, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPeople List the people on a board, with their board role
+//
+// The people on the board, in the order they came onto it, each an `owner` or a
+// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+// the board may list its people: the people on it, their agents, and on an open
+// board every person on the server.
+//
+// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+func (c *Client) ListPeople(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeopleRequest(c.Server, board)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddPersonWithBody Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *Client) AddPersonWithBody(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddPersonRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddPerson Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *Client) AddPerson(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddPersonRequest(c.Server, board, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemovePerson Remove a person from the board
+//
+// Owners only, with a person's own token: anyone else on the board gets 403
+// `owner_required`, whose hint names the owners, and an agent 403
+// `human_token_required`. Writes `person.removed`. The person loses access to the
+// board at once, and their agents on it end for good (named in the event's
+// `agents`): their tokens never work on the board again, even if the person is
+// added back, when they join with new agents. The join codes they or their agents
+// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+// the record.
+// Removing someone from an open board doesn't keep them out, since anyone on the
+// server may join it again; making the board private does.
+//
+// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+// Someone not on the board is 404 `person_not_on_board`.
+//
+// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+func (c *Client) RemovePerson(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemovePersonRequest(c.Server, board, handle, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListThreads List the board's threads
 //
 // The messages on the board that start a thread with replies, the thread with the
@@ -4206,6 +5666,68 @@ func (c *Client) PostMessage(ctx context.Context, board BoardParam, params *Post
 // Corresponds with GET /v1/boards/{board}/threads (the `ListThreads` operationId).
 func (c *Client) ListThreads(ctx context.Context, board BoardParam, params *ListThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListThreadsRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetVisibilityWithBody Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *Client) SetVisibilityWithBody(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetVisibilityRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetVisibility Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *Client) SetVisibility(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetVisibilityRequest(c.Server, board, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4869,6 +6391,298 @@ func (c *Client) PreviewLoginCode(ctx context.Context, body PreviewLoginCodeJSON
 	return c.Client.Do(req)
 }
 
+// StartMachineRequestWithBody Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *Client) StartMachineRequestWithBody(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartMachineRequest Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *Client) StartMachineRequest(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveMachineRequestWithBody Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *Client) ApproveMachineRequestWithBody(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *Client) ApproveMachineRequest(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CollectMachineRequestWithBody Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *Client) CollectMachineRequestWithBody(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCollectMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CollectMachineRequest Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *Client) CollectMachineRequest(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCollectMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupMachineRequestWithBody See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *Client) LookupMachineRequestWithBody(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupMachineRequest See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *Client) LookupMachineRequest(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RefuseMachineRequestWithBody Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *Client) RefuseMachineRequestWithBody(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefuseMachineRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RefuseMachineRequest Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *Client) RefuseMachineRequest(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefuseMachineRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetMe Who this token acts as
 //
 // Any token. For a person's login or browser, the person; for an agent's token, the
@@ -5182,6 +6996,65 @@ func (c *Client) ListReplies(ctx context.Context, message MessageParam, params *
 	return c.Client.Do(req)
 }
 
+// GetSettings Read the server's settings
+//
+// People only; an agent gets 403 `human_token_required`.
+//
+// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+func (c *Client) GetSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateSettingsWithBody Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *Client) UpdateSettingsWithBody(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSettingsRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateSettings Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *Client) UpdateSettings(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSettingsRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // Stream Follow the heads of your boards
 //
 // Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -5226,7 +7099,7 @@ func (c *Client) Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 }
 
 // NewListBoardsRequest constructs an http.Request for the ListBoards method
-func NewListBoardsRequest(server string) (*http.Request, error) {
+func NewListBoardsRequest(server string, params *ListBoardsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -5242,6 +7115,33 @@ func NewListBoardsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.All != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "all", *params.All, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -5594,6 +7494,55 @@ func NewRevokeJoinCodeRequest(server string, board BoardParam, joinCode string, 
 	return req, nil
 }
 
+// NewLeaveBoardRequest constructs an http.Request for the LeaveBoard method
+func NewLeaveBoardRequest(server string, board BoardParam, params *LeaveBoardParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/leave", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListMembersRequest constructs an http.Request for the ListMembers method
 func NewListMembersRequest(server string, board BoardParam) (*http.Request, error) {
 	var err error
@@ -5823,6 +7772,220 @@ func NewPostMessageRequestWithBody(server string, board BoardParam, params *Post
 	return req, nil
 }
 
+// NewAddOwnerRequest calls the generic AddOwner builder with application/json body
+func NewAddOwnerRequest(server string, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddOwnerRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewAddOwnerRequestWithBody constructs an http.Request for the AddOwner method, with any body, and a specified content type
+func NewAddOwnerRequestWithBody(server string, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/owners", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListPeopleRequest constructs an http.Request for the ListPeople method
+func NewListPeopleRequest(server string, board BoardParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/people", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddPersonRequest calls the generic AddPerson builder with application/json body
+func NewAddPersonRequest(server string, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddPersonRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewAddPersonRequestWithBody constructs an http.Request for the AddPerson method, with any body, and a specified content type
+func NewAddPersonRequestWithBody(server string, board BoardParam, params *AddPersonParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/people", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRemovePersonRequest constructs an http.Request for the RemovePerson method
+func NewRemovePersonRequest(server string, board BoardParam, handle Handle, params *RemovePersonParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "handle", handle, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/people/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListThreadsRequest constructs an http.Request for the ListThreads method
 func NewListThreadsRequest(server string, board BoardParam, params *ListThreadsParams) (*http.Request, error) {
 	var err error
@@ -5879,6 +8042,68 @@ func NewListThreadsRequest(server string, board BoardParam, params *ListThreadsP
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetVisibilityRequest calls the generic SetVisibility builder with application/json body
+func NewSetVisibilityRequest(server string, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetVisibilityRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewSetVisibilityRequestWithBody constructs an http.Request for the SetVisibility method, with any body, and a specified content type
+func NewSetVisibilityRequestWithBody(server string, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/visibility", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -6541,6 +8766,281 @@ func NewPreviewLoginCodeRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewStartMachineRequestRequest calls the generic StartMachineRequest builder with application/json body
+func NewStartMachineRequestRequest(server string, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewStartMachineRequestRequestWithBody constructs an http.Request for the StartMachineRequest method, with any body, and a specified content type
+func NewStartMachineRequestRequestWithBody(server string, params *StartMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewApproveMachineRequestRequest calls the generic ApproveMachineRequest builder with application/json body
+func NewApproveMachineRequestRequest(server string, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewApproveMachineRequestRequestWithBody constructs an http.Request for the ApproveMachineRequest method, with any body, and a specified content type
+func NewApproveMachineRequestRequestWithBody(server string, params *ApproveMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/approve")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCollectMachineRequestRequest calls the generic CollectMachineRequest builder with application/json body
+func NewCollectMachineRequestRequest(server string, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCollectMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCollectMachineRequestRequestWithBody constructs an http.Request for the CollectMachineRequest method, with any body, and a specified content type
+func NewCollectMachineRequestRequestWithBody(server string, params *CollectMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/collect")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewLookupMachineRequestRequest calls the generic LookupMachineRequest builder with application/json body
+func NewLookupMachineRequestRequest(server string, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewLookupMachineRequestRequestWithBody constructs an http.Request for the LookupMachineRequest method, with any body, and a specified content type
+func NewLookupMachineRequestRequestWithBody(server string, params *LookupMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/lookup")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRefuseMachineRequestRequest calls the generic RefuseMachineRequest builder with application/json body
+func NewRefuseMachineRequestRequest(server string, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRefuseMachineRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewRefuseMachineRequestRequestWithBody constructs an http.Request for the RefuseMachineRequest method, with any body, and a specified content type
+func NewRefuseMachineRequestRequestWithBody(server string, params *RefuseMachineRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/machine-requests/refuse")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetMeRequest constructs an http.Request for the GetMe method
 func NewGetMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -7056,6 +9556,88 @@ func NewListRepliesRequest(server string, message MessageParam, params *ListRepl
 	return req, nil
 }
 
+// NewGetSettingsRequest constructs an http.Request for the GetSettings method
+func NewGetSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSettingsRequest calls the generic UpdateSettings builder with application/json body
+func NewUpdateSettingsRequest(server string, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSettingsRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewUpdateSettingsRequestWithBody constructs an http.Request for the UpdateSettings method, with any body, and a specified content type
+func NewUpdateSettingsRequestWithBody(server string, params *UpdateSettingsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewStreamRequest constructs an http.Request for the Stream method
 func NewStreamRequest(server string) (*http.Request, error) {
 	var err error
@@ -7127,19 +9709,31 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
-	// ListBoardsWithResponse List boards the caller is a member of
+	// ListBoardsWithResponse List boards the caller is on, or every board it can see
+	//
+	// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+	// board. With `all=true`, a person also gets the open boards they aren't on
+	// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+	// boards they aren't on, each with only its id, when and by whom it was created and
+	// how many people are on it, never its name, title, people or content. An agent
+	// gets its own board either way.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/boards (the `ListBoards` operationId).
-	ListBoardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error)
+	ListBoardsWithResponse(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error)
 
 	// CreateBoardWithBodyWithResponse Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7149,9 +9743,14 @@ type ClientWithResponsesInterface interface {
 	// CreateBoardWithResponse Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7159,6 +9758,9 @@ type ClientWithResponsesInterface interface {
 	CreateBoardWithResponse(ctx context.Context, params *CreateBoardParams, body CreateBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBoardResponse, error)
 
 	// GetBoardWithResponse Get one board
+	//
+	// Any board the caller can see: one it is on, or for a person, an open board
+	// (`on_board` says which). Anything else is 404 `board_not_found`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -7242,6 +9844,19 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/boards/{board}/join-codes/{join_code} (the `RevokeJoinCode` operationId).
 	RevokeJoinCodeWithResponse(ctx context.Context, board BoardParam, joinCode string, params *RevokeJoinCodeParams, reqEditors ...RequestEditorFn) (*RevokeJoinCodeResponse, error)
 
+	// LeaveBoardWithResponse Leave a board
+	//
+	// The caller, a person, leaves the board: writes `person.left`; they lose access to
+	// it at once, their agents on it end for good as on removal, and the join codes they
+	// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+	// hint says to make someone else an owner first. An agent gets 403
+	// `human_token_required`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+	LeaveBoardWithResponse(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*LeaveBoardResponse, error)
+
 	// ListMembersWithResponse List members of a board
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -7321,6 +9936,99 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
 	PostMessageWithResponse(ctx context.Context, board BoardParam, params *PostMessageParams, body PostMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMessageResponse, error)
 
+	// AddOwnerWithBodyWithResponse Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwnerWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error)
+
+	// AddOwnerWithResponse Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwnerWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error)
+
+	// ListPeopleWithResponse List the people on a board, with their board role
+	//
+	// The people on the board, in the order they came onto it, each an `owner` or a
+	// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+	// the board may list its people: the people on it, their agents, and on an open
+	// board every person on the server.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+	ListPeopleWithResponse(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*ListPeopleResponse, error)
+
+	// AddPersonWithBodyWithResponse Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPersonWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddPersonResponse, error)
+
+	// AddPersonWithResponse Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPersonWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*AddPersonResponse, error)
+
+	// RemovePersonWithResponse Remove a person from the board
+	//
+	// Owners only, with a person's own token: anyone else on the board gets 403
+	// `owner_required`, whose hint names the owners, and an agent 403
+	// `human_token_required`. Writes `person.removed`. The person loses access to the
+	// board at once, and their agents on it end for good (named in the event's
+	// `agents`): their tokens never work on the board again, even if the person is
+	// added back, when they join with new agents. The join codes they or their agents
+	// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+	// the record.
+	// Removing someone from an open board doesn't keep them out, since anyone on the
+	// server may join it again; making the board private does.
+	//
+	// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+	// Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+	RemovePersonWithResponse(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*RemovePersonResponse, error)
+
 	// ListThreadsWithResponse List the board's threads
 	//
 	// The messages on the board that start a thread with replies, the thread with the
@@ -7336,6 +10044,48 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/boards/{board}/threads (the `ListThreads` operationId).
 	ListThreadsWithResponse(ctx context.Context, board BoardParam, params *ListThreadsParams, reqEditors ...RequestEditorFn) (*ListThreadsResponse, error)
+
+	// SetVisibilityWithBodyWithResponse Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibilityWithBodyWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error)
+
+	// SetVisibilityWithResponse Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibilityWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error)
 
 	// ListBrowserSessionsWithResponse List your browser sessions
 	//
@@ -7796,6 +10546,198 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
 	PreviewLoginCodeWithResponse(ctx context.Context, body PreviewLoginCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewLoginCodeResponse, error)
 
+	// StartMachineRequestWithBodyWithResponse Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequestWithBodyWithResponse(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error)
+
+	// StartMachineRequestWithResponse Ask to connect a new machine, for a person to approve
+	//
+	// No token needed. A machine with no key for this server asks for one, for the
+	// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+	// that this person types on a machine where they are signed in, to approve the
+	// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+	// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+	// collect its key once the request is approved. The code alone can't collect
+	// anything, and only the named person can approve it.
+	//
+	// A handle nobody on the server has is accepted the same way, and its request can
+	// never be approved, so the answer doesn't say which handles exist. `label` is the
+	// name the requesting machine gives itself, which names its key. It is shown to the
+	// approving person as the machine's own claim, not as proof of anything. The request
+	// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+	// the code and the secret, sends the response with `Cache-Control: no-store`, and
+	// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+	// Requests are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+	StartMachineRequestWithResponse(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error)
+
+	// ApproveMachineRequestWithBodyWithResponse Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequestWithBodyWithResponse(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error)
+
+	// ApproveMachineRequestWithResponse Approve a machine request, giving that machine a key of yours
+	//
+	// With a person's own access key, and only for a request that names the caller.
+	// Approves the pending request the short `code` names: the requesting machine may
+	// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+	// and expiring after 90 days without use. Approving signs that machine in as you, so
+	// approve only a request you started yourself, a moment ago. The key is made when
+	// the machine collects it, and only if the approving key still works then.
+	//
+	// A code that is wrong, expired, already approved or refused, or that names another
+	// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+	// 403 `human_token_required`. Attempts are limited as for
+	// `POST /v1/machine-requests/lookup`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+	ApproveMachineRequestWithResponse(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error)
+
+	// CollectMachineRequestWithBodyWithResponse Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequestWithBodyWithResponse(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error)
+
+	// CollectMachineRequestWithResponse Collect the key of an approved machine request
+	//
+	// No token needed: the request's long `secret` is the proof. While the request waits
+	// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+	// asking again. Once approved, returns 201 with a new access key, once and never
+	// again: in one step the server makes the key, for the person who approved, and uses
+	// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+	// `POST /v1/connect` gives.
+	//
+	// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+	// request that expired or was already collected, one asked about more than 200
+	// times, and one whose approving key stopped working all get 404
+	// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+	// client address and across the server; over the limit returns 429 with
+	// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+	// holds a key.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+	CollectMachineRequestWithResponse(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error)
+
+	// LookupMachineRequestWithBodyWithResponse See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequestWithBodyWithResponse(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error)
+
+	// LookupMachineRequestWithResponse See a pending machine request before approving it
+	//
+	// With a person's own access key. Shows the pending request the short `code` names,
+	// when it names the caller: the label the machine gave itself, the address it asked
+	// from, when it asked, and `person`, the caller, as whom approving it would sign the
+	// machine in. A code that is wrong, expired, already approved or refused, or that
+	// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+	// token gets 403 `human_token_required`.
+	//
+	// Every attempt with a code (here, approving and refusing) counts against limits per
+	// client address, per person and across the server; over a limit returns 429 with
+	// `Retry-After`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+	LookupMachineRequestWithResponse(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error)
+
+	// RefuseMachineRequestWithBodyWithResponse Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequestWithBodyWithResponse(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error)
+
+	// RefuseMachineRequestWithResponse Refuse a machine request
+	//
+	// With a person's own access key. Refuses the pending request the short `code`
+	// names: the requesting machine's next collection gets 403
+	// `machine_request_refused`, and the code stops working. Errors and limits are as for
+	// `POST /v1/machine-requests/approve`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+	RefuseMachineRequestWithResponse(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error)
+
 	// GetMeWithResponse Who this token acts as
 	//
 	// Any token. For a person's login or browser, the person; for an agent's token, the
@@ -8005,6 +10947,37 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/messages/{message}/replies (the `ListReplies` operationId).
 	ListRepliesWithResponse(ctx context.Context, message MessageParam, params *ListRepliesParams, reqEditors ...RequestEditorFn) (*ListRepliesResponse, error)
 
+	// GetSettingsWithResponse Read the server's settings
+	//
+	// People only; an agent gets 403 `human_token_required`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+	GetSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSettingsResponse, error)
+
+	// UpdateSettingsWithBodyWithResponse Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettingsWithBodyWithResponse(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error)
+
+	// UpdateSettingsWithResponse Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettingsWithResponse(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error)
+
 	// StreamWithResponse Follow the heads of your boards
 	//
 	// Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -8047,6 +11020,9 @@ type ListBoardsResponse struct {
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
 		Boards []Board `json:"boards"`
+
+		// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+		HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
@@ -8055,6 +11031,9 @@ type ListBoardsResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r ListBoardsResponse) GetJSON200() *struct {
 	Boards []Board `json:"boards"`
+
+	// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+	HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 } {
 	return r.JSON200
 }
@@ -8176,6 +11155,8 @@ type GetBoardResponse struct {
 	JSON200 *Board
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8188,6 +11169,11 @@ func (r GetBoardResponse) GetJSON200() *Board {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r GetBoardResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetBoardResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8307,6 +11293,8 @@ type ListEventsResponse struct {
 	JSON200 *EventPage
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8319,6 +11307,11 @@ func (r ListEventsResponse) GetJSON200() *EventPage {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListEventsResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListEventsResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8486,6 +11479,75 @@ func (r RevokeJoinCodeResponse) ContentType() string {
 	return ""
 }
 
+type LeaveBoardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPerson
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LeaveBoardResponse) GetJSON200() *BoardPerson {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r LeaveBoardResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r LeaveBoardResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r LeaveBoardResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r LeaveBoardResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r LeaveBoardResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LeaveBoardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LeaveBoardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LeaveBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8495,6 +11557,8 @@ type ListMembersResponse struct {
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8509,6 +11573,11 @@ func (r ListMembersResponse) GetJSON200() *struct {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListMembersResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListMembersResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8552,6 +11621,8 @@ type ListMessagesResponse struct {
 	JSON200 *MessagePage
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8564,6 +11635,11 @@ func (r ListMessagesResponse) GetJSON200() *MessagePage {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListMessagesResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListMessagesResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8676,6 +11752,282 @@ func (r PostMessageResponse) ContentType() string {
 	return ""
 }
 
+type AddOwnerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPerson
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AddOwnerResponse) GetJSON200() *BoardPerson {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AddOwnerResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AddOwnerResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AddOwnerResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AddOwnerResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r AddOwnerResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AddOwnerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddOwnerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddOwnerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPeopleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPeople
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPeopleResponse) GetJSON200() *BoardPeople {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListPeopleResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListPeopleResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListPeopleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPeopleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeopleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeopleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPeopleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddPersonResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BoardPerson
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AddPersonResponse) GetJSON201() *BoardPerson {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AddPersonResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AddPersonResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AddPersonResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AddPersonResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r AddPersonResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r AddPersonResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AddPersonResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddPersonResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddPersonResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemovePersonResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPerson
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RemovePersonResponse) GetJSON200() *BoardPerson {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RemovePersonResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RemovePersonResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RemovePersonResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RemovePersonResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r RemovePersonResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemovePersonResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemovePersonResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemovePersonResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListThreadsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8683,6 +12035,8 @@ type ListThreadsResponse struct {
 	JSON200 *ThreadList
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8695,6 +12049,11 @@ func (r ListThreadsResponse) GetJSON200() *ThreadList {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListThreadsResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListThreadsResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8725,6 +12084,75 @@ func (r ListThreadsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListThreadsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetVisibilityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VisibilityChange
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetVisibilityResponse) GetJSON200() *VisibilityChange {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetVisibilityResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetVisibilityResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetVisibilityResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r SetVisibilityResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r SetVisibilityResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetVisibilityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetVisibilityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetVisibilityResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -9690,6 +13118,407 @@ func (r PreviewLoginCodeResponse) ContentType() string {
 	return ""
 }
 
+// StartMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for StartMachineRequest
+type StartMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type StartMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *MachineRequestStarted
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *StartMachineRequestResponse429Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartMachineRequestResponse) GetJSON201() *MachineRequestStarted {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r StartMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r StartMachineRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r StartMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r StartMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// ApproveMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for ApproveMachineRequest
+type ApproveMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type ApproveMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MachineRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *ApproveMachineRequestResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON200() *MachineRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r ApproveMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// CollectMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for CollectMachineRequest
+type CollectMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type CollectMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Connected
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *MachineRequestPending
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *CollectMachineRequestResponse429Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON201() *Connected {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON202() *MachineRequestPending {
+	return r.JSON202
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r CollectMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r CollectMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CollectMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CollectMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CollectMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// LookupMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for LookupMachineRequest
+type LookupMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type LookupMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MachineRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *LookupMachineRequestResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON200() *MachineRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r LookupMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// RefuseMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for RefuseMachineRequest
+type RefuseMachineRequestResponse429Headers struct {
+	RetryAfter *int
+}
+
+type RefuseMachineRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MachineRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *RefuseMachineRequestResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON200() *MachineRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r RefuseMachineRequestResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r RefuseMachineRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RefuseMachineRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefuseMachineRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefuseMachineRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetMeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10330,6 +14159,123 @@ func (r ListRepliesResponse) ContentType() string {
 	return ""
 }
 
+type GetSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerSettings
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSettingsResponse) GetJSON200() *ServerSettings {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetSettingsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetSettingsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerSettings
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateSettingsResponse) GetJSON200() *ServerSettings {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateSettingsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r UpdateSettingsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r UpdateSettingsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type StreamResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10378,13 +14324,20 @@ func (r StreamResponse) ContentType() string {
 	return ""
 }
 
-// ListBoardsWithResponse List boards the caller is a member of
+// ListBoardsWithResponse List boards the caller is on, or every board it can see
+//
+// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+// board. With `all=true`, a person also gets the open boards they aren't on
+// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+// boards they aren't on, each with only its id, when and by whom it was created and
+// how many people are on it, never its name, title, people or content. An agent
+// gets its own board either way.
 //
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /v1/boards (the `ListBoards` operationId).
-func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error) {
-	rsp, err := c.ListBoards(ctx, reqEditors...)
+func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error) {
+	rsp, err := c.ListBoards(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -10394,9 +14347,14 @@ func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, reqEdi
 // CreateBoardWithBodyWithResponse Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -10412,9 +14370,14 @@ func (c *ClientWithResponses) CreateBoardWithBodyWithResponse(ctx context.Contex
 // CreateBoardWithResponse Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -10428,6 +14391,9 @@ func (c *ClientWithResponses) CreateBoardWithResponse(ctx context.Context, param
 }
 
 // GetBoardWithResponse Get one board
+//
+// Any board the caller can see: one it is on, or for a person, an open board
+// (`on_board` says which). Anything else is 404 `board_not_found`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -10553,6 +14519,25 @@ func (c *ClientWithResponses) RevokeJoinCodeWithResponse(ctx context.Context, bo
 	return ParseRevokeJoinCodeResponse(rsp)
 }
 
+// LeaveBoardWithResponse Leave a board
+//
+// The caller, a person, leaves the board: writes `person.left`; they lose access to
+// it at once, their agents on it end for good as on removal, and the join codes they
+// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+// hint says to make someone else an owner first. An agent gets 403
+// `human_token_required`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+func (c *ClientWithResponses) LeaveBoardWithResponse(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*LeaveBoardResponse, error) {
+	rsp, err := c.LeaveBoard(ctx, board, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLeaveBoardResponse(rsp)
+}
+
 // ListMembersWithResponse List members of a board
 //
 // Returns a wrapper object for the known response body format(s).
@@ -10656,6 +14641,135 @@ func (c *ClientWithResponses) PostMessageWithResponse(ctx context.Context, board
 	return ParsePostMessageResponse(rsp)
 }
 
+// AddOwnerWithBodyWithResponse Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *ClientWithResponses) AddOwnerWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error) {
+	rsp, err := c.AddOwnerWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddOwnerResponse(rsp)
+}
+
+// AddOwnerWithResponse Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *ClientWithResponses) AddOwnerWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error) {
+	rsp, err := c.AddOwner(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddOwnerResponse(rsp)
+}
+
+// ListPeopleWithResponse List the people on a board, with their board role
+//
+// The people on the board, in the order they came onto it, each an `owner` or a
+// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+// the board may list its people: the people on it, their agents, and on an open
+// board every person on the server.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+func (c *ClientWithResponses) ListPeopleWithResponse(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*ListPeopleResponse, error) {
+	rsp, err := c.ListPeople(ctx, board, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeopleResponse(rsp)
+}
+
+// AddPersonWithBodyWithResponse Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *ClientWithResponses) AddPersonWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddPersonResponse, error) {
+	rsp, err := c.AddPersonWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddPersonResponse(rsp)
+}
+
+// AddPersonWithResponse Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *ClientWithResponses) AddPersonWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*AddPersonResponse, error) {
+	rsp, err := c.AddPerson(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddPersonResponse(rsp)
+}
+
+// RemovePersonWithResponse Remove a person from the board
+//
+// Owners only, with a person's own token: anyone else on the board gets 403
+// `owner_required`, whose hint names the owners, and an agent 403
+// `human_token_required`. Writes `person.removed`. The person loses access to the
+// board at once, and their agents on it end for good (named in the event's
+// `agents`): their tokens never work on the board again, even if the person is
+// added back, when they join with new agents. The join codes they or their agents
+// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+// the record.
+// Removing someone from an open board doesn't keep them out, since anyone on the
+// server may join it again; making the board private does.
+//
+// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+// Someone not on the board is 404 `person_not_on_board`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+func (c *ClientWithResponses) RemovePersonWithResponse(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*RemovePersonResponse, error) {
+	rsp, err := c.RemovePerson(ctx, board, handle, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemovePersonResponse(rsp)
+}
+
 // ListThreadsWithResponse List the board's threads
 //
 // The messages on the board that start a thread with replies, the thread with the
@@ -10676,6 +14790,60 @@ func (c *ClientWithResponses) ListThreadsWithResponse(ctx context.Context, board
 		return nil, err
 	}
 	return ParseListThreadsResponse(rsp)
+}
+
+// SetVisibilityWithBodyWithResponse Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *ClientWithResponses) SetVisibilityWithBodyWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error) {
+	rsp, err := c.SetVisibilityWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetVisibilityResponse(rsp)
+}
+
+// SetVisibilityWithResponse Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *ClientWithResponses) SetVisibilityWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error) {
+	rsp, err := c.SetVisibility(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetVisibilityResponse(rsp)
 }
 
 // ListBrowserSessionsWithResponse List your browser sessions
@@ -11262,6 +15430,258 @@ func (c *ClientWithResponses) PreviewLoginCodeWithResponse(ctx context.Context, 
 	return ParsePreviewLoginCodeResponse(rsp)
 }
 
+// StartMachineRequestWithBodyWithResponse Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *ClientWithResponses) StartMachineRequestWithBodyWithResponse(ctx context.Context, params *StartMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error) {
+	rsp, err := c.StartMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartMachineRequestResponse(rsp)
+}
+
+// StartMachineRequestWithResponse Ask to connect a new machine, for a person to approve
+//
+// No token needed. A machine with no key for this server asks for one, for the
+// person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+// that this person types on a machine where they are signed in, to approve the
+// request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+// requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+// collect its key once the request is approved. The code alone can't collect
+// anything, and only the named person can approve it.
+//
+// A handle nobody on the server has is accepted the same way, and its request can
+// never be approved, so the answer doesn't say which handles exist. `label` is the
+// name the requesting machine gives itself, which names its key. It is shown to the
+// approving person as the machine's own claim, not as proof of anything. The request
+// ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+// the code and the secret, sends the response with `Cache-Control: no-store`, and
+// doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+// Requests are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests (the `StartMachineRequest` operationId).
+func (c *ClientWithResponses) StartMachineRequestWithResponse(ctx context.Context, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMachineRequestResponse, error) {
+	rsp, err := c.StartMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartMachineRequestResponse(rsp)
+}
+
+// ApproveMachineRequestWithBodyWithResponse Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *ClientWithResponses) ApproveMachineRequestWithBodyWithResponse(ctx context.Context, params *ApproveMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error) {
+	rsp, err := c.ApproveMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveMachineRequestResponse(rsp)
+}
+
+// ApproveMachineRequestWithResponse Approve a machine request, giving that machine a key of yours
+//
+// With a person's own access key, and only for a request that names the caller.
+// Approves the pending request the short `code` names: the requesting machine may
+// then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+// and expiring after 90 days without use. Approving signs that machine in as you, so
+// approve only a request you started yourself, a moment ago. The key is made when
+// the machine collects it, and only if the approving key still works then.
+//
+// A code that is wrong, expired, already approved or refused, or that names another
+// person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+// 403 `human_token_required`. Attempts are limited as for
+// `POST /v1/machine-requests/lookup`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/approve (the `ApproveMachineRequest` operationId).
+func (c *ClientWithResponses) ApproveMachineRequestWithResponse(ctx context.Context, params *ApproveMachineRequestParams, body ApproveMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveMachineRequestResponse, error) {
+	rsp, err := c.ApproveMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveMachineRequestResponse(rsp)
+}
+
+// CollectMachineRequestWithBodyWithResponse Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *ClientWithResponses) CollectMachineRequestWithBodyWithResponse(ctx context.Context, params *CollectMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error) {
+	rsp, err := c.CollectMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCollectMachineRequestResponse(rsp)
+}
+
+// CollectMachineRequestWithResponse Collect the key of an approved machine request
+//
+// No token needed: the request's long `secret` is the proof. While the request waits
+// for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+// asking again. Once approved, returns 201 with a new access key, once and never
+// again: in one step the server makes the key, for the person who approved, and uses
+// up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+// `POST /v1/connect` gives.
+//
+// A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+// request that expired or was already collected, one asked about more than 200
+// times, and one whose approving key stopped working all get 404
+// `machine_request_invalid`, which doesn't say which. Attempts are limited per
+// client address and across the server; over the limit returns 429 with
+// `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+// holds a key.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/collect (the `CollectMachineRequest` operationId).
+func (c *ClientWithResponses) CollectMachineRequestWithResponse(ctx context.Context, params *CollectMachineRequestParams, body CollectMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*CollectMachineRequestResponse, error) {
+	rsp, err := c.CollectMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCollectMachineRequestResponse(rsp)
+}
+
+// LookupMachineRequestWithBodyWithResponse See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *ClientWithResponses) LookupMachineRequestWithBodyWithResponse(ctx context.Context, params *LookupMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error) {
+	rsp, err := c.LookupMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupMachineRequestResponse(rsp)
+}
+
+// LookupMachineRequestWithResponse See a pending machine request before approving it
+//
+// With a person's own access key. Shows the pending request the short `code` names,
+// when it names the caller: the label the machine gave itself, the address it asked
+// from, when it asked, and `person`, the caller, as whom approving it would sign the
+// machine in. A code that is wrong, expired, already approved or refused, or that
+// names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+// token gets 403 `human_token_required`.
+//
+// Every attempt with a code (here, approving and refusing) counts against limits per
+// client address, per person and across the server; over a limit returns 429 with
+// `Retry-After`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/lookup (the `LookupMachineRequest` operationId).
+func (c *ClientWithResponses) LookupMachineRequestWithResponse(ctx context.Context, params *LookupMachineRequestParams, body LookupMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupMachineRequestResponse, error) {
+	rsp, err := c.LookupMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupMachineRequestResponse(rsp)
+}
+
+// RefuseMachineRequestWithBodyWithResponse Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *ClientWithResponses) RefuseMachineRequestWithBodyWithResponse(ctx context.Context, params *RefuseMachineRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error) {
+	rsp, err := c.RefuseMachineRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefuseMachineRequestResponse(rsp)
+}
+
+// RefuseMachineRequestWithResponse Refuse a machine request
+//
+// With a person's own access key. Refuses the pending request the short `code`
+// names: the requesting machine's next collection gets 403
+// `machine_request_refused`, and the code stops working. Errors and limits are as for
+// `POST /v1/machine-requests/approve`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/machine-requests/refuse (the `RefuseMachineRequest` operationId).
+func (c *ClientWithResponses) RefuseMachineRequestWithResponse(ctx context.Context, params *RefuseMachineRequestParams, body RefuseMachineRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*RefuseMachineRequestResponse, error) {
+	rsp, err := c.RefuseMachineRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefuseMachineRequestResponse(rsp)
+}
+
 // GetMeWithResponse Who this token acts as
 //
 // Any token. For a person's login or browser, the person; for an agent's token, the
@@ -11543,6 +15963,55 @@ func (c *ClientWithResponses) ListRepliesWithResponse(ctx context.Context, messa
 	return ParseListRepliesResponse(rsp)
 }
 
+// GetSettingsWithResponse Read the server's settings
+//
+// People only; an agent gets 403 `human_token_required`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+func (c *ClientWithResponses) GetSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSettingsResponse, error) {
+	rsp, err := c.GetSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSettingsResponse(rsp)
+}
+
+// UpdateSettingsWithBodyWithResponse Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *ClientWithResponses) UpdateSettingsWithBodyWithResponse(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error) {
+	rsp, err := c.UpdateSettingsWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSettingsResponse(rsp)
+}
+
+// UpdateSettingsWithResponse Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *ClientWithResponses) UpdateSettingsWithResponse(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error) {
+	rsp, err := c.UpdateSettings(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSettingsResponse(rsp)
+}
+
 // StreamWithResponse Follow the heads of your boards
 //
 // Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -11601,6 +16070,9 @@ func ParseListBoardsResponse(rsp *http.Response) (*ListBoardsResponse, error) {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
 			Boards []Board `json:"boards"`
+
+			// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+			HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -11708,6 +16180,13 @@ func ParseGetBoardResponse(rsp *http.Response) (*GetBoardResponse, error) {
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -11808,6 +16287,13 @@ func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -11922,6 +16408,60 @@ func ParseRevokeJoinCodeResponse(rsp *http.Response) (*RevokeJoinCodeResponse, e
 	return response, nil
 }
 
+// ParseLeaveBoardResponse parses an HTTP response from a LeaveBoardWithResponse call
+func ParseLeaveBoardResponse(rsp *http.Response) (*LeaveBoardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LeaveBoardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListMembersResponse parses an HTTP response from a ListMembersWithResponse call
 func ParseListMembersResponse(rsp *http.Response) (*ListMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -11951,6 +16491,13 @@ func ParseListMembersResponse(rsp *http.Response) (*ListMembersResponse, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -11991,6 +16538,13 @@ func ParseListMessagesResponse(rsp *http.Response) (*ListMessagesResponse, error
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -12065,6 +16619,222 @@ func ParsePostMessageResponse(rsp *http.Response) (*PostMessageResponse, error) 
 	return response, nil
 }
 
+// ParseAddOwnerResponse parses an HTTP response from a AddOwnerWithResponse call
+func ParseAddOwnerResponse(rsp *http.Response) (*AddOwnerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddOwnerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPeopleResponse parses an HTTP response from a ListPeopleWithResponse call
+func ParseListPeopleResponse(rsp *http.Response) (*ListPeopleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeopleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPeople
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddPersonResponse parses an HTTP response from a AddPersonWithResponse call
+func ParseAddPersonResponse(rsp *http.Response) (*AddPersonResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddPersonResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemovePersonResponse parses an HTTP response from a RemovePersonWithResponse call
+func ParseRemovePersonResponse(rsp *http.Response) (*RemovePersonResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemovePersonResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListThreadsResponse parses an HTTP response from a ListThreadsWithResponse call
 func ParseListThreadsResponse(rsp *http.Response) (*ListThreadsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12092,6 +16862,67 @@ func ParseListThreadsResponse(rsp *http.Response) (*ListThreadsResponse, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetVisibilityResponse parses an HTTP response from a SetVisibilityWithResponse call
+func ParseSetVisibilityResponse(rsp *http.Response) (*SetVisibilityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetVisibilityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VisibilityChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -12872,6 +17703,362 @@ func ParsePreviewLoginCodeResponse(rsp *http.Response) (*PreviewLoginCodeRespons
 	return response, nil
 }
 
+// ParseStartMachineRequestResponse parses an HTTP response from a StartMachineRequestWithResponse call
+func ParseStartMachineRequestResponse(rsp *http.Response) (*StartMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest MachineRequestStarted
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers StartMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseApproveMachineRequestResponse parses an HTTP response from a ApproveMachineRequestWithResponse call
+func ParseApproveMachineRequestResponse(rsp *http.Response) (*ApproveMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MachineRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers ApproveMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseCollectMachineRequestResponse parses an HTTP response from a CollectMachineRequestWithResponse call
+func ParseCollectMachineRequestResponse(rsp *http.Response) (*CollectMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CollectMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Connected
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest MachineRequestPending
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers CollectMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseLookupMachineRequestResponse parses an HTTP response from a LookupMachineRequestWithResponse call
+func ParseLookupMachineRequestResponse(rsp *http.Response) (*LookupMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MachineRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers LookupMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseRefuseMachineRequestResponse parses an HTTP response from a RefuseMachineRequestWithResponse call
+func ParseRefuseMachineRequestResponse(rsp *http.Response) (*RefuseMachineRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefuseMachineRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MachineRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers RefuseMachineRequestResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
 func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -13351,6 +18538,93 @@ func ParseListRepliesResponse(rsp *http.Response) (*ListRepliesResponse, error) 
 	return response, nil
 }
 
+// ParseGetSettingsResponse parses an HTTP response from a GetSettingsWithResponse call
+func ParseGetSettingsResponse(rsp *http.Response) (*GetSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSettingsResponse parses an HTTP response from a UpdateSettingsWithResponse call
+func ParseUpdateSettingsResponse(rsp *http.Response) (*UpdateSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStreamResponse parses an HTTP response from a StreamWithResponse call
 func ParseStreamResponse(rsp *http.Response) (*StreamResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -13386,9 +18660,9 @@ func ParseStreamResponse(rsp *http.Response) (*StreamResponse, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// ListBoards List boards the caller is a member of
+	// ListBoards List boards the caller is on, or every board it can see
 	// (GET /v1/boards)
-	ListBoards(w http.ResponseWriter, r *http.Request)
+	ListBoards(w http.ResponseWriter, r *http.Request, params ListBoardsParams)
 	// CreateBoard Create a board, optionally from a template
 	// (POST /v1/boards)
 	CreateBoard(w http.ResponseWriter, r *http.Request, params CreateBoardParams)
@@ -13407,6 +18681,9 @@ type ServerInterface interface {
 	// RevokeJoinCode Revoke a join code
 	// (DELETE /v1/boards/{board}/join-codes/{join_code})
 	RevokeJoinCode(w http.ResponseWriter, r *http.Request, board BoardParam, joinCode string, params RevokeJoinCodeParams)
+	// LeaveBoard Leave a board
+	// (POST /v1/boards/{board}/leave)
+	LeaveBoard(w http.ResponseWriter, r *http.Request, board BoardParam, params LeaveBoardParams)
 	// ListMembers List members of a board
 	// (GET /v1/boards/{board}/members)
 	ListMembers(w http.ResponseWriter, r *http.Request, board BoardParam)
@@ -13416,9 +18693,24 @@ type ServerInterface interface {
 	// PostMessage Post a message
 	// (POST /v1/boards/{board}/messages)
 	PostMessage(w http.ResponseWriter, r *http.Request, board BoardParam, params PostMessageParams)
+	// AddOwner Make a person on the board an owner
+	// (POST /v1/boards/{board}/owners)
+	AddOwner(w http.ResponseWriter, r *http.Request, board BoardParam, params AddOwnerParams)
+	// ListPeople List the people on a board, with their board role
+	// (GET /v1/boards/{board}/people)
+	ListPeople(w http.ResponseWriter, r *http.Request, board BoardParam)
+	// AddPerson Add a person on the server to the board
+	// (POST /v1/boards/{board}/people)
+	AddPerson(w http.ResponseWriter, r *http.Request, board BoardParam, params AddPersonParams)
+	// RemovePerson Remove a person from the board
+	// (DELETE /v1/boards/{board}/people/{handle})
+	RemovePerson(w http.ResponseWriter, r *http.Request, board BoardParam, handle Handle, params RemovePersonParams)
 	// ListThreads List the board's threads
 	// (GET /v1/boards/{board}/threads)
 	ListThreads(w http.ResponseWriter, r *http.Request, board BoardParam, params ListThreadsParams)
+	// SetVisibility Turn a board open or private
+	// (POST /v1/boards/{board}/visibility)
+	SetVisibility(w http.ResponseWriter, r *http.Request, board BoardParam, params SetVisibilityParams)
 	// ListBrowserSessions List your browser sessions
 	// (GET /v1/browser-sessions)
 	ListBrowserSessions(w http.ResponseWriter, r *http.Request, params ListBrowserSessionsParams)
@@ -13463,6 +18755,21 @@ type ServerInterface interface {
 	// PreviewLoginCode Say who a login code would sign a browser in as
 	// (POST /v1/login-codes/preview)
 	PreviewLoginCode(w http.ResponseWriter, r *http.Request)
+	// StartMachineRequest Ask to connect a new machine, for a person to approve
+	// (POST /v1/machine-requests)
+	StartMachineRequest(w http.ResponseWriter, r *http.Request, params StartMachineRequestParams)
+	// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+	// (POST /v1/machine-requests/approve)
+	ApproveMachineRequest(w http.ResponseWriter, r *http.Request, params ApproveMachineRequestParams)
+	// CollectMachineRequest Collect the key of an approved machine request
+	// (POST /v1/machine-requests/collect)
+	CollectMachineRequest(w http.ResponseWriter, r *http.Request, params CollectMachineRequestParams)
+	// LookupMachineRequest See a pending machine request before approving it
+	// (POST /v1/machine-requests/lookup)
+	LookupMachineRequest(w http.ResponseWriter, r *http.Request, params LookupMachineRequestParams)
+	// RefuseMachineRequest Refuse a machine request
+	// (POST /v1/machine-requests/refuse)
+	RefuseMachineRequest(w http.ResponseWriter, r *http.Request, params RefuseMachineRequestParams)
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
@@ -13493,6 +18800,12 @@ type ServerInterface interface {
 	// ListReplies Read or wait for a message's thread
 	// (GET /v1/messages/{message}/replies)
 	ListReplies(w http.ResponseWriter, r *http.Request, message MessageParam, params ListRepliesParams)
+	// GetSettings Read the server's settings
+	// (GET /v1/settings)
+	GetSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateSettings Change the server's settings
+	// (PATCH /v1/settings)
+	UpdateSettings(w http.ResponseWriter, r *http.Request, params UpdateSettingsParams)
 	// Stream Follow the heads of your boards
 	// (GET /v1/stream)
 	Stream(w http.ResponseWriter, r *http.Request)
@@ -13510,8 +18823,27 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // ListBoards operation middleware
 func (siw *ServerInterfaceWrapper) ListBoards(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBoardsParams
+
+	// ------------- Optional query parameter "all" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all", r.URL.Query(), &params.All, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "all"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "all", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListBoards(w, r)
+		siw.Handler.ListBoards(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13802,6 +19134,56 @@ func (siw *ServerInterfaceWrapper) RevokeJoinCode(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// LeaveBoard operation middleware
+func (siw *ServerInterfaceWrapper) LeaveBoard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LeaveBoardParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LeaveBoard(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListMembers operation middleware
 func (siw *ServerInterfaceWrapper) ListMembers(w http.ResponseWriter, r *http.Request) {
 
@@ -13998,6 +19380,191 @@ func (siw *ServerInterfaceWrapper) PostMessage(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// AddOwner operation middleware
+func (siw *ServerInterfaceWrapper) AddOwner(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AddOwnerParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddOwner(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPeople operation middleware
+func (siw *ServerInterfaceWrapper) ListPeople(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPeople(w, r, board)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddPerson operation middleware
+func (siw *ServerInterfaceWrapper) AddPerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AddPersonParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddPerson(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemovePerson operation middleware
+func (siw *ServerInterfaceWrapper) RemovePerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "handle" -------------
+	var handle Handle
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", r.PathValue("handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemovePersonParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemovePerson(w, r, board, handle, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListThreads operation middleware
 func (siw *ServerInterfaceWrapper) ListThreads(w http.ResponseWriter, r *http.Request) {
 
@@ -14031,6 +19598,56 @@ func (siw *ServerInterfaceWrapper) ListThreads(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListThreads(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetVisibility operation middleware
+func (siw *ServerInterfaceWrapper) SetVisibility(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetVisibilityParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetVisibility(w, r, board, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14508,6 +20125,211 @@ func (siw *ServerInterfaceWrapper) PreviewLoginCode(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// StartMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) StartMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) ApproveMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CollectMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) CollectMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CollectMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CollectMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LookupMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) LookupMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LookupMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LookupMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefuseMachineRequest operation middleware
+func (siw *ServerInterfaceWrapper) RefuseMachineRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefuseMachineRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefuseMachineRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
@@ -14930,6 +20752,61 @@ func (siw *ServerInterfaceWrapper) ListReplies(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateSettingsParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSettings(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Stream operation middleware
 func (siw *ServerInterfaceWrapper) Stream(w http.ResponseWriter, r *http.Request) {
 
@@ -15079,6 +20956,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/keys", wrapper.CreateKey)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/keys/{key}", wrapper.RevokeKey)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/connect", wrapper.Connect)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests", wrapper.StartMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/lookup", wrapper.LookupMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/approve", wrapper.ApproveMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/refuse", wrapper.RefuseMachineRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/machine-requests/collect", wrapper.CollectMachineRequest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards", wrapper.ListBoards)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards", wrapper.CreateBoard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}", wrapper.GetBoard)
@@ -15087,8 +20969,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/join-codes/{join_code}", wrapper.RevokeJoinCode)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/join", wrapper.Join)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/members", wrapper.ListMembers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/people", wrapper.ListPeople)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/people", wrapper.AddPerson)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/people/{handle}", wrapper.RemovePerson)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/leave", wrapper.LeaveBoard)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/owners", wrapper.AddOwner)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/visibility", wrapper.SetVisibility)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/messages", wrapper.ListMessages)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/messages", wrapper.PostMessage)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/settings", wrapper.GetSettings)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/settings", wrapper.UpdateSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/inbox", wrapper.GetInbox)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/inbox/ack", wrapper.AckInbox)
@@ -15107,6 +20997,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 type ErrorJSONResponse Error
 
 type ListBoardsRequestObject struct {
+	Params ListBoardsParams
 }
 
 type ListBoardsResponseObject interface {
@@ -15115,6 +21006,9 @@ type ListBoardsResponseObject interface {
 
 type ListBoards200JSONResponse struct {
 	Boards []Board `json:"boards"`
+
+	// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+	HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 }
 
 func (response ListBoards200JSONResponse) VisitListBoardsResponse(w http.ResponseWriter) error {
@@ -15272,6 +21166,20 @@ func (response GetBoard401JSONResponse) VisitGetBoardResponse(w http.ResponseWri
 	return err
 }
 
+type GetBoard403JSONResponse Error
+
+func (response GetBoard403JSONResponse) VisitGetBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetBoard404JSONResponse Error
 
 func (response GetBoard404JSONResponse) VisitGetBoardResponse(w http.ResponseWriter) error {
@@ -15413,6 +21321,20 @@ func (response ListEvents401JSONResponse) VisitListEventsResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents403JSONResponse Error
+
+func (response ListEvents403JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15577,6 +21499,85 @@ func (response RevokeJoinCode404JSONResponse) VisitRevokeJoinCodeResponse(w http
 	return err
 }
 
+type LeaveBoardRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params LeaveBoardParams
+}
+
+type LeaveBoardResponseObject interface {
+	VisitLeaveBoardResponse(w http.ResponseWriter) error
+}
+
+type LeaveBoard200JSONResponse BoardPerson
+
+func (response LeaveBoard200JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard401JSONResponse struct{ ErrorJSONResponse }
+
+func (response LeaveBoard401JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard403JSONResponse Error
+
+func (response LeaveBoard403JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard404JSONResponse Error
+
+func (response LeaveBoard404JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard409JSONResponse Error
+
+func (response LeaveBoard409JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListMembersRequestObject struct {
 	Board BoardParam `json:"board"`
 }
@@ -15611,6 +21612,20 @@ func (response ListMembers401JSONResponse) VisitListMembersResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMembers403JSONResponse Error
+
+func (response ListMembers403JSONResponse) VisitListMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15662,6 +21677,20 @@ func (response ListMessages401JSONResponse) VisitListMessagesResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessages403JSONResponse Error
+
+func (response ListMessages403JSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15774,6 +21803,324 @@ func (response PostMessage429JSONResponse) VisitPostMessageResponse(w http.Respo
 	return err
 }
 
+type AddOwnerRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params AddOwnerParams
+	Body   *AddOwnerJSONRequestBody
+}
+
+type AddOwnerResponseObject interface {
+	VisitAddOwnerResponse(w http.ResponseWriter) error
+}
+
+type AddOwner200JSONResponse BoardPerson
+
+func (response AddOwner200JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner400JSONResponse struct{ ErrorJSONResponse }
+
+func (response AddOwner400JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner401JSONResponse Error
+
+func (response AddOwner401JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner403JSONResponse Error
+
+func (response AddOwner403JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner404JSONResponse Error
+
+func (response AddOwner404JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeopleRequestObject struct {
+	Board BoardParam `json:"board"`
+}
+
+type ListPeopleResponseObject interface {
+	VisitListPeopleResponse(w http.ResponseWriter) error
+}
+
+type ListPeople200JSONResponse BoardPeople
+
+func (response ListPeople200JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeople401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListPeople401JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeople403JSONResponse Error
+
+func (response ListPeople403JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeople404JSONResponse Error
+
+func (response ListPeople404JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPersonRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params AddPersonParams
+	Body   *AddPersonJSONRequestBody
+}
+
+type AddPersonResponseObject interface {
+	VisitAddPersonResponse(w http.ResponseWriter) error
+}
+
+type AddPerson201JSONResponse BoardPerson
+
+func (response AddPerson201JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson400JSONResponse struct{ ErrorJSONResponse }
+
+func (response AddPerson400JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson401JSONResponse Error
+
+func (response AddPerson401JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson403JSONResponse Error
+
+func (response AddPerson403JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson404JSONResponse Error
+
+func (response AddPerson404JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson409JSONResponse Error
+
+func (response AddPerson409JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePersonRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Handle Handle     `json:"handle"`
+	Params RemovePersonParams
+}
+
+type RemovePersonResponseObject interface {
+	VisitRemovePersonResponse(w http.ResponseWriter) error
+}
+
+type RemovePerson200JSONResponse BoardPerson
+
+func (response RemovePerson200JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson401JSONResponse struct{ ErrorJSONResponse }
+
+func (response RemovePerson401JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson403JSONResponse Error
+
+func (response RemovePerson403JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson404JSONResponse Error
+
+func (response RemovePerson404JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson409JSONResponse Error
+
+func (response RemovePerson409JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListThreadsRequestObject struct {
 	Board  BoardParam `json:"board"`
 	Params ListThreadsParams
@@ -15811,9 +22158,103 @@ func (response ListThreads401JSONResponse) VisitListThreadsResponse(w http.Respo
 	return err
 }
 
+type ListThreads403JSONResponse Error
+
+func (response ListThreads403JSONResponse) VisitListThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListThreads404JSONResponse Error
 
 func (response ListThreads404JSONResponse) VisitListThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibilityRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params SetVisibilityParams
+	Body   *SetVisibilityJSONRequestBody
+}
+
+type SetVisibilityResponseObject interface {
+	VisitSetVisibilityResponse(w http.ResponseWriter) error
+}
+
+type SetVisibility200JSONResponse VisibilityChange
+
+func (response SetVisibility200JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetVisibility400JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility401JSONResponse Error
+
+func (response SetVisibility401JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility403JSONResponse Error
+
+func (response SetVisibility403JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility404JSONResponse Error
+
+func (response SetVisibility404JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -16896,6 +23337,493 @@ func (response PreviewLoginCode429JSONResponse) VisitPreviewLoginCodeResponse(w 
 	return err
 }
 
+type StartMachineRequestRequestObject struct {
+	Params StartMachineRequestParams
+	Body   *StartMachineRequestJSONRequestBody
+}
+
+type StartMachineRequestResponseObject interface {
+	VisitStartMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type StartMachineRequest201JSONResponse MachineRequestStarted
+
+func (response StartMachineRequest201JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response StartMachineRequest400JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartMachineRequest422JSONResponse Error
+
+func (response StartMachineRequest422JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type StartMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers StartMachineRequest429ResponseHeaders
+}
+
+func (response StartMachineRequest429JSONResponse) VisitStartMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequestRequestObject struct {
+	Params ApproveMachineRequestParams
+	Body   *ApproveMachineRequestJSONRequestBody
+}
+
+type ApproveMachineRequestResponseObject interface {
+	VisitApproveMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type ApproveMachineRequest200JSONResponse MachineRequest
+
+func (response ApproveMachineRequest200JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ApproveMachineRequest400JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest401JSONResponse Error
+
+func (response ApproveMachineRequest401JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest403JSONResponse Error
+
+func (response ApproveMachineRequest403JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest404JSONResponse Error
+
+func (response ApproveMachineRequest404JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type ApproveMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers ApproveMachineRequest429ResponseHeaders
+}
+
+func (response ApproveMachineRequest429JSONResponse) VisitApproveMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequestRequestObject struct {
+	Params CollectMachineRequestParams
+	Body   *CollectMachineRequestJSONRequestBody
+}
+
+type CollectMachineRequestResponseObject interface {
+	VisitCollectMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type CollectMachineRequest201JSONResponse Connected
+
+func (response CollectMachineRequest201JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest202JSONResponse MachineRequestPending
+
+func (response CollectMachineRequest202JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CollectMachineRequest400JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest403JSONResponse Error
+
+func (response CollectMachineRequest403JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest404JSONResponse Error
+
+func (response CollectMachineRequest404JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CollectMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type CollectMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers CollectMachineRequest429ResponseHeaders
+}
+
+func (response CollectMachineRequest429JSONResponse) VisitCollectMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequestRequestObject struct {
+	Params LookupMachineRequestParams
+	Body   *LookupMachineRequestJSONRequestBody
+}
+
+type LookupMachineRequestResponseObject interface {
+	VisitLookupMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type LookupMachineRequest200JSONResponse MachineRequest
+
+func (response LookupMachineRequest200JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response LookupMachineRequest400JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest401JSONResponse Error
+
+func (response LookupMachineRequest401JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest403JSONResponse Error
+
+func (response LookupMachineRequest403JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest404JSONResponse Error
+
+func (response LookupMachineRequest404JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LookupMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type LookupMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers LookupMachineRequest429ResponseHeaders
+}
+
+func (response LookupMachineRequest429JSONResponse) VisitLookupMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequestRequestObject struct {
+	Params RefuseMachineRequestParams
+	Body   *RefuseMachineRequestJSONRequestBody
+}
+
+type RefuseMachineRequestResponseObject interface {
+	VisitRefuseMachineRequestResponse(w http.ResponseWriter) error
+}
+
+type RefuseMachineRequest200JSONResponse MachineRequest
+
+func (response RefuseMachineRequest200JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response RefuseMachineRequest400JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest401JSONResponse Error
+
+func (response RefuseMachineRequest401JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest403JSONResponse Error
+
+func (response RefuseMachineRequest403JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest404JSONResponse Error
+
+func (response RefuseMachineRequest404JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefuseMachineRequest429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type RefuseMachineRequest429JSONResponse struct {
+	Body    Error
+	Headers RefuseMachineRequest429ResponseHeaders
+}
+
+func (response RefuseMachineRequest429JSONResponse) VisitRefuseMachineRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMeRequestObject struct {
 }
 
@@ -17526,6 +24454,120 @@ func (response ListReplies501JSONResponse) VisitListRepliesResponse(w http.Respo
 	return err
 }
 
+type GetSettingsRequestObject struct {
+}
+
+type GetSettingsResponseObject interface {
+	VisitGetSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSettings200JSONResponse ServerSettings
+
+func (response GetSettings200JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettings401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetSettings401JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettings403JSONResponse Error
+
+func (response GetSettings403JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettingsRequestObject struct {
+	Params UpdateSettingsParams
+	Body   *UpdateSettingsJSONRequestBody
+}
+
+type UpdateSettingsResponseObject interface {
+	VisitUpdateSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateSettings200JSONResponse ServerSettings
+
+func (response UpdateSettings200JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings400JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateSettings400JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings401JSONResponse Error
+
+func (response UpdateSettings401JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings403JSONResponse Error
+
+func (response UpdateSettings403JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StreamRequestObject struct {
 }
 
@@ -17606,7 +24648,7 @@ func (response Stream403JSONResponse) VisitStreamResponse(w http.ResponseWriter)
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// ListBoards List boards the caller is a member of
+	// ListBoards List boards the caller is on, or every board it can see
 	// (GET /v1/boards)
 	ListBoards(ctx context.Context, request ListBoardsRequestObject) (ListBoardsResponseObject, error)
 	// CreateBoard Create a board, optionally from a template
@@ -17627,6 +24669,9 @@ type StrictServerInterface interface {
 	// RevokeJoinCode Revoke a join code
 	// (DELETE /v1/boards/{board}/join-codes/{join_code})
 	RevokeJoinCode(ctx context.Context, request RevokeJoinCodeRequestObject) (RevokeJoinCodeResponseObject, error)
+	// LeaveBoard Leave a board
+	// (POST /v1/boards/{board}/leave)
+	LeaveBoard(ctx context.Context, request LeaveBoardRequestObject) (LeaveBoardResponseObject, error)
 	// ListMembers List members of a board
 	// (GET /v1/boards/{board}/members)
 	ListMembers(ctx context.Context, request ListMembersRequestObject) (ListMembersResponseObject, error)
@@ -17636,9 +24681,24 @@ type StrictServerInterface interface {
 	// PostMessage Post a message
 	// (POST /v1/boards/{board}/messages)
 	PostMessage(ctx context.Context, request PostMessageRequestObject) (PostMessageResponseObject, error)
+	// AddOwner Make a person on the board an owner
+	// (POST /v1/boards/{board}/owners)
+	AddOwner(ctx context.Context, request AddOwnerRequestObject) (AddOwnerResponseObject, error)
+	// ListPeople List the people on a board, with their board role
+	// (GET /v1/boards/{board}/people)
+	ListPeople(ctx context.Context, request ListPeopleRequestObject) (ListPeopleResponseObject, error)
+	// AddPerson Add a person on the server to the board
+	// (POST /v1/boards/{board}/people)
+	AddPerson(ctx context.Context, request AddPersonRequestObject) (AddPersonResponseObject, error)
+	// RemovePerson Remove a person from the board
+	// (DELETE /v1/boards/{board}/people/{handle})
+	RemovePerson(ctx context.Context, request RemovePersonRequestObject) (RemovePersonResponseObject, error)
 	// ListThreads List the board's threads
 	// (GET /v1/boards/{board}/threads)
 	ListThreads(ctx context.Context, request ListThreadsRequestObject) (ListThreadsResponseObject, error)
+	// SetVisibility Turn a board open or private
+	// (POST /v1/boards/{board}/visibility)
+	SetVisibility(ctx context.Context, request SetVisibilityRequestObject) (SetVisibilityResponseObject, error)
 	// ListBrowserSessions List your browser sessions
 	// (GET /v1/browser-sessions)
 	ListBrowserSessions(ctx context.Context, request ListBrowserSessionsRequestObject) (ListBrowserSessionsResponseObject, error)
@@ -17683,6 +24743,21 @@ type StrictServerInterface interface {
 	// PreviewLoginCode Say who a login code would sign a browser in as
 	// (POST /v1/login-codes/preview)
 	PreviewLoginCode(ctx context.Context, request PreviewLoginCodeRequestObject) (PreviewLoginCodeResponseObject, error)
+	// StartMachineRequest Ask to connect a new machine, for a person to approve
+	// (POST /v1/machine-requests)
+	StartMachineRequest(ctx context.Context, request StartMachineRequestRequestObject) (StartMachineRequestResponseObject, error)
+	// ApproveMachineRequest Approve a machine request, giving that machine a key of yours
+	// (POST /v1/machine-requests/approve)
+	ApproveMachineRequest(ctx context.Context, request ApproveMachineRequestRequestObject) (ApproveMachineRequestResponseObject, error)
+	// CollectMachineRequest Collect the key of an approved machine request
+	// (POST /v1/machine-requests/collect)
+	CollectMachineRequest(ctx context.Context, request CollectMachineRequestRequestObject) (CollectMachineRequestResponseObject, error)
+	// LookupMachineRequest See a pending machine request before approving it
+	// (POST /v1/machine-requests/lookup)
+	LookupMachineRequest(ctx context.Context, request LookupMachineRequestRequestObject) (LookupMachineRequestResponseObject, error)
+	// RefuseMachineRequest Refuse a machine request
+	// (POST /v1/machine-requests/refuse)
+	RefuseMachineRequest(ctx context.Context, request RefuseMachineRequestRequestObject) (RefuseMachineRequestResponseObject, error)
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
@@ -17713,6 +24788,12 @@ type StrictServerInterface interface {
 	// ListReplies Read or wait for a message's thread
 	// (GET /v1/messages/{message}/replies)
 	ListReplies(ctx context.Context, request ListRepliesRequestObject) (ListRepliesResponseObject, error)
+	// GetSettings Read the server's settings
+	// (GET /v1/settings)
+	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
+	// UpdateSettings Change the server's settings
+	// (PATCH /v1/settings)
+	UpdateSettings(ctx context.Context, request UpdateSettingsRequestObject) (UpdateSettingsResponseObject, error)
 	// Stream Follow the heads of your boards
 	// (GET /v1/stream)
 	Stream(ctx context.Context, request StreamRequestObject) (StreamResponseObject, error)
@@ -17758,8 +24839,10 @@ type strictHandler struct {
 }
 
 // ListBoards operation middleware
-func (sh *strictHandler) ListBoards(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListBoards(w http.ResponseWriter, r *http.Request, params ListBoardsParams) {
 	var request ListBoardsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListBoards(ctx, request.(ListBoardsRequestObject))
@@ -17963,6 +25046,33 @@ func (sh *strictHandler) RevokeJoinCode(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// LeaveBoard operation middleware
+func (sh *strictHandler) LeaveBoard(w http.ResponseWriter, r *http.Request, board BoardParam, params LeaveBoardParams) {
+	var request LeaveBoardRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LeaveBoard(ctx, request.(LeaveBoardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LeaveBoard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LeaveBoardResponseObject); ok {
+		if err := validResponse.VisitLeaveBoardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListMembers operation middleware
 func (sh *strictHandler) ListMembers(w http.ResponseWriter, r *http.Request, board BoardParam) {
 	var request ListMembersRequestObject
@@ -18050,6 +25160,128 @@ func (sh *strictHandler) PostMessage(w http.ResponseWriter, r *http.Request, boa
 	}
 }
 
+// AddOwner operation middleware
+func (sh *strictHandler) AddOwner(w http.ResponseWriter, r *http.Request, board BoardParam, params AddOwnerParams) {
+	var request AddOwnerRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body AddOwnerJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddOwner(ctx, request.(AddOwnerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddOwner")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddOwnerResponseObject); ok {
+		if err := validResponse.VisitAddOwnerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPeople operation middleware
+func (sh *strictHandler) ListPeople(w http.ResponseWriter, r *http.Request, board BoardParam) {
+	var request ListPeopleRequestObject
+
+	request.Board = board
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeople(ctx, request.(ListPeopleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeople")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPeopleResponseObject); ok {
+		if err := validResponse.VisitListPeopleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddPerson operation middleware
+func (sh *strictHandler) AddPerson(w http.ResponseWriter, r *http.Request, board BoardParam, params AddPersonParams) {
+	var request AddPersonRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body AddPersonJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddPerson(ctx, request.(AddPersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddPerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddPersonResponseObject); ok {
+		if err := validResponse.VisitAddPersonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemovePerson operation middleware
+func (sh *strictHandler) RemovePerson(w http.ResponseWriter, r *http.Request, board BoardParam, handle Handle, params RemovePersonParams) {
+	var request RemovePersonRequestObject
+
+	request.Board = board
+	request.Handle = handle
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemovePerson(ctx, request.(RemovePersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemovePerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemovePersonResponseObject); ok {
+		if err := validResponse.VisitRemovePersonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListThreads operation middleware
 func (sh *strictHandler) ListThreads(w http.ResponseWriter, r *http.Request, board BoardParam, params ListThreadsParams) {
 	var request ListThreadsRequestObject
@@ -18070,6 +25302,40 @@ func (sh *strictHandler) ListThreads(w http.ResponseWriter, r *http.Request, boa
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListThreadsResponseObject); ok {
 		if err := validResponse.VisitListThreadsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetVisibility operation middleware
+func (sh *strictHandler) SetVisibility(w http.ResponseWriter, r *http.Request, board BoardParam, params SetVisibilityParams) {
+	var request SetVisibilityRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body SetVisibilityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetVisibility(ctx, request.(SetVisibilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetVisibility")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetVisibilityResponseObject); ok {
+		if err := validResponse.VisitSetVisibilityResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -18487,6 +25753,171 @@ func (sh *strictHandler) PreviewLoginCode(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// StartMachineRequest operation middleware
+func (sh *strictHandler) StartMachineRequest(w http.ResponseWriter, r *http.Request, params StartMachineRequestParams) {
+	var request StartMachineRequestRequestObject
+
+	request.Params = params
+
+	var body StartMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartMachineRequest(ctx, request.(StartMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartMachineRequestResponseObject); ok {
+		if err := validResponse.VisitStartMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveMachineRequest operation middleware
+func (sh *strictHandler) ApproveMachineRequest(w http.ResponseWriter, r *http.Request, params ApproveMachineRequestParams) {
+	var request ApproveMachineRequestRequestObject
+
+	request.Params = params
+
+	var body ApproveMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveMachineRequest(ctx, request.(ApproveMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveMachineRequestResponseObject); ok {
+		if err := validResponse.VisitApproveMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CollectMachineRequest operation middleware
+func (sh *strictHandler) CollectMachineRequest(w http.ResponseWriter, r *http.Request, params CollectMachineRequestParams) {
+	var request CollectMachineRequestRequestObject
+
+	request.Params = params
+
+	var body CollectMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CollectMachineRequest(ctx, request.(CollectMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CollectMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CollectMachineRequestResponseObject); ok {
+		if err := validResponse.VisitCollectMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LookupMachineRequest operation middleware
+func (sh *strictHandler) LookupMachineRequest(w http.ResponseWriter, r *http.Request, params LookupMachineRequestParams) {
+	var request LookupMachineRequestRequestObject
+
+	request.Params = params
+
+	var body LookupMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LookupMachineRequest(ctx, request.(LookupMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LookupMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LookupMachineRequestResponseObject); ok {
+		if err := validResponse.VisitLookupMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefuseMachineRequest operation middleware
+func (sh *strictHandler) RefuseMachineRequest(w http.ResponseWriter, r *http.Request, params RefuseMachineRequestParams) {
+	var request RefuseMachineRequestRequestObject
+
+	request.Params = params
+
+	var body RefuseMachineRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefuseMachineRequest(ctx, request.(RefuseMachineRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefuseMachineRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefuseMachineRequestResponseObject); ok {
+		if err := validResponse.VisitRefuseMachineRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	var request GetMeRequestObject
@@ -18762,6 +26193,63 @@ func (sh *strictHandler) ListReplies(w http.ResponseWriter, r *http.Request, mes
 	}
 }
 
+// GetSettings operation middleware
+func (sh *strictHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSettings(ctx, request.(GetSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSettingsResponseObject); ok {
+		if err := validResponse.VisitGetSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateSettings operation middleware
+func (sh *strictHandler) UpdateSettings(w http.ResponseWriter, r *http.Request, params UpdateSettingsParams) {
+	var request UpdateSettingsRequestObject
+
+	request.Params = params
+
+	var body UpdateSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateSettings(ctx, request.(UpdateSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Stream operation middleware
 func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	var request StreamRequestObject
@@ -18791,369 +26279,463 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

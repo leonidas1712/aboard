@@ -61,8 +61,8 @@ the board.
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | in review | D113, D184 |
-| Team members and open or private boards; who may create boards | later | D153 |
-| Person identities: a name per server, display name, logins per machine, each revocable | in review: ids, handles, display names, a first key per machine, key management (`aboard keys`, `aboard login`); approving machines next | D154, D179, D184, D185 |
+| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | in review: open and private boards, owners, people and the board-creation setting; archive and delete next | D153, D180, D187 |
+| Person identities: a name per server, display name, logins per machine, each revocable | in review: ids, handles, display names, a first key per machine, key management (`aboard keys`, `aboard login`), approving a new machine (`aboard connect <server URL>`, `aboard approve`) | D154, D179, D184, D185, D188 |
 | Invites and `aboard connect`; server admins | in review | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | later | D153, D154, D172 |
 | An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers | later | D172 |

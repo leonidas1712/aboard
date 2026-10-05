@@ -31,7 +31,13 @@ export type Board = {
   last_message_at: string | null;
   created_at: string;
   created_by: MemberRef;
+  /** visibility is who can see the board: everyone on the server (open), or only the people on it (private). */
+  visibility: Visibility;
+  /** on_board is false for an open board the person sees but hasn't joined. */
+  on_board: boolean;
 };
+
+export type Visibility = "open" | "private";
 
 /** Me is who the browser's token acts as: always a person for a browser. */
 export type Me = { id: string; kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };

@@ -26,7 +26,7 @@ func TestBoardCountsItsMessages(t *testing.T) {
 	s.clock.Advance(90 * time.Second)
 	last := say(s, reviewer, boardName, []string{"@writer"}, "two")
 
-	l, err := human.ListBoardsWithResponse(ctx)
+	l, err := human.ListBoardsWithResponse(ctx, nil)
 	mustStatus(t, l, err, 200)
 	got := l.JSON200.Boards[0]
 	if got.MessageCount == nil || *got.MessageCount != 2 || got.LastMessageAt == nil || !got.LastMessageAt.Equal(last.JSON201.At) {

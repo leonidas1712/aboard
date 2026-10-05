@@ -170,23 +170,56 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "connect", Group: groupStart,
-			Summary: "Join a server with an invite link",
-			Usage:   []string{connectUsage},
-			Description: "Redeems an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
-				"The key is saved in servers.json, readable only by you, and sent only to that server. " +
-				"From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it.\n\n" +
-				"An invite works once. A machine keeps one key per server. A server other than this machine must be reached over https. " +
+			Summary: "Join a server with an invite link, or connect another machine of yours",
+			Usage: []string{
+				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--json]",
+				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--json]",
+			},
+			Description: "With an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
+				"An invite works once.\n\n" +
+				"With the server's address alone, on a machine of yours that isn't connected yet: it asks for your handle and shows a short code, such as 4KQ-7ZX, which you approve within 5 minutes from a machine where you're signed in, with aboard approve. " +
+				"Only your own approval counts. " +
+				"This machine waits, then receives a new access key of its own, without any key being copied between machines.\n\n" +
+				"Either way, the key is saved in servers.json, readable only by you, and sent only to that server. " +
+				"From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. " +
+				"A machine keeps one key per server. A server other than this machine must be reached over https. " +
 				"Connecting is up to a person, so it refuses inside an agent's session.",
 			Flags: []helpFlag{
-				{"--handle", "NAME", "Your name on the server: lowercase letters, digits and dashes. Default: asked, starting from your system user name; without a terminal, your system user name."},
-				{"--display-name", "TEXT", "The name people see beside your handle, such as \"Maya Chen\"."},
+				{"--handle", "NAME", "Your name on the server, lowercase letters, digits and dashes. With an invite, the name you take (default: asked, starting from your system user name; without a terminal, your system user name). With the server's address, who you are there: asked at a terminal, and needed without one."},
+				{"--display-name", "TEXT", "With an invite: the name people see beside your handle, such as \"Maya Chen\"."},
+				{"--name", "MACHINE", "This machine's name, which names its key. Default: its host name."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard connect https://team.example.com/join#abi_…", "Join a team's server"},
 				{"aboard connect https://team.example.com/join#abi_… --handle maya", "With your handle chosen"},
+				{"aboard connect https://team.example.com --handle maya", "Connect another machine of yours, approved from one that is signed in"},
 			},
-			SeeAlso: []string{"invite", "join", "status"},
+			SeeAlso: []string{"approve", "invite", "login", "status"},
+		},
+		{
+			Name: "approve", Group: groupStart,
+			Summary: "Approve a new machine connecting as you",
+			Usage:   []string{approveUsage},
+			Description: "Approves the code a new machine of yours shows after aboard connect <server URL>: that machine receives an access key of its own, as you, named after the machine and expiring after 90 days without use. " +
+				"A code works only for the person the machine named; for anyone else it is refused like a wrong code. " +
+				"Your own key isn't copied, and revoking it later leaves the new machine's key working.\n\n" +
+				"It first shows the request: the name the machine gave itself, which is only its own claim, and where and when it asked; then it asks whether to approve it connecting as you. " +
+				"Approve only a request you started yourself, a moment ago: whoever runs that machine is signed in as you. " +
+				"--refuse turns the request down instead, and the machine is told so.\n\n" +
+				"The server is --server, else the one this directory's .aboard names, else the one server this machine is connected to, else the local server. " +
+				"Approving is up to a person, so it refuses inside an agent's session, and the server refuses agent and browser tokens.",
+			Flags: []helpFlag{
+				{"--refuse", "", "Refuse the request instead of approving it."},
+				{"--yes", "", "Approve without asking. Needed without a terminal or with --json."},
+				{"--server", "URL", "The server, when it isn't the one this machine would pick."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard approve 4KQ-7ZX", "Approve the code your new machine shows"},
+				{"aboard approve 4KQ-7ZX --refuse", "Turn a request down"},
+			},
+			SeeAlso: []string{"connect", "keys", "login"},
 		},
 		{
 			Name: "login", Group: groupStart,
@@ -438,28 +471,65 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "board", Group: groupBoard,
-			Summary: "Change a board's policy preset or title",
+			Summary: "Change a board's policy, title, people or visibility",
 			Usage: []string{
 				"aboard board policy <starter|recommended> [--board NAME] [--json]",
 				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
+				"aboard board people [--as AGENT] [--board NAME] [--json]",
+				"aboard board add @handle [--board NAME] [--json]",
+				"aboard board remove @handle [--board NAME] [--json]",
+				"aboard board leave [--board NAME] [--json]",
+				"aboard board owner @handle [--board NAME] [--json]",
+				"aboard board visibility <open|private> [--yes] [--board NAME] [--json]",
 			},
 			Description: "policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
 				"Switch to recommended before adding other people or their agents.\n\n" +
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
 				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
-				"title may be set by an agent for its owner, when the owner is an admin of the board: inside an agent's session, or with --as, it acts as that agent, on its board, and the record names the agent. " +
-				"Elsewhere it uses your own login.",
+				"title may be set by an agent for its owner, when the owner is an admin of the board: with --as or ABOARD_AGENT, or inside an agent's session, it acts as that agent, on its board, and the record names the agent. " +
+				"Elsewhere it uses your own login.\n\n" +
+				"people lists the people on the board, each an owner or a member. " +
+				"add puts a person on this server onto the board as a member, by handle; anyone on the board may, and on an open board you may add yourself, as @me, to join it. " +
+				"remove takes a person and their agents off the board, and owner makes someone an owner; both are for the board's owners. " +
+				"leave takes you off the board; its last owner makes someone else an owner first. " +
+				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
+				"and before making a private board open it says how many messages and files every person on the server could then read, and asks; without a terminal it needs --yes.\n\n" +
+				"add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.",
 			Flags: []helpFlag{
-				{"--as", "AGENT", "title only: set the title as this agent, for its owner. Default inside an agent's session: the session's agent."},
+				{"--as", "AGENT", "title and people only: act as this agent, for its owner. Default inside an agent's session: the session's agent."},
+				{"--yes", "", "visibility only: make a private board open without asking."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which); for an agent, its own board."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard board policy recommended", "Tighten the board before others join"},
 				{"aboard board title \"Payments retry design\"", "Name what the board is for"},
+				{"aboard board add @maya", "Bring a teammate onto the board"},
+				{"aboard board visibility private", "Hide the board from everyone not on it"},
 			},
 			SeeAlso: []string{"status", "invite"},
+		},
+		{
+			Name: "boards", Group: groupBoard,
+			Summary: "List your boards, or every board you can see",
+			Usage:   []string{"aboard boards [--all] [--json]", "aboard boards --as AGENT [--board NAME] [--json]"},
+			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, and default beside this directory's board. " +
+				"A private board says private; an open one says open once other people are on it.\n\n" +
+				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
+				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
+				"Inside an agent's session, or with --as, it lists only that agent's own board, with the agent's own token, and says so.",
+			Flags: []helpFlag{
+				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
+				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},
+				{"--board", "NAME", "With --as: the agent's board, when its name is used on more than one."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard boards", "The boards you are on"},
+				{"aboard boards --all", "Also the open boards you could join"},
+			},
+			SeeAlso: []string{"board", "status"},
 		},
 		{
 			Name: "audit", Group: groupBoard,

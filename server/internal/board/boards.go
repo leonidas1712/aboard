@@ -16,10 +16,13 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
-// View is a board with the member who created it.
+// View is a board with the member who created it, as one caller sees it.
 type View struct {
 	Board   Board
 	Creator Member
+	// OnBoard is whether the caller is on the board, rather than seeing an open board
+	// from outside.
+	OnBoard bool
 }
 
 // ShowsCounts reports whether p may see how many messages the board holds: people read
@@ -36,6 +39,8 @@ type NewBoard struct {
 	Template string
 	Charter  string
 	Preset   string
+	// Visibility is BoardOpen or BoardPrivate; empty means open.
+	Visibility string
 }
 
 // CreateBoard creates a board, optionally from a template, and makes the calling human
@@ -82,9 +87,19 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	if err != nil {
 		return View{}, invalid(err.Error(), "Use the starter or recommended preset.")
 	}
+	visibility := in.Visibility
+	if visibility == "" {
+		visibility = BoardOpen
+	}
+	if visibility != BoardOpen && visibility != BoardPrivate {
+		return View{}, invalid(fmt.Sprintf("%q is not a board visibility.", visibility), "Use open or private.")
+	}
 
 	var view View
 	err = s.writeAs(ctx, p, func(tx Tx) error {
+		if err := mayCreateBoards(tx, p); err != nil {
+			return err
+		}
 		name := in.Name
 		if name != "" {
 			taken, err := tx.BoardNameTaken(name)
@@ -127,7 +142,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		}
 		b := Board{
 			ID: boardID, Name: name, Title: title, Template: template, Charter: charter, Roles: roles, Policy: policy,
-			HeadHash: events.GenesisHash, CreatedAt: stamp(now), CreatedBy: memberID,
+			HeadHash: events.GenesisHash, CreatedAt: stamp(now), CreatedBy: memberID, Visibility: visibility,
 		}
 		if err := tx.InsertBoard(b); err != nil {
 			return fmt.Errorf("insert board: %w", err)
@@ -142,13 +157,17 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		if title != nil {
 			created["title"] = *title
 		}
+		// An open board's event is unchanged from before boards had a visibility.
+		if visibility == BoardPrivate {
+			created["visibility"] = visibility
+		}
 		if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, created); err != nil {
 			return err
 		}
 		if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now); err != nil {
 			return err
 		}
-		view = View{Board: b, Creator: creator}
+		view = View{Board: b, Creator: creator, OnBoard: true}
 		return nil
 	})
 	if err != nil {
@@ -175,33 +194,130 @@ func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinC
 	return err
 }
 
-// ListBoards returns the boards the caller is a member of.
-func (s *Service) ListBoards(ctx context.Context, p Principal) ([]View, error) {
-	var out []View
+// HiddenBoard is a private board a server admin isn't on, as they see it: that it
+// exists, when and by whom it was created and how many people are on it, and nothing
+// of its name, title, people or content.
+type HiddenBoard struct {
+	ID        string
+	CreatedAt string
+	Creator   Human
+	People    int
+}
+
+// Listing is the boards a caller sees.
+type Listing struct {
+	Boards []View
+	// Hidden is filled only for a server admin listing every board.
+	Hidden []HiddenBoard
+}
+
+// ListBoards returns the boards the caller is on: a person's, or an agent's own while it
+// and its person are on it. With all, a person also gets the open boards they aren't
+// on, and a server admin the private boards they aren't on, as HiddenBoards. An admin's
+// agent gets no more than any agent.
+func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listing, error) {
+	var out Listing
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		var boards []Board
+		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
 		if p.Agent != nil {
-			b, err := tx.BoardByID(p.Agent.BoardID)
+			b, _, err := seatOf(tx, *p.Agent)
+			if isBoardNotFound(err) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
-			boards = []Board{b}
+			v, err := viewOf(tx, b)
+			out.Boards = []View{v}
+			return err
+		}
+		// The person is read again here, so a role changed since they authenticated counts.
+		me, err := tx.HumanByID(p.Human.ID)
+		if err != nil {
+			return err
+		}
+		var boards []Board
+		if all {
+			boards, err = tx.BoardsSeenBy(me.ID)
 		} else {
-			var err error
-			if boards, err = tx.BoardsOfHuman(p.Human.ID); err != nil {
-				return err
-			}
+			boards, err = tx.BoardsOfHuman(me.ID)
+		}
+		if err != nil {
+			return err
 		}
 		for _, b := range boards {
 			v, err := viewOf(tx, b)
 			if err != nil {
 				return err
 			}
-			out = append(out, v)
+			m, err := tx.HumanMember(b.ID, me.ID)
+			if err != nil && !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			v.OnBoard = err == nil && m.Status == StatusActive
+			out.Boards = append(out.Boards, v)
+		}
+		if !all || me.Role != ServerAdmin {
+			return nil
+		}
+		hidden, err := tx.PrivateBoardsNotOn(me.ID)
+		if err != nil {
+			return err
+		}
+		for _, b := range hidden {
+			h, err := hiddenOf(tx, b)
+			if err != nil {
+				return err
+			}
+			out.Hidden = append(out.Hidden, h)
 		}
 		return nil
 	})
 	return out, err
+}
+
+// hiddenOf is what a server admin who isn't on b may know of it.
+func hiddenOf(tx ReadTx, b Board) (HiddenBoard, error) {
+	members, err := tx.Members(b.ID)
+	if err != nil {
+		return HiddenBoard{}, err
+	}
+	h := HiddenBoard{ID: b.ID, CreatedAt: b.CreatedAt}
+	for _, m := range members {
+		if m.ID == b.CreatedBy {
+			if h.Creator, err = tx.HumanByID(m.HumanID); err != nil {
+				return HiddenBoard{}, fmt.Errorf("creator of board %s: %w", b.ID, err)
+			}
+		}
+		if m.Kind == "human" && m.Status == StatusActive {
+			h.People++
+		}
+	}
+	return h, nil
+}
+
+// mayCreateBoards refuses when the server lets only its admins create boards and p's
+// person isn't one, reading both inside the transaction that creates the board.
+func mayCreateBoards(tx ReadTx, p Principal) error {
+	who, err := tx.BoardCreation()
+	if err != nil {
+		return err
+	}
+	if who != CreationAdmins {
+		return nil
+	}
+	me, err := tx.HumanByID(p.Human.ID)
+	if err != nil {
+		return err
+	}
+	if me.Role == ServerAdmin {
+		return nil
+	}
+	return apierr.New(http.StatusForbidden, "board_creation_restricted",
+		"Only the admins of this server can create boards on it.",
+		"Ask an admin to create the board and add you to it.")
 }
 
 func viewOf(tx ReadTx, b Board) (View, error) {
@@ -211,7 +327,7 @@ func viewOf(tx ReadTx, b Board) (View, error) {
 	}
 	for _, m := range members {
 		if m.ID == b.CreatedBy {
-			return View{Board: b, Creator: m}, nil
+			return View{Board: b, Creator: m, OnBoard: true}, nil
 		}
 	}
 	return View{}, fmt.Errorf("board %s: creator %s missing", b.ID, b.CreatedBy)
@@ -221,11 +337,12 @@ func viewOf(tx ReadTx, b Board) (View, error) {
 func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View, error) {
 	var v View
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, err := access(tx, p, name)
+		b, _, on, err := s.see(tx, p, name)
 		if err != nil {
 			return err
 		}
 		v, err = viewOf(tx, b)
+		v.OnBoard = on
 		return err
 	})
 	return v, err
@@ -235,13 +352,15 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Member, error) {
 	var out []Member
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, err := access(tx, p, name)
+		b, _, err := s.access(tx, p, name)
 		if err != nil {
 			return err
 		}
-		if out, err = tx.Members(b.ID); err != nil {
+		all, err := tx.Members(b.ID)
+		if err != nil {
 			return err
 		}
+		out = present(all)
 		now := s.clk.Now()
 		for i := range out {
 			out[i].Presence = out[i].CurrentPresence(now)
@@ -301,7 +420,7 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 	}
 	var v View
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, me, err := access(tx, p, name)
+		b, me, err := s.access(tx, p, name)
 		if err != nil {
 			return err
 		}

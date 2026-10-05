@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
@@ -66,10 +65,10 @@ func TestFailureLimitCountsFailuresInTheMinuteTheyHappen(t *testing.T) {
 func TestASuccessFinishingInTheNextMinuteKeepsItsFailures(t *testing.T) {
 	clk := fakeClock()
 	limits := signInLimits{
-		failed:   connectLimits{perAddr: newRateLimiter(clk, 1), all: newRateLimiter(clk, 100)},
-		attempts: connectLimits{perAddr: newRateLimiter(clk, 100), all: newRateLimiter(clk, 100)},
+		failed:   newLimiters(clk, Limits{PerAddr: 1, Server: 100}),
+		attempts: newLimiters(clk, Limits{PerAddr: 100, Server: 100}),
 	}
-	r := &http.Request{RemoteAddr: "192.0.2.1:5000"}
+	r := "192.0.2.1"
 	if !limits.allow(r) {
 		t.Fatal("first attempt refused")
 	}
@@ -88,10 +87,10 @@ func TestASuccessFinishingInTheNextMinuteKeepsItsFailures(t *testing.T) {
 func TestSuccessfulSignInsMeetOnlyTheAttemptLimit(t *testing.T) {
 	clk := fakeClock()
 	limits := signInLimits{
-		failed:   connectLimits{perAddr: newRateLimiter(clk, 1), all: newRateLimiter(clk, 1)},
-		attempts: connectLimits{perAddr: newRateLimiter(clk, 3), all: newRateLimiter(clk, 100)},
+		failed:   newLimiters(clk, Limits{PerAddr: 1, Server: 1}),
+		attempts: newLimiters(clk, Limits{PerAddr: 3, Server: 100}),
 	}
-	r := &http.Request{RemoteAddr: "192.0.2.1:5000"}
+	r := "192.0.2.1"
 	for i := range 3 {
 		if !limits.allow(r) {
 			t.Fatalf("successful attempt %d refused", i+1)

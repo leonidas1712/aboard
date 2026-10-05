@@ -3,6 +3,8 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -133,31 +135,18 @@ func TestANewDatabaseIsNotBackedUp(t *testing.T) {
 func TestUpgradeGivesInvitedPeoplesKeysAnIdleExpiry(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "aboard.db")
+	db := databaseAt(t, path, 12)
+	for _, q := range []string{
+		"INSERT INTO humans (id, name, role, created_at) VALUES ('hum_a', 'alex', 'admin', '2026-10-01T16:00:00.000Z'), ('hum_m', 'maya', 'member', '2026-10-01T16:00:00.000Z')",
+		"INSERT INTO access_keys (id, human_id, name, digest, created_at) VALUES ('key_a', 'hum_a', 'laptop', 'd-a', '2026-10-01T16:00:00.000Z'), ('key_m', 'hum_m', 'laptop', 'd-m', '2026-10-01T16:00:00.000Z')",
+	} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = db.Close()
 	st, err := Open(ctx, path, clock.Real{})
 	if err != nil {
-		t.Fatal(err)
-	}
-	err = st.write(ctx, func(x *tx) error {
-		for _, q := range []string{
-			"INSERT INTO humans (id, name, role, created_at) VALUES ('hum_a', 'alex', 'admin', '2026-10-01T16:00:00.000Z'), ('hum_m', 'maya', 'member', '2026-10-01T16:00:00.000Z')",
-			"INSERT INTO access_keys (id, human_id, name, digest, created_at) VALUES ('key_a', 'hum_a', 'laptop', 'd-a', '2026-10-01T16:00:00.000Z'), ('key_m', 'hum_m', 'laptop', 'd-m', '2026-10-01T16:00:00.000Z')",
-			// Undo what the later migrations added, so the database is as schema 12 left it.
-			"DROP INDEX browser_logins_by_id",
-			"ALTER TABLE browser_logins DROP COLUMN id",
-			"ALTER TABLE browser_logins DROP COLUMN started_with",
-			"PRAGMA user_version = 12",
-		} {
-			if err := x.exec(q); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = st.Close()
-	if st, err = Open(ctx, path, clock.Real{}); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
@@ -211,4 +200,37 @@ func TestUpgradeGivesBrowserLoginsAnID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// databaseAt makes a database at path with the migrations up to schema n applied, as an
+// older aboard left it, and returns it open.
+func databaseAt(t *testing.T, path string, n int) *sql.DB {
+	t.Helper()
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	for i := 1; i <= n; i++ {
+		names, err := fs.Glob(migrations, fmt.Sprintf("migrations/%04d_*.sql", i))
+		if err != nil || len(names) != 1 {
+			t.Fatalf("migration %d: %v %v", i, names, err)
+		}
+		body, err := migrations.ReadFile(names[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlTx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := applyIn(ctx, sqlTx, i, string(body)); err != nil {
+			t.Fatalf("%s: %v", names[0], err)
+		}
+		if err := sqlTx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return db
 }

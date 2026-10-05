@@ -11,9 +11,11 @@ info:
     acknowledgement, and the event log.
 
     **Auth.** Every request except `GET /v1/info`, `POST /v1/browser-sessions`,
-    `POST /v1/browser-tokens` and `POST /v1/connect` needs a credential: either
-    `Authorization: Bearer <token>`, or a browser session's cookie. A person signs in with
-    an access key, which starts with `abh_` (the API also calls it a human token); agent
+    `POST /v1/login-codes/preview`, `POST /v1/browser-tokens`, `POST /v1/connect`,
+    `POST /v1/machine-requests` and `POST /v1/machine-requests/collect` needs a
+    credential: either `Authorization: Bearer <token>`, or a browser session's cookie. A
+    person signs in with an access key, which starts with `abh_` (the API also calls it a
+    human token); agent
     tokens start with `aba_`. Agent tokens are scoped to one board.
 
     **People.** Every person on a server has a permanent id (`hum_…`), a handle unique on
@@ -52,6 +54,12 @@ info:
     `POST /v1/browser-sessions`, which also turns a stored browser token into a cookie
     session.
 
+    **New machines.** A machine with no key asks for one, for a named person, with
+    `POST /v1/machine-requests`, shows its short code, and collects its key with its long
+    secret once that person approves the code from a machine where they are signed in
+    (`POST /v1/machine-requests/approve`). The new key is theirs, and independent of the
+    key that approved it.
+
     **Access keys.** A person lists, creates and revokes their keys with `/v1/keys`, only
     with a key of their own: an agent token or a browser token gets 403
     `human_token_required`, so a browser can never make a key. When a key is revoked or
@@ -59,6 +67,17 @@ info:
     request gets 401 `unauthorized`, and an open `GET /v1/stream` or a waiting
     `GET /v1/me/inbox` or `GET /v1/messages/{message}/replies` made with any of them ends
     within a second of the revocation, or at the moment of expiry.
+
+    **Boards.** A board is `open` (every person on the server sees it, its people and its
+    size, and may join it) or `private` (only the people on it know it exists). Reading a
+    board's messages, members and events, and every write to it, needs being on it: a
+    person who isn't on an open board gets 403 `not_on_board`, whose hint says how to join
+    it, and a message on it is 404 `message_not_found`. A board the caller can't see
+    answers 404 `board_not_found` on every path, exactly as a board that doesn't exist;
+    no error reveals that a hidden board exists. Each person on a board is an `owner` or a
+    `member`: the creator is the first owner, owners make others owners, remove people and
+    turn the board open or private, and a board always keeps at least one owner. Anyone
+    on a board may add people to it.
 
     **Host.** A local server answers only requests whose `Host` header is its own address
     (`127.0.0.1:PORT` or `localhost:PORT`). Any other host gets 421 `host_not_allowed`, so
@@ -593,6 +612,226 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/machine-requests:
+    post:
+      tags: [people]
+      operationId: startMachineRequest
+      summary: Ask to connect a new machine, for a person to approve
+      description: |
+        No token needed. A machine with no key for this server asks for one, for the
+        person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+        that this person types on a machine where they are signed in, to approve the
+        request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+        requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+        collect its key once the request is approved. The code alone can't collect
+        anything, and only the named person can approve it.
+
+        A handle nobody on the server has is accepted the same way, and its request can
+        never be approved, so the answer doesn't say which handles exist. `label` is the
+        name the requesting machine gives itself, which names its key. It is shown to the
+        approving person as the machine's own claim, not as proof of anything. The request
+        ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+        the code and the secret, sends the response with `Cache-Control: no-store`, and
+        doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+        Requests are limited per client address and across the server; over the limit
+        returns 429 with `Retry-After`.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartMachineRequest" }
+      responses:
+        "201":
+          description: Started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequestStarted" }
+        "400": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/lookup:
+    post:
+      tags: [people]
+      operationId: lookupMachineRequest
+      summary: See a pending machine request before approving it
+      description: |
+        With a person's own access key. Shows the pending request the short `code` names,
+        when it names the caller: the label the machine gave itself, the address it asked
+        from, when it asked, and `person`, the caller, as whom approving it would sign the
+        machine in. A code that is wrong, expired, already approved or refused, or that
+        names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
+        token gets 403 `human_token_required`.
+
+        Every attempt with a code (here, approving and refusing) counts against limits per
+        client address, per person and across the server; over a limit returns 429 with
+        `Retry-After`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineRequestCode" }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/approve:
+    post:
+      tags: [people]
+      operationId: approveMachineRequest
+      summary: Approve a machine request, giving that machine a key of yours
+      description: |
+        With a person's own access key, and only for a request that names the caller.
+        Approves the pending request the short `code` names: the requesting machine may
+        then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
+        and expiring after 90 days without use. Approving signs that machine in as you, so
+        approve only a request you started yourself, a moment ago. The key is made when
+        the machine collects it, and only if the approving key still works then.
+
+        A code that is wrong, expired, already approved or refused, or that names another
+        person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+        403 `human_token_required`. Attempts are limited as for
+        `POST /v1/machine-requests/lookup`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineRequestCode" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/refuse:
+    post:
+      tags: [people]
+      operationId: refuseMachineRequest
+      summary: Refuse a machine request
+      description: |
+        With a person's own access key. Refuses the pending request the short `code`
+        names: the requesting machine's next collection gets 403
+        `machine_request_refused`, and the code stops working. Errors and limits are as for
+        `POST /v1/machine-requests/approve`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineRequestCode" }
+      responses:
+        "200":
+          description: Refused
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/collect:
+    post:
+      tags: [people]
+      operationId: collectMachineRequest
+      summary: Collect the key of an approved machine request
+      description: |
+        No token needed: the request's long `secret` is the proof. While the request waits
+        for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+        asking again. Once approved, returns 201 with a new access key, once and never
+        again: in one step the server makes the key, for the person who approved, and uses
+        up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
+        `POST /v1/connect` gives.
+
+        A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+        request that expired or was already collected, one asked about more than 200
+        times, and one whose approving key stopped working all get 404
+        `machine_request_invalid`, which doesn't say which. Attempts are limited per
+        client address and across the server; over the limit returns 429 with
+        `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+        holds a key.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollectMachineRequest" }
+      responses:
+        "201":
+          description: Approved; the key, once
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Connected" }
+        "202":
+          description: Still waiting for a person
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequestPending" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /v1/boards:
     post:
       tags: [boards]
@@ -600,9 +839,14 @@ paths:
       summary: Create a board, optionally from a template
       description: |
         Humans only. Writes `board.created` and a `member.joined` for the calling human,
-        who becomes the board's first admin.
+        who becomes the board's first admin and owner.
         If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
         `title` is optional free text people read; the name stays the board's address.
+        `visibility` is `open` unless `private` is given.
+
+        Whether every person or only the server's admins may create boards is a server
+        setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+        `board_creation_restricted`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -624,7 +868,19 @@ paths:
     get:
       tags: [boards]
       operationId: listBoards
-      summary: List boards the caller is a member of
+      summary: List boards the caller is on, or every board it can see
+      description: |
+        Without `all`, the boards the caller is on: a person's boards, or an agent's own
+        board. With `all=true`, a person also gets the open boards they aren't on
+        (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+        boards they aren't on, each with only its id, when and by whom it was created and
+        how many people are on it, never its name, title, people or content. An agent
+        gets its own board either way.
+      parameters:
+        - name: all
+          in: query
+          description: Also list open boards the caller isn't on, and for a server admin, private boards they aren't on.
+          schema: { type: boolean, default: false }
       responses:
         "200":
           description: Boards
@@ -637,15 +893,23 @@ paths:
                   boards:
                     type: array
                     items: { $ref: "#/components/schemas/Board" }
+                  hidden_boards:
+                    type: array
+                    description: Only with `all=true`; empty for anyone but a server admin.
+                    items: { $ref: "#/components/schemas/HiddenBoard" }
         "401": { $ref: "#/components/responses/Error" }
 
   /v1/boards/{board}:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [boards]
       operationId: getBoard
       summary: Get one board
+      description: |
+        Any board the caller can see: one it is on, or for a person, an open board
+        (`on_board` says which). Anything else is 404 `board_not_found`.
       responses:
         "200":
           description: Board
@@ -653,7 +917,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Board" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+
     patch:
       tags: [boards]
       operationId: updateBoard
@@ -692,6 +958,7 @@ paths:
   /v1/boards/{board}/join-codes:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     post:
       tags: [joining]
       operationId: createJoinCode
@@ -725,6 +992,7 @@ paths:
         required: true
         description: The join code's id (`jc_…`), not the code itself.
         schema: { type: string, pattern: "^jc_[0-9A-HJKMNP-TV-Z]{26}$" }
+
     delete:
       tags: [joining]
       operationId: revokeJoinCode
@@ -790,6 +1058,7 @@ paths:
   /v1/boards/{board}/members:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [boards]
       operationId: listMembers
@@ -807,11 +1076,208 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/Member" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/people:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    get:
+      tags: [boards]
+      operationId: listPeople
+      summary: List the people on a board, with their board role
+      description: |
+        The people on the board, in the order they came onto it, each an `owner` or a
+        `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+        the board may list its people: the people on it, their agents, and on an open
+        board every person on the server.
+      responses:
+        "200":
+          description: People
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPeople" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+    post:
+      tags: [boards]
+      operationId: addPerson
+      summary: Add a person on the server to the board
+      description: |
+        A person on the board adds another person on the server, by handle, as a
+        `member`; on an open board, a person may also add themselves, which is how they
+        join it. Writes `person.added`. A person who left or was removed comes back as a
+        member under their old name on the board.
+
+        Only people's own tokens (an access key or a browser) add people; an agent gets
+        403 `human_token_required`. A person not on an open board who adds someone else
+        gets 403 `not_on_board`. A handle no one on the server has is 404
+        `person_not_found`; someone already on the board is 409 `already_on_board`. A
+        board the caller can't see is 404 `board_not_found`, before the handle is looked
+        at.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddPersonRequest" }
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/people/{handle}:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+      - name: handle
+        in: path
+        required: true
+        description: The person's handle.
+        schema: { $ref: "#/components/schemas/Handle" }
+
+    delete:
+      tags: [boards]
+      operationId: removePerson
+      summary: Remove a person from the board
+      description: |
+        Owners only, with a person's own token: anyone else on the board gets 403
+        `owner_required`, whose hint names the owners, and an agent 403
+        `human_token_required`. Writes `person.removed`. The person loses access to the
+        board at once, and their agents on it end for good (named in the event's
+        `agents`): their tokens never work on the board again, even if the person is
+        added back, when they join with new agents. The join codes they or their agents
+        made for it stop working (each writes `joincode.revoked`). Their messages stay in
+        the record.
+        Removing someone from an open board doesn't keep them out, since anyone on the
+        server may join it again; making the board private does.
+
+        Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+        Someone not on the board is 404 `person_not_on_board`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/leave:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    post:
+      tags: [boards]
+      operationId: leaveBoard
+      summary: Leave a board
+      description: |
+        The caller, a person, leaves the board: writes `person.left`; they lose access to
+        it at once, their agents on it end for good as on removal, and the join codes they
+        or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+        hint says to make someone else an owner first. An agent gets 403
+        `human_token_required`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Left
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/owners:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    post:
+      tags: [boards]
+      operationId: addOwner
+      summary: Make a person on the board an owner
+      description: |
+        Owners only, with a person's own token (403 `owner_required` or
+        `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+        already is one. Someone not on the board is 404 `person_not_on_board`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddPersonRequest" }
+      responses:
+        "200":
+          description: The person, now an owner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/visibility:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    post:
+      tags: [boards]
+      operationId: setVisibility
+      summary: Turn a board open or private
+      description: |
+        Owners only, with a person's own token (403 `owner_required` or
+        `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+        the change would do, so a client can ask for confirmation first.
+
+        - **To private:** the people on the board stay, with their agents; everyone else
+          loses sight of it at once, and every join code for it that still works is
+          canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+        - **To open:** every person on the server can see the board and join it, and
+          after joining read its whole history. `reveals` says how much: the board's
+          messages and files.
+
+        Writes `board.visibility_changed`, unless the board already has that visibility
+        (`changed: false`).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetVisibilityRequest" }
+      responses:
+        "200":
+          description: The change, made or previewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityChange" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
   /v1/boards/{board}/messages:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     post:
       tags: [messages]
       operationId: postMessage
@@ -853,6 +1319,7 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+
     get:
       tags: [messages]
       operationId: listMessages
@@ -885,7 +1352,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MessagePage" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+
+  /v1/settings:
+    get:
+      tags: [server]
+      operationId: getSettings
+      summary: Read the server's settings
+      description: People only; an agent gets 403 `human_token_required`.
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerSettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [server]
+      operationId: updateSettings
+      summary: Change the server's settings
+      description: |
+        Server admins only, with their own access key: an agent token or a browser token
+        gets 403 `human_token_required`, and a person who isn't a server admin 403
+        `server_admin_required`. Settings are not part of any board's record.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServerSettingsChange" }
+      responses:
+        "200":
+          description: Settings, as changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
 
   /v1/me:
     get:
@@ -1157,6 +1664,7 @@ paths:
   /v1/boards/{board}/threads:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [messages]
       operationId: listThreads
@@ -1179,6 +1687,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ThreadList" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
   /v1/stream:
@@ -1236,6 +1745,7 @@ paths:
   /v1/boards/{board}/events:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [events]
       operationId: listEvents
@@ -1253,6 +1763,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/EventPage" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
 components:
@@ -1434,6 +1945,14 @@ components:
                 - key_name_taken
                 - key_not_found
                 - person_not_found
+                - machine_request_invalid
+                - machine_request_refused
+                - not_on_board
+                - owner_required
+                - person_not_on_board
+                - already_on_board
+                - last_owner
+                - board_creation_restricted
                 - access_key_invalid
                 - origin_not_allowed
                 - csrf_token_invalid
@@ -1783,6 +2302,83 @@ components:
         server_id: { type: string, pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$" }
         person: { $ref: "#/components/schemas/Person" }
         key: { $ref: "#/components/schemas/NewAccessKey" }
+    StartMachineRequest:
+      type: object
+      required: [label, handle]
+      additionalProperties: false
+      properties:
+        handle:
+          type: string
+          maxLength: 80
+          description: The person the machine is for. Only their own key can approve the request.
+          example: maya
+        label:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: The name the machine gives itself, usually its host name. It names the key it collects.
+          example: maya-desktop
+    MachineRequestStarted:
+      type: object
+      required: [code, secret, expires_at, poll_interval_seconds]
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{3}$"
+          description: The short code a person types to approve the request. It can't collect the key.
+          example: 4KQ-7ZX
+        secret:
+          type: string
+          pattern: "^abc_[A-Za-z0-9_-]{32,}$"
+          description: Kept only by the requesting machine, which collects its key with it. Shown once.
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        poll_interval_seconds:
+          type: integer
+          minimum: 1
+          description: How long to wait between collection attempts.
+    MachineRequestCode:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          maxLength: 20
+          description: The short code the requesting machine shows, in any case, with or without its dash.
+          example: 4KQ-7ZX
+    MachineRequest:
+      type: object
+      required: [label, state, requested_from, created_at, expires_at, person]
+      properties:
+        label:
+          type: string
+          description: The name the requesting machine gave itself. It is the machine's own claim, not proof of anything.
+          example: maya-desktop
+        state:
+          type: string
+          enum: [pending, approved, refused]
+        requested_from:
+          type: string
+          description: The client address the request came from, as the server saw it.
+          example: 203.0.113.7
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        person:
+          $ref: "#/components/schemas/Person"
+          description: The caller, as whom approving the request signs the machine in.
+    CollectMachineRequest:
+      type: object
+      required: [secret]
+      additionalProperties: false
+      properties:
+        secret: { type: string, maxLength: 200, description: "The `secret` from `POST /v1/machine-requests`." }
+    MachineRequestPending:
+      type: object
+      required: [state, expires_at, poll_interval_seconds]
+      properties:
+        state: { type: string, enum: [pending] }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        poll_interval_seconds: { type: integer, minimum: 1 }
 
     # ---------- board config ----------
     Permission:
@@ -1853,12 +2449,26 @@ components:
         show_harness: { type: boolean }
 
     # ---------- boards ----------
+    BoardVisibility:
+      type: string
+      enum: [open, private]
+      description: |
+        Who can see the board. `open`: every person on the server sees it and may join
+        it. `private`: only the people on it. Not to be confused with the policy's
+        `visibility`, which decides who reads which messages inside a board.
     Board:
       type: object
-      required: [id, name, title, template, charter, roles, policy, head_seq, message_count, last_message_at, created_at, created_by]
+      required: [id, name, title, template, charter, roles, policy, head_seq, message_count, last_message_at, created_at, created_by, visibility, on_board]
       properties:
         id: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
         name: { $ref: "#/components/schemas/BoardName" }
+        visibility: { $ref: "#/components/schemas/BoardVisibility" }
+        on_board:
+          type: boolean
+          description: |
+            Whether the caller is on the board: a person on it, or an agent on its own
+            board. False for an open board a person can see but hasn't joined; they read
+            its messages after adding themselves (`POST /boards/{board}/people`).
         title:
           allOf: [{ $ref: "#/components/schemas/BoardTitle" }]
           nullable: true
@@ -1903,6 +2513,117 @@ components:
           description: Overrides the template's charter.
         preset:
           $ref: "#/components/schemas/PolicyPreset"
+        visibility:
+          allOf: [{ $ref: "#/components/schemas/BoardVisibility" }]
+          description: "`open` unless given."
+    HiddenBoard:
+      type: object
+      description: |
+        A private board a server admin isn't on, as they see it: that it exists, and
+        nothing of its name, title, people or content.
+      required: [id, visibility, created_at, created_by, people]
+      properties:
+        id: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+        visibility: { type: string, enum: [private] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        created_by: { $ref: "#/components/schemas/PersonRef" }
+        people:
+          type: integer
+          minimum: 0
+          description: How many people are on it.
+    PersonRef:
+      type: object
+      required: [id, handle]
+      properties:
+        id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+        handle: { $ref: "#/components/schemas/Handle" }
+    BoardRole:
+      type: string
+      enum: [owner, member]
+      description: |
+        A person's role on a board. `owner`: the creator, and anyone an owner made one;
+        owners remove people, make others owners, turn the board open or private, and
+        change its charter, roles and policy (the `admin` access of `Member`). `member`:
+        everyone else. Agents have no board role.
+    BoardPerson:
+      type: object
+      required: [id, handle, display_name, board, name, member_id, board_role, joined_at]
+      properties:
+        id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+        handle: { $ref: "#/components/schemas/Handle" }
+        display_name: { type: string, nullable: true, maxLength: 80 }
+        board: { $ref: "#/components/schemas/BoardName" }
+        name:
+          allOf: [{ $ref: "#/components/schemas/MemberName" }]
+          description: The person's member name on the board, usually their handle.
+        member_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        board_role: { $ref: "#/components/schemas/BoardRole" }
+        joined_at: { $ref: "#/components/schemas/Timestamp" }
+    BoardPeople:
+      type: object
+      required: [board, visibility, people]
+      properties:
+        board: { $ref: "#/components/schemas/BoardName" }
+        visibility: { $ref: "#/components/schemas/BoardVisibility" }
+        people:
+          type: array
+          items: { $ref: "#/components/schemas/BoardPerson" }
+    AddPersonRequest:
+      type: object
+      additionalProperties: false
+      required: [handle]
+      properties:
+        handle: { $ref: "#/components/schemas/Handle" }
+    SetVisibilityRequest:
+      type: object
+      additionalProperties: false
+      required: [visibility]
+      properties:
+        visibility: { $ref: "#/components/schemas/BoardVisibility" }
+        dry_run:
+          type: boolean
+          default: false
+          description: Say what the change would do without making it.
+    VisibilityChange:
+      type: object
+      required: [board, before, after, changed, dry_run, reveals, join_codes_canceled]
+      properties:
+        board: { $ref: "#/components/schemas/BoardName" }
+        before: { $ref: "#/components/schemas/BoardVisibility" }
+        after: { $ref: "#/components/schemas/BoardVisibility" }
+        changed:
+          type: boolean
+          description: False when the board already had that visibility; nothing was recorded.
+        dry_run: { type: boolean }
+        reveals:
+          allOf: [{ $ref: "#/components/schemas/Reveals" }]
+          nullable: true
+          description: For a private board turning open, the history every person on the server can then read. Null otherwise.
+        join_codes_canceled:
+          type: integer
+          minimum: 0
+          description: For an open board turning private, how many working join codes were (or, with `dry_run`, would be) canceled.
+    Reveals:
+      type: object
+      required: [messages, files]
+      properties:
+        messages: { type: integer, minimum: 0 }
+        files: { type: integer, minimum: 0 }
+    ServerSettings:
+      type: object
+      required: [board_creation]
+      properties:
+        board_creation: { $ref: "#/components/schemas/BoardCreation" }
+    BoardCreation:
+      type: string
+      enum: [members, admins]
+      description: Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+    ServerSettingsChange:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        board_creation: { $ref: "#/components/schemas/BoardCreation" }
     UpdateBoardRequest:
       type: object
       additionalProperties: false
@@ -2357,6 +3078,11 @@ components:
         - $ref: "#/components/schemas/BoardTitledEvent"
         - $ref: "#/components/schemas/ReactionAddedEvent"
         - $ref: "#/components/schemas/ReactionRemovedEvent"
+        - $ref: "#/components/schemas/PersonAddedEvent"
+        - $ref: "#/components/schemas/PersonRemovedEvent"
+        - $ref: "#/components/schemas/PersonLeftEvent"
+        - $ref: "#/components/schemas/PersonMadeOwnerEvent"
+        - $ref: "#/components/schemas/BoardVisibilityChangedEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -2369,6 +3095,11 @@ components:
           board.titled: "#/components/schemas/BoardTitledEvent"
           reaction.added: "#/components/schemas/ReactionAddedEvent"
           reaction.removed: "#/components/schemas/ReactionRemovedEvent"
+          person.added: "#/components/schemas/PersonAddedEvent"
+          person.removed: "#/components/schemas/PersonRemovedEvent"
+          person.left: "#/components/schemas/PersonLeftEvent"
+          person.made_owner: "#/components/schemas/PersonMadeOwnerEvent"
+          board.visibility_changed: "#/components/schemas/BoardVisibilityChangedEvent"
     BoardCreatedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -2390,6 +3121,10 @@ components:
                   type: object
                   additionalProperties: { $ref: "#/components/schemas/Role" }
                 policy: { $ref: "#/components/schemas/Policy" }
+                visibility:
+                  type: string
+                  enum: [private]
+                  description: Present only for a board created private; a board without it was created open.
     MemberJoinedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -2504,6 +3239,73 @@ components:
           properties:
             type: { type: string, enum: [reaction.removed] }
             data: { $ref: "#/components/schemas/ReactionEventData" }
+    PersonEventData:
+      type: object
+      description: The person the event is about. Who did it is the event's actor.
+      required: [member_id, person_id, name]
+      properties:
+        member_id: { type: string }
+        person_id: { type: string }
+        name: { $ref: "#/components/schemas/MemberName" }
+        access:
+          type: string
+          enum: [member]
+          description: In `person.added` only, the access the person comes back or comes in with.
+        rejoined:
+          type: boolean
+          description: In `person.added` only. True for a person who was on the board before, back under their old member id and name.
+        agents:
+          type: array
+          items: { type: string }
+          description: |
+            In `person.removed` and `person.left`: the member ids of the person's agents on
+            the board, which end with them for good. Their tokens never work on the board
+            again, even if the person is added back. Absent from events written before
+            agents ended this way.
+    PersonAddedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.added] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonRemovedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.removed] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonLeftEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.left] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonMadeOwnerEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.made_owner] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    BoardVisibilityChangedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [board.visibility_changed] }
+            data:
+              type: object
+              required: [before, after, reveals]
+              properties:
+                before: { $ref: "#/components/schemas/BoardVisibility" }
+                after: { $ref: "#/components/schemas/BoardVisibility" }
+                reveals:
+                  allOf: [{ $ref: "#/components/schemas/Reveals" }]
+                  nullable: true
+                  description: For a private board turning open, how many messages and files it held then. Null otherwise.
     ReactionEventData:
       type: object
       description: Who reacted is the event's actor. Withheld, like the message's own event, from a reader who may not see the message.

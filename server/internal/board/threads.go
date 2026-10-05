@@ -151,7 +151,7 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 			if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
 				return err
 			}
-			m, b, me, err := visibleMessage(tx, p, messageID)
+			m, b, me, err := s.visibleMessage(tx, p, messageID)
 			if err != nil {
 				return err
 			}
@@ -233,7 +233,7 @@ type ThreadEntry struct {
 func (s *Service) Threads(ctx context.Context, p Principal, boardName string, limit int) (ThreadList, error) {
 	var out ThreadList
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}

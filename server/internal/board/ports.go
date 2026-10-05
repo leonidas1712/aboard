@@ -36,6 +36,12 @@ type ReadTx interface {
 	HumanCount() (int, error)
 	// ServerInviteByDigest finds a server invite by the digest of its secret.
 	ServerInviteByDigest(digest string) (ServerInvite, error)
+	// MachineRequestByCode finds a machine request by the digest of its short code,
+	// whatever its state.
+	MachineRequestByCode(digest string) (MachineRequest, error)
+	// MachineRequestBySecret finds a machine request by the digest of its collection
+	// secret, whatever its state.
+	MachineRequestBySecret(digest string) (MachineRequest, error)
 	// BrowserLoginByDigest finds a browser login by the digest of its token, whether or
 	// not it has expired.
 	BrowserLoginByDigest(digest string) (BrowserLogin, error)
@@ -50,8 +56,18 @@ type ReadTx interface {
 	BoardByID(id string) (Board, error)
 	// BoardNameTaken reports whether a board already has this name.
 	BoardNameTaken(name string) (bool, error)
-	// BoardsOfHuman lists, by name, the boards the human is a human member of.
+	// BoardsOfHuman lists, by name, the boards the human is on: those where their own
+	// membership is active.
 	BoardsOfHuman(humanID string) ([]Board, error)
+	// BoardsSeenBy lists, by name, every open board and every board the human is on.
+	BoardsSeenBy(humanID string) ([]Board, error)
+	// PrivateBoardsNotOn lists, oldest first, the private boards the human isn't on.
+	PrivateBoardsNotOn(humanID string) ([]Board, error)
+	// BoardCreation returns who may create boards: CreationMembers unless set.
+	BoardCreation() (string, error)
+	// WorkingJoinCodes lists a board's join codes that are neither revoked nor expired
+	// at now, oldest first.
+	WorkingJoinCodes(boardID, now string) ([]JoinCode, error)
 	// MemberByTokenDigest finds the agent whose token has this digest.
 	MemberByTokenDigest(digest string) (Member, error)
 	// HumanMember finds a human's own membership of a board.
@@ -135,6 +151,21 @@ type Tx interface {
 	// UseServerInvite marks an unused invite used at a time by a person. It reports
 	// false, changing nothing, when the invite was already used.
 	UseServerInvite(id, at, humanID string) (bool, error)
+	// InsertMachineRequest adds a machine request.
+	InsertMachineRequest(r MachineRequest) error
+	// DeleteEndedMachineRequests removes the machine requests whose ExpiresAt is at or
+	// before now.
+	DeleteEndedMachineRequests(now string) error
+	// DecideMachineRequest moves a pending machine request to state (approved or
+	// refused), by a person with one of their keys, at a time. It reports false,
+	// changing nothing, when the request wasn't pending.
+	DecideMachineRequest(id, state, humanID, keyID, at string) (bool, error)
+	// CountMachineRequestPoll counts one more collection attempt on a machine request.
+	CountMachineRequestPoll(id string) error
+	// CollectMachineRequest marks an approved machine request collected with the key
+	// made for it. It reports false, changing nothing, when the request wasn't approved
+	// or was already collected.
+	CollectMachineRequest(id, keyID string) (bool, error)
 	// InsertBrowserLogin adds a browser login.
 	InsertBrowserLogin(l BrowserLogin) error
 	// DeleteBrowserLogins removes every browser login of a human and returns how many
@@ -151,8 +182,17 @@ type Tx interface {
 	SetBoardPolicy(boardID string, p rules.Policy) error
 	// SetBoardTitle replaces a board's title; nil removes it.
 	SetBoardTitle(boardID string, title *string) error
+	// SetBoardVisibility makes a board BoardOpen or BoardPrivate.
+	SetBoardVisibility(boardID, visibility string) error
+	// SetBoardCreation sets who may create boards.
+	SetBoardCreation(v string) error
 	// InsertMember adds a member to its board.
 	InsertMember(m Member) error
+	// SetMemberStatus sets a member's status: StatusActive, StatusLeft or StatusRemoved.
+	SetMemberStatus(memberID, status string) error
+	// SetMemberAccess sets a person's access on their board; it changes nothing for an
+	// agent.
+	SetMemberAccess(memberID, access string) error
 	// SetCursor moves a member's read position forward; it never moves it back.
 	SetCursor(memberID string, seq int64) error
 	// SetPresence replaces an agent's presence.
