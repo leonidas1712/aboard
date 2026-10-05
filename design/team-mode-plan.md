@@ -85,8 +85,8 @@ comes after.
 
 Not needed for team-ready: several servers from one machine (a folder's `.aboard`
 already picks the server), bots, project labels, your own board order, harness marks,
-and, if decision 4 below agrees, D99's per-owner rule; asks with options, tasks,
-files, sub-boards.
+asks with options, tasks, files and sub-boards; and D99's per-owner rule, if decision 4
+below agrees.
 
 ### The flows
 
