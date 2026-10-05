@@ -26,6 +26,8 @@ type View struct {
 	// Position is the caller's read position on the board; nil when they aren't on it,
 	// or when the read doesn't report it.
 	Position *Position
+	// NeedsReply is the person's unanswered question count; nil for other callers.
+	NeedsReply *int64
 }
 
 // ShowsCounts reports whether p may see how many messages the board holds: people read
@@ -276,6 +278,11 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listin
 					return err
 				}
 				v.Position = &pos
+				needs, err := tx.CountNeedsReply(m)
+				if err != nil {
+					return err
+				}
+				v.NeedsReply = &needs
 			}
 			out.Boards = append(out.Boards, v)
 		}
@@ -371,6 +378,13 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 				return err
 			}
 			v.Position = &pos
+			if me.Kind == "human" {
+				needs, err := tx.CountNeedsReply(me)
+				if err != nil {
+					return err
+				}
+				v.NeedsReply = &needs
+			}
 		}
 		return nil
 	})

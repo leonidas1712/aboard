@@ -2981,6 +2981,16 @@ components:
             The caller's read position on the board: how far through its event log they
             have acknowledged. A person starts at the board's head when they join it or come
             back to it. Present only when the caller is on the board.
+        needs_reply:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Questions addressed to this person's member id at posting that still need
+            their direct reply. Reading them, another recipient's reply, and replies
+            elsewhere in the thread do not answer them. Messages to everyone and to
+            the person's agents do not count. Absent or null for agents and people off the board.
+            Historical messages without recorded human recipients do not count.
         unread:
           type: integer
           minimum: 0

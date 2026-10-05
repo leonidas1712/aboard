@@ -40,6 +40,8 @@ export type Board = {
   /** read_up_to is how far the person has read the board; unread counts the messages after it they didn't send. Absent when they aren't on it. */
   read_up_to?: number;
   unread?: number;
+  /** needs_reply counts questions to this person without their own direct reply. */
+  needs_reply?: number | null;
 };
 
 /** Receipt is whether a message has reached one of its recipients; presence is an agent's now, null for a person. */

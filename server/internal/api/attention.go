@@ -60,5 +60,6 @@ func withPosition(w wireBoard, v board.View) wireBoard {
 	if v.Position != nil {
 		w.ReadUpTo, w.Unread = &v.Position.ReadUpTo, &v.Position.Unread
 	}
+	w.NeedsReply = v.NeedsReply
 	return w
 }

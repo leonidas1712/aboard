@@ -98,6 +98,8 @@ type ReadTx interface {
 	// CountUnread counts the messages after the reader's cursor that it didn't send: with
 	// addressedOnly, only those Inbox returns, including waking mentions when allowed.
 	CountUnread(reader Member, addressedOnly, mentions bool) (int64, error)
+	// CountNeedsReply counts recorded questions to this person without their direct reply.
+	CountNeedsReply(reader Member) (int64, error)
 	// MessageByID finds a message, with its sender and the seq of the message it replies to.
 	MessageByID(id string) (Message, error)
 	// MessagesBySeq returns the board's messages among seqs, keyed by seq.
