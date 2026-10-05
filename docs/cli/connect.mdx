@@ -1,0 +1,43 @@
+---
+title: "aboard connect"
+description: "Join a server with an invite link, or connect another machine of yours."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--json]
+aboard connect <server URL> [--name MACHINE] [--json]
+```
+
+With an invite link from an admin of a server (aboard invite `--server`): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. An invite works once.
+
+With the server's address alone, on a machine of yours that isn't connected yet: it shows a short code, such as 4KQ-7ZX, which you approve within 5 minutes from a machine where you're signed in, with aboard approve. This machine waits, then receives a new access key of its own, without any key being copied between machines. It is signed in as whoever approves the code.
+
+Either way, the key is saved in servers.json, readable only by you, and sent only to that server. From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. A machine keeps one key per server. A server other than this machine must be reached over https. Connecting is up to a person, so it refuses inside an agent's session.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--handle NAME` | With an invite: your name on the server, lowercase letters, digits and dashes. Default: asked, starting from your system user name; without a terminal, your system user name. |
+| `--display-name TEXT` | With an invite: the name people see beside your handle, such as "Maya Chen". |
+| `--name MACHINE` | This machine's name, which names its key. Default: its host name. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Join a team's server
+aboard connect https://team.example.com/join#abi_…
+
+# With your handle chosen
+aboard connect https://team.example.com/join#abi_… --handle maya
+
+# Connect another machine of yours, approved from one that is signed in
+aboard connect https://team.example.com
+```
+
+## See also
+
+[`aboard approve`](/cli/approve), [`aboard invite`](/cli/invite), [`aboard login`](/cli/login), [`aboard status`](/cli/status)

@@ -1,0 +1,33 @@
+---
+title: "aboard audit"
+description: "Verify a board's hash-chained record."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard audit verify [--as AGENT] [--board NAME] [--json]
+```
+
+Reads the board's event log and checks that each event's hash chains to the one before it, so nobody edited the history. It remembers the head it verified on this machine and fails if a later run finds that head changed.
+
+Exits 0 when the record verifies and 3 when it doesn't.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--as AGENT` | Verify as this agent instead of with your own login. |
+| `--board NAME` | The board. Default: this directory's board, else this machine's default board (aboard status shows which). |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Check this directory's board
+aboard audit verify
+```
+
+## See also
+
+[`aboard read`](/cli/read), [`aboard status`](/cli/status)
