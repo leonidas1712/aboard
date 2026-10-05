@@ -10,9 +10,10 @@ info:
     policy, join codes, joining, members, messages, threads, reactions, the inbox with
     acknowledgement, and the event log.
 
-    **Auth.** Every request except `GET /v1/info`, `POST /v1/browser-tokens` and
-    `POST /v1/connect` needs `Authorization: Bearer <token>`. A person signs in with an
-    access key, which starts with `abh_` (the API also calls it a human token); agent
+    **Auth.** Every request except `GET /v1/info`, `POST /v1/browser-sessions`,
+    `POST /v1/browser-tokens` and `POST /v1/connect` needs a credential: either
+    `Authorization: Bearer <token>`, or a browser session's cookie. A person signs in with
+    an access key, which starts with `abh_` (the API also calls it a human token); agent
     tokens start with `aba_`. Agent tokens are scoped to one board.
 
     **People.** Every person on a server has a permanent id (`hum_…`), a handle unique on
@@ -22,15 +23,39 @@ info:
     creates them as a member with their first access key. An access key has a name and
     belongs to one person. An agent's token and a browser token each record the access key
     they came from, and stop working when that key does. The sender of every write is the token's
-    owner, never a field in the body. A browser gets its own token, starting with `abb_`,
-    by exchanging a one-time code (`POST /v1/login-codes`, then `POST /v1/browser-tokens`);
-    it acts as the person who asked for the code, with exactly that person's permissions.
-    The server never sets or reads a cookie.
+    owner, never a field in the body.
+
+    **Browser sessions.** A browser signs in by exchanging a one-time code from
+    `POST /v1/login-codes` (what `aboard open` does) or a pasted access key for a browser
+    session with `POST /v1/browser-sessions`. The session's secret (it starts with `abb_`)
+    travels only in a cookie the page's scripts can't read: `HttpOnly`, `SameSite=Lax`,
+    `Path=/`, with no `Domain`, so it goes only to the host that set it. Over HTTPS the
+    cookie is `__Host-aboard_session` and `Secure`. A server on a loopback address
+    (`127.0.0.1`, `localhost`, `[::1]`) reached over plain HTTP, which is how the local
+    server runs, sets `aboard_session_<port>` without `Secure`, since a browser drops a
+    `Secure` cookie on plain HTTP; the port is in its name because browsers share cookies
+    between the ports of one host. A session acts as the person whose code or key started
+    it, with exactly that person's permissions, except that it can never create, list or
+    revoke keys, ask for a login code, or list or end other browser sessions.
+
+    A request authenticated by the cookie that isn't a `GET` or `HEAD` must carry an
+    `Origin` header equal to the server's own origin (`https://` and the `Host` header,
+    or `http://` for a loopback address over plain HTTP), else 403 `origin_not_allowed`,
+    and the session's CSRF token in `X-Aboard-CSRF`, else 403 `csrf_token_invalid`. The
+    page reads its CSRF token from `POST /v1/browser-sessions` or
+    `GET /v1/me/browser-session`; another site can't read either, because the server sends
+    no CORS headers. No `GET` changes anything. A request with an `Authorization` header is
+    authenticated by that header alone, and the cookie is ignored.
+
+    Browser tokens sent as `Authorization: Bearer abb_…`, from `POST /v1/browser-tokens`,
+    still work and are the same sessions; that endpoint is deprecated in favour of
+    `POST /v1/browser-sessions`, which also turns a stored browser token into a cookie
+    session.
 
     **Access keys.** A person lists, creates and revokes their keys with `/v1/keys`, only
     with a key of their own: an agent token or a browser token gets 403
     `human_token_required`, so a browser can never make a key. When a key is revoked or
-    expires, every browser token and agent token it started stops at once: their next
+    expires, every browser session and agent token it started stops at once: their next
     request gets 401 `unauthorized`, and an open `GET /v1/stream` or a waiting
     `GET /v1/me/inbox` or `GET /v1/messages/{message}/replies` made with any of them ends
     within a second of the revocation, or at the moment of expiry.
@@ -55,6 +80,7 @@ servers:
 
 security:
   - bearer: []
+  - browserSession: []
 
 tags:
   - name: server
@@ -117,8 +143,14 @@ paths:
     post:
       tags: [server]
       operationId: createBrowserToken
-      summary: Exchange a one-time code for a browser token
+      summary: Exchange a one-time code for a browser token (deprecated)
+      deprecated: true
       description: |
+        Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+        cookie the page's scripts can't read. This endpoint still works and counts toward
+        the same rate limits; a token it returns is a browser session like any other, and
+        `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
+
         No token needed: the code is the proof. Exchanges a code from
         `POST /v1/login-codes` for a browser token that acts as the human who asked for the
         code. The web UI reads the code from its address's fragment (`/#code=…`), which
@@ -148,6 +180,7 @@ paths:
               schema: { $ref: "#/components/schemas/BrowserToken" }
         "400": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
     delete:
       tags: [server]
       operationId: endBrowserTokens
@@ -170,6 +203,160 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BrowserTokensEnded" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /v1/browser-sessions:
+    post:
+      tags: [server]
+      operationId: startBrowserSession
+      summary: Sign a browser in
+      description: |
+        No credential needed: what the body carries is the proof. Starts a browser session
+        and sets its cookie (see **Browser sessions** above); the response body never holds
+        the session's secret. The body has exactly one of:
+
+        - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+          the page address's fragment. The session belongs to the access key that asked
+          for the code. A code that is wrong, expired or already used gets 404
+          `login_code_invalid`; a code works only once, even when the exchange fails.
+        - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+          starts a session that belongs to it and keeps nothing of the key itself. A key
+          that is wrong, revoked or expired gets 401 `access_key_invalid`.
+        - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+          browser sessions moved into cookies. The same session moves into the cookie,
+          keeping its id and expiry; the page then deletes its stored copy. A token that
+          doesn't work gets 401 `unauthorized`.
+
+        Anything else gets 400 `invalid_request`. A session lasts 30 days, or until its
+        access key expires if that is sooner (a key that expires only once unused doesn't
+        shorten it), and ends at once when its key is revoked or expires, when its person
+        signs it out (`DELETE /v1/me/browser-session`) or ends it
+        (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+
+        Against forged sign-ins, the request must carry an `Origin` header equal to the
+        server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+        other site can send without the server's permission. Attempts are limited per
+        client address and across the server (429 `rate_limited`, with `Retry-After`).
+        Neither the body nor the response is logged or kept for `Idempotency-Key` repeats.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserSessionRequest" }
+      responses:
+        "201":
+          description: Signed in. The cookie is in `Set-Cookie`.
+          headers:
+            Set-Cookie:
+              description: The session's cookie.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentBrowserSession" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+    get:
+      tags: [people]
+      operationId: listBrowserSessions
+      summary: List your browser sessions
+      description: |
+        With a person's own access key. Lists the caller's browser sessions that haven't
+        ended, newest first, each with the key it belongs to; with `key`, only that key's.
+        A key id the caller doesn't have gets 404 `key_not_found`. An agent token or a
+        browser session gets 403 `human_token_required`. `aboard keys sessions` calls this.
+      parameters:
+        - name: key
+          in: query
+          required: false
+          description: Only the sessions of this access key, by id.
+          schema: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
+      responses:
+        "200":
+          description: The sessions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSessionList" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/browser-sessions/{session}:
+    parameters:
+      - name: session
+        in: path
+        required: true
+        description: The session's id (`ses_…`), never its secret.
+        schema: { type: string, pattern: "^ses_[0-9A-HJKMNP-TV-Z]{26}$" }
+    delete:
+      tags: [people]
+      operationId: endBrowserSession
+      summary: End one browser session
+      description: |
+        With a person's own access key: ends one of their browser sessions. That browser
+        gets 401 on its next request and its open stream ends within a second; the
+        person's other sessions keep working. A session the caller doesn't have, or that
+        already ended, gets 404 `browser_session_not_found`. An agent token or a browser
+        session gets 403 `human_token_required`. `aboard keys sessions end` calls this.
+        Nothing is written to a board's record.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Ended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSession" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/me/browser-session:
+    get:
+      tags: [server]
+      operationId: getBrowserSession
+      summary: This browser's session
+      description: |
+        With a browser session only. Returns who the browser is signed in as, the access
+        key the session belongs to, when it ends, and its CSRF token, which the page sends
+        in `X-Aboard-CSRF` with every write. Any other credential gets 403
+        `browser_session_required`. A page that gets 401 here isn't signed in and shows
+        its login page.
+      responses:
+        "200":
+          description: The session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CurrentBrowserSession" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [server]
+      operationId: signOut
+      summary: Sign this browser out
+      description: |
+        With a browser session only: ends this one session and clears its cookie. The
+        person's other sessions and keys keep working. Any other credential gets 403
+        `browser_session_required`. Like every write made with the cookie, it needs the
+        `Origin` header and the CSRF token.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Signed out. `Set-Cookie` clears the cookie.
+          headers:
+            Set-Cookie:
+              description: Clears the session's cookie.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSession" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
 
@@ -1030,6 +1217,14 @@ components:
         A human (`abh_…`), agent (`aba_…`) or browser (`abb_…`) token. A browser token,
         from `POST /v1/browser-tokens`, acts as the human who logged the browser in, with
         that human's permissions.
+    browserSession:
+      type: apiKey
+      in: cookie
+      name: __Host-aboard_session
+      description: |
+        A browser session's cookie, set by `POST /v1/browser-sessions`. On a loopback
+        address over plain HTTP it is named `aboard_session_<port>` instead. Writes made
+        with it need `Origin` and `X-Aboard-CSRF` (see **Browser sessions**).
 
   parameters:
     BoardParam:
@@ -1192,6 +1387,11 @@ components:
                 - key_name_taken
                 - key_not_found
                 - person_not_found
+                - access_key_invalid
+                - origin_not_allowed
+                - csrf_token_invalid
+                - browser_session_required
+                - browser_session_not_found
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -1254,6 +1454,63 @@ components:
           description: "A bearer token that acts as the human who asked for the code. Send it as `Authorization: Bearer <token>`."
           example: abb_r4Kd8Wq2Zx7Lm1Np5Tv9Bc3Hf6Jy0Gs2Ae8Uo4Ri7Xw
         expires_at: { $ref: "#/components/schemas/Timestamp" }
+
+    BrowserSessionRequest:
+      type: object
+      additionalProperties: false
+      description: Exactly one of `code`, `key` and `token`.
+      properties:
+        code: { type: string, maxLength: 200, description: "A one-time code from `POST /v1/login-codes`." }
+        key: { type: string, maxLength: 200, description: "An access key (`abh_…`). It is checked and never kept." }
+        token: { type: string, maxLength: 200, description: "A browser token (`abb_…`) a page kept in its own storage, to move into the cookie." }
+
+    BrowserSessionKey:
+      type: object
+      required: [id, name]
+      description: The access key a browser session belongs to; the session ends with it.
+      properties:
+        id: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
+        name: { type: string, maxLength: 40, example: maya-laptop }
+
+    BrowserSessionStart:
+      type: string
+      enum: [login_code, access_key]
+      description: "How the session started: `login_code` for `aboard open`, `access_key` for a key pasted on the login page."
+
+    BrowserSession:
+      type: object
+      required: [id, key, started_with, created_at, expires_at]
+      properties:
+        id: { type: string, pattern: "^ses_[0-9A-HJKMNP-TV-Z]{26}$" }
+        key: { $ref: "#/components/schemas/BrowserSessionKey" }
+        started_with: { $ref: "#/components/schemas/BrowserSessionStart" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at:
+          allOf: [{ $ref: "#/components/schemas/Timestamp" }]
+          description: When the session ends unless it, or its key, ends sooner.
+
+    CurrentBrowserSession:
+      type: object
+      required: [id, key, started_with, created_at, expires_at, person, csrf_token]
+      properties:
+        id: { type: string, pattern: "^ses_[0-9A-HJKMNP-TV-Z]{26}$" }
+        key: { $ref: "#/components/schemas/BrowserSessionKey" }
+        started_with: { $ref: "#/components/schemas/BrowserSessionStart" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        person: { $ref: "#/components/schemas/Person" }
+        csrf_token:
+          type: string
+          description: Send it as `X-Aboard-CSRF` with every write this session makes. It works only with this session's cookie.
+
+    BrowserSessionList:
+      type: object
+      required: [person, sessions]
+      properties:
+        person: { $ref: "#/components/schemas/Person" }
+        sessions:
+          type: array
+          items: { $ref: "#/components/schemas/BrowserSession" }
 
     BrowserTokensEnded:
       type: object
@@ -1370,7 +1627,7 @@ components:
         browser_sessions:
           type: integer
           minimum: 0
-          description: Browser logins started from this key that haven't expired or been ended.
+          description: Browser sessions started from this key that haven't expired or been ended; `GET /v1/browser-sessions?key=` lists them.
         agent_seats:
           type: integer
           minimum: 0

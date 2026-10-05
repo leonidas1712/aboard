@@ -632,6 +632,44 @@ $defs:
         type: boolean
         description: True when the revoked key was the one this machine keeps for the server, which is now signed out.
 
+  # ---------- aboard keys sessions [<name|id>] [--server URL] ----------
+  KeysSessionsOutput:
+    description: |
+      The browsers signed in as the person this machine signs in as
+      (GET /v1/browser-sessions), newest first, each with the access key it belongs to and
+      how it started: aboard open, or a key pasted on the board view's login page. A key's
+      name or id shows only that key's sessions (key_not_selected when the person has no
+      such key). Sessions of revoked or expired keys have ended and aren't listed. Inside a
+      harness session it refuses with human_command_in_session. Text output:
+        Browser sessions of maya on https://team.example.com:
+          ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8  key phone        pasted key   signed in 2h ago  ends in 30 days
+          ses_01K6Q1B3D5F7H9K1M3P5R7T9V1  key maya-laptop  aboard open  signed in 3d ago  ends in 27 days
+        Sign one out with: aboard keys sessions end <id>
+      or "No browser is signed in to https://team.example.com as maya."
+    type: object
+    required: [server, person, sessions]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: "openapi.yaml#/components/schemas/Person" }
+      sessions:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/BrowserSession" }
+
+  # ---------- aboard keys sessions end <session id> [--server URL] ----------
+  KeysSessionsEndOutput:
+    description: |
+      Signs one browser out (DELETE /v1/browser-sessions/{session}): its next request gets
+      401 and its open stream closes. The key and its other sessions keep working. A
+      session that isn't the person's, or already ended, fails with
+      browser_session_not_found; an id that doesn't start with ses_ is a usage error.
+      Inside a harness session it refuses with human_command_in_session. Text output:
+        Signed out browser session ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8 (key phone). The key and its other sessions keep working.
+    type: object
+    required: [server, session]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      session: { $ref: "openapi.yaml#/components/schemas/BrowserSession" }
+
   # ---------- aboard login [<server URL>] [--json] (the key on standard input) ----------
   LoginOutput:
     description: |
@@ -1081,9 +1119,10 @@ $defs:
       starts the local server if it isn't running, asks it for a one-time login code
       (POST /v1/login-codes) with the human login, and opens
       <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
-      send to a server: the page exchanges it once for a browser token that acts as the owner
-      (POST /v1/browser-tokens), keeps the token in its own storage, removes the code from
-      the address bar and shows the board, or the board list when no board is selected. The board is --board, then the
+      send to a server: the page exchanges it once for a browser session that acts as the
+      owner (POST /v1/browser-sessions), kept in a cookie the page's scripts can't read,
+      removes the code from the address bar and shows the board, or the board list when no
+      board is selected. The board is --board, then the
       project's .aboard file; with neither, the board list opens. A --board the owner
       isn't on fails with board_not_found.
 
@@ -1104,8 +1143,9 @@ $defs:
       gives the command for the person to run in their own terminal.
 
       Either way the text starts with "Started local Aboard at http://127.0.0.1:7400" when
-      it started the server. The browser stays logged in for 30 days, across restarts and
-      upgrades of the server, or until aboard logout --browsers.
+      it started the server. The browser stays signed in for 30 days (never past its
+      key's expiry), across restarts and upgrades of the server, until it signs out, or
+      until aboard keys sessions end or aboard logout --browsers ends it.
     type: object
     required: [server, server_started, board, ui_url, url, opened, expires_at]
     properties:
@@ -1130,7 +1170,8 @@ $defs:
     description: |
       Logs every browser of the local owner out at once (DELETE /v1/browser-tokens with
       the human login), starting the local server if it isn't running. Each of those
-      browsers gets 401 on its next request, and the board view says to run aboard open.
+      browsers gets 401 on its next request, and the board view shows its login page.
+      aboard keys sessions end signs one browser out instead.
       Without --browsers it fails with invalid_request (exit 2). Inside a harness session
       it refuses with human_command_in_session. Text output:
         Logged out 2 browsers. Run aboard open to log in again.
