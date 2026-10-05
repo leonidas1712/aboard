@@ -119,8 +119,10 @@ func TestUpgradePreservesLegacySessionAndUnacknowledgedDeliveries(t *testing.T) 
 	}
 	ref = resolved
 	now := time.Date(2026, 10, 1, 12, 1, 0, 0, time.UTC)
-	id, err := j.AddDelivery(ctx, delivery.Delivery{Agent: ref, Session: sessions[0].Key,
-		State: delivery.StatePending, Seqs: []int{8}, CreatedAt: now, UpdatedAt: now})
+	id, err := j.AddDelivery(ctx, delivery.Delivery{
+		Agent: ref, Session: sessions[0].Key,
+		State: delivery.StatePending, Seqs: []int{8}, CreatedAt: now, UpdatedAt: now,
+	})
 	if err != nil || id <= 17 {
 		t.Fatalf("new delivery id %d, want greater than preserved id 17: %v", id, err)
 	}

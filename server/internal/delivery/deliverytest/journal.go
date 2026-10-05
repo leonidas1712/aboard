@@ -55,6 +55,32 @@ func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 		}
 	})
 
+	t.Run("SameNameAndIdOnAnotherServerNeverShareState", func(t *testing.T) {
+		j := open(t)
+		old := journalSeat(t, review, "mem_old")
+		fresh := journalSeat(t, review, "mem_new")
+		other := old
+		other.Server = "https://another.example"
+		third := delivery.SessionKey{Harness: "codex", ID: "s-third"}
+		for _, b := range []delivery.Binding{{Agent: old, Session: claudeA, BoundAt: t0}, {Agent: fresh, Session: claudeB, BoundAt: t0}, {Agent: other, Session: third, BoundAt: t0}} {
+			must(t, j.Bind(ctx, b))
+		}
+		must(t, j.SetMode(ctx, old, delivery.ModeOff))
+		must(t, j.SetMode(ctx, fresh, delivery.ModeFocused))
+		must(t, j.SetMode(ctx, other, delivery.ModeHumans))
+		_, err := j.AddDelivery(ctx, delivery.Delivery{Agent: old, Session: claudeA, State: delivery.StateConfirmed, Seqs: []int{6}, CreatedAt: t0, UpdatedAt: t0})
+		must(t, err)
+		bindings, err := j.Bindings(ctx)
+		must(t, err)
+		modes, err := j.Modes(ctx)
+		must(t, err)
+		ds, err := j.Deliveries(ctx, delivery.StateConfirmed)
+		must(t, err)
+		if len(bindings) != 3 || len(modes) != 3 || modes[old] != delivery.ModeOff || modes[fresh] != delivery.ModeFocused || modes[other] != delivery.ModeHumans || len(ds) != 1 || ds[0].Agent != old {
+			t.Fatalf("seat state leaked: bindings=%+v modes=%v deliveries=%+v", bindings, modes, ds)
+		}
+	})
+
 	t.Run("ResolveIdentityPromotesOnlyVerifiedLegacyState", func(t *testing.T) {
 		j := open(t)
 		resolved := journalSeat(t, review, "mem_verified")
