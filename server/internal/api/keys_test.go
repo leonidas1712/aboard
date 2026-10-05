@@ -320,6 +320,9 @@ func TestAnExpiredKeyEndsItsStreamsAndWaits(t *testing.T) {
 
 	st := s.openStream(phone)
 	st.head()
+	// The stream's keepalive and expiry, counted before the wait starts, so the wait's own
+	// two timers are always counted on top of them.
+	base := s.timersWaiting(2)
 	wait := 600
 	waited := make(chan struct{})
 	go func() {
@@ -333,8 +336,8 @@ func TestAnExpiredKeyEndsItsStreamsAndWaits(t *testing.T) {
 			t.Errorf("the agent's inbox wait as its key expired: %d %s", r.StatusCode(), r.Body)
 		}
 	}()
-	// The stream's keepalive and expiry, then the wait's timeout and expiry.
-	s.timersWaiting(s.timersWaiting(2) + 2)
+	// Then the wait's timeout and expiry.
+	s.timersWaiting(base + 2)
 	s.clock.Advance(5 * time.Minute)
 	select {
 	case <-waited:
