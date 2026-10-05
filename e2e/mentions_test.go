@@ -233,3 +233,31 @@ func TestAMentionInAReplyBringsSomeoneIn(t *testing.T) {
 		t.Fatalf("critic's inbox: %v, want #%d", got, seq)
 	}
 }
+
+// The wakes_no_agent warning goes by what happens, not by who is mentioned: a message to
+// everyone whose only mention is of an agent in off mode wakes no agent, so it warns.
+func TestMentioningOnlyAnAgentInOffModeStillWarns(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer, reviewer, critic := e.claudeSession("s-writer"), e.claudeSession("s-reviewer"), e.claudeSession("s-critic")
+	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
+	reviewer.run("join", line, "--name", "reviewer")
+	critic.run("join", line, "--name", "critic")
+	e.run("delivery", "off", "--as", "reviewer")
+	reviewer.startHook("stop")
+	critic.startHook("stop")
+	e.presenceIs("writer-reviewer", "reviewer", "idle", "off")
+	e.presenceIs("writer-reviewer", "critic", "idle", "")
+
+	out := writer.run("say", "@reviewer the build is red.", "--json").json(t)
+	matchesCLISpec(t, "SayOutput", out)
+	if rv := recipient(t, out, "reviewer"); rv["outcome"] != "not_woken" || rv["mentioned"] != true {
+		t.Fatalf("the mentioned agent in off mode: %v", rv)
+	}
+	if c := recipient(t, out, "critic"); c["outcome"] != "next_turn" {
+		t.Fatalf("the agent nobody mentioned: %v", c)
+	}
+	if field(t, out, "warning.code") != "wakes_no_agent" {
+		t.Fatalf("a message whose only mention is of an agent in off mode should warn: %v", out["warning"])
+	}
+}

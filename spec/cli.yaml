@@ -855,8 +855,9 @@ $defs:
       agents read only messages addressed to them, …").
 
       `warning` is set when the message is to everyone and wakes no agent: at least one
-      recipient's outcome is `next_turn`, none is `now` or `turn_end`, and the message
-      mentions no agent that its mention wakes. In focused mode,
+      recipient's outcome is `next_turn` and none is `now` or `turn_end`. A mentioned
+      agent counts by its outcome: one its mention wakes now or at its turn's end stops
+      the warning, and one in `off` mode doesn't. In focused mode,
       the default, a message to everyone that asks nothing and answers nothing wakes no
       agent, so an agent that posts to everyone when it means one agent leaves that agent
       asleep. Text output then ends with one more line, in yellow at a terminal:

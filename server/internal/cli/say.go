@@ -189,10 +189,6 @@ func wakeWarning(m *api.Message, rs []recipientNote) *sayWarning {
 	if len(m.To) > 0 && !slices.Contains(m.To, "all") {
 		return nil
 	}
-	// The sender meant the agents it mentions; the outcomes above say when they see it.
-	if slices.ContainsFunc(m.Mentions, func(mn api.Mention) bool { return mn.Wakes }) {
-		return nil
-	}
 	quiet := false
 	for _, r := range rs {
 		switch r.Outcome {
