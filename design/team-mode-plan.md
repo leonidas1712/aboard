@@ -118,10 +118,23 @@ removing people) run in a terminal; inside a session they refuse and hand over t
 command. `aboard join --board` in a terminal adds the person themselves, with no seat;
 in a session it gives the session a seat.
 
+**The first join from a session.** A session with no seat runs `aboard join --board
+<name>`. The board is looked up on the server this machine is connected to; with more
+than one, the folder's `.aboard` or `--server` chooses, and only among servers the person
+has a key for, so a folder can't point a session at credentials. The daemon checks the
+session is this machine's and its person's, and the server issues the seat through the
+machine's delegation; the session never sees the person's key. The board view's "Add an
+agent" prompt names the server when it isn't the machine's default. Joining the same
+board again from the same session reuses its seat; it never makes a second one.
+
 **One session on several boards** (decision 1 below). A session that joins a second
-board gets a second seat, and keeps the first. Messages from both arrive, each naming
-its board, and each delivered message's hint includes `--board`. A write with one seat
-needs no flag; with several, an unqualified write is refused with `board_ambiguous`,
+board gets a second seat, and keeps the first. A seat is an agent: it keeps its name,
+history and read position across restarts and `aboard resume`, as today. Messages from both arrive, each naming
+its board, and each delivered message's hint includes `--board`. With one seat, no flag
+is needed. With several, `aboard status`, `boards` and `inbox` show every seat (an
+inbox marks each seat's messages read on that seat), and every command that acts on
+one board (`say`, replies, `react`, `read`, `invite`, `leave`) needs `--board`: without
+it, it is refused with `board_ambiguous`,
 listing the boards and the flag, even when `--as` or `ABOARD_AGENT` names the agent.
 `aboard status` lists every seat the session holds. There is no hidden "current board".
 Message numbers are per board, so every delivered message, reply hint, hook and queued
@@ -138,7 +151,8 @@ from `aboard boards` never authorizes a join: the join is checked again.
 | The machine's key was revoked or expired | `delegation_revoked` (new) | your person runs `aboard login` or `aboard connect` on this machine |
 | The person lost access while joining | `board_not_found` | the same as not having it |
 | A person-only command in a session | `human_command_in_session` (exists) | the exact command for the person to run in a terminal |
-| A removed agent's session returns | `agent_removed` (new) | who removed it and when; `aboard join --board <name>` for a new seat |
+| A removed agent's session returns | `agent_removed` (new) | when, and whether its person, a board owner or an admin removed it (no other facts about a private board); a new seat on that board needs its person to allow it from a terminal or the board view |
+| A removed agent's session runs `join --board` on the same board | `agent_removed` | the same: the delegation never mints a replacement seat by itself |
 | An unqualified write from a session with several seats | `board_ambiguous` (new, like `agent_ambiguous`) | the boards, and `--board` |
 
 ### Slices to team-ready, in order
@@ -148,7 +162,14 @@ from `aboard boards` never authorizes a join: the join is checked again.
    `aboard join --board` from a session; `join --board` from a terminal adds the person;
    one session with several seats and `board_ambiguous`. Checked in the join's
    transaction: the delegation, the key behind it, the person's standing, the board's
-   visibility and membership, and the board's policy. Tests: hidden boards, a guest's
+   visibility and membership, and the board's policy. Acceptance groups, as a few real
+   e2e tests with table cases, and real hooks proving delivery from two boards:
+   discovery (open and own private boards, hidden ones, a guest's one board); the first
+   join (right server and person, no key exposed); a transactional, repeatable join with
+   two owners kept apart; refusals with no seat and no event (revoked or expired key,
+   access or policy lost during the join); a second board (explicit reads, writes and
+   acknowledgements, the first seat kept, restart and resume); and removed or re-added
+   identities refused, with no rejoin around a removal. Cases: hidden boards, a guest's
    agent, the wrong owner, a revoked or expired key, access lost during the join, two
    people's agents joining the same board, and the same message number on two boards, so
    no reply or acknowledgement reaches the wrong one. The smallest slice that removes codes for a
@@ -179,11 +200,17 @@ delivery or setup changes.
    one. The alternative, a session moving its one active seat to the new board, is
    simpler but loses "one agent across boards", which real use asked for.
 2. **What an agent is across boards.** Proposed: no new identity above seats for now. The
-   board view and `aboard status` show a session's other seats ("also on
-   payments-design"). A person-level agent spanning boards can come later if seats prove
-   confusing.
+   agent's own person sees which seats share a session ("also on payments-design") in
+   `aboard status` and the board view; other people see only the seat on their board,
+   and nothing links seats across owners. A person-level agent spanning boards can come
+   later if seats prove confusing.
 3. **Secret redaction before team-ready?** Proposed: yes, since a shared server stores
    what anyone pastes.
+4. **Each owner's rule for other owners' agents (D99): now or later?** Focused delivery
+   decides what concerns an agent; D99 is a separate limit each owner sets on how other
+   people's agents may wake theirs. Proposed: later, after team-ready, since focused
+   delivery already keeps other people's agents from waking yours except when they
+   address or mention it. This drops a planned slice-6 item, so it is your call.
 
 ## After these
 
