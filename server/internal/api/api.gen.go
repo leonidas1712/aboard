@@ -3771,6 +3771,11 @@ type ConnectParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// CreateDelegationParams defines parameters for CreateDelegation.
+type CreateDelegationParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // GuestJoinParams defines parameters for GuestJoin.
 type GuestJoinParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -5529,7 +5534,9 @@ type ClientInterface interface {
 	// included) and with its person's removal from the server. Its use counts as a use
 	// of its key, as an agent token's does. The token is returned only here; the server
 	// keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-	// no-store` and is never kept for an `Idempotency-Key` repeat.
+	// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+	// and ignored, so a repeat with the same key is a new call, which makes another
+	// delegation and ends the one the first call made (same `name`).
 	//
 	// A server from before delegations answers 404 `not_found`; a server that lists
 	// the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -5538,7 +5545,7 @@ type ClientInterface interface {
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-	CreateDelegationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateDelegationWithBody(ctx context.Context, params *CreateDelegationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateDelegation Make a machine's delegation from this access key
 	//
@@ -5555,7 +5562,9 @@ type ClientInterface interface {
 	// included) and with its person's removal from the server. Its use counts as a use
 	// of its key, as an agent token's does. The token is returned only here; the server
 	// keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-	// no-store` and is never kept for an `Idempotency-Key` repeat.
+	// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+	// and ignored, so a repeat with the same key is a new call, which makes another
+	// delegation and ends the one the first call made (same `name`).
 	//
 	// A server from before delegations answers 404 `not_found`; a server that lists
 	// the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -5564,7 +5573,7 @@ type ClientInterface interface {
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-	CreateDelegation(ctx context.Context, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateDelegation(ctx context.Context, params *CreateDelegationParams, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GuestJoinWithBody Redeem a guest code and join its board as a guest
 	//
@@ -5713,24 +5722,45 @@ type ClientInterface interface {
 	//    `board_not_found`, exactly as a board that doesn't exist. A guest's
 	//    delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 	//    agents come only from guest codes.
-	// 3. The newest seat recorded for this `session` on this board, if any (made
-	//    through a delegation, or by a person's key that sent `session`): if it was
-	//    removed, 403 `agent_removed`, and the delegation never makes a replacement
-	//    (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-	//    `person` for its own person, `board_owner` or `admin`, and nothing else about
-	//    the board);
+	// 3. The newest seat recorded for this person, this board and this `session`
+	//    together, if any (made through a delegation, or by this person's own key that
+	//    sent `session`). The lookup is keyed by the person's id, which never changes,
+	//    the board's id and the session string, never by the session and board alone:
+	//    a seat that another person's join recorded with the same session string is
+	//    never found, reused or given a new token, and two people whose harnesses
+	//    supply the same session string each get their own seat.
+	//    If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+	//    replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+	//    one of `person` for its own person, `board_owner` or `admin`, and nothing
+	//    else about the board);
 	//    if it still works, the answer is 200 with that same seat, `reused: true` and a
-	//    new token for it, and the seat's earlier token stops working. A reuse writes
-	//    no event.
+	//    new token for it. Reuse is decided only here, after steps 1 and 2 have
+	//    checked the delegation, its access key, the person's standing and their
+	//    access to the board in this transaction, and after this step has checked
+	//    that the seat isn't removed. The new token's parent is the access key behind
+	//    this delegation, the one step 1 checked, so revoking that key ends it, as it
+	//    ends a new seat's token; every earlier token of the seat stops working in the
+	//    same transaction. A reuse writes no event.
 	// 4. The person is on the board. On an open board they aren't on, they are added
-	//    first, under their old member id if they were on it before, as joining it
-	//    themselves would add them (`person.added` with `via: "delegation"`).
+	//    first, as a member and never as an owner, under their old member id if they
+	//    were on it before, as joining it themselves would add them (`person.added`
+	//    with `via: "delegation"`).
 	// 5. The board's roles and policy: the role exists (`role_not_found`) and the name
-	//    follows them (`name_taken`).
+	//    follows them (`name_taken`), and the board's policy allows the join.
 	//
 	// It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 	// answers 201. The actor of both events is the person, as for any join their
-	// credential makes. The session string is never written to the record.
+	// credential makes. The session string is never written to the record. A refusal
+	// at any step undoes the whole join, the person's addition in step 4 included:
+	// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+	// no membership.
+	//
+	// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+	// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+	// holds a token: the key is accepted and ignored, so a repeat with the same key is
+	// a new call. It finds the seat the first call made or reused and answers it again
+	// (200, `reused: true`) with another new token, and the token the first answer
+	// carried stops working.
 	//
 	// A server from before delegations answers a delegation as an unknown token (401
 	// `unauthorized`).
@@ -5785,24 +5815,45 @@ type ClientInterface interface {
 	//    `board_not_found`, exactly as a board that doesn't exist. A guest's
 	//    delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 	//    agents come only from guest codes.
-	// 3. The newest seat recorded for this `session` on this board, if any (made
-	//    through a delegation, or by a person's key that sent `session`): if it was
-	//    removed, 403 `agent_removed`, and the delegation never makes a replacement
-	//    (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-	//    `person` for its own person, `board_owner` or `admin`, and nothing else about
-	//    the board);
+	// 3. The newest seat recorded for this person, this board and this `session`
+	//    together, if any (made through a delegation, or by this person's own key that
+	//    sent `session`). The lookup is keyed by the person's id, which never changes,
+	//    the board's id and the session string, never by the session and board alone:
+	//    a seat that another person's join recorded with the same session string is
+	//    never found, reused or given a new token, and two people whose harnesses
+	//    supply the same session string each get their own seat.
+	//    If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+	//    replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+	//    one of `person` for its own person, `board_owner` or `admin`, and nothing
+	//    else about the board);
 	//    if it still works, the answer is 200 with that same seat, `reused: true` and a
-	//    new token for it, and the seat's earlier token stops working. A reuse writes
-	//    no event.
+	//    new token for it. Reuse is decided only here, after steps 1 and 2 have
+	//    checked the delegation, its access key, the person's standing and their
+	//    access to the board in this transaction, and after this step has checked
+	//    that the seat isn't removed. The new token's parent is the access key behind
+	//    this delegation, the one step 1 checked, so revoking that key ends it, as it
+	//    ends a new seat's token; every earlier token of the seat stops working in the
+	//    same transaction. A reuse writes no event.
 	// 4. The person is on the board. On an open board they aren't on, they are added
-	//    first, under their old member id if they were on it before, as joining it
-	//    themselves would add them (`person.added` with `via: "delegation"`).
+	//    first, as a member and never as an owner, under their old member id if they
+	//    were on it before, as joining it themselves would add them (`person.added`
+	//    with `via: "delegation"`).
 	// 5. The board's roles and policy: the role exists (`role_not_found`) and the name
-	//    follows them (`name_taken`).
+	//    follows them (`name_taken`), and the board's policy allows the join.
 	//
 	// It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 	// answers 201. The actor of both events is the person, as for any join their
-	// credential makes. The session string is never written to the record.
+	// credential makes. The session string is never written to the record. A refusal
+	// at any step undoes the whole join, the person's addition in step 4 included:
+	// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+	// no membership.
+	//
+	// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+	// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+	// holds a token: the key is accepted and ignored, so a repeat with the same key is
+	// a new call. It finds the seat the first call made or reused and answers it again
+	// (200, `reused: true`) with another new token, and the token the first answer
+	// carried stops working.
 	//
 	// A server from before delegations answers a delegation as an unknown token (401
 	// `unauthorized`).
@@ -7662,7 +7713,9 @@ func (c *Client) Connect(ctx context.Context, params *ConnectParams, body Connec
 // included) and with its person's removal from the server. Its use counts as a use
 // of its key, as an agent token's does. The token is returned only here; the server
 // keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-// no-store` and is never kept for an `Idempotency-Key` repeat.
+// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+// and ignored, so a repeat with the same key is a new call, which makes another
+// delegation and ends the one the first call made (same `name`).
 //
 // A server from before delegations answers 404 `not_found`; a server that lists
 // the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -7671,8 +7724,8 @@ func (c *Client) Connect(ctx context.Context, params *ConnectParams, body Connec
 // Takes any type of body and a specified content type.
 //
 // Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-func (c *Client) CreateDelegationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateDelegationRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateDelegationWithBody(ctx context.Context, params *CreateDelegationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDelegationRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7698,7 +7751,9 @@ func (c *Client) CreateDelegationWithBody(ctx context.Context, contentType strin
 // included) and with its person's removal from the server. Its use counts as a use
 // of its key, as an agent token's does. The token is returned only here; the server
 // keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-// no-store` and is never kept for an `Idempotency-Key` repeat.
+// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+// and ignored, so a repeat with the same key is a new call, which makes another
+// delegation and ends the one the first call made (same `name`).
 //
 // A server from before delegations answers 404 `not_found`; a server that lists
 // the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -7707,8 +7762,8 @@ func (c *Client) CreateDelegationWithBody(ctx context.Context, contentType strin
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-func (c *Client) CreateDelegation(ctx context.Context, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateDelegationRequest(c.Server, body)
+func (c *Client) CreateDelegation(ctx context.Context, params *CreateDelegationParams, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDelegationRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7916,24 +7971,45 @@ func (c *Client) CreateServerInvite(ctx context.Context, params *CreateServerInv
 //     `board_not_found`, exactly as a board that doesn't exist. A guest's
 //     delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 //     agents come only from guest codes.
-//  3. The newest seat recorded for this `session` on this board, if any (made
-//     through a delegation, or by a person's key that sent `session`): if it was
-//     removed, 403 `agent_removed`, and the delegation never makes a replacement
-//     (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-//     `person` for its own person, `board_owner` or `admin`, and nothing else about
-//     the board);
+//  3. The newest seat recorded for this person, this board and this `session`
+//     together, if any (made through a delegation, or by this person's own key that
+//     sent `session`). The lookup is keyed by the person's id, which never changes,
+//     the board's id and the session string, never by the session and board alone:
+//     a seat that another person's join recorded with the same session string is
+//     never found, reused or given a new token, and two people whose harnesses
+//     supply the same session string each get their own seat.
+//     If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+//     replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+//     one of `person` for its own person, `board_owner` or `admin`, and nothing
+//     else about the board);
 //     if it still works, the answer is 200 with that same seat, `reused: true` and a
-//     new token for it, and the seat's earlier token stops working. A reuse writes
-//     no event.
+//     new token for it. Reuse is decided only here, after steps 1 and 2 have
+//     checked the delegation, its access key, the person's standing and their
+//     access to the board in this transaction, and after this step has checked
+//     that the seat isn't removed. The new token's parent is the access key behind
+//     this delegation, the one step 1 checked, so revoking that key ends it, as it
+//     ends a new seat's token; every earlier token of the seat stops working in the
+//     same transaction. A reuse writes no event.
 //  4. The person is on the board. On an open board they aren't on, they are added
-//     first, under their old member id if they were on it before, as joining it
-//     themselves would add them (`person.added` with `via: "delegation"`).
+//     first, as a member and never as an owner, under their old member id if they
+//     were on it before, as joining it themselves would add them (`person.added`
+//     with `via: "delegation"`).
 //  5. The board's roles and policy: the role exists (`role_not_found`) and the name
-//     follows them (`name_taken`).
+//     follows them (`name_taken`), and the board's policy allows the join.
 //
 // It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 // answers 201. The actor of both events is the person, as for any join their
-// credential makes. The session string is never written to the record.
+// credential makes. The session string is never written to the record. A refusal
+// at any step undoes the whole join, the person's addition in step 4 included:
+// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+// no membership.
+//
+// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+// holds a token: the key is accepted and ignored, so a repeat with the same key is
+// a new call. It finds the seat the first call made or reused and answers it again
+// (200, `reused: true`) with another new token, and the token the first answer
+// carried stops working.
 //
 // A server from before delegations answers a delegation as an unknown token (401
 // `unauthorized`).
@@ -7998,24 +8074,45 @@ func (c *Client) JoinWithBody(ctx context.Context, params *JoinParams, contentTy
 //     `board_not_found`, exactly as a board that doesn't exist. A guest's
 //     delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 //     agents come only from guest codes.
-//  3. The newest seat recorded for this `session` on this board, if any (made
-//     through a delegation, or by a person's key that sent `session`): if it was
-//     removed, 403 `agent_removed`, and the delegation never makes a replacement
-//     (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-//     `person` for its own person, `board_owner` or `admin`, and nothing else about
-//     the board);
+//  3. The newest seat recorded for this person, this board and this `session`
+//     together, if any (made through a delegation, or by this person's own key that
+//     sent `session`). The lookup is keyed by the person's id, which never changes,
+//     the board's id and the session string, never by the session and board alone:
+//     a seat that another person's join recorded with the same session string is
+//     never found, reused or given a new token, and two people whose harnesses
+//     supply the same session string each get their own seat.
+//     If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+//     replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+//     one of `person` for its own person, `board_owner` or `admin`, and nothing
+//     else about the board);
 //     if it still works, the answer is 200 with that same seat, `reused: true` and a
-//     new token for it, and the seat's earlier token stops working. A reuse writes
-//     no event.
+//     new token for it. Reuse is decided only here, after steps 1 and 2 have
+//     checked the delegation, its access key, the person's standing and their
+//     access to the board in this transaction, and after this step has checked
+//     that the seat isn't removed. The new token's parent is the access key behind
+//     this delegation, the one step 1 checked, so revoking that key ends it, as it
+//     ends a new seat's token; every earlier token of the seat stops working in the
+//     same transaction. A reuse writes no event.
 //  4. The person is on the board. On an open board they aren't on, they are added
-//     first, under their old member id if they were on it before, as joining it
-//     themselves would add them (`person.added` with `via: "delegation"`).
+//     first, as a member and never as an owner, under their old member id if they
+//     were on it before, as joining it themselves would add them (`person.added`
+//     with `via: "delegation"`).
 //  5. The board's roles and policy: the role exists (`role_not_found`) and the name
-//     follows them (`name_taken`).
+//     follows them (`name_taken`), and the board's policy allows the join.
 //
 // It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 // answers 201. The actor of both events is the person, as for any join their
-// credential makes. The session string is never written to the record.
+// credential makes. The session string is never written to the record. A refusal
+// at any step undoes the whole join, the person's addition in step 4 included:
+// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+// no membership.
+//
+// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+// holds a token: the key is accepted and ignored, so a repeat with the same key is
+// a new call. It finds the seat the first call made or reused and answers it again
+// (200, `reused: true`) with another new token, and the token the first answer
+// carried stops working.
 //
 // A server from before delegations answers a delegation as an unknown token (401
 // `unauthorized`).
@@ -10519,18 +10616,18 @@ func NewConnectRequestWithBody(server string, params *ConnectParams, contentType
 }
 
 // NewCreateDelegationRequest calls the generic CreateDelegation builder with application/json body
-func NewCreateDelegationRequest(server string, body CreateDelegationJSONRequestBody) (*http.Request, error) {
+func NewCreateDelegationRequest(server string, params *CreateDelegationParams, body CreateDelegationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateDelegationRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateDelegationRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateDelegationRequestWithBody constructs an http.Request for the CreateDelegation method, with any body, and a specified content type
-func NewCreateDelegationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateDelegationRequestWithBody(server string, params *CreateDelegationParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -10554,6 +10651,21 @@ func NewCreateDelegationRequestWithBody(server string, contentType string, body 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -12947,7 +13059,9 @@ type ClientWithResponsesInterface interface {
 	// included) and with its person's removal from the server. Its use counts as a use
 	// of its key, as an agent token's does. The token is returned only here; the server
 	// keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-	// no-store` and is never kept for an `Idempotency-Key` repeat.
+	// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+	// and ignored, so a repeat with the same key is a new call, which makes another
+	// delegation and ends the one the first call made (same `name`).
 	//
 	// A server from before delegations answers 404 `not_found`; a server that lists
 	// the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -12956,7 +13070,7 @@ type ClientWithResponsesInterface interface {
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-	CreateDelegationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error)
+	CreateDelegationWithBodyWithResponse(ctx context.Context, params *CreateDelegationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error)
 
 	// CreateDelegationWithResponse Make a machine's delegation from this access key
 	//
@@ -12973,7 +13087,9 @@ type ClientWithResponsesInterface interface {
 	// included) and with its person's removal from the server. Its use counts as a use
 	// of its key, as an agent token's does. The token is returned only here; the server
 	// keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-	// no-store` and is never kept for an `Idempotency-Key` repeat.
+	// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+	// and ignored, so a repeat with the same key is a new call, which makes another
+	// delegation and ends the one the first call made (same `name`).
 	//
 	// A server from before delegations answers 404 `not_found`; a server that lists
 	// the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -12982,7 +13098,7 @@ type ClientWithResponsesInterface interface {
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-	CreateDelegationWithResponse(ctx context.Context, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error)
+	CreateDelegationWithResponse(ctx context.Context, params *CreateDelegationParams, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error)
 
 	// GuestJoinWithBodyWithResponse Redeem a guest code and join its board as a guest
 	//
@@ -13133,24 +13249,45 @@ type ClientWithResponsesInterface interface {
 	//    `board_not_found`, exactly as a board that doesn't exist. A guest's
 	//    delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 	//    agents come only from guest codes.
-	// 3. The newest seat recorded for this `session` on this board, if any (made
-	//    through a delegation, or by a person's key that sent `session`): if it was
-	//    removed, 403 `agent_removed`, and the delegation never makes a replacement
-	//    (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-	//    `person` for its own person, `board_owner` or `admin`, and nothing else about
-	//    the board);
+	// 3. The newest seat recorded for this person, this board and this `session`
+	//    together, if any (made through a delegation, or by this person's own key that
+	//    sent `session`). The lookup is keyed by the person's id, which never changes,
+	//    the board's id and the session string, never by the session and board alone:
+	//    a seat that another person's join recorded with the same session string is
+	//    never found, reused or given a new token, and two people whose harnesses
+	//    supply the same session string each get their own seat.
+	//    If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+	//    replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+	//    one of `person` for its own person, `board_owner` or `admin`, and nothing
+	//    else about the board);
 	//    if it still works, the answer is 200 with that same seat, `reused: true` and a
-	//    new token for it, and the seat's earlier token stops working. A reuse writes
-	//    no event.
+	//    new token for it. Reuse is decided only here, after steps 1 and 2 have
+	//    checked the delegation, its access key, the person's standing and their
+	//    access to the board in this transaction, and after this step has checked
+	//    that the seat isn't removed. The new token's parent is the access key behind
+	//    this delegation, the one step 1 checked, so revoking that key ends it, as it
+	//    ends a new seat's token; every earlier token of the seat stops working in the
+	//    same transaction. A reuse writes no event.
 	// 4. The person is on the board. On an open board they aren't on, they are added
-	//    first, under their old member id if they were on it before, as joining it
-	//    themselves would add them (`person.added` with `via: "delegation"`).
+	//    first, as a member and never as an owner, under their old member id if they
+	//    were on it before, as joining it themselves would add them (`person.added`
+	//    with `via: "delegation"`).
 	// 5. The board's roles and policy: the role exists (`role_not_found`) and the name
-	//    follows them (`name_taken`).
+	//    follows them (`name_taken`), and the board's policy allows the join.
 	//
 	// It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 	// answers 201. The actor of both events is the person, as for any join their
-	// credential makes. The session string is never written to the record.
+	// credential makes. The session string is never written to the record. A refusal
+	// at any step undoes the whole join, the person's addition in step 4 included:
+	// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+	// no membership.
+	//
+	// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+	// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+	// holds a token: the key is accepted and ignored, so a repeat with the same key is
+	// a new call. It finds the seat the first call made or reused and answers it again
+	// (200, `reused: true`) with another new token, and the token the first answer
+	// carried stops working.
 	//
 	// A server from before delegations answers a delegation as an unknown token (401
 	// `unauthorized`).
@@ -13205,24 +13342,45 @@ type ClientWithResponsesInterface interface {
 	//    `board_not_found`, exactly as a board that doesn't exist. A guest's
 	//    delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 	//    agents come only from guest codes.
-	// 3. The newest seat recorded for this `session` on this board, if any (made
-	//    through a delegation, or by a person's key that sent `session`): if it was
-	//    removed, 403 `agent_removed`, and the delegation never makes a replacement
-	//    (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-	//    `person` for its own person, `board_owner` or `admin`, and nothing else about
-	//    the board);
+	// 3. The newest seat recorded for this person, this board and this `session`
+	//    together, if any (made through a delegation, or by this person's own key that
+	//    sent `session`). The lookup is keyed by the person's id, which never changes,
+	//    the board's id and the session string, never by the session and board alone:
+	//    a seat that another person's join recorded with the same session string is
+	//    never found, reused or given a new token, and two people whose harnesses
+	//    supply the same session string each get their own seat.
+	//    If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+	//    replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+	//    one of `person` for its own person, `board_owner` or `admin`, and nothing
+	//    else about the board);
 	//    if it still works, the answer is 200 with that same seat, `reused: true` and a
-	//    new token for it, and the seat's earlier token stops working. A reuse writes
-	//    no event.
+	//    new token for it. Reuse is decided only here, after steps 1 and 2 have
+	//    checked the delegation, its access key, the person's standing and their
+	//    access to the board in this transaction, and after this step has checked
+	//    that the seat isn't removed. The new token's parent is the access key behind
+	//    this delegation, the one step 1 checked, so revoking that key ends it, as it
+	//    ends a new seat's token; every earlier token of the seat stops working in the
+	//    same transaction. A reuse writes no event.
 	// 4. The person is on the board. On an open board they aren't on, they are added
-	//    first, under their old member id if they were on it before, as joining it
-	//    themselves would add them (`person.added` with `via: "delegation"`).
+	//    first, as a member and never as an owner, under their old member id if they
+	//    were on it before, as joining it themselves would add them (`person.added`
+	//    with `via: "delegation"`).
 	// 5. The board's roles and policy: the role exists (`role_not_found`) and the name
-	//    follows them (`name_taken`).
+	//    follows them (`name_taken`), and the board's policy allows the join.
 	//
 	// It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 	// answers 201. The actor of both events is the person, as for any join their
-	// credential makes. The session string is never written to the record.
+	// credential makes. The session string is never written to the record. A refusal
+	// at any step undoes the whole join, the person's addition in step 4 included:
+	// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+	// no membership.
+	//
+	// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+	// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+	// holds a token: the key is accepted and ignored, so a repeat with the same key is
+	// a new call. It finds the seat the first call made or reused and answers it again
+	// (200, `reused: true`) with another new token, and the token the first answer
+	// carried stops working.
 	//
 	// A server from before delegations answers a delegation as an unknown token (401
 	// `unauthorized`).
@@ -15976,6 +16134,16 @@ func (r CreateServerInviteResponse) ContentType() string {
 	return ""
 }
 
+// JoinResponse200Headers the declared response headers of an HTTP 200 response for Join
+type JoinResponse200Headers struct {
+	CacheControl *string
+}
+
+// JoinResponse201Headers the declared response headers of an HTTP 201 response for Join
+type JoinResponse201Headers struct {
+	CacheControl *string
+}
+
 // JoinResponse429Headers the declared response headers of an HTTP 429 response for Join
 type JoinResponse429Headers struct {
 	RetryAfter *int
@@ -16000,6 +16168,10 @@ type JoinResponse struct {
 	JSON422 *Error
 	// JSON429 the response for an HTTP 429 `application/json` response
 	JSON429 *Error
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *JoinResponse200Headers
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *JoinResponse201Headers
 	// Headers429 the parsed response headers for an HTTP 429 response
 	Headers429 *JoinResponse429Headers
 }
@@ -18913,7 +19085,9 @@ func (c *ClientWithResponses) ConnectWithResponse(ctx context.Context, params *C
 // included) and with its person's removal from the server. Its use counts as a use
 // of its key, as an agent token's does. The token is returned only here; the server
 // keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-// no-store` and is never kept for an `Idempotency-Key` repeat.
+// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+// and ignored, so a repeat with the same key is a new call, which makes another
+// delegation and ends the one the first call made (same `name`).
 //
 // A server from before delegations answers 404 `not_found`; a server that lists
 // the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -18922,8 +19096,8 @@ func (c *ClientWithResponses) ConnectWithResponse(ctx context.Context, params *C
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-func (c *ClientWithResponses) CreateDelegationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error) {
-	rsp, err := c.CreateDelegationWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateDelegationWithBodyWithResponse(ctx context.Context, params *CreateDelegationParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error) {
+	rsp, err := c.CreateDelegationWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -18945,7 +19119,9 @@ func (c *ClientWithResponses) CreateDelegationWithBodyWithResponse(ctx context.C
 // included) and with its person's removal from the server. Its use counts as a use
 // of its key, as an agent token's does. The token is returned only here; the server
 // keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-// no-store` and is never kept for an `Idempotency-Key` repeat.
+// no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+// and ignored, so a repeat with the same key is a new call, which makes another
+// delegation and ends the one the first call made (same `name`).
 //
 // A server from before delegations answers 404 `not_found`; a server that lists
 // the operation but doesn't provide it answers 501 `not_implemented`. The daemon
@@ -18954,8 +19130,8 @@ func (c *ClientWithResponses) CreateDelegationWithBodyWithResponse(ctx context.C
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/delegations (the `CreateDelegation` operationId).
-func (c *ClientWithResponses) CreateDelegationWithResponse(ctx context.Context, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error) {
-	rsp, err := c.CreateDelegation(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateDelegationWithResponse(ctx context.Context, params *CreateDelegationParams, body CreateDelegationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDelegationResponse, error) {
+	rsp, err := c.CreateDelegation(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -19141,24 +19317,45 @@ func (c *ClientWithResponses) CreateServerInviteWithResponse(ctx context.Context
 //     `board_not_found`, exactly as a board that doesn't exist. A guest's
 //     delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 //     agents come only from guest codes.
-//  3. The newest seat recorded for this `session` on this board, if any (made
-//     through a delegation, or by a person's key that sent `session`): if it was
-//     removed, 403 `agent_removed`, and the delegation never makes a replacement
-//     (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-//     `person` for its own person, `board_owner` or `admin`, and nothing else about
-//     the board);
+//  3. The newest seat recorded for this person, this board and this `session`
+//     together, if any (made through a delegation, or by this person's own key that
+//     sent `session`). The lookup is keyed by the person's id, which never changes,
+//     the board's id and the session string, never by the session and board alone:
+//     a seat that another person's join recorded with the same session string is
+//     never found, reused or given a new token, and two people whose harnesses
+//     supply the same session string each get their own seat.
+//     If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+//     replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+//     one of `person` for its own person, `board_owner` or `admin`, and nothing
+//     else about the board);
 //     if it still works, the answer is 200 with that same seat, `reused: true` and a
-//     new token for it, and the seat's earlier token stops working. A reuse writes
-//     no event.
+//     new token for it. Reuse is decided only here, after steps 1 and 2 have
+//     checked the delegation, its access key, the person's standing and their
+//     access to the board in this transaction, and after this step has checked
+//     that the seat isn't removed. The new token's parent is the access key behind
+//     this delegation, the one step 1 checked, so revoking that key ends it, as it
+//     ends a new seat's token; every earlier token of the seat stops working in the
+//     same transaction. A reuse writes no event.
 //  4. The person is on the board. On an open board they aren't on, they are added
-//     first, under their old member id if they were on it before, as joining it
-//     themselves would add them (`person.added` with `via: "delegation"`).
+//     first, as a member and never as an owner, under their old member id if they
+//     were on it before, as joining it themselves would add them (`person.added`
+//     with `via: "delegation"`).
 //  5. The board's roles and policy: the role exists (`role_not_found`) and the name
-//     follows them (`name_taken`).
+//     follows them (`name_taken`), and the board's policy allows the join.
 //
 // It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 // answers 201. The actor of both events is the person, as for any join their
-// credential makes. The session string is never written to the record.
+// credential makes. The session string is never written to the record. A refusal
+// at any step undoes the whole join, the person's addition in step 4 included:
+// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+// no membership.
+//
+// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+// holds a token: the key is accepted and ignored, so a repeat with the same key is
+// a new call. It finds the seat the first call made or reused and answers it again
+// (200, `reused: true`) with another new token, and the token the first answer
+// carried stops working.
 //
 // A server from before delegations answers a delegation as an unknown token (401
 // `unauthorized`).
@@ -19219,24 +19416,45 @@ func (c *ClientWithResponses) JoinWithBodyWithResponse(ctx context.Context, para
 //     `board_not_found`, exactly as a board that doesn't exist. A guest's
 //     delegation gets 403 `guest_not_allowed` on their own board, since a guest's
 //     agents come only from guest codes.
-//  3. The newest seat recorded for this `session` on this board, if any (made
-//     through a delegation, or by a person's key that sent `session`): if it was
-//     removed, 403 `agent_removed`, and the delegation never makes a replacement
-//     (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-//     `person` for its own person, `board_owner` or `admin`, and nothing else about
-//     the board);
+//  3. The newest seat recorded for this person, this board and this `session`
+//     together, if any (made through a delegation, or by this person's own key that
+//     sent `session`). The lookup is keyed by the person's id, which never changes,
+//     the board's id and the session string, never by the session and board alone:
+//     a seat that another person's join recorded with the same session string is
+//     never found, reused or given a new token, and two people whose harnesses
+//     supply the same session string each get their own seat.
+//     If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+//     replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+//     one of `person` for its own person, `board_owner` or `admin`, and nothing
+//     else about the board);
 //     if it still works, the answer is 200 with that same seat, `reused: true` and a
-//     new token for it, and the seat's earlier token stops working. A reuse writes
-//     no event.
+//     new token for it. Reuse is decided only here, after steps 1 and 2 have
+//     checked the delegation, its access key, the person's standing and their
+//     access to the board in this transaction, and after this step has checked
+//     that the seat isn't removed. The new token's parent is the access key behind
+//     this delegation, the one step 1 checked, so revoking that key ends it, as it
+//     ends a new seat's token; every earlier token of the seat stops working in the
+//     same transaction. A reuse writes no event.
 //  4. The person is on the board. On an open board they aren't on, they are added
-//     first, under their old member id if they were on it before, as joining it
-//     themselves would add them (`person.added` with `via: "delegation"`).
+//     first, as a member and never as an owner, under their old member id if they
+//     were on it before, as joining it themselves would add them (`person.added`
+//     with `via: "delegation"`).
 //  5. The board's roles and policy: the role exists (`role_not_found`) and the name
-//     follows them (`name_taken`).
+//     follows them (`name_taken`), and the board's policy allows the join.
 //
 // It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
 // answers 201. The actor of both events is the person, as for any join their
-// credential makes. The session string is never written to the record.
+// credential makes. The session string is never written to the record. A refusal
+// at any step undoes the whole join, the person's addition in step 4 included:
+// when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+// no membership.
+//
+// Every answer that carries a token is sent with `Cache-Control: no-store`. An
+// answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+// holds a token: the key is accepted and ignored, so a repeat with the same key is
+// a new call. It finds the seat the first call made or reused and answers it again
+// (200, `reused: true`) with another new token, and the token the first answer
+// carried stops working.
 //
 // A server from before delegations answers a delegation as an unknown token (401
 // `unauthorized`).
@@ -21857,6 +22075,26 @@ func ParseJoinResponse(rsp *http.Response) (*JoinResponse, error) {
 	}
 
 	switch {
+	case rsp.StatusCode == 200:
+		var headers JoinResponse200Headers
+		if values := rsp.Header.Values("Cache-Control"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Cache-Control", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.CacheControl = &value
+		}
+		response.Headers200 = &headers
+	case rsp.StatusCode == 201:
+		var headers JoinResponse201Headers
+		if values := rsp.Header.Values("Cache-Control"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Cache-Control", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.CacheControl = &value
+		}
+		response.Headers201 = &headers
 	case rsp.StatusCode == 429:
 		var headers JoinResponse429Headers
 		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
@@ -23346,7 +23584,7 @@ type ServerInterface interface {
 	Connect(w http.ResponseWriter, r *http.Request, params ConnectParams)
 	// CreateDelegation Make a machine's delegation from this access key
 	// (POST /v1/delegations)
-	CreateDelegation(w http.ResponseWriter, r *http.Request)
+	CreateDelegation(w http.ResponseWriter, r *http.Request, params CreateDelegationParams)
 	// GuestJoin Redeem a guest code and join its board as a guest
 	// (POST /v1/guest-join)
 	GuestJoin(w http.ResponseWriter, r *http.Request, params GuestJoinParams)
@@ -24625,8 +24863,35 @@ func (siw *ServerInterfaceWrapper) Connect(w http.ResponseWriter, r *http.Reques
 // CreateDelegation operation middleware
 func (siw *ServerInterfaceWrapper) CreateDelegation(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateDelegationParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateDelegation(w, r)
+		siw.Handler.CreateDelegation(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28001,7 +28266,8 @@ func (response Connect429JSONResponse) VisitConnectResponse(w http.ResponseWrite
 }
 
 type CreateDelegationRequestObject struct {
-	Body *CreateDelegationJSONRequestBody
+	Params CreateDelegationParams
+	Body   *CreateDelegationJSONRequestBody
 }
 
 type CreateDelegationResponseObject interface {
@@ -28286,29 +28552,49 @@ type JoinResponseObject interface {
 	VisitJoinResponse(w http.ResponseWriter) error
 }
 
-type Join200JSONResponse JoinResult
+type Join200ResponseHeaders struct {
+	CacheControl *string
+}
+
+type Join200JSONResponse struct {
+	Body    JoinResult
+	Headers Join200ResponseHeaders
+}
 
 func (response Join200JSONResponse) VisitJoinResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type Join201JSONResponse JoinResult
+type Join201ResponseHeaders struct {
+	CacheControl *string
+}
+
+type Join201JSONResponse struct {
+	Body    JoinResult
+	Headers Join201ResponseHeaders
+}
 
 func (response Join201JSONResponse) VisitJoinResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.CacheControl != nil {
+		w.Header().Set("Cache-Control", fmt.Sprint(*response.Headers.CacheControl))
+	}
 	w.WriteHeader(201)
 	_, err := buf.WriteTo(w)
 	return err
@@ -31340,8 +31626,10 @@ func (sh *strictHandler) Connect(w http.ResponseWriter, r *http.Request, params 
 }
 
 // CreateDelegation operation middleware
-func (sh *strictHandler) CreateDelegation(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) CreateDelegation(w http.ResponseWriter, r *http.Request, params CreateDelegationParams) {
 	var request CreateDelegationRequestObject
+
+	request.Params = params
 
 	var body CreateDelegationJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -32691,205 +32979,214 @@ var swaggerSpec = []string{
 	"piSIvOARdtYaVYkTWXP+SG/MjcXKwEeJeMYGXGzQtY8KybGbAxro3NAPPwm41S324LL6Hk63I3YNGfPi",
 	"JKfu1gRT1NLz81N4lwFMpGCTJne3TYKHb+lf7/JMdN2IAauciueo4mpmq3B2w6DOtCEvLhM3YBAjRo80",
 	"Iv+20tfaxGbk6seVLGOkLXZKDBzLwp3s3oE/GoWIiR+HUod/++rbb0CHYLFv7JgOjNNekavBFCIF9I7f",
-	"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",
-	"mSyd/vC2Trid9sLbf3r7rwEAAP//",
+	"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",
+	"l9NaePtPb/81AAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

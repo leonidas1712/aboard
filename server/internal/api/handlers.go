@@ -213,7 +213,13 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 	if err != nil {
 		return nil, err
 	}
-	return convert[Join201JSONResponse](joinedOf(j, principal(ctx)))
+	body, err := convert[JoinResult](joinedOf(j, principal(ctx)))
+	if err != nil {
+		return nil, err
+	}
+	// The answer holds the agent's token, which no cache may keep.
+	noStore := "no-store"
+	return Join201JSONResponse{Body: body, Headers: Join201ResponseHeaders{CacheControl: &noStore}}, nil
 }
 
 // joinedOf is a new agent with its token and board, as the agent sees the board.
