@@ -159,6 +159,7 @@ PRODUCT.md, DESIGN.md  design records used for UI work (with .impeccable/design.
 
 Read the relevant guide before writing that kind of thing; they override habit.
 
+- [.agents/skills/aboard-workflow](.agents/skills/aboard-workflow/SKILL.md): how work on this repo goes: orienting, thinking ideas through, planning and decisions, building and reviewing a slice, reporting, and working with other agents on a board. Claude Code finds it through `.claude/skills/`.
 - [engineering/architecture.md](engineering/architecture.md): domain, ports and adapters; dependencies point inward.
 - [engineering/go.md](engineering/go.md): how we write Go, and what `make check` runs.
 - [engineering/testing.md](engineering/testing.md): be intentional about tests: contract suites for every adapter, e2e and live tests for real features, unit tests only where they earn it; no mocks of our own code, no sleeps, no skipped flakes.
