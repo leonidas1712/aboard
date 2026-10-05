@@ -132,6 +132,8 @@ interface Frame {
 	boot?: string;
 	agents?: { server: string; board: string; name: string }[];
 	reopened?: boolean;
+	mode?: string;
+	note?: string;
 	lost?: { server: string; board: string; name: string };
 	error?: { code: string; message: string; hint: string };
 }
@@ -394,13 +396,17 @@ class Link {
 		}
 	}
 
-	/** Tells a session that came back which agent it is again, or which it lost. */
+	/**
+	 * Tells a session that came back which agent it is again, with its delivery mode, or
+	 * which it lost: the daemon's note. A daemon from an earlier build sends none, and the
+	 * note is written here without the mode.
+	 */
 	#note(f: Frame): void {
-		let text = "";
+		let text = f.note ?? "";
 		const agent = f.agents?.[0];
-		if (f.reopened && f.agents?.length === 1 && agent) {
+		if (text === "" && f.reopened && f.agents?.length === 1 && agent) {
 			text = `Aboard: this session is ${agent.name} on ${agent.board} again, as it was before it closed.`;
-		} else if (f.lost) {
+		} else if (text === "" && f.lost) {
 			const a = f.lost;
 			text =
 				`Aboard: this session was ${a.name} on ${a.board} until another session resumed ${a.name}; it has no agent now. ` +

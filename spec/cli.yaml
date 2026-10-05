@@ -175,6 +175,28 @@ $defs:
         type: string
         examples: ["Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended"]
       tighten_command: { const: aboard board policy recommended }
+  DeliveryRule:
+    description: |
+      What the agent's delivery mode (see DeliveryOutput) means for when it wakes, and how
+      to address a message so the agents it is for act on it soon. The same words in
+      every command that shows it, in the session-start note of a session that comes
+      back, and in the notice of a changed mode (spec/delivery.md, "Telling the agent
+      its mode"):
+        focused  A message to everyone wakes no agent in focused mode, you included; it
+                 arrives quietly at each one's next turn. To make an agent act soon,
+                 address it (--to @name or --to role:R) or ask with --expect-reply.
+        all      Every message wakes you, and every other agent in all mode, so post to
+                 everyone sparingly and address the agents a message is for (--to @name
+                 or --to role:R).
+        humans   Only messages from people wake you; messages from agents wait until a
+                 person's message wakes you, or until you run aboard inbox.
+        off      Nothing wakes you or arrives by itself: read your messages with aboard
+                 inbox, or wait for one with aboard inbox --wait 60.
+      Text output writes it on a line of its own after the agent's line, as
+      "Delivery mode: <mode>. <rule>" (pair, join, resume) or indented under the Agent
+      line (status).
+    type: string
+    examples: ["A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."]
   PreviousBoard:
     description: |
       The board this directory was linked to before the command re-linked it, or null if
@@ -474,9 +496,20 @@ $defs:
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
       previous_board: { $ref: "#/$defs/PreviousBoard" }
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
+      delivery:
+        enum: [focused, all, humans, off]
+        description: The new agent's delivery mode on this machine (see DeliveryOutput).
+      delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
   JoinOutput:
+    description: |
+      Text output:
+        Joined board writer-reviewer as reviewer (owner alex)
+        This session acts as reviewer, and messages for reviewer arrive here.
+        Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply.
+      Outside a harness session the second line is "Act as this agent with --as
+      reviewer, or set ABOARD_AGENT=reviewer.".
     type: object
     required: [server, board, agent, use, charter, role_charter, policy_notice]
     properties:
@@ -489,6 +522,10 @@ $defs:
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
       previous_board: { $ref: "#/$defs/PreviousBoard" }
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
+      delivery:
+        enum: [focused, all, humans, off]
+        description: The new agent's delivery mode on this machine (see DeliveryOutput).
+      delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard invite [--role R] [--ttl DURATION] [--board NAME] ----------
   InviteOutput:
@@ -707,6 +744,13 @@ $defs:
       reconnects.", with "they … their" for several ("are disconnected … when their
       sessions reconnect").
 
+      `warning` is set when the message is to everyone and wakes no agent: at least one
+      recipient's outcome is `next_turn` and none is `now` or `turn_end`. In focused mode,
+      the default, a message to everyone that asks nothing and answers nothing wakes no
+      agent, so an agent that posts to everyone when it means one agent leaves that agent
+      asleep. Text output then ends with one more line, in yellow at a terminal:
+        Warning (wakes_no_agent): No agent wakes for this message to everyone; agents in focused mode see it at their next turn. To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply.
+
       --wait-reply N (which implies --expect-reply) then waits up to N seconds, inside the
       same command, for a reply: a message whose `reply_to` is this one. The command
       shows what came, acknowledges it so it is never delivered again (spec/delivery.md,
@@ -761,6 +805,20 @@ $defs:
               description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
               enum: [now, turn_end, next_turn, not_woken, no_session, person]
+      warning:
+        description: |
+          Set when the message is to everyone and wakes no agent (see above); null
+          otherwise, or when the recipients couldn't be read.
+        type: [object, "null"]
+        required: [code, message, hint]
+        properties:
+          code: { const: wakes_no_agent }
+          message:
+            type: string
+            examples: ["No agent wakes for this message to everyone; agents in focused mode see it at their next turn."]
+          hint:
+            type: string
+            examples: ["To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply."]
       outcome:
         description: Present with --wait-reply.
         enum: [reply, owner_message, timeout]
@@ -1150,6 +1208,7 @@ $defs:
       and any bundle left unconfirmed are delivered to this session. A session bound to
       another agent moves to this one (see PreviousAgent). Text output:
         Resumed reviewer on writer-reviewer in this session.
+        Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; …
     type: object
     required: [agent, board, session, previous_agent]
     properties:
@@ -1157,6 +1216,10 @@ $defs:
       board: { type: string }
       session: { type: string, examples: ["claude-code:5f1c…", "codex:01a0f6f6…"] }
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
+      delivery:
+        enum: [focused, all, humans, off]
+        description: The agent's delivery mode on this machine (see DeliveryOutput).
+      delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery MODE] [--allow-commands] ----------
   InitOutput:
@@ -1372,8 +1435,10 @@ $defs:
         Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as); delivery focused; idle
+                A message to everyone wakes no agent in focused mode, you included; …
         Policy: starter (a starting point; tighten with aboard board policy recommended)
         People: alex (admin), sam (member)
+      The line under the Agent line is the agent's delivery rule (DeliveryRule), indented.
       The People line appears only when more than one person is on the board; with one
       person, people is null and access isn't mentioned. When they aren't running: "Server: http://127.0.0.1:7400 not running; aboard up
       starts it" and "Daemon: not running; it starts when a session or command needs it".
@@ -1437,6 +1502,11 @@ $defs:
       delivery:
         enum: [focused, all, humans, off, null]
         description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
+      delivery_rule:
+        oneOf:
+          - $ref: "#/$defs/DeliveryRule"
+          - type: "null"
+        description: What the agent's delivery mode means (DeliveryRule); null with no agent.
       presence:
         enum: [working, idle, waiting, no_session, null]
         description: |

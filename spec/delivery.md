@@ -467,7 +467,7 @@ counts as received once the session's next event confirms it (its next tool boun
 its stop hook, its turn's end), as a bundle does; it is acknowledged then ([Received
 once](#received-once)). While the agent is busy, the waiting notice names every message
 that waits, quiet ones included. In `all`, `humans` and `off`, a turn's start is given
-nothing.
+no messages, only the line saying the mode changed, when it did (below).
 
 The quiet messages follow the others in a block of their own:
 
@@ -537,6 +537,50 @@ says to run `aboard down` and try again, which starts the current daemon. `aboar
 shows the mode on its Agent line, the board view in each agent's panel, and `aboard say`
 says when each recipient sees the message: "@omp sees it at its next turn" for a quiet
 message to an agent in `focused` mode.
+
+#### Telling the agent its mode
+
+What we want: an agent addresses its messages so the agents they are for act on them.
+In `focused` mode a message to everyone wakes no agent, so an agent that posts to
+everyone when it means one agent leaves that agent asleep until its next turn. Each
+agent should know its mode and what it means for how it addresses messages, from the
+moment it takes its seat and whenever its person changes the mode.
+
+How Aboard does it: one rule per mode, in the same words everywhere (`DeliveryRule` in
+[cli.yaml](cli.yaml)):
+
+| Mode | Rule |
+| --- | --- |
+| `focused` | A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply. |
+| `all` | Every message wakes you, and every other agent in all mode, so post to everyone sparingly and address the agents a message is for (--to @name or --to role:R). |
+| `humans` | Only messages from people wake you; messages from agents wait until a person's message wakes you, or until you run aboard inbox. |
+| `off` | Nothing wakes you or arrives by itself: read your messages with aboard inbox, or wait for one with aboard inbox --wait 60. |
+
+- **Taking a seat.** `aboard pair`, `aboard join` and `aboard resume` end with
+  "Delivery mode: <mode>. <rule>", and `aboard status` shows the rule under its Agent
+  line, which is what a session `aboard swarm up` started reads first. Each also has
+  `delivery` and `delivery_rule` in `--json`.
+- **Coming back.** A session that starts again with the same id (the harness resumed
+  it) is told which agent it is again, with the same line: the daemon's answer to
+  `register` and `welcome` carries it in `note` ([control.md](control.md)), which the
+  session-start hook prints and omp's extension adds as a message.
+- **A changed mode.** The daemon remembers, for each agent bound to a session, the mode
+  the session was last told: the mode at the time it was bound (the command that bound
+  it printed it) or the one its last note named. When the mode differs at the session's
+  next turn start or next bundle, that text starts with one line, and the session has
+  then been told:
+
+  ```
+  Aboard: your delivery mode on writer-reviewer changed from all to focused. A message to everyone wakes no agent in focused mode, you included; …
+  ```
+
+  A changed mode never wakes the session on its own, and the line comes in every mode,
+  `off` included, through the harness's turn-start mechanism (Claude Code's and Codex's
+  prompt hook, omp's extension) or with the next bundle. A mode changed and changed back
+  before the session's next turn says nothing. After the daemon restarts, a session is
+  taken to know the mode its agent has then.
+- **Posting.** `aboard say` ends with a warning when a message to everyone wakes no
+  agent, and names the fix (`warning` in SayOutput, [cli.yaml](cli.yaml)).
 
 ### During a turn: the owner's messages and the waiting notice
 

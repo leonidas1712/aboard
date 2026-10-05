@@ -8,6 +8,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/launchtickets"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
@@ -57,6 +58,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Agent          *string      `json:"agent"`
 		AgentSource    string       `json:"agent_source"`
 		Delivery       *string      `json:"delivery"`
+		DeliveryRule   *string      `json:"delivery_rule"`
 		Presence       *string      `json:"presence"`
 		Agents         []string     `json:"agents"`
 		Policy         *api.Policy  `json:"policy"`
@@ -161,7 +163,9 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		if out.Presence = presenceOf(members, name); out.Presence != nil {
 			line += "; " + presenceText(*out.Presence)
 		}
-		text.WriteString(line + "\n")
+		rule := deliverytext.ModeRule(m)
+		out.DeliveryRule = &rule
+		text.WriteString(line + "\n        " + rule + "\n")
 	}
 	text.WriteString(subLine)
 	text.WriteString(boardLines.String())

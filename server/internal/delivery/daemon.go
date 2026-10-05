@@ -155,6 +155,9 @@ func (d *Daemon) restore(ctx context.Context) error {
 			continue
 		}
 		a := newAgentState(b.Agent, false)
+		// What a session was told before the daemon stopped isn't kept: it is taken to
+		// know the mode its agent has now.
+		a.told = d.modeLocked(b.Agent)
 		for i := range deliveries {
 			if deliveries[i].Agent == b.Agent {
 				dl := deliveries[i]
@@ -357,6 +360,11 @@ func (d *Daemon) setProblem(agent AgentRef, reason string) {
 func (d *Daemon) mode(agent AgentRef) Mode {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	return d.modeLocked(agent)
+}
+
+// modeLocked is mode, for a caller that holds d.mu.
+func (d *Daemon) modeLocked(agent AgentRef) Mode {
 	if m, ok := d.modes[agent]; ok {
 		return m
 	}
@@ -608,7 +616,7 @@ func (d *Daemon) bindLaunch(ctx context.Context, req Request, ticket string, res
 		return b
 	}
 	d.log.Info("session took its launched seat", "session", req.Key().String(), "agent", agent.Name, "board", agent.Board)
-	resp.Agents, resp.Lost, resp.Previous = []AgentRef{agent}, nil, b.Previous
+	resp.Agents, resp.Lost, resp.Previous, resp.Mode = []AgentRef{agent}, nil, b.Previous, d.mode(agent)
 	return resp
 }
 
