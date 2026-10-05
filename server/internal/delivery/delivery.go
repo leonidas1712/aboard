@@ -50,6 +50,7 @@ type AgentKey struct {
 	Name     string
 }
 
+// Key returns a seat's stable identity, or its unresolved legacy identity.
 func (a AgentRef) Key() AgentKey {
 	if a.MemberID != "" {
 		return AgentKey{Server: a.Server, MemberID: a.MemberID}

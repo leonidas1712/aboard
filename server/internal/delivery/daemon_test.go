@@ -45,6 +45,7 @@ type rig struct {
 	tickets launchtickets.Dir
 	cancel  context.CancelFunc
 	done    chan error
+	resolve func(context.Context, delivery.AgentRef) (delivery.AgentRef, error)
 }
 
 func newRig(t *testing.T) *rig {
@@ -74,8 +75,9 @@ func (r *rig) start() {
 	r.cancel, r.done = cancel, make(chan error, 1)
 	cfg := delivery.Config{
 		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex, extension.Adapter{Name: "omp"}},
-		Connect: func(string) delivery.Server { return r.server },
-		Control: r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
+		ResolveAgent: r.resolve,
+		Connect:      func(string) delivery.Server { return r.server },
+		Control:      r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
 		Tickets: r.tickets,
 	}
 	go func() { r.done <- delivery.Run(ctx, cfg) }()

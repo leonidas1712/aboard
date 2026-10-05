@@ -139,6 +139,9 @@ func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []del
 	if r.JSON200 == nil {
 		return nil, 0, nil, statusError("read inbox of "+agent.Name+" on "+agent.Board, r.StatusCode(), r.Body)
 	}
+	if r.JSON200.Board != agent.Board || (agent.MemberID != "" && r.JSON200.MemberId != nil && *r.JSON200.MemberId != agent.MemberID) {
+		return nil, 0, nil, fmt.Errorf("%w: inbox response identifies a different seat", delivery.ErrUnauthorized)
+	}
 	msgs = make([]delivery.Message, 0, len(r.JSON200.Messages))
 	for _, m := range r.JSON200.Messages {
 		msgs = append(msgs, TextMessage(m))
@@ -168,6 +171,9 @@ func (s *Server) Ack(ctx context.Context, agent delivery.AgentRef, upTo int) err
 	}
 	if r.JSON200 == nil {
 		return statusError(fmt.Sprintf("acknowledge %s on %s up to %d", agent.Name, agent.Board, upTo), r.StatusCode(), r.Body)
+	}
+	if agent.MemberID != "" && r.JSON200.MemberId != nil && *r.JSON200.MemberId != agent.MemberID {
+		return fmt.Errorf("%w: acknowledgement response identifies a different seat", delivery.ErrUnauthorized)
 	}
 	return nil
 }
@@ -229,6 +235,7 @@ func (s *Server) Follow(ctx context.Context, connected func(), head func(deliver
 			Board    string `json:"board"`
 			Seq      int    `json:"seq"`
 			Agent    string `json:"agent"`
+			MemberID string `json:"member_id"`
 			ReadUpTo int    `json:"read_up_to"`
 		}
 		if json.Unmarshal([]byte(data), &h) != nil || h.Board == "" {
@@ -238,7 +245,7 @@ func (s *Server) Follow(ctx context.Context, connected func(), head func(deliver
 		case event == "head":
 			head(delivery.Head{Board: h.Board, Seq: h.Seq})
 		case event == "read" && h.Agent != "":
-			head(delivery.Head{Board: h.Board, Read: &delivery.ReadPosition{Agent: h.Agent, UpTo: h.ReadUpTo}})
+			head(delivery.Head{Board: h.Board, Read: &delivery.ReadPosition{Agent: h.Agent, MemberID: h.MemberID, UpTo: h.ReadUpTo}})
 		}
 	})
 }

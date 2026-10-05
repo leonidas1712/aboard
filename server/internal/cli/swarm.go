@@ -78,6 +78,7 @@ type swarmRecord struct {
 
 // swarmAgentRecord is one agent of a swarm record.
 type swarmAgentRecord struct {
+	MemberID string `json:"member_id,omitempty"`
 	Harness  string `json:"harness"`
 	Role     string `json:"role"`
 	Launcher string `json:"launcher"`
@@ -191,6 +192,7 @@ func launcherError(name, what string, err error) error {
 
 // swarmAgent is the SwarmAgent JSON shape.
 type swarmAgent struct {
+	memberID string
 	Name     string  `json:"name"`
 	Harness  string  `json:"harness"`
 	Role     string  `json:"role"`
@@ -228,7 +230,7 @@ const (
 // from the person, or the agent was removed from it), though either's session may still
 // run. Agents this machine holds no token for, and any other answer, are left out. Each
 // check counts as a use of the key behind the seat.
-func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names []string) map[string]string {
+func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names []string, ids map[string]string) map[string]string {
 	creds, err := a.readCredentials()
 	if err != nil {
 		return nil
@@ -239,7 +241,18 @@ func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names
 	var wg sync.WaitGroup
 	out := map[string]string{}
 	for _, name := range names {
-		cred, ok := creds.find(srv.URL, board, name)
+		var cred agentCredential
+		var ok bool
+		if id := ids[name]; id != "" {
+			cred, ok = creds.forSeat(delivery.AgentRef{Server: srv.URL, Board: board, Name: name, MemberID: id})
+			if !ok {
+				mu.Lock()
+				out[name] = seatEnded
+				mu.Unlock()
+			}
+		} else {
+			cred, ok = creds.find(srv.URL, board, name)
+		}
 		if !ok {
 			continue
 		}
@@ -278,10 +291,12 @@ func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names
 // checkSeats fills each row's SeatCredential from seatStates.
 func (a *app) checkSeats(ctx context.Context, srv serverRef, board string, rows []swarmAgent) {
 	names := make([]string, len(rows))
+	ids := map[string]string{}
 	for i, r := range rows {
 		names[i] = r.Name
+		ids[r.Name] = r.memberID
 	}
-	states := a.seatStates(ctx, srv, board, names)
+	states := a.seatStates(ctx, srv, board, names, ids)
 	for i := range rows {
 		if s, ok := states[rows[i].Name]; ok {
 			rows[i].SeatCredential = optional(s)
@@ -436,7 +451,11 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 		names = append(names, spec.Name)
 	}
 	var ended, gone []string
-	for name, state := range a.seatStates(ctx, srv, board.Name, names) {
+	ids := map[string]string{}
+	for name, record := range rec.Agents {
+		ids[name] = record.MemberID
+	}
+	for name, state := range a.seatStates(ctx, srv, board.Name, names, ids) {
 		switch state {
 		case seatEnded:
 			ended = append(ended, name)
@@ -598,20 +617,20 @@ func boardMembers(ctx context.Context, c *client, board string) (map[string]api.
 
 // daemonBindings asks the delivery daemon which session holds each agent, starting the
 // daemon if it isn't running. It returns none when the daemon can't be reached.
-func (a *app) daemonBindings(ctx context.Context) map[delivery.AgentRef]delivery.BindingStatus {
+func (a *app) daemonBindings(ctx context.Context) map[delivery.AgentKey]delivery.BindingStatus {
 	out, _ := a.readBindings(ctx)
 	return out
 }
 
 // readBindings is daemonBindings, and whether the daemon answered.
-func (a *app) readBindings(ctx context.Context) (map[delivery.AgentRef]delivery.BindingStatus, bool) {
-	out := map[delivery.AgentRef]delivery.BindingStatus{}
+func (a *app) readBindings(ctx context.Context) (map[delivery.AgentKey]delivery.BindingStatus, bool) {
+	out := map[delivery.AgentKey]delivery.BindingStatus{}
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpStatus})
 	if err != nil || resp.Status == nil {
 		return out, false
 	}
 	for _, b := range resp.Status.Bindings {
-		out[b.Agent] = b
+		out[b.Agent.Key()] = b
 	}
 	return out, true
 }
@@ -625,7 +644,7 @@ type upInput struct {
 	spec         swarmSpec
 	rec          *swarmRecord
 	members      map[string]api.Member
-	bindings     map[delivery.AgentRef]delivery.BindingStatus
+	bindings     map[delivery.AgentKey]delivery.BindingStatus
 	creds        credentials
 	tickets      launchtickets.Dir
 	launcherFlag string
@@ -699,30 +718,52 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		if err != nil {
 			return swarmUpAgent{}, err
 		}
-		cred := agentCredential{Server: in.srv.URL, Board: in.board, Name: joined.Agent.Name, Token: joined.Token}
+		cred := agentCredential{Server: in.srv.URL, Board: in.board, Name: joined.Agent.Name, MemberID: joined.Agent.Id, Token: joined.Token}
 		if err := a.saveCredential(cred); err != nil {
 			return swarmUpAgent{}, err
 		}
+		in.creds.put(cred)
 		in.members[spec.Name] = joined.Agent
 		seatCreated = true
 	}
 
 	ref := delivery.AgentRef{Server: in.srv.URL, Board: in.board, Name: spec.Name}
+	cred, ok := in.creds.find(in.srv.URL, in.board, spec.Name)
+	if !ok {
+		return swarmUpAgent{}, newError("agent_not_selected", "The agent has no saved seat credential.", "Join the board again before starting the swarm.")
+	}
+	ref.MemberID = cred.MemberID
+	if ref.MemberID == "" {
+		resolved, err := (daemonTokens{a: a}).ResolveAgent(ctx, ref)
+		if err != nil {
+			return swarmUpAgent{}, newError("seat_ended", "The saved agent's seat cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+		}
+		ref = resolved
+	}
 	ar := in.rec.Agents[spec.Name]
+	if ar != nil && ar.Handle != "" && ar.MemberID == "" && cred.MemberID != "" && cred.Legacy == nil {
+		return swarmUpAgent{}, newError("seat_ended", "The earlier session's seat identity cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+	}
+	if ar != nil && ar.MemberID != "" && ar.MemberID != ref.MemberID {
+		return swarmUpAgent{}, newError("seat_ended", "The saved session belongs to an earlier seat with this name.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+	}
+	if ar != nil {
+		ar.MemberID = ref.MemberID
+	}
 	if ar != nil && ar.Handle != "" {
 		if prev, err := a.launcherFor(ar.Launcher); err == nil {
 			st, err := prev.Status(ctx, launcher.Ref{Swarm: in.swarm, Agent: spec.Name, Handle: ar.Handle})
 			if err == nil && st != launcher.Exited {
-				return swarmUpAgent{swarmAgent: a.swarmRow(spec.Name, ar, string(st), in.bindings[ref], in.members), Action: actionAlreadyRunning, SeatCreated: seatCreated}, nil
+				return swarmUpAgent{swarmAgent: a.swarmRow(spec.Name, ar, string(st), in.bindings[ref.Key()], in.members), Action: actionAlreadyRunning, SeatCreated: seatCreated}, nil
 			}
 		}
 		_ = in.tickets.Remove(ar.Ticket)
 		// Its process is gone, so its session has ended, whether or not its end hook ran:
 		// a resumed session must report in again before it counts as seated.
-		if b, ok := in.bindings[ref]; ok && b.Open {
+		if b, ok := in.bindings[ref.Key()]; ok && b.Open {
 			a.endSession(ctx, b.Session)
 			b.Open = false
-			in.bindings[ref] = b
+			in.bindings[ref.Key()] = b
 		}
 	}
 
@@ -749,7 +790,7 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		req.Argv = runnerArgv(exe, in.swarm, spec, in.fresh)
 	} else {
 		session := ""
-		if b, bound := in.bindings[ref]; bound && !in.fresh && len(prof.Interactive.Resume) > 0 {
+		if b, bound := in.bindings[ref.Key()]; bound && !in.fresh && len(prof.Interactive.Resume) > 0 {
 			key, ok := delivery.ParseSessionKey(b.Session)
 			switch {
 			case !ok || key.Harness != spec.Harness:
@@ -783,7 +824,7 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		return swarmUpAgent{}, launcherError(launcherName, "start "+spec.Name, err)
 	}
 	ar = &swarmAgentRecord{
-		Harness: spec.Harness, Role: spec.role(), Launcher: launcherName, Mode: mode, Dir: dir,
+		MemberID: ref.MemberID, Harness: spec.Harness, Role: spec.role(), Launcher: launcherName, Mode: mode, Dir: dir,
 		Handle: got.Handle, Attach: got.Attach, Start: start, StartNote: note, Ticket: ticket, StartedAt: time.Now().UTC(),
 	}
 	in.rec.Agents[spec.Name] = ar
@@ -879,7 +920,8 @@ func harnessArgv(base, model []string, spec swarmSpec, session, prompt string) [
 // swarmRow is an agent's row in swarm output, before its seat is checked.
 func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delivery.BindingStatus, members map[string]api.Member) swarmAgent {
 	row := swarmAgent{
-		Name: name, Harness: ar.Harness, Role: ar.Role, Launcher: ar.Launcher, Mode: ar.Mode, Dir: ar.Dir,
+		memberID: ar.MemberID,
+		Name:     name, Harness: ar.Harness, Role: ar.Role, Launcher: ar.Launcher, Mode: ar.Mode, Dir: ar.Dir,
 		Handle: optional(ar.Handle), Attach: optional(ar.Attach), State: state, Start: optional(ar.Start),
 		StartNote: optional(ar.StartNote),
 	}
@@ -887,7 +929,7 @@ func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delive
 		row.Session = optional(b.Session)
 		row.Seated = b.Open && ar.Mode == launcher.ModeInteractive
 	}
-	if m, ok := members[name]; ok {
+	if m, ok := members[name]; ok && (ar.MemberID == "" || m.Id == ar.MemberID) {
 		if m.Presence != nil {
 			row.Presence = optional(string(*m.Presence))
 		}
@@ -928,12 +970,18 @@ func (a *app) fillSeats(ctx context.Context, c *client, board string, row func(i
 	all := true
 	for i := range n {
 		r := row(i)
-		ar := &swarmAgentRecord{Harness: r.Harness, Role: r.Role, Launcher: r.Launcher, Mode: r.Mode, Dir: r.Dir, Handle: deref(r.Handle), Attach: deref(r.Attach), Start: deref(r.Start), StartNote: deref(r.StartNote)}
-		*r = a.swarmRow(r.Name, ar, r.State, bindings[delivery.AgentRef{Server: srv.URL, Board: board, Name: r.Name}], members)
+		ref := delivery.AgentRef{Server: srv.URL, Board: board, Name: r.Name, MemberID: r.memberID}
+		if ref.MemberID == "" {
+			if verified, err := (daemonTokens{a: a}).ResolveAgent(ctx, ref); err == nil {
+				ref = verified
+			}
+		}
+		ar := &swarmAgentRecord{MemberID: ref.MemberID, Harness: r.Harness, Role: r.Role, Launcher: r.Launcher, Mode: r.Mode, Dir: r.Dir, Handle: deref(r.Handle), Attach: deref(r.Attach), Start: deref(r.Start), StartNote: deref(r.StartNote)}
+		*r = a.swarmRow(r.Name, ar, r.State, bindings[ref.Key()], members)
 		// The board shows a presence only while a session holds the agent: the daemon
 		// reports it from the moment a session takes the seat, before any turn. It
 		// witnesses the seat when this command couldn't read the daemon's bindings.
-		if !asked && present(r.Presence) && r.State == string(launcher.Running) {
+		if !asked && ref.MemberID != "" && present(r.Presence) && r.State == string(launcher.Running) {
 			r.Seated = true
 		}
 		all = all && r.Seated
@@ -1361,7 +1409,7 @@ func runSwarmDown(ctx context.Context, a *app, args []string) error {
 			return launcherError(ar.Launcher, "stop "+n, err)
 		}
 		_ = tickets.Remove(ar.Ticket)
-		if b, ok := bindings[delivery.AgentRef{Server: rec.Server, Board: rec.Board, Name: n}]; ok && b.Open {
+		if b, ok := bindings[(delivery.AgentRef{Server: rec.Server, Board: rec.Board, Name: n, MemberID: ar.MemberID}).Key()]; ok && b.Open {
 			a.endSession(ctx, b.Session)
 		}
 		ar.Ticket = ""

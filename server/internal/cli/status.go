@@ -175,7 +175,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 		}
 		if m == "" {
-			mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name})
+			cred, _ := creds.find(t.server.URL, t.board, name)
+			mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name, MemberID: cred.MemberID})
 			if err != nil {
 				return err
 			}
