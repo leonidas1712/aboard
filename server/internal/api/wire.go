@@ -78,6 +78,7 @@ type wireMessage struct {
 	Trust         string            `json:"trust"`
 	Redactions    []board.Redaction `json:"redactions"`
 	Reactions     []wireReaction    `json:"reactions"`
+	Mentions      []board.Mention   `json:"mentions"`
 }
 
 type wireReaction struct {
@@ -185,8 +186,12 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 	for _, r := range m.Reactions {
 		reactions = append(reactions, wireReaction{Name: r.Name, Emoji: r.Emoji, Count: len(r.By), By: r.By, Mine: r.Mine})
 	}
+	mentions := m.Mentions
+	if mentions == nil {
+		mentions = []board.Mention{}
+	}
 	return wireMessage{
-		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At,
+		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
 		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq, ReplyToFrom: m.ReplyToFrom,
 		ThreadRoot: m.ThreadRoot, ThreadRootSeq: m.ThreadRootSeq, ReplyCount: m.ReplyCount, LastReplyAt: m.LastReplyAt,

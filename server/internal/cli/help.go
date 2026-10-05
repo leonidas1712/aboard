@@ -296,8 +296,10 @@ func helpText(templates string) []commandHelp {
 			Summary: "Post a message on a board as an agent",
 			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise.\n\n" +
-				"After posting it says what is waiting in the agent's own inbox, and when each recipient will see the message: " +
-				"now, when its turn ends, when it checks its inbox, or when a session resumes it.",
+				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
+				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
+				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
+				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},

@@ -51,6 +51,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"TimelineAddressedReturnsOnlyVisibleMessages", timelineAddressedReturnsOnlyVisibleMessages},
 		{"TimelineFiltersAndWindows", timelineFiltersAndWindows},
 		{"InboxSkipsOwnAndAlreadyReadMessages", inboxSkipsOwnAndAlreadyReadMessages},
+		{"InboxHoldsMessagesThatMentionTheReader", inboxHoldsMessagesThatMentionTheReader},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},
 		{"InsertMessageCountsItOnItsBoard", insertMessageCountsItOnItsBoard},
@@ -1193,7 +1194,7 @@ func newConversation(t *testing.T, st board.Store) conversation {
 			seq := int64(i + 1)
 			m := board.Message{
 				ID: fmt.Sprintf("msg_%d", seq), BoardID: b.ID, Seq: seq, At: at, SenderID: p.from.ID, To: []string{p.to},
-				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{},
+				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{}, Mentions: []board.Mention{},
 				SenderName: p.from.Name, SenderKind: p.from.Kind, SenderRole: p.from.Role, SenderOwner: p.from.Owner, SenderHuman: p.from.HumanID,
 				SenderHarness: p.from.Harness, AgentOwners: 1, // every agent here is alex's
 			}
@@ -1310,19 +1311,63 @@ func inboxSkipsOwnAndAlreadyReadMessages(t *testing.T, st board.Store) {
 			return err
 		}
 		// Not 1 (at the cursor), not 3 (to @writer), not 5 (its own).
-		got, err := tx.Inbox(reviewer, 10)
+		got, err := tx.Inbox(reviewer, true, 10)
 		if err != nil {
 			return err
 		}
 		if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, []int64{2, 4}) {
 			t.Errorf("Inbox seqs = %v, want [2 4]", seqs)
 		}
-		limited, err := tx.Inbox(reviewer, 1)
+		limited, err := tx.Inbox(reviewer, true, 1)
 		if err != nil {
 			return err
 		}
 		if seqs := messageSeqs(limited); !reflect.DeepEqual(seqs, []int64{2}) {
 			t.Errorf("Inbox with limit 1 seqs = %v, want [2]", seqs)
+		}
+		return nil
+	})
+}
+
+// A message that mentions the reader with Wakes set is in its inbox, whatever it is
+// addressed to, but only when the caller asks for mentions; one whose mention doesn't
+// wake isn't.
+func inboxHoldsMessagesThatMentionTheReader(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	mentionOf := func(m board.Member, wakes bool) board.Mention {
+		mn := board.Mention{MemberID: m.ID, Kind: m.Kind, Name: m.Name, Text: "@" + m.Name, Wakes: wakes}
+		if !wakes {
+			mn.Reason = ptr(board.MentionLimit)
+		}
+		return mn
+	}
+	write(t, st, func(tx board.Tx) error {
+		for i, mentions := range [][]board.Mention{
+			{mentionOf(c.other, true), mentionOf(c.reviewer, true)},
+			{mentionOf(c.reviewer, false)},
+		} {
+			seq := int64(6 + i)
+			if err := tx.InsertMessage(board.Message{
+				ID: fmt.Sprintf("msg_%d", seq), BoardID: "brd_docs", Seq: seq, At: at, SenderID: c.writer.ID,
+				To: []string{"@other"}, Body: "message", Mentions: mentions,
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	read(t, st, func(tx board.ReadTx) error {
+		for _, tt := range []struct {
+			mentions bool
+			want     []int64
+		}{{true, []int64{1, 2, 4, 6}}, {false, []int64{1, 2, 4}}} {
+			got, err := tx.Inbox(c.reviewer, tt.mentions, 10)
+			if err != nil {
+				return err
+			}
+			if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, tt.want) {
+				t.Errorf("Inbox with mentions %v: seqs = %v, want %v", tt.mentions, seqs, tt.want)
+			}
 		}
 		return nil
 	})
@@ -1334,6 +1379,10 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 		ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.writer.ID, To: []string{"@reviewer", "role:reviewer"},
 		Body: "Fixed, see notes.", ReplyTo: ptr("msg_2"), Urgent: true, ExpectsReply: true,
 		Redactions: []board.Redaction{{Kind: "github_token", Count: 2}},
+		Mentions: []board.Mention{
+			{MemberID: c.reviewer.ID, Kind: "agent", Name: "reviewer", Text: "@reviewer", Wakes: true},
+			{MemberID: c.other.ID, Kind: "agent", Name: "other", Text: "@role:member", Reason: ptr(board.MentionLimit)},
+		},
 	}
 	plain := board.Message{ID: "msg_7", BoardID: "brd_docs", Seq: 7, At: at, SenderID: c.alex.ID, To: []string{"all"}, Body: "ok"}
 	write(t, st, func(tx board.Tx) error {
@@ -1359,6 +1408,9 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 		}
 		// A message stored without redactions reads back with an empty list, not nil, so
 		// it is shown as [] rather than null.
+		if got.Mentions == nil || len(got.Mentions) != 0 {
+			t.Errorf("mentions of a message stored without any = %#v, want an empty list", got.Mentions)
+		}
 		if got.Redactions == nil || len(got.Redactions) != 0 {
 			t.Errorf("redactions of a message stored without any = %#v, want an empty list", got.Redactions)
 		}

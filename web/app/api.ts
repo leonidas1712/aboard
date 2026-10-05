@@ -81,6 +81,21 @@ export type Message = {
   show_owner: boolean;
   /** reactions are the emoji on the message, in the set's order; empty when there are none. */
   reactions: Reaction[];
+  /** mentions are the members the text mentions, as the server resolved them when it was posted. */
+  mentions: Mention[];
+};
+
+/**
+ * Mention is one member a message mentions: `text` is how it was written ("@codex" or
+ * "@role:reviewer"), and `wakes` whether it counts as addressing the agent.
+ */
+export type Mention = {
+  id: string;
+  kind: "agent" | "human";
+  name: string;
+  text: string;
+  wakes: boolean;
+  reason: "limit" | "cannot_read" | null;
 };
 
 export type ReactionName = "thumbsup" | "check" | "eyes" | "heart" | "tada" | "question";

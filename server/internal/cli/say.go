@@ -26,25 +26,35 @@ type unreadFrom struct {
 	Sender string `json:"sender"`
 }
 
-// recipientNote says when one recipient will see a message.
+// recipientNote says when one recipient, or one member the message mentions, will see
+// a message.
 type recipientNote struct {
-	Name     string  `json:"name"`
-	Presence *string `json:"presence"`
-	Delivery *string `json:"delivery"`
-	Outcome  string  `json:"outcome"`
+	Name      string  `json:"name"`
+	Presence  *string `json:"presence"`
+	Delivery  *string `json:"delivery"`
+	Outcome   string  `json:"outcome"`
+	Mentioned bool    `json:"mentioned"`
 }
 
 // Recipient outcomes, in the order aboard say lists them.
 const (
-	outcomeNow       = "now"
-	outcomeTurnEnd   = "turn_end"
-	outcomeNextTurn  = "next_turn"
-	outcomeNotWoken  = "not_woken"
-	outcomeNoSession = "no_session"
-	outcomePerson    = "person"
+	outcomeNow        = "now"
+	outcomeTurnEnd    = "turn_end"
+	outcomeNextTurn   = "next_turn"
+	outcomeNotWoken   = "not_woken"
+	outcomeNoSession  = "no_session"
+	outcomeCannotRead = "cannot_read"
+	outcomeOverLimit  = "over_limit"
+	outcomePerson     = "person"
 )
 
-var outcomeOrder = []string{outcomeNow, outcomeTurnEnd, outcomeNextTurn, outcomeNotWoken, outcomeNoSession, outcomePerson}
+var outcomeOrder = []string{
+	outcomeNow, outcomeTurnEnd, outcomeNextTurn, outcomeNotWoken, outcomeNoSession, outcomeCannotRead, outcomeOverLimit, outcomePerson,
+}
+
+// maxMentionWakes is how many agents one message's mentions can wake, as the server
+// decides it (spec/events.md, "Mentions").
+const maxMentionWakes = 8
 
 // namesShown is how many names a group of recipients or senders lists before counting.
 const namesShown = 5
@@ -69,9 +79,9 @@ func (a *app) unreadAfterSay(ctx context.Context, c *client, ref delivery.AgentR
 	return n
 }
 
-// recipientsOf works out when each member the message is addressed to will see it, from
-// the presence and delivery mode the members list shows. Nil if the members couldn't be
-// read.
+// recipientsOf works out when each member the message is addressed to or mentions will
+// see it, from the presence and delivery mode the members list shows. Nil if the members
+// couldn't be read.
 func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNote {
 	r, err := c.api.ListMembersWithResponse(ctx, m.Board)
 	if err != nil || r.JSON200 == nil {
@@ -80,10 +90,12 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 	out := []recipientNote{}
 	text := textMessage(*m)
 	for _, mem := range r.JSON200.Members {
-		if mem.Name == m.From.Name || !addressedTo(m.To, mem) {
+		mention := mentionOf(m, mem.Name)
+		addressed := addressedTo(m.To, mem)
+		if mem.Name == m.From.Name || (!addressed && mention == nil) {
 			continue
 		}
-		n := recipientNote{Name: mem.Name, Outcome: outcomePerson}
+		n := recipientNote{Name: mem.Name, Outcome: outcomePerson, Mentioned: mention != nil}
 		if mem.Kind == api.MemberKindAgent {
 			if mem.Presence != nil {
 				p := string(*mem.Presence)
@@ -94,10 +106,28 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 				n.Delivery = &d
 			}
 			n.Outcome = agentOutcome(n.Presence, n.Delivery, delivery.Concerns(text, mem.Name))
+			// A mention the server didn't let wake the agent reaches it only if the
+			// message is addressed to it.
+			if !addressed && !mention.Wakes {
+				n.Outcome = outcomeOverLimit
+				if mention.Reason != nil && *mention.Reason == api.MentionReasonCannotRead {
+					n.Outcome = outcomeCannotRead
+				}
+			}
 		}
 		out = append(out, n)
 	}
 	return out
+}
+
+// mentionOf finds the member called name among those the message mentions, or nil.
+func mentionOf(m *api.Message, name string) *api.Mention {
+	for i := range m.Mentions {
+		if m.Mentions[i].Name == name {
+			return &m.Mentions[i]
+		}
+	}
+	return nil
 }
 
 // addressedTo reports whether a message to the targets reaches member: all of them
@@ -159,6 +189,10 @@ func wakeWarning(m *api.Message, rs []recipientNote) *sayWarning {
 	if len(m.To) > 0 && !slices.Contains(m.To, "all") {
 		return nil
 	}
+	// The sender meant the agents it mentions; the outcomes above say when they see it.
+	if slices.ContainsFunc(m.Mentions, func(mn api.Mention) bool { return mn.Wakes }) {
+		return nil
+	}
 	quiet := false
 	for _, r := range rs {
 		switch r.Outcome {
@@ -174,7 +208,7 @@ func wakeWarning(m *api.Message, rs []recipientNote) *sayWarning {
 	return &sayWarning{
 		Code:    "wakes_no_agent",
 		Message: "No agent wakes for this message to everyone; agents in focused mode see it at their next turn.",
-		Hint:    "To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply.",
+		Hint:    "To make one act soon, mention it (@name in the text), send it with --to @name or --to role:R, or ask with --expect-reply.",
 	}
 }
 
@@ -225,6 +259,11 @@ func recipientsText(rs []recipientNote) string {
 		case outcomeNoSession:
 			parts = append(parts, list+pick(" is disconnected: it sees it in its inbox or when its session reconnects.",
 				" are disconnected: they see it in their inbox or when their sessions reconnect."))
+		case outcomeCannotRead:
+			parts = append(parts, list+pick(" can't read it: on this board an agent reads only messages addressed to it, and a mention doesn't change that.",
+				" can't read it: on this board agents read only messages addressed to them, and a mention doesn't change that."))
+		case outcomeOverLimit:
+			parts = append(parts, list+fmt.Sprintf(" won't get it: a message's mentions wake at most %d agents.", maxMentionWakes))
 		case outcomePerson:
 			parts = append(parts, list+pick(" sees it on the board or in their inbox.", " see it on the board or in their inbox."))
 		}
