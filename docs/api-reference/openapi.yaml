@@ -1820,6 +1820,7 @@ paths:
                   data: {"board":"writer-reviewer","board_id":"brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7N","agent":"reviewer","read_up_to":7}
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
 
   /v1/boards/{board}/events:
     parameters:

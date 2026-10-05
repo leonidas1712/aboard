@@ -98,8 +98,8 @@ type headStream struct {
 }
 
 // VisitStreamResponse writes events until the client disconnects or the server shuts
-// down. It always returns nil: once the status is written, a failure can only end the
-// stream, and the client reconnects.
+// down. Start failures use the normal error response; after the status is written,
+// a failure can only end the stream, and the client reconnects.
 func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()
@@ -109,42 +109,64 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 	}
 
 	rc := http.NewResponseController(w)
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
 	// Each keepalive timer is started before the write that precedes it, so a client
 	// that has read up to here knows the next one is already running.
 	keepalive := s.clk.After(keepaliveEvery)
-	if !s.send(rc, func() error { w.WriteHeader(http.StatusOK); return nil }) {
+	// The starting point is read before the status is sent: a client that acts once it
+	// sees the stream open is then sure its change comes as an event.
+	first, err := s.feed.Start(ctx)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	if !s.send(rc, func() error {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write(streamEvents(first, false))
+		return err
+	}) {
 		return nil
 	}
 	for {
 		u, ticked, err := s.feed.Next(ctx, keepalive)
 		if err != nil {
-			// A credential that stopped working ends the stream; the client's next
-			// request gets 401.
-			if _, ended := apierr.As(err); !ended && ctx.Err() == nil {
-				s.log.Error("stream: follow heads", "error", err)
-			}
+			s.ended(ctx, err)
 			return nil
-		}
-		var buf bytes.Buffer
-		for _, hd := range u.Heads {
-			writeEvent(&buf, "head", headEvent{Board: hd.Board, BoardID: hd.BoardID, Seq: hd.Seq})
-		}
-		for _, pc := range u.Presence {
-			writeEvent(&buf, "presence", presenceEventOf(pc))
-		}
-		for _, rc := range u.Reads {
-			writeEvent(&buf, "read", readEvent{Board: rc.Board, BoardID: rc.BoardID, Agent: rc.Agent, ReadUpTo: rc.Cursor})
 		}
 		if ticked {
 			keepalive = s.clk.After(keepaliveEvery)
-			buf.WriteString(": keepalive\n\n")
 		}
-		if buf.Len() > 0 && !s.send(rc, func() error { _, err := w.Write(buf.Bytes()); return err }) {
+		if buf := streamEvents(u, ticked); len(buf) > 0 && !s.send(rc, func() error { _, err := w.Write(buf); return err }) {
 			return nil
 		}
 	}
+}
+
+// ended logs why a stream ended, unless its credential stopped working (the client's
+// next request gets 401) or the client went away.
+func (s headStream) ended(ctx context.Context, err error) {
+	if _, ended := apierr.As(err); !ended && ctx.Err() == nil {
+		s.log.Error("stream: follow heads", "error", err)
+	}
+}
+
+// streamEvents writes an update as server-sent events, with a keepalive comment after them
+// when ticked.
+func streamEvents(u board.Update, ticked bool) []byte {
+	var buf bytes.Buffer
+	for _, hd := range u.Heads {
+		writeEvent(&buf, "head", headEvent{Board: hd.Board, BoardID: hd.BoardID, Seq: hd.Seq})
+	}
+	for _, pc := range u.Presence {
+		writeEvent(&buf, "presence", presenceEventOf(pc))
+	}
+	for _, rc := range u.Reads {
+		writeEvent(&buf, "read", readEvent{Board: rc.Board, BoardID: rc.BoardID, Agent: rc.Agent, ReadUpTo: rc.Cursor})
+	}
+	if ticked {
+		buf.WriteString(": keepalive\n\n")
+	}
+	return buf.Bytes()
 }
 
 // send moves the write deadline forward, writes and flushes. It reports whether the
