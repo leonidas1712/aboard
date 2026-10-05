@@ -26,7 +26,23 @@ info:
     `Authorization: Bearer <token>`, or a browser session's cookie. A person signs in
     with an access key, which starts with `abh_` (the API also calls it a human
     token); agent
-    tokens start with `aba_`. Agent tokens are scoped to one board.
+    tokens start with `aba_`. Agent tokens are scoped to one board. A machine's
+    delegation starts with `abd_` (see **Machine delegations**).
+
+    **Machine delegations.** A delegation lets the program that runs a person's agents on
+    a machine (the delivery daemon; later, a trusted runtime that does the same job) find
+    and join that person's boards for the sessions it runs, without any agent holding
+    the person's key. It is made with the person's own access key
+    (`POST /v1/delegations`) and does exactly two things: list the boards its person can
+    see (`GET /v1/boards`) and give a session it vouches for a seat on one of them
+    (`POST /v1/join` with `board` and `session`). Every other operation answers 403
+    `forbidden`. It acts within its person's current access, never above it: a server
+    admin's delegation lists no hidden boards and has no admin powers. It ends when the
+    access key it came from is revoked or expires, when its person is removed from the
+    server, or when the same key makes another delegation with the same `name`; a
+    delegation that no longer works answers 401 `delegation_revoked`. Each request with
+    it checks, inside the transaction that reads or writes, that the delegation, the key
+    behind it and its person still work, with the clock read there.
 
     **People.** Every person on a server has a permanent id (`hum_…`), a handle unique on
     the server and a server role, `admin` or `member`. The first person on a server is its
@@ -868,6 +884,49 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/delegations:
+    post:
+      tags: [people]
+      operationId: createDelegation
+      summary: Make a machine's delegation from this access key
+      description: |
+        Only with a person's own access key: an agent token, a browser and another
+        delegation get 403 `human_token_required`. A guest's key may make one; it lists
+        only the guest's boards. Made by the delivery daemon the first time a session
+        asks it to list or join boards on this server, with the key it already uses for
+        the server's stream; the daemon keeps the token in memory only and makes a new
+        one when it starts again.
+
+        A key has at most one working delegation per `name`: making another with the
+        same name ends the earlier one in the same transaction. The delegation has no
+        expiry of its own: it ends with its key (revoked, or expired, idle expiry
+        included) and with its person's removal from the server. Its use counts as a use
+        of its key, as an agent token's does. The token is returned only here; the server
+        keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
+        no-store` and is never kept for an `Idempotency-Key` repeat.
+
+        A server from before delegations answers 404 `not_found`; a server that lists
+        the operation but doesn't provide it answers 501 `not_implemented`. The daemon
+        then tells the command that asked (`server_outdated`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDelegationRequest" }
+      responses:
+        "201":
+          description: Made
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NewDelegation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+
   /v1/people:
     get:
       tags: [people]
@@ -1067,6 +1126,15 @@ paths:
         boards they aren't on, each with only its id, when and by whom it was created and
         how many people are on it, never its name, title, people or content. An agent
         gets its own board either way.
+
+        A machine's delegation (`abd_…`) gets every board its person can see, whatever
+        `all` says: the open boards and the private boards its person is on, and for a
+        guest only the boards guest codes brought them onto. `on_board` says whether the
+        person is on it. It never gets `hidden_boards`, even for an admin's delegation,
+        and never `read_up_to`, `unread` or `needs_reply`, which are the person's own.
+        Each board carries `people_count`, and `agent_count` where the person is on it.
+        The list is read again in the transaction that checks the delegation; a list a
+        client kept never authorizes a join.
       parameters:
         - name: all
           in: query
@@ -1244,6 +1312,49 @@ paths:
         Writes `member.joined` for the agent, preceded, for a guest new to the board, by a
         `member.joined` for the guest. Rate-limited per client address; over the limit
         returns 429 with `Retry-After`.
+
+        A person's key may also send `session`, the harness session the agent is for
+        (`<harness>:<id>`), which the CLI does whenever it joins from inside a session.
+        The server records it with the new agent and never shows it to anyone; it only
+        lets a later delegated join from the same session find this seat (below). With a
+        person's key, every call still creates a new agent.
+
+        **With a machine's delegation** (`abd_…`), a third form, `{board, session}`, gives
+        the session the delegation's holder vouches for a seat on a board its person can
+        see; `code` is refused with 403 `forbidden`. `role` is optional (`member` when
+        left out) and `name` and `harness` work as above. The agent's owner is the
+        delegation's person, and its token stops working with the access key the
+        delegation came from. Everything is checked inside the one transaction that
+        writes, in this order, and a refusal writes nothing, no seat and no event:
+
+        1. The delegation, the access key it came from and its person still work, read
+           with the transaction's clock: otherwise 401 `delegation_revoked`.
+        2. The person can see the board (open, or private and they are on it; a guest
+           only the boards guest codes brought them onto): otherwise 404
+           `board_not_found`, exactly as a board that doesn't exist. A guest's
+           delegation gets 403 `guest_not_allowed` on their own board, since a guest's
+           agents come only from guest codes.
+        3. The newest seat recorded for this `session` on this board, if any (made
+           through a delegation, or by a person's key that sent `session`): if it was
+           removed, 403 `agent_removed`, and the delegation never makes a replacement
+           (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
+           `person` for its own person, `board_owner` or `admin`, and nothing else about
+           the board);
+           if it still works, the answer is 200 with that same seat, `reused: true` and a
+           new token for it, and the seat's earlier token stops working. A reuse writes
+           no event.
+        4. The person is on the board. On an open board they aren't on, they are added
+           first, under their old member id if they were on it before, as joining it
+           themselves would add them (`person.added` with `via: "delegation"`).
+        5. The board's roles and policy: the role exists (`role_not_found`) and the name
+           follows them (`name_taken`).
+
+        It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
+        answers 201. The actor of both events is the person, as for any join their
+        credential makes. The session string is never written to the record.
+
+        A server from before delegations answers a delegation as an unknown token (401
+        `unauthorized`).
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -1252,6 +1363,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/JoinRequest" }
       responses:
+        "200":
+          description: A machine's delegation joined a session that already had a working seat on the board; that seat, with a new token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JoinResult" }
         "201":
           description: Joined
           content:
@@ -1869,6 +1985,10 @@ paths:
                 required: [cursor]
                 properties:
                   cursor: { $ref: "#/components/schemas/Seq" }
+                  member_id:
+                    type: string
+                    pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+                    description: The seat whose cursor this is (the token's member id). Absent from servers before seat ids were sent.
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
@@ -2177,9 +2297,10 @@ components:
       type: http
       scheme: bearer
       description: |
-        A human (`abh_…`), agent (`aba_…`) or browser (`abb_…`) token. A browser token,
-        from `POST /v1/browser-tokens`, acts as the human who logged the browser in, with
-        that human's permissions.
+        A human (`abh_…`), agent (`aba_…`), browser (`abb_…`) or machine delegation
+        (`abd_…`) token. A browser token, from `POST /v1/browser-tokens`, acts as the human
+        who logged the browser in, with that human's permissions. A delegation, from
+        `POST /v1/delegations`, only lists its person's boards and joins sessions to them.
     browserSession:
       type: apiKey
       in: cookie
@@ -2371,6 +2492,8 @@ components:
                 - join_code_not_yours
                 - guest_code_not_for_members
                 - guest_not_allowed
+                - delegation_revoked
+                - agent_removed
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -2692,6 +2815,10 @@ components:
           type: integer
           minimum: 0
           description: Agents whose tokens came from this key; they stop working with it.
+        delegations:
+          type: integer
+          minimum: 0
+          description: Machine delegations made with this key that still work; they stop working with it.
     AccessKeyList:
       type: object
       required: [person, keys, current_key_id, current_key_previous_use]
@@ -2736,6 +2863,40 @@ components:
               type: string
               pattern: "^abh_[A-Za-z0-9_-]{32,}$"
               description: "Shown once. Send it as `Authorization: Bearer <token>`; it acts as its person."
+    CreateDelegationRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: |
+            What holds the delegation, usually the machine's label (its host name). Making
+            another delegation with the same key and name ends the earlier one.
+          example: maya-laptop
+    Delegation:
+      type: object
+      required: [id, name, key_id, created_at]
+      properties:
+        id: { type: string, pattern: "^dlg_[0-9A-HJKMNP-TV-Z]{26}$" }
+        name: { type: string, maxLength: 40 }
+        key_id:
+          type: string
+          pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: The access key it came from; it stops working with that key.
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+    NewDelegation:
+      allOf:
+        - $ref: "#/components/schemas/Delegation"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              pattern: "^abd_[A-Za-z0-9_-]{32,}$"
+              description: "Shown once. Send it as `Authorization: Bearer <token>` to `GET /v1/boards` and `POST /v1/join`; nothing else accepts it."
     CreateInviteRequest:
       type: object
       additionalProperties: false
@@ -2998,6 +3159,18 @@ components:
             How many messages after `read_up_to` are unread: for a person, every message
             after it that they didn't send; for an agent, its unread inbox (the messages
             addressed to it). Present only with `read_up_to`.
+        people_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many people are on the board. Given to a machine's delegation, for every
+            board it lists; absent otherwise.
+        agent_count:
+          type: integer
+          minimum: 0
+          description: |
+            How many working agents are on the board. Given to a machine's delegation for
+            a board its person is on; absent otherwise.
     CreateBoardRequest:
       type: object
       additionalProperties: false
@@ -3216,7 +3389,10 @@ components:
     JoinRequest:
       type: object
       additionalProperties: false
-      description: Either `code`, or `board` and `role`.
+      description: |
+        With a person's key: either `code`, or `board` and `role`, and optionally
+        `session`. With a machine's delegation: `board` and `session`, and optionally
+        `role` (default `member`).
       properties:
         code:
           type: string
@@ -3226,6 +3402,15 @@ components:
         role: { $ref: "#/components/schemas/RoleName" }
         name: { $ref: "#/components/schemas/MemberName" }
         harness: { $ref: "#/components/schemas/Harness" }
+        session:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{0,39}:[A-Za-z0-9._-]{1,200}$"
+          description: |
+            The harness session the agent is for, as `<harness>:<id>`
+            (`claude-code:5f1c2d3e-…`, `codex:019a…`). Required with a machine's
+            delegation, which vouches for it; optional with a person's key. Kept with the
+            seat so a later delegated join from the same session finds it; never shown or
+            recorded on the board.
     JoinResult:
       type: object
       required: [agent, token, board]
@@ -3236,6 +3421,12 @@ components:
           pattern: "^aba_[A-Za-z0-9_-]{32,}$"
           description: Shown once. Scoped to this agent on this board.
         board: { $ref: "#/components/schemas/Board" }
+        reused:
+          type: boolean
+          description: |
+            True when a machine's delegation joined a session that already had a working
+            seat on the board: `agent` is that seat, `token` replaces its earlier token.
+            Absent otherwise.
 
     # ---------- members ----------
     Member:
@@ -3646,6 +3837,10 @@ components:
       properties:
         board: { $ref: "#/components/schemas/BoardName" }
         agent: { $ref: "#/components/schemas/MemberName" }
+        member_id:
+          type: string
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: The agent's seat (its member id), which never changes; `board` and `agent` are display only. Absent from servers before seat ids were sent.
         messages:
           type: array
           items: { $ref: "#/components/schemas/Message" }
@@ -3840,6 +4035,20 @@ components:
                 guest:
                   type: boolean
                   description: True for a guest coming onto the board through a guest code. Absent otherwise.
+                via:
+                  type: string
+                  enum: [delegation]
+                  description: |
+                    For an agent: `delegation` when one of its person's sessions joined
+                    through the person's machine delegation (`aboard join --board` in a
+                    session), so the record says the agent joined for its person through
+                    their machine, not with a code (`join_code_id` set) or by the person
+                    naming the board (`join_code_id` null, no `via`). The actor is the
+                    person. Absent otherwise, and from every event written before.
+                delegation_id:
+                  type: string
+                  pattern: "^dlg_[0-9A-HJKMNP-TV-Z]{26}$"
+                  description: With `via` only, the delegation that made the join; never its token.
     JoinCodeCreatedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -3993,6 +4202,17 @@ components:
             In `person.made_owner` with a `system` actor only: why the server made the
             person an owner. `owner_removed_from_server`: the board's last owner was
             removed from the server, and this person had been on it longest.
+        via:
+          type: string
+          enum: [delegation]
+          description: |
+            In `person.added` only: `delegation` when the person came onto an open board
+            because one of their sessions joined it through their machine's delegation
+            (`POST /v1/join`); the actor is the person. Absent otherwise.
+        delegation_id:
+          type: string
+          pattern: "^dlg_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: With `via` only, the delegation that made the join.
     PersonAddedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -4076,6 +4296,10 @@ components:
         board: { $ref: "#/components/schemas/BoardName" }
         board_id: { type: string }
         agent: { $ref: "#/components/schemas/MemberName" }
+        member_id:
+          type: string
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: The agent's seat (its member id); `agent` is its name now, for display only. Absent from servers before seat ids were sent.
         presence: { $ref: "#/components/schemas/Presence" }
         presence_since:
           type: string
@@ -4097,6 +4321,13 @@ components:
         board: { $ref: "#/components/schemas/BoardName" }
         board_id: { type: string }
         agent: { $ref: "#/components/schemas/MemberName" }
+        member_id:
+          type: string
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: |
+            The agent's seat: its member id, which never changes or repeats. A client
+            keys read positions by server and `member_id`; `agent` is its name now, for
+            display only. Absent from servers before seat ids were sent.
         read_up_to: { $ref: "#/components/schemas/Seq" }
     UnreadEvent:
       type: object

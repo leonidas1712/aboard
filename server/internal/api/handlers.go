@@ -431,6 +431,13 @@ func (h *handlers) GetMessage(context.Context, GetMessageRequestObject) (GetMess
 	return nil, notImplemented("message status")
 }
 
+// CreateDelegation is in the contract ahead of the server: machine delegations come
+// with team slice 5a.
+func (h *handlers) CreateDelegation(context.Context, CreateDelegationRequestObject) (CreateDelegationResponseObject, error) {
+	return nil, apierr.New(http.StatusNotImplemented, "not_implemented", "This server doesn't provide machine delegations yet.",
+		"Join a board from a session with a join line: a person runs aboard invite --board NAME in a terminal.")
+}
+
 func (h *handlers) ListReplies(ctx context.Context, req ListRepliesRequestObject) (ListRepliesResponseObject, error) {
 	wait := time.Duration(0)
 	if req.Params.Wait != nil {
