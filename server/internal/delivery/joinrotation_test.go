@@ -180,7 +180,7 @@ func TestRepeatedJoinRefreshesAfterAnOldPresenceRefusal(t *testing.T) {
 	r.status()
 	r.stop()
 	srv := &rotationServer{Server: r.server, seats: f, entered: make(chan struct{}), release: make(chan struct{}), dropHeads: true}
-	r.serverOverride = srv
+	r.remote = srv
 	r.start()
 	r.register("s1", "b1")
 	joined := r.join("s1", "docs")
