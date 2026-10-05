@@ -665,6 +665,20 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		if err != nil {
 			return swarmUpAgent{}, err
 		}
+	}
+	aliased := false
+	if !recorded {
+		if cred, ok := in.creds.find(in.srv.URL, in.board, spec.Name); ok && cred.MemberID != "" {
+			for oldName, old := range in.rec.Agents {
+				if oldName != spec.Name && old.MemberID == cred.MemberID {
+					ref = delivery.AgentRef{Server: in.srv.URL, Board: in.board, Name: spec.Name, MemberID: cred.MemberID}
+					aliased = true
+					break
+				}
+			}
+		}
+	}
+	if recorded || aliased {
 		ref, err = (daemonTokens{a: a}).ResolveAgent(ctx, ref)
 		if err != nil {
 			if errors.Is(err, delivery.ErrUnauthorized) {
@@ -676,6 +690,34 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 			return swarmUpAgent{}, newError("agent_not_selected",
 				fmt.Sprintf("The swarm names %s, but its recorded seat is now named %s.", spec.Name, ref.Name),
 				fmt.Sprintf("Change the name: %s line in aboard.yaml to name: %s, then run aboard swarm up again.", spec.Name, ref.Name))
+		}
+	}
+	var endedAliases []string
+	if ref.MemberID != "" {
+		for oldName, old := range in.rec.Agents {
+			if oldName != spec.Name && old.MemberID == ref.MemberID {
+				endedAliases = append(endedAliases, oldName)
+			}
+		}
+		slices.Sort(endedAliases)
+		for _, oldName := range endedAliases {
+			old := in.rec.Agents[oldName]
+			if old.Handle == "" {
+				continue
+			}
+			previous, err := a.launcherFor(old.Launcher)
+			if err != nil {
+				return swarmUpAgent{}, err
+			}
+			state, err := previous.Status(ctx, launcher.Ref{Swarm: in.swarm, Agent: oldName, Handle: old.Handle})
+			if err != nil {
+				return swarmUpAgent{}, launcherError(old.Launcher, "check "+oldName, err)
+			}
+			if state != launcher.Exited {
+				return swarmUpAgent{}, newError("agent_not_selected",
+					fmt.Sprintf("The seat %s still has a session recorded as %s in this swarm.", spec.Name, oldName),
+					"Run aboard swarm down "+shellWord(oldName)+" --swarm "+shellWord(in.swarm)+", then aboard swarm up --swarm "+shellWord(in.swarm)+".")
+			}
 		}
 	}
 	h, _ := a.registry().Get(spec.Harness)
@@ -830,6 +872,14 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 	if err != nil {
 		_ = in.tickets.Remove(ticket)
 		return swarmUpAgent{}, launcherError(launcherName, "start "+spec.Name, err)
+	}
+	// The old handles have ended. Keeping their records would let a stale name
+	// selector end the new binding, which shares their immutable seat id.
+	for _, oldName := range endedAliases {
+		if old := in.rec.Agents[oldName]; old.Ticket != "" {
+			_ = in.tickets.Remove(old.Ticket)
+		}
+		delete(in.rec.Agents, oldName)
 	}
 	ar = &swarmAgentRecord{
 		MemberID: ref.MemberID, Harness: spec.Harness, Role: spec.role(), Launcher: launcherName, Mode: mode, Dir: dir,
