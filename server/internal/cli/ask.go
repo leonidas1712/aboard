@@ -114,6 +114,13 @@ func (k *asker) text(title, description, value string) (string, error) {
 	return value, err
 }
 
+// secret asks for a line of text without showing what is typed.
+func (k *asker) secret(title, description string) (string, error) {
+	var value string
+	err := k.run(huh.NewInput().Title(title).Description(description).EchoMode(huh.EchoModePassword).Value(&value))
+	return value, err
+}
+
 // confirm asks a yes-or-no question, starting on value.
 func (k *asker) confirm(title, description string, value bool) (bool, error) {
 	err := k.run(huh.NewConfirm().

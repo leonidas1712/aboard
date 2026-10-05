@@ -159,7 +159,7 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 		return errCheckFailed
 	}
 	latest := pinnedHeads{}
-	if err := updateJSONFile(p.heads(), &latest, 0o600, func() error {
+	if err := updateJSONFile(p.heads(), &latest, func() error {
 		if latest[info.ServerId] == nil {
 			latest[info.ServerId] = map[string]auditHead{}
 		}

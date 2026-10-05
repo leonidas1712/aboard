@@ -115,7 +115,7 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	var saved serverLogins
-	err = updateJSONFile(p.servers(), &saved, 0o600, func() error {
+	err = updateJSONFile(p.servers(), &saved, func() error {
 		if _, ok := saved.find(srv.URL); ok {
 			return newError("already_connected", "This machine connected to "+srv.URL+" meanwhile.", "Use that connection.")
 		}

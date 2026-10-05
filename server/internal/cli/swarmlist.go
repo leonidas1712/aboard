@@ -357,6 +357,7 @@ func runSwarmShow(ctx context.Context, a *app, args []string) error {
 	}
 	rows := a.swarmRows(ctx, id, rec, f)
 	a.fillSeats(ctx, c, rec.Board, func(i int) *swarmAgent { return &rows[i] }, len(rows))
+	a.checkSeats(ctx, srv, rec.Board, rows)
 	sum := a.summarize(id, rec, rows)
 	up := "aboard swarm up --swarm " + id
 	cmds := swarmCommands{
@@ -422,6 +423,9 @@ func (a *app) swarmShowText(s swarmSummary, agents []swarmShowAgent, cmds swarmC
 		if ag.Session != nil {
 			row("session", *ag.Session)
 		}
+		if deref(ag.SeatCredential) == seatEnded {
+			row("seat", st.warn("ended: the access key it came from was revoked or has expired"))
+		}
 		if ag.Commands.Watch != nil {
 			row("watch", st.code(*ag.Commands.Watch))
 		}
@@ -432,6 +436,11 @@ func (a *app) swarmShowText(s swarmSummary, agents []swarmShowAgent, cmds swarmC
 		}
 	}
 	b.WriteString("\n")
+	rows := make([]swarmAgent, 0, len(agents))
+	for _, ag := range agents {
+		rows = append(rows, ag.swarmAgent)
+	}
+	b.WriteString(endedSeatsText(st, s.Board, rows))
 	fmt.Fprintf(&b, "Watch and message them: %s\n", st.code(cmds.Open))
 	fmt.Fprintf(&b, "Stop them all: %s\n", st.code(cmds.Down))
 	return b.String()
