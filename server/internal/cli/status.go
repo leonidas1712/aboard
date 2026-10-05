@@ -61,12 +61,15 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		DeliveryRule   *string      `json:"delivery_rule"`
 		// DeliveryApplied is the mode the agent's delivery daemon last reported applying,
 		// when the server has one.
-		DeliveryApplied *string     `json:"delivery_applied"`
-		Presence        *string     `json:"presence"`
-		Agents          []string    `json:"agents"`
-		Policy          *api.Policy `json:"policy"`
-		People          []person    `json:"people"`
-		Subagent        *subagentOf `json:"subagent"`
+		DeliveryApplied *string `json:"delivery_applied"`
+		// DeliveryUnconfirmed is true when the server couldn't be read, so the mode is the
+		// one this machine kept.
+		DeliveryUnconfirmed bool        `json:"delivery_unconfirmed"`
+		Presence            *string     `json:"presence"`
+		Agents              []string    `json:"agents"`
+		Policy              *api.Policy `json:"policy"`
+		People              []person    `json:"people"`
+		Subagent            *subagentOf `json:"subagent"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -177,9 +180,14 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 				return err
 			}
 			m = string(mode)
+			// No members read means the server couldn't be: the mode is this machine's.
+			out.DeliveryUnconfirmed = members == nil
 		}
 		out.Delivery, out.DeliveryApplied = &m, applied
 		line := fmt.Sprintf("Agent:  %s (from %s); delivery %s", name, label, m)
+		if out.DeliveryUnconfirmed {
+			line += keptHereText
+		}
 		out.Presence = presenceOf(members, name)
 		if applied != nil && *applied != m && out.Presence != nil && *out.Presence != "no_session" {
 			// A daemon from an older aboard keeps its own mode; say what it does.

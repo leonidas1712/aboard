@@ -1462,7 +1462,10 @@ $defs:
       this machine kept delivery mode all for it, which its server doesn't hold, so it is
       focused now", fix "to keep all, run aboard delivery all --as reviewer in a
       terminal; to keep focused, run aboard delivery focused --as reviewer". Nothing
-      moves the mode to the server by itself; it is the agent's person's choice.
+      moves the mode to the server by itself; it is the agent's person's choice. When
+      the agent's server can't be reached, the same check warns with code
+      delivery_mode_unconfirmed: "reviewer on writer-reviewer: delivery off (kept on this
+      machine; the server couldn't be reached)".
     type: object
     required: [checks]
     properties:
@@ -1541,6 +1544,13 @@ $defs:
           The server's revision of the mode: the sequence number of the board event that
           last set it, 0 when it was never set. Null when the server doesn't hold delivery
           modes and the mode is this machine's.
+      unconfirmed:
+        type: boolean
+        description: |
+          True when the agent's server couldn't be read, so the mode shown is the one this
+          machine kept (its daemon's journal), which its daemon applies until it reads the
+          server again. The text then reads "delivery off (kept on this machine; the
+          server couldn't be reached) (…)".
 
   # ---------- aboard status [--as AGENT] [--board NAME] [--launch TICKET] ----------
   StatusOutput:
@@ -1638,6 +1648,12 @@ $defs:
           from delivery while the agent has a session, as with a daemon from an older
           aboard that keeps its own mode, the Agent line says so after the mode: "delivery
           focused (its delivery daemon applies all)".
+      delivery_unconfirmed:
+        type: boolean
+        description: |
+          True when the server couldn't be read, so delivery is the mode this machine kept;
+          the Agent line says "delivery off (kept on this machine; the server couldn't be
+          reached)".
       delivery_rule:
         oneOf:
           - $ref: "#/$defs/DeliveryRule"

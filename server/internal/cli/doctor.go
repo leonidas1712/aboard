@@ -136,7 +136,13 @@ func (a *app) checkKeptModes(ctx context.Context) []doctorCheck {
 		if !ok || !parsed {
 			continue
 		}
-		held, ok := a.heldMode(ctx, target{server: a.serverRefFor(cred.Server), board: cred.Board}, cred)
+		held, ok, reached := a.readHeldMode(ctx, target{server: a.serverRefFor(cred.Server), board: cred.Board}, cred)
+		if !reached {
+			checks = append(checks, problem("delivery_mode", levelWarning, "delivery_mode_unconfirmed",
+				fmt.Sprintf("%s on %s: delivery %s%s", cred.Name, cred.Board, kept, keptHereText),
+				"check that "+cred.Server+" is reachable; until then this machine's delivery daemon applies the mode it kept"))
+			continue
+		}
 		if !ok || held.Revision > 0 || held.Mode == kept {
 			continue
 		}

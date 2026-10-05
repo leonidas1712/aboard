@@ -163,6 +163,29 @@ func TestAModeKeptOnThisMachineIsNamedByDoctor(t *testing.T) {
 	if got := field(t, e.run("init", "--yes", "--delivery", "off", "--json").json(t), "delivery.action"); got != "unchanged" {
 		t.Fatalf("second init: %v", got)
 	}
+
+	// With the server down, the mode shown is the one this machine kept, and says so.
+	e.run("down")
+	expectLines(t, e.run("delivery", "--as", "writer"),
+		"writer on writer-reviewer: delivery off (kept on this machine; the server couldn't be reached) (delivers nothing; the agent reads its inbox itself)")
+	shown = e.run("delivery", "--as", "writer", "--json").json(t)
+	matchesCLISpec(t, "DeliveryOutput", shown)
+	if field(t, shown, "unconfirmed") != true || field(t, shown, "revision") != nil {
+		t.Fatalf("a mode the server couldn't confirm: %v", shown)
+	}
+	status := e.run("status", "--as", "writer", "--json").json(t)
+	matchesCLISpec(t, "StatusOutput", status)
+	if field(t, status, "delivery") != "off" || field(t, status, "delivery_unconfirmed") != true {
+		t.Fatalf("status with the server down: %v", status)
+	}
+	if text := e.run("status", "--as", "writer").stdout; !strings.Contains(text, "delivery off (kept on this machine; the server couldn't be reached)") {
+		t.Fatalf("status text with the server down:\n%s", text)
+	}
+	checks = kept()
+	if len(checks) != 1 || field(t, checks[0], "code") != "delivery_mode_unconfirmed" ||
+		field(t, checks[0], "message") != "writer on writer-reviewer: delivery off (kept on this machine; the server couldn't be reached)" {
+		t.Fatalf("doctor with the server down: %v", checks)
+	}
 }
 
 // Claude Code reads its config from CLAUDE_CONFIG_DIR and Codex from CODEX_HOME when they

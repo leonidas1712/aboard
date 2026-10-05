@@ -2790,6 +2790,13 @@ components:
           type: string
           nullable: true
           description: The owning human's name. Null for humans.
+        owner_id:
+          type: string
+          nullable: true
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: |
+            The owning person's permanent id (the `id` of `GET /v1/me` for them), which,
+            unlike a name, never changes or repeats. Null for people.
         harness:
           type: string
           maxLength: 40

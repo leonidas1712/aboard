@@ -568,7 +568,9 @@ How Aboard does it:
   `revision`, [control.md](control.md)), which takes it as it would a read.
 - **The journal keeps a copy.** A mode read from the server with a revision above 0 is
   written to the journal, so a daemon that restarts applies it until it reads the server
-  again. The daemon reports the mode it applies with the agent's presence, which the
+  again. When the server can't be read, `aboard delivery`, `aboard status` and
+  `aboard doctor` show that copy marked "kept on this machine; the server couldn't be
+  reached". The daemon reports the mode it applies with the agent's presence, which the
   member shows as `delivery`, beside `delivery_mode`.
 - **Nothing moves a mode to the server by itself.** A mode set on this machine before
   servers held modes (`aboard delivery` or `aboard init --delivery` with an older aboard)
@@ -1108,6 +1110,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `skill_edited` | An installed skill differs from the one this aboard installs because it was edited after an aboard wrote it (warning) | `aboard init --yes` replaces it, which discards the edits; or keep it as it is |
 | `hooks_edited` | Aboard's hook entries were edited after an aboard wrote them, and differ from the ones this aboard installs (warning) | `aboard init --yes`, which rewrites only Aboard's entries |
 | `delivery_mode_kept_here` | This machine kept a delivery mode for one of its agents that the agent's server doesn't hold, so the server's mode applies (warning) | The person runs `aboard delivery <mode> --as <agent>` to keep it, or sets the server's |
+| `delivery_mode_unconfirmed` | The agent's server couldn't be reached, so the mode shown is the one this machine kept, which its daemon applies until it reads the server again (warning) | Check that the server is reachable |
 
 ## Failures and what the person sees
 

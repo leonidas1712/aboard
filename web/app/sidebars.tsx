@@ -68,6 +68,8 @@ type BoardPanelProps = {
   record: RecordCheck;
   /** me is the person's own name. */
   me: string | null;
+  /** meId is the person's permanent id, which their agents name as owner_id. */
+  meId: string | null;
   /** canInvite shows "Add an agent": the browser acts as a person. */
   canInvite: boolean;
   /** from is the member the timeline is filtered to, if any. */
@@ -78,7 +80,7 @@ type BoardPanelProps = {
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, canInvite, from, onPick, reveal }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
@@ -86,7 +88,7 @@ export function BoardPanel({ board, members, record, me, canInvite, from, onPick
       <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
         <div className="flex flex-col gap-4 pt-1">
           {canInvite && board && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} from={from} onPick={onPick} />
+          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
         </div>
       </Section>
 
@@ -217,11 +219,12 @@ type WhosHereProps = {
   board: Board | null;
   members: Member[] | null;
   me: string | null;
+  meId: string | null;
   from: string | undefined;
   onPick: (name: string) => void;
 };
 
-function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
+function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -239,7 +242,7 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
               key={a.id}
               agent={a}
               board={board?.name}
-              mine={me !== null && a.owner === me}
+              mine={meId !== null && a.owner_id === meId}
               roleCharter={board?.roles[a.role ?? ""]?.charter}
               showOwner={showOwner}
               picked={from === a.name}

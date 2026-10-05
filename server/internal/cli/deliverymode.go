@@ -80,6 +80,9 @@ type deliveryOutput struct {
 	// Revision is the server's revision of the mode, or nil when the server doesn't hold
 	// delivery modes and the mode is this machine's.
 	Revision *int64 `json:"revision"`
+	// Unconfirmed is true when the agent's server couldn't be read, so the mode shown is
+	// the one this machine kept.
+	Unconfirmed bool `json:"unconfirmed"`
 }
 
 // runDelivery shows an agent's delivery mode, or changes it. The agent's server holds
@@ -116,7 +119,7 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 	}
 	out := deliveryOutput{Board: cred.Board, Agent: cred.Name}
 	if want == "" {
-		out.Mode, out.Revision, err = a.showDelivery(ctx, t, cred, here)
+		out.Mode, out.Revision, out.Unconfirmed, err = a.showDelivery(ctx, t, cred, here)
 	} else {
 		err = a.changeDelivery(ctx, t, cred, here, want, &out)
 	}
@@ -127,7 +130,11 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 	if out.Changed {
 		now = "now "
 	}
-	a.emit(out, fmt.Sprintf("%s on %s: delivery %s%s (%s)\n", out.Agent, out.Board, now, out.Mode, modeText[out.Mode]))
+	kept := ""
+	if out.Unconfirmed {
+		kept = keptHereText
+	}
+	a.emit(out, fmt.Sprintf("%s on %s: delivery %s%s%s (%s)\n", out.Agent, out.Board, now, out.Mode, kept, modeText[out.Mode]))
 	return nil
 }
 
@@ -154,52 +161,68 @@ func (a *app) deliveryTarget(ctx context.Context, boardFlag, as string) (t targe
 // showDelivery reads an agent's delivery mode from its server: with the agent's own
 // token when this machine has it, else from the board's members with the person's
 // login. A server that doesn't hold delivery modes leaves this machine's journal to say,
-// and the revision nil.
-func (a *app) showDelivery(ctx context.Context, t target, cred agentCredential, here bool) (delivery.Mode, *int64, error) {
+// and the revision nil; unconfirmed is true when the server couldn't be read and the
+// journal's mode is shown instead.
+func (a *app) showDelivery(ctx context.Context, t target, cred agentCredential, here bool) (mode delivery.Mode, rev *int64, unconfirmed bool, err error) {
 	if !here {
 		c, err := a.humanClient(ctx, t)
 		if err != nil {
-			return "", nil, err
+			return "", nil, false, err
 		}
 		rctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
 		r, err := c.api.ListMembersWithResponse(rctx, t.board)
 		if err != nil {
-			return "", nil, c.unreachable(err)
+			return "", nil, false, c.unreachable(err)
 		}
 		if r.JSON200 == nil {
-			return "", nil, apiError(r.StatusCode(), r.Body)
+			return "", nil, false, apiError(r.StatusCode(), r.Body)
 		}
 		for _, m := range r.JSON200.Members {
 			if m.Name == cred.Name && m.Kind == "agent" && m.DeliveryMode != nil {
 				rev := revisionOf(m.DeliveryRevision)
-				return delivery.Mode(*m.DeliveryMode), &rev, nil
+				return delivery.Mode(*m.DeliveryMode), &rev, false, nil
 			}
 		}
-		return "", nil, newError("agent_not_found", fmt.Sprintf("Board %s has no agent called %s.", t.board, cred.Name),
+		return "", nil, false, newError("agent_not_found", fmt.Sprintf("Board %s has no agent called %s.", t.board, cred.Name),
 			"Run aboard board people --board "+t.board+" or look at the board view to see its agents.")
 	}
-	if held, ok := a.heldMode(ctx, t, cred); ok {
-		return held.Mode, &held.Revision, nil
+	held, ok, reached := a.readHeldMode(ctx, t, cred)
+	if ok {
+		return held.Mode, &held.Revision, false, nil
 	}
-	mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name})
-	return mode, nil, err
+	mode, err = a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name})
+	return mode, nil, !reached, err
 }
+
+// keptHereText marks a mode shown from this machine's journal because the agent's
+// server couldn't be read.
+const keptHereText = " (kept on this machine; the server couldn't be reached)"
 
 // heldMode reads the agent's delivery mode as its server holds it, with the agent's
 // token. ok is false when the server doesn't hold modes, or couldn't be asked.
 func (a *app) heldMode(ctx context.Context, t target, cred agentCredential) (delivery.HeldMode, bool) {
+	h, ok, _ := a.readHeldMode(ctx, t, cred)
+	return h, ok
+}
+
+// readHeldMode is heldMode, and also reports whether the server answered at all, so a
+// mode it couldn't confirm is marked as this machine's.
+func (a *app) readHeldMode(ctx context.Context, t target, cred agentCredential) (h delivery.HeldMode, ok, reached bool) {
 	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
-		return delivery.HeldMode{}, false
+		return delivery.HeldMode{}, false, false
 	}
 	rctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	r, err := c.api.GetMeWithResponse(rctx)
-	if err != nil || r.JSON200 == nil || r.JSON200.DeliveryMode == nil {
-		return delivery.HeldMode{}, false
+	if err != nil || r.JSON200 == nil {
+		return delivery.HeldMode{}, false, false
 	}
-	return delivery.HeldMode{Mode: delivery.Mode(*r.JSON200.DeliveryMode), Revision: revisionOf(r.JSON200.DeliveryRevision)}, true
+	if r.JSON200.DeliveryMode == nil {
+		return delivery.HeldMode{}, false, true
+	}
+	return delivery.HeldMode{Mode: delivery.Mode(*r.JSON200.DeliveryMode), Revision: revisionOf(r.JSON200.DeliveryRevision)}, true, true
 }
 
 // changeDelivery sets an agent's delivery mode on its server with the person's login,

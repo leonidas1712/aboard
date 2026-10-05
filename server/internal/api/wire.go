@@ -21,12 +21,14 @@ type wireMemberRef struct {
 }
 
 type wireMember struct {
-	ID       string  `json:"id"`
-	Board    string  `json:"board"`
-	Name     string  `json:"name"`
-	Kind     string  `json:"kind"`
-	Role     *string `json:"role"`
-	Owner    *string `json:"owner"`
+	ID    string  `json:"id"`
+	Board string  `json:"board"`
+	Name  string  `json:"name"`
+	Kind  string  `json:"kind"`
+	Role  *string `json:"role"`
+	Owner *string `json:"owner"`
+	// OwnerID is an agent's person's id; null for people.
+	OwnerID  *string `json:"owner_id"`
 	Harness  *string `json:"harness"`
 	Access   *string `json:"access"`
 	Status   string  `json:"status"`
@@ -136,8 +138,8 @@ func memberOf(m board.Member, boardName string) wireMember {
 			state = board.PresenceNoSession
 		}
 		w.Presence, w.PresenceSince, w.Delivery = &state, nullable(m.Presence.Since), nullable(m.Presence.Delivery)
-		mode, rev := m.Delivery.Current(), m.Delivery.Seq
-		w.DeliveryMode, w.DeliveryRevision = &mode, &rev
+		mode, rev, owner := m.Delivery.Current(), m.Delivery.Seq, m.HumanID
+		w.DeliveryMode, w.DeliveryRevision, w.OwnerID = &mode, &rev, &owner
 	}
 	return w
 }

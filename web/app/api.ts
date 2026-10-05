@@ -58,6 +58,8 @@ export type Member = MemberRef & {
   presence_since: string | null;
   /** delivery is the mode the agent's delivery daemon last reported applying; null for people and when never reported. */
   delivery?: DeliveryMode | null;
+  /** owner_id is an agent's person's permanent id; null for people. */
+  owner_id?: string | null;
   /** delivery_mode is the agent's delivery mode as its person set it, held by the server; null for people. */
   delivery_mode?: SettableMode | null;
   delivery_revision?: number | null;

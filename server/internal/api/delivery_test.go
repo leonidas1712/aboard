@@ -64,6 +64,13 @@ func TestOnlyAnAgentsPersonSetsItsDeliveryMode(t *testing.T) {
 	if m.DeliveryMode == nil || *m.DeliveryMode != "focused" || m.DeliveryRevision == nil || *m.DeliveryRevision != 0 {
 		t.Fatalf("an agent never set is focused at revision 0: %+v", m)
 	}
+	// The member names its person by permanent id, which the board view compares with
+	// the signed-in person's to offer the menu.
+	who, err := s.client(maya).GetMeWithResponse(context.Background())
+	mustStatus(t, who, err, 200)
+	if m.OwnerId == nil || *m.OwnerId != who.JSON200.Id || s.memberNamed(maya, b, "maya").OwnerId != nil {
+		t.Fatalf("owner_id: agent %v, want %s, and null for the person", m.OwnerId, who.JSON200.Id)
+	}
 
 	for who, tc := range map[string]struct {
 		token, code string
