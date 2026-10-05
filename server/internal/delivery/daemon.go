@@ -528,12 +528,13 @@ func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool
 	cached, inJournal := d.modes[agent.Key()]
 	save := h.Revision > 0 && (!inJournal || cached != h.Mode)
 	if save {
-		// Publish only after the journal write, so an observed mode survives restart.
+		// Keep the persisted cache unchanged on failure, so an identical read retries.
 		if err := d.cfg.Journal.SetMode(ctx, agent, h.Mode); err != nil {
 			d.log.Warn("save the delivery mode read from the server", "agent", agent.Name, "board", agent.Board, "error", err)
+		} else {
+			d.modes[agent.Key()] = h.Mode
 		}
 		d.rememberLocked(agent)
-		d.modes[agent.Key()] = h.Mode
 	}
 	d.held[agent.Key()] = h
 	d.mu.Unlock()
