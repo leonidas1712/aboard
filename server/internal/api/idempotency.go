@@ -5,12 +5,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
+	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/clock"
 )
 
@@ -36,8 +39,11 @@ type SavedResponse struct {
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
 // again. The responses that carry a login code, a browser token, a server invite, an
-// access key, a guest's key and agent token, or a machine request's secrets are never saved, so none is ever written to disk: those writes ignore the
-// key.
+// access key, a guest's key and agent token, a machine request's secrets, a machine's
+// delegation, or a delegated join's agent token are never saved, so none is ever
+// written to disk: those writes ignore the key. A join with a person's key or a code
+// keeps its replay, since each makes a new agent, but its stored answer is returned only
+// after the service rechecks that the caller may still have it.
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
@@ -45,7 +51,11 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||
-			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect"
+			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
+			r.URL.Path == "/v1/delegations" ||
+			// A delegated join's answer holds a token and is never kept: a repeat is a new
+			// call, which the server answers by finding the same seat.
+			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)
 		if key == "" || r.Method == http.MethodGet || secret {
 			next.ServeHTTP(w, r)
 			return
@@ -70,6 +80,15 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			writeError(w, o.Log, err)
 			return
 		case found && saved.RequestHash == reqHash:
+			if r.URL.Path == "/v1/join" {
+				// A stored join answer holds the agent's token: it is returned only
+				// while the caller may still have it.
+				if err := checkJoinReplay(r.Context(), o.Service, body, saved); err != nil {
+					writeError(w, o.Log, err)
+					return
+				}
+				w.Header().Set("Cache-Control", "no-store")
+			}
 			w.Header().Set("Content-Type", saved.ContentType)
 			w.Header().Set("Idempotent-Replayed", "true")
 			w.WriteHeader(saved.Status)
@@ -93,6 +112,33 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			o.Log.Error("save idempotent response", "error", err)
 		}
 	})
+}
+
+// checkJoinReplay rechecks a stored answer to a join with a person's key or a code
+// before it is returned again: the service decides from the request and the seat and
+// token the answer holds. A stored refusal holds no token and is returned as it is.
+func checkJoinReplay(ctx context.Context, svc *board.Service, request []byte, saved SavedResponse) error {
+	if saved.Status != http.StatusCreated {
+		return nil
+	}
+	var in struct {
+		Code  string `json:"code"`
+		Board string `json:"board"`
+		Role  string `json:"role"`
+	}
+	var answer struct {
+		Agent struct {
+			ID string `json:"id"`
+		} `json:"agent"`
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(request, &in); err != nil {
+		return fmt.Errorf("decode the stored join's request: %w", err)
+	}
+	if err := json.Unmarshal(saved.Body, &answer); err != nil {
+		return fmt.Errorf("decode the stored join's answer: %w", err)
+	}
+	return svc.CheckJoinReplay(ctx, principal(ctx), board.JoinInput{Code: in.Code, Board: in.Board, Role: in.Role}, answer.Agent.ID, answer.Token)
 }
 
 // recorder passes a response through while keeping a copy of it.

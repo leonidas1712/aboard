@@ -141,7 +141,7 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 			if !on {
 				actor = actorOf(existing)
 			}
-			if err := s.restorePerson(tx, &b, &existing, actor, now); err != nil {
+			if err := s.restorePerson(tx, &b, &existing, actor, now, nil); err != nil {
 				return err
 			}
 			out = Person{Member: existing, Person: target}
@@ -184,7 +184,7 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 
 // restorePerson puts back on b a person who left or was removed, as a member, and
 // records it.
-func (s *Service) restorePerson(tx Tx, b *Board, m *Member, actor events.Actor, at time.Time) error {
+func (s *Service) restorePerson(tx Tx, b *Board, m *Member, actor events.Actor, at time.Time, extra map[string]any) error {
 	if err := tx.SetMemberStatus(m.ID, StatusActive); err != nil {
 		return err
 	}
@@ -192,9 +192,11 @@ func (s *Service) restorePerson(tx Tx, b *Board, m *Member, actor events.Actor, 
 		return err
 	}
 	m.Status, m.Access = StatusActive, rules.AccessMember
-	if _, err := s.append(tx, b, events.PersonAdded, actor, at, map[string]any{
-		"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "access": m.Access, "rejoined": true,
-	}); err != nil {
+	data := map[string]any{"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "access": m.Access, "rejoined": true}
+	for k, v := range extra {
+		data[k] = v
+	}
+	if _, err := s.append(tx, b, events.PersonAdded, actor, at, data); err != nil {
 		return err
 	}
 	// Rejoining restores access, not evidence of reading messages.
@@ -342,6 +344,15 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 	if err != nil {
 		return nil, err
 	}
+	// Who ended the agents: their own person leaving, a server admin removing the person
+	// from the server, or one of the board's owners.
+	by := RemovedByOwner
+	switch {
+	case typ == events.PersonLeft:
+		by = RemovedByPerson
+	case extra["from_server"] == true:
+		by = RemovedByAdmin
+	}
 	theirs := map[string]bool{}
 	agents := []string{}
 	for _, x := range members {
@@ -350,7 +361,7 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 		}
 		theirs[x.ID] = true
 		if x.Kind == "agent" && x.Status == StatusActive {
-			if err := tx.SetMemberStatus(x.ID, StatusRemoved); err != nil {
+			if err := tx.RemoveAgent(x.ID, stamp(now), by); err != nil {
 				return nil, err
 			}
 			agents = append(agents, x.ID)

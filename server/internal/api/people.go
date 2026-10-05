@@ -47,6 +47,7 @@ func keyOf(k board.KeyView) map[string]any {
 		"id": k.ID, "name": k.Name, "created_at": k.CreatedAt, "expires_at": k.ExpiresAt,
 		"idle_expiry_seconds": k.IdleSeconds, "state": k.State, "revoked_at": k.RevokedAt,
 		"last_used_at": k.LastUsedAt, "browser_sessions": k.BrowserSessions, "agent_seats": k.AgentSeats,
+		"delegations": k.Delegations,
 	}
 }
 

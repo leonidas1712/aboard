@@ -13,6 +13,7 @@ type readEvent struct {
 	Board    string `json:"board"`
 	BoardID  string `json:"board_id"`
 	Agent    string `json:"agent"`
+	MemberID string `json:"member_id"`
 	ReadUpTo int    `json:"read_up_to"`
 }
 
@@ -51,7 +52,9 @@ func TestStreamSendsReadPositionsToTheOwnerOnly(t *testing.T) {
 
 	ack, err := s.client(writer).AckInboxWithResponse(ctx, nil, api.AckInboxJSONRequestBody{UpTo: seq})
 	mustStatus(t, ack, err, 200)
-	if r := alex.readPosition(); r.Board != boardName || r.Agent != "writer" || r.ReadUpTo != seq {
+	writerMe, err := s.client(writer).GetMeWithResponse(ctx)
+	mustStatus(t, writerMe, err, 200)
+	if r := alex.readPosition(); r.Board != boardName || r.Agent != "writer" || r.MemberID != writerMe.JSON200.Id || r.ReadUpTo != seq {
 		t.Fatalf("read event for the owner: %+v", r)
 	}
 	// Acknowledging again moves nothing, so nothing is sent; priya hears only of her own

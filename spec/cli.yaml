@@ -23,7 +23,20 @@
 #   on two boards fails with agent_ambiguous (details.boards) unless --board picks one. A
 #   session is bound to at most one agent: pair, join or resume in a session bound to
 #   another agent moves the session to the new one (see PreviousAgent). With no agent:
-#   agent_not_selected (details.choices). Agent commands (say, inbox, read, react)
+#   agent_not_selected (details.choices).
+# - Several seats (team slice 5a, D196, D197). Once multi-seat binding is on (spec/control.md,
+#   "Several seats": only in the build where board_ambiguous and the combined delivery
+#   have both landed), a session holds at most one seat per board, all on one server, and
+#   pair, join or resume for a board where it holds no seat adds one (previous_agent
+#   null). In a session with several seats, every command that acts on one board (say,
+#   say --reply, react, read in all its forms, board title, board people, delivery
+#   without a mode, and leave and invite where they act as the agent) needs --board, and
+#   without it fails with board_ambiguous, even when --as or ABOARD_AGENT names the
+#   agent, before it reads or sends anything; board_ambiguous is checked before
+#   agent_ambiguous. --board names one of the session's seats; a message reference
+#   (payments-design#6, msg_…) never chooses the seat. boards, status and inbox cover
+#   every seat. With one seat or none, every command's output and behaviour is byte for
+#   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
 #   and logout always use it. board title, board people and boards act as an agent when
@@ -55,7 +68,10 @@
 #   (Claude Code's, inherited by a Codex started inside it).
 # - Files and addresses: aboard keeps its files in $XDG_CONFIG_HOME/aboard (the owner
 #   token, credentials and servers.json, the access keys aboard connect saved, one per
-#   server), $XDG_DATA_HOME/aboard (the local server's database, pid file
+#   server; credentials.json keeps each seat as {server, board, name, member_id, token},
+#   where member_id, the seat's mem_ id, is its key and board and name are display only;
+#   an entry written before member_id is resolved through its own token's GET /v1/me,
+#   never by its name), $XDG_DATA_HOME/aboard (the local server's database, pid file
 #   and log) and $XDG_STATE_HOME/aboard (verified audit heads, the install manifest
 #   installs.json, and the delivery daemon's journal, pid, log and socket), defaulting to ~/.config, ~/.local/share and
 #   ~/.local/state. The local server listens on 127.0.0.1:7400.
@@ -98,7 +114,23 @@ $defs:
       key for that server; details.handle names whose) ·
       agent_not_selected (details.choices lists your agents on this board;
       details.board_source says where the board came from) · agent_ambiguous
-      (details.boards lists the boards with that agent name) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
+      (details.boards lists the boards with that agent name) · board_ambiguous (exit 1;
+      the command acts on one board and runs in a session with several seats, without
+      --board, even with --as or ABOARD_AGENT. Shape:
+        {"error":{"code":"board_ambiguous",
+          "message":"This session has seats on 2 boards: general, payments-design.",
+          "hint":"Pass --board with one of them, such as aboard say --board general \"…\".",
+          "details":{"boards":["general","payments-design"],
+            "seats":[{"board":"general","name":"claude"},{"board":"payments-design","name":"claude-2"}]}}}
+      details.boards, sorted, and details.seats list only the session's working seats,
+      never a board a seat can no longer see) · session_on_another_server (join --board in
+      a session whose seats are on another server; a session's seats are on one server, so
+      the hint says to use a session for that server; details.server, details.session_server) ·
+      delegation_revoked (from the server: this machine's delegation, or the access key
+      behind it, no longer works; the hint says the person runs aboard login or aboard
+      connect on this machine) · agent_removed (from the server: the session's seat on
+      that board was removed, and joining again never makes a replacement; details.agent,
+      details.removed_at, details.removed_by) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
       session the daemon hasn't registered) · subagent_without_seat (the command changes
       state and runs in a subagent, which may only read; the hint names what it can run) ·
       codex_subagent_target · codex_target_absent ·
@@ -223,8 +255,10 @@ $defs:
   PreviousAgent:
     description: |
       The agent this harness session was bound to before the command moved it to the new
-      one, or null if the session had no agent or keeps the same one. A session fills one
-      seat at a time: the old agent's unread messages stay on the server for whichever
+      one, or null if the session had no agent or keeps the same one. Once multi-seat
+      binding is on (see the header), it is set only when the new seat replaces the
+      session's seat on the same board, and is null when the session gains a seat on
+      another board. Until then a session fills one seat at a time: the old agent's unread messages stay on the server for whichever
       session resumes it, and a bundle handed for it but not yet confirmed is handed again
       there. Text output then prints
       "This session was <name> on <board>; it is now <new name> on <new board>."
@@ -233,6 +267,27 @@ $defs:
     properties:
       name: { type: string, examples: [claude] }
       board: { type: string, examples: [writer-reviewer] }
+  Seat:
+    description: |
+      One of the session's seats (team slice 5a): an agent on one board, keyed by
+      member_id; board and name are for display.
+    type: object
+    required: [server, board, name, member_id, role, delivery, unread]
+    properties:
+      server: { type: string }
+      board: { type: string }
+      name: { type: string }
+      member_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+      role: { type: [string, "null"], description: The agent's role on the board. }
+      delivery:
+        enum: [focused, all, humans, off]
+        description: The seat's delivery mode, as its server holds it.
+      unread:
+        type: [integer, "null"]
+        minimum: 0
+        description: The seat's unread inbox; null when the server couldn't be read.
+      presence:
+        enum: [working, idle, waiting, no_session, null]
   Message:
     description: |
       A message in the CLI's --json output: the API's Message without its deprecated
@@ -520,8 +575,35 @@ $defs:
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
+  # ---------- aboard join --board NAME [--name NAME] [--role R] [--server URL], in a session ----------
   JoinOutput:
     description: |
+      In a session, aboard join --board NAME gives the session a seat on that board
+      through the machine's delegation, which the delivery daemon holds (spec/control.md,
+      "join"); the command never reads the person's key. The server is the session's
+      seats' server; for a session with no seat, --server, else the server the
+      directory's .aboard names, else the one server this machine is connected to
+      (servers.json), else the local server; with several and neither --server nor
+      .aboard, it fails with server_not_selected (details.choices), and a server this
+      machine has no key for fails with login_required. Joining a board where the
+      session already has a working seat reuses it (reused true), never a second one.
+      Refusals: board_not_found (a board the person can't see, a guest's other boards),
+      delegation_revoked, agent_removed, guest_not_allowed (a guest's agents come only
+      from guest codes), session_on_another_server, name_taken, role_not_found, and
+      server_unreachable when the server can't be reached: the daemon always asks the
+      server, which decides reuse, and never answers a join from its own records. With
+      --as or ABOARD_AGENT and no session, it fails with session_unknown: there is no
+      session to give a seat. Text output:
+        Joined board payments-design as claude (owner maya)
+        This session acts as claude on payments-design, and messages for claude arrive here.
+        Delivery mode: focused. …
+      For a reused seat the first line is "This session is already claude on
+      payments-design." Once multi-seat binding is on and the session has several
+      seats, the second line is "This session now has 2 seats: claude on general,
+      claude-2 on payments-design. Commands that act on one board need --board, such as
+      aboard say --board payments-design "…"."
+
+
       Text output:
         Joined board writer-reviewer as reviewer (owner alex)
         This session acts as reviewer, and messages for reviewer arrive here.
@@ -545,6 +627,18 @@ $defs:
     type: object
     required: [server, board, agent, use, charter, role_charter, policy_notice]
     properties:
+      via:
+        enum: [delegation]
+        description: Present for join --board in a session, which joined through the machine's delegation.
+      reused:
+        type: boolean
+        description: With via only. True when the session already had this seat; nothing new was made.
+      seats:
+        type: array
+        description: |
+          Once multi-seat binding is on and the session has several seats: each of them,
+          as in StatusOutput's seats. Left out otherwise.
+        items: { $ref: "#/$defs/Seat" }
       guest:
         type: boolean
         description: True when the agent joined through a guest code, as a guest's agent.
@@ -561,6 +655,26 @@ $defs:
         enum: [focused, all, humans, off]
         description: The new agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
+
+  # ---------- aboard join --board NAME [--server URL], in a terminal ----------
+  JoinPersonOutput:
+    description: |
+      In a terminal (not in a harness session, ABOARD_AGENT unset), aboard join --board
+      adds the person themselves to an open board, with their own key and no agent seat
+      (POST /v1/boards/{board}/people with their handle). The server is chosen as for a
+      session's first join. On a board they are already on it changes nothing (added
+      false). A private board they aren't on, or a board they can't see, fails with
+      board_not_found. Text output:
+        You're on payments-design. Post with aboard say --board payments-design "…", or in the board view.
+    type: object
+    required: [server, board, person, added]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string }
+      person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+      added:
+        type: boolean
+        description: False when the person was already on the board.
 
   # ---------- aboard invite [--role R] [--ttl DURATION] [--board NAME] ----------
   InviteOutput:
@@ -1069,6 +1183,58 @@ $defs:
         type: [string, "null"]
         description: All returned messages as one bundle in delivery format, as the daemon delivers them to an idle session. Null when there are no messages.
 
+  # ---------- aboard inbox, in a session with several seats, without --board ----------
+  InboxSeatsOutput:
+    description: |
+      aboard inbox in a session with several seats and no --board reads every seat's
+      inbox, each with its own token, and acknowledges, per seat, only what it shows: up
+      to the last message it returns for that seat. --limit applies per seat; --wait
+      returns once any seat has a message; --peek acknowledges nothing. A seat whose
+      read is refused (its board gone, the seat removed, its token refused) is left out
+      and acknowledges nothing, and is counted in unavailable without naming its board;
+      aboard status says which. Every seat is read before any is acknowledged, and every
+      seat read is shown, even when another seat's read or acknowledgement fails; a seat
+      whose acknowledgement fails is counted in unacknowledged and its messages come
+      again. It fails as a whole (exit 1) only when no seat could be read and the server
+      can't be reached. With --board, or with one seat, the output is
+      InboxOutput, unchanged. Text output is one block per seat, each starting with its
+      "<board> · <count>" header line, and the wrapped messages carry seat (DeliveryText).
+    type: object
+    required: [seats, unavailable, bundle]
+    properties:
+      seats:
+        type: array
+        items:
+          type: object
+          required: [server, board, agent, member_id, messages, acked_up_to, more]
+          properties:
+            server: { type: string }
+            board: { type: string }
+            agent: { type: string }
+            member_id: { type: string }
+            messages:
+              type: array
+              items: { $ref: "#/$defs/Message" }
+            acked_up_to: { type: [integer, "null"] }
+            more: { type: boolean }
+            wrapped:
+              type: array
+              items: { type: string }
+      unavailable:
+        type: integer
+        minimum: 0
+        description: Seats whose inbox couldn't be read, whatever the reason (a refusal, or the server unreachable); nothing was acknowledged for them, and they aren't named.
+      unacknowledged:
+        type: integer
+        minimum: 0
+        description: |
+          Seats whose messages are shown but whose acknowledgement failed; those messages
+          come again. Every seat that was read is shown, whatever happens to another
+          seat's read or acknowledgement.
+      bundle:
+        type: [string, "null"]
+        description: Every seat's messages as one delivery, one block per board (spec/delivery.md, "A session with several seats"). Null when there are none.
+
   DeliveryText:
     description: |
       The text form of messages put into a session, by `inbox` and by the delivery daemon.
@@ -1114,6 +1280,18 @@ $defs:
         <aboard-message …>…</aboard-message>
         <aboard-message …>…</aboard-message>
         </aboard-messages>
+
+      To a session with several seats (team slice 5a; spec/delivery.md, "A session with
+      several seats"), each message and each block also carries seat, the session's
+      agent on that board, right after board, and a delivery has one block per board:
+
+        <aboard-messages board="payments-design" seat="claude-2" count="1">
+        <aboard-message board="payments-design" seat="claude-2" from="@maya" sender="owner" seq="6" expects-reply="true">…</aboard-message>
+        Reply requested. Reply with: aboard say --board payments-design --reply 6 "…"
+        </aboard-messages>
+
+      Every hint then includes --board. With one seat, seat is never written and the
+      text is exactly as above.
     type: string
 
   # ---------- aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] ----------
@@ -1744,6 +1922,21 @@ $defs:
       "Daemon: can't be reached from Codex's sandbox". With no agent selected the Agent
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
+
+      In a session with several seats (team slice 5a; once multi-seat binding is on),
+      status without --board or --as lists every seat and selects none: board and agent
+      are null, board_source none, agent_source session, delivery, delivery_rule,
+      presence, policy and people null, agents empty, and seats and seats_usage are set.
+      The Board, Agent, Policy and People lines are replaced by:
+        Seats:  2 in this session, on https://team.example.com
+                  general          claude    member  focused  idle  2 unread
+                  payments-design  claude-2  member  all      idle
+                Commands that act on one board need --board, such as aboard say --board general "…".
+                Reply with: aboard say --board payments-design --reply 6 "…"
+      The last two lines are seats_usage. With --board or --as naming one of the seats,
+      status shows that seat as for one seat, then the Seats lines. A session's start and
+      resume give the same summary. With one seat or none, seats and seats_usage are left
+      out and the output is byte for byte what it was.
     type: object
     required: [server, server_running, server_replaced, sandbox_blocks_network, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
@@ -1784,6 +1977,11 @@ $defs:
               Deliveries handed to an idle session that started no turn within 10 seconds,
               until a turn starts or the session closes. aboard doctor names each
               (delivery_stalled). They are never handed again because of it.
+          multi_seat:
+            type: boolean
+            description: |
+              True when the running daemon binds several seats to a session (spec/control.md,
+              "Several seats"). Left out when false.
           stopped_agents:
             type: array
             description: |
@@ -1864,6 +2062,16 @@ $defs:
           properties:
             name: { type: string }
             access: { enum: [admin, member] }
+      seats:
+        type: array
+        description: Only in a session with several seats; every seat, sorted by board. Left out otherwise.
+        items: { $ref: "#/$defs/Seat" }
+      seats_usage:
+        type: array
+        description: Only with seats. The two reminder lines of the text output.
+        items: { type: string }
+        examples:
+          - ["Commands that act on one board need --board, such as aboard say --board general \"…\".", "Reply with: aboard say --board payments-design --reply 6 \"…\""]
       subagent:
         description: |
           Set when status runs in a subagent of a harness session (see "Inside a subagent"
@@ -1932,8 +2140,20 @@ $defs:
       (default). With --all, also the open boards they aren't on (on_board false, role,
       agents null; the text adds "join with aboard board add @me --board NAME"), and for a
       server admin the private boards they aren't on, as the API gives them
-      (hidden_boards). Inside a harness session, or with --as, it lists only the agent's
-      own board, with the agent's token, and says so (as names the agent; role is null). An agent is selected by --as, then ABOARD_AGENT, then the session; --all with an agent selected is a usage error.
+      (hidden_boards). With --as or ABOARD_AGENT, it lists only the agent's own board,
+      with the agent's token, and says so (as names the agent; role is null); --all then
+      is a usage error. Inside a harness session without either, it lists every board
+      the person can see through the machine's delegation (team slice 5a; spec/control.md,
+      "boards"), with all ignored: the open boards and the private boards the person is on
+      (a guest's agent: only the guest's boards), never hidden_boards, even for an admin.
+      Then as is null, person names the person, session the session, each row's seat
+      names the session's seat on it (null where it has none) and unread is that seat's
+      unread inbox (null without a seat). The server is chosen as for join --board. The
+      list never authorizes a join: join --board checks again. Before multi-seat binding
+      is on, the same rows are listed; only the number of seats differs. Text output in
+      a session:
+        payments-design   open      3 agents   you're claude here
+        incident-42       private   you're on it
       Text output is one line per board: its name, its title, its visibility (Private
       always; Open only when more than one person is on it), the role, the counts, how
       many messages are unread ("3 unread", left out when none are), and "default" for
@@ -1945,6 +2165,12 @@ $defs:
       as:
         type: [string, "null"]
         description: The agent whose board is listed; null for a person.
+      person:
+        type: string
+        description: In a session, listing through the machine's delegation, the person whose boards these are. Absent otherwise.
+      session:
+        type: string
+        description: In a session, listing through the machine's delegation, the session as <harness>:<id>. Absent otherwise.
       all: { type: boolean }
       boards:
         type: array
@@ -1976,6 +2202,9 @@ $defs:
             default:
               type: boolean
               description: True for the board this directory's .aboard names.
+            seat:
+              type: [string, "null"]
+              description: In a session, listing through the machine's delegation, the session's seat on this board (the agent's name), or null. Absent otherwise.
       hidden_boards:
         type: array
         items: { $ref: openapi.yaml#/components/schemas/HiddenBoard }

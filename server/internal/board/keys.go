@@ -94,6 +94,9 @@ func (p Principal) personID() string {
 	if p.Agent != nil {
 		return p.Agent.HumanID
 	}
+	if p.Delegation != nil {
+		return p.Delegation.HumanID
+	}
 	return ""
 }
 
@@ -165,6 +168,10 @@ func viewKey(u KeyUsage, now string) KeyView {
 		state = KeyRevoked
 	case !keyWorks(u.AccessKey, now):
 		state = KeyExpired
+	}
+	if state != KeyWorking {
+		// A key's delegations work only while it does.
+		u.Delegations = 0
 	}
 	return KeyView{KeyUsage: u, State: state}
 }

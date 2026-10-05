@@ -68,6 +68,9 @@ type wireBoard struct {
 	ReadUpTo   *int64 `json:"read_up_to,omitempty"`
 	Unread     *int64 `json:"unread,omitempty"`
 	NeedsReply *int64 `json:"needs_reply"`
+	// PeopleCount and AgentCount are given to a machine's delegation only.
+	PeopleCount *int `json:"people_count,omitempty"`
+	AgentCount  *int `json:"agent_count,omitempty"`
 }
 
 type wireMessage struct {
@@ -167,6 +170,7 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 	if v.ShowsCounts(p) {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
 	}
+	w.PeopleCount, w.AgentCount = v.PeopleCount, v.AgentCount
 	return withPosition(w, v)
 }
 

@@ -114,20 +114,23 @@ type PresenceChange struct {
 	BoardID  string
 	Board    string // the board's name
 	Agent    string
+	MemberID string // the agent's seat; Agent is its name now, for display
 	Presence Presence
 }
 
 // presenceOn returns the current presence of every agent on each board, the read
-// position of the agents p's person owns, by board id and agent name, and the person's
-// own read position on each board, by board id. It reads nothing once p's credential has
+// position of the agents p's person owns, by board id and agent name, the person's
+// own read position on each board, by board id, and each agent's member id, by board
+// id and agent name. It reads nothing once p's credential has
 // stopped working, and nothing of a board the person is no longer on.
 func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal) (
-	presence map[string]map[string]Presence, reads map[string]map[string]int64, positions map[string]Position, err error,
+	presence map[string]map[string]Presence, reads map[string]map[string]int64, positions map[string]Position, seats map[string]map[string]string, err error,
 ) {
 	humanID := p.personID()
 	presence = make(map[string]map[string]Presence, len(boardIDs))
 	reads = make(map[string]map[string]int64, len(boardIDs))
 	positions = make(map[string]Position, len(boardIDs))
+	seats = make(map[string]map[string]string, len(boardIDs))
 	err = s.st.Read(ctx, func(tx ReadTx) error {
 		now := s.clk.Now()
 		if err := stillValid(tx, p, stamp(now)); err != nil {
@@ -149,22 +152,23 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			if err != nil {
 				return err
 			}
-			agents, mine := map[string]Presence{}, map[string]int64{}
+			agents, mine, ids := map[string]Presence{}, map[string]int64{}, map[string]string{}
 			for _, m := range present(members) {
 				if m.Kind != "agent" {
 					continue
 				}
 				agents[m.Name] = m.CurrentPresence(now)
+				ids[m.Name] = m.ID
 				if m.HumanID == humanID {
 					mine[m.Name] = m.Cursor
 				}
 			}
-			presence[id], reads[id] = agents, mine
+			presence[id], reads[id], seats[id] = agents, mine, ids
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("read presence: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("read presence: %w", err)
 	}
-	return presence, reads, positions, nil
+	return presence, reads, positions, seats, nil
 }

@@ -70,6 +70,10 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Policy              *api.Policy `json:"policy"`
 		People              []person    `json:"people"`
 		Subagent            *subagentOf `json:"subagent"`
+		// Seats and SeatsUsage are set only in a session with several seats, with
+		// neither --board nor --as; one seat or none leaves them out.
+		Seats      []seatRow `json:"seats,omitempty"`
+		SeatsUsage []string  `json:"seats_usage,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -89,11 +93,28 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	var agentBoard *target
 	switch {
 	case name != "":
+		if err := a.oneSeat(ctx, *boardFlag); err != nil {
+			return err
+		}
 		if t, _, err := a.agentByName(creds, name, *boardFlag); err == nil {
 			agentBoard = &t
 		}
 	default:
 		if key, ok := a.sessionKey(); ok {
+			if agents, err := a.sessionAgents(ctx, key); err == nil && len(agents) > 1 && *boardFlag == "" {
+				// A session with several seats selects none: status lists them all.
+				out.AgentSource = agentFromSession
+				out.Seats = a.sessionSeats(ctx, agents, creds)
+				var text strings.Builder
+				a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, a.serverRefFor(agents[0].Server))
+				out.Server = a.serverRefFor(agents[0].Server)
+				text.WriteString(setupLine)
+				seats, usage := seatsText(agents[0].Server, out.Seats)
+				out.SeatsUsage = usage
+				text.WriteString(seats)
+				a.emit(out, styleStatus(text.String(), a.out()))
+				return nil
+			}
 			if t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag); err == nil && found {
 				agentBoard, name, source = &t, cred.Name, agentFromSession
 			}

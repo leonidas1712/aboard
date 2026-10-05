@@ -275,9 +275,9 @@ Each lands as before: contracts first, failing multi-person tests first, a secur
 review by a second agent, full checks, and `make live` with Claude Code and Codex where
 delivery or setup changes.
 
-### Decisions (D195)
+### Decisions (D196)
 
-The maintainer approved these on 2026-10-05; D195 records them.
+The maintainer approved these on 2026-10-05; D196 records them.
 
 ### Decisions as proposed
 

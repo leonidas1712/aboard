@@ -35,9 +35,17 @@ func ParseSessionKey(s string) (SessionKey, bool) {
 // AgentRef names one agent: its server, its board and its name there. An agent belongs
 // to exactly one board.
 type AgentRef struct {
-	Server string `json:"server"`
-	Board  string `json:"board"`
-	Name   string `json:"name"`
+	Server   string `json:"server"`
+	Board    string `json:"board"`
+	Name     string `json:"name"`
+	MemberID string `json:"member_id,omitempty"`
+}
+
+// byName is the agent without its member id. Until the daemon keys a seat's state by
+// member id, every request's agent is keyed by server, board and name.
+func (a AgentRef) byName() AgentRef {
+	a.MemberID = ""
+	return a
 }
 
 // Message is one board message as the delivery text shows it.
