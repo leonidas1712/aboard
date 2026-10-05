@@ -178,6 +178,8 @@ type FakeServer struct {
 	inboxes   map[delivery.AgentRef][]delivery.Message
 	cursors   map[delivery.AgentRef]int
 	revoked   map[delivery.AgentRef]bool
+	gone      map[delivery.AgentRef]bool
+	requests  map[delivery.AgentRef]int
 	followers map[chan delivery.Head]bool
 	acks      []int
 	failAcks  bool
@@ -192,6 +194,7 @@ func NewFakeServer() *FakeServer {
 	return &FakeServer{
 		heads: map[string]int{}, inboxes: map[delivery.AgentRef][]delivery.Message{},
 		cursors: map[delivery.AgentRef]int{}, revoked: map[delivery.AgentRef]bool{}, followers: map[chan delivery.Head]bool{},
+		gone: map[delivery.AgentRef]bool{}, requests: map[delivery.AgentRef]int{},
 		presence: map[delivery.AgentRef][]delivery.Presence{}, modes: map[delivery.AgentRef]delivery.Mode{},
 	}
 }
@@ -200,8 +203,12 @@ func NewFakeServer() *FakeServer {
 func (s *FakeServer) SetPresence(_ context.Context, agent delivery.AgentRef, p delivery.Presence, mode delivery.Mode) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.requests[agent]++
 	if s.revoked[agent] {
 		return delivery.ErrUnauthorized
+	}
+	if s.gone[agent] {
+		return delivery.ErrBoardGone
 	}
 	s.presence[agent] = append(s.presence[agent], p)
 	if mode != "" {
@@ -282,8 +289,12 @@ func (s *FakeServer) Follow(ctx context.Context, connected func(), head func(del
 func (s *FakeServer) Inbox(_ context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.requests[agent]++
 	if s.revoked[agent] {
 		return nil, 0, delivery.ErrUnauthorized
+	}
+	if s.gone[agent] {
+		return nil, 0, delivery.ErrBoardGone
 	}
 	for _, m := range s.inboxes[agent] {
 		if m.Seq > s.cursors[agent] {
@@ -297,8 +308,12 @@ func (s *FakeServer) Inbox(_ context.Context, agent delivery.AgentRef) (msgs []d
 func (s *FakeServer) Ack(_ context.Context, agent delivery.AgentRef, upTo int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.requests[agent]++
 	if s.revoked[agent] {
 		return delivery.ErrUnauthorized
+	}
+	if s.gone[agent] {
+		return delivery.ErrBoardGone
 	}
 	if s.failAcks {
 		return errors.New("server unreachable")
@@ -349,6 +364,22 @@ func (s *FakeServer) Revoke(agent delivery.AgentRef) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.revoked[agent] = true
+}
+
+// TakeOff makes the agent's board answer board_not_found to it from now on, as when its
+// person is removed from the board.
+func (s *FakeServer) TakeOff(agent delivery.AgentRef) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gone[agent] = true
+}
+
+// Requests is how many requests were made for the agent: inbox reads,
+// acknowledgements and presence reports, whether or not they succeeded.
+func (s *FakeServer) Requests(agent delivery.AgentRef) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.requests[agent]
 }
 
 // PipeControl is an in-memory control socket: Dial returns one end of a pipe whose other

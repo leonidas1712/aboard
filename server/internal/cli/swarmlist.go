@@ -423,8 +423,11 @@ func (a *app) swarmShowText(s swarmSummary, agents []swarmShowAgent, cmds swarmC
 		if ag.Session != nil {
 			row("session", *ag.Session)
 		}
-		if deref(ag.SeatCredential) == seatEnded {
+		switch deref(ag.SeatCredential) {
+		case seatEnded:
 			row("seat", st.warn("ended: the access key it came from was revoked or has expired"))
+		case seatBoardGone:
+			row("seat", st.warn("gone: the board is gone or hidden from you, or this agent was removed from it"))
 		}
 		if ag.Commands.Watch != nil {
 			row("watch", st.code(*ag.Commands.Watch))

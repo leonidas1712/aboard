@@ -39,6 +39,10 @@ type serverConn struct {
 	mail *mailbox[srvMsg]
 
 	watched map[AgentRef]bool
+	// gone holds watched agents whose board answered board_not_found, whose inboxes a
+	// head change no longer reads. Watching an agent again, when a session binds it,
+	// clears it.
+	gone map[AgentRef]bool
 
 	mu        sync.Mutex
 	connected bool
@@ -76,6 +80,7 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		switch {
 		case m.watch != nil:
 			c.watched[*m.watch] = true
+			delete(c.gone, *m.watch)
 		case m.head != nil && m.head.Read != nil:
 			// The server says an agent read up to a point, whoever acknowledged: its session
 			// drops what is at or below it from what it would hand over or announce.
@@ -90,7 +95,7 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		}
 	}
 	for agent := range c.watched {
-		if all || boards[agent.Board] {
+		if (all || boards[agent.Board]) && !c.gone[agent] {
 			if s := c.d.owner(agent); s != nil {
 				s.mail.put(sessionMsg{inbox: c.fetch(ctx, agent, 0)})
 			}
@@ -104,6 +109,9 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 			actx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 			err := c.srv.Ack(actx, *m.ack, m.upTo)
 			cancel()
+			if errors.Is(err, ErrBoardGone) {
+				c.gone[*m.ack] = true
+			}
 			m.replyTo.mail.put(sessionMsg{ack: &ackResult{agent: *m.ack, upTo: m.upTo, err: err}})
 		}
 	}
@@ -140,6 +148,9 @@ func (c *serverConn) fetch(ctx context.Context, agent AgentRef, refresh int64) *
 	fctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
 	msgs, cursor, err := c.srv.Inbox(fctx, agent)
+	if errors.Is(err, ErrBoardGone) {
+		c.gone[agent] = true
+	}
 	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, err: err, refresh: refresh}
 }
 
