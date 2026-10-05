@@ -1,0 +1,47 @@
+---
+title: "aboard init"
+description: "Add the Aboard skill and delivery hooks to Claude Code and Codex."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]
+```
+
+Installs the Aboard skill, and the delivery hooks that bring messages into an open session, for each harness found on this machine. Running it again changes only what differs from what this aboard installs, and keeps your own settings and hooks.
+
+In a terminal, init first shows what is already set up, then asks which harnesses, where to install, the delivery mode and whether to allow aboard commands, shows the changes and asks before making them. Each flag answers its question. In a pipe, inside an agent's session or with `--json` it never asks: without `--yes` it lists the changes it would make and changes nothing.
+
+Restart open sessions afterwards so they load the hooks. Claude Code and Codex ask you to trust new hooks once, in /hooks.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--yes` | Make the changes without asking. |
+| `--scope global\|project` | global (the default) installs in each harness's config folder, for every project; project installs only under this directory. |
+| `--harness H[,H]` | Set up only these harnesses: claude-code, codex. Default: every one found. |
+| `--delivery focused\|all\|humans\|off` | Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session. |
+| `--allow-commands` | Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# See what is set up, choose what to change, confirm
+aboard init
+
+# Set up every harness found, for every project
+aboard init --yes
+
+# The same, and let Codex reach the local server
+aboard init --yes --allow-commands
+
+# Set up Claude Code for this project only
+aboard init --yes --scope project --harness claude-code
+```
+
+## See also
+
+[`aboard doctor`](/cli/doctor), [`aboard status`](/cli/status), [`aboard uninstall`](/cli/uninstall), [`aboard pair`](/cli/pair)

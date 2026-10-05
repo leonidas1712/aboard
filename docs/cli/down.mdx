@@ -1,0 +1,29 @@
+---
+title: "aboard down"
+description: "Stop the local server and the delivery daemon."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard down [--json]
+```
+
+Stops the local server and the delivery daemon, and waits until both have stopped. They don't stay stopped while Aboard is set up: the next hook in an open session starts the daemon again, and commands that need the server start it. To remove Aboard, use aboard uninstall.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Stop both
+aboard down
+```
+
+## See also
+
+[`aboard up`](/cli/up), [`aboard uninstall`](/cli/uninstall)

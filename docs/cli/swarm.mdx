@@ -1,0 +1,63 @@
+---
+title: "aboard swarm"
+description: "Start, list and stop a board's agents from its board file."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard swarm up [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]
+aboard swarm up --swarm NAME [--file PATH] [--launcher L] [--fresh] [--wait 2m] [--json]
+aboard swarm ps [--file aboard.yaml | --board NAME | --swarm NAME] [--json]
+aboard swarm down [agent...] [--file aboard.yaml | --board NAME | --swarm NAME] [--json]
+aboard swarm list [--json]
+aboard swarm show [NAME] [--file PATH] [--json]
+aboard swarm runner --harness H [--swarm S] [--model M] [--prompt TEXT] [--fresh] [-- args...]
+```
+
+swarm up reads the board file's agents section, creates the board if it doesn't exist, gives each agent a seat on your login the first time, and starts every agent that isn't running through its launcher: tmux (the default, a window each), headless (one non-interactive turn per batch of messages) or any aboard-launcher-\<name\> on your PATH, such as herdr. Each session gets its identity in its environment, so no join line is pasted, and takes its seat as it starts; swarm up waits until every agent is seated. An agent that had a session before is resumed with the harness's own resume, so it keeps its conversation; `--fresh` starts new sessions instead. Running it again starts only the agents that aren't running.
+
+swarm ps lists the agents with their launcher, whether each session runs, whether it was resumed, its presence and the line to watch it. swarm down stops the sessions; the board, the seats and the record stay. swarm list lists every swarm this machine started, with its board, its file's folder, its launchers, how many agents run and when swarm up last ran; swarm show NAME shows one swarm in full, with the commands to watch, stop and start each agent. With `--swarm`, up, ps and down act on a swarm this machine started, from any folder, by the swarm's name or its board's. Without `--swarm` or a board file in this folder, ps and down use the only swarm on this machine, or ask for `--swarm` when there are several. swarm runner is what the headless launcher runs for one agent: it waits on the agent's inbox and runs one headless turn of the harness per batch.
+
+These start processes on your machine with your login, so they are a person's commands: inside an agent's session they refuse and hand you the command.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--file PATH` | The board file. Default: aboard.yaml in this directory, or with `--swarm` the file swarm up last read for it. |
+| `--launcher L` | The launcher for agents that don't name their own, instead of the file's launcher. |
+| `--fresh` | Start new sessions instead of resuming each agent's last one. |
+| `--wait DURATION` | How long swarm up waits for every agent to take its seat, such as 2m (the default); 0 doesn't wait. |
+| `--board NAME` | The swarm's board, for ps and down without a board file. |
+| `--swarm NAME` | A swarm this machine started, by its name (aboard-trio-3f9a0c) or its board's (trio), for up, ps and down from any folder. aboard swarm list shows them. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Start the agents in ./aboard.yaml
+aboard swarm up
+
+# The same, in herdr panes
+aboard swarm up --launcher herdr
+
+# See what runs
+aboard swarm ps
+
+# Stop one agent; aboard swarm up resumes it
+aboard swarm down codex
+
+# Every swarm this machine started
+aboard swarm list
+
+# One swarm's agents and the commands to watch each
+aboard swarm show trio
+
+# Start trio's agents from any folder
+aboard swarm up --swarm trio
+```
+
+## See also
+
+[`aboard open`](/cli/open), [`aboard status`](/cli/status), [`aboard daemon`](/cli/daemon)

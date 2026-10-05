@@ -1,0 +1,32 @@
+---
+title: "aboard logout"
+description: "Log every browser out of the board view."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard logout --browsers [--json]
+```
+
+Ends every browser login you made with aboard open. A browser login otherwise lasts 30 days, across restarts and upgrades of the server. A logged-out browser is told to run aboard open again.
+
+Starts the local server if it isn't running. It refuses inside an agent's session, since logging you out is your call.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--browsers` | Log every browser out. Required. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# End every browser login
+aboard logout --browsers
+```
+
+## See also
+
+[`aboard open`](/cli/open)
