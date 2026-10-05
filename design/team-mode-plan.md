@@ -200,7 +200,9 @@ from `aboard boards` never authorizes a join: the join is checked again.
 5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
    stays small (not required for team-ready): deterministic patterns for known
    credential formats, as D79's rules checks already intend, replaced before the
-   message is stored.
+   message is stored. On by default; a board's owners can turn it off for that board
+   in its policy (a person-only change, recorded like any policy change), and the board
+   view and `aboard status` show when it is off.
 6. **7. The server.** Backup before each migration, the version-skew check, the load test.
 7. **Deploy.** HTTPS, a container and one recipe, the release job and install script,
    then the two-machine test with real people.
