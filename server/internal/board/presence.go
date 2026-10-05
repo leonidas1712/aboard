@@ -120,12 +120,17 @@ type PresenceChange struct {
 }
 
 // presenceOn returns the current presence of every agent on each board, and the read
-// position of the agents owned by humanID, by board id and agent name.
-func (s *Service) presenceOn(ctx context.Context, boardIDs []string, humanID string) (presence map[string]map[string]Presence, reads map[string]map[string]int64, err error) {
-	now := s.clk.Now()
+// position of the agents p's person owns, by board id and agent name. It reads nothing once
+// p's credential has stopped working.
+func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal) (presence map[string]map[string]Presence, reads map[string]map[string]int64, err error) {
+	humanID := p.personID()
 	presence = make(map[string]map[string]Presence, len(boardIDs))
 	reads = make(map[string]map[string]int64, len(boardIDs))
 	err = s.st.Read(ctx, func(tx ReadTx) error {
+		now := s.clk.Now()
+		if err := stillValid(tx, p, stamp(now)); err != nil {
+			return err
+		}
 		for _, id := range boardIDs {
 			members, err := tx.Members(id)
 			if err != nil {

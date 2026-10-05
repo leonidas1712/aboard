@@ -142,9 +142,10 @@ func browserLoginEnded() *apierr.Error {
 // authenticateBrowser resolves a browser token to the human it acts as.
 func (s *Service) authenticateBrowser(ctx context.Context, token string) (Principal, error) {
 	var h Human
-	var keyID string
+	var key *AccessKey
+	digest := ids.Digest(s.key, token)
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		l, err := tx.BrowserLoginByDigest(ids.Digest(s.key, token))
+		l, err := tx.BrowserLoginByDigest(digest)
 		if err != nil {
 			return err
 		}
@@ -154,11 +155,12 @@ func (s *Service) authenticateBrowser(ctx context.Context, token string) (Princi
 		}
 		// A browser login never outlives the access key that started it.
 		if l.KeyID != "" {
-			if err := workingKey(tx, l.KeyID, now); err != nil {
+			k, err := workingKey(tx, l.KeyID, now)
+			if err != nil {
 				return err
 			}
+			key = &k
 		}
-		keyID = l.KeyID
 		h, err = tx.HumanByID(l.HumanID)
 		return err
 	})
@@ -168,7 +170,14 @@ func (s *Service) authenticateBrowser(ctx context.Context, token string) (Princi
 	if err != nil {
 		return Principal{}, fmt.Errorf("authenticate browser: %w", err)
 	}
-	return Principal{Human: &h, Browser: true, KeyID: keyID}, nil
+	p := Principal{Human: &h, Browser: true, browserDigest: digest}
+	if key != nil {
+		p.KeyID = key.ID
+		if err := s.recordUse(ctx, p, *key); err != nil {
+			return Principal{}, err
+		}
+	}
+	return p, nil
 }
 
 // EndBrowserLogins ends every browser login of the calling human and returns how many
@@ -192,5 +201,7 @@ func (s *Service) EndBrowserLogins(ctx context.Context, p Principal) (int, error
 	if err != nil {
 		return 0, fmt.Errorf("end browser logins: %w", err)
 	}
+	// Streams the ended browsers hold notice and end.
+	s.notify.Changed(credentialsKey(p.Human.ID))
 	return n, nil
 }

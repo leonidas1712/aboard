@@ -58,6 +58,14 @@ func (f *Fake) After(d time.Duration) <-chan time.Time {
 	return ch
 }
 
+// Waiters returns how many timers wait for the clock to move, so a test can move it once
+// everything it expects is waiting.
+func (f *Fake) Waiters() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.waiters)
+}
+
 // Advance moves the clock forward by d and fires every timer that is now due.
 func (f *Fake) Advance(d time.Duration) {
 	f.mu.Lock()

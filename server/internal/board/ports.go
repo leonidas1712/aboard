@@ -24,6 +24,10 @@ type ReadTx interface {
 	AccessKeyByDigest(digest string) (AccessKey, error)
 	// AccessKeyByID finds an access key by id.
 	AccessKeyByID(id string) (AccessKey, error)
+	// KeysOf lists a person's access keys, oldest first, whether or not they still work,
+	// each with the browser logins it started that haven't expired at now and the agents
+	// whose tokens came from it.
+	KeysOf(humanID, now string) ([]KeyUsage, error)
 	// HumanByID finds a human by id.
 	HumanByID(id string) (Human, error)
 	// HumanByName finds a human by handle.
@@ -115,6 +119,12 @@ type Tx interface {
 	InsertAccessKey(k AccessKey) error
 	// NameUnnamedKeys gives every access key with an empty name this name.
 	NameUnnamedKeys(name string) error
+	// RevokeAccessKey marks an access key revoked at a time; a revoked key keeps its
+	// first time.
+	RevokeAccessKey(id, at string) error
+	// UseAccessKey records that an access key was used at a time, and moves its expiry
+	// to expires when that isn't nil.
+	UseAccessKey(id, at string, expires *string) error
 	// InsertServerInvite adds a server invite.
 	InsertServerInvite(i ServerInvite) error
 	// UseServerInvite marks an unused invite used at a time by a person. It reports

@@ -97,6 +97,8 @@ func commands() []command {
 		{"join", runJoin},
 		{"invite", runInvite},
 		{"connect", runConnect},
+		{"login", runLogin},
+		{"keys", runKeys},
 		{"say", runSay},
 		{"inbox", runInbox},
 		{"read", runRead},

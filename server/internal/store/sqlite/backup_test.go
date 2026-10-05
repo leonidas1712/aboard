@@ -126,3 +126,60 @@ func TestANewDatabaseIsNotBackedUp(t *testing.T) {
 		t.Fatalf("a new database made a backups folder: %v", err)
 	}
 }
+
+// Upgrading gives keys that came from invites before keys expired the expiry such keys
+// have now, 90 days without use, and leaves the first person's own key as it was.
+func TestUpgradeGivesInvitedPeoplesKeysAnIdleExpiry(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "aboard.db")
+	st, err := Open(ctx, path, clock.Real{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = st.write(ctx, func(x *tx) error {
+		for _, q := range []string{
+			"INSERT INTO humans (id, name, role, created_at) VALUES ('hum_a', 'alex', 'admin', '2026-10-01T16:00:00.000Z'), ('hum_m', 'maya', 'member', '2026-10-01T16:00:00.000Z')",
+			"INSERT INTO access_keys (id, human_id, name, digest, created_at) VALUES ('key_a', 'hum_a', 'laptop', 'd-a', '2026-10-01T16:00:00.000Z'), ('key_m', 'hum_m', 'laptop', 'd-m', '2026-10-01T16:00:00.000Z')",
+			"PRAGMA user_version = 12",
+		} {
+			if err := x.exec(q); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Close()
+	if st, err = Open(ctx, path, clock.Real{}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	expires := map[string]*string{}
+	idle := map[string]*int64{}
+	err = st.read(ctx, func(x *tx) error {
+		for _, id := range []string{"key_a", "key_m"} {
+			var e *string
+			var i *int64
+			if err := x.queryRow("SELECT expires_at, idle_seconds FROM access_keys WHERE id = ?", id).Scan(&e, &i); err != nil {
+				return err
+			}
+			expires[id], idle[id] = e, i
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expires["key_a"] != nil || idle["key_a"] != nil {
+		t.Fatalf("the admin's own key got an expiry: %v %v", *expires["key_a"], idle["key_a"])
+	}
+	if idle["key_m"] == nil || *idle["key_m"] != 90*24*3600 || expires["key_m"] == nil {
+		t.Fatalf("maya's key after the upgrade: expires %v, idle %v", expires["key_m"], idle["key_m"])
+	}
+	at, err := time.Parse("2006-01-02T15:04:05.000Z", *expires["key_m"])
+	if err != nil || time.Until(at) < 89*24*time.Hour || time.Until(at) > 91*24*time.Hour {
+		t.Fatalf("maya's key expires at %v (%v)", *expires["key_m"], err)
+	}
+}

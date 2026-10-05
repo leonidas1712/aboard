@@ -31,7 +31,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, invite, connect, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, invite, connect, login, keys, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -140,7 +140,14 @@ $defs:
       board, or --swarm names no swarm this machine started) · swarm_not_selected (there's
       no board file here and this machine has several swarms, or --swarm names a board
       several of its swarms are on; details.choices lists the swarms' names,
-      details.boards their boards).
+      details.boards their boards) · key_invalid (aboard login was given something that
+      isn't an access key, or a key the server refuses: wrong, revoked or expired) ·
+      key_not_selected (aboard keys revoke names a key that the person's list doesn't
+      have, or a name two of their keys share; details.choices lists the names and ids) ·
+      seat_ended (swarm up found agents whose seats ended with the access key they came
+      from, which the server refuses as unauthorized; it starts nothing, details.agents
+      names them, details.board their board, and the hint says to give each a new name
+      in the board file).
   ServerRef:
     type: object
     required: [name, url]
@@ -556,6 +563,110 @@ $defs:
       key:
         $ref: "openapi.yaml#/components/schemas/AccessKey"
         description: The saved key, without its secret.
+
+  # ---------- aboard keys [--person HANDLE] [--server URL] ----------
+  KeysOutput:
+    description: |
+      A person's access keys (GET /v1/keys), oldest first, revoked and expired ones
+      included. The server is --server (a server this machine holds a key for), else the
+      one this directory's .aboard names, else the local server, which it starts if
+      needed; the key this machine keeps for that server is the one sent. --person lists
+      another person's keys, which only a server admin may (server_admin_required).
+      Keys management is up to a person: inside a harness session every keys command
+      refuses with human_command_in_session, and the server refuses agent and browser
+      tokens with human_token_required. Text output:
+        Keys of maya on https://team.example.com:
+          maya-laptop   working  last used 2 days ago  expires in 88 days  browser sessions: 1  agents: 2
+          maya-desktop  working  last used just now    expires in 90 days  (this machine)
+          phone         revoked 3 hours ago
+      "expires when unused for 90 days" stands in for the expiry of a key that expires
+      only once unused, and "never expires" for the local server's own key.
+    type: object
+    required: [server, person, keys, current_key_id]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: "openapi.yaml#/components/schemas/Person" }
+      keys:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/AccessKey" }
+      current_key_id:
+        type: string
+        description: The key this machine keeps for the server, which made the request.
+
+  # ---------- aboard keys create <name> [--expires DURATION] [--server URL] ----------
+  KeysCreateOutput:
+    description: |
+      Creates an access key for the person this machine signs in as (POST /v1/keys) and
+      prints its secret, the only time it is ever shown. Nothing is saved on this
+      machine: the key is for somewhere else (a phone, a password manager, a script).
+      --expires is a duration such as 90d, 12h or 1y: at least an hour, at most 365 days;
+      default 90 days. Anyone with the key can sign in as its person until it is revoked
+      or expires. Text output:
+        Key "phone" (shown once, then never again): abh_P7hone…
+        Save it in your password manager. Anyone with it can sign in as you until you revoke it.
+        It expires on 2027-01-03 (in 90 days). Revoke it with: aboard keys revoke phone
+    type: object
+    required: [server, key]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      key: { $ref: "openapi.yaml#/components/schemas/NewAccessKey" }
+
+  # ---------- aboard keys revoke <name|id> [--person HANDLE] [--yes] [--server URL] ----------
+  KeysRevokeOutput:
+    description: |
+      Revokes one access key (DELETE /v1/keys/{key}), named by its name or id among the
+      person's keys; --person picks another person's, which only a server admin may.
+      Every browser login and agent seat the key started stops with it, and their open
+      streams close. A name two of the keys share, or none has, fails with
+      key_not_selected (details.choices). Revoking the key this machine itself uses signs
+      this machine out of the server, so it asks first, and without a terminal or with
+      --json it needs --yes (confirmation_required). Text output:
+        Revoked maya-laptop. Its 1 browser session and 2 agents stopped working with it.
+    type: object
+    required: [server, person, key, this_machine]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: "openapi.yaml#/components/schemas/Handle" }
+      key: { $ref: "openapi.yaml#/components/schemas/AccessKey" }
+      this_machine:
+        type: boolean
+        description: True when the revoked key was the one this machine keeps for the server, which is now signed out.
+
+  # ---------- aboard login [<server URL>] [--json] (the key on standard input) ----------
+  LoginOutput:
+    description: |
+      Saves an access key someone pasted for a server, as aboard connect does: in
+      servers.json, readable only by its owner, under the server's exact URL, replacing
+      the key this machine had for it; for this machine's own local server, as the local
+      owner key. The key is read from standard input (typed without echo at a terminal),
+      never from the command line. The server is the argument, else the one this
+      directory's .aboard names, else the local server. Wherever it came from, it is
+      checked before the key is read or sent: one other than this machine must use https
+      (insecure_server), and an address with a user, path, query or fragment, or another
+      scheme, fails with invalid_request. The key is checked with the server before it is saved
+      (GET /v1/keys): one that isn't an access key, or that the server refuses, fails
+      with key_invalid and nothing is saved. It always warns that one key used on two
+      machines ties both to one revocation, and says when the key was last used, if ever,
+      since that use may have been on another machine or browser. Text output:
+        Logged in to https://team.example.com as maya with the key "phone", saved for that server only.
+        The key was last used 3 hours ago, perhaps on another machine or browser.
+        A key used in two places is revoked in both at once. To give this machine its own, run aboard keys create <name> and log in with that key.
+    type: object
+    required: [server, server_id, person, key, previous_use, replaced]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      server_id: { type: string }
+      person: { $ref: "openapi.yaml#/components/schemas/Person" }
+      key:
+        $ref: "openapi.yaml#/components/schemas/AccessKey"
+        description: The saved key, without its secret.
+      previous_use:
+        type: [string, "null"]
+        format: date-time
+        description: When the key was last used before this login, accurate to a minute; null if never.
+      replaced:
+        type: boolean
+        description: True when this machine had another key for the server, which this one replaces.
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
@@ -1506,6 +1617,17 @@ $defs:
       delivery:
         type: [string, "null"]
         description: The agent's delivery mode as the board shows it.
+      seat_credential:
+        enum: [works, ended, null]
+        description: |
+          Whether the token of the agent's seat still works, as swarm ps and show check it
+          with the server (all agents at once, each with its own token, which counts as a
+          use of the key behind it): ended when the server refuses the token as
+          unauthorized, because the access key the seat came from was revoked or has
+          expired, so its session can no longer act on the board, and text output says
+          so; null when this machine holds no token for the agent, the server couldn't be
+          asked or refused for another reason, or the command doesn't fill it in (swarm
+          up, which instead refuses ended seats with seat_ended before starting anything).
 
   SwarmUpOutput:
     description: |
