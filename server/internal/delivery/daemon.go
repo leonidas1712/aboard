@@ -43,6 +43,8 @@ type Config struct {
 	// Seats lists and joins boards for sessions through the machine's delegation
 	// (seats.go). Nil means the boards and join operations refuse.
 	Seats Seats
+	// joinHooks are set only by tests (export_test.go).
+	joinHooks *joinHooks
 }
 
 // harnessCallTimeout bounds one call into a harness, such as one codex queue run.

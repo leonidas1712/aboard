@@ -96,6 +96,12 @@ func (f *fakeSeats) SeatID(agent delivery.AgentRef) (string, bool) {
 // seatsRig is a rig whose daemon joins boards through f.
 func seatsRig(t *testing.T) (*rig, *fakeSeats) {
 	t.Helper()
+	return seatsRigWith(t, nil)
+}
+
+// seatsRigWith is seatsRig with configure applied to the daemon's config.
+func seatsRigWith(t *testing.T, configure func(*delivery.Config)) (*rig, *fakeSeats) {
+	t.Helper()
 	f := newFakeSeats()
 	r := &rig{
 		t: t, clock: clock.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
@@ -105,7 +111,7 @@ func seatsRig(t *testing.T) (*rig, *fakeSeats) {
 		procs:   deliverytest.NewFakeProcesses(),
 		path:    filepath.Join(t.TempDir(), "delivery.db"),
 		tickets: launchtickets.Dir(t.TempDir()),
-		seats:   f,
+		seats:   f, configure: configure,
 	}
 	r.start()
 	t.Cleanup(r.stop)
@@ -228,11 +234,19 @@ func TestAJoinIsOnlyForAKnownSessionOnItsServer(t *testing.T) {
 }
 
 // Two first joins from one session to two servers, at once: exactly one gets a seat,
-// the other gets session_on_another_server, and only one seat is bound.
+// the other gets session_on_another_server, and only one seat is bound. Each join is
+// held where it has read the session's seats and not yet checked its server; both are
+// released together once both are there, or once the second is seen waiting for the
+// session's turn instead.
 func TestFirstJoinsToTwoServersAtOnceGiveOneSeat(t *testing.T) {
-	r, f := seatsRig(t)
+	arrived, waited, release := make(chan struct{}, 2), make(chan struct{}, 2), make(chan struct{})
+	r, f := seatsRigWith(t, func(cfg *delivery.Config) {
+		delivery.WithJoinHooks(cfg, delivery.JoinHooks{
+			SeatsRead: func() { arrived <- struct{}{}; <-release },
+			Waiting:   func() { waited <- struct{}{} },
+		})
+	})
 	r.register("s1", "b1")
-	f.gate = make(chan struct{})
 	servers := []string{serverURL, "https://team.example.com"}
 	answers := make([]delivery.Response, 2)
 	var wg sync.WaitGroup
@@ -244,21 +258,19 @@ func TestFirstJoinsToTwoServersAtOnceGiveOneSeat(t *testing.T) {
 			answers[i] = r.call(delivery.Request{Op: delivery.OpJoin, Harness: "claude-code", Session: "s1", Agent: &agent})
 		}()
 	}
-	// Both joins get as far as they can before the server answers: until both reach
-	// it, or until a poll window shows only one does.
-	window := time.After(500 * time.Millisecond)
-	for waiting := true; waiting; {
-		f.mu.Lock()
-		reached := f.joins
-		f.mu.Unlock()
-		select {
-		case <-window:
-			waiting = false
-		case <-time.After(5 * time.Millisecond): // a poll interval
-			waiting = reached < 2
-		}
+	deadline := time.After(within)
+	select {
+	case <-arrived:
+	case <-deadline:
+		t.Fatal("no join read the session's seats")
 	}
-	close(f.gate)
+	select {
+	case <-arrived:
+	case <-waited:
+	case <-deadline:
+		t.Fatal("the second join neither read the seats nor waited for the session's turn")
+	}
+	close(release)
 	wg.Wait()
 	ok, other := 0, 0
 	for _, a := range answers {
