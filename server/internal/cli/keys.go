@@ -30,6 +30,8 @@ func runKeys(ctx context.Context, a *app, args []string) error {
 		return runKeysCreate(ctx, a, args)
 	case "revoke":
 		return runKeysRevoke(ctx, a, args)
+	case "sessions":
+		return runKeysSessions(ctx, a, args)
 	}
 	return usageError("aboard keys has no command "+strconv.Quote(sub)+".", keysUsage)
 }
@@ -339,6 +341,120 @@ func count(n *int) int {
 		return 0
 	}
 	return *n
+}
+
+// runKeysSessions runs "aboard keys sessions [<key>]", which lists the browsers signed in
+// as the person, and "aboard keys sessions end <id>", which signs one of them out.
+func runKeysSessions(ctx context.Context, a *app, args []string) error {
+	if len(args) > 0 && args[0] == "end" {
+		return runKeysSessionsEnd(ctx, a, args[1:])
+	}
+	fs := a.flags("keys")
+	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	pos, err := a.parse(fs, args, keysUsage, 0, 1)
+	if err != nil {
+		return err
+	}
+	again := "aboard keys sessions"
+	if len(pos) == 1 {
+		again += " " + shellWord(pos[0])
+	}
+	if err := a.refuseInSession("Listing browser sessions", again); err != nil {
+		return err
+	}
+	srv, started, err := a.keysServer(ctx, *serverFlag)
+	if err != nil {
+		return err
+	}
+	c, err := a.keysClient(ctx, srv)
+	if err != nil {
+		return err
+	}
+	var params api.ListBrowserSessionsParams
+	var keyName string
+	if len(pos) == 1 {
+		keys, err := c.keys(ctx, "")
+		if err != nil {
+			return err
+		}
+		k, err := pickKey(keys, pos[0])
+		if err != nil {
+			return err
+		}
+		params.Key, keyName = &k.Id, k.Name
+	}
+	r, err := c.api.ListBrowserSessionsWithResponse(ctx, &params)
+	if err != nil {
+		return c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return keyRejected(srv, r.StatusCode(), r.Body)
+	}
+	list := r.JSON200
+	st := a.out()
+	var text string
+	if started {
+		text = "Started local Aboard at " + srv.URL + "\n"
+	}
+	switch {
+	case len(list.Sessions) == 0 && keyName != "":
+		text += "No browser is signed in to " + srv.URL + " with the key " + keyName + ".\n"
+	case len(list.Sessions) == 0:
+		text += "No browser is signed in to " + srv.URL + " as " + st.name(list.Person.Handle) + ".\n"
+	default:
+		text += fmt.Sprintf("Browser sessions of %s on %s:\n", st.name(list.Person.Handle), srv.URL)
+		now := time.Now()
+		rows := make([][]string, 0, len(list.Sessions))
+		for _, s := range list.Sessions {
+			how := "aboard open"
+			if s.StartedWith == api.BrowserSessionStartAccessKey {
+				how = "pasted key"
+			}
+			rows = append(rows, []string{s.Id, "key " + s.Key.Name, how, "signed in " + agoText(s.CreatedAt, now), "ends in " + daysText(s.ExpiresAt.Sub(now))})
+		}
+		text += swarmTable(st, rows, func(r []string) []string { return r })
+		text += "Sign one out with: aboard keys sessions end <id>\n"
+	}
+	a.emit(map[string]any{"server": srv, "person": list.Person, "sessions": list.Sessions}, text)
+	return nil
+}
+
+// runKeysSessionsEnd signs one browser out by its session's id.
+func runKeysSessionsEnd(ctx context.Context, a *app, args []string) error {
+	fs := a.flags("keys")
+	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	pos, err := a.parse(fs, args, keysUsage, 1, 1)
+	if err != nil {
+		return err
+	}
+	if err := a.refuseInSession("Ending a browser session", "aboard keys sessions end "+shellWord(pos[0])); err != nil {
+		return err
+	}
+	if !strings.HasPrefix(pos[0], "ses_") {
+		return usageError("aboard keys sessions end takes a session's id, starting with ses_, as aboard keys sessions lists it.", keysUsage)
+	}
+	srv, started, err := a.keysServer(ctx, *serverFlag)
+	if err != nil {
+		return err
+	}
+	c, err := a.keysClient(ctx, srv)
+	if err != nil {
+		return err
+	}
+	r, err := c.api.EndBrowserSessionWithResponse(ctx, pos[0], nil)
+	if err != nil {
+		return c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return keyRejected(srv, r.StatusCode(), r.Body)
+	}
+	var text string
+	if started {
+		text = "Started local Aboard at " + srv.URL + "\n"
+	}
+	text += "Signed out browser session " + r.JSON200.Id + " (key " + r.JSON200.Key.Name + "). The key and its other sessions keep working.\n"
+	a.emit(map[string]any{"server": srv, "session": r.JSON200}, text)
+	return nil
 }
 
 // counted says "1 agent" or "2 agents".

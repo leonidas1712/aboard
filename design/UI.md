@@ -242,16 +242,38 @@ the API's own (`from`, `role`, `to_me`), so paging back stays correct.
   stays plain.
 - On a phone the "To" button takes its own line above the text.
 - The browser acts as you (D121): it posts, replies and, for an admin, pauses the board
-  or changes its rules, with exactly the permissions your CLI has. It logs in only
-  through the one-time `aboard open` link, and the login expires after 30 days, across
-  server restarts, or at `aboard logout --browsers` (D163).
+  or changes its rules, with exactly the permissions your CLI has. It signs in through
+  the one-time `aboard open` link or by pasting an access key on the login page, into a
+  session kept in a cookie its scripts can't read; the session lasts 30 days (never past
+  its key), across server restarts, until you sign out or end it (D163, D189).
 
 ### Who you are
 
 The header's right end shows the person's mark and name. It opens a menu with who they
 are (with "Admin of this board" only once a second person is on it), the server ("This
-computer (local)" or its address), and the theme: same as this computer, light or dark,
-kept per browser. It shows on the list of boards too.
+computer (local)" or its address), the access key this browser's session came from and
+the day it ends, the theme (same as this computer, light or dark, kept per browser), and
+"Sign out of this browser". It shows on the list of boards too.
+
+### Signing in
+
+A browser without a session shows a login page: Aboard's header, "Sign in to Aboard",
+one labelled password field for an access key, and a "Sign in" button. Below, in muted
+text, how to make a key (`aboard keys create <name>`) and that `aboard open` signs in
+without one. A wrong key shows the problem box with the server's message; the field is
+cleared after every attempt, so the key never stays on the page. Served over plain HTTP
+anywhere but this computer, the page says that signing in with a key needs https, its
+field and button are disabled, and nothing is sent.
+After signing out, the page says so and that the person's keys and other browsers still
+work; a sign-out the server didn't confirm says so in the header and leaves the session
+on. After any sign-in, a status line under the header names the handle, large, and the key.
+
+A login link (`aboard open`) asks first: "Sign in to <host> as @sam?", the key's name,
+and Continue and Cancel. When the browser is signed in as someone else, a marigold box
+says "You're signed in as @maya. This link would sign you in as @sam instead." A link
+for the person already signed in refreshes the session without asking. A link that no
+longer works shows the login page with a note, or, when signed in, a note in the status
+line.
 
 ### Side panels
 

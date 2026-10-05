@@ -113,7 +113,8 @@ func Run(ctx context.Context, o Options) error {
 		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30, ConnectsPerMinute: 10, ConnectsPerMinuteServer: 60,
 		MachineRequests: api.Limits{PerAddr: 10, Server: 60}, MachineCodes: api.Limits{PerAddr: 10, PerPerson: 10, Server: 60},
 		MachineCollects: api.Limits{PerAddr: 60, Server: 600},
-		Shutdown:        shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
+		SignInFailures:  api.Limits{PerAddr: 20, Server: 100}, SignInAttempts: api.Limits{PerAddr: 120, Server: 600},
+		Shutdown: shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
 	})
 	if err != nil {
 		_ = ln.Close()

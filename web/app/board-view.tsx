@@ -28,7 +28,7 @@ const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
 const leftPanel: Limits = { initial: 272, min: 240, max: 400 };
 const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
 
-export default function BoardView({ name }: { name: string }) {
+export default function BoardView({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
@@ -321,7 +321,7 @@ export default function BoardView({ name }: { name: string }) {
           shared={people.length > 1}
           onTitle={s.board ? () => show("board-details") : undefined}
           onStarter={() => show("rules")}
-          account={<Account admin={people.length > 1 && myAccess === "admin"} />}
+          account={<Account admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
         />
         <div
           className="board-columns flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)]"

@@ -47,6 +47,11 @@ type Options struct {
 	// with a machine's short code (looking a request up, approving and refusing it); and
 	// MachineCollects limits POST /v1/machine-requests/collect.
 	MachineRequests, MachineCodes, MachineCollects Limits
+	// SignInFailures limits failed browser sign-ins (POST /v1/browser-sessions,
+	// POST /v1/browser-tokens and POST /v1/login-codes/preview), which is what guessing
+	// makes; SignInAttempts limits every such attempt, failed or not, higher, to bound the
+	// work they cost. Both count per client address and across the server.
+	SignInFailures, SignInAttempts Limits
 	// Shutdown is done when the server starts shutting down. Open event streams on
 	// GET /v1/stream end then; without it they end only when their clients disconnect.
 	Shutdown context.Context
@@ -98,11 +103,16 @@ func NewHandler(o Options) (http.Handler, error) {
 	machines := machineLimits{
 		requests: newLimiters(o.Clock, o.MachineRequests), codes: newLimiters(o.Clock, o.MachineCodes), collects: newLimiters(o.Clock, o.MachineCollects),
 	}
-	apiChain := validate(authenticate(o, limiter, connects, machines, idempotent(o, routes)))
+	signIns := signInLimits{failed: newLimiters(o.Clock, o.SignInFailures), attempts: newLimiters(o.Clock, o.SignInAttempts)}
+	apiChain := validate(authenticate(o, limiter, connects, machines, signIns, idempotent(o, routes)))
+	ui, err := serveUI(o.UI)
+	if err != nil {
+		return nil, err
+	}
 	outer := http.NewServeMux()
-	outer.Handle("/v1/", apiChain)
-	outer.Handle("/", serveUI(o.UI))
-	return recoverPanics(o.Log, checkHost(o.Log, o.Hosts, outer)), nil
+	outer.Handle("/v1/", apiHeaders(apiChain))
+	outer.Handle("/", ui)
+	return recoverPanics(o.Log, securityHeaders(checkHost(o.Log, o.Hosts, outer))), nil
 }
 
 func notFound(r *http.Request) *apierr.Error {
@@ -143,13 +153,17 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// authenticate resolves the bearer token for every route except GET /v1/info,
-// POST /v1/browser-tokens, POST /v1/connect and the two a new machine calls before it
-// has a key. It rate limits join attempts by client address; invite redemptions and what
-// a new machine does by client address and across the server; and attempts with a
-// machine's short code by client address, by person and across the server.
-func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machines machineLimits, next http.Handler) http.Handler {
+// authenticate resolves the caller's credential for every route except GET /v1/info,
+// the browser sign-in routes, POST /v1/connect and the two a new machine calls before it
+// has a key. The credential is the Authorization header's bearer token or, without that
+// header, a browser session's cookie, whose writes must also pass the Origin and CSRF
+// checks. It rate limits join attempts by client address; invite redemptions, browser
+// sign-ins and what a new machine does by client address and across the server; and
+// attempts with a machine's short code by client address, by person and across the
+// server.
+func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machines machineLimits, signIns signInLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie := cookieFor(r)
 		host, _, _ := net.SplitHostPort(r.RemoteAddr)
 		codes := false
 		if r.Method == http.MethodPost {
@@ -188,7 +202,43 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/v1/info" || (r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) {
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/browser-sessions" || r.URL.Path == "/v1/browser-tokens" || r.URL.Path == "/v1/login-codes/preview") {
+			if !signIns.allow(host) {
+				w.Header().Set("Retry-After", "60")
+				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to sign a browser in.",
+					"Wait a minute, then try again."))
+				return
+			}
+			// Every answer of 400 or more counts as a failure, in the minute it happens.
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			w = rec
+			defer func() {
+				if rec.status >= 400 {
+					signIns.failedAttempt(host)
+				}
+			}()
+			// A forged sign-in would put the victim's browser in someone else's session.
+			// Only a session's cookie can be planted that way; the deprecated token
+			// exchange sets none.
+			if r.URL.Path != "/v1/browser-tokens" {
+				if err := sameOrigin(r, cookie); err != nil {
+					writeError(w, o.Log, err)
+					return
+				}
+			}
+			// The handler sets the cookie this request's host and scheme call for, and
+			// refuses to switch the browser from a session it already has to another
+			// person's without the person's confirmation.
+			session := requestSession{cookie: cookie}
+			if c, err := r.Cookie(cookie.name); err == nil && strings.HasPrefix(c.Value, "abb_") && r.URL.Path == "/v1/browser-sessions" {
+				if p, err := o.Service.Authenticate(r.Context(), c.Value); err == nil && p.Browser && p.Human != nil {
+					session.currentPerson = p.Human.ID
+				}
+			}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, session)))
+			return
+		}
+		if r.URL.Path == "/v1/info" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -201,6 +251,22 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			}
 		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if r.Header.Get("Authorization") == "" {
+			if c, err := r.Cookie(cookie.name); err == nil && c.Value != "" {
+				// Only a browser session's secret lives in the cookie.
+				if !strings.HasPrefix(c.Value, "abb_") {
+					writeError(w, o.Log, apierr.Unauthorized())
+					return
+				}
+				// Checked before the session is looked up, so a forged write records no
+				// use of the key.
+				if err := checkCSRF(r, o.Service, cookie, c.Value); err != nil {
+					writeError(w, o.Log, err)
+					return
+				}
+				token, ok = c.Value, true
+			}
+		}
 		if !ok || token == "" {
 			writeError(w, o.Log, apierr.Unauthorized())
 			return
@@ -216,6 +282,11 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
 		ctx = context.WithValue(ctx, scopeKey{}, scopeOf(token))
+		session := requestSession{cookie: cookie}
+		if p.Browser {
+			session.token = token
+		}
+		ctx = context.WithValue(ctx, sessionKey{}, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -260,6 +331,36 @@ func tooMany(w http.ResponseWriter, log *slog.Logger, message string) {
 // connectLimits are the two limits on redeeming invites: per client address, and across
 // the server.
 type connectLimits struct{ perAddr, all *rateLimiter }
+
+// signInLimits are the limits on signing a browser in: on failed attempts, which is
+// what guessing a code or key makes, and a higher one on every attempt, which bounds the
+// work sign-ins cost.
+type signInLimits struct{ failed, attempts limiters }
+
+// allow counts an attempt from addr against the limit on attempts, and checks the one on
+// failures without counting: failedAttempt counts the attempt once it has failed, in the
+// minute it failed in, so nothing is ever taken back.
+func (l signInLimits) allow(addr string) bool {
+	full := l.failed.perAddr.full(addr) || l.failed.all.full("")
+	return l.attempts.allow(addr) && !full
+}
+
+// failedAttempt counts a failed attempt from addr.
+func (l signInLimits) failedAttempt(addr string) {
+	l.failed.perAddr.fail(addr)
+	l.failed.all.fail("")
+}
+
+// statusRecorder passes a response through and remembers its status.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(status int) {
+	s.status = status
+	s.ResponseWriter.WriteHeader(status)
+}
 
 type scopeKey struct{}
 

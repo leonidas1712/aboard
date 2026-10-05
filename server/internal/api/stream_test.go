@@ -28,8 +28,24 @@ type eventStream struct {
 // openStream opens the event stream as token, failing unless the server answers 200.
 func (s *testServer) openStream(token string) *eventStream {
 	s.t.Helper()
+	return s.openStreamWith(func(r *http.Request) {
+		if token != "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+	})
+}
+
+// openStreamWith opens the event stream with the credential sign puts on the request.
+func (s *testServer) openStreamWith(sign func(*http.Request)) *eventStream {
+	s.t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	resp, err := s.streamRequest(ctx, token)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url+"/v1/stream", http.NoBody)
+	if err != nil {
+		cancel()
+		s.t.Fatal(err)
+	}
+	sign(req)
+	resp, err := s.httpClient().Do(req)
 	if err != nil {
 		cancel()
 		s.t.Fatal(err)

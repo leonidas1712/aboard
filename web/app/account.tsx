@@ -8,13 +8,14 @@ import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type Me, get } from "./api";
+import { type Me, get, session, signOut } from "./api";
 import { usePref } from "./prefs";
 import { SenderMark } from "./timeline";
 import { personIdentity } from "./words";
@@ -35,12 +36,17 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 type Props = {
   /** admin is true when the person is an admin of this board and another person is on it. */
   admin?: boolean;
+  /** onSignOut runs once this browser has signed out. */
+  onSignOut: () => void;
 };
 
-export function Account({ admin }: Props) {
+export function Account({ admin, onSignOut }: Props) {
   const [me, setMe] = useState<Me | null>(null);
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
+  const signedIn = session();
+  // A sign-out the server didn't confirm leaves the session on; the page says so.
+  const [signOutProblem, setSignOutProblem] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     get<Me>("/v1/me").then((m) => live && setMe(m), () => {});
@@ -52,6 +58,7 @@ export function Account({ admin }: Props) {
   if (!me) return null;
   const server = mode === "local" ? "This computer (local)" : window.location.host;
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-selected data-[state=open]:bg-selected"
@@ -69,6 +76,14 @@ export function Account({ admin }: Props) {
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 px-3 pb-2 text-meta">
           <dt className="text-muted">Server</dt>
           <dd className="break-all">{server}</dd>
+          {signedIn && (
+            <>
+              <dt className="text-muted">Key</dt>
+              <dd className="session-key break-all">{signedIn.key.name}</dd>
+              <dt className="text-muted">Until</dt>
+              <dd>{new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
+            </>
+          )}
         </dl>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
@@ -77,7 +92,25 @@ export function Account({ admin }: Props) {
           <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() =>
+            signOut().then(onSignOut, (e: unknown) =>
+              setSignOutProblem(
+                `Couldn't sign out: ${e instanceof Error ? e.message : "the server didn't answer"} This browser is still signed in.`,
+              ),
+            )
+          }
+        >
+          Sign out of this browser
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    {signOutProblem && (
+      <p role="alert" className="sign-out-problem basis-full rounded-box bg-attention px-3 py-2 text-ink">
+        {signOutProblem}
+      </p>
+    )}
+    </>
   );
 }
