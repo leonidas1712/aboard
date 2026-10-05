@@ -31,11 +31,11 @@ func historicalJournal(t *testing.T, version int) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := db.Exec(string(body)); err != nil {
+		if _, err := db.ExecContext(context.Background(), string(body)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := db.Exec(fmt.Sprintf("PRAGMA user_version = %d", version)); err != nil {
+	if _, err := db.ExecContext(context.Background(), fmt.Sprintf("PRAGMA user_version = %d", version)); err != nil {
 		t.Fatal(err)
 	}
 	return path
@@ -135,7 +135,7 @@ func TestReadModesKeepsHistoricalJournalReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO modes VALUES ('https://team.example', 'docs', 'reviewer', 'off')`); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO modes VALUES ('https://team.example', 'docs', 'reviewer', 'off')`); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {
@@ -152,7 +152,7 @@ func TestReadModesKeepsHistoricalJournalReadOnly(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 	var version int
-	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 7 {
+	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 7 {
 		t.Fatalf("read-only schema %d: %v", version, err)
 	}
 }

@@ -482,10 +482,14 @@ func (j *Journal) ResolveIdentity(ctx context.Context, old, resolved delivery.Ag
 				return fmt.Errorf("resolve journal identity: conflicting %s for member %s", table, resolved.MemberID)
 			}
 		}
-		for _, table := range []string{"bindings", "modes", "deliveries"} {
-			if _, err := tx.ExecContext(ctx, `UPDATE `+table+` SET member_id = ? WHERE server = ? AND board = ? AND agent = ? AND member_id = ''`,
+		for _, update := range []struct{ table, query string }{
+			{"bindings", `UPDATE bindings SET member_id = ? WHERE server = ? AND board = ? AND agent = ? AND member_id = ''`},
+			{"modes", `UPDATE modes SET member_id = ? WHERE server = ? AND board = ? AND agent = ? AND member_id = ''`},
+			{"deliveries", `UPDATE deliveries SET member_id = ? WHERE server = ? AND board = ? AND agent = ? AND member_id = ''`},
+		} {
+			if _, err := tx.ExecContext(ctx, update.query,
 				resolved.MemberID, old.Server, old.Board, old.Name); err != nil {
-				return fmt.Errorf("resolve %s identity: %w", table, err)
+				return fmt.Errorf("resolve %s identity: %w", update.table, err)
 			}
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE sessions SET lost_member_id = ? WHERE lost_server = ? AND lost_board = ? AND lost_agent = ? AND lost_member_id = ''`,
