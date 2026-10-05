@@ -28,6 +28,10 @@ func (s *Service) Heads(ctx context.Context, p Principal) ([]Head, error) {
 	}
 	var out []Head
 	err := s.st.Read(ctx, func(tx ReadTx) error {
+		// A stream reads with its credential checked in the same transaction.
+		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
 		boards, err := tx.BoardsOfHuman(p.Human.ID)
 		if err != nil {
 			return err
@@ -95,11 +99,18 @@ type ReadChange struct {
 // nothing) with ticked true.
 func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, ticked bool, err error) {
 	for {
+		// The feed ends with the credential it was opened with.
+		var cred credentialEnd
+		if cred, err = f.s.watchCredential(ctx, f.p); err != nil {
+			return Update{}, false, err
+		}
 		// Watch before reading, so a change between the read and the wait isn't missed.
 		cases := []reflect.SelectCase{
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(tick)},
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(boardsOfKey(f.p.Human.ID)))},
+			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(cred.changed)},
+			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(cred.expires)},
 		}
 		for id := range f.sent {
 			cases = append(cases,
@@ -141,7 +152,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	f.sent = current
 
-	presence, reads, err := f.s.presenceOn(ctx, ids, f.p.Human.ID)
+	presence, reads, err := f.s.presenceOn(ctx, ids, f.p)
 	if err != nil {
 		return Update{}, err
 	}

@@ -35,18 +35,49 @@ func (t *tx) HumanByName(name string) (board.Human, error) {
 	return scanHuman(t.queryRow("SELECT "+humanColumns+" FROM humans WHERE name = ?", name))
 }
 
-const accessKeyColumns = "id, human_id, name, digest, created_at, expires_at, revoked_at"
+const accessKeyColumns = "id, human_id, name, digest, created_at, expires_at, revoked_at, last_used_at, idle_seconds"
 
-func scanAccessKey(row *sql.Row) (board.AccessKey, error) {
+func scanAccessKey(row interface{ Scan(...any) error }, extra ...any) (board.AccessKey, error) {
 	var k board.AccessKey
-	err := row.Scan(&k.ID, &k.HumanID, &k.Name, &k.Digest, &k.CreatedAt, &k.ExpiresAt, &k.RevokedAt)
+	err := row.Scan(append([]any{&k.ID, &k.HumanID, &k.Name, &k.Digest, &k.CreatedAt, &k.ExpiresAt, &k.RevokedAt, &k.LastUsedAt, &k.IdleSeconds}, extra...)...)
 	return k, notFound(err)
 }
 
 // InsertAccessKey adds an access key.
 func (t *tx) InsertAccessKey(k board.AccessKey) error {
-	return t.exec("INSERT INTO access_keys ("+accessKeyColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
-		k.ID, k.HumanID, k.Name, k.Digest, k.CreatedAt, k.ExpiresAt, k.RevokedAt)
+	return t.exec("INSERT INTO access_keys ("+accessKeyColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		k.ID, k.HumanID, k.Name, k.Digest, k.CreatedAt, k.ExpiresAt, k.RevokedAt, k.LastUsedAt, k.IdleSeconds)
+}
+
+// KeysOf lists a person's access keys, oldest first, with what depends on each.
+func (t *tx) KeysOf(humanID, now string) ([]board.KeyUsage, error) {
+	rows, err := t.tx.QueryContext(t.ctx, `SELECT `+accessKeyColumns+`,
+		(SELECT count(*) FROM browser_logins b WHERE b.key_id = access_keys.id AND b.expires_at > ?),
+		(SELECT count(*) FROM members m WHERE m.key_id = access_keys.id AND m.kind = 'agent' AND m.status = 'active')
+		FROM access_keys WHERE human_id = ? ORDER BY created_at, id`, now, humanID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []board.KeyUsage
+	for rows.Next() {
+		var u board.KeyUsage
+		if u.AccessKey, err = scanAccessKey(rows, &u.BrowserSessions, &u.AgentSeats); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// RevokeAccessKey marks an access key revoked, keeping the first time it was.
+func (t *tx) RevokeAccessKey(id, at string) error {
+	return t.exec("UPDATE access_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", at, id)
+}
+
+// UseAccessKey records a use of an access key, and moves its expiry when expires is set.
+func (t *tx) UseAccessKey(id, at string, expires *string) error {
+	return t.exec("UPDATE access_keys SET last_used_at = ?, expires_at = coalesce(?, expires_at) WHERE id = ?", at, expires, id)
 }
 
 // AccessKeyByDigest finds an access key by the digest of its secret.

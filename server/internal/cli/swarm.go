@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -206,6 +207,106 @@ type swarmAgent struct {
 	Seated    bool    `json:"seated"`
 	Presence  *string `json:"presence"`
 	Delivery  *string `json:"delivery"`
+	// SeatCredential says whether the seat's token still works ("works") or ended with
+	// the access key it came from ("ended"), as swarm ps and show check it with the
+	// server; nil when unchecked.
+	SeatCredential *string `json:"seat_credential"`
+}
+
+// Values of swarmAgent.SeatCredential.
+const (
+	seatWorks = "works"
+	seatEnded = "ended"
+)
+
+// seatStates asks the server, with each named agent's own token and all at once,
+// whether its seat still works: a seat whose token the server refuses as unauthorized
+// ended with the access key it came from, though its session may still run. Agents this
+// machine holds no token for, and any other answer (none, or a refusal with another
+// code), are left out. Each check counts as a use of the key behind the seat.
+func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names []string) map[string]string {
+	creds, err := a.readCredentials()
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	out := map[string]string{}
+	for _, name := range names {
+		cred, ok := creds.find(srv.URL, board, name)
+		if !ok {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c, err := a.newClient(srv, cred.Token, requestTimeout)
+			if err != nil {
+				return
+			}
+			r, err := c.api.GetMeWithResponse(ctx)
+			state := ""
+			switch {
+			case err != nil:
+			case r.JSON200 != nil:
+				state = seatWorks
+			case apiError(r.StatusCode(), r.Body).Code == "unauthorized":
+				state = seatEnded
+			}
+			if state != "" {
+				mu.Lock()
+				out[name] = state
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	return out
+}
+
+// checkSeats fills each row's SeatCredential from seatStates.
+func (a *app) checkSeats(ctx context.Context, srv serverRef, board string, rows []swarmAgent) {
+	names := make([]string, len(rows))
+	for i, r := range rows {
+		names[i] = r.Name
+	}
+	states := a.seatStates(ctx, srv, board, names)
+	for i := range rows {
+		if s, ok := states[rows[i].Name]; ok {
+			rows[i].SeatCredential = optional(s)
+		}
+	}
+}
+
+// seatEndedError refuses to start agents whose seats ended with their access key: their
+// sessions could never act on the board.
+func seatEndedError(board string, names []string) *Error {
+	e := newError("seat_ended",
+		fmt.Sprintf("%s can't act on %s any more: the access key %s came from was revoked or has expired.",
+			strings.Join(names, ", "), board, plural(len(names), "its seat", "their seats")),
+		"Give "+plural(len(names), "it a new name", "each a new name")+" in the board file and run aboard swarm up again.")
+	e.Details = map[string]any{"agents": names, "board": board}
+	return e
+}
+
+// endedSeatsText warns about agents whose seats ended, or is "" when none has.
+func endedSeatsText(st styles, board string, rows []swarmAgent) string {
+	var names []string
+	for _, r := range rows {
+		if deref(r.SeatCredential) == seatEnded {
+			names = append(names, r.Name)
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	return st.warn(fmt.Sprintf("%s can't act on %s any more: the access key %s came from was revoked or has expired.",
+		strings.Join(names, ", "), board, plural(len(names), "its seat", "their seats"))) + "\n" +
+		"Stop " + plural(len(names), "its session", "their sessions") + " with aboard swarm down; to start " +
+		plural(len(names), "it", "them") + " again, give " + plural(len(names), "it a new name", "each a new name") +
+		" in the board file and run aboard swarm up.\n"
 }
 
 // swarmUpAgent is one agent in swarm up's output.
@@ -295,6 +396,23 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	creds, err := a.readCredentials()
 	if err != nil {
 		return err
+	}
+	// A seat that ended with its access key can't be taken again: refuse before starting
+	// anything, rather than start a session that waits for it in vain.
+	names := make([]string, 0, len(f.Agents))
+	for _, spec := range f.Agents {
+		names = append(names, spec.Name)
+	}
+	var ended []string
+	for name, state := range a.seatStates(ctx, srv, board.Name, names) {
+		if state == seatEnded {
+			ended = append(ended, name)
+		}
+	}
+	if len(ended) > 0 {
+		slices.Sort(ended)
+		prog.finish()
+		return seatEndedError(board.Name, ended)
 	}
 	tickets := launchtickets.Dir(p.launches())
 	var out []swarmUpAgent
@@ -1041,6 +1159,7 @@ func runSwarmPs(ctx context.Context, a *app, args []string) error {
 	}
 	rows := a.swarmRows(ctx, name, rec, f)
 	a.fillSeats(ctx, c, rec.Board, func(i int) *swarmAgent { return &rows[i] }, len(rows))
+	a.checkSeats(ctx, srv, rec.Board, rows)
 	st := a.out()
 	text := fmt.Sprintf("%s · %d agents · swarm %s\n", st.name(rec.Board), len(rows), name)
 	text += swarmTable(st, rows, func(r swarmAgent) []string {
@@ -1054,6 +1173,7 @@ func runSwarmPs(ctx context.Context, a *app, args []string) error {
 		}
 		return []string{r.Name, r.Harness, r.Launcher, r.State, orDash(r.Start), seated, presence, orDash(r.Delivery), orDash(r.Attach)}
 	})
+	text += endedSeatsText(st, rec.Board, rows)
 	if rec.File != "" && !fileExists(rec.File) {
 		text += st.warn(swarmFileGone(name, rec.File)+" Start it from where it is now with aboard swarm up --swarm "+name+" --file <path>.") + "\n"
 	}

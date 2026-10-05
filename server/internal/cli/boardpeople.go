@@ -219,7 +219,7 @@ func runBoardVisibility(ctx context.Context, a *app, boardFlag, to string, yes b
 	}
 	if preview.Changed && preview.Reveals != nil && !yes {
 		what := fmt.Sprintf("%s is private. Making it open shows its whole history to every person on %s: %s and %s.",
-			t.board, t.server.URL, count(preview.Reveals.Messages, "message"), count(preview.Reveals.Files, "file"))
+			t.board, t.server.URL, counted(preview.Reveals.Messages, "message"), counted(preview.Reveals.Files, "file"))
 		if !a.interactive() {
 			return newError("confirmation_required", what+" It needs a yes first.",
 				"Run "+command+boardArg(t.board)+" --yes to make it open.")
@@ -249,7 +249,7 @@ func runBoardVisibility(ctx context.Context, a *app, boardFlag, to string, yes b
 	default:
 		text = fmt.Sprintf("%s is private now: only the people on it can see it.\n", out.Board)
 		if out.JoinCodesCanceled > 0 {
-			text += fmt.Sprintf("Canceled %s that still worked.\n", count(out.JoinCodesCanceled, "join code"))
+			text += fmt.Sprintf("Canceled %s that still worked.\n", counted(out.JoinCodesCanceled, "join code"))
 		}
 	}
 	a.emit(struct {
@@ -261,12 +261,4 @@ func runBoardVisibility(ctx context.Context, a *app, boardFlag, to string, yes b
 		JoinCodesCanceled int                 `json:"join_codes_canceled"`
 	}{out.Board, out.Before, out.After, out.Changed, out.Reveals, out.JoinCodesCanceled}, text)
 	return nil
-}
-
-// count says how many of a thing: "1 message", "312 messages".
-func count(n int, thing string) string {
-	if n == 1 {
-		return "1 " + thing
-	}
-	return fmt.Sprintf("%d %ss", n, thing)
 }

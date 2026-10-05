@@ -189,6 +189,54 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"invite", "join", "status"},
 		},
 		{
+			Name: "login", Group: groupStart,
+			Summary: "Sign this machine in with an access key you have",
+			Usage:   []string{loginUsage},
+			Description: "Saves an access key you paste for one server: the address given, else the server this directory's .aboard names, else the local server. " +
+				"It reads the key from standard input, asking for it without showing it at a terminal, never from the command line, and checks it with the server before saving it. " +
+				"The key is saved in servers.json (for the local server, as its owner key), readable only by you and sent only to that server; it replaces the key this machine had for it.\n\n" +
+				"One key used on two machines ties them to one revocation, so login always says so, and says when the key was last used. " +
+				"To give a machine a key of its own, run aboard keys create <name> on a machine that is signed in, then aboard login here with the new key. " +
+				"Signing in is up to a person, so it refuses inside an agent's session.",
+			Flags: []helpFlag{flagJSON},
+			Examples: []helpExample{
+				{"aboard login https://team.example.com", "Paste a key for a team's server"},
+				{"aboard login https://team.example.com < key.txt", "Read the key from a file"},
+			},
+			SeeAlso: []string{"keys", "connect"},
+		},
+		{
+			Name: "keys", Group: groupStart,
+			Summary: "List, create and revoke your access keys",
+			Usage: []string{
+				"aboard keys [--person HANDLE] [--server URL] [--json]",
+				"aboard keys create <name> [--expires DURATION] [--server URL] [--json]",
+				"aboard keys revoke <name|id> [--person HANDLE] [--yes] [--server URL] [--json]",
+			},
+			Description: "An access key signs you in as yourself: this machine keeps one, and you can make others for a phone, another browser or a script. " +
+				"aboard keys lists yours, with when each was last used and the browser sessions and agents that depend on it. " +
+				"The server is --server, else the one this directory's .aboard names, else the local server.\n\n" +
+				"keys create makes a key and shows it once: save it in a password manager. Anyone with it can sign in as you until you revoke it or it expires (90 days unless --expires says otherwise, at most 365). " +
+				"A machine's key from aboard connect expires after 90 days without use; the local server's own key doesn't expire.\n\n" +
+				"keys revoke ends a key at once, with every browser session and agent seat it started. Your other keys keep working. " +
+				"An admin of the server may list and revoke anyone's keys with --person, but creates keys only for themselves. " +
+				"Keys are up to a person: these commands refuse inside an agent's session.",
+			Flags: []helpFlag{
+				{"--person", "HANDLE", "Another person's keys. Admins only."},
+				{"--expires", "DURATION", "How long a new key works, such as 90d, 12h or 1y. Default: 90d."},
+				{"--yes", "", "Revoke this machine's own key without asking."},
+				{"--server", "URL", "The server, when it isn't this directory's or the local one."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard keys", "List your keys"},
+				{"aboard keys create phone --expires 90d", "A key for your phone's browser"},
+				{"aboard keys revoke maya-laptop", "End a lost laptop's key"},
+				{"aboard keys --person maya", "An admin listing another person's keys"},
+			},
+			SeeAlso: []string{"login", "connect", "logout"},
+		},
+		{
 			Name: "logout", Group: groupStart,
 			Summary: "Log every browser out of the board view",
 			Usage:   []string{logoutUsage},
@@ -208,8 +256,7 @@ func helpText(templates string) []commandHelp {
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
 			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]"},
-			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise. " +
-				"Credentials in the text are replaced before the message is stored.\n\n" +
+			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise.\n\n" +
 				"After posting it says what is waiting in the agent's own inbox, and when each recipient will see the message: " +
 				"now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{

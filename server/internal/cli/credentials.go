@@ -69,7 +69,7 @@ func (a *app) saveCredential(cred agentCredential) error {
 		return err
 	}
 	var c credentials
-	return updateJSONFile(p.credentials(), &c, 0o600, func() error {
+	return updateJSONFile(p.credentials(), &c, func() error {
 		c.put(cred)
 		return nil
 	})

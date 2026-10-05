@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/clock"
 )
@@ -114,7 +115,9 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 	for {
 		u, ticked, err := s.feed.Next(ctx, keepalive)
 		if err != nil {
-			if ctx.Err() == nil {
+			// A credential that stopped working ends the stream; the client's next
+			// request gets 401.
+			if _, ended := apierr.As(err); !ended && ctx.Err() == nil {
 				s.log.Error("stream: follow heads", "error", err)
 			}
 			return nil

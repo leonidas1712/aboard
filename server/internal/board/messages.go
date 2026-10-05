@@ -234,11 +234,23 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 	}
 	deadline := s.clk.After(wait)
 	for {
+		var cred credentialEnd
+		if wait > 0 {
+			// A wait ends with the credential it was made with.
+			var err error
+			if cred, err = s.watchCredential(ctx, p); err != nil {
+				return Reading{}, false, err
+			}
+		}
 		changed := s.notify.Watch(p.Agent.BoardID)
 		var r Reading
 		var more bool
 		err := s.st.Read(ctx, func(tx ReadTx) error {
-			// Checked on every read, so a wait ends once the agent or its person leaves.
+			// The credential and the seat are checked in the same transaction as the read,
+			// so a wait ends once the key ends or the agent or its person leaves.
+			if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+				return err
+			}
 			b, me, err := seatOf(tx, *p.Agent)
 			if err != nil {
 				return err
@@ -263,6 +275,8 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 		}
 		select {
 		case <-changed:
+		case <-cred.changed:
+		case <-cred.expires:
 		case <-deadline:
 			return r, false, nil
 		case <-ctx.Done():

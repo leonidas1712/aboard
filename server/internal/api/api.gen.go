@@ -24,6 +24,27 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for AccessKeyState.
+const (
+	AccessKeyStateExpired AccessKeyState = "expired"
+	AccessKeyStateRevoked AccessKeyState = "revoked"
+	AccessKeyStateWorking AccessKeyState = "working"
+)
+
+// Valid indicates whether the value is a known member of the AccessKeyState enum.
+func (e AccessKeyState) Valid() bool {
+	switch e {
+	case AccessKeyStateExpired:
+		return true
+	case AccessKeyStateRevoked:
+		return true
+	case AccessKeyStateWorking:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ActorKind.
 const (
 	ActorKindAgent  ActorKind = "agent"
@@ -244,6 +265,8 @@ const (
 	InviteInvalid           ErrorErrorCode = "invite_invalid"
 	JoinCodeInvalid         ErrorErrorCode = "join_code_invalid"
 	JoinCodeNotFound        ErrorErrorCode = "join_code_not_found"
+	KeyNameTaken            ErrorErrorCode = "key_name_taken"
+	KeyNotFound             ErrorErrorCode = "key_not_found"
 	LastOwner               ErrorErrorCode = "last_owner"
 	LoginCodeInvalid        ErrorErrorCode = "login_code_invalid"
 	MemberNotFound          ErrorErrorCode = "member_not_found"
@@ -308,6 +331,10 @@ func (e ErrorErrorCode) Valid() bool {
 	case JoinCodeInvalid:
 		return true
 	case JoinCodeNotFound:
+		return true
+	case KeyNameTaken:
+		return true
+	case KeyNotFound:
 		return true
 	case LastOwner:
 		return true
@@ -660,6 +687,27 @@ const (
 func (e MessagePostedEventType) Valid() bool {
 	switch e {
 	case MessagePosted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NewAccessKeyState.
+const (
+	NewAccessKeyStateExpired NewAccessKeyState = "expired"
+	NewAccessKeyStateRevoked NewAccessKeyState = "revoked"
+	NewAccessKeyStateWorking NewAccessKeyState = "working"
+)
+
+// Valid indicates whether the value is a known member of the NewAccessKeyState enum.
+func (e NewAccessKeyState) Valid() bool {
+	switch e {
+	case NewAccessKeyStateExpired:
+		return true
+	case NewAccessKeyStateRevoked:
+		return true
+	case NewAccessKeyStateWorking:
 		return true
 	default:
 		return false
@@ -1133,16 +1181,52 @@ func (e ServerRole) Valid() bool {
 
 // AccessKey defines model for AccessKey.
 type AccessKey struct {
-	CreatedAt Timestamp `json:"created_at"`
+	// AgentSeats Agents whose tokens came from this key; they stop working with it.
+	AgentSeats *int `json:"agent_seats,omitempty"`
 
-	// ExpiresAt When the key stops working. Null for a key that doesn't expire.
+	// BrowserSessions Browser logins started from this key that haven't expired or been ended.
+	BrowserSessions *int      `json:"browser_sessions,omitempty"`
+	CreatedAt       Timestamp `json:"created_at"`
+
+	// ExpiresAt When the key stops working. Null for a key that doesn't expire: only the local
+	// server's own key, which is kept beside its database.
 	ExpiresAt *time.Time `json:"expires_at"`
 	Id        string     `json:"id"`
+
+	// IdleExpirySeconds For a key that expires only once unused: each use moves `expires_at` this far
+	// ahead. Null for a key whose `expires_at` is fixed. A machine's key from
+	// `POST /v1/connect` has 7776000 (90 days).
+	IdleExpirySeconds *int `json:"idle_expiry_seconds,omitempty"`
+
+	// LastUsedAt When the key, or a browser login or agent token it started, was last used,
+	// accurate to a minute. Null before its first use.
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 
 	// Name What the key is for, usually the machine that keeps it.
 	//
 	// Example: maya-laptop
 	Name string `json:"name"`
+
+	// RevokedAt When the key was revoked; null while it isn't.
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+
+	// State Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+	State *AccessKeyState `json:"state,omitempty"`
+}
+
+// AccessKeyState Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+type AccessKeyState string
+
+// AccessKeyList defines model for AccessKeyList.
+type AccessKeyList struct {
+	// CurrentKeyId The key this request came with.
+	CurrentKeyId string `json:"current_key_id"`
+
+	// CurrentKeyPreviousUse When the key this request came with was used before this request, accurate to
+	// a minute; null if this is its first use.
+	CurrentKeyPreviousUse *time.Time  `json:"current_key_previous_use"`
+	Keys                  []AccessKey `json:"keys"`
+	Person                Person      `json:"person"`
 }
 
 // Actor defines model for Actor.
@@ -1479,6 +1563,15 @@ type CreateJoinCodeRequest struct {
 	// Role Example: reviewer
 	Role       RoleName `json:"role"`
 	TtlSeconds *int     `json:"ttl_seconds,omitempty"`
+}
+
+// CreateKeyRequest defines model for CreateKeyRequest.
+type CreateKeyRequest struct {
+	// Name Where the key is kept or what uses it, such as `phone` or `nightly-summary`.
+	Name string `json:"name"`
+
+	// TtlSeconds How long the key works. Default 7776000 (90 days).
+	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
 
 // DeliveryMode How messages reach an agent's open session, chosen by its owner. `focused` (the
@@ -1998,20 +2091,44 @@ type MessageStatus struct {
 
 // NewAccessKey defines model for NewAccessKey.
 type NewAccessKey struct {
-	CreatedAt Timestamp `json:"created_at"`
+	// AgentSeats Agents whose tokens came from this key; they stop working with it.
+	AgentSeats *int `json:"agent_seats,omitempty"`
 
-	// ExpiresAt When the key stops working. Null for a key that doesn't expire.
+	// BrowserSessions Browser logins started from this key that haven't expired or been ended.
+	BrowserSessions *int      `json:"browser_sessions,omitempty"`
+	CreatedAt       Timestamp `json:"created_at"`
+
+	// ExpiresAt When the key stops working. Null for a key that doesn't expire: only the local
+	// server's own key, which is kept beside its database.
 	ExpiresAt *time.Time `json:"expires_at"`
 	Id        string     `json:"id"`
+
+	// IdleExpirySeconds For a key that expires only once unused: each use moves `expires_at` this far
+	// ahead. Null for a key whose `expires_at` is fixed. A machine's key from
+	// `POST /v1/connect` has 7776000 (90 days).
+	IdleExpirySeconds *int `json:"idle_expiry_seconds,omitempty"`
+
+	// LastUsedAt When the key, or a browser login or agent token it started, was last used,
+	// accurate to a minute. Null before its first use.
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 
 	// Name What the key is for, usually the machine that keeps it.
 	//
 	// Example: maya-laptop
 	Name string `json:"name"`
 
+	// RevokedAt When the key was revoked; null while it isn't.
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+
+	// State Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+	State *NewAccessKeyState `json:"state,omitempty"`
+
 	// Token Shown once. Send it as `Authorization: Bearer <token>`; it acts as its person.
 	Token string `json:"token"`
 }
+
+// NewAccessKeyState Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+type NewAccessKeyState string
 
 // Permission defines model for Permission.
 type Permission string
@@ -2669,6 +2786,22 @@ type JoinParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ListKeysParams defines parameters for ListKeys.
+type ListKeysParams struct {
+	// Person Whose keys to list, by handle. Default the caller's; only an admin may name someone else.
+	Person *Handle `form:"person,omitempty" json:"person,omitempty"`
+}
+
+// CreateKeyParams defines parameters for CreateKey.
+type CreateKeyParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RevokeKeyParams defines parameters for RevokeKey.
+type RevokeKeyParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // CreateLoginCodeParams defines parameters for CreateLoginCode.
 type CreateLoginCodeParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -2777,6 +2910,9 @@ type CreateServerInviteJSONRequestBody = CreateInviteRequest
 
 // JoinJSONRequestBody defines body for Join for application/json ContentType.
 type JoinJSONRequestBody = JoinRequest
+
+// CreateKeyJSONRequestBody defines body for CreateKey for application/json ContentType.
+type CreateKeyJSONRequestBody = CreateKeyRequest
 
 // AckInboxJSONRequestBody defines body for AckInbox for application/json ContentType.
 type AckInboxJSONRequestBody AckInboxJSONBody
@@ -3876,6 +4012,8 @@ type ClientInterface interface {
 	// creates a new person with the chosen `handle` as a server `member`, and their first
 	// access key, named `key_name`. The key is in the response once, and never again;
 	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	// This key expires after 90 days without use: each use moves its `expires_at` to 90
+	// days later (`idle_expiry_seconds`).
 	//
 	// An invite works once: a second redemption, an expired invite, a wrong one, and one
 	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -3897,6 +4035,8 @@ type ClientInterface interface {
 	// creates a new person with the chosen `handle` as a server `member`, and their first
 	// access key, named `key_name`. The key is in the response once, and never again;
 	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	// This key expires after 90 days without use: each use moves its `expires_at` to 90
+	// days later (`idle_expiry_seconds`).
 	//
 	// An invite works once: a second redemption, an expired invite, a wrong one, and one
 	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -4000,6 +4140,77 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/join (the `Join` operationId).
 	Join(ctx context.Context, params *JoinParams, body JoinJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListKeys List a person's access keys
+	//
+	// With a person's own access key. Lists the caller's keys, oldest first, revoked and
+	// expired ones included, each with its state, when it was last used and how many
+	// browser logins and agent seats it started still depend on it. `last_used_at`
+	// counts the key's own requests and those of the browser logins and agent tokens it
+	// started, and is accurate to a minute: the server records a use at most once a
+	// minute per key.
+	//
+	// A server admin may name another person with `person` and list their keys; anyone
+	// else naming another person gets 403 `server_admin_required`, and an admin naming
+	// a handle nobody has gets 404 `person_not_found`. `current_key_id` is the key the
+	// request came with, and `current_key_previous_use` when it was used before this
+	// request, which `aboard login` reads to warn that a pasted key is already in use
+	// elsewhere. An agent token or a browser token gets 403 `human_token_required`.
+	//
+	// Corresponds with GET /v1/keys (the `ListKeys` operationId).
+	ListKeys(ctx context.Context, params *ListKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateKeyWithBody Create an access key for yourself
+	//
+	// With a person's own access key, for that same person: there is no way to create a
+	// key for anyone else, admins included. Returns the new key's secret once; the
+	// server keeps only its digest, and doesn't keep the response for
+	// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+	// person, with their current rights, until it is revoked or expires.
+	//
+	// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+	// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+	// `nightly-summary`); a name another of the person's working keys has gets 409
+	// `key_name_taken`. An agent token or a browser token gets 403
+	// `human_token_required`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+	CreateKeyWithBody(ctx context.Context, params *CreateKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateKey Create an access key for yourself
+	//
+	// With a person's own access key, for that same person: there is no way to create a
+	// key for anyone else, admins included. Returns the new key's secret once; the
+	// server keeps only its digest, and doesn't keep the response for
+	// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+	// person, with their current rights, until it is revoked or expires.
+	//
+	// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+	// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+	// `nightly-summary`); a name another of the person's working keys has gets 409
+	// `key_name_taken`. An agent token or a browser token gets 403
+	// `human_token_required`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+	CreateKey(ctx context.Context, params *CreateKeyParams, body CreateKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeKey Revoke an access key
+	//
+	// With a person's own access key: revokes one of their keys, or, for a server
+	// admin, anyone's. The key stops working at once, and so does everything it
+	// started: its browser logins and its agents' tokens get 401 on their next request,
+	// and their open streams and waiting reads end within a second. The person's other
+	// keys, and what those started, keep working. Revoking a key that is already
+	// revoked returns it unchanged. A key the caller may not revoke, or that doesn't
+	// exist, gets 404 `key_not_found`, which doesn't say which. An agent token or a
+	// browser token gets 403 `human_token_required`.
+	//
+	// Corresponds with DELETE /v1/keys/{key} (the `RevokeKey` operationId).
+	RevokeKey(ctx context.Context, key string, params *RevokeKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateLoginCode Get a one-time code that logs a browser in
 	//
 	// Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
@@ -4026,7 +4237,9 @@ type ClientInterface interface {
 	// Agent tokens only. Returns messages after the agent's cursor that are addressed to
 	// it: `all`, its role, or `@` its name. Its own messages are never included.
 	// If there are none and `wait` > 0, holds the request until one arrives or `wait`
-	// seconds pass, then returns (possibly empty). Does not move the cursor.
+	// seconds pass, then returns (possibly empty). Does not move the cursor. If the
+	// access key the agent's token came from is revoked or expires while the request
+	// waits, it ends with 401 `unauthorized`.
 	//
 	// `after` leaves out unread messages up to that sequence number, so a client that
 	// has seen them can wait for the next one without moving the cursor: with
@@ -4237,6 +4450,10 @@ type ClientInterface interface {
 	// read `GET /v1/me/inbox` with the agent's token for the current position. A
 	// delivery daemon uses it to drop what an agent has already read from what it
 	// would hand over or announce. Clients ignore event types they don't know.
+	//
+	// The stream ends when the credential it was opened with stops working: within a
+	// second when its access key is revoked or its browser token is ended, and at once
+	// when either expires. Reconnecting then gets 401.
 	//
 	// Corresponds with GET /v1/stream (the `Stream` operationId).
 	Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4932,6 +5149,8 @@ func (c *Client) CreateBrowserToken(ctx context.Context, body CreateBrowserToken
 // creates a new person with the chosen `handle` as a server `member`, and their first
 // access key, named `key_name`. The key is in the response once, and never again;
 // the server keeps only its digest. `aboard connect` calls this and keeps the key.
+// This key expires after 90 days without use: each use moves its `expires_at` to 90
+// days later (`idle_expiry_seconds`).
 //
 // An invite works once: a second redemption, an expired invite, a wrong one, and one
 // whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -4963,6 +5182,8 @@ func (c *Client) ConnectWithBody(ctx context.Context, params *ConnectParams, con
 // creates a new person with the chosen `handle` as a server `member`, and their first
 // access key, named `key_name`. The key is in the response once, and never again;
 // the server keeps only its digest. `aboard connect` calls this and keeps the key.
+// This key expires after 90 days without use: each use moves its `expires_at` to 90
+// days later (`idle_expiry_seconds`).
 //
 // An invite works once: a second redemption, an expired invite, a wrong one, and one
 // whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -5126,6 +5347,117 @@ func (c *Client) Join(ctx context.Context, params *JoinParams, body JoinJSONRequ
 	return c.Client.Do(req)
 }
 
+// ListKeys List a person's access keys
+//
+// With a person's own access key. Lists the caller's keys, oldest first, revoked and
+// expired ones included, each with its state, when it was last used and how many
+// browser logins and agent seats it started still depend on it. `last_used_at`
+// counts the key's own requests and those of the browser logins and agent tokens it
+// started, and is accurate to a minute: the server records a use at most once a
+// minute per key.
+//
+// A server admin may name another person with `person` and list their keys; anyone
+// else naming another person gets 403 `server_admin_required`, and an admin naming
+// a handle nobody has gets 404 `person_not_found`. `current_key_id` is the key the
+// request came with, and `current_key_previous_use` when it was used before this
+// request, which `aboard login` reads to warn that a pasted key is already in use
+// elsewhere. An agent token or a browser token gets 403 `human_token_required`.
+//
+// Corresponds with GET /v1/keys (the `ListKeys` operationId).
+func (c *Client) ListKeys(ctx context.Context, params *ListKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListKeysRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateKeyWithBody Create an access key for yourself
+//
+// With a person's own access key, for that same person: there is no way to create a
+// key for anyone else, admins included. Returns the new key's secret once; the
+// server keeps only its digest, and doesn't keep the response for
+// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+// person, with their current rights, until it is revoked or expires.
+//
+// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+// `nightly-summary`); a name another of the person's working keys has gets 409
+// `key_name_taken`. An agent token or a browser token gets 403
+// `human_token_required`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+func (c *Client) CreateKeyWithBody(ctx context.Context, params *CreateKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateKeyRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateKey Create an access key for yourself
+//
+// With a person's own access key, for that same person: there is no way to create a
+// key for anyone else, admins included. Returns the new key's secret once; the
+// server keeps only its digest, and doesn't keep the response for
+// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+// person, with their current rights, until it is revoked or expires.
+//
+// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+// `nightly-summary`); a name another of the person's working keys has gets 409
+// `key_name_taken`. An agent token or a browser token gets 403
+// `human_token_required`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+func (c *Client) CreateKey(ctx context.Context, params *CreateKeyParams, body CreateKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateKeyRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevokeKey Revoke an access key
+//
+// With a person's own access key: revokes one of their keys, or, for a server
+// admin, anyone's. The key stops working at once, and so does everything it
+// started: its browser logins and its agents' tokens get 401 on their next request,
+// and their open streams and waiting reads end within a second. The person's other
+// keys, and what those started, keep working. Revoking a key that is already
+// revoked returns it unchanged. A key the caller may not revoke, or that doesn't
+// exist, gets 404 `key_not_found`, which doesn't say which. An agent token or a
+// browser token gets 403 `human_token_required`.
+//
+// Corresponds with DELETE /v1/keys/{key} (the `RevokeKey` operationId).
+func (c *Client) RevokeKey(ctx context.Context, key string, params *RevokeKeyParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeKeyRequest(c.Server, key, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateLoginCode Get a one-time code that logs a browser in
 //
 // Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
@@ -5172,7 +5504,9 @@ func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*htt
 // Agent tokens only. Returns messages after the agent's cursor that are addressed to
 // it: `all`, its role, or `@` its name. Its own messages are never included.
 // If there are none and `wait` > 0, holds the request until one arrives or `wait`
-// seconds pass, then returns (possibly empty). Does not move the cursor.
+// seconds pass, then returns (possibly empty). Does not move the cursor. If the
+// access key the agent's token came from is revoked or expires while the request
+// waits, it ends with 401 `unauthorized`.
 //
 // `after` leaves out unread messages up to that sequence number, so a client that
 // has seen them can wait for the next one without moving the cursor: with
@@ -5503,6 +5837,10 @@ func (c *Client) UpdateSettings(ctx context.Context, params *UpdateSettingsParam
 // read `GET /v1/me/inbox` with the agent's token for the current position. A
 // delivery daemon uses it to drop what an agent has already read from what it
 // would hand over or announce. Clients ignore event types they don't know.
+//
+// The stream ends when the credential it was opened with stops working: within a
+// second when its access key is revoked or its browser token is ended, and at once
+// when either expires. Reconnecting then gets 401.
 //
 // Corresponds with GET /v1/stream (the `Stream` operationId).
 func (c *Client) Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -6802,6 +7140,164 @@ func NewJoinRequestWithBody(server string, params *JoinParams, contentType strin
 	return req, nil
 }
 
+// NewListKeysRequest constructs an http.Request for the ListKeys method
+func NewListKeysRequest(server string, params *ListKeysParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/keys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Person != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "person", *params.Person, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateKeyRequest calls the generic CreateKey builder with application/json body
+func NewCreateKeyRequest(server string, params *CreateKeyParams, body CreateKeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateKeyRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateKeyRequestWithBody constructs an http.Request for the CreateKey method, with any body, and a specified content type
+func NewCreateKeyRequestWithBody(server string, params *CreateKeyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/keys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRevokeKeyRequest constructs an http.Request for the RevokeKey method
+func NewRevokeKeyRequest(server string, key string, params *RevokeKeyParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/keys/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewCreateLoginCodeRequest constructs an http.Request for the CreateLoginCode method
 func NewCreateLoginCodeRequest(server string, params *CreateLoginCodeParams) (*http.Request, error) {
 	var err error
@@ -7885,6 +8381,8 @@ type ClientWithResponsesInterface interface {
 	// creates a new person with the chosen `handle` as a server `member`, and their first
 	// access key, named `key_name`. The key is in the response once, and never again;
 	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	// This key expires after 90 days without use: each use moves its `expires_at` to 90
+	// days later (`idle_expiry_seconds`).
 	//
 	// An invite works once: a second redemption, an expired invite, a wrong one, and one
 	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -7906,6 +8404,8 @@ type ClientWithResponsesInterface interface {
 	// creates a new person with the chosen `handle` as a server `member`, and their first
 	// access key, named `key_name`. The key is in the response once, and never again;
 	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	// This key expires after 90 days without use: each use moves its `expires_at` to 90
+	// days later (`idle_expiry_seconds`).
 	//
 	// An invite works once: a second redemption, an expired invite, a wrong one, and one
 	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -8011,6 +8511,81 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/join (the `Join` operationId).
 	JoinWithResponse(ctx context.Context, params *JoinParams, body JoinJSONRequestBody, reqEditors ...RequestEditorFn) (*JoinResponse, error)
 
+	// ListKeysWithResponse List a person's access keys
+	//
+	// With a person's own access key. Lists the caller's keys, oldest first, revoked and
+	// expired ones included, each with its state, when it was last used and how many
+	// browser logins and agent seats it started still depend on it. `last_used_at`
+	// counts the key's own requests and those of the browser logins and agent tokens it
+	// started, and is accurate to a minute: the server records a use at most once a
+	// minute per key.
+	//
+	// A server admin may name another person with `person` and list their keys; anyone
+	// else naming another person gets 403 `server_admin_required`, and an admin naming
+	// a handle nobody has gets 404 `person_not_found`. `current_key_id` is the key the
+	// request came with, and `current_key_previous_use` when it was used before this
+	// request, which `aboard login` reads to warn that a pasted key is already in use
+	// elsewhere. An agent token or a browser token gets 403 `human_token_required`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/keys (the `ListKeys` operationId).
+	ListKeysWithResponse(ctx context.Context, params *ListKeysParams, reqEditors ...RequestEditorFn) (*ListKeysResponse, error)
+
+	// CreateKeyWithBodyWithResponse Create an access key for yourself
+	//
+	// With a person's own access key, for that same person: there is no way to create a
+	// key for anyone else, admins included. Returns the new key's secret once; the
+	// server keeps only its digest, and doesn't keep the response for
+	// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+	// person, with their current rights, until it is revoked or expires.
+	//
+	// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+	// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+	// `nightly-summary`); a name another of the person's working keys has gets 409
+	// `key_name_taken`. An agent token or a browser token gets 403
+	// `human_token_required`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+	CreateKeyWithBodyWithResponse(ctx context.Context, params *CreateKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateKeyResponse, error)
+
+	// CreateKeyWithResponse Create an access key for yourself
+	//
+	// With a person's own access key, for that same person: there is no way to create a
+	// key for anyone else, admins included. Returns the new key's secret once; the
+	// server keeps only its digest, and doesn't keep the response for
+	// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+	// person, with their current rights, until it is revoked or expires.
+	//
+	// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+	// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+	// `nightly-summary`); a name another of the person's working keys has gets 409
+	// `key_name_taken`. An agent token or a browser token gets 403
+	// `human_token_required`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+	CreateKeyWithResponse(ctx context.Context, params *CreateKeyParams, body CreateKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateKeyResponse, error)
+
+	// RevokeKeyWithResponse Revoke an access key
+	//
+	// With a person's own access key: revokes one of their keys, or, for a server
+	// admin, anyone's. The key stops working at once, and so does everything it
+	// started: its browser logins and its agents' tokens get 401 on their next request,
+	// and their open streams and waiting reads end within a second. The person's other
+	// keys, and what those started, keep working. Revoking a key that is already
+	// revoked returns it unchanged. A key the caller may not revoke, or that doesn't
+	// exist, gets 404 `key_not_found`, which doesn't say which. An agent token or a
+	// browser token gets 403 `human_token_required`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/keys/{key} (the `RevokeKey` operationId).
+	RevokeKeyWithResponse(ctx context.Context, key string, params *RevokeKeyParams, reqEditors ...RequestEditorFn) (*RevokeKeyResponse, error)
+
 	// CreateLoginCodeWithResponse Get a one-time code that logs a browser in
 	//
 	// Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
@@ -8041,7 +8616,9 @@ type ClientWithResponsesInterface interface {
 	// Agent tokens only. Returns messages after the agent's cursor that are addressed to
 	// it: `all`, its role, or `@` its name. Its own messages are never included.
 	// If there are none and `wait` > 0, holds the request until one arrives or `wait`
-	// seconds pass, then returns (possibly empty). Does not move the cursor.
+	// seconds pass, then returns (possibly empty). Does not move the cursor. If the
+	// access key the agent's token came from is revoked or expires while the request
+	// waits, it ends with 401 `unauthorized`.
 	//
 	// `after` leaves out unread messages up to that sequence number, so a client that
 	// has seen them can wait for the next one without moving the cursor: with
@@ -8264,6 +8841,10 @@ type ClientWithResponsesInterface interface {
 	// read `GET /v1/me/inbox` with the agent's token for the current position. A
 	// delivery daemon uses it to drop what an agent has already read from what it
 	// would hand over or announce. Clients ignore event types they don't know.
+	//
+	// The stream ends when the credential it was opened with stops working: within a
+	// second when its access key is revoked or its browser token is ended, and at once
+	// when either expires. Reconnecting then gets 401.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -9802,6 +10383,220 @@ func (r JoinResponse) ContentType() string {
 	return ""
 }
 
+type ListKeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccessKeyList
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListKeysResponse) GetJSON200() *AccessKeyList {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ListKeysResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListKeysResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListKeysResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListKeysResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListKeysResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListKeysResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *NewAccessKey
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateKeyResponse) GetJSON201() *NewAccessKey {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateKeyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CreateKeyResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateKeyResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateKeyResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreateKeyResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccessKey
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RevokeKeyResponse) GetJSON200() *AccessKey {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r RevokeKeyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RevokeKeyResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RevokeKeyResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RevokeKeyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RevokeKeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CreateLoginCodeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11149,6 +11944,8 @@ func (c *ClientWithResponses) CreateBrowserTokenWithResponse(ctx context.Context
 // creates a new person with the chosen `handle` as a server `member`, and their first
 // access key, named `key_name`. The key is in the response once, and never again;
 // the server keeps only its digest. `aboard connect` calls this and keeps the key.
+// This key expires after 90 days without use: each use moves its `expires_at` to 90
+// days later (`idle_expiry_seconds`).
 //
 // An invite works once: a second redemption, an expired invite, a wrong one, and one
 // whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -11176,6 +11973,8 @@ func (c *ClientWithResponses) ConnectWithBodyWithResponse(ctx context.Context, p
 // creates a new person with the chosen `handle` as a server `member`, and their first
 // access key, named `key_name`. The key is in the response once, and never again;
 // the server keeps only its digest. `aboard connect` calls this and keeps the key.
+// This key expires after 90 days without use: each use moves its `expires_at` to 90
+// days later (`idle_expiry_seconds`).
 //
 // An invite works once: a second redemption, an expired invite, a wrong one, and one
 // whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -11317,6 +12116,105 @@ func (c *ClientWithResponses) JoinWithResponse(ctx context.Context, params *Join
 	return ParseJoinResponse(rsp)
 }
 
+// ListKeysWithResponse List a person's access keys
+//
+// With a person's own access key. Lists the caller's keys, oldest first, revoked and
+// expired ones included, each with its state, when it was last used and how many
+// browser logins and agent seats it started still depend on it. `last_used_at`
+// counts the key's own requests and those of the browser logins and agent tokens it
+// started, and is accurate to a minute: the server records a use at most once a
+// minute per key.
+//
+// A server admin may name another person with `person` and list their keys; anyone
+// else naming another person gets 403 `server_admin_required`, and an admin naming
+// a handle nobody has gets 404 `person_not_found`. `current_key_id` is the key the
+// request came with, and `current_key_previous_use` when it was used before this
+// request, which `aboard login` reads to warn that a pasted key is already in use
+// elsewhere. An agent token or a browser token gets 403 `human_token_required`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/keys (the `ListKeys` operationId).
+func (c *ClientWithResponses) ListKeysWithResponse(ctx context.Context, params *ListKeysParams, reqEditors ...RequestEditorFn) (*ListKeysResponse, error) {
+	rsp, err := c.ListKeys(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListKeysResponse(rsp)
+}
+
+// CreateKeyWithBodyWithResponse Create an access key for yourself
+//
+// With a person's own access key, for that same person: there is no way to create a
+// key for anyone else, admins included. Returns the new key's secret once; the
+// server keeps only its digest, and doesn't keep the response for
+// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+// person, with their current rights, until it is revoked or expires.
+//
+// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+// `nightly-summary`); a name another of the person's working keys has gets 409
+// `key_name_taken`. An agent token or a browser token gets 403
+// `human_token_required`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+func (c *ClientWithResponses) CreateKeyWithBodyWithResponse(ctx context.Context, params *CreateKeyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateKeyResponse, error) {
+	rsp, err := c.CreateKeyWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateKeyResponse(rsp)
+}
+
+// CreateKeyWithResponse Create an access key for yourself
+//
+// With a person's own access key, for that same person: there is no way to create a
+// key for anyone else, admins included. Returns the new key's secret once; the
+// server keeps only its digest, and doesn't keep the response for
+// `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+// person, with their current rights, until it is revoked or expires.
+//
+// It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+// and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+// `nightly-summary`); a name another of the person's working keys has gets 409
+// `key_name_taken`. An agent token or a browser token gets 403
+// `human_token_required`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/keys (the `CreateKey` operationId).
+func (c *ClientWithResponses) CreateKeyWithResponse(ctx context.Context, params *CreateKeyParams, body CreateKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateKeyResponse, error) {
+	rsp, err := c.CreateKey(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateKeyResponse(rsp)
+}
+
+// RevokeKeyWithResponse Revoke an access key
+//
+// With a person's own access key: revokes one of their keys, or, for a server
+// admin, anyone's. The key stops working at once, and so does everything it
+// started: its browser logins and its agents' tokens get 401 on their next request,
+// and their open streams and waiting reads end within a second. The person's other
+// keys, and what those started, keep working. Revoking a key that is already
+// revoked returns it unchanged. A key the caller may not revoke, or that doesn't
+// exist, gets 404 `key_not_found`, which doesn't say which. An agent token or a
+// browser token gets 403 `human_token_required`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/keys/{key} (the `RevokeKey` operationId).
+func (c *ClientWithResponses) RevokeKeyWithResponse(ctx context.Context, key string, params *RevokeKeyParams, reqEditors ...RequestEditorFn) (*RevokeKeyResponse, error) {
+	rsp, err := c.RevokeKey(ctx, key, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeKeyResponse(rsp)
+}
+
 // CreateLoginCodeWithResponse Get a one-time code that logs a browser in
 //
 // Humans only, with a human token. Returns a code that `POST /v1/browser-tokens`
@@ -11359,7 +12257,9 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 // Agent tokens only. Returns messages after the agent's cursor that are addressed to
 // it: `all`, its role, or `@` its name. Its own messages are never included.
 // If there are none and `wait` > 0, holds the request until one arrives or `wait`
-// seconds pass, then returns (possibly empty). Does not move the cursor.
+// seconds pass, then returns (possibly empty). Does not move the cursor. If the
+// access key the agent's token came from is revoked or expires while the request
+// waits, it ends with 401 `unauthorized`.
 //
 // `after` leaves out unread messages up to that sequence number, so a client that
 // has seen them can wait for the next one without moving the cursor: with
@@ -11654,6 +12554,10 @@ func (c *ClientWithResponses) UpdateSettingsWithResponse(ctx context.Context, pa
 // read `GET /v1/me/inbox` with the agent's token for the current position. A
 // delivery daemon uses it to drop what an agent has already read from what it
 // would hand over or announce. Clients ignore event types they don't know.
+//
+// The stream ends when the credential it was opened with stops working: within a
+// second when its access key is revoked or its browser token is ended, and at once
+// when either expires. Reconnecting then gets 401.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -12857,6 +13761,175 @@ func ParseJoinResponse(rsp *http.Response) (*JoinResponse, error) {
 	return response, nil
 }
 
+// ParseListKeysResponse parses an HTTP response from a ListKeysWithResponse call
+func ParseListKeysResponse(rsp *http.Response) (*ListKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessKeyList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateKeyResponse parses an HTTP response from a CreateKeyWithResponse call
+func ParseCreateKeyResponse(rsp *http.Response) (*CreateKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest NewAccessKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeKeyResponse parses an HTTP response from a RevokeKeyWithResponse call
+func ParseRevokeKeyResponse(rsp *http.Response) (*RevokeKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccessKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateLoginCodeResponse parses an HTTP response from a CreateLoginCodeWithResponse call
 func ParseCreateLoginCodeResponse(rsp *http.Response) (*CreateLoginCodeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -13474,6 +14547,15 @@ type ServerInterface interface {
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(w http.ResponseWriter, r *http.Request, params JoinParams)
+	// ListKeys List a person's access keys
+	// (GET /v1/keys)
+	ListKeys(w http.ResponseWriter, r *http.Request, params ListKeysParams)
+	// CreateKey Create an access key for yourself
+	// (POST /v1/keys)
+	CreateKey(w http.ResponseWriter, r *http.Request, params CreateKeyParams)
+	// RevokeKey Revoke an access key
+	// (DELETE /v1/keys/{key})
+	RevokeKey(w http.ResponseWriter, r *http.Request, key string, params RevokeKeyParams)
 	// CreateLoginCode Get a one-time code that logs a browser in
 	// (POST /v1/login-codes)
 	CreateLoginCode(w http.ResponseWriter, r *http.Request, params CreateLoginCodeParams)
@@ -14550,6 +15632,130 @@ func (siw *ServerInterfaceWrapper) Join(w http.ResponseWriter, r *http.Request) 
 	handler.ServeHTTP(w, r)
 }
 
+// ListKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListKeys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListKeysParams
+
+	// ------------- Optional query parameter "person" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "person", r.URL.Query(), &params.Person, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "person"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "person", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListKeys(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateKeyParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateKey(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeKeyParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeKey(w, r, key, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateLoginCode operation middleware
 func (siw *ServerInterfaceWrapper) CreateLoginCode(w http.ResponseWriter, r *http.Request) {
 
@@ -15152,6 +16358,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/browser-tokens", wrapper.EndBrowserTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/browser-tokens", wrapper.CreateBrowserToken)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/invites", wrapper.CreateServerInvite)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/keys", wrapper.ListKeys)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/keys", wrapper.CreateKey)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/keys/{key}", wrapper.RevokeKey)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/connect", wrapper.Connect)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards", wrapper.ListBoards)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards", wrapper.CreateBoard)
@@ -16864,6 +18073,256 @@ func (response Join429JSONResponse) VisitJoinResponse(w http.ResponseWriter) err
 	return err
 }
 
+type ListKeysRequestObject struct {
+	Params ListKeysParams
+}
+
+type ListKeysResponseObject interface {
+	VisitListKeysResponse(w http.ResponseWriter) error
+}
+
+type ListKeys200JSONResponse AccessKeyList
+
+func (response ListKeys200JSONResponse) VisitListKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListKeys400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListKeys400JSONResponse) VisitListKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListKeys401JSONResponse Error
+
+func (response ListKeys401JSONResponse) VisitListKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListKeys403JSONResponse Error
+
+func (response ListKeys403JSONResponse) VisitListKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListKeys404JSONResponse Error
+
+func (response ListKeys404JSONResponse) VisitListKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateKeyRequestObject struct {
+	Params CreateKeyParams
+	Body   *CreateKeyJSONRequestBody
+}
+
+type CreateKeyResponseObject interface {
+	VisitCreateKeyResponse(w http.ResponseWriter) error
+}
+
+type CreateKey201JSONResponse NewAccessKey
+
+func (response CreateKey201JSONResponse) VisitCreateKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateKey400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateKey400JSONResponse) VisitCreateKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateKey401JSONResponse Error
+
+func (response CreateKey401JSONResponse) VisitCreateKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateKey403JSONResponse Error
+
+func (response CreateKey403JSONResponse) VisitCreateKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateKey409JSONResponse Error
+
+func (response CreateKey409JSONResponse) VisitCreateKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateKey422JSONResponse Error
+
+func (response CreateKey422JSONResponse) VisitCreateKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeKeyRequestObject struct {
+	Key    string `json:"key"`
+	Params RevokeKeyParams
+}
+
+type RevokeKeyResponseObject interface {
+	VisitRevokeKeyResponse(w http.ResponseWriter) error
+}
+
+type RevokeKey200JSONResponse AccessKey
+
+func (response RevokeKey200JSONResponse) VisitRevokeKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeKey400JSONResponse struct{ ErrorJSONResponse }
+
+func (response RevokeKey400JSONResponse) VisitRevokeKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeKey401JSONResponse Error
+
+func (response RevokeKey401JSONResponse) VisitRevokeKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeKey403JSONResponse Error
+
+func (response RevokeKey403JSONResponse) VisitRevokeKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeKey404JSONResponse Error
+
+func (response RevokeKey404JSONResponse) VisitRevokeKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateLoginCodeRequestObject struct {
 	Params CreateLoginCodeParams
 }
@@ -17698,6 +19157,15 @@ type StrictServerInterface interface {
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(ctx context.Context, request JoinRequestObject) (JoinResponseObject, error)
+	// ListKeys List a person's access keys
+	// (GET /v1/keys)
+	ListKeys(ctx context.Context, request ListKeysRequestObject) (ListKeysResponseObject, error)
+	// CreateKey Create an access key for yourself
+	// (POST /v1/keys)
+	CreateKey(ctx context.Context, request CreateKeyRequestObject) (CreateKeyResponseObject, error)
+	// RevokeKey Revoke an access key
+	// (DELETE /v1/keys/{key})
+	RevokeKey(ctx context.Context, request RevokeKeyRequestObject) (RevokeKeyResponseObject, error)
 	// CreateLoginCode Get a one-time code that logs a browser in
 	// (POST /v1/login-codes)
 	CreateLoginCode(ctx context.Context, request CreateLoginCodeRequestObject) (CreateLoginCodeResponseObject, error)
@@ -18463,6 +19931,92 @@ func (sh *strictHandler) Join(w http.ResponseWriter, r *http.Request, params Joi
 	}
 }
 
+// ListKeys operation middleware
+func (sh *strictHandler) ListKeys(w http.ResponseWriter, r *http.Request, params ListKeysParams) {
+	var request ListKeysRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListKeys(ctx, request.(ListKeysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListKeys")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListKeysResponseObject); ok {
+		if err := validResponse.VisitListKeysResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateKey operation middleware
+func (sh *strictHandler) CreateKey(w http.ResponseWriter, r *http.Request, params CreateKeyParams) {
+	var request CreateKeyRequestObject
+
+	request.Params = params
+
+	var body CreateKeyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateKey(ctx, request.(CreateKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateKeyResponseObject); ok {
+		if err := validResponse.VisitCreateKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeKey operation middleware
+func (sh *strictHandler) RevokeKey(w http.ResponseWriter, r *http.Request, key string, params RevokeKeyParams) {
+	var request RevokeKeyRequestObject
+
+	request.Key = key
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeKey(ctx, request.(RevokeKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeKeyResponseObject); ok {
+		if err := validResponse.VisitRevokeKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateLoginCode operation middleware
 func (sh *strictHandler) CreateLoginCode(w http.ResponseWriter, r *http.Request, params CreateLoginCodeParams) {
 	var request CreateLoginCodeRequestObject
@@ -18800,344 +20354,374 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"++rt/xcAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

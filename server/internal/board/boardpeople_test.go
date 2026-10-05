@@ -18,10 +18,10 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
-// readGate is the real store, except that once armed its next read waits, before it
+// accessGate is the real store, except that once armed its next read waits, before it
 // starts its transaction, until the test lets it go; and every finished read is
 // signaled on reads, so a test knows when a long poll has read and is waiting.
-type readGate struct {
+type accessGate struct {
 	board.Store
 	mu      sync.Mutex
 	waiting chan struct{}
@@ -29,14 +29,14 @@ type readGate struct {
 	reads   chan struct{}
 }
 
-func (g *readGate) arm() (waiting, release chan struct{}) {
+func (g *accessGate) arm() (waiting, release chan struct{}) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.waiting, g.release = make(chan struct{}), make(chan struct{})
 	return g.waiting, g.release
 }
 
-func (g *readGate) Read(ctx context.Context, fn func(board.ReadTx) error) error {
+func (g *accessGate) Read(ctx context.Context, fn func(board.ReadTx) error) error {
 	g.mu.Lock()
 	waiting, release, reads := g.waiting, g.release, g.reads
 	g.waiting, g.release = nil, nil
@@ -59,7 +59,7 @@ func (g *readGate) Read(ctx context.Context, fn func(board.ReadTx) error) error 
 // private board of maya's that sam is on with an agent.
 type teamWorld struct {
 	svc             *board.Service
-	gate            *readGate
+	gate            *accessGate
 	alex, maya, sam board.Principal
 	samAgent        board.Principal
 	board           string
@@ -74,7 +74,7 @@ func newTeamWorld(t *testing.T) *teamWorld {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	w := &teamWorld{gate: &readGate{Store: st, reads: make(chan struct{}, 1)}}
+	w := &teamWorld{gate: &accessGate{Store: st, reads: make(chan struct{}, 1)}}
 	w.svc = board.New(w.gate, notify.NewInProcess(), clk, ids.New(rand.Reader), digestKey,
 		board.Config{ServerID: "srv_TEST", Mode: "local", JoinHost: "localhost"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	owner, err := w.svc.BootstrapOwner(ctx, "alex", "laptop")

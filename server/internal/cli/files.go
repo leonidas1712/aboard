@@ -69,8 +69,8 @@ func readJSONFile(path string, v any) (bool, error) {
 
 // updateJSONFile reads path into v, calls change, and writes v back, holding an exclusive
 // lock on path+".lock" throughout, so concurrent aboard commands on one machine never
-// lose each other's changes.
-func updateJSONFile(path string, v any, perm os.FileMode, change func() error) error {
+// lose each other's changes. The file is readable only by its owner.
+func updateJSONFile(path string, v any, change func() error) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
 	}
@@ -88,5 +88,5 @@ func updateJSONFile(path string, v any, perm os.FileMode, change func() error) e
 	if err := change(); err != nil {
 		return err
 	}
-	return writeJSONFile(path, v, perm)
+	return writeJSONFile(path, v, 0o600)
 }

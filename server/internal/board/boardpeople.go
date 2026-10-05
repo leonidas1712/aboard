@@ -69,7 +69,7 @@ func (s *Service) People(ctx context.Context, p Principal, boardName string) (Pe
 	return out, err
 }
 
-func personNotFound(handle string) *apierr.Error {
+func noSuchPerson(handle string) *apierr.Error {
 	return apierr.New(http.StatusNotFound, "person_not_found",
 		fmt.Sprintf("No one on this server is called %s.", handle),
 		"Check the handle; it is the name the person connected with.")
@@ -112,7 +112,7 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		}
 		target, err := tx.HumanByName(handle)
 		if errors.Is(err, ErrNotFound) {
-			return personNotFound(handle)
+			return noSuchPerson(handle)
 		}
 		if err != nil {
 			return err

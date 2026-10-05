@@ -135,9 +135,22 @@ func messageNotFound() error {
 func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wait time.Duration, after int64, limit int) (ThreadReading, error) {
 	deadline := s.clk.After(wait)
 	for {
+		var cred credentialEnd
+		if wait > 0 {
+			// A wait ends with the credential it was made with.
+			var err error
+			if cred, err = s.watchCredential(ctx, p); err != nil {
+				return ThreadReading{}, err
+			}
+		}
 		var r ThreadReading
 		var boardID string
 		err := s.st.Read(ctx, func(tx ReadTx) error {
+			// Replies are read with the credential checked in the same transaction, so a
+			// wait whose key ended meanwhile reads nothing new.
+			if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+				return err
+			}
 			m, b, me, err := visibleMessage(tx, p, messageID)
 			if err != nil {
 				return err
@@ -187,6 +200,8 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 		}
 		select {
 		case <-changed:
+		case <-cred.changed:
+		case <-cred.expires:
 		case <-deadline:
 			return r, nil
 		case <-ctx.Done():

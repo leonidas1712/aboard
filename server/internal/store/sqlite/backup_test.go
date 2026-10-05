@@ -3,6 +3,8 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -125,4 +127,85 @@ func TestANewDatabaseIsNotBackedUp(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(filepath.Dir(path), "backups")); !os.IsNotExist(err) {
 		t.Fatalf("a new database made a backups folder: %v", err)
 	}
+}
+
+// Upgrading gives keys that came from invites before keys expired the expiry such keys
+// have now, 90 days without use, and leaves the first person's own key as it was.
+func TestUpgradeGivesInvitedPeoplesKeysAnIdleExpiry(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "aboard.db")
+	db := databaseAt(t, path, 12)
+	for _, q := range []string{
+		"INSERT INTO humans (id, name, role, created_at) VALUES ('hum_a', 'alex', 'admin', '2026-10-01T16:00:00.000Z'), ('hum_m', 'maya', 'member', '2026-10-01T16:00:00.000Z')",
+		"INSERT INTO access_keys (id, human_id, name, digest, created_at) VALUES ('key_a', 'hum_a', 'laptop', 'd-a', '2026-10-01T16:00:00.000Z'), ('key_m', 'hum_m', 'laptop', 'd-m', '2026-10-01T16:00:00.000Z')",
+	} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = db.Close()
+	st, err := Open(ctx, path, clock.Real{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	expires := map[string]*string{}
+	idle := map[string]*int64{}
+	err = st.read(ctx, func(x *tx) error {
+		for _, id := range []string{"key_a", "key_m"} {
+			var e *string
+			var i *int64
+			if err := x.queryRow("SELECT expires_at, idle_seconds FROM access_keys WHERE id = ?", id).Scan(&e, &i); err != nil {
+				return err
+			}
+			expires[id], idle[id] = e, i
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expires["key_a"] != nil || idle["key_a"] != nil {
+		t.Fatalf("the admin's own key got an expiry: %v %v", *expires["key_a"], idle["key_a"])
+	}
+	if idle["key_m"] == nil || *idle["key_m"] != 90*24*3600 || expires["key_m"] == nil {
+		t.Fatalf("maya's key after the upgrade: expires %v, idle %v", expires["key_m"], idle["key_m"])
+	}
+	at, err := time.Parse("2006-01-02T15:04:05.000Z", *expires["key_m"])
+	if err != nil || time.Until(at) < 89*24*time.Hour || time.Until(at) > 91*24*time.Hour {
+		t.Fatalf("maya's key expires at %v (%v)", *expires["key_m"], err)
+	}
+}
+
+// databaseAt makes a database at path with the migrations up to schema n applied, as an
+// older aboard left it, and returns it open.
+func databaseAt(t *testing.T, path string, n int) *sql.DB {
+	t.Helper()
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	for i := 1; i <= n; i++ {
+		names, err := fs.Glob(migrations, fmt.Sprintf("migrations/%04d_*.sql", i))
+		if err != nil || len(names) != 1 {
+			t.Fatalf("migration %d: %v %v", i, names, err)
+		}
+		body, err := migrations.ReadFile(names[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlTx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := applyIn(ctx, sqlTx, i, string(body)); err != nil {
+			t.Fatalf("%s: %v", names[0], err)
+		}
+		if err := sqlTx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return db
 }

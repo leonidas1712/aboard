@@ -35,6 +35,20 @@ type AccessKey struct {
 	CreatedAt string
 	ExpiresAt *string // nil: it doesn't expire
 	RevokedAt *string
+	// LastUsedAt is when the key, or a browser login or agent token it started, was last
+	// used, recorded at most once a minute; nil before its first use.
+	LastUsedAt *string
+	// IdleSeconds, when set, makes the key expire only once unused: each recorded use
+	// moves ExpiresAt this many seconds past the use.
+	IdleSeconds *int64
+}
+
+// KeyUsage is an access key with what still depends on it: the browser logins it started
+// that haven't ended, and the agents whose tokens came from it.
+type KeyUsage struct {
+	AccessKey
+	BrowserSessions int
+	AgentSeats      int
 }
 
 // ServerInvite lets one new person onto the server, as a member, once, before it

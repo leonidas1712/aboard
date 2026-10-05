@@ -26,6 +26,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MissingRecordsAreNotFound", missingRecordsAreNotFound},
 		{"HumansRoundTrip", humansRoundTrip},
 		{"AccessKeysRoundTripAndGetNamed", accessKeysRoundTripAndGetNamed},
+		{"KeysListRevokeAndRecordUse", keysListRevokeAndRecordUse},
 		{"ServerInvitesAreUsedOnce", serverInvitesAreUsedOnce},
 		{"BrowserLoginsRoundTripAndEnd", browserLoginsRoundTripAndEnd},
 		{"BoardRoundTripsEveryField", boardRoundTripsEveryField},
@@ -264,6 +265,77 @@ func accessKeysRoundTripAndGetNamed(t *testing.T, st board.Store) {
 			if !reflect.DeepEqual(byDigest, want) || !reflect.DeepEqual(byID, want) {
 				t.Errorf("access key %s: by digest %+v, by id %+v; want %+v", want.ID, byDigest, byID, want)
 			}
+		}
+		return nil
+	})
+}
+
+func keysListRevokeAndRecordUse(t *testing.T, st board.Store) {
+	const later = "2026-10-31T16:00:00.000Z"
+	laptop := board.AccessKey{ID: "key_a", HumanID: creatorID, Name: "laptop", Digest: "k-a", CreatedAt: at, IdleSeconds: ptr(int64(60)), ExpiresAt: ptr(later)}
+	phone := board.AccessKey{ID: "key_b", HumanID: creatorID, Name: "phone", Digest: "k-b", CreatedAt: "2026-10-02T16:00:00.000Z", ExpiresAt: ptr(later)}
+	other := board.AccessKey{ID: "key_c", HumanID: "hum_blair", Name: "laptop", Digest: "k-c", CreatedAt: at}
+	write(t, st, func(tx board.Tx) error {
+		b, _, err := newBoard(tx, "keys")
+		if err != nil {
+			return err
+		}
+		if err := tx.InsertHuman(human("hum_blair")); err != nil {
+			return err
+		}
+		for _, k := range []board.AccessKey{phone, laptop, other} {
+			if err := tx.InsertAccessKey(k); err != nil {
+				return err
+			}
+		}
+		for i, name := range []string{"writer", "reviewer"} {
+			a := agent(b, creatorID, name, rules.MemberRole)
+			a.KeyID = ptr([]string{laptop.ID, other.ID}[i])
+			if err := tx.InsertMember(a); err != nil {
+				return err
+			}
+		}
+		for _, l := range []board.BrowserLogin{
+			{TokenDigest: "b-1", HumanID: creatorID, KeyID: laptop.ID, CreatedAt: at, ExpiresAt: later},
+			{TokenDigest: "b-2", HumanID: creatorID, KeyID: laptop.ID, CreatedAt: at, ExpiresAt: at},
+			{TokenDigest: "b-3", HumanID: creatorID, KeyID: phone.ID, CreatedAt: at, ExpiresAt: later},
+		} {
+			if err := tx.InsertBrowserLogin(l); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	write(t, st, func(tx board.Tx) error {
+		if err := tx.RevokeAccessKey(phone.ID, "2026-10-03T16:00:00.000Z"); err != nil {
+			return err
+		}
+		if err := tx.RevokeAccessKey(phone.ID, "2026-10-04T16:00:00.000Z"); err != nil {
+			return err
+		}
+		if err := tx.UseAccessKey(laptop.ID, "2026-10-05T16:00:00.000Z", ptr("2026-11-05T16:00:00.000Z")); err != nil {
+			return err
+		}
+		return tx.UseAccessKey(other.ID, "2026-10-05T16:00:00.000Z", nil)
+	})
+	laptop.LastUsedAt, laptop.ExpiresAt = ptr("2026-10-05T16:00:00.000Z"), ptr("2026-11-05T16:00:00.000Z")
+	phone.RevokedAt = ptr("2026-10-03T16:00:00.000Z")
+	other.LastUsedAt = ptr("2026-10-05T16:00:00.000Z")
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.KeysOf(creatorID, "2026-10-05T16:00:00.000Z")
+		if err != nil {
+			return err
+		}
+		want := []board.KeyUsage{{AccessKey: laptop, BrowserSessions: 1, AgentSeats: 1}, {AccessKey: phone, BrowserSessions: 1}}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("KeysOf = %+v, want %+v", got, want)
+		}
+		o, err := tx.AccessKeyByID(other.ID)
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(o, other) {
+			t.Errorf("a key used without moving its expiry = %+v, want %+v", o, other)
 		}
 		return nil
 	})

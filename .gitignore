@@ -35,3 +35,4 @@ desktop.ini
 
 # Pane captures and logs the live suite saves when a test fails
 /e2e/live/artifacts/
+/docs/node_modules/

@@ -17,10 +17,10 @@ GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-preview docs-links vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
 
-## check: format check, lint, vet, generated code, core size, harness table, tests, e2e, extension tests, vulnerabilities
-check: fmt-check lint vet generate-check core-size harness-table-check test e2e extension-test vuln
+## check: format check, lint, vet, generated code, core size, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
+check: fmt-check lint vet generate-check core-size harness-table-check docs-check test e2e extension-test vuln
 	@echo "make check: OK"
 
 ## fmt: rewrite Go files with gofumpt and goimports
@@ -157,6 +157,32 @@ harness-table:
 
 harness-table-check:
 	@$(REQUIRE_GO); go run ./scripts/harnesstable -check
+
+# The docs site (docs/, published with Mintlify; see docs/README-site.md). Its CLI
+# reference is written from aboard help --json, and its API reference reads a copy of
+# spec/openapi.yaml, since Mintlify reads only files inside docs/. Both need only Go.
+DOCS_HELP = go run ./server/cmd/aboard help --json
+
+## docs-cli: write the docs' CLI reference and API spec copy from aboard help and spec/openapi.yaml
+docs-cli:
+	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli; 	cp spec/openapi.yaml docs/api-reference/openapi.yaml
+
+## docs-check: fail if the docs' CLI reference or API spec copy is out of date
+docs-check:
+	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli -check; 	if ! cmp -s spec/openapi.yaml docs/api-reference/openapi.yaml; then 		echo "docs/api-reference/openapi.yaml differs from spec/openapi.yaml: run make docs-cli"; exit 1; 	fi
+
+# The Mintlify CLI needs Node 20.17 or later and the network on first use. It runs from
+# docs/node_modules (npm ci there), never a global install. Not part of make check.
+DOCS_MINT = cd docs && npm ci --no-audit --no-fund --silent && DO_NOT_TRACK=1 npx --no-install mint
+
+## docs-preview: serve the docs site at http://localhost:3000 with the Mintlify CLI
+docs-preview:
+	$(DOCS_MINT) dev
+
+## docs-links: check the docs site for broken links and build it strictly with the Mintlify CLI
+docs-links:
+	$(DOCS_MINT) broken-links
+	cd docs && DO_NOT_TRACK=1 npx --no-install mint validate
 
 # The web UI needs Node 20 or later; make check doesn't, and a binary built without the
 # ui tag serves a page saying how to get the UI.
