@@ -656,6 +656,28 @@ type upInput struct {
 // upAgent gives an agent its seat if it has none, and starts its session unless one runs.
 func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 	spec := in.spec
+	ar := in.rec.Agents[spec.Name]
+	recorded := ar != nil && (ar.MemberID != "" || ar.Handle != "")
+	var ref delivery.AgentRef
+	var err error
+	if recorded {
+		ref, err = a.swarmSeat(ctx, in)
+		if err != nil {
+			return swarmUpAgent{}, err
+		}
+		ref, err = (daemonTokens{a: a}).ResolveAgent(ctx, ref)
+		if err != nil {
+			if errors.Is(err, delivery.ErrUnauthorized) {
+				return swarmUpAgent{}, newError("seat_ended", "The recorded seat cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+			}
+			return swarmUpAgent{}, err
+		}
+		if ref.Name != spec.Name {
+			return swarmUpAgent{}, newError("agent_not_selected",
+				fmt.Sprintf("The swarm names %s, but its recorded seat is now named %s.", spec.Name, ref.Name),
+				fmt.Sprintf("Change the name: %s line in aboard.yaml to name: %s, then run aboard swarm up again.", spec.Name, ref.Name))
+		}
+	}
 	h, _ := a.registry().Get(spec.Harness)
 	prof := h.Profile()
 	launcherName := spec.Launcher
@@ -703,7 +725,7 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 
 	// The seat: created once, with the person's login, and kept across runs.
 	seatCreated := false
-	if _, ok := in.creds.find(in.srv.URL, in.board, spec.Name); !ok {
+	if _, ok := in.creds.find(in.srv.URL, in.board, spec.Name); !recorded && !ok {
 		if m, exists := in.members[spec.Name]; exists && m.Status == api.Active {
 			e := newError("agent_seat_elsewhere",
 				fmt.Sprintf("Board %s already has an agent called %s, and this machine holds no credential for it.", in.board, spec.Name),
@@ -727,11 +749,12 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		seatCreated = true
 	}
 
-	ref, err := a.swarmSeat(ctx, in)
-	if err != nil {
-		return swarmUpAgent{}, err
+	if !recorded {
+		ref, err = a.swarmSeat(ctx, in)
+		if err != nil {
+			return swarmUpAgent{}, err
+		}
 	}
-	ar := in.rec.Agents[spec.Name]
 	if ar != nil {
 		ar.MemberID = ref.MemberID
 	}

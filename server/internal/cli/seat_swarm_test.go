@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -126,5 +130,79 @@ func TestLegacySwarmResumesOnlyItsVerifiedOriginalToken(t *testing.T) {
 	ref, err := a.swarmSeat(t.Context(), in)
 	if err != nil || ref.MemberID != "mem_old" {
 		t.Fatalf("verified original seat not resumed: %+v %v", ref, err)
+	}
+}
+
+func TestSwarmRefusesARenamedRecordedSeatBeforeAnyJoin(t *testing.T) {
+	bin := t.TempDir()
+	for name, body := range map[string]string{
+		"aboard-launcher-seat-test": "#!/bin/sh\ncat >/dev/null\necho '{\"v\":1,\"name\":\"seat-test\",\"modes\":[\"interactive\"],\"state\":\"running\",\"handle\":\"old-session\"}'\n",
+		"codex":                     "#!/bin/sh\nexit 0\n",
+	} {
+		if err := writeFileAtomic(filepath.Join(bin, name), []byte(body), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, tc := range []struct {
+		label                  string
+		replacement, staleName bool
+	}{
+		{label: "old name unused"},
+		{label: "old name belongs to another seat", replacement: true},
+		{label: "server renamed but cached name is stale", staleName: true},
+	} {
+		label := tc.label
+		t.Run(label, func(t *testing.T) {
+			var joins atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case r.URL.Path == "/v1/me":
+					if r.Header.Get("Authorization") != "Bearer aba_old" {
+						t.Errorf("original seat verification used %q", r.Header.Get("Authorization"))
+					}
+					_ = json.NewEncoder(w).Encode(api.Me{Id: "mem_old", Kind: api.MeKindAgent, Name: "renamed", Board: ptr("docs")})
+				case r.URL.Path == "/v1/join" && r.Method == http.MethodPost:
+					joins.Add(1)
+					w.WriteHeader(http.StatusCreated)
+					_ = json.NewEncoder(w).Encode(api.JoinResult{Board: api.Board{Name: "docs"}, Agent: api.Member{Id: "mem_unintended", Name: "writer", Kind: api.MemberKindAgent}, Token: "aba_unintended"})
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+			a := seatApp(t)
+			original := agentCredential{Server: srv.URL, Board: "docs", Name: "renamed", MemberID: "mem_old", Token: "aba_old"}
+			if tc.staleName {
+				original.Name = "writer"
+			}
+			if err := a.saveCredential(original); err != nil {
+				t.Fatal(err)
+			}
+			c, err := a.newClient(serverRef{URL: srv.URL}, "abh_person", time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			members := map[string]api.Member{}
+			if tc.replacement {
+				members["writer"] = api.Member{Id: "mem_other_owner", Name: "writer", Kind: api.MemberKindAgent, Status: api.Active}
+			}
+			in := upInput{
+				c: c, srv: serverRef{URL: srv.URL}, board: "docs", swarm: "s", file: swarmFile{dir: t.TempDir()},
+				spec: swarmSpec{Name: "writer", Harness: "codex", Launcher: "seat-test"}, creds: credentials{Agents: []agentCredential{original}}, members: members,
+				rec: &swarmRecord{Agents: map[string]*swarmAgentRecord{"writer": {MemberID: "mem_old", Handle: "old-session", Launcher: "seat-test"}}},
+			}
+			_, err = a.upAgent(t.Context(), in)
+			if err == nil || asError(err).Code != "agent_not_selected" {
+				t.Errorf("rename refusal: %v", err)
+			}
+			if err != nil && (!strings.Contains(asError(err).Hint, "writer") || !strings.Contains(asError(err).Hint, "renamed") || !strings.Contains(asError(err).Hint, "aboard.yaml")) {
+				t.Errorf("rename hint misses configured/current names: %v", err)
+			}
+			if joins.Load() != 0 {
+				t.Fatalf("rename attempted %d new joins", joins.Load())
+			}
+		})
 	}
 }
