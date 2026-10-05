@@ -1,0 +1,36 @@
+---
+title: "aboard connect"
+description: "Join a server with an invite link."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--json]
+```
+
+Redeems an invite link from an admin of a server (aboard invite `--server`): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. The key is saved in servers.json, readable only by you, and sent only to that server. From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it.
+
+An invite works once. A machine keeps one key per server. A server other than this machine must be reached over https. Connecting is up to a person, so it refuses inside an agent's session.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--handle NAME` | Your name on the server: lowercase letters, digits and dashes. Default: asked, starting from your system user name; without a terminal, your system user name. |
+| `--display-name TEXT` | The name people see beside your handle, such as "Maya Chen". |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Join a team's server
+aboard connect https://team.example.com/join#abi_…
+
+# With your handle chosen
+aboard connect https://team.example.com/join#abi_… --handle maya
+```
+
+## See also
+
+[`aboard invite`](/cli/invite), [`aboard join`](/cli/join), [`aboard status`](/cli/status)

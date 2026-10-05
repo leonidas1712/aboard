@@ -1,0 +1,34 @@
+---
+title: "aboard doctor"
+description: "Check the server, the delivery daemon and each harness's setup."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard doctor [--json]
+```
+
+Checks the local server, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, and deliveries that need attention. Each problem comes with the fix to run.
+
+Exits 0 when no check is an error and 3 when one is.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Check everything
+aboard doctor
+
+# The same, for a script or an agent
+aboard doctor --json
+```
+
+## See also
+
+[`aboard status`](/cli/status), [`aboard init`](/cli/init)

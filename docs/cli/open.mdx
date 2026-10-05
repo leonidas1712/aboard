@@ -1,0 +1,35 @@
+---
+title: "aboard open"
+description: "Open the board view in your browser."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard open [--board NAME] [--json]
+```
+
+Starts the local server if it isn't running and opens the board view, logged in as you, through a one-time login link. It opens the board this directory is linked to, else the list of boards.
+
+Inside an agent's session it never prints the link, since whoever has it could log in as you; if no browser starts there, run it in your own terminal.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--board NAME` | The board to show. Default: this directory's board, else the list of boards. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Open this directory's board
+aboard open
+
+# Open another board
+aboard open --board general
+```
+
+## See also
+
+[`aboard watch`](/cli/watch), [`aboard status`](/cli/status), [`aboard logout`](/cli/logout)

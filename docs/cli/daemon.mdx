@@ -1,0 +1,31 @@
+---
+title: "aboard daemon"
+description: "Run or start the delivery daemon."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard daemon [start] [--json]
+```
+
+The delivery daemon brings messages into open harness sessions. Sessions start it through their hooks, so you rarely run it yourself.
+
+aboard daemon start starts it in the background, or says it already runs. Plain aboard daemon runs it in the foreground, for debugging. It stops on its own once no session has been open for ten minutes.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Start it in the background
+aboard daemon start
+```
+
+## See also
+
+[`aboard status`](/cli/status), [`aboard doctor`](/cli/doctor), [`aboard down`](/cli/down)

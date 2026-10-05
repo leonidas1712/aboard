@@ -27,6 +27,14 @@ info:
     it acts as the person who asked for the code, with exactly that person's permissions.
     The server never sets or reads a cookie.
 
+    **Access keys.** A person lists, creates and revokes their keys with `/v1/keys`, only
+    with a key of their own: an agent token or a browser token gets 403
+    `human_token_required`, so a browser can never make a key. When a key is revoked or
+    expires, every browser token and agent token it started stops at once: their next
+    request gets 401 `unauthorized`, and an open `GET /v1/stream` or a waiting
+    `GET /v1/me/inbox` or `GET /v1/messages/{message}/replies` made with any of them ends
+    within a second of the revocation, or at the moment of expiry.
+
     **Host.** A local server answers only requests whose `Host` header is its own address
     (`127.0.0.1:PORT` or `localhost:PORT`). Any other host gets 421 `host_not_allowed`, so
     a web page that points a domain name at 127.0.0.1 can't reach the server through the
@@ -200,6 +208,109 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
 
+  /v1/keys:
+    get:
+      tags: [people]
+      operationId: listKeys
+      summary: List a person's access keys
+      description: |
+        With a person's own access key. Lists the caller's keys, oldest first, revoked and
+        expired ones included, each with its state, when it was last used and how many
+        browser logins and agent seats it started still depend on it. `last_used_at`
+        counts the key's own requests and those of the browser logins and agent tokens it
+        started, and is accurate to a minute: the server records a use at most once a
+        minute per key.
+
+        A server admin may name another person with `person` and list their keys; anyone
+        else naming another person gets 403 `server_admin_required`, and an admin naming
+        a handle nobody has gets 404 `person_not_found`. `current_key_id` is the key the
+        request came with, and `current_key_previous_use` when it was used before this
+        request, which `aboard login` reads to warn that a pasted key is already in use
+        elsewhere. An agent token or a browser token gets 403 `human_token_required`.
+      parameters:
+        - name: person
+          in: query
+          required: false
+          description: Whose keys to list, by handle. Default the caller's; only an admin may name someone else.
+          schema: { $ref: "#/components/schemas/Handle" }
+      responses:
+        "200":
+          description: The keys
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccessKeyList" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [people]
+      operationId: createKey
+      summary: Create an access key for yourself
+      description: |
+        With a person's own access key, for that same person: there is no way to create a
+        key for anyone else, admins included. Returns the new key's secret once; the
+        server keeps only its digest, and doesn't keep the response for
+        `Idempotency-Key` repeats, so each call makes a new key. The key acts as its
+        person, with their current rights, until it is revoked or expires.
+
+        It expires `ttl_seconds` after it is made: 90 days by default, at least an hour
+        and at most 365 days. Its `name` says where it is kept or what uses it (`phone`,
+        `nightly-summary`); a name another of the person's working keys has gets 409
+        `key_name_taken`. An agent token or a browser token gets 403
+        `human_token_required`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateKeyRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NewAccessKey" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+
+  /v1/keys/{key}:
+    parameters:
+      - name: key
+        in: path
+        required: true
+        description: The key's id (`key_…`), never its secret.
+        schema: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
+    delete:
+      tags: [people]
+      operationId: revokeKey
+      summary: Revoke an access key
+      description: |
+        With a person's own access key: revokes one of their keys, or, for a server
+        admin, anyone's. The key stops working at once, and so does everything it
+        started: its browser logins and its agents' tokens get 401 on their next request,
+        and their open streams and waiting reads end within a second. The person's other
+        keys, and what those started, keep working. Revoking a key that is already
+        revoked returns it unchanged. A key the caller may not revoke, or that doesn't
+        exist, gets 404 `key_not_found`, which doesn't say which. An agent token or a
+        browser token gets 403 `human_token_required`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccessKey" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
   /v1/connect:
     post:
       tags: [people]
@@ -210,6 +321,8 @@ paths:
         creates a new person with the chosen `handle` as a server `member`, and their first
         access key, named `key_name`. The key is in the response once, and never again;
         the server keeps only its digest. `aboard connect` calls this and keeps the key.
+        This key expires after 90 days without use: each use moves its `expires_at` to 90
+        days later (`idle_expiry_seconds`).
 
         An invite works once: a second redemption, an expired invite, a wrong one, and one
         whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
@@ -565,7 +678,9 @@ paths:
         Agent tokens only. Returns messages after the agent's cursor that are addressed to
         it: `all`, its role, or `@` its name. Its own messages are never included.
         If there are none and `wait` > 0, holds the request until one arrives or `wait`
-        seconds pass, then returns (possibly empty). Does not move the cursor.
+        seconds pass, then returns (possibly empty). Does not move the cursor. If the
+        access key the agent's token came from is revoked or expires while the request
+        waits, it ends with 401 `unauthorized`.
 
         `after` leaves out unread messages up to that sequence number, so a client that
         has seen them can wait for the next one without moving the cursor: with
@@ -861,6 +976,10 @@ paths:
         read `GET /v1/me/inbox` with the agent's token for the current position. A
         delivery daemon uses it to drop what an agent has already read from what it
         would hand over or announce. Clients ignore event types they don't know.
+
+        The stream ends when the credential it was opened with stops working: within a
+        second when its access key is revoked or its browser token is ended, and at once
+        when either expires. Reconnecting then gets 401.
       responses:
         "200":
           description: The event stream
@@ -1070,6 +1189,9 @@ components:
                 - invite_invalid
                 - handle_taken
                 - handle_invalid
+                - key_name_taken
+                - key_not_found
+                - person_not_found
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -1218,7 +1340,75 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: When the key stops working. Null for a key that doesn't expire.
+          description: |
+            When the key stops working. Null for a key that doesn't expire: only the local
+            server's own key, which is kept beside its database.
+        idle_expiry_seconds:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: |
+            For a key that expires only once unused: each use moves `expires_at` this far
+            ahead. Null for a key whose `expires_at` is fixed. A machine's key from
+            `POST /v1/connect` has 7776000 (90 days).
+        state:
+          type: string
+          enum: [working, revoked, expired]
+          description: Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the key was revoked; null while it isn't.
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When the key, or a browser login or agent token it started, was last used,
+            accurate to a minute. Null before its first use.
+        browser_sessions:
+          type: integer
+          minimum: 0
+          description: Browser logins started from this key that haven't expired or been ended.
+        agent_seats:
+          type: integer
+          minimum: 0
+          description: Agents whose tokens came from this key; they stop working with it.
+    AccessKeyList:
+      type: object
+      required: [person, keys, current_key_id, current_key_previous_use]
+      properties:
+        person: { $ref: "#/components/schemas/Person" }
+        keys:
+          type: array
+          items: { $ref: "#/components/schemas/AccessKey" }
+        current_key_id:
+          type: string
+          pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: The key this request came with.
+        current_key_previous_use:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When the key this request came with was used before this request, accurate to
+            a minute; null if this is its first use.
+    CreateKeyRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Where the key is kept or what uses it, such as `phone` or `nightly-summary`.
+        ttl_seconds:
+          type: integer
+          minimum: 3600
+          maximum: 31536000
+          description: How long the key works. Default 7776000 (90 days).
     NewAccessKey:
       allOf:
         - $ref: "#/components/schemas/AccessKey"

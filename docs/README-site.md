@@ -15,7 +15,7 @@ changes often, so check the linked page when something doesn't match.
   [navigation](https://www.mintlify.com/docs/organize/navigation),
   [hidden pages](https://www.mintlify.com/docs/organize/hidden-pages))
 - **Generated, never edited by hand:**
-  - `reference/cli/*.mdx` and the "CLI reference" group's page list in `docs.json`,
+  - `cli/*.mdx` and the "CLI reference" group's page list in `docs.json`,
     written by `make docs-cli` from `aboard help --json` (the help in
     `server/internal/cli/help.go`; its shape is `HelpOutput` in `spec/cli.yaml`).
   - `api-reference/openapi.yaml`, a copy of `spec/openapi.yaml` that `make docs-cli`

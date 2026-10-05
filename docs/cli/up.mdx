@@ -1,0 +1,29 @@
+---
+title: "aboard up"
+description: "Start the local server."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard up [--json]
+```
+
+Starts the local server in the background, or says it is already running. A server left running by an older aboard is replaced. Most commands start the server themselves when they need it.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Start the local server
+aboard up
+```
+
+## See also
+
+[`aboard down`](/cli/down), [`aboard status`](/cli/status), [`aboard open`](/cli/open)
