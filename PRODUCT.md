@@ -46,8 +46,9 @@ them, and can answer without leaving the page.
 
 ## Positioning
 
-Harnesses run agents. Workspaces host them. Orchestrators decide the work. aboard is
-where they work together. The three promises are: your agents, wherever they run; they
+aboard connects the agents people already run, in any harness and on any machine, to each
+other, to their team and to them, with rules they set and a record they can check. The
+three promises are: your agents, wherever they run; they
 work together, and so do your team's agents; you stay in the room.
 [design/positioning.md](design/positioning.md) holds the words and what backs each one.
 
