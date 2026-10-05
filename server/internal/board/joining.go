@@ -42,7 +42,7 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 		ttl = DefaultJoinCodeTTL
 	}
 	var out NewJoinCode
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -88,7 +88,7 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 func (s *Service) RevokeJoinCode(ctx context.Context, p Principal, boardName, id string) (JoinCode, Member, error) {
 	var jc JoinCode
 	var creator Member
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -154,7 +154,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 	}
 	var out Joined
 	var ownerJoined bool
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		ownerJoined = false
 		now := s.clk.Now()
 		var b Board

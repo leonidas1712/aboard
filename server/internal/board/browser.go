@@ -106,6 +106,13 @@ func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token st
 	}
 	expires = now.Add(BrowserTokenTTL)
 	err = s.st.Write(ctx, func(tx Tx) error {
+		// The key that asked for the code must still work when the code is used.
+		if err := stillValid(tx, Principal{Human: &l.human, KeyID: l.keyID}, stamp(now)); err != nil {
+			if _, ok := apierr.As(err); ok {
+				return loginCodeInvalid()
+			}
+			return err
+		}
 		if err := tx.DeleteExpiredBrowserLogins(stamp(now)); err != nil {
 			return err
 		}
@@ -171,7 +178,7 @@ func (s *Service) EndBrowserLogins(ctx context.Context, p Principal) (int, error
 			"Run aboard logout --browsers in a terminal.")
 	}
 	var n int
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var err error
 		n, err = tx.DeleteBrowserLogins(p.Human.ID, stamp(s.clk.Now()))
 		return err

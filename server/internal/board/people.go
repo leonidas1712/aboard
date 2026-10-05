@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/ids"
@@ -53,6 +54,48 @@ func workingKey(tx ReadTx, id, now string) error {
 	}
 	if !keyWorks(k, now) {
 		return ErrNotFound
+	}
+	return nil
+}
+
+// writeAs runs fn in a write transaction on behalf of p, after checking, inside that
+// transaction, that the credential p authenticated with still works: a key revoked or
+// expired since the request was authenticated can't write, nor can a browser login or
+// agent token it started. Every write a caller makes goes through here.
+func (s *Service) writeAs(ctx context.Context, p Principal, fn func(Tx) error) error {
+	return s.st.Write(ctx, func(tx Tx) error {
+		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
+		return fn(tx)
+	})
+}
+
+// stillValid checks that the access key behind p still works and still belongs to p's
+// person. An agent from before keys were recorded has no key to check.
+func stillValid(tx ReadTx, p Principal, now string) error {
+	if p.KeyID == "" {
+		if p.Human != nil {
+			return apierr.Unauthorized()
+		}
+		return nil
+	}
+	k, err := tx.AccessKeyByID(p.KeyID)
+	if errors.Is(err, ErrNotFound) {
+		return apierr.Unauthorized()
+	}
+	if err != nil {
+		return err
+	}
+	owner := ""
+	switch {
+	case p.Human != nil:
+		owner = p.Human.ID
+	case p.Agent != nil:
+		owner = p.Agent.HumanID
+	}
+	if !keyWorks(k, now) || k.HumanID != owner {
+		return apierr.Unauthorized()
 	}
 	return nil
 }
@@ -180,7 +223,7 @@ func (s *Service) CreateServerInvite(ctx context.Context, p Principal, ttl time.
 		return NewServerInvite{}, invalid("An invite works for at least a minute and at most 30 days.", "Pick a lifetime between 1m and 720h.")
 	}
 	var out NewServerInvite
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		// The role is read again here, so a person demoted since they authenticated can't.
 		h, err := tx.HumanByID(p.Human.ID)
 		if err != nil {
@@ -253,7 +296,7 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 			"Name the key after the machine that keeps it, such as maya-laptop.")
 	}
 	display := strings.TrimSpace(in.DisplayName)
-	if len(display) > 80 {
+	if utf8.RuneCountInString(display) > 80 {
 		return Connected{}, invalid("A display name has at most 80 characters.", "Shorten the display name.")
 	}
 	if !strings.HasPrefix(in.Invite, invitePrefix) {

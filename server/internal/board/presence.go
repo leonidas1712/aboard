@@ -82,7 +82,7 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 	var b Board
 	var me Member
 	changed := false
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var err error
 		if b, err = tx.BoardByID(p.Agent.BoardID); err != nil {
 			return err
