@@ -131,10 +131,8 @@ func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, t
 	}
 }
 
-// Start reads what the feed begins with: every board's head, and the presence and read
-// positions later updates are measured against. Call it once, before Next and before the
-// client is told the stream is open, so a change the client makes once it sees the
-// stream open is never taken into the starting point and lost.
+// Start reads the stream's starting point before HTTP success is reported, so a
+// change made after the client sees success is never folded into that starting point.
 func (f *HeadFeed) Start(ctx context.Context) (Update, error) { return f.read(ctx) }
 
 // read returns the heads and presence that differ from those last returned and
