@@ -334,7 +334,13 @@ func TestSwarmUpRunsHeadlessTurns(t *testing.T) {
 	s.postAsOwnerTo("quiet", "@worker", "run: aboard say --to @alex HEADLESS-PONG")
 	eventually(t, 30*time.Second, "the worker's reply from a headless turn", func() bool {
 		r := s.exec(nil, "", "read", "--as", "worker", "--json")
-		return strings.Contains(r.stdout, "HEADLESS-PONG")
+		for _, msg := range field(t, r.json(t), "messages").([]any) {
+			m := msg.(map[string]any)
+			if field(t, m, "from.name") == "worker" && m["body"] == "HEADLESS-PONG" {
+				return true
+			}
+		}
+		return false
 	})
 	turns := s.starts("worker")
 	last := turns[len(turns)-1]
@@ -668,6 +674,9 @@ func testSwarmUpStartsFreshWhenAResumeFails(t *testing.T) {
 	s := newSwarmEnv(t)
 	s.writeBoardFile("board: lost\nagents:\n  - {name: claude, harness: claude-code}\n")
 	first := agentsByName(t, s.run("swarm", "up", "--json").json(t))["claude"]
+	// A seat can bind before its first prompt runs. This case needs a conversation
+	// that was saved and a turn the daemon saw, so it actually attempts a resume.
+	s.presenceIs("lost", "claude", "working", "")
 	s.run("swarm", "down")
 	if err := os.RemoveAll(s.log + ".conversations"); err != nil {
 		t.Fatal(err)
