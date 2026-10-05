@@ -115,6 +115,10 @@ What happens to what is already running:
 - **Your data.** Boards, messages and logins stay in the database. Its migrations run
   forward only, when the server starts. An older `aboard` refuses data a newer one
   wrote, with the error `data_newer`, instead of misreading it.
+- **Browsers you signed in.** A board view that an older build signed in kept its
+  login in the page's own storage. On its next load the new page moves that login into
+  a cookie its scripts can't read and deletes the stored copy, so the browser stays
+  signed in; a login that had already ended shows the login page instead.
 
 `aboard doctor --json` reports a file that still differs from what this build writes:
 `hooks_outdated` or `skill_outdated` when an older `aboard` wrote it and nobody changed

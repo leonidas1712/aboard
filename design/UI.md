@@ -242,16 +242,29 @@ the API's own (`from`, `role`, `to_me`), so paging back stays correct.
   stays plain.
 - On a phone the "To" button takes its own line above the text.
 - The browser acts as you (D121): it posts, replies and, for an admin, pauses the board
-  or changes its rules, with exactly the permissions your CLI has. It logs in only
-  through the one-time `aboard open` link, and the login expires after 30 days, across
-  server restarts, or at `aboard logout --browsers` (D163).
+  or changes its rules, with exactly the permissions your CLI has. It signs in through
+  the one-time `aboard open` link or by pasting an access key on the login page, into a
+  session kept in a cookie its scripts can't read; the session lasts 30 days (never past
+  its key), across server restarts, until you sign out or end it (D163, D188).
 
 ### Who you are
 
 The header's right end shows the person's mark and name. It opens a menu with who they
 are (with "Admin of this board" only once a second person is on it), the server ("This
-computer (local)" or its address), and the theme: same as this computer, light or dark,
-kept per browser. It shows on the list of boards too.
+computer (local)" or its address), the access key this browser's session came from and
+the day it ends, the theme (same as this computer, light or dark, kept per browser), and
+"Sign out of this browser". It shows on the list of boards too.
+
+### Signing in
+
+A browser without a session shows a login page: Aboard's header, "Sign in to Aboard",
+one labelled password field for an access key, and a "Sign in" button. Below, in muted
+text, how to make a key (`aboard keys create <name>`) and that `aboard open` signs in
+without one. A wrong key shows the problem box with the server's message; the field is
+cleared after every attempt, so the key never stays on the page. Served over plain HTTP
+anywhere but this computer, the page says first that the browser won't keep a sign-in.
+After signing out, the page says so and that the person's keys and other browsers still
+work.
 
 ### Side panels
 
