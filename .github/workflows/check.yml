@@ -53,3 +53,18 @@ jobs:
         run: cd web && npx playwright install --with-deps chromium
       - name: make web-check
         run: make web-check
+
+  # The docs site: broken links and a strict build with the Mintlify CLI, pinned in
+  # docs/package.json. make check already fails on a stale CLI reference or API spec copy.
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - name: make docs-links
+        run: make docs-links

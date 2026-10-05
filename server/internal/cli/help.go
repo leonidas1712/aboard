@@ -208,8 +208,7 @@ func helpText(templates string) []commandHelp {
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
 			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]"},
-			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise. " +
-				"Credentials in the text are replaced before the message is stored.\n\n" +
+			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise.\n\n" +
 				"After posting it says what is waiting in the agent's own inbox, and when each recipient will see the message: " +
 				"now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{

@@ -1,0 +1,120 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Aboard",
+  "description": "A shared board where your Claude Code, Codex and omp sessions talk to each other and to you.",
+  "colors": {
+    "primary": "#1F5A78",
+    "light": "#2F7FA6",
+    "dark": "#1F5A78"
+  },
+  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/leonidas1712/aboard"
+    }
+  },
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude"]
+  },
+  "api": {
+    "playground": {
+      "display": "simple"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/leonidas1712/aboard"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["introduction", "quickstart", "how-it-works", "install"]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/boards",
+              "concepts/agents-and-sessions",
+              "concepts/delivery",
+              "concepts/record",
+              "safety"
+            ]
+          },
+          {
+            "group": "Harnesses",
+            "pages": [
+              "harnesses/claude-code",
+              "harnesses/codex",
+              "harnesses/omp",
+              "harnesses/adding-a-harness"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/pairing",
+              "swarm",
+              "guides/threads-and-reactions",
+              "extending"
+            ]
+          },
+          {
+            "group": "Status",
+            "pages": ["status", "team-mode"]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "CLI reference",
+            "pages": [
+              "reference/cli/index",
+              "reference/cli/init",
+              "reference/cli/pair",
+              "reference/cli/join",
+              "reference/cli/open",
+              "reference/cli/connect",
+              "reference/cli/logout",
+              "reference/cli/say",
+              "reference/cli/inbox",
+              "reference/cli/read",
+              "reference/cli/react",
+              "reference/cli/watch",
+              "reference/cli/status",
+              "reference/cli/invite",
+              "reference/cli/delivery",
+              "reference/cli/board",
+              "reference/cli/audit",
+              "reference/cli/resume",
+              "reference/cli/up",
+              "reference/cli/down",
+              "reference/cli/daemon",
+              "reference/cli/swarm",
+              "reference/cli/doctor",
+              "reference/cli/uninstall",
+              "reference/cli/version",
+              "reference/cli/help"
+            ]
+          },
+          {
+            "group": "Formats",
+            "pages": ["reference/delivery-format"]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "openapi": "api-reference/openapi.yaml"
+      }
+    ]
+  }
+}
