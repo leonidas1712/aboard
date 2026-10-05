@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,6 +29,37 @@ type keyWorld struct {
 	owner string // the admin's first key
 	board string // a board the admin created
 	agent string // the token of an agent the admin added to it
+	gate  *gatedStore
+}
+
+// gatedStore is the real store, except that once armed its next write waits, before it
+// starts its transaction, until the test lets it go: it plays a write queued behind
+// another one for the write lock.
+type gatedStore struct {
+	board.Store
+	mu      sync.Mutex
+	waiting chan struct{} // closed when the gated write starts waiting
+	release chan struct{} // closed by the test to let it go
+}
+
+// arm makes the next write wait, and returns channels for it.
+func (g *gatedStore) arm() (waiting, release chan struct{}) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.waiting, g.release = make(chan struct{}), make(chan struct{})
+	return g.waiting, g.release
+}
+
+func (g *gatedStore) Write(ctx context.Context, fn func(board.Tx) error) error {
+	g.mu.Lock()
+	waiting, release := g.waiting, g.release
+	g.waiting, g.release = nil, nil
+	g.mu.Unlock()
+	if waiting != nil {
+		close(waiting)
+		<-release
+	}
+	return g.Store.Write(ctx, fn)
 }
 
 var digestKey = []byte("test digest key")
@@ -41,7 +73,8 @@ func newKeyWorld(t *testing.T) *keyWorld {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	w.svc = board.New(st, notify.NewInProcess(), w.clk, ids.New(rand.Reader), digestKey,
+	w.gate = &gatedStore{Store: st}
+	w.svc = board.New(w.gate, notify.NewInProcess(), w.clk, ids.New(rand.Reader), digestKey,
 		board.Config{ServerID: "srv_TEST", Mode: "local", JoinHost: "localhost"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if w.owner, err = w.svc.BootstrapOwner(ctx, "alex", "laptop"); err != nil {
 		t.Fatal(err)
@@ -156,6 +189,61 @@ func TestALoginCodeDiesWithItsKey(t *testing.T) {
 	if e, ok := apierr.As(err); !ok || e.Code != "login_code_invalid" {
 		t.Fatalf("exchanging the code: got %v, want login_code_invalid", err)
 	}
+}
+
+// queued runs call while its write waits for the write lock, moving the clock by d in
+// that wait, and returns call's error.
+func (w *keyWorld) queued(d time.Duration, call func() error) error {
+	waiting, release := w.gate.arm()
+	done := make(chan error, 1)
+	go func() { done <- call() }()
+	<-waiting
+	w.clk.Advance(d)
+	close(release)
+	return <-done
+}
+
+// A login code, or the key that asked for it, ending while the exchange waits for the
+// write lock gives no browser login: the exchange reads the time inside its transaction.
+func TestALoginCodeEndingWhileTheExchangeWaitsFails(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		setup string
+		wait  time.Duration
+	}{
+		{"the code expires", "", board.LoginCodeTTL + time.Second},
+		{"the key expires", "UPDATE access_keys SET expires_at = '2026-10-01T16:00:30.000Z'", 40 * time.Second},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w := newKeyWorld(t)
+			if tt.setup != "" {
+				w.sql(t, tt.setup)
+			}
+			code, err := w.svc.CreateLoginCode(context.Background(), w.auth(t, w.owner))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = w.queued(tt.wait, func() error {
+				_, _, err := w.svc.CreateBrowserToken(context.Background(), code.Code)
+				return err
+			})
+			if e, ok := apierr.As(err); !ok || e.Code != "login_code_invalid" {
+				t.Fatalf("got %v, want login_code_invalid", err)
+			}
+		})
+	}
+}
+
+// A key expiring while a write waits for the write lock can't finish it.
+func TestAKeyExpiringWhileTheWriteWaitsCantFinishIt(t *testing.T) {
+	w := newKeyWorld(t)
+	w.sql(t, "UPDATE access_keys SET expires_at = '2026-10-01T16:00:30.000Z'")
+	person := w.auth(t, w.owner)
+	err := w.queued(40*time.Second, func() error {
+		_, err := w.svc.CreateServerInvite(context.Background(), person, 0)
+		return err
+	})
+	wantUnauthorized(t, "invite", err)
 }
 
 // A display name is limited to 80 characters, not bytes.

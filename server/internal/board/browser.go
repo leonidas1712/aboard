@@ -104,8 +104,14 @@ func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token st
 	if token, err = s.gen.Token("abb"); err != nil {
 		return "", time.Time{}, err
 	}
-	expires = now.Add(BrowserTokenTTL)
 	err = s.st.Write(ctx, func(tx Tx) error {
+		// The time is read again once the transaction holds the write lock, so a code or
+		// key that ends while the exchange waits for it doesn't work.
+		now := s.clk.Now()
+		if !now.Before(l.expires) {
+			return loginCodeInvalid()
+		}
+		expires = now.Add(BrowserTokenTTL)
 		// The key that asked for the code must still work when the code is used.
 		if err := stillValid(tx, Principal{Human: &l.human, KeyID: l.keyID}, stamp(now)); err != nil {
 			if _, ok := apierr.As(err); ok {
