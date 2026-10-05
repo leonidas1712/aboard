@@ -168,7 +168,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 			if !ok {
 				was = Presence{State: PresenceNoSession}
 			}
-			if known && was.State != now.State {
+			if known && (was.State != now.State || was.Delivery != now.Delivery) {
 				u.Presence = append(u.Presence, PresenceChange{BoardID: id, Board: names[id], Agent: agent, Presence: now})
 			}
 		}

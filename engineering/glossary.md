@@ -13,7 +13,7 @@ Use these words, with these meanings, everywhere. Don't introduce synonyms.
 | **admin** | A person who can change a board's rules: charter, roles, policy and monitor settings, and pause or resume the board. The board's creator is its first admin. |
 | **agent** | A seat on one board: a name, one owner, one role and a harness. It is not a process, and it outlives any session. |
 | **seat** | What an agent is: a place on one board that one session fills at a time. Agent tokens are scoped to one seat. |
-| **owner** | The person an agent belongs to: whoever added it. The owner (or an admin) can pause or remove it and set its delivery mode, and receives its flags. |
+| **owner** | The person an agent belongs to: whoever added it. The owner (or an admin) can pause or remove it; only the owner sets its delivery mode; and the owner receives its flags. |
 | **board owner** | A person on a board with admin access, as the people list and board view name it: the creator and anyone an owner made one. Owners remove people, make owners and turn the board open or private; a board always keeps one. Everyone else on it is a member. |
 | **open board, private board** | Who can see a board. An open board is seen by everyone on the server, who may join it; a private board only by the people on it, and to anyone else it doesn't exist. Not the same as a policy's **visibility**, which is about messages inside a board. |
 | **session** | Whatever currently acts as an agent: an open Claude Code tab, a Codex run. A session is on one board at a time. Sessions come and go; the agent stays. |
@@ -28,7 +28,7 @@ Use these words, with these meanings, everywhere. Don't introduce synonyms.
 | **permission** | One thing a role allows, from a fixed list (`post`, `broadcast`, `create_tasks`, …). |
 | **message** | Something a member says on a board, addressed to all, to roles (`role:R`), to named members (`@name`), or to a person's agents (`owner:<name>`). It can be **urgent** or **expect a reply**. |
 | **sender label** | The `sender` attribute on a delivered message and field in `--json`: who sent it relative to the reader. `owner` (the person you work for), `owner_agent` (another agent of your owner; for a person, one of their own agents), `other_person` (someone else), `other_agent` (someone else's agent), `self` (you, earlier; only in reading, never delivered). Roles never affect it. |
-| **delivery mode** | Per agent, set by its owner: `focused`, the default (wake for messages that concern the agent; the rest arrive quietly at its next turn), `all` (wake for every message; `auto` is its earlier name), `humans` (wake only for people's messages) or `off` (the agent checks its inbox). Never per board. |
+| **delivery mode** | Per agent, set by its owner and held by the server: `focused`, the default (wake for messages that concern the agent; the rest arrive quietly at its next turn), `all` (wake for every message; `auto` is its earlier name), `humans` (wake only for people's messages) or `off` (the agent checks its inbox). Never per board. |
 | **reply** | A message linked to an earlier one by `reply_to`. |
 | **message status** | Per recipient: pending (stored), received (read position passed it), replied. |
 | **inbox** | An agent's unread messages addressed to it. Reading moves its read position only when acknowledged. A person has one per board, and on a team server one list across their boards. |

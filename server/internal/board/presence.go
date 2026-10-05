@@ -96,7 +96,7 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 		if cur.State != state || cur.Since == "" {
 			next.Since = next.At
 		}
-		changed = cur.State != state
+		changed = cur.State != state || next.Delivery != me.Presence.Delivery
 		me.Presence = next
 		return tx.SetPresence(me.ID, next)
 	})

@@ -185,6 +185,10 @@ type FakeServer struct {
 	failAcks  bool
 	presence  map[delivery.AgentRef][]delivery.Presence
 	modes     map[delivery.AgentRef]delivery.Mode
+	// held is each agent's delivery mode as the server holds it. holdsModes is false
+	// until a test sets one, so the server plays one that doesn't hold modes until then.
+	held       map[delivery.AgentRef]delivery.HeldMode
+	holdsModes bool
 }
 
 var _ delivery.Server = (*FakeServer)(nil)
@@ -196,7 +200,37 @@ func NewFakeServer() *FakeServer {
 		cursors: map[delivery.AgentRef]int{}, revoked: map[delivery.AgentRef]bool{}, followers: map[chan delivery.Head]bool{},
 		gone: map[delivery.AgentRef]bool{}, requests: map[delivery.AgentRef]int{},
 		presence: map[delivery.AgentRef][]delivery.Presence{}, modes: map[delivery.AgentRef]delivery.Mode{},
+		held: map[delivery.AgentRef]delivery.HeldMode{},
 	}
+}
+
+// SetHeldMode sets the agent's delivery mode as its person would on a server that holds
+// modes: it writes an event, moving the board's head, and the event's sequence number
+// is the mode's revision, which it returns. From then on the server holds every agent's
+// mode, focused for one never set.
+func (s *FakeServer) SetHeldMode(agent delivery.AgentRef, mode delivery.Mode) int {
+	s.mu.Lock()
+	s.holdsModes = true
+	s.heads[agent.Board]++
+	seq := s.heads[agent.Board]
+	s.held[agent] = delivery.HeldMode{Mode: mode, Revision: int64(seq)}
+	followers := make([]chan delivery.Head, 0, len(s.followers))
+	for ch := range s.followers {
+		followers = append(followers, ch)
+	}
+	s.mu.Unlock()
+	for _, ch := range followers {
+		ch <- delivery.Head{Board: agent.Board, Seq: seq}
+	}
+	return seq
+}
+
+// HoldModes makes the server hold delivery modes without setting one: every agent is
+// focused, at revision 0.
+func (s *FakeServer) HoldModes() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.holdsModes = true
 }
 
 // SetPresence records the agent's presence.
@@ -285,23 +319,31 @@ func (s *FakeServer) Follow(ctx context.Context, connected func(), head func(del
 	}
 }
 
-// Inbox returns the agent's messages after its read position.
-func (s *FakeServer) Inbox(_ context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, err error) {
+// Inbox returns the agent's messages after its read position, and its delivery mode
+// once the server holds modes.
+func (s *FakeServer) Inbox(_ context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, mode *delivery.HeldMode, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.requests[agent]++
 	if s.revoked[agent] {
-		return nil, 0, delivery.ErrUnauthorized
+		return nil, 0, nil, delivery.ErrUnauthorized
 	}
 	if s.gone[agent] {
-		return nil, 0, delivery.ErrBoardGone
+		return nil, 0, nil, delivery.ErrBoardGone
 	}
 	for _, m := range s.inboxes[agent] {
 		if m.Seq > s.cursors[agent] {
 			msgs = append(msgs, m)
 		}
 	}
-	return msgs, s.cursors[agent], nil
+	if s.holdsModes {
+		h, ok := s.held[agent]
+		if !ok {
+			h = delivery.HeldMode{Mode: delivery.ModeFocused}
+		}
+		mode = &h
+	}
+	return msgs, s.cursors[agent], mode, nil
 }
 
 // Ack moves the agent's read position forward.

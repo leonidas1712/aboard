@@ -32,6 +32,11 @@ func TestFakeServerPassesTheServerContract(t *testing.T) {
 				return s.Post(to, delivery.Message{Body: body, Urgent: urgent})
 			}
 		},
+		WithModes: func(*testing.T) (delivery.Server, delivery.AgentRef, func(delivery.Mode) int) {
+			s := NewFakeServer()
+			s.HoldModes()
+			return s, to, func(m delivery.Mode) int { return s.SetHeldMode(to, m) }
+		},
 		Gone: func(*testing.T) (delivery.Server, delivery.AgentRef) {
 			s := NewFakeServer()
 			s.TakeOff(to)

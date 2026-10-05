@@ -85,7 +85,10 @@ type inboxResult struct {
 	agent  AgentRef
 	msgs   []Message
 	cursor int
-	err    error
+	// mode is the agent's delivery mode as its server holds it, read with the messages;
+	// nil from a server that doesn't hold modes.
+	mode *HeldMode
+	err  error
 	// refresh is the id of the refresh that asked for it, or zero.
 	refresh int64
 }
@@ -180,7 +183,9 @@ type agentState struct {
 	// told is the delivery mode the session was last told the agent has: the mode when
 	// it was bound, since the command that bound it says so, or the one a note or a
 	// changed-mode line named since. When the agent's mode differs, the session's next
-	// turn start or bundle says so.
+	// turn start or bundle says so. Empty until known: a session bound before the daemon
+	// read the agent's mode from its server is taken to know the mode the first read
+	// finds, which is the one the binding command read there.
 	told Mode
 }
 
@@ -359,8 +364,8 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	case OpBind:
 		ok.Previous = s.bind(ctx, *req.Agent)
 		// The command that binds an agent (join, pair, resume, status for a launched
-		// session) shows its delivery mode.
-		if a := s.agents[*req.Agent]; a != nil {
+		// session) shows its delivery mode, as the server holds it.
+		if a := s.agents[*req.Agent]; a != nil && s.d.heldMode(*req.Agent) {
 			a.told = s.d.mode(*req.Agent)
 		}
 		if !s.open {
@@ -730,6 +735,12 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	}
 	s.setProblem(a, "")
 	a.fetched = true
+	if r.mode != nil {
+		s.d.learnMode(ctx, a.ref, *r.mode)
+	}
+	if a.told == "" {
+		a.told = s.d.mode(a.ref)
+	}
 	if r.cursor > a.ackedUpTo {
 		s.movedTo(ctx, a, r.cursor)
 	}
@@ -1098,13 +1109,13 @@ func (s *session) offers(f filter) []offer {
 			}
 		}
 		// A delivery handed again goes on its own, as it went before, unless it holds only
-		// quiet messages, which wait with the new ones for a message that wakes the agent,
-		// or for its next turn's start, which takes everything.
-		if again == nil || (mode == ModeFocused && (f == turnStart || !anyConcerns(agentOffers, ref.Name))) {
+		// messages that wouldn't wake the agent now (quiet ones in focused mode, agents'
+		// in humans mode, as when the mode changed after it was made), which wait with
+		// the new ones for a message that wakes the agent, or, in focused mode, for its
+		// next turn's start, which takes everything.
+		if again == nil || (mode == ModeFocused && (f == turnStart || !anyConcerns(agentOffers, ref.Name))) ||
+			(mode == ModeHumans && !anyFromHuman(agentOffers)) {
 			msgs := s.newMessages(a, f)
-			if mode == ModeHumans {
-				msgs = forHumansMode(msgs, f)
-			}
 			if len(msgs) > 0 {
 				orderForBundle(msgs)
 				agentOffers = append(agentOffers, offer{agent: ref, mode: mode, msgs: msgs})
@@ -1114,9 +1125,25 @@ func (s *session) offers(f filter) []offer {
 			// Quiet messages never start a turn; they wait for the agent's next one.
 			continue
 		}
+		if mode == ModeHumans && !anyFromHuman(agentOffers) {
+			// Agents' messages wait for a person's, which brings them all.
+			continue
+		}
 		out = append(out, agentOffers...)
 	}
 	return out
+}
+
+// anyFromHuman reports whether a person sent a message in offers. An agent in humans
+// mode wakes only for one; its bundle then carries every message waiting, peer ones too.
+// Mid-turn only the owner's messages go, and the owner is a person.
+func anyFromHuman(offers []offer) bool {
+	for _, o := range offers {
+		if slices.ContainsFunc(o.msgs, func(m Message) bool { return m.FromHuman }) {
+			return true
+		}
+	}
+	return false
 }
 
 // anyConcerns reports whether a message in offers concerns the agent called name.
@@ -1129,20 +1156,6 @@ func anyConcerns(offers []offer, name string) bool {
 		}
 	}
 	return false
-}
-
-// forHumansMode narrows new messages for an agent that wakes only for people: nothing
-// unless a person sent one of them. A bundle at idle then carries them all, peer ones
-// too. Mid-turn only the owner's messages go, and the owner is a person.
-func forHumansMode(msgs []Message, f filter) []Message {
-	fromHuman := func(m Message) bool { return m.FromHuman }
-	if f == ownerOnly {
-		return msgs
-	}
-	if !slices.ContainsFunc(msgs, fromHuman) {
-		return nil
-	}
-	return msgs
 }
 
 // messagesFor returns the unread messages with the given sequence numbers.
@@ -1687,13 +1700,13 @@ func (s *session) recheck(ctx context.Context) {
 			continue
 		}
 		rctx, cancel := context.WithTimeout(ctx, recheckTimeout)
-		msgs, cursor, err := s.d.server(ref.Server).srv.Inbox(rctx, ref)
+		msgs, cursor, mode, err := s.d.server(ref.Server).srv.Inbox(rctx, ref)
 		cancel()
 		if err != nil && problemOf(err) == "" {
 			s.d.log.Warn("recheck inbox", "agent", ref.Name, "board", ref.Board, "error", err)
 			continue
 		}
-		s.onInbox(ctx, inboxResult{agent: ref, msgs: msgs, cursor: cursor, err: err})
+		s.onInbox(ctx, inboxResult{agent: ref, msgs: msgs, cursor: cursor, mode: mode, err: err})
 	}
 }
 

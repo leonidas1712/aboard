@@ -21,12 +21,14 @@ type wireMemberRef struct {
 }
 
 type wireMember struct {
-	ID       string  `json:"id"`
-	Board    string  `json:"board"`
-	Name     string  `json:"name"`
-	Kind     string  `json:"kind"`
-	Role     *string `json:"role"`
-	Owner    *string `json:"owner"`
+	ID    string  `json:"id"`
+	Board string  `json:"board"`
+	Name  string  `json:"name"`
+	Kind  string  `json:"kind"`
+	Role  *string `json:"role"`
+	Owner *string `json:"owner"`
+	// OwnerID is an agent's person's id; null for people.
+	OwnerID  *string `json:"owner_id"`
 	Harness  *string `json:"harness"`
 	Access   *string `json:"access"`
 	Status   string  `json:"status"`
@@ -34,8 +36,13 @@ type wireMember struct {
 	// Presence and PresenceSince are null for people.
 	Presence      *string `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
-	// Delivery is the agent's delivery mode as last reported; null for people.
+	// Delivery is the agent's delivery mode as its daemon last reported it; null for
+	// people.
 	Delivery *string `json:"delivery"`
+	// DeliveryMode and DeliveryRevision are the agent's delivery mode as its person set
+	// it and the seq of the event that set it; null for people.
+	DeliveryMode     *string `json:"delivery_mode"`
+	DeliveryRevision *int64  `json:"delivery_revision"`
 }
 
 type wireBoard struct {
@@ -132,6 +139,8 @@ func memberOf(m board.Member, boardName string) wireMember {
 			state = board.PresenceNoSession
 		}
 		w.Presence, w.PresenceSince, w.Delivery = &state, nullable(m.Presence.Since), nullable(m.Presence.Delivery)
+		mode, rev, owner := m.Delivery.Current(), m.Delivery.Seq, m.HumanID
+		w.DeliveryMode, w.DeliveryRevision, w.OwnerID = &mode, &rev, &owner
 	}
 	return w
 }
