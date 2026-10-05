@@ -155,7 +155,6 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie := cookieFor(r)
-		r = r.WithContext(context.WithValue(r.Context(), sessionKey{}, requestSession{cookie: cookie}))
 		if r.URL.Path == "/v1/connect" && r.Method == http.MethodPost {
 			if !connects.allow(r) {
 				w.Header().Set("Retry-After", "60")
@@ -182,7 +181,8 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 					return
 				}
 			}
-			next.ServeHTTP(w, r)
+			// The handler sets the cookie this request's host and scheme call for.
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, requestSession{cookie: cookie})))
 			return
 		}
 		if r.URL.Path == "/v1/info" {
@@ -226,9 +226,11 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
 		ctx = context.WithValue(ctx, scopeKey{}, scopeOf(token))
+		session := requestSession{cookie: cookie}
 		if p.Browser {
-			ctx = context.WithValue(ctx, sessionKey{}, requestSession{cookie: cookie, token: token})
+			session.token = token
 		}
+		ctx = context.WithValue(ctx, sessionKey{}, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -144,10 +144,7 @@ func uiPolicy(files fs.FS) (string, error) {
 			return "", fmt.Errorf("read the UI's pages: %w", err)
 		}
 	}
-	scripts := []string{"'self'"}
-	for _, h := range slices.Sorted(maps.Keys(hashes)) {
-		scripts = append(scripts, h)
-	}
+	scripts := append([]string{"'self'"}, slices.Sorted(maps.Keys(hashes))...)
 	return "default-src 'self'; script-src " + strings.Join(scripts, " ") +
 		"; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'" +
 		"; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'", nil

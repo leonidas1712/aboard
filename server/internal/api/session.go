@@ -56,8 +56,10 @@ func loopback(host string) bool {
 
 // cookie returns the Set-Cookie value that keeps token in the browser until expires, or,
 // with an empty token, that clears the cookie.
-func (c sessionCookie) cookie(token string, expires time.Time, now time.Time) string {
-	k := http.Cookie{Name: c.name, Value: token, Path: "/", HttpOnly: true, Secure: c.secure, SameSite: http.SameSiteLaxMode}
+func (c sessionCookie) cookie(token string, expires, now time.Time) string {
+	// Secure is left off only on a loopback address over plain HTTP, where a browser
+	// would drop a Secure cookie; see cookieFor.
+	k := http.Cookie{Name: c.name, Value: token, Path: "/", HttpOnly: true, Secure: c.secure, SameSite: http.SameSiteLaxMode} //nolint:gosec // Secure follows cookieFor
 	if token == "" {
 		k.MaxAge = -1
 	} else {
@@ -181,8 +183,8 @@ func (h *handlers) SignOut(ctx context.Context, _ SignOutRequestObject) (SignOut
 	if err != nil {
 		return nil, err
 	}
-	clear := sessionOf(ctx).cookie.cookie("", time.Time{}, h.clk.Now())
-	return SignOut200JSONResponse{Body: sessionBody(s), Headers: SignOut200ResponseHeaders{SetCookie: &clear}}, nil
+	cleared := sessionOf(ctx).cookie.cookie("", time.Time{}, h.clk.Now())
+	return SignOut200JSONResponse{Body: sessionBody(s), Headers: SignOut200ResponseHeaders{SetCookie: &cleared}}, nil
 }
 
 func (h *handlers) ListBrowserSessions(ctx context.Context, req ListBrowserSessionsRequestObject) (ListBrowserSessionsResponseObject, error) {

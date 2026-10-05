@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -103,7 +104,27 @@ func (s *testServer) browserFrom(c call) *browser {
 	if c.status != http.StatusCreated || c.cookie == nil {
 		s.t.Fatalf("signing in: %d %s", c.status, c.raw)
 	}
-	return &browser{s: s, cookie: c.cookie, csrf: c.body["csrf_token"].(string), id: c.body["id"].(string)}
+	csrf, _ := c.body["csrf_token"].(string)
+	id, _ := c.body["id"].(string)
+	return &browser{s: s, cookie: c.cookie, csrf: csrf, id: id}
+}
+
+// length is how many items a decoded JSON array has, 0 when it isn't one.
+func length(v any) int {
+	a, _ := v.([]any)
+	return len(a)
+}
+
+// jsonAt reads a value from a decoded JSON object by its path of keys, nil when absent.
+func jsonAt(v any, path ...string) any {
+	for _, k := range path {
+		m, ok := v.(map[string]any)
+		if !ok {
+			return nil
+		}
+		v = m[k]
+	}
+	return v
 }
 
 // do makes a request as the page does: the cookie, the page's Origin and, for a write,
@@ -146,8 +167,7 @@ func TestSessionCookieIsHttpOnlyLaxAndHostOnly(t *testing.T) {
 	if k.MaxAge != int((30 * 24 * time.Hour).Seconds()) {
 		t.Fatalf("the cookie lasts %d seconds, want 30 days", k.MaxAge)
 	}
-	if c.body["started_with"] != "login_code" || c.body["key"].(map[string]any)["name"] != "laptop" ||
-		c.body["person"].(map[string]any)["handle"] != "alex" {
+	if c.body["started_with"] != "login_code" || jsonAt(c.body, "key", "name") != "laptop" || jsonAt(c.body, "person", "handle") != "alex" {
 		t.Fatalf("the session: %s", c.raw)
 	}
 
@@ -204,7 +224,7 @@ func TestCookieWritesNeedTheOriginAndTheCSRFToken(t *testing.T) {
 			t.Errorf("%s: %d %s, want 403 %s", tt.name, got.status, got.raw, tt.want)
 		}
 	}
-	if got := b.do(http.MethodGet, post, nil); len(got.body["messages"].([]any)) != 0 {
+	if got := b.do(http.MethodGet, post, nil); length(got.body["messages"]) != 0 {
 		t.Fatalf("a refused write posted: %s", got.raw)
 	}
 	if got := b.do(http.MethodPost, post, msg); got.status != http.StatusCreated {
@@ -215,7 +235,7 @@ func TestCookieWritesNeedTheOriginAndTheCSRFToken(t *testing.T) {
 	// alongside is ignored.
 	got := s.send(http.MethodPost, post, msg, func(r *http.Request) {
 		r.Header.Set("Authorization", "Bearer "+s.owner)
-		r.AddCookie(&http.Cookie{Name: b.cookie.Name, Value: "abb_wrong"})
+		r.AddCookie(&http.Cookie{Name: b.cookie.Name, Value: "abb_wrong"}) //nolint:gosec // a cookie a client sends
 	})
 	if got.status != http.StatusCreated {
 		t.Fatalf("a write with a bearer key: %d %s", got.status, got.raw)
@@ -277,7 +297,7 @@ func TestAPastedKeySignsInAndIsNeverKept(t *testing.T) {
 	id, key := s.newKey(s.owner, "phone")
 	c := s.signIn(map[string]string{"key": key})
 	b := s.browserFrom(c)
-	if c.body["started_with"] != "access_key" || c.body["key"].(map[string]any)["id"] != id || strings.Contains(c.raw, key) {
+	if c.body["started_with"] != "access_key" || jsonAt(c.body, "key", "id") != id || strings.Contains(c.raw, key) {
 		t.Fatalf("the session from a pasted key: %s", c.raw)
 	}
 	b.works(true)
@@ -324,7 +344,7 @@ func TestASessionEndsNoLaterThanItsKey(t *testing.T) {
 	mustStatus(t, r, nil, 201)
 	c := s.signIn(map[string]string{"key": r.JSON201.Token})
 	b := s.browserFrom(c)
-	if got, err := time.Parse(time.RFC3339, c.body["expires_at"].(string)); err != nil || !got.Equal(*r.JSON201.ExpiresAt) {
+	if got, err := time.Parse(time.RFC3339, fmt.Sprint(c.body["expires_at"])); err != nil || !got.Equal(*r.JSON201.ExpiresAt) {
 		t.Fatalf("the session ends at %v, want its key's expiry %v", c.body["expires_at"], r.JSON201.ExpiresAt)
 	}
 	if b.cookie.MaxAge != 2*24*3600 {
@@ -391,7 +411,7 @@ func TestAStoredBrowserTokenMovesIntoTheCookie(t *testing.T) {
 	}
 	b.works(true)
 	list := s.send(http.MethodGet, "/v1/browser-sessions", nil, func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+s.owner) })
-	if n := len(list.body["sessions"].([]any)); n != 1 {
+	if n := length(list.body["sessions"]); n != 1 {
 		t.Fatalf("moving the token into the cookie started another session: %s", list.raw)
 	}
 	if got := s.signIn(map[string]string{"token": "abb_ended"}); got.status != http.StatusUnauthorized || got.code() != "unauthorized" {
@@ -442,13 +462,13 @@ func TestAPersonListsAndEndsTheirSessionsOneAtATime(t *testing.T) {
 	}
 
 	all := s.send(http.MethodGet, "/v1/browser-sessions", nil, asKey(s.owner))
-	sessions := all.body["sessions"].([]any)
-	if all.status != http.StatusOK || len(sessions) != 2 || sessions[0].(map[string]any)["id"] != mobile.id ||
-		sessions[0].(map[string]any)["key"].(map[string]any)["name"] != "phone" {
+	sessions, _ := all.body["sessions"].([]any)
+	if all.status != http.StatusOK || len(sessions) != 2 || jsonAt(sessions[0], "id") != mobile.id ||
+		jsonAt(sessions[0], "key", "name") != "phone" {
 		t.Fatalf("alex's sessions, newest first: %d %s", all.status, all.raw)
 	}
 	one := s.send(http.MethodGet, "/v1/browser-sessions?key="+phoneID, nil, asKey(s.owner))
-	if n := len(one.body["sessions"].([]any)); n != 1 {
+	if n := length(one.body["sessions"]); n != 1 {
 		t.Fatalf("the phone key's sessions: %s", one.raw)
 	}
 	if got := s.send(http.MethodGet, "/v1/browser-sessions?key=key_00000000000000000000000000", nil, asKey(s.owner)); got.code() != "key_not_found" {
@@ -492,14 +512,14 @@ func TestNoGetChangesState(t *testing.T) {
 		s.send(http.MethodGet, "/v1/browser-sessions?code="+code, nil, func(r *http.Request) { r.AddCookie(b.cookie) })
 	}
 	list := s.send(http.MethodGet, "/v1/browser-sessions", nil, func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+s.owner) })
-	if n := len(list.body["sessions"].([]any)); n != 1 {
+	if n := length(list.body["sessions"]); n != 1 {
 		t.Fatalf("GETs changed the sessions: %s", list.raw)
 	}
 	s.browserFrom(s.signIn(map[string]string{"code": code}))
 }
 
 // The server sends no CORS headers, so no other site can read a response, even one a
-// signed-in browser's cookie would authorise.
+// signed-in browser's cookie would allow.
 func TestNoOtherSiteCanReadResponses(t *testing.T) {
 	s := newTestServer(t)
 	b := s.cookieBrowser(s.owner)
@@ -542,18 +562,18 @@ func TestPagesAndResponsesCarryAStrictPolicy(t *testing.T) {
 		!strings.Contains(csp, "base-uri 'none'") {
 		t.Fatalf("the page's policy: %q", csp)
 	}
-	api, err := http.Get(s.url + "/v1/info") //nolint:noctx // a test against its own server
+	info, err := http.Get(s.url + "/v1/info") //nolint:noctx // a test against its own server
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = api.Body.Close()
-	for _, r := range []*http.Response{resp, api} {
+	_ = info.Body.Close()
+	for _, r := range []*http.Response{resp, info} {
 		if r.Header.Get("Referrer-Policy") != "no-referrer" || r.Header.Get("X-Content-Type-Options") != "nosniff" ||
 			r.Header.Get("X-Frame-Options") != "DENY" {
 			t.Errorf("%s: missing a security header: %v", r.Request.URL.Path, r.Header)
 		}
 	}
-	if got := api.Header.Get("Content-Security-Policy"); !strings.HasPrefix(got, "default-src 'none'") {
+	if got := info.Header.Get("Content-Security-Policy"); !strings.HasPrefix(got, "default-src 'none'") {
 		t.Errorf("an API response's policy: %q", got)
 	}
 }
