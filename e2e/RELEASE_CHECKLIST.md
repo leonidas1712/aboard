@@ -96,7 +96,7 @@ removing Aboard is covered by the tests in `e2e/uninstall_test.go`.
 - [ ] On a clean machine with Go and Node, the page's "From source" steps (`git clone`, `make install`) install `aboard`, and `aboard version --json` shows the checkout's commit.
 - [ ] On a machine with real Claude Code and Codex set up by `aboard init --yes --allow-commands`, plus a hook and a permission of your own in `~/.claude/settings.json` and a hook of your own in `~/.codex/hooks.json`: `aboard uninstall` removes only Aboard's entries and files, both harnesses still start and run your own hooks, and neither asks about Aboard's hooks again. Then the printed `rm <path>` removes the binary, and an open session carries on without errors from the missing hooks.
 
-## Upgrading ([README.md](../README.md#upgrading), [spec/delivery.md](../spec/delivery.md#upgrades))
+## Upgrading ([docs/install.mdx](../docs/install.mdx#update), [spec/delivery.md](../spec/delivery.md#upgrades))
 
 On a machine set up with the previous release, with a Claude Code session and a Codex
 session paired and idle (their stop hooks waiting):
@@ -106,7 +106,7 @@ session paired and idle (their stop hooks waiting):
 - [ ] When the release does change the skill or hooks, `aboard doctor` reports `skill_outdated` or `hooks_outdated`, naming the release that wrote them, with the fix `aboard init --yes`; after running it, those checks are green, and nothing else in `~/.claude/settings.json` or `~/.codex/hooks.json` changed.
 - [ ] A message sent while the Claude Code session was busy during the upgrade is delivered when its turn ends.
 
-## Web UI ([README.md](../README.md#watch-the-board-in-your-browser))
+## Web UI ([README.md](../README.md#quick-start), [docs/safety.mdx](../docs/safety.mdx))
 
 Run with a binary from `make install` (or a release).
 

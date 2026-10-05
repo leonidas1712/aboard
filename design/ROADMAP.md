@@ -83,7 +83,7 @@ the board.
 | The install script and Homebrew | later | D86, D127 |
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | later | D149 |
 | The two-machine test: two machines on one hosted server, by hand as a release-checklist step (automating it across machines is an idea for later) | later | |
-| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | later | |
+| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | review: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot; issue templates and CI later | |
 
 **Enhancements**
 
