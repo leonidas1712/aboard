@@ -244,27 +244,20 @@ func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state")
 
 // stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
-	var stopped []int
-	for _, pidFile := range []string{
-		filepath.Join(e.dataDir(), "server.pid"),
-		filepath.Join(e.stateDir(), "daemon.pid"),
-	} {
-		raw, err := os.ReadFile(pidFile)
-		if err != nil {
-			continue
-		}
-		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil && pid > 1 {
-			if err := syscall.Kill(pid, syscall.SIGTERM); err == nil {
-				stopped = append(stopped, pid)
+	// down waits for the original processes to exit, including unreaped exits, so
+	// TempDir cannot remove files while the daemon or server is still writing them.
+	if r := e.exec(nil, "", "down", "--json"); r.code != 0 {
+		e.t.Errorf("stop background processes before removing their home:\n%s", r)
+		// A failing shutdown must not leave the processes this home started behind.
+		for _, path := range []string{filepath.Join(e.dataDir(), "server.pid"), filepath.Join(e.stateDir(), "daemon.pid")} {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil && pid > 1 {
+				_ = syscall.Kill(pid, syscall.SIGTERM)
 			}
 		}
-	}
-	// The background processes can still write after SIGTERM. Wait for exit before
-	// TempDir removes their files, rather than relying on a CLI's exit delay.
-	for _, pid := range stopped {
-		eventually(e.t, 5*time.Second, fmt.Sprintf("background process %d to exit", pid), func() bool {
-			return errors.Is(syscall.Kill(pid, 0), syscall.ESRCH)
-		})
 	}
 }
 
