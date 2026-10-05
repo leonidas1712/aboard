@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 )
@@ -51,8 +50,8 @@ func TestShowingAModeForAnAgentNeverUsesThePersonsLogin(t *testing.T) {
 		vars []string
 		args []string
 	}{
-		{"ABOARD_AGENT", []string{"ABOARD_AGENT=ghost"}, nil},
-		{"ABOARD_AGENT and --board", []string{"ABOARD_AGENT=ghost"}, []string{"--board", "docs"}},
+		{"ABOARD_AGENT", []string{"ABOARD_AGENT=ghost"}, []string{"--as", "ghost"}},
+		{"ABOARD_AGENT and --board", []string{"ABOARD_AGENT=ghost"}, []string{"--as", "ghost", "--board", "docs"}},
 		{"a harness session", []string{"CLAUDECODE=1"}, []string{"--as", "ghost"}},
 		{"a harness session and --board", []string{"CLAUDECODE=1"}, []string{"--as", "ghost", "--board", "docs"}},
 	} {
@@ -63,9 +62,7 @@ func TestShowingAModeForAnAgentNeverUsesThePersonsLogin(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	for _, req := range seen {
-		if strings.Contains(req, key) {
-			t.Fatalf("an agent's command sent the person's key: %v", seen)
-		}
+	if len(seen) != 0 {
+		t.Fatalf("agent resolution should refuse locally without requests: %v", seen)
 	}
 }
