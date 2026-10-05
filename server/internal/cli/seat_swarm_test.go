@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -46,5 +47,84 @@ func TestSwarmDoesNotShowAReplacementSeatsPresence(t *testing.T) {
 		delivery.BindingStatus{}, map[string]api.Member{"writer": {Id: "mem_new", Name: "writer", Presence: &presence}})
 	if got.Presence != nil || got.Seated {
 		t.Fatalf("replacement presence attached to old record: %+v", got)
+	}
+}
+
+func TestSwarmSelectsItsRecordedIdBeforeTheSharedDisplayName(t *testing.T) {
+	a := seatApp(t)
+	creds := credentials{Agents: []agentCredential{
+		{Server: "https://team.example", Board: "docs", Name: "writer", MemberID: "mem_new", Token: "aba_new"},
+		{Server: "https://team.example", Board: "docs", Name: "writer", MemberID: "mem_old", Token: "aba_old"},
+	}}
+	in := upInput{
+		srv: serverRef{URL: "https://team.example"}, board: "docs", spec: swarmSpec{Name: "writer"}, creds: creds,
+		rec: &swarmRecord{Agents: map[string]*swarmAgentRecord{"writer": {MemberID: "mem_old", Handle: "old-session"}}},
+	}
+	ref, err := a.swarmSeat(t.Context(), in)
+	if err != nil || ref.MemberID != "mem_old" {
+		t.Fatalf("recorded seat not selected: %+v %v", ref, err)
+	}
+}
+
+func TestLegacySwarmCannotAdoptUnrelatedBackfillProvenance(t *testing.T) {
+	a := seatApp(t)
+	cred := agentCredential{
+		Server: "https://team.example", Board: "docs", Name: "writer", MemberID: "mem_new", Token: "aba_new",
+		Legacy: &legacyCredentialIdentity{Board: "docs", Name: "different-old-name"},
+	}
+	if err := a.saveCredential(cred); err != nil {
+		t.Fatal(err)
+	}
+	in := upInput{
+		srv: serverRef{URL: cred.Server}, board: "docs", spec: swarmSpec{Name: "writer"}, creds: credentials{Agents: []agentCredential{cred}},
+		rec: &swarmRecord{Agents: map[string]*swarmAgentRecord{"writer": {Handle: "old-session"}}},
+	}
+	if ref, err := a.swarmSeat(t.Context(), in); err == nil {
+		t.Fatalf("unrelated provenance adopted old session: %+v", ref)
+	}
+}
+
+func TestUnresolvedSwarmDoesNotShowAReplacementsServerMetadata(t *testing.T) {
+	a := seatApp(t)
+	presence := api.MemberPresenceWorking
+	mode := api.MemberDeliveryModeAll
+	got := a.swarmRow("writer", &swarmAgentRecord{Mode: "headless"}, "running", delivery.BindingStatus{},
+		map[string]api.Member{"writer": {Id: "mem_new", Name: "writer", Presence: &presence, DeliveryMode: &mode}})
+	if got.Presence != nil || got.Delivery != nil || got.Seated {
+		t.Fatalf("unresolved legacy row adopted replacement metadata: %+v", got)
+	}
+}
+
+func TestLegacySwarmResumesOnlyItsVerifiedOriginalToken(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer aba_old" {
+			t.Errorf("replacement token used: %q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(api.Me{Id: "mem_old", Kind: api.MeKindAgent, Name: "writer", Board: ptr("docs")})
+	}))
+	defer srv.Close()
+	a := seatApp(t)
+	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: "docs", Name: "writer", Token: "aba_old"}); err != nil {
+		t.Fatal(err)
+	}
+	original := delivery.AgentRef{Server: srv.URL, Board: "docs", Name: "writer"}
+	if _, err := (daemonTokens{a}).ResolveAgent(t.Context(), original); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: "docs", Name: "writer", MemberID: "mem_new", Token: "aba_new"}); err != nil {
+		t.Fatal(err)
+	}
+	creds, err := a.readCredentials()
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := upInput{
+		srv: serverRef{URL: srv.URL}, board: "docs", spec: swarmSpec{Name: "writer"}, creds: creds,
+		rec: &swarmRecord{Agents: map[string]*swarmAgentRecord{"writer": {Handle: "old-session"}}},
+	}
+	ref, err := a.swarmSeat(t.Context(), in)
+	if err != nil || ref.MemberID != "mem_old" {
+		t.Fatalf("verified original seat not resumed: %+v %v", ref, err)
 	}
 }

@@ -727,26 +727,11 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		seatCreated = true
 	}
 
-	ref := delivery.AgentRef{Server: in.srv.URL, Board: in.board, Name: spec.Name}
-	cred, ok := in.creds.find(in.srv.URL, in.board, spec.Name)
-	if !ok {
-		return swarmUpAgent{}, newError("agent_not_selected", "The agent has no saved seat credential.", "Join the board again before starting the swarm.")
-	}
-	ref.MemberID = cred.MemberID
-	if ref.MemberID == "" {
-		resolved, err := (daemonTokens{a: a}).ResolveAgent(ctx, ref)
-		if err != nil {
-			return swarmUpAgent{}, newError("seat_ended", "The saved agent's seat cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
-		}
-		ref = resolved
+	ref, err := a.swarmSeat(ctx, in)
+	if err != nil {
+		return swarmUpAgent{}, err
 	}
 	ar := in.rec.Agents[spec.Name]
-	if ar != nil && ar.Handle != "" && ar.MemberID == "" && cred.MemberID != "" && cred.Legacy == nil {
-		return swarmUpAgent{}, newError("seat_ended", "The earlier session's seat identity cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
-	}
-	if ar != nil && ar.MemberID != "" && ar.MemberID != ref.MemberID {
-		return swarmUpAgent{}, newError("seat_ended", "The saved session belongs to an earlier seat with this name.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
-	}
 	if ar != nil {
 		ar.MemberID = ref.MemberID
 	}
@@ -833,6 +818,45 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 		action = actionResumed
 	}
 	return swarmUpAgent{swarmAgent: a.swarmRow(spec.Name, ar, string(launcher.Running), delivery.BindingStatus{}, in.members), Action: action, SeatCreated: seatCreated}, nil
+}
+
+// swarmSeat selects the credential for the swarm's recorded seat before resuming
+// any harness session; a display name alone cannot authorize adopting old state.
+func (a *app) swarmSeat(ctx context.Context, in upInput) (delivery.AgentRef, error) {
+	ref := delivery.AgentRef{Server: in.srv.URL, Board: in.board, Name: in.spec.Name}
+	ar := in.rec.Agents[in.spec.Name]
+	var cred agentCredential
+	var ok bool
+	switch {
+	case ar != nil && ar.MemberID != "":
+		ref.MemberID = ar.MemberID
+		cred, ok = in.creds.forSeat(ref)
+		if !ok {
+			return delivery.AgentRef{}, newError("seat_ended", "The recorded seat has no saved credential.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+		}
+	case ar != nil && ar.Handle != "":
+		// A legacy launcher handle can resume only the token that proved its original
+		// name-based entry, never a newly saved seat sharing that name.
+		resolved, err := (daemonTokens{a: a}).ResolveAgent(ctx, ref)
+		if err != nil {
+			return delivery.AgentRef{}, newError("seat_ended", "The earlier session's seat identity cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+		}
+		return resolved, nil
+	default:
+		cred, ok = in.creds.find(in.srv.URL, in.board, in.spec.Name)
+		if !ok {
+			return delivery.AgentRef{}, newError("agent_not_selected", "The agent has no saved seat credential.", "Join the board again before starting the swarm.")
+		}
+	}
+	ref.MemberID = cred.MemberID
+	if ref.MemberID == "" {
+		resolved, err := (daemonTokens{a: a}).ResolveAgent(ctx, ref)
+		if err != nil {
+			return delivery.AgentRef{}, newError("seat_ended", "The saved agent's seat cannot be verified.", "Give it a new name in aboard.yaml and run aboard swarm up again.")
+		}
+		return resolved, nil
+	}
+	return ref, nil
 }
 
 // endSession tells the delivery daemon a session has ended, for one whose process a
@@ -929,7 +953,7 @@ func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delive
 		row.Session = optional(b.Session)
 		row.Seated = b.Open && ar.Mode == launcher.ModeInteractive
 	}
-	if m, ok := members[name]; ok && (ar.MemberID == "" || m.Id == ar.MemberID) {
+	if m, ok := members[name]; ok && (ar.MemberID != "" && m.Id == ar.MemberID) {
 		if m.Presence != nil {
 			row.Presence = optional(string(*m.Presence))
 		}
