@@ -7,7 +7,6 @@
 package board
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -48,75 +47,6 @@ func New(st Store, notify Notifier, clk clock.Clock, gen *ids.Generator, key []b
 
 // Config returns the server description the Service was created with.
 func (s *Service) Config() Config { return s.cfg }
-
-// Principal is the authenticated caller: exactly one of Human and Agent is set.
-type Principal struct {
-	Human *Human
-	Agent *Member
-	// Browser is set for a browser token, which acts as its human with the human's
-	// permissions, except that it can't log in another browser.
-	Browser bool
-}
-
-// Authenticate resolves a bearer token to a human, an agent, or a human's browser.
-func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
-	if strings.HasPrefix(token, browserTokenPrefix) {
-		return s.authenticateBrowser(ctx, token)
-	}
-	digest := ids.Digest(s.key, token)
-	var p Principal
-	err := s.st.Read(ctx, func(tx ReadTx) error {
-		switch {
-		case strings.HasPrefix(token, "abh_"):
-			h, err := tx.HumanByTokenDigest(digest)
-			if err != nil {
-				return err
-			}
-			p.Human = &h
-		case strings.HasPrefix(token, "aba_"):
-			m, err := tx.MemberByTokenDigest(digest)
-			if err != nil {
-				return err
-			}
-			p.Agent = &m
-		default:
-			return ErrNotFound
-		}
-		return nil
-	})
-	if errors.Is(err, ErrNotFound) {
-		return Principal{}, apierr.Unauthorized()
-	}
-	if err != nil {
-		return Principal{}, fmt.Errorf("authenticate: %w", err)
-	}
-	return p, nil
-}
-
-// BootstrapOwner creates the local server's owner if no human exists yet, and returns
-// the new token, or "" if a human already existed.
-func (s *Service) BootstrapOwner(ctx context.Context, name string) (string, error) {
-	var token string
-	err := s.st.Write(ctx, func(tx Tx) error {
-		n, err := tx.HumanCount()
-		if err != nil || n > 0 {
-			return err
-		}
-		now := s.clk.Now()
-		id, err := s.gen.ID("hum", now)
-		if err != nil {
-			return err
-		}
-		if token, err = s.gen.Token("abh"); err != nil {
-			return err
-		}
-		return tx.InsertHuman(Human{ID: id, Name: name, TokenDigest: ids.Digest(s.key, token), CreatedAt: stamp(now)})
-	})
-	if err != nil {
-		return "", fmt.Errorf("create local owner: %w", err)
-	}
-	return token, nil
-}
 
 // stamp formats a time the way every timestamp in Aboard is written.
 func stamp(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:05.000Z") }

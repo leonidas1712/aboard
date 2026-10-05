@@ -9,12 +9,44 @@ import (
 // ErrNotFound is returned by a Store when a looked-up record doesn't exist.
 var ErrNotFound = errors.New("not found")
 
-// Human is a person with a login on this server.
+// Human is a person on this server. ID is permanent; Name is their handle, unique on the
+// server and their member name on boards.
 type Human struct {
 	ID          string
 	Name        string
-	TokenDigest string
+	DisplayName *string
+	Role        string // ServerAdmin or ServerMember
 	CreatedAt   string
+}
+
+// A person's role on the server.
+const (
+	ServerAdmin  = "admin"
+	ServerMember = "member"
+)
+
+// AccessKey is a person's credential: a named secret kept by its keyed digest. Agent
+// tokens and browser logins made with a key stop working when it does.
+type AccessKey struct {
+	ID        string
+	HumanID   string
+	Name      string
+	Digest    string
+	CreatedAt string
+	ExpiresAt *string // nil: it doesn't expire
+	RevokedAt *string
+}
+
+// ServerInvite lets one new person onto the server, as a member, once, before it
+// expires. It is kept by the keyed digest of its secret.
+type ServerInvite struct {
+	ID        string
+	Digest    string
+	CreatedBy string // the admin's person id
+	CreatedAt string
+	ExpiresAt string
+	UsedAt    *string
+	UsedBy    *string
 }
 
 // BrowserLogin is a browser token, kept by the digest of the token and never the token
@@ -22,8 +54,10 @@ type Human struct {
 type BrowserLogin struct {
 	TokenDigest string
 	HumanID     string
-	CreatedAt   string
-	ExpiresAt   string
+	// KeyID is the access key that started the login, which it never outlives.
+	KeyID     string
+	CreatedAt string
+	ExpiresAt string
 }
 
 // Board is a board's current state.
@@ -57,10 +91,13 @@ type Member struct {
 	Owner       *string
 	Harness     *string
 	TokenDigest *string
-	Access      string // rules.AccessAdmin or rules.AccessMember for a person, empty for an agent
-	Status      string
-	Cursor      int64
-	JoinedAt    string
+	// KeyID is the access key the agent's token came from, which it never outlives; nil
+	// for a person.
+	KeyID    *string
+	Access   string // rules.AccessAdmin or rules.AccessMember for a person, empty for an agent
+	Status   string
+	Cursor   int64
+	JoinedAt string
 	// Presence is what was last reported for an agent; read it with CurrentPresence.
 	Presence Presence
 }

@@ -236,6 +236,10 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		if in.Harness != "" {
 			agent.Harness = ptr(in.Harness)
 		}
+		// The agent's token stops working when the access key that made it does.
+		if p.KeyID != "" {
+			agent.KeyID = ptr(p.KeyID)
+		}
 		if agent.ID, err = s.gen.ID("mem", now); err != nil {
 			return err
 		}

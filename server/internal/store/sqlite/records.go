@@ -12,37 +12,96 @@ import (
 
 // InsertHuman adds a human.
 func (t *tx) InsertHuman(h board.Human) error {
-	return t.exec("INSERT INTO humans (id, name, token_digest, created_at) VALUES (?, ?, ?, ?)",
-		h.ID, h.Name, h.TokenDigest, h.CreatedAt)
+	return t.exec("INSERT INTO humans (id, name, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
+		h.ID, h.Name, h.DisplayName, h.Role, h.CreatedAt)
 }
 
-// HumanByTokenDigest finds the human whose token has this digest.
-func (t *tx) HumanByTokenDigest(digest string) (board.Human, error) {
+const humanColumns = "id, name, display_name, role, created_at"
+
+func scanHuman(row *sql.Row) (board.Human, error) {
 	var h board.Human
-	err := t.queryRow("SELECT id, name, token_digest, created_at FROM humans WHERE token_digest = ?", digest).
-		Scan(&h.ID, &h.Name, &h.TokenDigest, &h.CreatedAt)
+	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt)
 	return h, notFound(err)
 }
 
 // HumanByID finds a human by id.
 func (t *tx) HumanByID(id string) (board.Human, error) {
-	var h board.Human
-	err := t.queryRow("SELECT id, name, token_digest, created_at FROM humans WHERE id = ?", id).
-		Scan(&h.ID, &h.Name, &h.TokenDigest, &h.CreatedAt)
-	return h, notFound(err)
+	return scanHuman(t.queryRow("SELECT "+humanColumns+" FROM humans WHERE id = ?", id))
+}
+
+// HumanByName finds a human by handle.
+func (t *tx) HumanByName(name string) (board.Human, error) {
+	return scanHuman(t.queryRow("SELECT "+humanColumns+" FROM humans WHERE name = ?", name))
+}
+
+const accessKeyColumns = "id, human_id, name, digest, created_at, expires_at, revoked_at"
+
+func scanAccessKey(row *sql.Row) (board.AccessKey, error) {
+	var k board.AccessKey
+	err := row.Scan(&k.ID, &k.HumanID, &k.Name, &k.Digest, &k.CreatedAt, &k.ExpiresAt, &k.RevokedAt)
+	return k, notFound(err)
+}
+
+// InsertAccessKey adds an access key.
+func (t *tx) InsertAccessKey(k board.AccessKey) error {
+	return t.exec("INSERT INTO access_keys ("+accessKeyColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
+		k.ID, k.HumanID, k.Name, k.Digest, k.CreatedAt, k.ExpiresAt, k.RevokedAt)
+}
+
+// AccessKeyByDigest finds an access key by the digest of its secret.
+func (t *tx) AccessKeyByDigest(digest string) (board.AccessKey, error) {
+	return scanAccessKey(t.queryRow("SELECT "+accessKeyColumns+" FROM access_keys WHERE digest = ?", digest))
+}
+
+// AccessKeyByID finds an access key by id.
+func (t *tx) AccessKeyByID(id string) (board.AccessKey, error) {
+	return scanAccessKey(t.queryRow("SELECT "+accessKeyColumns+" FROM access_keys WHERE id = ?", id))
+}
+
+// NameUnnamedKeys gives every access key with an empty name this name.
+func (t *tx) NameUnnamedKeys(name string) error {
+	return t.exec("UPDATE access_keys SET name = ? WHERE name = ''", name)
+}
+
+const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by"
+
+// InsertServerInvite adds a server invite.
+func (t *tx) InsertServerInvite(i board.ServerInvite) error {
+	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
+		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy)
+}
+
+// ServerInviteByDigest finds a server invite by the digest of its secret.
+func (t *tx) ServerInviteByDigest(digest string) (board.ServerInvite, error) {
+	var i board.ServerInvite
+	err := t.queryRow("SELECT "+serverInviteColumns+" FROM server_invites WHERE digest = ?", digest).
+		Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy)
+	return i, notFound(err)
+}
+
+// UseServerInvite marks an unused invite used, and reports whether it was unused.
+func (t *tx) UseServerInvite(id, at, humanID string) (bool, error) {
+	res, err := t.tx.ExecContext(t.ctx, "UPDATE server_invites SET used_at = ?, used_by = ? WHERE id = ? AND used_at IS NULL", at, humanID, id)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }
 
 // InsertBrowserLogin adds a browser login.
 func (t *tx) InsertBrowserLogin(l board.BrowserLogin) error {
-	return t.exec("INSERT INTO browser_logins (token_digest, human_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-		l.TokenDigest, l.HumanID, l.CreatedAt, l.ExpiresAt)
+	return t.exec("INSERT INTO browser_logins (token_digest, human_id, key_id, created_at, expires_at) VALUES (?, ?, NULLIF(?, ''), ?, ?)",
+		l.TokenDigest, l.HumanID, l.KeyID, l.CreatedAt, l.ExpiresAt)
 }
 
 // BrowserLoginByDigest finds a browser login by the digest of its token.
 func (t *tx) BrowserLoginByDigest(digest string) (board.BrowserLogin, error) {
 	var l board.BrowserLogin
-	err := t.queryRow("SELECT token_digest, human_id, created_at, expires_at FROM browser_logins WHERE token_digest = ?", digest).
-		Scan(&l.TokenDigest, &l.HumanID, &l.CreatedAt, &l.ExpiresAt)
+	var key sql.NullString
+	err := t.queryRow("SELECT token_digest, human_id, key_id, created_at, expires_at FROM browser_logins WHERE token_digest = ?", digest).
+		Scan(&l.TokenDigest, &l.HumanID, &key, &l.CreatedAt, &l.ExpiresAt)
+	l.KeyID = key.String
 	return l, notFound(err)
 }
 
@@ -151,14 +210,14 @@ func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
 }
 
 const (
-	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, access, status, cursor, joined_at"
+	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at"
 	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
 	var access, presence, since, at, mode sql.NullString
-	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &access, &m.Status, &m.Cursor, &m.JoinedAt,
+	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
 		&presence, &since, &at, &mode)
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
@@ -174,8 +233,8 @@ func (t *tx) SetPresence(memberID string, p board.Presence) error {
 
 // InsertMember adds a member.
 func (t *tx) InsertMember(m board.Member) error {
-	return t.exec("INSERT INTO members ("+memberInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
-		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.Access, m.Status, m.Cursor, m.JoinedAt)
+	return t.exec("INSERT INTO members ("+memberInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
+		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.KeyID, m.Access, m.Status, m.Cursor, m.JoinedAt)
 }
 
 // MemberByTokenDigest finds the agent whose token has this digest.

@@ -25,6 +25,8 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 	}{
 		{"MissingRecordsAreNotFound", missingRecordsAreNotFound},
 		{"HumansRoundTrip", humansRoundTrip},
+		{"AccessKeysRoundTripAndGetNamed", accessKeysRoundTripAndGetNamed},
+		{"ServerInvitesAreUsedOnce", serverInvitesAreUsedOnce},
 		{"BrowserLoginsRoundTripAndEnd", browserLoginsRoundTripAndEnd},
 		{"BoardRoundTripsEveryField", boardRoundTripsEveryField},
 		{"BoardNameTaken", boardNameTaken},
@@ -81,7 +83,7 @@ func read(t *testing.T, st board.Store, fn func(board.ReadTx) error) {
 func ptr[T any](v T) *T { return &v }
 
 func human(id string) board.Human {
-	return board.Human{ID: id, Name: id, TokenDigest: "digest-" + id, CreatedAt: at}
+	return board.Human{ID: id, Name: id, Role: board.ServerMember, CreatedAt: at}
 }
 
 // creatorID is the human who creates every board in these tests.
@@ -91,7 +93,7 @@ const creatorID = "hum_alex"
 // membership of it. The member's id is "mem_" + name.
 func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	humanID := creatorID
-	if _, err := tx.HumanByTokenDigest("digest-" + humanID); errors.Is(err, board.ErrNotFound) {
+	if _, err := tx.HumanByID(humanID); errors.Is(err, board.ErrNotFound) {
 		if err := tx.InsertHuman(human(humanID)); err != nil {
 			return board.Board{}, board.Member{}, err
 		}
@@ -169,8 +171,11 @@ func missingRecordsAreNotFound(t *testing.T, st board.Store) {
 		return err
 	})
 	lookups := map[string]func(board.ReadTx) error{
-		"HumanByTokenDigest":   func(tx board.ReadTx) error { _, err := tx.HumanByTokenDigest("nope"); return err },
+		"AccessKeyByDigest":    func(tx board.ReadTx) error { _, err := tx.AccessKeyByDigest("nope"); return err },
+		"AccessKeyByID":        func(tx board.ReadTx) error { _, err := tx.AccessKeyByID("key_nope"); return err },
 		"HumanByID":            func(tx board.ReadTx) error { _, err := tx.HumanByID("hum_nope"); return err },
+		"HumanByName":          func(tx board.ReadTx) error { _, err := tx.HumanByName("nope"); return err },
+		"ServerInviteByDigest": func(tx board.ReadTx) error { _, err := tx.ServerInviteByDigest("nope"); return err },
 		"BrowserLoginByDigest": func(tx board.ReadTx) error { _, err := tx.BrowserLoginByDigest("nope"); return err },
 		"BoardByName":          func(tx board.ReadTx) error { _, err := tx.BoardByName("nope"); return err },
 		"BoardByID":            func(tx board.ReadTx) error { _, err := tx.BoardByID("nope"); return err },
@@ -197,6 +202,7 @@ func humansRoundTrip(t *testing.T, st board.Store) {
 		return nil
 	})
 	want := human("hum_alex")
+	want.Role, want.DisplayName = board.ServerAdmin, ptr("Alex Example")
 	write(t, st, func(tx board.Tx) error {
 		if err := tx.InsertHuman(want); err != nil {
 			return err
@@ -204,12 +210,12 @@ func humansRoundTrip(t *testing.T, st board.Store) {
 		return tx.InsertHuman(human("hum_blair"))
 	})
 	read(t, st, func(tx board.ReadTx) error {
-		got, err := tx.HumanByTokenDigest(want.TokenDigest)
+		got, err := tx.HumanByName(want.Name)
 		if err != nil {
 			return err
 		}
-		if got != want {
-			t.Errorf("HumanByTokenDigest = %+v, want %+v", got, want)
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("HumanByName = %+v, want %+v", got, want)
 		}
 		if n, err := tx.HumanCount(); err != nil || n != 2 {
 			t.Errorf("HumanCount = %d, %v; want 2", n, err)
@@ -218,8 +224,79 @@ func humansRoundTrip(t *testing.T, st board.Store) {
 		if err != nil {
 			return err
 		}
-		if byID != want {
+		if !reflect.DeepEqual(byID, want) {
 			t.Errorf("HumanByID = %+v, want %+v", byID, want)
+		}
+		return nil
+	})
+}
+
+func accessKeysRoundTripAndGetNamed(t *testing.T, st board.Store) {
+	named := board.AccessKey{ID: "key_a", HumanID: "hum_alex", Name: "laptop", Digest: "k-a", CreatedAt: at, ExpiresAt: ptr("2026-12-01T00:00:00.000Z")}
+	unnamed := board.AccessKey{ID: "key_b", HumanID: "hum_alex", Digest: "k-b", CreatedAt: at, RevokedAt: ptr(at)}
+	write(t, st, func(tx board.Tx) error {
+		if err := tx.InsertHuman(human("hum_alex")); err != nil {
+			return err
+		}
+		if err := tx.InsertAccessKey(named); err != nil {
+			return err
+		}
+		if err := tx.InsertAccessKey(unnamed); err != nil {
+			return err
+		}
+		return tx.NameUnnamedKeys("desktop")
+	})
+	unnamed.Name = "desktop"
+	read(t, st, func(tx board.ReadTx) error {
+		for _, want := range []board.AccessKey{named, unnamed} {
+			byDigest, err := tx.AccessKeyByDigest(want.Digest)
+			if err != nil {
+				return err
+			}
+			byID, err := tx.AccessKeyByID(want.ID)
+			if err != nil {
+				return err
+			}
+			if !reflect.DeepEqual(byDigest, want) || !reflect.DeepEqual(byID, want) {
+				t.Errorf("access key %s: by digest %+v, by id %+v; want %+v", want.ID, byDigest, byID, want)
+			}
+		}
+		return nil
+	})
+}
+
+func serverInvitesAreUsedOnce(t *testing.T, st board.Store) {
+	inv := board.ServerInvite{ID: "inv_a", Digest: "i-a", CreatedBy: "hum_alex", CreatedAt: at, ExpiresAt: "2026-10-08T16:00:00.000Z"}
+	write(t, st, func(tx board.Tx) error {
+		for _, h := range []string{"hum_alex", "hum_blair", "hum_casey"} {
+			if err := tx.InsertHuman(human(h)); err != nil {
+				return err
+			}
+		}
+		return tx.InsertServerInvite(inv)
+	})
+	write(t, st, func(tx board.Tx) error {
+		first, err := tx.UseServerInvite(inv.ID, at, "hum_blair")
+		if err != nil {
+			return err
+		}
+		again, err := tx.UseServerInvite(inv.ID, at, "hum_casey")
+		if err != nil {
+			return err
+		}
+		if !first || again {
+			t.Errorf("UseServerInvite twice = %v, %v; want true, false", first, again)
+		}
+		return nil
+	})
+	inv.UsedAt, inv.UsedBy = ptr(at), ptr("hum_blair")
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.ServerInviteByDigest(inv.Digest)
+		if err != nil {
+			return err
+		}
+		if !reflect.DeepEqual(got, inv) {
+			t.Errorf("ServerInviteByDigest = %+v, want %+v", got, inv)
 		}
 		return nil
 	})

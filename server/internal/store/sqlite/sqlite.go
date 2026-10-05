@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io/fs"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,9 +30,14 @@ var migrations embed.FS
 
 // Store is an open Aboard database.
 type Store struct {
-	db  *sql.DB
-	clk clock.Clock // stamps saved responses
+	db   *sql.DB
+	clk  clock.Clock // stamps saved responses and backups
+	path string
 }
+
+// keptBackups is how many copies of the database, each made before a migration, are
+// kept in the backups folder beside it.
+const keptBackups = 3
 
 var _ board.Store = (*Store)(nil)
 
@@ -47,7 +54,7 @@ func Open(ctx context.Context, path string, clk clock.Clock) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
-	s := &Store{db: db, clk: clk}
+	s := &Store{db: db, clk: clk, path: path}
 	if err := s.migrate(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -78,8 +85,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		return fmt.Errorf("list migrations: %w", err)
 	}
 	sort.Strings(names)
-	if latest := migrationNumber(names[len(names)-1]); version > latest {
+	latest := migrationNumber(names[len(names)-1])
+	if version > latest {
 		return fmt.Errorf("%w: the database is at schema %d, and this aboard knows up to %d", ErrNewerSchema, version, latest)
+	}
+	if version > 0 && version < latest {
+		if err := s.backup(ctx, version); err != nil {
+			return err
+		}
 	}
 	for _, name := range names {
 		n, err := strconv.Atoi(strings.SplitN(strings.TrimPrefix(name, "migrations/"), "_", 2)[0])
@@ -93,15 +106,99 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
-		err = s.write(ctx, func(t *tx) error {
-			if err := t.exec(string(body)); err != nil {
-				return fmt.Errorf("apply: %w", err)
-			}
-			return t.exec(fmt.Sprintf("PRAGMA user_version = %d", n))
-		})
-		if err != nil {
+		if err := s.apply(ctx, n, string(body)); err != nil {
 			return fmt.Errorf("migration %s: %w", name, err)
 		}
+	}
+	return nil
+}
+
+// apply runs one migration in a transaction on a connection of its own with foreign keys
+// off, as SQLite asks for a migration that rebuilds a table, and checks every foreign key
+// before it commits.
+func (s *Store) apply(ctx context.Context, n int, body string) error {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("open a connection: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+	if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+		return fmt.Errorf("turn foreign keys off: %w", err)
+	}
+	// The connection goes back to the pool afterwards, so its foreign keys are turned on
+	// again whatever happens.
+	defer func() { _, _ = conn.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON") }()
+	sqlTx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	if err := applyIn(ctx, sqlTx, n, body); err != nil {
+		_ = sqlTx.Rollback()
+		return err
+	}
+	if err := sqlTx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil
+}
+
+func applyIn(ctx context.Context, sqlTx *sql.Tx, n int, body string) error {
+	if _, err := sqlTx.ExecContext(ctx, body); err != nil {
+		return fmt.Errorf("apply: %w", err)
+	}
+	if err := checkForeignKeys(ctx, sqlTx); err != nil {
+		return err
+	}
+	if _, err := sqlTx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", n)); err != nil {
+		return fmt.Errorf("set schema version: %w", err)
+	}
+	return nil
+}
+
+// checkForeignKeys fails if any row refers to a row that doesn't exist.
+func checkForeignKeys(ctx context.Context, sqlTx *sql.Tx) error {
+	rows, err := sqlTx.QueryContext(ctx, "PRAGMA foreign_key_check")
+	if err != nil {
+		return fmt.Errorf("check foreign keys: %w", err)
+	}
+	defer func() { _ = rows.Close() }() // rows.Err is checked below
+	if rows.Next() {
+		return errors.New("the migrated data breaks a foreign key")
+	}
+	return rows.Err()
+}
+
+// backupDir is the folder beside the database that holds its copies made before
+// migrations.
+func (s *Store) backupDir() string { return filepath.Join(filepath.Dir(s.path), "backups") }
+
+// backup copies the database, at schema version, into the backups folder before a
+// migration changes it, and keeps only the newest keptBackups copies. The copy is a
+// consistent snapshot made while the database is open (VACUUM INTO), readable only by its
+// owner.
+func (s *Store) backup(ctx context.Context, version int) error {
+	dir := s.backupDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("create backup folder: %w", err)
+	}
+	name := fmt.Sprintf("aboard-%s-schema-%d.db", s.clk.Now().UTC().Format("20060102T150405.000Z"), version)
+	path := filepath.Join(dir, name)
+	if _, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
+		return fmt.Errorf("back up the database before migrating it: %w", err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		return fmt.Errorf("protect the backup %s: %w", path, err)
+	}
+	old, err := filepath.Glob(filepath.Join(dir, "aboard-*-schema-*.db"))
+	if err != nil {
+		return fmt.Errorf("list backups: %w", err)
+	}
+	sort.Strings(old) // the names start with the time they were made
+	for len(old) > keptBackups {
+		if err := os.Remove(old[0]); err != nil {
+			return fmt.Errorf("remove an old backup: %w", err)
+		}
+		old = old[1:]
 	}
 	return nil
 }

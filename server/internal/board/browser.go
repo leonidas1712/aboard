@@ -32,6 +32,7 @@ type loginCodes struct {
 
 type loginCode struct {
 	human   Human
+	keyID   string // the access key that asked for the code
 	expires time.Time
 }
 
@@ -75,7 +76,7 @@ func (s *Service) CreateLoginCode(_ context.Context, p Principal) (LoginCode, er
 	s.codes.mu.Lock()
 	defer s.codes.mu.Unlock()
 	s.codes.prune(now)
-	s.codes.codes[ids.Digest(s.key, code)] = loginCode{human: *p.Human, expires: expires}
+	s.codes.codes[ids.Digest(s.key, code)] = loginCode{human: *p.Human, keyID: p.KeyID, expires: expires}
 	return LoginCode{Code: code, ExpiresAt: stamp(expires)}, nil
 }
 
@@ -109,7 +110,7 @@ func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token st
 			return err
 		}
 		return tx.InsertBrowserLogin(BrowserLogin{
-			TokenDigest: ids.Digest(s.key, token), HumanID: l.human.ID, CreatedAt: stamp(now), ExpiresAt: stamp(expires),
+			TokenDigest: ids.Digest(s.key, token), HumanID: l.human.ID, KeyID: l.keyID, CreatedAt: stamp(now), ExpiresAt: stamp(expires),
 		})
 	})
 	if err != nil {
@@ -128,14 +129,23 @@ func browserLoginEnded() *apierr.Error {
 // authenticateBrowser resolves a browser token to the human it acts as.
 func (s *Service) authenticateBrowser(ctx context.Context, token string) (Principal, error) {
 	var h Human
+	var keyID string
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		l, err := tx.BrowserLoginByDigest(ids.Digest(s.key, token))
 		if err != nil {
 			return err
 		}
-		if l.ExpiresAt <= stamp(s.clk.Now()) {
+		now := stamp(s.clk.Now())
+		if l.ExpiresAt <= now {
 			return ErrNotFound
 		}
+		// A browser login never outlives the access key that started it.
+		if l.KeyID != "" {
+			if err := workingKey(tx, l.KeyID, now); err != nil {
+				return err
+			}
+		}
+		keyID = l.KeyID
 		h, err = tx.HumanByID(l.HumanID)
 		return err
 	})
@@ -145,7 +155,7 @@ func (s *Service) authenticateBrowser(ctx context.Context, token string) (Princi
 	if err != nil {
 		return Principal{}, fmt.Errorf("authenticate browser: %w", err)
 	}
-	return Principal{Human: &h, Browser: true}, nil
+	return Principal{Human: &h, Browser: true, KeyID: keyID}, nil
 }
 
 // EndBrowserLogins ends every browser login of the calling human and returns how many
