@@ -94,6 +94,9 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	var selectedCred *agentCredential
 	switch {
 	case name != "":
+		if err := a.oneSeat(ctx, *boardFlag); err != nil {
+			return err
+		}
 		if t, cred, err := a.agentByName(creds, name, *boardFlag); err == nil {
 			agentBoard, selectedCred = &t, &cred
 		}

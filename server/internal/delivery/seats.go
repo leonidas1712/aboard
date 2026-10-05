@@ -187,6 +187,9 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 	if werr != nil {
 		return Response{V: ProtocolVersion, Error: werr}
 	}
+	if h := d.cfg.joinHooks; h != nil && h.seatsRead != nil {
+		h.seatsRead()
+	}
 	for _, a := range agents {
 		if a.Server != server {
 			r := errorResponse("session_on_another_server",
@@ -256,7 +259,21 @@ func (d *Daemon) joinTurn(ctx context.Context, key string) (func(), error) {
 	select {
 	case turn <- struct{}{}:
 		return func() { <-turn }, nil
+	default:
+	}
+	if h := d.cfg.joinHooks; h != nil && h.waiting != nil {
+		h.waiting()
+	}
+	select {
+	case turn <- struct{}{}:
+		return func() { <-turn }, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// joinHooks let tests hold a join at its points of contention; nil otherwise.
+type joinHooks struct {
+	seatsRead func() // the join read the session's seats, before checking its server
+	waiting   func() // the join found the session's turn taken and is about to wait
 }

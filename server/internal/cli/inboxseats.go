@@ -18,8 +18,11 @@ type inboxSeatsOutput struct {
 	Seats []inboxSeat `json:"seats"`
 	// Unavailable counts the seats whose inbox couldn't be read; they acknowledged
 	// nothing and aren't named, since a refusal may come from a board they can't see.
-	Unavailable int     `json:"unavailable"`
-	Bundle      *string `json:"bundle"`
+	Unavailable int `json:"unavailable"`
+	// Unacknowledged counts the seats whose messages were shown but whose acknowledgement
+	// failed; those messages come again.
+	Unacknowledged int     `json:"unacknowledged"`
+	Bundle         *string `json:"bundle"`
 }
 
 // inboxSeat is one seat's part of the inbox.
@@ -34,6 +37,10 @@ type inboxSeat struct {
 	Wrapped   []string     `json:"wrapped"`
 
 	msgs []api.Message
+	// reader and read are the seat's client and every message its read returned,
+	// which its acknowledgement covers.
+	reader seatReader
+	read   []api.Message
 }
 
 // seatReader is one seat with a client that sends its own token.
@@ -69,21 +76,35 @@ func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds c
 	if wait > 0 {
 		readers = a.waitAnySeat(ctx, readers, wait, &out)
 	}
+	// Every seat is read first, with the daemon holding its deliveries until the end, so
+	// nothing shown here is also handed to the session. A seat whose read fails is only
+	// counted, whatever the reason: it may be a board the person can't see now.
 	var groups []deliverytext.Group
+	var read []*inboxSeat
+	var shown []api.Message
+	var holds []*inboxRead
+	defer func() {
+		for _, rd := range holds {
+			rd.done()
+		}
+	}()
 	for _, r := range readers {
-		in, msgs, acked, err := a.readInbox(ctx, r.c, r.ref, limit, ack, false)
-		if err != nil {
-			// The server refused this seat; one that can't be reached is so for every
-			// seat, since they are all on one server.
-			if code := asError(err).Code; code == "server_unreachable" || code == "sandbox_blocks_network" || code == "internal" {
-				return inboxSeatsOutput{}, err
-			}
+		rd := a.startInboxRead(ctx, r.ref, false)
+		holds = append(holds, rd)
+		params := &api.GetInboxParams{}
+		if limit > 0 {
+			params.Limit = &limit
+		}
+		res, err := r.c.api.GetInboxWithResponse(ctx, params)
+		if err != nil || res.JSON200 == nil {
 			out.Unavailable++
 			continue
 		}
-		seat := inboxSeat{
+		in := res.JSON200
+		msgs := rd.unread(in.Messages)
+		seat := &inboxSeat{
 			Server: r.ref.Server, Board: in.Board, Agent: in.Agent, MemberID: r.cred.MemberID,
-			Messages: cliMessages(msgs), AckedUpTo: acked, More: in.More, Wrapped: []string{}, msgs: msgs,
+			Messages: cliMessages(msgs), More: in.More, Wrapped: []string{}, msgs: msgs, reader: r, read: in.Messages,
 		}
 		if in.MemberId != nil {
 			seat.MemberID = *in.MemberId
@@ -93,11 +114,32 @@ func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds c
 			seat.Wrapped = append(seat.Wrapped, deliveryText(m))
 			tms = append(tms, textMessage(m))
 		}
+		shown = append(shown, msgs...)
 		groups = append(groups, deliverytext.Group{Board: in.Board, Messages: tms})
-		out.Seats = append(out.Seats, seat)
+		read = append(read, seat)
+	}
+	// Then each seat read is acknowledged up to the last message it read. One whose
+	// acknowledgement fails is still shown; its messages come again.
+	for _, seat := range read {
+		if ack && len(seat.read) > 0 {
+			upTo := seat.read[len(seat.read)-1].Seq
+			res, err := seat.reader.c.api.AckInboxWithResponse(ctx, &api.AckInboxParams{}, api.AckInboxJSONRequestBody{UpTo: upTo})
+			if err == nil && res.JSON200 != nil {
+				seat.AckedUpTo = &res.JSON200.Cursor
+			} else {
+				out.Unacknowledged++
+			}
+		}
+		out.Seats = append(out.Seats, *seat)
 	}
 	if b := deliverytext.Bundles(groups); b != "" {
 		out.Bundle = &b
+	}
+	if len(read) == 0 && len(readers) > 0 && len(shown) == 0 {
+		// Nothing could be read at all: say why, as a single-seat inbox would.
+		if _, err := readers[0].c.api.GetInboxWithResponse(ctx, &api.GetInboxParams{Limit: ptrTo(1)}); err != nil {
+			return inboxSeatsOutput{}, readers[0].c.unreachable(err)
+		}
 	}
 	return out, nil
 }
@@ -162,6 +204,9 @@ func inboxSeatsText(out inboxSeatsOutput) string {
 	}
 	if out.Unavailable > 0 {
 		fmt.Fprintf(&b, "%s couldn't be read; aboard status says which.\n", counted(out.Unavailable, "seat"))
+	}
+	if out.Unacknowledged > 0 {
+		fmt.Fprintf(&b, "%s couldn't be marked read; their messages will come again.\n", counted(out.Unacknowledged, "seat"))
 	}
 	return b.String()
 }

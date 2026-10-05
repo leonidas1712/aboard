@@ -1192,7 +1192,11 @@ $defs:
       returns once any seat has a message; --peek acknowledges nothing. A seat whose
       read is refused (its board gone, the seat removed, its token refused) is left out
       and acknowledges nothing, and is counted in unavailable without naming its board;
-      aboard status says which. With --board, or with one seat, the output is
+      aboard status says which. Every seat is read before any is acknowledged, and every
+      seat read is shown, even when another seat's read or acknowledgement fails; a seat
+      whose acknowledgement fails is counted in unacknowledged and its messages come
+      again. It fails as a whole (exit 1) only when no seat could be read and the server
+      can't be reached. With --board, or with one seat, the output is
       InboxOutput, unchanged. Text output is one block per seat, each starting with its
       "<board> · <count>" header line, and the wrapped messages carry seat (DeliveryText).
     type: object
@@ -1219,7 +1223,14 @@ $defs:
       unavailable:
         type: integer
         minimum: 0
-        description: Seats whose inbox couldn't be read; nothing was acknowledged for them.
+        description: Seats whose inbox couldn't be read, whatever the reason (a refusal, or the server unreachable); nothing was acknowledged for them, and they aren't named.
+      unacknowledged:
+        type: integer
+        minimum: 0
+        description: |
+          Seats whose messages are shown but whose acknowledgement failed; those messages
+          come again. Every seat that was read is shown, whatever happens to another
+          seat's read or acknowledgement.
       bundle:
         type: [string, "null"]
         description: Every seat's messages as one delivery, one block per board (spec/delivery.md, "A session with several seats"). Null when there are none.

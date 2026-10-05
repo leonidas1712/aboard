@@ -46,14 +46,8 @@ func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target
 	}
 	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
 	if name != "" {
-		// In a session with several seats, naming the agent doesn't pick the board:
-		// --board does, and board_ambiguous comes before agent_ambiguous.
-		if key, ok := a.sessionKey(); ok && boardFlag == "" {
-			if seats, err := a.sessionAgents(ctx, key); err == nil {
-				if err := boardAmbiguous(seats, boardFlag); err != nil {
-					return target{}, agentCredential{}, err
-				}
-			}
+		if err := a.oneSeat(ctx, boardFlag); err != nil {
+			return target{}, agentCredential{}, err
 		}
 		return a.agentByName(creds, name, boardFlag)
 	}
@@ -69,6 +63,22 @@ func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target
 	}
 	cred, err := resolveAgent("", "", creds, t)
 	return t, cred, err
+}
+
+// oneSeat refuses, with board_ambiguous, a command that acts on one board as an agent
+// it names (--as or ABOARD_AGENT) in a session with several seats and no --board:
+// naming the agent doesn't pick the board, --board does. It comes before
+// agent_ambiguous. Every entrypoint that acts as a named agent calls it.
+func (a *app) oneSeat(ctx context.Context, boardFlag string) error {
+	key, ok := a.sessionKey()
+	if !ok || boardFlag != "" {
+		return nil
+	}
+	seats, err := a.sessionAgents(ctx, key)
+	if err != nil {
+		return err // fail closed: the session's seats decide, so they must be known
+	}
+	return boardAmbiguous(seats, boardFlag)
 }
 
 // agentByName finds this machine's agent with a name. A name on several boards is

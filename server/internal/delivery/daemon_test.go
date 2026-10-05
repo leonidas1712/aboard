@@ -44,10 +44,12 @@ type rig struct {
 	journal *sqlitejournal.Journal
 	tickets launchtickets.Dir
 	seats   delivery.Seats
-	cancel  context.CancelFunc
-	done    chan error
 	resolve func(context.Context, delivery.AgentRef) (delivery.AgentRef, error)
-	remote  delivery.Server
+	// configure, when set, changes the daemon's config before each start.
+	configure func(*delivery.Config)
+	cancel    context.CancelFunc
+	done      chan error
+	remote    delivery.Server
 }
 
 func newRig(t *testing.T) *rig {
@@ -94,6 +96,9 @@ func (r *rig) start() {
 		},
 		Control: r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
 		Tickets: r.tickets, Seats: r.seats,
+	}
+	if r.configure != nil {
+		r.configure(&cfg)
 	}
 	go func() { r.done <- delivery.Run(ctx, cfg) }()
 }
