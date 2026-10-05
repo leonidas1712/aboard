@@ -9,10 +9,11 @@ import (
 
 // agentCredential is one agent's token on one board of one server.
 type agentCredential struct {
-	Server string `json:"server"`
-	Board  string `json:"board"`
-	Name   string `json:"name"`
-	Token  string `json:"token"`
+	Server   string `json:"server"`
+	MemberID string `json:"member_id,omitempty"`
+	Board    string `json:"board"`
+	Name     string `json:"name"`
+	Token    string `json:"token"`
 }
 
 // credentials is the content of credentials.json.

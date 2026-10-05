@@ -65,6 +65,12 @@ const (
 	OpHello = "hello"
 	// OpGoodbye, sent on an extension connection, reports the session closed.
 	OpGoodbye = "goodbye"
+	// OpBoards lists the boards the session's person can see on a server, through the
+	// machine's delegation, marking the session's seat on each.
+	OpBoards = "boards"
+	// OpJoin gives the session a seat on a board through the machine's delegation: the
+	// server decides whether it is a new seat or the session's earlier one.
+	OpJoin = "join"
 )
 
 // Events sent back on a waiting connection.
@@ -124,6 +130,11 @@ type Request struct {
 	// Launch is a launch ticket from ABOARD_LAUNCH, on a register or a hello: the daemon
 	// binds the session to the agent the ticket names, once.
 	Launch string `json:"launch,omitempty"`
+	// Server is the server an OpBoards lists boards on; empty means the server of the
+	// session's seats.
+	Server string `json:"server,omitempty"`
+	// Role is the role an OpJoin joins as; empty means member.
+	Role string `json:"role,omitempty"`
 }
 
 // Key returns the session the request is about.
@@ -166,8 +177,28 @@ type Response struct {
 	Claimed []int `json:"claimed,omitempty"`
 	// Received, in answer to OpInbox, are the agent's messages past its read position
 	// that a session here has received; a command reading the inbox leaves them out.
-	Received []int      `json:"received,omitempty"`
-	Error    *WireError `json:"error,omitempty"`
+	Received []int `json:"received,omitempty"`
+	// Joined, in answer to OpJoin, is the seat the session has on the board now; Reused
+	// says it is the session's earlier seat. Board and Member are the server's Board and
+	// Member for it, as the API gives them.
+	Joined *SeatRef        `json:"joined,omitempty"`
+	Reused bool            `json:"reused,omitempty"`
+	Board  json.RawMessage `json:"board,omitempty"`
+	Member json.RawMessage `json:"member,omitempty"`
+	// Server and Boards, in answer to OpBoards, are the boards the session's person can
+	// see on that server, each the API's Board with seat, the session's seat on it.
+	Server string            `json:"server,omitempty"`
+	Boards []json.RawMessage `json:"boards,omitempty"`
+	Error  *WireError        `json:"error,omitempty"`
+}
+
+// SeatRef names a seat: an agent on one board, keyed by its server and member id. Board
+// and Name are for display.
+type SeatRef struct {
+	Server   string `json:"server"`
+	Board    string `json:"board"`
+	Name     string `json:"name"`
+	MemberID string `json:"member_id,omitempty"`
 }
 
 // WireError is an error reported over the control socket, in the shape the CLI prints.
@@ -175,6 +206,9 @@ type WireError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Hint    string `json:"hint"`
+	// Details is structured context passed on from a server's refusal, such as
+	// agent_removed's agent, removed_at and removed_by.
+	Details map[string]any `json:"details,omitempty"`
 }
 
 func (e *WireError) Error() string { return e.Code + ": " + e.Message }
@@ -201,9 +235,11 @@ type Status struct {
 	Skipped      []StatusItem   `json:"skipped"`
 	// Stalled are deliveries handed to an idle session that started no turn within
 	// StallAfter, reason no_turn_started. They aren't handed again.
-	Stalled  []StatusItem    `json:"stalled"`
-	Agents   []AgentProblem  `json:"agents"`
-	Bindings []BindingStatus `json:"bindings"`
+	Stalled []StatusItem `json:"stalled"`
+	// MultiSeat says this daemon binds several seats to a session; it doesn't yet.
+	MultiSeat bool            `json:"multi_seat,omitempty"`
+	Agents    []AgentProblem  `json:"agents"`
+	Bindings  []BindingStatus `json:"bindings"`
 }
 
 // ServerStatus is one server connection.

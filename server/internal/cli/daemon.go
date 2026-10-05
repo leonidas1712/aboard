@@ -119,6 +119,7 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 		PID:       pid,
 		Build:     currentBuild(),
 		Tickets:   launchtickets.Dir(p.launches()),
+		Seats:     newDaemonSeats(a),
 	})
 	log.Info("delivery daemon stopped", "error", errText(err))
 	if err != nil {

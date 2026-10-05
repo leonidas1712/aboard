@@ -266,7 +266,7 @@ through its delegation for that server ("The machine's delegation"), and marks t
 session's seat on each. It answers only for a session it has registered or its harness
 adapter confirms, as for `agents`, and never for a subagent.
 
-```json-planned
+```json
 {"v":1,"op":"boards","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","server":"https://team.example.com"}
 {"v":1,"server":"https://team.example.com","boards":[{"name":"payments-design","visibility":"open","on_board":true,"people_count":3,"agent_count":3,"seat":{"server":"https://team.example.com","board":"payments-design","name":"claude","member_id":"mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W"}},{"name":"incident-42","visibility":"private","on_board":true,"people_count":2,"agent_count":1}]}
 ```

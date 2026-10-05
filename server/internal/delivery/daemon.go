@@ -40,6 +40,9 @@ type Config struct {
 	// Tickets holds the launch tickets aboard swarm up writes. Nil means a launch
 	// ticket binds nothing.
 	Tickets Tickets
+	// Seats lists and joins boards for sessions through the machine's delegation
+	// (seats.go). Nil means the boards and join operations refuse.
+	Seats Seats
 }
 
 // harnessCallTimeout bounds one call into a harness, such as one codex queue run.
@@ -77,6 +80,9 @@ type Daemon struct {
 	stalled map[int64]StatusItem
 	// openChanged fires when a session opens or closes.
 	openChanged chan struct{}
+	// joining holds one turn per server, session and board, so joins for one seat
+	// never race (seats.go).
+	joining map[string]chan struct{}
 }
 
 // Run runs the daemon until ctx ends or it has had no open session for IdleExit.
@@ -589,6 +595,10 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveInbox(ctx, conn, r, req)
 	case OpHello:
 		d.serveExtension(ctx, conn, r, req)
+	case OpBoards:
+		_ = WriteFrame(conn, d.serveBoards(ctx, req))
+	case OpJoin:
+		_ = WriteFrame(conn, d.serveJoin(ctx, req))
 	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
