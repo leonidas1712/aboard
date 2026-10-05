@@ -110,6 +110,14 @@ ONLY allowed scope for v0.1.
     so instead of switching it under someone else's work. `scripts/land-pr <number>`
     lands a PR this way ([engineering/release.md](engineering/release.md#landing-a-pull-request)).
 
+## Lead with what you need from the maintainer
+
+When a long task is done, or you're stuck and need the maintainer to do something, list
+what you need from them at the very top of your reply, before any summary. One thing per
+item, numbered. Spell out what to do, where, and what to send back when it's done (for
+example: "Merge #108 once CI is green, then reply go"). Whatever blocks you most goes
+first. If you need nothing, say so in one line.
+
 ## Repository layout
 
 ```
@@ -159,6 +167,7 @@ PRODUCT.md, DESIGN.md  design records used for UI work (with .impeccable/design.
 
 Read the relevant guide before writing that kind of thing; they override habit.
 
+- [.agents/skills/aboard-workflow](.agents/skills/aboard-workflow/SKILL.md): how work on this repo goes: orienting, thinking ideas through, planning and decisions, building and reviewing a slice, reporting, and working with other agents on a board. Claude Code finds it through `.claude/skills/`.
 - [engineering/architecture.md](engineering/architecture.md): domain, ports and adapters; dependencies point inward.
 - [engineering/go.md](engineering/go.md): how we write Go, and what `make check` runs.
 - [engineering/testing.md](engineering/testing.md): be intentional about tests: contract suites for every adapter, e2e and live tests for real features, unit tests only where they earn it; no mocks of our own code, no sleeps, no skipped flakes.
