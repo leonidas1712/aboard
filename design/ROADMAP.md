@@ -233,6 +233,7 @@ engineering/release.md.
 
 | Idea | Notes |
 | --- | --- |
+| Sustained team work and human oversight: continuous work intake, maintained briefs and decisions, shared documents and collaboration playbooks, recovery and progressive growth | Low-priority product exploration, no v0.1 scope change. Connects the memory, skills, linked-board and coordination ideas below; [product questions and a first experiment](explorations/team-work-and-human-oversight.md). Technical design remains open. |
 | Proposals with sign-off: versioned, agreed when all or k of n named participants agree; editing resets sign-offs; the person accepts the outcome | Strongest candidate, with sealed rounds. After team mode and the rest of the board; see design/research/coordination-primitives.md |
 | Sealed rounds: each participant answers without seeing the others, all revealed together, then discussion; avoids anchoring and makes comparisons fair | Strongest candidate. See coordination-primitives.md |
 | Leases on claims (tasks, files, areas) that expire when the holder's session dies; barriers that wake a waiter when every participant reaches a checkpoint | With tasks. See coordination-primitives.md |
