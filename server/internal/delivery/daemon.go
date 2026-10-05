@@ -582,6 +582,10 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 			"Install the same aboard as the running daemon, or run aboard down so this one starts its own."))
 		return
 	}
+	if req.Agent != nil {
+		agent := req.Agent.byName()
+		req.Agent = &agent
+	}
 	switch req.Op {
 	case OpStatus:
 		_ = WriteFrame(conn, d.status(ctx))
@@ -619,6 +623,10 @@ func sessionUnknown(key SessionKey) Response {
 
 // call routes one request to its session and returns the session's answer.
 func (d *Daemon) call(ctx context.Context, req Request) Response {
+	if req.Agent != nil {
+		agent := req.Agent.byName()
+		req.Agent = &agent
+	}
 	ad, ok := d.adapters[req.Harness]
 	if !ok || req.Session == "" {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),

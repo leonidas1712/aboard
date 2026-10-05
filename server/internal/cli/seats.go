@@ -53,12 +53,21 @@ func (s *daemonSeats) Save(_ context.Context, seat delivery.SeatRef, token strin
 	return s.a.saveCredential(agentCredential{Server: seat.Server, MemberID: seat.MemberID, Board: seat.Board, Name: seat.Name, Token: token})
 }
 
-// SeatID returns the member id credentials.json keeps for an agent.
+// SeatID returns the agent's member id when credentials.json keeps that exact seat on
+// its server. It never finds a seat by board and name: two seats can share a name over
+// time.
 func (s *daemonSeats) SeatID(agent delivery.AgentRef) (string, bool) {
+	if agent.MemberID == "" {
+		return "", false
+	}
 	creds, err := s.a.readCredentials()
 	if err != nil {
 		return "", false
 	}
-	c, ok := creds.find(agent.Server, agent.Board, agent.Name)
-	return c.MemberID, ok && c.MemberID != ""
+	for _, c := range creds.Agents {
+		if c.Server == agent.Server && c.MemberID == agent.MemberID {
+			return c.MemberID, true
+		}
+	}
+	return "", false
 }

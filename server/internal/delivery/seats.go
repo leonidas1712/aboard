@@ -210,14 +210,14 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		return errorResponse("internal", "Couldn't save the seat's token: "+err.Error(),
 			"Check that this machine's aboard config folder is writable, then run the join again.")
 	}
-	agent := AgentRef{Server: grant.Seat.Server, Board: grant.Seat.Board, Name: grant.Seat.Name}
+	agent := grantAgent(grant)
 	bound := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent, Process: req.Process})
 	if bound.Error != nil {
 		return bound
 	}
 	mode := grant.Mode
 	if mode == "" {
-		mode = d.mode(agent)
+		mode = d.mode(agent.byName())
 	}
 	seat := grant.Seat
 	d.log.Info("session joined a board through the delegation", "session", req.Key().String(), "board", seat.Board,
@@ -226,6 +226,12 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		V: ProtocolVersion, Joined: &seat, Reused: grant.Reused, Board: grant.Board, Member: grant.Member,
 		Mode: mode, Previous: bound.Previous,
 	}
+}
+
+// grantAgent is the seat a join is bound as: by its member id, with its board and name
+// for display.
+func grantAgent(g SeatGrant) AgentRef {
+	return AgentRef{Server: g.Seat.Server, Board: g.Seat.Board, Name: g.Seat.Name, MemberID: g.Seat.MemberID}
 }
 
 // joinTurn waits for the turn to join for key, and returns what ends it.
