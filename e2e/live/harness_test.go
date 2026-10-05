@@ -616,6 +616,24 @@ func (l *lab) codexHookRunners(event string) []int {
 	return pids
 }
 
+// codexTurnOpen reports whether a Codex turn in the lab has started and not yet ended:
+// the hooks log has more prompt events than stop events. The log is the lab's, so a turn
+// in any of its Codex sessions counts.
+func (l *lab) codexTurnOpen() bool {
+	raw, _ := os.ReadFile(l.codexHookLog())
+	open := 0
+	for _, line := range strings.Split(string(raw), "\n") {
+		switch f := strings.Fields(line); {
+		case len(f) == 0:
+		case f[0] == "prompt":
+			open++
+		case f[0] == "stop" && open > 0:
+			open--
+		}
+	}
+	return open > 0
+}
+
 // codexHooksRan reports whether each event's hook has run at least once.
 func (l *lab) codexHooksRan(events ...string) bool {
 	raw, _ := os.ReadFile(l.codexHookLog())
