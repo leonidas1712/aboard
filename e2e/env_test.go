@@ -244,6 +244,7 @@ func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state")
 
 // stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
+	var stopped []int
 	for _, pidFile := range []string{
 		filepath.Join(e.dataDir(), "server.pid"),
 		filepath.Join(e.stateDir(), "daemon.pid"),
@@ -252,9 +253,18 @@ func (e *env) stopServer() {
 		if err != nil {
 			continue
 		}
-		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil {
-			_ = syscall.Kill(pid, syscall.SIGTERM)
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil && pid > 1 {
+			if err := syscall.Kill(pid, syscall.SIGTERM); err == nil {
+				stopped = append(stopped, pid)
+			}
 		}
+	}
+	// The background processes can still write after SIGTERM. Wait for exit before
+	// TempDir removes their files, rather than relying on a CLI's exit delay.
+	for _, pid := range stopped {
+		eventually(e.t, 5*time.Second, fmt.Sprintf("background process %d to exit", pid), func() bool {
+			return errors.Is(syscall.Kill(pid, 0), syscall.ESRCH)
+		})
 	}
 }
 
