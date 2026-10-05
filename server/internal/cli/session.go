@@ -121,6 +121,9 @@ func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.
 	if err != nil {
 		return target{}, agentCredential{}, false, err
 	}
+	if err := boardAmbiguous(agents, boardFlag); err != nil {
+		return target{}, agentCredential{}, false, err
+	}
 	var matching []delivery.AgentRef
 	for _, ag := range agents {
 		if boardFlag == "" || ag.Board == boardFlag {

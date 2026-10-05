@@ -62,13 +62,16 @@ func TestBoardsListsWhatEachPersonCanSee(t *testing.T) {
 	}
 }
 
-// Inside an agent's session, boards lists only that agent's board, with its own token.
-func TestBoardsInAnAgentsSessionListsItsOwnBoard(t *testing.T) {
+// Inside an agent's session, boards lists every board the person can see, through the
+// machine's delegation, marking the session's seat; --as still lists only that agent's
+// board, with its own token.
+func TestBoardsInAnAgentsSessionListsThePersonsBoards(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	maya := tm.person("maya")
 	first := tm.newBoard(maya, "private")
-	tm.newBoard(maya, "open")
+	second := tm.newBoard(maya, "open")
+	hidden := tm.newBoard(tm.admin, "private")
 	tm.link(maya, first)
 	s := maya.claudeSession("s-boards")
 	s.run("join", field(t, maya.run("invite", "--json").json(t), "join_line").(string))
@@ -78,15 +81,25 @@ func TestBoardsInAnAgentsSessionListsItsOwnBoard(t *testing.T) {
 	}
 	out := r.json(t)
 	matchesCLISpec(t, "BoardsOutput", out)
-	if out["as"] != "claude" || len(out["boards"].([]any)) != 1 || field(t, out, "boards.0.name") != first || field(t, out, "boards.0.role") != nil {
-		t.Fatalf("an agent's boards: %v", out)
+	rows := map[string]map[string]any{}
+	for _, b := range out["boards"].([]any) {
+		row := b.(map[string]any)
+		rows[row["name"].(string)] = row
+	}
+	if out["as"] != nil || out["session"] != "claude-code:s-boards" || rows[hidden] != nil ||
+		rows[first]["seat"] != "claude" || rows[second] == nil || rows[second]["seat"] != nil {
+		t.Fatalf("a session's boards: %v", out)
 	}
 	text := s.e.exec(s.vars, "", "boards")
-	if !strings.HasPrefix(text.stdout, "Boards of agent claude on "+tm.url()+": an agent sees only its own board.\n") {
-		t.Fatalf("an agent's boards, as text:\n%s", text)
+	if !strings.Contains(text.stdout, "you're claude here") {
+		t.Fatalf("a session's boards, as text:\n%s", text)
 	}
-	if r := s.e.exec(s.vars, "", "boards", "--all", "--json"); r.code != 2 {
-		t.Fatalf("--all in a session:\n%s", r)
+	as := s.e.exec(s.vars, "", "boards", "--as", "claude", "--json")
+	if as.code != 0 || as.json(t)["as"] != "claude" || len(as.json(t)["boards"].([]any)) != 1 {
+		t.Fatalf("boards --as in a session:\n%s", as)
+	}
+	if r := s.e.exec(s.vars, "", "boards", "--as", "claude", "--all", "--json"); r.code != 2 {
+		t.Fatalf("--all with --as:\n%s", r)
 	}
 }
 

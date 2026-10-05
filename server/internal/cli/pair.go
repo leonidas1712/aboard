@@ -86,7 +86,9 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	board := created.JSON201.Name
 
-	joined, err := c.join(ctx, api.JoinRequest{Board: &board, Role: &f.Pair[0], Name: optional(*agentName), Harness: harnessOf(session, inSession, "")})
+	joined, err := c.join(ctx, api.JoinRequest{
+		Board: &board, Role: &f.Pair[0], Name: optional(*agentName), Harness: harnessOf(session, inSession, ""), Session: sessionParam(session, inSession),
+	})
 	if err != nil {
 		return err
 	}
@@ -211,9 +213,24 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("join")
 	agentName := fs.String("name", "", "name of the new agent")
 	harness := fs.String("harness", "", "the program running this session, such as claude-code or codex")
-	pos, err := a.parse(fs, args, use, 1, -1)
+	boardFlag := fs.String("board", "", "join this board by name, through this machine's delegation")
+	role := fs.String("role", "", "with --board: the role to join as")
+	serverFlag := fs.String("server", "", "with --board: the board's server")
+	pos, err := a.parse(fs, args, use, 0, -1)
 	if err != nil {
 		return err
+	}
+	if *boardFlag != "" {
+		if len(pos) > 0 {
+			return usageError("Give a join line or --board, not both.", use)
+		}
+		return runJoinBoard(ctx, a, *boardFlag, *role, *agentName, *serverFlag)
+	}
+	if len(pos) == 0 {
+		return usageError("Missing arguments.", use)
+	}
+	if *role != "" || *serverFlag != "" {
+		return usageError("--role and --server work only with --board; a join line names its role and server.", use)
 	}
 	srv, code, guest, err := a.joinTarget(strings.Join(pos, " "))
 	if err != nil {
@@ -248,7 +265,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 			Code: code, KeyName: machineName(), Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness),
 		})
 	} else {
-		joined, err = c.join(ctx, api.JoinRequest{Code: &code, Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness)})
+		joined, err = c.join(ctx, api.JoinRequest{Code: &code, Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness), Session: sessionParam(session, inSession)})
 	}
 	if err != nil {
 		return err
