@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -221,7 +222,10 @@ func (t daemonTokens) ResolveAgent(ctx context.Context, agent delivery.AgentRef)
 		return delivery.AgentRef{}, c.unreachable(err)
 	}
 	if r.JSON200 == nil {
-		return denied()
+		if r.StatusCode() == http.StatusUnauthorized || r.StatusCode() == http.StatusForbidden {
+			return denied()
+		}
+		return delivery.AgentRef{}, apiError(r.StatusCode(), r.Body)
 	}
 	me := r.JSON200
 	if me.Kind != api.MeKindAgent || !strings.HasPrefix(me.Id, "mem_") || me.Board == nil ||

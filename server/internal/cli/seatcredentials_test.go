@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync/atomic"
 	"testing"
 
@@ -276,5 +279,44 @@ func TestLegacyBackfillSurvivesRestartAndSameNameReplacement(t *testing.T) {
 	ref, err = (daemonTokens{restarted}).ResolveAgent(t.Context(), old)
 	if err != nil || ref.MemberID != "mem_old" {
 		t.Fatalf("legacy proof lost across own-id rotation: %+v %v", ref, err)
+	}
+}
+
+func TestAnUnavailableIdentityServerDoesNotEndASavedSeat(t *testing.T) {
+	for _, id := range []string{"", "mem_old"} {
+		t.Run("member_id="+id, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"error":{"code":"server_unavailable","message":"Try again.","hint":"Try later."}}`))
+			}))
+			defer srv.Close()
+			a := seatApp(t)
+			if err := a.saveCredential(agentCredential{Server: srv.URL, Board: "docs", Name: "writer", MemberID: id, Token: "aba_old"}); err != nil {
+				t.Fatal(err)
+			}
+			p, err := a.paths()
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.ReadFile(p.credentials())
+			if err != nil {
+				t.Fatal(err)
+			}
+			ref, err := (daemonTokens{a}).ResolveAgent(t.Context(), delivery.AgentRef{Server: srv.URL, Board: "docs", Name: "writer", MemberID: id})
+			if err == nil || errors.Is(err, delivery.ErrUnauthorized) {
+				t.Fatalf("temporary outage classified as ended identity: %+v %v", ref, err)
+			}
+			if ref.MemberID != "" {
+				t.Fatal("temporary outage inferred identity")
+			}
+			after, err := os.ReadFile(p.credentials())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(before, after) {
+				t.Fatal("temporary outage changed credentials")
+			}
+		})
 	}
 }
