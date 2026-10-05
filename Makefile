@@ -165,11 +165,11 @@ DOCS_HELP = go run ./server/cmd/aboard help --json
 
 ## docs-cli: write the docs' CLI reference and API spec copy from aboard help and spec/openapi.yaml
 docs-cli:
-	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli; 	cp spec/openapi.yaml docs/api-reference/openapi.yaml
+	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli || exit 1; 	cp spec/openapi.yaml docs/api-reference/openapi.yaml
 
 ## docs-check: fail if the docs' CLI reference or API spec copy is out of date
 docs-check:
-	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli -check; 	if ! cmp -s spec/openapi.yaml docs/api-reference/openapi.yaml; then 		echo "docs/api-reference/openapi.yaml differs from spec/openapi.yaml: run make docs-cli"; exit 1; 	fi
+	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli -check || exit 1; 	if ! cmp -s spec/openapi.yaml docs/api-reference/openapi.yaml; then 		echo "docs/api-reference/openapi.yaml differs from spec/openapi.yaml: run make docs-cli"; exit 1; 	fi
 
 # The Mintlify CLI needs Node 20.17 or later and the network on first use. It runs from
 # docs/node_modules (npm ci there), never a global install. Not part of make check.
