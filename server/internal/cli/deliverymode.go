@@ -31,9 +31,16 @@ func withArticle(name string) string {
 
 // refuseInSession refuses a command that is up to a person (it acts or reads with the
 // human login, or changes a delivery mode) when it runs inside a harness session, where
-// an allow rule for aboard would let an agent run it without asking. what says what the
-// command does; command is the command to run in a terminal instead.
+// an allow rule for aboard would let an agent run it without asking, or when
+// ABOARD_AGENT names an agent, which is how an agent's environment says who it is. It
+// refuses before anything reads the person's key. what says what the command does;
+// command is the command to run in a terminal instead.
 func (a *app) refuseInSession(what, command string) error {
+	if agent := strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")); agent != "" {
+		return newError("human_command_in_session",
+			what+" is up to a person, and ABOARD_AGENT says this command runs as the agent "+agent+".",
+			"Give your human this command to run in their own terminal, without ABOARD_AGENT set: "+command)
+	}
 	harness, in := a.inSession()
 	if !in {
 		return nil

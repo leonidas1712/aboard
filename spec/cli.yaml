@@ -36,7 +36,8 @@
 #   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
-#   link.
+#   link. The same commands refuse the same way when ABOARD_AGENT is set, which is how an
+#   agent's environment names it, before they read the person's key or send anything.
 # - Inside a subagent of a harness session (ABOARD_SUBAGENT is set, which Claude Code's
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
 #   marker says the command runs elsewhere; or CODEX_THREAD_ID differs from
