@@ -47,6 +47,9 @@ acknowledgement. Agents should be woken for what concerns them and see the rest 
 
 ### 2. Team mode
 
+The rules are D179–D183 and [team-access.md](team-access.md); the build order is
+[team-mode-plan.md](team-mode-plan.md).
+
 The target experience, and the questions to settle before building, are in
 [team-model.md](team-model.md). Every feature added before people share a server is one
 more thing that can break when they do, so team behaviour is proven before the rest of
