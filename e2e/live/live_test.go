@@ -1063,6 +1063,10 @@ type pane struct {
 	// sock and session are the tmux server and session the pane is in: the lab's own
 	// ("live"), unless aboard swarm up's tmux launcher started it in the swarm's.
 	sock, session string
+	// codexSubmitted is set while a prompt the driver submitted to Codex hasn't reached
+	// a stop event; codexStopsAtSubmit is the pane's count of stop events before it.
+	codexSubmitted     bool
+	codexStopsAtSubmit int
 }
 
 // driverFor returns the driver of the harness whose command is name.

@@ -1,0 +1,39 @@
+---
+title: "aboard status"
+description: "Show the server, daemon, setup, board and agent in use."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard status [--as AGENT] [--board NAME] [--launch TICKET] [--json]
+```
+
+Shows whether the local server and the delivery daemon run, where aboard init installed hooks, which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, and the board's policy.
+
+It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.
+
+A session aboard swarm up starts with its launch ticket in its first prompt (Codex) is asked to run it with `--launch`, which seats the session as its agent if its hooks haven't already.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--as AGENT` | Check this agent. |
+| `--board NAME` | Check this board. |
+| `--launch TICKET` | Hand in the launch ticket a session's first prompt gave, so the session takes its seat. It works once. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# What commands here would use
+aboard status
+
+# One agent's board, delivery mode and presence
+aboard status --as reviewer
+```
+
+## See also
+
+[`aboard doctor`](/cli/doctor), [`aboard delivery`](/cli/delivery)
