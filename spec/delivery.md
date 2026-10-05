@@ -336,13 +336,86 @@ bundle, never by its text, so another agent's message never arrives as an owner 
 on two boards: the same message number on both boards acknowledged apart, mixed modes,
 and the cases listed for slice 5a in design/team-mode-plan.md.
 
+### Combined handoff state
+
+This state is local delivery bookkeeping, not a board event or a new agent identity.
+It applies to every several-seat handoff: idle delivery, an owner batch at a tool
+boundary and next-turn catch-up. The extension wire fields are specified in
+[control.md](control.md#combined-handoffs).
+
+**Binding generation.** The journal assigns a durable generation to a seat's binding.
+Its key remains `(server, member_id)`. A generation is never reused for that seat.
+An idempotent bind to the same session with the same credential preserves it; a
+verified metadata rename also preserves it. A move to another session, replacement
+of the seat on a board, or replacement of its credential advances it before any new
+handoff. Credential rotation for a reused seat does not change its identity, history
+or read position, but it fences callbacks from the earlier credential. Re-registering
+the same session retains the generation; a changed process has a new session boot.
+A legacy binding receives a generation during migration after its own token proves
+its member id. Unresolved legacy state is never assigned to a same-name replacement.
+
+**Preparing.** Before exposing any combined text, one journal transaction stores its
+new handoff id, session and boot, each admitted seat's server, board, member id,
+binding generation and exact message numbers, its delivery rows, payload class and
+SHA-256 of the complete rendered payload. Rendering includes seat and board hints,
+notes, digest choices and other wrapper text. The admitted allocation and ordering
+are frozen: the result of rotation and shared-space selection is part of this exact
+payload, but no rotation metadata is added to the text. A retry does not run fair
+selection again for an existing handoff. No body or token is stored. Preparation
+failure hands nothing and advances no read position; partial preparation is not a
+valid handoff. Messages omitted for space have no received evidence.
+
+The manifest is immutable. Re-rendering may reuse its id only when the payload hash
+and every manifest field match. A change in content, formatting, membership, class,
+binding or boot creates a new id. After a reconnect or restart the daemon fetches
+bodies with the seat's own token and checks this hash before reusing the id. If it
+cannot reconstruct exactly, it prepares a new handoff for the still-undelivered
+messages; the old id cannot confirm that new handoff. This is at-least-once delivery,
+so an unconfirmed earlier handoff can be shown again under a new id.
+
+**Confirming.** Harness acceptance and receipt evidence keep their existing meanings
+for each adapter. Receipt evidence confirms only the manifest handed to that session
+and boot, and only parts whose locally verified binding generation still matches
+and whose seat has no known terminal state. This local check cannot be atomic with
+remote revocation. A single journal transaction persists confirmation for the matching
+surviving parts before any server acknowledgement is attempted. The server
+rechecks each seat's current authority inside its acknowledgement transaction and is
+the final authority on its read position. No cross-server transaction is needed.
+Failure to persist confirmation advances nothing. A late response cannot change the generation or
+revive a stopped seat. The remaining parts are never re-sent merely because one
+seat ended or its acknowledgement failed.
+
+**Recovery.** A persisted confirmed part is acknowledged independently, using its
+seat's token and contiguous received or skipped prefix, without re-handing its
+payload. Credential rotation does not erase durable received evidence: an outstanding
+acknowledgement may use the verified new token for the same server and member id.
+Generation checks fence stale callbacks, not already persisted confirmation. Rotation
+alone never causes a confirmed part to be delivered again. Network uncertainty keeps
+the durable received evidence and retries the acknowledgement; it does not erase
+acceptance or manufacture authority to move the server's cursor. A prepared or handed part lacking durable confirmation follows today's
+adapter recovery rules, subject to its recorded boot and generation. A confirmed
+part whose seat ended is left terminal and is not acknowledged with another seat's
+credential. Unknown old handoff ids, stale extension connections and callbacks from
+an older boot or binding give no receipt evidence. No maximum message number is
+taken across boards.
+
+**Acceptance.** In addition to the several-seat delivery cases in the team-mode plan,
+tests cover an unknown extension capability; a legacy extension reconnecting to a
+session with several bindings; a disconnected extension attempting a second join;
+confirmation-write failure producing no acknowledgement; and rotation after durable
+confirmation but before acknowledgement, with the verified new token acknowledging
+the same seat without redelivery. Tests also verify that an existing handoff keeps
+its admitted allocation and ordering when retried, regardless of the next fair
+rotation position.
+
 ## Delivering to each harness
 
 Messages for a session are delivered **in order, as one bundle**, at the first moment the
 session can take them. A bundle holds every unread message for the agent bound to that
-session that its delivery mode lets through (below), up to 32 KiB of text, so it always
-holds one board's messages. Urgent messages come first, in the order they were sent, then
-the rest, oldest first. Anything left over goes in the next bundle.
+session that its delivery mode lets through (below), up to 32 KiB of text. A session
+with one seat always holds one board's messages; several seats share that limit as
+specified above. Urgent messages come first, in the order they were sent, then the
+rest, oldest first. Anything left over goes in the next bundle.
 
 **Messages close together wake once.** The daemon gathers an agent's messages for 2
 seconds (`QueueGather`) from the first one that would wake its session, for every
