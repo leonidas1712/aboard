@@ -173,6 +173,16 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		return errorResponse("invalid_request", "A join request needs the board and its server.", "Send agent.server and agent.board.")
 	}
 	server, board := req.Agent.Server, req.Agent.Board
+	// One join at a time for the session: choosing the server, the server's answer and
+	// the binding happen under this turn, so two first joins can't both pass the
+	// one-server rule, and a reused seat's earlier token, which stops the moment the
+	// server answers, is never rotated by two joins at once. The session's seats are
+	// read only once the turn is held.
+	release, err := d.joinTurn(ctx, req.Key().String())
+	if err != nil {
+		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again; it starts the daemon.")
+	}
+	defer release()
 	agents, werr := d.sessionAgents(ctx, req)
 	if werr != nil {
 		return Response{V: ProtocolVersion, Error: werr}
@@ -186,14 +196,6 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 			return r
 		}
 	}
-	// One join at a time for each server, session and board (the person is the one this
-	// machine holds a key for on the server): a reused seat's earlier token stops the
-	// moment the server answers, so two joins for one seat must not race.
-	release, err := d.joinTurn(ctx, server+"\x00"+req.Key().String()+"\x00"+board)
-	if err != nil {
-		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again; it starts the daemon.")
-	}
-	defer release()
 	grant, err := d.cfg.Seats.Join(ctx, server, SeatRequest{
 		Board: board, Role: req.Role, Name: req.Agent.Name, Harness: req.Harness, Session: req.Key().String(),
 	})

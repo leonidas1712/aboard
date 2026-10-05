@@ -80,7 +80,7 @@ type Daemon struct {
 	stalled map[int64]StatusItem
 	// openChanged fires when a session opens or closes.
 	openChanged chan struct{}
-	// joining holds one turn per server, session and board, so joins for one seat
+	// joining holds one turn per session, so a session's joins, and so joins for one seat,
 	// never race (seats.go).
 	joining map[string]chan struct{}
 }

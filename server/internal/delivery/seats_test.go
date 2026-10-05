@@ -227,6 +227,58 @@ func TestAJoinIsOnlyForAKnownSessionOnItsServer(t *testing.T) {
 	}
 }
 
+// Two first joins from one session to two servers, at once: exactly one gets a seat,
+// the other gets session_on_another_server, and only one seat is bound.
+func TestFirstJoinsToTwoServersAtOnceGiveOneSeat(t *testing.T) {
+	r, f := seatsRig(t)
+	r.register("s1", "b1")
+	f.gate = make(chan struct{})
+	servers := []string{serverURL, "https://team.example.com"}
+	answers := make([]delivery.Response, 2)
+	var wg sync.WaitGroup
+	for i, srv := range servers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			agent := delivery.AgentRef{Server: srv, Board: fmt.Sprintf("board-%d", i)}
+			answers[i] = r.call(delivery.Request{Op: delivery.OpJoin, Harness: "claude-code", Session: "s1", Agent: &agent})
+		}()
+	}
+	// Both joins get as far as they can before the server answers: until both reach
+	// it, or until a poll window shows only one does.
+	window := time.After(500 * time.Millisecond)
+	for waiting := true; waiting; {
+		f.mu.Lock()
+		reached := f.joins
+		f.mu.Unlock()
+		select {
+		case <-window:
+			waiting = false
+		case <-time.After(5 * time.Millisecond): // a poll interval
+			waiting = reached < 2
+		}
+	}
+	close(f.gate)
+	wg.Wait()
+	ok, other := 0, 0
+	for _, a := range answers {
+		switch {
+		case a.Error == nil:
+			ok++
+		case a.Error.Code == "session_on_another_server":
+			other++
+		default:
+			t.Fatalf("join: %+v", a.Error)
+		}
+	}
+	if ok != 1 || other != 1 || f.joins != 1 || len(f.saved) != 1 {
+		t.Fatalf("%d joined, %d refused, %d server joins, saved %v", ok, other, f.joins, f.saved)
+	}
+	if got := r.agentsOf(); len(got) != 1 {
+		t.Fatalf("bound: %v", got)
+	}
+}
+
 // Joins for one session and board run one at a time.
 func TestJoinsForOneSeatTakeTurns(t *testing.T) {
 	r, f := seatsRig(t)
