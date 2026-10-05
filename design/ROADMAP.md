@@ -223,6 +223,25 @@ engineering/release.md.
 | A terminal UI, `aboard tui`: boards, the live timeline with threads, posting and replying, the board panel (agents, add an agent, delivery, title, policy), record checks and a Setup screen | Low priority. A client of the public API like the board view, so every action stays an existing command; refuses inside an agent session; built in steps: read-only view, composing, admin actions, Setup |
 | Coordination primitives to explore: proposals with sign-off, sealed rounds, leases and barriers, and the patterns built on them | Listed under [Ideas](#ideas); see design/research/coordination-primitives.md |
 
+**To scope: decisions, artifacts and work at scale**
+
+From [scale-and-decisions.md](explorations/scale-and-decisions.md). Each needs a scoped
+design and the maintainer's approval before it is built; the first row changes work
+that is already approved.
+
+| Item | Notes |
+| --- | --- |
+| Asks with `options`, `default`, `blocking` and `cites`; "Blocking" and "Going ahead unless you say" in Needs you; answers record the file versions seen; overrides wake the agent; `aboard ask --open` | Scope before slice D starts, since it changes the approved asks design (D102) |
+| "Since you last looked": what changed since the person's read position, computed from the record | Small; after slice D; builds on D194 |
+| Board files as a versioned folder: paths, history per path, updates that name the version they replace | Changes the planned files (D15, D33); carries memory, board skills and handovers by convention |
+| The Artifacts panel: Artifacts and Content, preview and download, one-off and maintained artifacts | After files; a view over them |
+| Safe HTML preview: sandboxed without `allow-same-origin`, a strict content security policy, a short CDN allowlist | Needs a security review |
+| Freshness on maintained artifacts and the brief, and a nudge to the keeper past a threshold | After the panel; try the brief by convention first |
+| Bridges: issues in as tasks, results out, "Needs you" out to Slack, email or phone; an external link on a task | Extensions on the public API (D75); one source of truth per linked item; GitHub issues first |
+| Quiet agents: "delivered N minutes ago, no activity since" from session, hook, acknowledgement and write signals | Builds on presence (D120) |
+| Projects: a board that holds boards, one level, summaries up | Needs its own design note; sub-boards are later |
+| Colour schemes beyond light and dark, dark first | Harness glyphs are already planned (D133) |
+
 **Enhancements**
 
 | Enhancement | Notes |
