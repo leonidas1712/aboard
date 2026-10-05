@@ -114,8 +114,8 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	return usageError(fmt.Sprintf("%q is not a board command; use people, add, remove, leave, owner, visibility, policy or title.", pos[0]), boardUsage)
 }
 
-// runBoardTitle changes a board's title; an empty title removes it. In a harness
-// session, or with --as, the agent sets it for its owner, on the agent's board, and the
+// runBoardTitle changes a board's title; an empty title removes it. When an agent is
+// selected (--as, ABOARD_AGENT or a harness session), the agent sets it for its owner, on the agent's board, and the
 // record names the agent; elsewhere the person sets it with their own login.
 func runBoardTitle(ctx context.Context, a *app, boardFlag, asFlag, title string) error {
 	title = strings.TrimSpace(title)
@@ -124,7 +124,7 @@ func runBoardTitle(ctx context.Context, a *app, boardFlag, asFlag, title string)
 		c   *client
 		err error
 	)
-	if _, inSession := a.inSession(); inSession || asFlag != "" {
+	if a.agentSelected(asFlag) {
 		var cred agentCredential
 		if t, cred, err = a.agentTarget(ctx, boardFlag, asFlag); err != nil {
 			return err

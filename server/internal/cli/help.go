@@ -448,7 +448,7 @@ func helpText(templates string) []commandHelp {
 				"Switch to recommended before adding other people or their agents.\n\n" +
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
 				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
-				"title may be set by an agent for its owner, when the owner is an admin of the board: inside an agent's session, or with --as, it acts as that agent, on its board, and the record names the agent. " +
+				"title may be set by an agent for its owner, when the owner is an admin of the board: with --as or ABOARD_AGENT, or inside an agent's session, it acts as that agent, on its board, and the record names the agent. " +
 				"Elsewhere it uses your own login.\n\n" +
 				"people lists the people on the board, each an owner or a member. " +
 				"add puts a person on this server onto the board as a member, by handle; anyone on the board may, and on an open board you may add yourself, as @me, to join it. " +
