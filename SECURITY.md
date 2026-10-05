@@ -30,8 +30,8 @@ harnesses themselves.
 
 ## The security model, in brief
 
-**The server's check of each credential is the boundary.** Every request carries a
-token, and the server decides from it, never from the request body, who is acting, and
+**The server's check of each credential is the boundary.** Every authenticated request
+carries a token, and the server decides from it, never from the request body, who is acting, and
 checks membership, role and the board's policy before anything is written. What the CLI
 detects about the session it runs in (for example, refusing a person-only command inside
 an agent's session) is a courtesy that tells an agent which command to hand its person;
