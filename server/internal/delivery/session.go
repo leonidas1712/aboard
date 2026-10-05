@@ -718,7 +718,7 @@ func (s *session) refresh(a *agentState, gate bool) {
 func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	delete(s.refreshing, r.refresh)
 	a, ok := s.agents[r.agent]
-	if !ok {
+	if !ok || a.gone() {
 		return
 	}
 	if r.err != nil {
@@ -765,6 +765,10 @@ func problemOf(err error) string {
 func (a *agentState) gone() bool { return a.problem == ReasonBoardGone }
 
 func (s *session) setProblem(a *agentState, reason string) {
+	// A queued result predating removal cannot clear or weaken its final refusal.
+	if a.gone() && reason != ReasonBoardGone {
+		return
+	}
 	if a.problem != reason {
 		a.problem = reason
 		s.d.setProblem(a.ref, reason)
@@ -1008,7 +1012,7 @@ func (s *session) maybeAck(a *agentState) {
 
 func (s *session) onAck(ctx context.Context, r ackResult) {
 	a, ok := s.agents[r.agent]
-	if !ok {
+	if !ok || a.gone() {
 		return
 	}
 	a.acking = false
