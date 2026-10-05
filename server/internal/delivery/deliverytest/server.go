@@ -87,7 +87,7 @@ func RunServer(t *testing.T, f ServerFixture) {
 
 	t.Run("AnAgentWhoseBoardIsGoneGetsErrBoardGone", func(t *testing.T) {
 		srv, agent := f.Gone(t)
-		if _, _, err := srv.Inbox(ctx, agent); !errors.Is(err, delivery.ErrBoardGone) || errors.Is(err, delivery.ErrUnauthorized) {
+		if _, _, _, err := srv.Inbox(ctx, agent); !errors.Is(err, delivery.ErrBoardGone) || errors.Is(err, delivery.ErrUnauthorized) {
 			t.Fatalf("Inbox = %v, want ErrBoardGone", err)
 		}
 		if err := srv.Ack(ctx, agent, 1); !errors.Is(err, delivery.ErrBoardGone) {
