@@ -148,8 +148,39 @@ session, each naming its board. The delivery mode is per seat, so an agent can b
 focused on a busy board and get everything on a small one. Messages that arrive close
 together wake it once, grouped by board; the waiting notice counts per board ("2 on
 general, 1 on payments-design"); reply hints include `--board`. Each board still sees
-only its own seat. The details are worked out with Codex before 5a starts and proven
-with real Claude Code and Codex sessions on two boards.
+only its own seat. Proven with real Claude Code and Codex sessions on two boards.
+
+How it works, agreed with codex-2:
+
+- **Seats hold delivery state; the session holds turn state.** Each seat, keyed by its
+  server and immutable seat id (never its name or a message number), has its own
+  position, acknowledgements, mode and waiting messages. The session has the harness
+  connection, busy or idle, its boot, and the one handoff in flight.
+- **One combined delivery per session.** Each seat decides by its own mode whether its
+  messages wake the session; any seat's wake wakes the session. A wake from one board
+  never turns another board's quiet messages into waking ones: those wait for the next
+  turn's catch-up, as today, and an agent in `humans` mode on a board is woken only by a
+  person on that board. The digest rules stay per seat.
+- **The window is bounded.** Messages close together wake once, within about two
+  seconds of the first one, so a busy board can't hold delivery back forever.
+- **Each handoff has a fixed list** of server, board, seat, message numbers, binding and
+  session boot. The harness confirms exactly those blocks; the server is acknowledged
+  per seat, up to what was delivered in order, never by the highest number across
+  boards. Confirmation is saved before acknowledging; a failed acknowledgement for one
+  seat is retried alone, without delivering again. A late confirmation from an old
+  binding or boot never confirms a new one. Owner messages mid-turn follow the same
+  rules and never race the queued delivery of the same messages.
+- **A board gone or a seat removed ends only that seat.** Its waiting block is dropped,
+  the other seats carry on, and a late confirmation never revives it. A delivery
+  already accepted can't be recalled; only the surviving seats are acknowledged.
+- **Size stays bounded.** The existing limit applies to the whole delivery, shared
+  fairly between boards, so one board's backlog can't starve another; anything left out
+  stays unacknowledged.
+- **One seat looks exactly as today.** Claude Code's stop hook and Codex's queue take the
+  combined text as they are; omp's extension must prove it in the conformance kit.
+
+The contracts, the daemon's control messages and the installed skill describe this
+before it is built.
 Message numbers are per board, so every delivered message, reply hint, hook and queued
 wake carries its board and seat; history, read positions and frozen recipients stay
 separate per seat; the skill's examples use `--board` for replies. A board list cached
@@ -170,7 +201,9 @@ from `aboard boards` never authorizes a join: the join is checked again.
 
 ### Slices to team-ready, in order
 
-1. **5a. Agents join their person's boards.** The machine's delegation, held by the
+1. **5a. Agents join their person's boards.** First, the daemon keys bindings and
+   delivery state by server and seat id instead of name (this moves from 5c). Then the
+   machine's delegation, held by the
    delivery daemon and tied to the machine's current key; `aboard boards` and
    `aboard join --board` from a session; `join --board` from a terminal adds the person;
    one session with several seats and `board_ambiguous`. Checked in the join's
@@ -184,14 +217,17 @@ from `aboard boards` never authorizes a join: the join is checked again.
    acknowledgements, the first seat kept, restart and resume); and removed or re-added
    identities refused, with no rejoin around a removal. Cases: hidden boards, a guest's
    agent, the wrong owner, a revoked or expired key, access lost during the join, two
-   people's agents joining the same board, and the same message number on two boards, so
-   no reply or acknowledgement reaches the wrong one. The smallest slice that removes codes for a
+   people's agents joining the same board, and for delivery: the same message number on two
+   boards with separate acknowledgements, mixed modes, a mode change before a handoff, a
+   seat removed while waiting and after the harness accepted, a failed acknowledgement
+   then a daemon restart, a late confirmation after resume, `inbox` racing a delivery,
+   the size limit shared fairly, and owner messages mid-turn among older ones. The smallest slice that removes codes for a
    team's own sessions.
 2. **5b. Agents start work for their person.** `aboard pair --new` through the
    delegation (the person is creator and owner); agents adding teammates on open boards,
    and on private ones only where the owner allowed it.
-3. **5c. Removing agents.** Seat ids in the daemon's bindings and swarm records first
-   (so names can be reused safely), then removal (final), `aboard leave`,
+3. **5c. Removing agents.** Seat ids in swarm records (the daemon's moved to 5a), then
+   removal (final), `aboard leave`,
    `aboard agent prune`, and Remove in the board view. Removal revokes the seat and its
    child seats in one step, ends streams, queued deliveries and launch tickets, and keeps
    messages under the seat's id; re-adding a person never revives an old seat. Tests:
