@@ -881,6 +881,8 @@ test("review: another persons fragment cannot silently replace an existing sessi
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible({ timeout: 3000 });
   aboard("keys", "revoke", "victim-review");
+});
+
 // api calls the local server with a token, as a client of the public API.
 async function api(token: string, method: string, path: string, body?: unknown): Promise<Record<string, unknown>> {
   const resp = await fetch(`http://${env.ABOARD_LOCAL_ADDR}${path}`, {
