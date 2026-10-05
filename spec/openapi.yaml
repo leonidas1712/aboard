@@ -1972,6 +1972,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
 
   /v1/me/inbox:
     get:
@@ -2128,6 +2129,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MessageStatus" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
 
@@ -2170,6 +2172,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ReplyPage" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
 
@@ -2205,6 +2208,7 @@ paths:
               schema: { $ref: "#/components/schemas/Message" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
     delete:
@@ -2227,6 +2231,7 @@ paths:
               schema: { $ref: "#/components/schemas/Message" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
 
@@ -2549,6 +2554,7 @@ components:
                 - guest_not_allowed
                 - delegation_revoked
                 - agent_removed
+                - seat_token_replaced
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
