@@ -31,7 +31,8 @@ make check
 `make check` runs everything CI runs: formatting, lint, vet, the generated-code check,
 the core's size budget, the README's harness table, `go test -race`, the end-to-end
 tests, the harness conformance kit, the extension tests (which need
-[Bun](https://bun.sh)) and `govulncheck`. Tools are pinned and installed into `.bin/` on
+[Bun](https://bun.sh)) and `govulncheck`. The end-to-end tests also need
+[tmux](https://github.com/tmux/tmux), for the swarm and launcher tests. Tools are pinned and installed into `.bin/` on
 first use. A change to the web UI also runs `make web-check`.
 
 A change to delivery, setup or upgrades also passes `make live`, which drives real Claude
