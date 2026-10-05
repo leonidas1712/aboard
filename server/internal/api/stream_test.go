@@ -21,8 +21,11 @@ const streamWait = 5 * time.Second
 type eventStream struct {
 	t      *testing.T
 	blocks chan string
-	done   chan struct{} // closed when the body has ended
-	cancel context.CancelFunc
+	// unreads holds the `unread` events, kept apart from blocks so that tests of other
+	// events read on as a client that ignores them would.
+	unreads chan string
+	done    chan struct{} // closed when the body has ended
+	cancel  context.CancelFunc
 }
 
 // openStream opens the event stream as token, failing unless the server answers 200.
@@ -40,7 +43,7 @@ func (s *testServer) openStream(token string) *eventStream {
 		cancel()
 		s.t.Fatalf("stream status %d: %s", resp.StatusCode, body)
 	}
-	st := &eventStream{t: s.t, blocks: make(chan string), done: make(chan struct{}), cancel: cancel}
+	st := &eventStream{t: s.t, blocks: make(chan string, 256), unreads: make(chan string, 256), done: make(chan struct{}), cancel: cancel}
 	go st.read(ctx, resp.Body)
 	s.t.Cleanup(func() {
 		cancel()
@@ -63,8 +66,12 @@ func (st *eventStream) read(ctx context.Context, body io.ReadCloser) {
 		if len(block) == 0 {
 			continue
 		}
+		out := st.blocks
+		if block[0] == "event: unread" {
+			out = st.unreads
+		}
 		select {
-		case st.blocks <- strings.Join(block, "\n"):
+		case out <- strings.Join(block, "\n"):
 		case <-ctx.Done():
 			return
 		}

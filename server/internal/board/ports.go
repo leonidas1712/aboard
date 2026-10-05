@@ -84,6 +84,9 @@ type ReadTx interface {
 	// Inbox returns up to limit messages after the reader's cursor that are addressed to
 	// it and that it didn't send, oldest first.
 	Inbox(reader Member, limit int) ([]Message, error)
+	// CountUnread counts the messages after the reader's cursor that it didn't send: with
+	// addressedOnly, only those addressed to it, as Inbox returns them.
+	CountUnread(reader Member, addressedOnly bool) (int64, error)
 	// MessageByID finds a message, with its sender and the seq of the message it replies to.
 	MessageByID(id string) (Message, error)
 	// MessagesBySeq returns the board's messages among seqs, keyed by seq.

@@ -228,6 +228,9 @@ type Message struct {
 	Urgent       bool
 	ExpectsReply bool
 	Redactions   []Redaction
+	// Recipients are the member ids the message was addressed to when it was posted, in
+	// the order it named them; nil for a message to all.
+	Recipients []string
 	// Reactions are the reactions on the message as its reader sees them, in the set's
 	// order. The service fills them for each reader.
 	Reactions []ReactionCount

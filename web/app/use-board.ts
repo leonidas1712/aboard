@@ -15,6 +15,7 @@ import {
   type Message,
   type MessagePage,
   type ReplyPage,
+  ackBoard,
   follow,
   get,
 } from "./api";
@@ -64,6 +65,12 @@ export type BoardState = {
   refresh: () => void;
   /** replace puts a newer copy of a loaded message in place, as after reacting to it. */
   replace: (m: Message) => void;
+  /** ack marks the board read up to seq for the person: call it only for what they saw. */
+  ack: (seq: number) => void;
+  /** activity changes when the board moves or one of the person's agents reads it, so receipts can be read again. */
+  activity: number;
+  /** readFrom is the person's read position when the page opened, read before it could acknowledge anything. */
+  readFrom: number | null;
 };
 
 /** isReaction is true for the events that add or take back a reaction, shown on their message instead. */
@@ -88,6 +95,10 @@ export function useBoard(name: string, filter: Filter): BoardState {
   // Threads read whole because a loaded reply's first message wasn't loaded.
   const [extra, setExtra] = useState<Message[]>([]);
   const [rootless, setRootless] = useState<Set<string>>(new Set());
+  const [activity, setActivity] = useState(0);
+  const [readFrom, setReadFrom] = useState<number | null>(null);
+  // acked is the highest position this page asked for, so it asks only to move forward.
+  const acked = useRef(0);
   const requested = useRef<Set<string>>(new Set());
   // loadedHead is the board's head before the first page of messages was read: those
   // messages already carry every reaction up to it. knownRef is every loaded message.
@@ -218,10 +229,12 @@ export function useBoard(name: string, filter: Filter): BoardState {
     live.current = true;
     run(async () => {
       // The head first: every reaction up to it is already on the messages read after it.
-      const head = (await get<Board>(path)).head_seq;
+      const first = await get<Board>(path);
+      const head = first.head_seq;
       const [page, who] = await Promise.all([get<MessagePage>(`${path}/messages`, { newest: true, limit: PAGE }), get<Me>("/v1/me")]);
       loadedHead.current = head;
       if (!live.current) return;
+      setReadFrom(first.read_up_to ?? 0);
       setMe(who);
       setBase({ messages: page.messages, prevBefore: page.prev_before });
       newest.current = page.messages.at(-1)?.seq ?? 0;
@@ -230,8 +243,21 @@ export function useBoard(name: string, filter: Filter): BoardState {
     run(catchUp);
     const stop = follow({
       head: (b) => {
-        if (b === name) run(catchUp);
+        if (b === name) {
+          run(catchUp);
+          setActivity((n) => n + 1);
+        }
         reloadBoards();
+      },
+      unread: (u) => {
+        const set = (b: Board) => (b.name === u.board ? { ...b, read_up_to: u.read_up_to, unread: u.unread } : b);
+        setBoards((bs) => bs?.map(set) ?? bs);
+        setBoard((b) => (b ? set(b) : b));
+        // The person's own position is a receipt of messages to them.
+        if (u.board === name) setActivity((n) => n + 1);
+      },
+      read: (r) => {
+        if (r.board === name) setActivity((n) => n + 1);
       },
       presence: (p) => {
         if (p.board !== name) return;
@@ -281,6 +307,20 @@ export function useBoard(name: string, filter: Filter): BoardState {
   }, [path, prevBefore, filterKey, run]);
 
   const refresh = useCallback(() => run(catchUp), [run, catchUp]);
+
+  const ack = useCallback(
+    (seq: number) => {
+      if (seq <= acked.current || (board?.read_up_to ?? 0) >= seq) return;
+      acked.current = seq;
+      ackBoard(name, seq).catch((e) => {
+        // A lost login is reported as for any other request; anything else is tried
+        // again the next time something is seen.
+        if (e instanceof ApiError && e.status === 401) setError(e);
+        acked.current = 0;
+      });
+    },
+    [name, board?.read_up_to],
+  );
 
   const known = useMemo(() => {
     const out = new Map<string, Message>();
@@ -339,5 +379,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
     loadEarlier,
     refresh,
     replace: replaceMessage,
+    ack,
+    activity,
+    readFrom,
   };
 }

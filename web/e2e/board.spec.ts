@@ -643,3 +643,73 @@ test("the header, the board list and the people on a board show open, private an
   await expect(alone).toBeVisible();
   await expect(alone.locator(".visibility")).toHaveCount(0);
 });
+
+// unreadOn reads the person's unread count on a board from the CLI, as another machine of
+// theirs would see it.
+function unreadOn(board: string): number {
+  const out = JSON.parse(aboard("boards", "--json")) as { boards: { name: string; unread: number | null }[] };
+  return out.boards.find((b) => b.name === board)?.unread ?? -1;
+}
+
+test("the person's read position moves only with what they saw, and receipts say who has a message", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Attention", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  for (let i = 1; i <= 30; i++) aboard("say", "--as", "writer", "--board", board, `Step ${i} of the plan, written out so the timeline scrolls.`);
+  expect(unreadOn(board)).toBe(30);
+
+  // Opened at the newest message, the page has shown everything: the server counts it read.
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await page.goto(open.url);
+  await expect(page.getByText("Step 30 of the plan")).toBeVisible();
+  await expect.poll(() => unreadOn(board)).toBe(0);
+
+  // Reading further back shows nothing new, so what arrives meanwhile stays unread until
+  // the person comes back down to it.
+  await page.locator(".timeline").evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.getByRole("button", { name: /Jump to newest/ })).toBeVisible();
+  aboard("say", "--as", "writer", "--board", board, "Something new while you read back.");
+  await expect(page.getByRole("button", { name: /Jump to newest · 1 new/ })).toBeVisible();
+  expect(unreadOn(board)).toBe(1);
+  await page.getByRole("button", { name: /Jump to newest/ }).click();
+  await expect.poll(() => unreadOn(board)).toBe(0);
+
+  // Another board with something unread shows how many in the board list, and marking it
+  // read from the CLI clears it here too.
+  aboard("read", "--mark-read", "--board", "writer-reviewer", "--limit", "200");
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const docs = nav.getByRole("link", { name: /Docs review/ });
+  await expect(docs.locator(".unread-count")).toHaveCount(0);
+  aboard("say", "--as", "reviewer", "--board", "writer-reviewer", "A note on the other board.");
+  await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  aboard("read", "--mark-read", "--board", "writer-reviewer");
+  await expect(docs.locator(".unread-count")).toHaveCount(0);
+  await expect(docs.locator(".message-count")).toBeVisible();
+
+  // A message from the person's agent to the reviewer is pending until the reviewer's
+  // inbox takes it, then received; the mark lists who, on hover.
+  aboard("say", "--as", "writer", "--board", board, "--to", "@reviewer", "Please check the intro.");
+  const toReviewer = page.locator(".message", { hasText: "Please check the intro." }).locator(".receipt-mark");
+  await expect(toReviewer).toHaveText("Pending");
+  aboard("inbox", "--as", "reviewer", "--board", board);
+  await expect(toReviewer).toHaveText("Received");
+  await toReviewer.hover();
+  await expect(page.locator(".receipt-list")).toHaveText("reviewer: received");
+  await page.mouse.move(0, 0);
+
+  // A message to the person is read once the page has shown it; one to everyone has no mark.
+  aboard("say", "--as", "writer", "--board", board, "--to", "@alex", "Can you decide on the title?");
+  await expect(page.locator(".message", { hasText: "Can you decide on the title?" }).locator(".receipt-mark")).toHaveText("Read");
+  await expect(page.locator(".message", { hasText: "Step 30 of the plan" }).locator(".receipt-mark")).toHaveCount(0);
+
+  // The other board opens with "New since you last looked" where the server's position
+  // says, which the CLI moved above, and showing it marks it read.
+  aboard("say", "--as", "reviewer", "--board", "writer-reviewer", "Back on the first board.");
+  await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await docs.click();
+  await expect(page.locator(".new-divider + .message")).toContainText("Back on the first board.");
+  await expect.poll(() => unreadOn("writer-reviewer")).toBe(0);
+});

@@ -36,11 +36,20 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
                 <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
                 {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
-              {b.message_count !== null && (
-                <span className="message-count shrink-0 text-meta text-muted tabular-nums" title={count(b.message_count, "message", "messages")}>
-                  <span aria-hidden>{b.message_count}</span>
-                  <span className="sr-only">, {count(b.message_count, "message", "messages")}</span>
+              {/* Another board with messages the person hasn't read shows how many, in ink;
+                  otherwise the quiet total. */}
+              {!here && (b.unread ?? 0) > 0 ? (
+                <span className="unread-count shrink-0 text-meta font-bold text-ink tabular-nums" title={`${b.unread} unread`}>
+                  <span aria-hidden>{b.unread}</span>
+                  <span className="sr-only">, {b.unread} unread</span>
                 </span>
+              ) : (
+                b.message_count !== null && (
+                  <span className="message-count shrink-0 text-meta text-muted tabular-nums" title={count(b.message_count, "message", "messages")}>
+                    <span aria-hidden>{b.message_count}</span>
+                    <span className="sr-only">, {count(b.message_count, "message", "messages")}</span>
+                  </span>
+                )
               )}
             </a>
           </li>

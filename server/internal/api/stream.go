@@ -132,6 +132,9 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 		for _, rc := range u.Reads {
 			writeEvent(&buf, "read", readEvent{Board: rc.Board, BoardID: rc.BoardID, Agent: rc.Agent, ReadUpTo: rc.Cursor})
 		}
+		for _, uc := range u.Unread {
+			writeEvent(&buf, "unread", unreadEvent{Board: uc.Board, BoardID: uc.BoardID, ReadUpTo: uc.Position.ReadUpTo, Unread: uc.Position.Unread})
+		}
 		if ticked {
 			keepalive = s.clk.After(keepaliveEvery)
 			buf.WriteString(": keepalive\n\n")

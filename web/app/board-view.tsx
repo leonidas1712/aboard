@@ -14,7 +14,7 @@ import { knownTargets, replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
-import { readStored, store, usePref } from "./prefs";
+import { usePref } from "./prefs";
 import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
@@ -46,9 +46,9 @@ export default function BoardView({ name }: { name: string }) {
   const [stick, setStick] = useState(0);
   const [postError, setPostError] = useState<unknown>(null);
   const [reveal, setReveal] = useState<Reveal>(null);
-  // The last message seen on this board, from the last visit, read once when the page opens.
-  const seenKey = `aboard.lastSeen.${name}`;
-  const [lastSeen] = useState(() => Number(readStored(seenKey) ?? "0") || 0);
+  // How far the person had read the board when the page opened: their read position on
+  // the server, the same in every tab and on every machine.
+  const lastSeen = s.readFrom ?? 0;
   const prefs = useThreadPrefs(name);
 
   const error = s.error ?? postError;
@@ -189,12 +189,33 @@ export default function BoardView({ name }: { name: string }) {
     return next?.seq ?? null;
   }, [entries, lastSeen]);
 
+  // What the person saw at the bottom of the timeline is read: the page acknowledges it,
+  // never what a filter showed, and only while the page is in front of them. Seen while
+  // hidden, it is acknowledged once the page shows again.
+  const { ack } = s;
+  const unseenSeq = useRef(0);
   const onSeen = useCallback(
     (seq: number) => {
-      if (!filterActive(filter)) store(seenKey, String(seq));
+      if (filterActive(filter)) return;
+      if (document.visibilityState !== "visible") {
+        unseenSeq.current = Math.max(unseenSeq.current, seq);
+        return;
+      }
+      ack(seq);
     },
-    [seenKey, filter],
+    [filter, ack],
   );
+  useEffect(() => {
+    const shown = () => {
+      if (document.visibilityState === "visible" && unseenSeq.current > 0) {
+        ack(unseenSeq.current);
+        unseenSeq.current = 0;
+      }
+    };
+    document.addEventListener("visibilitychange", shown);
+    return () => document.removeEventListener("visibilitychange", shown);
+  }, [ack]);
+  const receiptsAt = useMemo(() => ({ board: name, activity: s.activity }), [name, s.activity]);
 
   const quote = useCallback(
     (m: Message) => {
@@ -384,6 +405,7 @@ export default function BoardView({ name }: { name: string }) {
                 onToggle={onToggle}
                 onShow={onShow}
                 onSeen={onSeen}
+                receipts={receiptsAt}
                 stick={stick}
                 resetKey={JSON.stringify(filter)}
                 empty={filterActive(filter) ? <NoMatches clear={() => setFilter({})} /> : <Empty agents={agents.length} />}

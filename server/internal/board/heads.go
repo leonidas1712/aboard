@@ -61,6 +61,9 @@ type HeadFeed struct {
 	// reads is, by board id and agent name, the read position of the human's own agents
 	// last returned, or seen when the board was first read.
 	reads map[string]map[string]int64
+	// positions is, by board id, the human's own read position and unread count last
+	// returned.
+	positions map[string]Position
 }
 
 // FollowHeads starts following the heads of the human's boards. Only humans may.
@@ -68,18 +71,34 @@ func (s *Service) FollowHeads(p Principal) (*HeadFeed, error) {
 	if err := requireHuman(p); err != nil {
 		return nil, err
 	}
-	return &HeadFeed{s: s, p: p, sent: map[string]int64{}, presence: map[string]map[string]Presence{}, reads: map[string]map[string]int64{}}, nil
+	return &HeadFeed{
+		s: s, p: p, sent: map[string]int64{}, presence: map[string]map[string]Presence{}, reads: map[string]map[string]int64{},
+		positions: map[string]Position{},
+	}, nil
 }
 
 // Update is what changed on a human's boards: heads that moved, agents whose presence
-// changed, and the human's own agents whose read position moved.
+// changed, the human's own agents whose read position moved, and the human's own read
+// position or unread count where either changed.
 type Update struct {
 	Heads    []Head
 	Presence []PresenceChange
 	Reads    []ReadChange
+	Unread   []UnreadChange
 }
 
-func (u Update) empty() bool { return len(u.Heads) == 0 && len(u.Presence) == 0 && len(u.Reads) == 0 }
+func (u Update) empty() bool {
+	return len(u.Heads) == 0 && len(u.Presence) == 0 && len(u.Reads) == 0 && len(u.Unread) == 0
+}
+
+// UnreadChange is the human's own read position and unread count on one of their boards,
+// sent when a HeadFeed first reads the board and whenever either changes. Only the human
+// is told.
+type UnreadChange struct {
+	BoardID  string
+	Board    string // the board's name
+	Position Position
+}
 
 // ReadChange is the read position of one of the human's agents that moved since a
 // HeadFeed last looked: by its own inbox acknowledgement, its owner's delivery daemon's,
@@ -92,7 +111,8 @@ type ReadChange struct {
 }
 
 // Next returns what changed since the last call. The first call returns every board's
-// head and no presence: a reader takes the current presence from the members list.
+// head and the human's read position on it, and no presence: a reader takes the current
+// presence from the members list.
 // When nothing changed, it waits until something does, the human joins a board, or
 // tick fires. On tick it reads once more, so a board joined without a signal is still
 // found and a presence that ran out is noticed, and returns what changed (possibly
@@ -152,10 +172,18 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	f.sent = current
 
-	presence, reads, err := f.s.presenceOn(ctx, ids, f.p)
+	presence, reads, positions, err := f.s.presenceOn(ctx, ids, f.p)
 	if err != nil {
 		return Update{}, err
 	}
+	for _, id := range ids {
+		if pos, ok := positions[id]; ok {
+			if before, known := f.positions[id]; !known || before != pos {
+				u.Unread = append(u.Unread, UnreadChange{BoardID: id, Board: names[id], Position: pos})
+			}
+		}
+	}
+	f.positions = positions
 	for _, id := range ids {
 		before, known := f.presence[id]
 		for _, agent := range slices.Sorted(maps.Keys(presence[id])) {
