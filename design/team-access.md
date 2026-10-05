@@ -124,17 +124,25 @@ An **access key** (`abh_…`) is how a person signs in, anywhere:
 - **The CLI** keeps one in a file only its owner can read, and sends it with every request.
 - **A browser** signs in with a key, by pasting it on the login page or through
   `aboard open` from a CLI. The key is exchanged for a **browser session**: a separate
-  secret in a cookie marked `HttpOnly` and `Secure`, which the page's scripts can't read
-  and which works only for the board view itself. The key never stays in the browser.
-  Signing out ends that session; revoking the key ends every session it started.
+  secret in a cookie marked `HttpOnly` and `Secure`, which the page's scripts can't read.
+  The board view calls the same public API with it, with your permissions, but it can
+  never create a key. The key never stays in the browser, its address bar or its storage.
 - **The API** takes the key as it is: `Authorization: Bearer abh_…`, from a script, `curl`
-  or an SDK. A browser session can't be copied out for that.
+  or an SDK; scripts use keys, not browser sessions.
 - **A browser session can never create a key.** Keys are created only with a key: through
   the CLI, or by the invite that creates the person.
 
-Each key has a name, an expiry and a "last used" time, and is listed and revoked on its own
-(`aboard keys`). Use a separate key for each machine, browser or script, so losing one
-means revoking one. A copy of a key works for anyone who has it until it's revoked, as a
+Each key has a name, an expiry and a "last used" time (counting its own use and that of the
+sessions it started), and is listed and revoked on its own (`aboard keys`). Use a separate
+key for each machine, browser or script, so losing one means revoking one: a key named
+"phone" works from anywhere it's pasted, and `aboard login` warns that pasting a key on a
+second machine ties both to one revocation.
+
+**What ends what.** A browser session lasts 30 days (D163), and never past its key: when a
+key expires or is revoked, every browser session, machine delegation and agent seat token
+it started stops working at once, because each request checks its key is still valid.
+Signing out on a browser ends just that session, and `aboard keys` lists each key's
+browser sessions so any one of them can be ended on its own. A copy of a key works for anyone who has it until it's revoked, as a
 password would: keep keys you carry in a password manager, never in chat or a repository.
 Keys are independent of each other: revoking your laptop's key leaves the others working.
 There is no shared key for a whole team.
@@ -283,7 +291,8 @@ Maya's boards and her history are untouched. An admin can revoke anyone's keys.
 
 ### Every key lost
 
-Maya has no working key left. An admin removes `maya` from the server and invites her
+Maya has no working key left. A browser session she still has keeps working until it or
+its key expires, but it can't create a new key, so it only delays the problem. An admin removes `maya` from the server and invites her
 again; she connects as a new person (a new id, even if she picks the name `maya` again).
 Open boards she rejoins herself; the people on her private boards add her back. Before the
 removal, the admin is warned about any private board where Maya was the only person: it
@@ -405,8 +414,9 @@ one step. The agent can set the title, and has no owner's powers.
 Both are join codes pasted into an agent's session; what differs is **who they let in**.
 
 - **A pairing code** lets in only **your own** other sessions. `aboard pair` makes one:
-  the server binds it to you, and the session redeeming it must authenticate as you (with
-  your machine's key), so nobody new gets access. Your agent may make one and cancel it.
+  the server binds it to you, and the session redeeming it is checked to be yours through
+  your machine's delegation (the daemon vouches for it; the agent never sees your key), so
+  nobody new gets access. Your agent may make one and cancel it.
 - **A guest code** lets in **someone outside the team**, onto one board. That gives an
   outsider access to the board's content, so only a person makes one
   (`aboard invite --board … --guest`), for a board they're on; an agent asked to make one
@@ -514,7 +524,7 @@ agent reaches, never the kind of action: an admin's agent has no admin powers.
 Every board action also needs current access to that board and what its role and policy
 allow; a ✓ never means every board. "As a board owner" means its creator or someone they
 made an owner. No one, admins included, creates a key for another existing person; the
-only recovery is through whoever runs the server (see "Every machine lost"). An admin who isn't on
+only recovery is through whoever runs the server (see "Every key lost"). An admin who isn't on
 a private board can archive or delete it, never read it, add anyone to it or change it
 otherwise.
 
@@ -598,7 +608,8 @@ version:
 
 - **Credential files:** created only-owner-readable from the first write, in a folder only
   the owner can open; replaced atomically; never logged or passed to child processes, and
-  printed only where the person must copy one (a bot's token, shown once); one per server.
+  printed only where the person must copy one (a new access key or a bot's token, each shown
+  once); one per server.
 - **The browser:** its session is a cookie marked `HttpOnly` and `Secure`, sent only to its
   own host, `SameSite=Lax`; each state-changing request's `Origin` is checked and carries
   a cross-site forgery check; no state changes on plain page loads; narrow cross-origin
