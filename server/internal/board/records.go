@@ -282,6 +282,10 @@ type Message struct {
 	Urgent       bool
 	ExpectsReply bool
 	Redactions   []Redaction
+	// Recipients are the member ids the message was addressed to when it was posted, in
+	// the order it named them; nil for a message to all or a legacy message whose
+	// recipients were not recorded. To distinguishes those cases.
+	Recipients []string
 	// Mentions are the members the body mentions, each once, in the order first mentioned.
 	Mentions []Mention
 	// Reactions are the reactions on the message as its reader sees them, in the set's

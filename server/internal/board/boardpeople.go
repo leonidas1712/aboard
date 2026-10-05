@@ -168,6 +168,9 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		}); err != nil {
 			return err
 		}
+		if err := startReading(tx, b, m); err != nil {
+			return err
+		}
 		out = Person{Member: m, Person: target}
 		return nil
 	})
@@ -189,10 +192,13 @@ func (s *Service) restorePerson(tx Tx, b *Board, m *Member, actor events.Actor, 
 		return err
 	}
 	m.Status, m.Access = StatusActive, rules.AccessMember
-	_, err := s.append(tx, b, events.PersonAdded, actor, at, map[string]any{
+	if _, err := s.append(tx, b, events.PersonAdded, actor, at, map[string]any{
 		"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "access": m.Access, "rejoined": true,
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	// Rejoining restores access, not evidence of reading messages.
+	return nil
 }
 
 // ownersOf returns the names of the board's owners.

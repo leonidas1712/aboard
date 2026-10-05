@@ -63,6 +63,10 @@ type wireBoard struct {
 	CreatedBy     wireMemberRef `json:"created_by"`
 	Visibility    string        `json:"visibility"`
 	OnBoard       bool          `json:"on_board"`
+	// ReadUpTo and Unread are the caller's read position, left out when they aren't on
+	// the board.
+	ReadUpTo *int64 `json:"read_up_to,omitempty"`
+	Unread   *int64 `json:"unread,omitempty"`
 }
 
 type wireMessage struct {
@@ -162,7 +166,7 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 	if v.ShowsCounts(p) {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
 	}
-	return w
+	return withPosition(w, v)
 }
 
 // sender is the sender label: who sent a message relative to its reader. A person

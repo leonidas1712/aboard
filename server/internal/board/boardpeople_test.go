@@ -29,6 +29,8 @@ type accessGate struct {
 	release               chan struct{}
 	writeWait, writeLetGo chan struct{}
 	reads                 chan struct{}
+	// skip is how many reads go through before the armed one waits.
+	skip int
 }
 
 func (g *accessGate) armWrite() (waiting, release chan struct{}) {
@@ -53,14 +55,28 @@ func (g *accessGate) Write(ctx context.Context, fn func(board.Tx) error) error {
 func (g *accessGate) arm() (waiting, release chan struct{}) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.waiting, g.release = make(chan struct{}), make(chan struct{})
+	g.waiting, g.release, g.skip = make(chan struct{}), make(chan struct{}), 0
 	return g.waiting, g.release
+}
+
+// armAfter arms the gate for the read after the next n.
+func (g *accessGate) armAfter(n int) (waiting, release chan struct{}) {
+	waiting, release = g.arm()
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.skip = n
+	return waiting, release
 }
 
 func (g *accessGate) Read(ctx context.Context, fn func(board.ReadTx) error) error {
 	g.mu.Lock()
 	waiting, release, reads := g.waiting, g.release, g.reads
-	g.waiting, g.release = nil, nil
+	if g.skip > 0 {
+		g.skip--
+		waiting, release = nil, nil
+	} else {
+		g.waiting, g.release = nil, nil
+	}
 	g.mu.Unlock()
 	if waiting != nil {
 		close(waiting)

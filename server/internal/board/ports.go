@@ -95,6 +95,9 @@ type ReadTx interface {
 	// and that are addressed to it or, when mentions is true, mention it with Wakes set,
 	// oldest first.
 	Inbox(reader Member, mentions bool, limit int) ([]Message, error)
+	// CountUnread counts the messages after the reader's cursor that it didn't send: with
+	// addressedOnly, only those Inbox returns, including waking mentions when allowed.
+	CountUnread(reader Member, addressedOnly, mentions bool) (int64, error)
 	// MessageByID finds a message, with its sender and the seq of the message it replies to.
 	MessageByID(id string) (Message, error)
 	// MessagesBySeq returns the board's messages among seqs, keyed by seq.

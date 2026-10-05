@@ -53,6 +53,8 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"TimelineFiltersAndWindows", timelineFiltersAndWindows},
 		{"InboxSkipsOwnAndAlreadyReadMessages", inboxSkipsOwnAndAlreadyReadMessages},
 		{"InboxHoldsMessagesThatMentionTheReader", inboxHoldsMessagesThatMentionTheReader},
+		{"CountUnreadCountsWhatInboxOrTheTimelineHasLeft", countUnreadCountsWhatInboxOrTheTimelineHasLeft},
+		{"MessageRecipientsRoundTrip", messageRecipientsRoundTrip},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},
 		{"InsertMessageCountsItOnItsBoard", insertMessageCountsItOnItsBoard},
@@ -1406,6 +1408,9 @@ func inboxHoldsMessagesThatMentionTheReader(t *testing.T, st board.Store) {
 			if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, tt.want) {
 				t.Errorf("Inbox with mentions %v: seqs = %v, want %v", tt.mentions, seqs, tt.want)
 			}
+			if n, err := tx.CountUnread(c.reviewer, true, tt.mentions); err != nil || n != int64(len(tt.want)) {
+				t.Errorf("CountUnread with mentions %v = %d, %v, want %d", tt.mentions, n, err, len(tt.want))
+			}
 		}
 		return nil
 	})
@@ -1416,7 +1421,7 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 	want := board.Message{
 		ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.writer.ID, To: []string{"@reviewer", "role:reviewer"},
 		Body: "Fixed, see notes.", ReplyTo: ptr("msg_2"), Urgent: true, ExpectsReply: true,
-		Redactions: []board.Redaction{{Kind: "github_token", Count: 2}},
+		Redactions: []board.Redaction{{Kind: "github_token", Count: 2}}, Recipients: []string{c.reviewer.ID},
 		Mentions: []board.Mention{
 			{MemberID: c.reviewer.ID, Kind: "agent", Name: "reviewer", Text: "@reviewer", Wakes: true},
 			{MemberID: c.other.ID, Kind: "agent", Name: "other", Text: "@role:member", Reason: ptr(board.MentionLimit)},
@@ -1738,6 +1743,70 @@ func threadsListNewestActivityFirst(t *testing.T, st board.Store) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("%s: Threads = %+v,\nwant %+v", tt.name, got, tt.want)
 			}
+		}
+		return nil
+	})
+}
+
+func countUnreadCountsWhatInboxOrTheTimelineHasLeft(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	write(t, st, func(tx board.Tx) error { return tx.SetCursor(c.reviewer.ID, 1) })
+	read(t, st, func(tx board.ReadTx) error {
+		reviewer, err := tx.MemberByName("brd_docs", "reviewer")
+		if err != nil {
+			return err
+		}
+		// 2 and 4, as Inbox returns them.
+		if n, err := tx.CountUnread(reviewer, true, false); err != nil || n != 2 {
+			t.Errorf("CountUnread(reviewer, addressed) = %d, %v, want 2", n, err)
+		}
+		// Everything after 1 it didn't send: 2, 3 and 4.
+		if n, err := tx.CountUnread(reviewer, false, false); err != nil || n != 3 {
+			t.Errorf("CountUnread(reviewer, all) = %d, %v, want 3", n, err)
+		}
+		alex := c.alex
+		alex.Cursor = 3
+		// Only 5: 4 is alex's own.
+		if n, err := tx.CountUnread(alex, false, false); err != nil || n != 1 {
+			t.Errorf("CountUnread(alex after 3) = %d, %v, want 1", n, err)
+		}
+		alex.Cursor = 5
+		if n, err := tx.CountUnread(alex, false, false); err != nil || n != 0 {
+			t.Errorf("CountUnread(alex at the end) = %d, %v, want 0", n, err)
+		}
+		return nil
+	})
+}
+
+// messageRecipientsRoundTrip: a message's recipients read back in order; an empty list
+// stays empty, apart from a message with none recorded (one to all), which reads nil.
+func messageRecipientsRoundTrip(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	write(t, st, func(tx board.Tx) error {
+		for _, m := range []board.Message{
+			{ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.alex.ID, To: []string{"@writer", "role:reviewer"}, Body: "two", Recipients: []string{c.writer.ID, c.reviewer.ID}},
+			{ID: "msg_7", BoardID: "brd_docs", Seq: 7, At: at, SenderID: c.reviewer.ID, To: []string{"role:reviewer"}, Body: "none", Recipients: []string{}},
+			{ID: "msg_8", BoardID: "brd_docs", Seq: 8, At: at, SenderID: c.alex.ID, To: []string{"all"}, Body: "everyone"},
+		} {
+			if err := tx.InsertMessage(m); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.MessagesBySeq("brd_docs", []int64{6, 7, 8})
+		if err != nil {
+			return err
+		}
+		if r := got[6].Recipients; !reflect.DeepEqual(r, []string{c.writer.ID, c.reviewer.ID}) {
+			t.Errorf("recipients of #6 = %#v, want writer then reviewer", r)
+		}
+		if r := got[7].Recipients; r == nil || len(r) != 0 {
+			t.Errorf("recipients of #7 = %#v, want an empty list", r)
+		}
+		if r := got[8].Recipients; r != nil {
+			t.Errorf("recipients of a message to all = %#v, want nil", r)
 		}
 		return nil
 	})

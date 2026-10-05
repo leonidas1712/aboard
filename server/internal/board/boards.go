@@ -23,6 +23,9 @@ type View struct {
 	// OnBoard is whether the caller is on the board, rather than seeing an open board
 	// from outside.
 	OnBoard bool
+	// Position is the caller's read position on the board; nil when they aren't on it,
+	// or when the read doesn't report it.
+	Position *Position
 }
 
 // ShowsCounts reports whether p may see how many messages the board holds: people read
@@ -187,11 +190,16 @@ func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinC
 	if m.Access != "" {
 		access = ptr(m.Access)
 	}
-	_, err := s.append(tx, b, events.MemberJoined, actor, at, map[string]any{
+	if _, err := s.append(tx, b, events.MemberJoined, actor, at, map[string]any{
 		"member_id": m.ID, "name": m.Name, "kind": m.Kind, "role": m.Role, "owner": m.Owner,
 		"harness": m.Harness, "access": access, "join_code_id": joinCodeID,
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	if m.Kind == "human" {
+		return startReading(tx, *b, m)
+	}
+	return nil
 }
 
 // HiddenBoard is a private board a server admin isn't on, as they see it: that it
@@ -222,7 +230,7 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listin
 			return err
 		}
 		if p.Agent != nil {
-			b, _, err := seatOf(tx, *p.Agent)
+			b, me, err := seatOf(tx, *p.Agent)
 			if isBoardNotFound(err) {
 				return nil
 			}
@@ -230,6 +238,11 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listin
 				return err
 			}
 			v, err := viewOf(tx, b)
+			if err != nil {
+				return err
+			}
+			pos, err := positionOf(tx, me, readsAll(b, me))
+			v.Position = &pos
 			out.Boards = []View{v}
 			return err
 		}
@@ -257,6 +270,13 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listin
 				return err
 			}
 			v.OnBoard = err == nil && m.Status == StatusActive
+			if v.OnBoard {
+				pos, err := positionOf(tx, m, readsAll(b, m))
+				if err != nil {
+					return err
+				}
+				v.Position = &pos
+			}
 			out.Boards = append(out.Boards, v)
 		}
 		if !all || me.Role != ServerAdmin {
@@ -337,13 +357,22 @@ func viewOf(tx ReadTx, b Board) (View, error) {
 func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View, error) {
 	var v View
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, on, err := s.see(tx, p, name)
+		b, me, on, err := s.see(tx, p, name)
 		if err != nil {
 			return err
 		}
-		v, err = viewOf(tx, b)
+		if v, err = viewOf(tx, b); err != nil {
+			return err
+		}
 		v.OnBoard = on
-		return err
+		if on {
+			pos, err := positionOf(tx, me, readsAll(b, me))
+			if err != nil {
+				return err
+			}
+			v.Position = &pos
+		}
+		return nil
 	})
 	return v, err
 }

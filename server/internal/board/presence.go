@@ -117,13 +117,17 @@ type PresenceChange struct {
 	Presence Presence
 }
 
-// presenceOn returns the current presence of every agent on each board, and the read
-// position of the agents p's person owns, by board id and agent name. It reads nothing once
-// p's credential has stopped working.
-func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal) (presence map[string]map[string]Presence, reads map[string]map[string]int64, err error) {
+// presenceOn returns the current presence of every agent on each board, the read
+// position of the agents p's person owns, by board id and agent name, and the person's
+// own read position on each board, by board id. It reads nothing once p's credential has
+// stopped working, and nothing of a board the person is no longer on.
+func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal) (
+	presence map[string]map[string]Presence, reads map[string]map[string]int64, positions map[string]Position, err error,
+) {
 	humanID := p.personID()
 	presence = make(map[string]map[string]Presence, len(boardIDs))
 	reads = make(map[string]map[string]int64, len(boardIDs))
+	positions = make(map[string]Position, len(boardIDs))
 	err = s.st.Read(ctx, func(tx ReadTx) error {
 		now := s.clk.Now()
 		if err := stillValid(tx, p, stamp(now)); err != nil {
@@ -132,9 +136,13 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 		for _, id := range boardIDs {
 			// The person may have left the board since its heads were read; then they
 			// learn nothing more of it.
-			if me, err := tx.HumanMember(id, humanID); errors.Is(err, ErrNotFound) || (err == nil && me.Status != StatusActive) {
+			me, err := tx.HumanMember(id, humanID)
+			if errors.Is(err, ErrNotFound) || (err == nil && me.Status != StatusActive) {
 				continue
 			} else if err != nil {
+				return err
+			}
+			if positions[id], err = positionOf(tx, me, false); err != nil {
 				return err
 			}
 			members, err := tx.Members(id)
@@ -156,7 +164,7 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 		return nil
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("read presence: %w", err)
+		return nil, nil, nil, fmt.Errorf("read presence: %w", err)
 	}
-	return presence, reads, nil
+	return presence, reads, positions, nil
 }

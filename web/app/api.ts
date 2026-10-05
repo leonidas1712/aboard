@@ -37,7 +37,22 @@ export type Board = {
   visibility: Visibility;
   /** on_board is false for an open board the person sees but hasn't joined. */
   on_board: boolean;
+  /** read_up_to is how far the person has read the board; unread counts the messages after it they didn't send. Absent when they aren't on it. */
+  read_up_to?: number;
+  unread?: number;
 };
+
+/** Receipt is whether a message has reached one of its recipients; presence is an agent's now, null for a person. */
+export type Receipt = { member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null };
+
+/** Receipts are a message's recipients, fixed when it was posted; a message to everyone has none. */
+export type Receipts = { board: string; seq: number; message_id: string; to: string[]; to_everyone: boolean; available: boolean; recipients: Receipt[] };
+
+/** UnreadEvent is the person's own read position and unread count on one of their boards. */
+export type UnreadEvent = { board: string; read_up_to: number; unread: number };
+
+/** ReadEvent says one of the person's own agents acknowledged its messages up to read_up_to. */
+export type ReadEvent = { board: string; agent: string; read_up_to: number };
 
 export type Visibility = "open" | "private";
 
@@ -413,6 +428,14 @@ export async function send<T>(method: "PUT" | "DELETE", path: string, key: strin
   throw await failure(resp);
 }
 
+/**
+ * ackBoard moves the person's read position on a board forward to upTo, for what the
+ * page showed them. It never moves back.
+ */
+export function ackBoard(board: string, upTo: number): Promise<{ board: string; read_up_to: number; unread: number }> {
+  return post(`/v1/boards/${encodeURIComponent(board)}/ack`, { up_to: upTo });
+}
+
 /** react adds the person's reaction to a message, or takes it back, and returns the message. */
 export function react(message: string, name: ReactionName, add: boolean): Promise<Message> {
   return send<Message>(add ? "PUT" : "DELETE", `/v1/messages/${encodeURIComponent(message)}/reactions/${name}`);
@@ -436,6 +459,10 @@ export type StreamHandlers = {
   head: (board: string, seq: number) => void;
   /** presence runs each time an agent's presence changes. */
   presence?: (p: PresenceEvent) => void;
+  /** unread runs with the person's read position and unread count on a board, for each board when the stream opens and on every change. */
+  unread?: (u: UnreadEvent) => void;
+  /** read runs when one of the person's own agents acknowledges its messages. */
+  read?: (r: ReadEvent) => void;
   /** open runs each time the stream connects, so a reader can reread what it may have missed. */
   open?: () => void;
   /** error gets a refused session; following then ends. */
@@ -473,6 +500,10 @@ export function follow(on: StreamHandlers): () => void {
               on.head(head.board, head.seq);
             } else if (event === "presence") {
               on.presence?.(JSON.parse(data) as PresenceEvent);
+            } else if (event === "unread") {
+              on.unread?.(JSON.parse(data) as UnreadEvent);
+            } else if (event === "read") {
+              on.read?.(JSON.parse(data) as ReadEvent);
             }
           });
         }

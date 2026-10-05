@@ -365,17 +365,25 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "read", Group: groupTalk,
-			Summary: "Show a board's messages without marking them read",
+			Summary: "Show a board's messages; mark yours read only when asked",
 			Usage: []string{
 				"aboard read [--after SEQ | --before SEQ | --around SEQ] [--from @NAME] [--role R] [--to-me] [--limit N] [--markdown] [--as AGENT] [--board NAME] [--json]",
 				"aboard read --thread MSG [--markdown] [--as AGENT] [--board NAME] [--json]",
 				"aboard read --threads [--limit N] [--as AGENT] [--board NAME] [--json]",
+				"aboard read --receipts MSG [--as AGENT] [--board NAME] [--json]",
+				"aboard read --mark-read [--limit N] [--board NAME] [--json]",
 			},
 			Description: "Shows the board's messages that the agent may see, newest last, without moving its read position. " +
 				"Use it to look back; use aboard inbox to catch up.\n\n" +
 				"A message that has replies says how many (\"2 replies\"), and one with reactions shows them last (\"👍 2 ✅ 1\"). " +
 				"Replies form a thread under the first message: a reply to a reply joins the same thread. " +
-				"--thread shows one whole thread, from any message in it; --threads lists the threads, the newest activity first.",
+				"--thread shows one whole thread, from any message in it; --threads lists the threads, the newest activity first.\n\n" +
+				"--receipts MSG says whether a message has reached each member it was addressed to: received by an agent, read by a person, or pending, " +
+				"with a pending agent's presence now. A message to everyone has no receipts. " +
+				"It reads as the agent when one is selected, otherwise as you.\n\n" +
+				"--mark-read is for you, not an agent: it shows, with your own login, the messages on the board you haven't read, oldest first, " +
+				"and marks read the ones it showed, so your unread count is the same in the board view and on your other machines. " +
+				"Looking back with the other flags never marks anything read.",
 			Flags: []helpFlag{
 				{"--after", "SEQ", "The oldest messages after this number."},
 				{"--before", "SEQ", "The newest messages before this number."},
@@ -387,10 +395,14 @@ func helpText(templates string) []commandHelp {
 				{"--thread", "MSG", "Show the thread this message is in: its first message and every reply, oldest first. MSG is msg_…, 6 or #6."},
 				{"--threads", "", "List the board's threads, the one with the newest reply first: replies, when the last came, who wrote and how it starts."},
 				{"--markdown", "", "Print a Markdown transcript to paste into a session."},
+				{"--receipts", "MSG", "Whether the message has reached each recipient: pending, received (an agent) or read (a person). MSG is msg_…, 6 or #6."},
+				{"--mark-read", "", "Show your unread messages, as yourself, and mark the ones shown read. Refused inside an agent's session."},
 				flagAs, flagBoard, flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard read", "The latest messages"},
+				{"aboard read --receipts 42", "Whether #42 has reached the members it was sent to"},
+				{"aboard read --mark-read", "Catch up on the board as yourself"},
 				{"aboard read --around 42 --limit 10", "What was said around #42"},
 				{"aboard read --thread 42", "The thread #42 is in, replies to replies included"},
 				{"aboard read --threads", "Which conversations are going on"},
@@ -554,7 +566,7 @@ func helpText(templates string) []commandHelp {
 			Name: "boards", Group: groupBoard,
 			Summary: "List your boards, or every board you can see",
 			Usage:   []string{"aboard boards [--all] [--json]", "aboard boards --as AGENT [--board NAME] [--json]"},
-			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, and default beside this directory's board. " +
+			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
 				"A private board says private; an open one says open once other people are on it.\n\n" +
 				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
 				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +

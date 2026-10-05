@@ -542,5 +542,11 @@ func (s *Service) guestOnBoard(tx Tx, b *Board, guest Human, codeID *string, now
 		"member_id": m.ID, "name": m.Name, "kind": m.Kind, "role": nil, "owner": nil,
 		"harness": nil, "access": m.Access, "join_code_id": codeID, "guest": true,
 	})
-	return m, err
+	if err != nil {
+		return Member{}, err
+	}
+	if err := startReading(tx, *b, m); err != nil {
+		return Member{}, err
+	}
+	return m, nil
 }

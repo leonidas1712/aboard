@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -223,6 +224,84 @@ func TestUpgradeFromSchema13MakesBoardsOpen(t *testing.T) {
 			}
 			if len(on) != 1 {
 				t.Errorf("%s's boards after upgrade: %d", h, len(on))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A database from before read positions were kept for people, or recipients for
+// messages, comes up with each person at their board's head, so nothing they saw counts
+// as unread, and each message to someone with the members it was addressed to then: those
+// named, and those with the role who had joined by then, never the sender.
+func TestUpgradeStartsPeopleAtTheHeadWithoutGuessingRecipients(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "aboard.db")
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n := 1; n <= 15; n++ {
+		names, err := filepath.Glob(filepath.Join("migrations", fmt.Sprintf("%04d_*.sql", n)))
+		if err != nil || len(names) != 1 {
+			t.Fatalf("migration %d: %v %v", n, names, err)
+		}
+		body, err := os.ReadFile(names[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, string(body)); err != nil {
+			t.Fatalf("%s: %v", names[0], err)
+		}
+	}
+	for _, q := range []string{
+		"PRAGMA user_version = 15",
+		`INSERT INTO humans (id, name, role, created_at) VALUES ('hum_alex', 'alex', 'admin', 'x'), ('hum_sam', 'sam', 'member', 'x')`,
+		`INSERT INTO boards (id, name, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by) VALUES
+			('brd_a', 'docs', '', '{}', '{}', 9, 'h', 'x', 'mem_alex')`,
+		`INSERT INTO members (id, board_id, name, kind, role, human_id, owner, access, status, joined_at) VALUES
+			('mem_alex', 'brd_a', 'alex', 'human', NULL, 'hum_alex', NULL, 'admin', 'active', '2026-10-01T10:00:00.000Z'),
+			('mem_sam', 'brd_a', 'sam', 'human', NULL, 'hum_sam', NULL, 'member', 'active', '2026-10-01T10:00:00.000Z'),
+			('mem_writer', 'brd_a', 'writer', 'agent', 'writer', 'hum_alex', 'alex', NULL, 'active', '2026-10-01T10:00:00.000Z'),
+			('mem_late', 'brd_a', 'late', 'agent', 'writer', 'hum_sam', 'sam', NULL, 'active', '2026-10-01T12:00:00.000Z')`,
+		`INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, urgent, expects_reply, redactions_json) VALUES
+			('msg_6', 'brd_a', 6, '2026-10-01T11:00:00.000Z', 'mem_alex', '["all"]', 'everyone', NULL, 0, 0, '[]'),
+			('msg_7', 'brd_a', 7, '2026-10-01T11:00:00.000Z', 'mem_alex', '["@sam"]', 'sam', NULL, 0, 0, '[]'),
+			('msg_8', 'brd_a', 8, '2026-10-01T11:00:00.000Z', 'mem_alex', '["role:writer"]', 'writers', NULL, 0, 0, '[]'),
+			('msg_9', 'brd_a', 9, '2026-10-01T11:30:00.000Z', 'mem_writer', '["role:writer"]', 'my role', NULL, 0, 0, '[]')`,
+	} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	_ = db.Close()
+
+	st, err := sqlite.Open(ctx, path, clock.Real{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	err = st.Read(ctx, func(tx board.ReadTx) error {
+		for _, h := range []string{"hum_alex", "hum_sam"} {
+			m, err := tx.HumanMember("brd_a", h)
+			if err != nil {
+				return err
+			}
+			if m.Cursor != 9 {
+				t.Errorf("%s's read position after upgrade: %d, want 9", h, m.Cursor)
+			}
+		}
+		ms, err := tx.MessagesBySeq("brd_a", []int64{6, 7, 8, 9})
+		if err != nil {
+			return err
+		}
+		want := map[int64][]string{6: nil, 7: nil, 8: nil, 9: nil}
+		for seq, w := range want {
+			if got := ms[seq].Recipients; !reflect.DeepEqual(got, w) {
+				t.Errorf("recipients of #%d after upgrade: %#v, want %#v", seq, got, w)
 			}
 		}
 		return nil
