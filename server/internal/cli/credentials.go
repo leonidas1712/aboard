@@ -5,14 +5,17 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 // agentCredential is one agent's token on one board of one server.
 type agentCredential struct {
-	Server string `json:"server"`
-	Board  string `json:"board"`
-	Name   string `json:"name"`
-	Token  string `json:"token"`
+	Server   string `json:"server"`
+	MemberID string `json:"member_id,omitempty"`
+	Board    string `json:"board"`
+	Name     string `json:"name"`
+	Token    string `json:"token"`
 }
 
 // credentials is the content of credentials.json.
@@ -41,15 +44,41 @@ func (c credentials) names(server, board string) []string {
 	return names
 }
 
-// put adds or replaces an agent's credential.
+// put replaces a known seat by its id. A legacy record is promoted only when its
+// own token proved the id, so a reused name cannot inherit an older seat's state.
 func (c *credentials) put(cred agentCredential) {
 	for i, a := range c.Agents {
-		if a.Server == cred.Server && a.Board == cred.Board && a.Name == cred.Name {
+		if a.Server != cred.Server {
+			continue
+		}
+		sameSeat := cred.MemberID != "" && a.MemberID == cred.MemberID
+		sameLegacy := a.MemberID == "" && a.Board == cred.Board && a.Name == cred.Name &&
+			a.Token == cred.Token
+		if sameSeat || sameLegacy {
 			c.Agents[i] = cred
 			return
 		}
 	}
 	c.Agents = append(c.Agents, cred)
+}
+
+func (c credentials) forSeat(agent delivery.AgentRef) (agentCredential, bool) {
+	var found agentCredential
+	count := 0
+	for _, cred := range c.Agents {
+		if cred.Server != agent.Server {
+			continue
+		}
+		if agent.MemberID != "" {
+			if cred.MemberID == agent.MemberID {
+				return cred, true
+			}
+		} else if cred.Board == agent.Board && cred.Name == agent.Name {
+			found = cred
+			count++
+		}
+	}
+	return found, count == 1
 }
 
 func (a *app) readCredentials() (credentials, error) {
