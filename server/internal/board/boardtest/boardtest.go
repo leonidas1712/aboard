@@ -55,6 +55,10 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"ReactionsReadBackPerMessageOldestFirst", reactionsReadBackPerMessageOldestFirst},
 		{"ThreadsListNewestActivityFirst", threadsListNewestActivityFirst},
 		{"ReadSeesCommittedWritesOnly", readSeesCommittedWritesOnly},
+		{"BoardVisibilityDecidesWhoSeesIt", boardVisibilityDecidesWhoSeesIt},
+		{"PeopleWhoLeftAreNotOnTheBoard", peopleWhoLeftAreNotOnTheBoard},
+		{"WorkingJoinCodesSkipRevokedAndExpired", workingJoinCodesSkipRevokedAndExpired},
+		{"BoardCreationDefaultsToMembers", boardCreationDefaultsToMembers},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -102,7 +106,7 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	}
 	b := board.Board{
 		ID: "brd_" + name, Name: name, Charter: "", Roles: map[string]rules.Role{rules.MemberRole: rules.DefaultMemberRole()},
-		Policy: mustPreset(rules.Starter), HeadHash: events.GenesisHash, CreatedAt: at, CreatedBy: "mem_" + name,
+		Policy: mustPreset(rules.Starter), HeadHash: events.GenesisHash, CreatedAt: at, CreatedBy: "mem_" + name, Visibility: board.BoardOpen,
 	}
 	if err := tx.InsertBoard(b); err != nil {
 		return board.Board{}, board.Member{}, err
@@ -389,7 +393,7 @@ func boardRoundTripsEveryField(t *testing.T, st board.Store) {
 				{Permission: rules.ClaimTasks, TaskTypes: []string{"review", "triage"}},
 			}},
 		},
-		Policy: policy, HeadSeq: 0, HeadHash: events.GenesisHash, CreatedAt: at, CreatedBy: "mem_review",
+		Policy: policy, HeadSeq: 0, HeadHash: events.GenesisHash, CreatedAt: at, CreatedBy: "mem_review", Visibility: board.BoardPrivate,
 	}
 	write(t, st, func(tx board.Tx) error {
 		if err := tx.InsertHuman(human("hum_alex")); err != nil {

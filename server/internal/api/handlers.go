@@ -58,32 +58,45 @@ func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoRespon
 
 func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject) (CreateBoardResponseObject, error) {
 	in, err := convert[struct {
-		Name     string `json:"name"`
-		Title    string `json:"title"`
-		Template string `json:"template"`
-		Charter  string `json:"charter"`
-		Preset   string `json:"preset"`
+		Name       string `json:"name"`
+		Title      string `json:"title"`
+		Template   string `json:"template"`
+		Charter    string `json:"charter"`
+		Preset     string `json:"preset"`
+		Visibility string `json:"visibility"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.CreateBoard(ctx, principal(ctx), board.NewBoard{Name: in.Name, Title: in.Title, Template: in.Template, Charter: in.Charter, Preset: in.Preset})
+	v, err := h.svc.CreateBoard(ctx, principal(ctx), board.NewBoard{Name: in.Name, Title: in.Title, Template: in.Template, Charter: in.Charter, Preset: in.Preset, Visibility: in.Visibility})
 	if err != nil {
 		return nil, err
 	}
 	return convert[CreateBoard201JSONResponse](boardOf(v, principal(ctx)))
 }
 
-func (h *handlers) ListBoards(ctx context.Context, _ ListBoardsRequestObject) (ListBoardsResponseObject, error) {
-	views, err := h.svc.ListBoards(ctx, principal(ctx))
+func (h *handlers) ListBoards(ctx context.Context, req ListBoardsRequestObject) (ListBoardsResponseObject, error) {
+	all := req.Params.All != nil && *req.Params.All
+	list, err := h.svc.ListBoards(ctx, principal(ctx), all)
 	if err != nil {
 		return nil, err
 	}
 	out := struct {
-		Boards []wireBoard `json:"boards"`
+		Boards []wireBoard       `json:"boards"`
+		Hidden *[]map[string]any `json:"hidden_boards,omitempty"`
 	}{Boards: []wireBoard{}}
-	for _, v := range views {
+	for _, v := range list.Boards {
 		out.Boards = append(out.Boards, boardOf(v, principal(ctx)))
+	}
+	if all {
+		hidden := []map[string]any{}
+		for _, hb := range list.Hidden {
+			hidden = append(hidden, map[string]any{
+				"id": hb.ID, "visibility": board.BoardPrivate, "created_at": hb.CreatedAt,
+				"created_by": map[string]string{"id": hb.Creator.ID, "handle": hb.Creator.Name}, "people": hb.People,
+			})
+		}
+		out.Hidden = &hidden
 	}
 	return convert[ListBoards200JSONResponse](out)
 }

@@ -82,32 +82,106 @@ func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at tim
 	return e, nil
 }
 
-// access returns the board named name and the caller's membership of it. A board the
-// caller can't see is reported as not found, so names don't leak.
-func access(tx ReadTx, p Principal, name string) (Board, Member, error) {
+// see returns the board named name if p may see it, with p's membership and whether p
+// is on it. A person sees the boards they are on and every open board; an agent sees
+// only its own board, while it and its person are on it. Any other board, whether or
+// not it exists, is board_not_found with the same message, so a name never tells
+// whether a board the caller can't see exists. Callers run it inside the transaction
+// that reads or writes the board, so a change of access can't let one more read in.
+func see(tx ReadTx, p Principal, name string) (Board, Member, bool, error) {
 	if p.Agent != nil {
-		b, err := tx.BoardByID(p.Agent.BoardID)
-		if err != nil {
-			return Board{}, Member{}, err
+		b, me, err := seatOf(tx, *p.Agent)
+		if isBoardNotFound(err) || (err == nil && b.Name != name) {
+			return Board{}, Member{}, false, apierr.BoardNotFound(name)
 		}
-		if b.Name != name {
-			return Board{}, Member{}, apierr.BoardNotFound(name)
-		}
-		me, err := tx.MemberByName(b.ID, p.Agent.Name)
-		return b, me, err
+		return b, me, err == nil, err
 	}
 	b, err := tx.BoardByName(name)
 	if errors.Is(err, ErrNotFound) {
-		return Board{}, Member{}, apierr.BoardNotFound(name)
+		return Board{}, Member{}, false, apierr.BoardNotFound(name)
+	}
+	if err != nil {
+		return Board{}, Member{}, false, err
+	}
+	me, err := tx.HumanMember(b.ID, p.Human.ID)
+	switch {
+	case err == nil && me.Status == StatusActive:
+		return b, me, true, nil
+	case err != nil && !errors.Is(err, ErrNotFound):
+		return Board{}, Member{}, false, err
+	case b.Visibility == BoardOpen:
+		return b, Member{}, false, nil
+	}
+	return Board{}, Member{}, false, apierr.BoardNotFound(name)
+}
+
+// access returns the board named name and the caller's membership of it, for anything
+// that needs being on the board: reading its messages, members and events, and every
+// write. A board the caller can't see is board_not_found; an open board a person isn't
+// on is not_on_board.
+func access(tx ReadTx, p Principal, name string) (Board, Member, error) {
+	b, me, on, err := see(tx, p, name)
+	if err != nil {
+		return Board{}, Member{}, err
+	}
+	if !on {
+		return Board{}, Member{}, notOnBoard(b.Name, p.Human.Name)
+	}
+	return b, me, nil
+}
+
+func notOnBoard(board, handle string) *apierr.Error {
+	return apierr.New(http.StatusForbidden, "not_on_board",
+		fmt.Sprintf("You aren't on board %s.", board),
+		fmt.Sprintf("It is open, so you can join it: aboard board add @%s --board %s.", handle, board))
+}
+
+func isBoardNotFound(err error) bool {
+	var e *apierr.Error
+	return errors.As(err, &e) && e.Code == "board_not_found"
+}
+
+// seatOf returns an agent's board and its current membership. An agent acts only within
+// its person's current access, so once the agent or its person is no longer on the board
+// it fails with board_not_found, as if the board weren't there.
+func seatOf(tx ReadTx, agent Member) (Board, Member, error) {
+	b, err := tx.BoardByID(agent.BoardID)
+	if err != nil {
+		return Board{}, Member{}, err
+	}
+	me, err := tx.MemberByName(b.ID, agent.Name)
+	if errors.Is(err, ErrNotFound) || (err == nil && (me.ID != agent.ID || me.Status != StatusActive)) {
+		return Board{}, Member{}, apierr.BoardNotFound(b.Name)
 	}
 	if err != nil {
 		return Board{}, Member{}, err
 	}
-	me, err := tx.HumanMember(b.ID, p.Human.ID)
-	if errors.Is(err, ErrNotFound) {
-		return Board{}, Member{}, apierr.BoardNotFound(name)
+	person, err := tx.HumanMember(b.ID, me.HumanID)
+	if errors.Is(err, ErrNotFound) || (err == nil && person.Status != StatusActive) {
+		return Board{}, Member{}, apierr.BoardNotFound(b.Name)
 	}
-	return b, me, err
+	if err != nil {
+		return Board{}, Member{}, err
+	}
+	return b, me, nil
+}
+
+// present keeps the members who are on the board now: the people whose membership is
+// active, and the active agents of those people.
+func present(members []Member) []Member {
+	people := map[string]bool{}
+	for _, m := range members {
+		if m.Kind == "human" && m.Status == StatusActive {
+			people[m.HumanID] = true
+		}
+	}
+	out := make([]Member, 0, len(members))
+	for _, m := range members {
+		if m.Status == StatusActive && people[m.HumanID] {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 func requireHuman(p Principal) error {
@@ -147,7 +221,7 @@ func requireAdmin(tx ReadTx, b Board, me Member, what string) error {
 	}
 	var admins []string
 	for _, m := range members {
-		if m.Rules().IsAdmin() {
+		if m.Rules().IsAdmin() && m.Status == StatusActive {
 			admins = append(admins, m.Name)
 		}
 	}

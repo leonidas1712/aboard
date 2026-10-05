@@ -238,11 +238,8 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 		var r Reading
 		var more bool
 		err := s.st.Read(ctx, func(tx ReadTx) error {
-			b, err := tx.BoardByID(p.Agent.BoardID)
-			if err != nil {
-				return err
-			}
-			me, err := tx.MemberByName(b.ID, p.Agent.Name)
+			// Checked on every read, so a wait ends once the agent or its person leaves.
+			b, me, err := seatOf(tx, *p.Agent)
 			if err != nil {
 				return err
 			}
@@ -284,7 +281,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 		moved  bool
 	)
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, err := tx.BoardByID(p.Agent.BoardID)
+		b, _, err := seatOf(tx, *p.Agent)
 		if err != nil {
 			return err
 		}

@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -78,18 +79,15 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 	if mode != "" && !slices.Contains(deliveryModes, mode) {
 		return Board{}, Member{}, invalid(fmt.Sprintf("%q is not a delivery mode.", mode), "Use auto, humans or off.")
 	}
-	now := s.clk.Now()
 	var b Board
 	var me Member
 	changed := false
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var err error
-		if b, err = tx.BoardByID(p.Agent.BoardID); err != nil {
+		if b, me, err = seatOf(tx, *p.Agent); err != nil {
 			return err
 		}
-		if me, err = tx.MemberByName(b.ID, p.Agent.Name); err != nil {
-			return err
-		}
+		now := s.clk.Now()
 		cur := me.CurrentPresence(now)
 		next := Presence{State: state, Since: cur.Since, At: stamp(now), Delivery: me.Presence.Delivery}
 		if mode != "" {
@@ -122,17 +120,24 @@ type PresenceChange struct {
 // presenceOn returns the current presence of every agent on each board, and the read
 // position of the agents owned by humanID, by board id and agent name.
 func (s *Service) presenceOn(ctx context.Context, boardIDs []string, humanID string) (presence map[string]map[string]Presence, reads map[string]map[string]int64, err error) {
-	now := s.clk.Now()
 	presence = make(map[string]map[string]Presence, len(boardIDs))
 	reads = make(map[string]map[string]int64, len(boardIDs))
 	err = s.st.Read(ctx, func(tx ReadTx) error {
+		now := s.clk.Now()
 		for _, id := range boardIDs {
+			// The person may have left the board since its heads were read; then they
+			// learn nothing more of it.
+			if me, err := tx.HumanMember(id, humanID); errors.Is(err, ErrNotFound) || (err == nil && me.Status != StatusActive) {
+				continue
+			} else if err != nil {
+				return err
+			}
 			members, err := tx.Members(id)
 			if err != nil {
 				return err
 			}
 			agents, mine := map[string]Presence{}, map[string]int64{}
-			for _, m := range members {
+			for _, m := range present(members) {
 				if m.Kind != "agent" {
 					continue
 				}

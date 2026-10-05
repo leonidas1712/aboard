@@ -113,8 +113,10 @@ func visibleMessage(tx ReadTx, p Principal, messageID string) (Message, Board, M
 		return Message{}, Board{}, Member{}, err
 	}
 	b, me, err := access(tx, p, b.Name)
+	// A message on a board the caller can't read is not found, whether or not they can
+	// see the board, so a message id never names its board.
 	var e *apierr.Error
-	if errors.As(err, &e) && e.Code == "board_not_found" {
+	if errors.As(err, &e) && (e.Code == "board_not_found" || e.Code == "not_on_board") {
 		return Message{}, Board{}, Member{}, messageNotFound()
 	}
 	if err != nil {

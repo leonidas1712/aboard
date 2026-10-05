@@ -195,7 +195,8 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 
 		taken := func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }
 		owner, err := tx.HumanMember(b.ID, p.Human.ID)
-		if errors.Is(err, ErrNotFound) {
+		switch {
+		case errors.Is(err, ErrNotFound):
 			owner = Member{
 				BoardID: b.ID, Name: rules.AllocateName(p.Human.Name, taken), Kind: "human", HumanID: p.Human.ID,
 				Access: rules.AccessMember, Status: "active", JoinedAt: stamp(now),
@@ -207,8 +208,15 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 				return err
 			}
 			ownerJoined = true
-		} else if err != nil {
+		case err != nil:
 			return err
+		case owner.Status != StatusActive:
+			// A person who left or was removed comes back through the code under their
+			// old name, as a member.
+			if err := s.restorePerson(tx, &b, &owner, actorOf(owner), now); err != nil {
+				return err
+			}
+			ownerJoined = true
 		}
 
 		name := in.Name
