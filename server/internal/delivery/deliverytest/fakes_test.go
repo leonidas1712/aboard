@@ -24,11 +24,18 @@ func TestPipeControlPassesTheControlContract(t *testing.T) {
 }
 
 func TestFakeServerPassesTheServerContract(t *testing.T) {
-	RunServer(t, ServerFixture{New: func(*testing.T) (delivery.Server, delivery.AgentRef, func(string, bool) int) {
-		s := NewFakeServer()
-		to := delivery.AgentRef{Server: "http://fake", Board: "docs", Name: "reviewer"}
-		return s, to, func(body string, urgent bool) int {
-			return s.Post(to, delivery.Message{Body: body, Urgent: urgent})
-		}
-	}})
+	to := delivery.AgentRef{Server: "http://fake", Board: "docs", Name: "reviewer"}
+	RunServer(t, ServerFixture{
+		New: func(*testing.T) (delivery.Server, delivery.AgentRef, func(string, bool) int) {
+			s := NewFakeServer()
+			return s, to, func(body string, urgent bool) int {
+				return s.Post(to, delivery.Message{Body: body, Urgent: urgent})
+			}
+		},
+		Gone: func(*testing.T) (delivery.Server, delivery.AgentRef) {
+			s := NewFakeServer()
+			s.TakeOff(to)
+			return s, to
+		},
+	})
 }

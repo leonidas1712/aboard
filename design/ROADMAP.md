@@ -62,6 +62,7 @@ the board.
 | --- | --- | --- |
 | Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | in review | D113, D184 |
 | Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | in review: open and private boards, owners, people and the board-creation setting; archive and delete next | D153, D180, D187 |
+| An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | in review. To do with agent removal (team slice 5), or before boards can be deleted: key the daemon's stopped agents by seat id, carried in bind, instead of by name | D187, D190 |
 | Person identities: a name per server, display name, logins per machine, each revocable | in review: ids, handles, display names, a first key per machine, key management (`aboard keys`, `aboard login`), approving a new machine (`aboard connect <server URL>`, `aboard approve`) | D154, D179, D184, D185, D188 |
 | Invites and `aboard connect`; server admins | in review | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | later | D153, D154, D172 |
