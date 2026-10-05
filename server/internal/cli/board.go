@@ -39,15 +39,62 @@ func (a *app) namedBoard(boardFlag string) string {
 var boardUsage = usageOf("board")
 
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset,
-// and "aboard board title <text>", which changes its title. policy uses the human login,
-// so it refuses inside a harness session; an agent may set the title for its owner.
+// "aboard board title <text>", which changes its title, and the commands for a board's
+// people and visibility. Those that change policy, people or visibility use the human
+// login, so they refuse inside a harness session; an agent may set the title for its
+// owner, and list a board's people.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("board")
 	boardFlag := fs.String("board", "", "the board to change")
 	as := fs.String("as", "", "the agent that sets the title, for its owner")
+	yes := fs.Bool("yes", false, "visibility only: make a private board open without asking")
 	pos, err := a.parse(fs, args, boardUsage, 1, -1)
 	if err != nil {
 		return err
+	}
+	onePerson := func() (string, error) {
+		if len(pos) != 2 || handleArg(pos[1]) == "" {
+			return "", usageError("Name one person, by handle: aboard board "+pos[0]+" @maya.", boardUsage)
+		}
+		if *as != "" {
+			return "", usageError("Only a person changes who is on a board, so --as works only with title and people.", boardUsage)
+		}
+		return handleArg(pos[1]), nil
+	}
+	switch pos[0] {
+	case "people":
+		if len(pos) != 1 {
+			return usageError("aboard board people takes no arguments.", boardUsage)
+		}
+		return runBoardPeople(ctx, a, *boardFlag, *as)
+	case "add", "remove", "owner":
+		handle, err := onePerson()
+		if err != nil {
+			return err
+		}
+		switch pos[0] {
+		case "add":
+			return runBoardAdd(ctx, a, *boardFlag, handle)
+		case "remove":
+			return runBoardRemove(ctx, a, *boardFlag, handle)
+		}
+		return runBoardOwner(ctx, a, *boardFlag, handle)
+	case "leave":
+		if len(pos) != 1 || *as != "" {
+			return usageError("aboard board leave takes no arguments and no --as: it is for a person.", boardUsage)
+		}
+		return runBoardLeave(ctx, a, *boardFlag)
+	case "visibility":
+		if len(pos) != 2 {
+			return usageError("Say open or private: aboard board visibility private.", boardUsage)
+		}
+		if *as != "" {
+			return usageError("Only a person turns a board open or private, so --as works only with title and people.", boardUsage)
+		}
+		return runBoardVisibility(ctx, a, *boardFlag, pos[1], *yes)
+	}
+	if *yes {
+		return usageError("--yes works only with visibility.", boardUsage)
 	}
 	switch pos[0] {
 	case "policy":
@@ -64,7 +111,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		}
 		return runBoardTitle(ctx, a, *boardFlag, *as, strings.Join(pos[1:], " "))
 	}
-	return usageError(fmt.Sprintf("%q is not a board command; use policy or title.", pos[0]), boardUsage)
+	return usageError(fmt.Sprintf("%q is not a board command; use people, add, remove, leave, owner, visibility, policy or title.", pos[0]), boardUsage)
 }
 
 // runBoardTitle changes a board's title; an empty title removes it. In a harness

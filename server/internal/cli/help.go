@@ -385,10 +385,16 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "board", Group: groupBoard,
-			Summary: "Change a board's policy preset or title",
+			Summary: "Change a board's policy, title, people or visibility",
 			Usage: []string{
 				"aboard board policy <starter|recommended> [--board NAME] [--json]",
 				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
+				"aboard board people [--as AGENT] [--board NAME] [--json]",
+				"aboard board add @handle [--board NAME] [--json]",
+				"aboard board remove @handle [--board NAME] [--json]",
+				"aboard board leave [--board NAME] [--json]",
+				"aboard board owner @handle [--board NAME] [--json]",
+				"aboard board visibility <open|private> [--yes] [--board NAME] [--json]",
 			},
 			Description: "policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
@@ -396,15 +402,25 @@ func helpText(templates string) []commandHelp {
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
 				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
 				"title may be set by an agent for its owner, when the owner is an admin of the board: inside an agent's session, or with --as, it acts as that agent, on its board, and the record names the agent. " +
-				"Elsewhere it uses your own login.",
+				"Elsewhere it uses your own login.\n\n" +
+				"people lists the people on the board, each an owner or a member. " +
+				"add puts a person on this server onto the board as a member, by handle; anyone on the board may, and on an open board you may add yourself to join it. " +
+				"remove takes a person and their agents off the board, and owner makes someone an owner; both are for the board's owners. " +
+				"leave takes you off the board; its last owner makes someone else an owner first. " +
+				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
+				"and before making a private board open it says how many messages and files every person on the server could then read, and asks; without a terminal it needs --yes.\n\n" +
+				"add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.",
 			Flags: []helpFlag{
-				{"--as", "AGENT", "title only: set the title as this agent, for its owner. Default inside an agent's session: the session's agent."},
+				{"--as", "AGENT", "title and people only: act as this agent, for its owner. Default inside an agent's session: the session's agent."},
+				{"--yes", "", "visibility only: make a private board open without asking."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which); for an agent, its own board."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard board policy recommended", "Tighten the board before others join"},
 				{"aboard board title \"Payments retry design\"", "Name what the board is for"},
+				{"aboard board add @maya", "Bring a teammate onto the board"},
+				{"aboard board visibility private", "Hide the board from everyone not on it"},
 			},
 			SeeAlso: []string{"status", "invite"},
 		},

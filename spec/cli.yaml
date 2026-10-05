@@ -31,8 +31,8 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, invite, connect, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
-#   delivery MODE, init --delivery). pair, board title, audit verify and open still run
+#   run them in a terminal: board policy, board add, remove, leave, owner and visibility, invite, connect, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
 #   link.
@@ -1410,6 +1410,101 @@ $defs:
       after:
         type: [string, "null"]
         description: The title now; null when it was removed.
+
+  # ---------- aboard board people ----------
+  BoardPeopleOutput:
+    description: |
+      The people on a board, each an owner or a member, in the order they came onto it.
+      In a terminal it uses the human login and works for any board the person can see
+      (theirs, or an open one); inside a harness session, or with --as, it acts as the
+      agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
+      <n> people", then one line per person: their name on the board, "(owner)" for an
+      owner, and their display name when they have one.
+    type: object
+    required: [board, visibility, people]
+    properties:
+      board: { type: string }
+      visibility: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
+      people:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+
+  # ---------- aboard board add @handle ----------
+  BoardAddOutput:
+    description: |
+      Adds a person on the server to the board as a member, with the human login; a
+      person on the board adds anyone, and on an open board a person may add
+      themselves to join it. Inside a harness session it refuses with
+      human_command_in_session: adding people is for people. Text: "Added <handle> to
+      <board>." Errors: person_not_found, already_on_board, not_on_board,
+      board_not_found.
+    type: object
+    required: [board, person]
+    properties:
+      board: { type: string }
+      person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+
+  # ---------- aboard board remove @handle ----------
+  BoardRemoveOutput:
+    description: |
+      Removes a person from the board; owners only (owner_required otherwise, whose hint
+      names the owners). The person and their agents lose access at once. Inside a
+      harness session it refuses with human_command_in_session. Text: "Removed <handle>
+      from <board>.", and on an open board a second line saying they can join again
+      until the board is private.
+    type: object
+    required: [board, person]
+    properties:
+      board: { type: string }
+      person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+
+  # ---------- aboard board leave ----------
+  BoardLeaveOutput:
+    description: |
+      The person leaves the board, and their agents lose access to it. The last owner
+      gets last_owner, whose hint names aboard board owner. Inside a harness session it
+      refuses with human_command_in_session. Text: "You left <board>."
+    type: object
+    required: [board, person]
+    properties:
+      board: { type: string }
+      person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+
+  # ---------- aboard board owner @handle ----------
+  BoardOwnerOutput:
+    description: |
+      Makes a person on the board an owner; owners only. Inside a harness session it
+      refuses with human_command_in_session. Text: "<handle> is now an owner of
+      <board>." (or "… is already an owner …", with changed false).
+    type: object
+    required: [board, person, changed]
+    properties:
+      board: { type: string }
+      person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+      changed: { type: boolean }
+
+  # ---------- aboard board visibility open|private ----------
+  BoardVisibilityOutput:
+    description: |
+      Turns the board open or private; owners only. Inside a harness session it refuses
+      with human_command_in_session. Before turning a private board open it says how
+      much becomes visible ("<board> is private. Making it open shows its whole history
+      to every person on <server>: <n> messages and <m> files.") and asks "Continue?
+      [y/N]" in a terminal; elsewhere, or with --json, it needs --yes and otherwise fails
+      with confirmation_required, whose message carries the same counts. Turning a board
+      private needs no confirmation and says how many join codes stopped working.
+    type: object
+    required: [board, before, after, changed, reveals, join_codes_canceled]
+    properties:
+      board: { type: string }
+      before: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
+      after: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
+      changed: { type: boolean }
+      reveals:
+        oneOf:
+          - { $ref: openapi.yaml#/components/schemas/Reveals }
+          - { type: "null" }
+      join_codes_canceled: { type: integer, minimum: 0 }
 
   # ---------- aboard audit verify ----------
   AuditVerifyOutput:
