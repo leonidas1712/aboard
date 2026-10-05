@@ -169,6 +169,26 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"watch", "status", "logout"},
 		},
 		{
+			Name: "connect", Group: groupStart,
+			Summary: "Join a server with an invite link",
+			Usage:   []string{connectUsage},
+			Description: "Redeems an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
+				"The key is saved in servers.json, readable only by you, and sent only to that server. " +
+				"From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it.\n\n" +
+				"An invite works once. A machine keeps one key per server. A server other than this machine must be reached over https. " +
+				"Connecting is up to a person, so it refuses inside an agent's session.",
+			Flags: []helpFlag{
+				{"--handle", "NAME", "Your name on the server: lowercase letters, digits and dashes. Default: asked, starting from your system user name; without a terminal, your system user name."},
+				{"--display-name", "TEXT", "The name people see beside your handle, such as \"Maya Chen\"."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard connect https://team.example.com/join#abi_…", "Join a team's server"},
+				{"aboard connect https://team.example.com/join#abi_… --handle maya", "With your handle chosen"},
+			},
+			SeeAlso: []string{"invite", "join", "status"},
+		},
+		{
 			Name: "logout", Group: groupStart,
 			Summary: "Log every browser out of the board view",
 			Usage:   []string{logoutUsage},
@@ -327,21 +347,27 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "invite", Group: groupBoard,
 			Summary: "Make a join code that brings another agent onto a board",
-			Usage:   []string{"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]"},
+			Usage: []string{
+				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
+				"aboard invite --server [--ttl DURATION] [--json]",
+			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of agents until it expires.\n\n" +
-				"Adding an agent is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
+				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
+				"Inviting is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
-				{"--ttl", "DURATION", "How long the code works, such as 2h. Default: 24h."},
+				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the local server."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard invite", "Add another agent to this directory's board"},
 				{"aboard invite --role reviewer --ttl 2h", "A reviewer, with a code that works for two hours"},
+				{"aboard invite --server", "Invite a person to the server"},
 			},
-			SeeAlso: []string{"join", "pair", "board"},
+			SeeAlso: []string{"join", "pair", "board", "connect"},
 		},
 		{
 			Name: "delivery", Group: groupBoard,

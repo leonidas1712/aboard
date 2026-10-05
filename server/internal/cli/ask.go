@@ -108,6 +108,12 @@ func (k *asker) pickOne(title, description string, choices []choice, value strin
 	return value, err
 }
 
+// text asks for a line of text, starting with value, which Enter alone keeps.
+func (k *asker) text(title, description, value string) (string, error) {
+	err := k.run(huh.NewInput().Title(title).Description(description).Value(&value))
+	return value, err
+}
+
 // confirm asks a yes-or-no question, starting on value.
 func (k *asker) confirm(title, description string, value bool) (bool, error) {
 	err := k.run(huh.NewConfirm().

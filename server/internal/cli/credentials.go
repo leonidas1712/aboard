@@ -75,15 +75,24 @@ func (a *app) saveCredential(cred agentCredential) error {
 	})
 }
 
-// readOwnerToken returns the local owner's token for srv, which the local server wrote
-// the first time it started. The token is only for the local server: for any other
-// server it returns login_required, so a project file naming another server can never
-// make a command send the owner's login there.
+// readOwnerToken returns this machine's person's access key for srv: for the local
+// server, the key it wrote the first time it started; for another server, the key aboard
+// connect saved for exactly that server's URL. Each key goes only to the server that
+// issued it: for any other server it returns login_required, so a project file naming
+// another server can never make a command send a key there.
 func (a *app) readOwnerToken(srv serverRef) (string, error) {
 	if local := a.localServer(); srv.URL != local.URL {
+		logins, err := a.readServerLogins()
+		if err != nil {
+			return "", err
+		}
+		if l, ok := logins.find(srv.URL); ok && l.Key != "" {
+			return l.Key, nil
+		}
 		return "", newError("login_required",
 			"Your login on this machine is for the local server at "+local.URL+", not "+srv.URL+".",
-			"Run the command in a project whose .aboard file names the local server, or delete this project's .aboard file.")
+			"Run the command in a project whose .aboard file names the local server, or delete this project's .aboard file; "+
+				"to use "+srv.URL+", ask one of its admins for an invite link and run aboard connect <link>.")
 	}
 	p, err := a.paths()
 	if err != nil {

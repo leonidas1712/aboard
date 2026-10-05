@@ -23,9 +23,16 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("invite")
 	boardFlag := fs.String("board", "", "the board to add an agent to")
 	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
-	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h")
+	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h (168h with --server)")
+	serverFlag := fs.Bool("server", false, "invite a person to the server instead of an agent to a board")
 	if _, err := a.parse(fs, args, inviteUsage, 0, 0); err != nil {
 		return err
+	}
+	if *serverFlag {
+		if *roleFlag != "" || *boardFlag != "" {
+			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role or --board.", inviteUsage)
+		}
+		return runServerInvite(ctx, a, *ttl)
 	}
 	command := "aboard invite"
 	if *roleFlag != "" {
@@ -110,4 +117,58 @@ func durationText(d time.Duration) string {
 		return "1 " + unit
 	}
 	return fmt.Sprintf("%d %ss", n, unit)
+}
+
+// runServerInvite makes a server invite with the person's access key and prints the
+// link a newcomer passes to aboard connect. The server is the one this directory's
+// .aboard names, else the local server. The link holds a secret that makes a person on
+// the server, so it refuses inside a harness session, where an agent would see it.
+func runServerInvite(ctx context.Context, a *app, ttl time.Duration) error {
+	if err := a.refuseInSession("Inviting a person to the server", "aboard invite --server"); err != nil {
+		return err
+	}
+	srv := a.localServer()
+	if p, ok, err := a.readProject(); err != nil {
+		return err
+	} else if ok && p.Server.URL != "" {
+		srv = p.Server
+	}
+	var started bool
+	if srv.URL == a.localServer().URL {
+		var err error
+		if started, err = a.ensureLocal(ctx); err != nil {
+			return err
+		}
+	}
+	token, err := a.readOwnerToken(srv)
+	if err != nil {
+		return err
+	}
+	c, err := a.client(ctx, srv, token, requestTimeout)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	req := api.CreateInviteRequest{}
+	if ttl != 0 {
+		secs := int(ttl.Seconds())
+		req.TtlSeconds = &secs
+	}
+	r, err := c.api.CreateServerInviteWithResponse(ctx, nil, req)
+	if err != nil {
+		return c.unreachable(err)
+	}
+	if r.JSON201 == nil {
+		return apiError(r.StatusCode(), r.Body)
+	}
+	link := srv.URL + "/join#" + r.JSON201.Invite
+	var text string
+	if started {
+		text = "Started local Aboard at " + srv.URL + "\n"
+	}
+	text += fmt.Sprintf("Invite for %s: one person, as a member, once, within %s. On their machine, run:\n  aboard connect %s\n",
+		srv.URL, durationText(time.Until(r.JSON201.ExpiresAt)), link)
+	a.emit(map[string]any{"server": srv, "link": link, "expires_at": r.JSON201.ExpiresAt}, text)
+	return nil
 }

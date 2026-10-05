@@ -57,9 +57,14 @@ var _ delivery.Server = (*Server)(nil)
 func New(url string, tokens Tokens, rand io.Reader) *Server {
 	return &Server{
 		url: strings.TrimRight(url, "/"), tokens: tokens, rand: rand,
-		http: &http.Client{Timeout: 30 * time.Second}, stream: &http.Client{},
+		http:   &http.Client{Timeout: 30 * time.Second, CheckRedirect: noRedirects},
+		stream: &http.Client{CheckRedirect: noRedirects},
 	}
 }
+
+// noRedirects stops at a redirect instead of following it, so a token never goes to an
+// address other than the server's own. The API never redirects.
+func noRedirects(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
 func (s *Server) client(token string) (*api.ClientWithResponses, error) {
 	c, err := api.NewClientWithResponses(s.url, api.WithHTTPClient(s.http),

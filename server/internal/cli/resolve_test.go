@@ -22,7 +22,7 @@ func TestMapJoinServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.host+" on "+tt.localAddr, func(t *testing.T) {
-			got, err := mapJoinServer(tt.host, tt.localAddr)
+			got, err := mapJoinServer(tt.host, tt.localAddr, nil)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}
