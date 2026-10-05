@@ -95,6 +95,7 @@
               "reference/cli/invite",
               "reference/cli/delivery",
               "reference/cli/board",
+              "reference/cli/boards",
               "reference/cli/audit",
               "reference/cli/resume",
               "reference/cli/up",

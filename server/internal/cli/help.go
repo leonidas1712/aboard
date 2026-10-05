@@ -451,7 +451,7 @@ func helpText(templates string) []commandHelp {
 				"title may be set by an agent for its owner, when the owner is an admin of the board: inside an agent's session, or with --as, it acts as that agent, on its board, and the record names the agent. " +
 				"Elsewhere it uses your own login.\n\n" +
 				"people lists the people on the board, each an owner or a member. " +
-				"add puts a person on this server onto the board as a member, by handle; anyone on the board may, and on an open board you may add yourself to join it. " +
+				"add puts a person on this server onto the board as a member, by handle; anyone on the board may, and on an open board you may add yourself, as @me, to join it. " +
 				"remove takes a person and their agents off the board, and owner makes someone an owner; both are for the board's owners. " +
 				"leave takes you off the board; its last owner makes someone else an owner first. " +
 				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
@@ -470,6 +470,27 @@ func helpText(templates string) []commandHelp {
 				{"aboard board visibility private", "Hide the board from everyone not on it"},
 			},
 			SeeAlso: []string{"status", "invite"},
+		},
+		{
+			Name: "boards", Group: groupBoard,
+			Summary: "List your boards, or every board you can see",
+			Usage:   []string{"aboard boards [--all] [--json]", "aboard boards --as AGENT [--board NAME] [--json]"},
+			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, and default beside this directory's board. " +
+				"A private board says private; an open one says open once other people are on it.\n\n" +
+				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
+				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
+				"Inside an agent's session, or with --as, it lists only that agent's own board, with the agent's own token, and says so.",
+			Flags: []helpFlag{
+				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
+				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},
+				{"--board", "NAME", "With --as: the agent's board, when its name is used on more than one."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard boards", "The boards you are on"},
+				{"aboard boards --all", "Also the open boards you could join"},
+			},
+			SeeAlso: []string{"board", "status"},
 		},
 		{
 			Name: "audit", Group: groupBoard,

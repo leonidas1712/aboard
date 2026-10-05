@@ -1522,6 +1522,55 @@ $defs:
         type: [string, "null"]
         description: The title now; null when it was removed.
 
+  # ---------- aboard boards ----------
+  BoardsOutput:
+    description: |
+      The boards on the server this directory's .aboard names, else the local server.
+      In a terminal, with the person's login: the boards they are on, each with their
+      role, how many people and agents it has, and whether it is this directory's board
+      (default). With --all, also the open boards they aren't on (on_board false, role,
+      agents null; the text adds "join with aboard board add @me --board NAME"), and for a
+      server admin the private boards they aren't on, as the API gives them
+      (hidden_boards). Inside a harness session, or with --as, it lists only the agent's
+      own board, with the agent's token, and says so (as names the agent; role is null).
+      Text output is one line per board: its name, its title, its visibility (Private
+      always; Open only when more than one person is on it), the role, the counts, and
+      "default" for this directory's board.
+    type: object
+    required: [server, as, all, boards, hidden_boards]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      as:
+        type: [string, "null"]
+        description: The agent whose board is listed; null for a person.
+      all: { type: boolean }
+      boards:
+        type: array
+        items:
+          type: object
+          required: [name, title, visibility, on_board, role, people, agents, default]
+          properties:
+            name: { type: string }
+            title: { type: [string, "null"] }
+            visibility: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
+            on_board: { type: boolean }
+            role:
+              description: The person's role on the board; null for a board they aren't on, and for an agent.
+              oneOf:
+                - { $ref: openapi.yaml#/components/schemas/BoardRole }
+                - { type: "null" }
+            people: { type: integer, minimum: 0 }
+            agents:
+              type: [integer, "null"]
+              minimum: 0
+              description: Null for an open board the person isn't on, whose members they can't read.
+            default:
+              type: boolean
+              description: True for the board this directory's .aboard names.
+      hidden_boards:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/HiddenBoard }
+
   # ---------- aboard board people ----------
   BoardPeopleOutput:
     description: |

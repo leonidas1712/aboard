@@ -96,6 +96,17 @@ func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
+	// @me is the person running the command: joining an open board.
+	if handle == "me" {
+		m, err := c.api.GetMeWithResponse(ctx)
+		if err != nil {
+			return c.unreachable(err)
+		}
+		if m.JSON200 == nil {
+			return apiError(m.StatusCode(), m.Body)
+		}
+		handle = m.JSON200.Name
+	}
 	r, err := c.api.AddPersonWithResponse(ctx, t.board, nil, api.AddPersonRequest{Handle: handle})
 	if err != nil {
 		return c.unreachable(err)
