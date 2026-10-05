@@ -117,3 +117,17 @@ Run with a binary from `make install` (or a release).
 - [ ] With the system set to dark mode, the UI is dark and every text stays readable; back in light mode, it is light.
 - [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
 - [ ] After `aboard down` and `aboard up`, reloading the UI still shows the board, logged in. After `aboard logout --browsers`, reloading it says the browser isn't logged in and to run `aboard open`.
+
+## The docs site ([docs/README-site.md](../docs/README-site.md))
+
+The CLI reference and the API spec copy are checked by `make docs-check`, in `make check`.
+The commands on the concept and guide pages are the ones the sections above and
+`e2e/` cover: pairing and inviting (`TestQuickstartTwoTerminals`,
+`TestInviteAddsAnAgentToAnExistingBoard`, `TestPairWriterReviewer`), threads and
+reactions (`e2e/thread_test.go`, `e2e/reactions_test.go`), titles (`e2e/title_test.go`),
+delivery modes (`e2e/modes_test.go`) and the record (`TestQuickstartTwoTerminals`).
+
+- [ ] `make docs-links` passes: no broken links, and `mint validate` builds the site with the OpenAPI file.
+- [ ] `make docs-preview`: the quickstart, How it works and one CLI reference page read correctly at desktop and phone widths, in light and dark.
+- [ ] The files How it works lists for `aboard init` match what `aboard init --yes --allow-commands` writes on a machine with Claude Code, Codex and omp (`aboard uninstall --dry-run` lists them).
+- [ ] After a deploy, the site's `/llms.txt` lists every page in the navigation.
