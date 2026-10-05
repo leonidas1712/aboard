@@ -329,7 +329,7 @@ func (s *FakeServer) Inbox(_ context.Context, agent delivery.AgentRef) (msgs []d
 		return nil, 0, nil, delivery.ErrUnauthorized
 	}
 	if s.gone[agent] {
-		return nil, 0, delivery.ErrBoardGone
+		return nil, 0, nil, delivery.ErrBoardGone
 	}
 	for _, m := range s.inboxes[agent] {
 		if m.Seq > s.cursors[agent] {
