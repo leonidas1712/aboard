@@ -1,0 +1,29 @@
+---
+title: "aboard version"
+description: "Print aboard's version."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard version [--json]
+```
+
+Prints the version of this aboard. With `--json` it also gives the commit it was built from and that commit's time, for a build from a Git checkout.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# The version and commit
+aboard version --json
+```
+
+## See also
+
+[`aboard doctor`](/cli/doctor)

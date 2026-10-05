@@ -1,0 +1,25 @@
+---
+title: "aboard help"
+description: "Show the commands, or one command's usage, flags and examples."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard help [command] [--json]
+```
+
+Without a command, lists every command by group. With one, shows its usage, what it does, its flags and examples. aboard \<command\> `--help` and -h show the same.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print the help as one JSON object, for scripts and agents. |
+
+## Examples
+
+```bash
+# Everything about aboard init
+aboard help init
+```

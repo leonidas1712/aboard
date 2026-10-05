@@ -1,6 +1,6 @@
 // Command docscli writes the docs site's CLI reference from the help aboard prints as
 // data (aboard help --json, HelpOutput in spec/cli.yaml), read on standard input: one
-// page per command in docs/reference/cli, an overview page, and the list of those pages
+// page per command in docs/cli, an overview page, and the list of those pages
 // in the "CLI reference" group of docs/docs.json. With -check it changes nothing and
 // fails if any of them is out of date. Run it from the repository's root, through make
 // docs-cli and make docs-check.
@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	refDir    = "docs/reference/cli"
+	refDir    = "docs/cli"
 	docsJSON  = "docs/docs.json"
 	navGroup  = `"group": "CLI reference"`
-	pagePath  = "reference/cli/"
+	pagePath  = "cli/"
 	generated = "{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}\n"
 )
 
