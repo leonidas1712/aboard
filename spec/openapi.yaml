@@ -1378,6 +1378,17 @@ paths:
         (200, `reused: true`) with another new token, and the token the first answer
         carried stops working.
 
+        **Joins with a person's key or a code keep their replay.** These create a new
+        agent on every call, so a lost answer must not turn a retry into a second seat.
+        A repeat with the same `Idempotency-Key` returns the answer the first call
+        stored, its token included, as it does today, but only after rechecking, in the
+        transaction that reads the stored answer, that the caller's credential still
+        works, that they still have the board, and that the stored seat hasn't been
+        removed. When any check fails, the repeat gets the error a new call would get
+        now (for a removed seat, 403 `agent_removed`), never the stored token. The stored
+        answer is kept only as long as other idempotent answers are, and is served only
+        to the credential that made the first call.
+
         A server from before delegations answers a delegation as an unknown token (401
         `unauthorized`).
       parameters:

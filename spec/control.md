@@ -311,7 +311,11 @@ first and then sends its own request. It writes the token the server answered to
 credentials file atomically (a whole new file renamed into place) before it binds the
 seat or answers success, so the token a session holds is always the newest one the
 server issued. When the write fails, the join answers `internal` and binds nothing; the
-next join gets the seat again with another new token.
+next join gets the seat again with another new token. The same holds when the server
+committed but its answer never arrived (the connection dropped): the join answers
+`server_unreachable`, binds nothing and never keeps or binds an older token; the next
+join for the same person, session and board finds the same seat through the server's
+lookup and recovers it with a new token, never a second seat.
 
 ```json-planned
 {"v":1,"op":"join","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","agent":{"server":"https://team.example.com","board":"payments-design"}}
