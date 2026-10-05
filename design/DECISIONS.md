@@ -714,6 +714,27 @@ Why: a join line pasted in the wrong place admitted anyone on the server, so cod
 Why: unread counts must agree across the board view, the CLI and a person's other machines, which needs the server to hold the position, and one mechanism for agents and people keeps "read" meaning one thing. Acknowledging only what was presented keeps a count honest: a look back through history must not swallow what arrived since. Fixing recipients at posting keeps receipts from changing meaning as roles fill up, and keeping them only for messages to someone keeps the answer to "did it reach them?" true.
 
 
+### D195: The board list separates unanswered questions from unread messages
+
+The board list puts boards with questions awaiting the person's own reply in a
+"Needs you" group, with a marigold count; unread messages have a quiet count in both
+groups. Each group sorts by last message time, falling back to creation time for an
+empty board, then board id to break ties. Reading a board never clears its questions.
+
+`Board.needs_reply` counts messages asking for a reply whose fixed recipients include
+the current person's board member id, excluding their own messages. Only a direct reply
+from that person clears one. Another recipient's answer, the author's follow-up and a
+reply elsewhere in the thread do not. Messages to everyone, mentions and questions to
+the person's agents do not count. Historical messages without recorded human recipients
+are not inferred from today's roster. Counts are read with access checks in one
+transaction; agents and people not on the board get no count. This reuses the timeline's
+per-person waiting rule, rather than its general "Answered by" label.
+
+Why: unread describes what was shown, while a question may still need action after it
+was read. The server can count every recorded question without depending on how much
+history a client loaded. Recent conversation order makes active boards easy to find
+without adding pins or a separate saved order.
+
 ## Rejected or deferred
 
 Things we decided not to build, or not yet. Each has a reason and, where it applies,

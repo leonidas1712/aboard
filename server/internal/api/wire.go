@@ -65,8 +65,9 @@ type wireBoard struct {
 	OnBoard       bool          `json:"on_board"`
 	// ReadUpTo and Unread are the caller's read position, left out when they aren't on
 	// the board.
-	ReadUpTo *int64 `json:"read_up_to,omitempty"`
-	Unread   *int64 `json:"unread,omitempty"`
+	ReadUpTo   *int64 `json:"read_up_to,omitempty"`
+	Unread     *int64 `json:"unread,omitempty"`
+	NeedsReply *int64 `json:"needs_reply"`
 }
 
 type wireMessage struct {

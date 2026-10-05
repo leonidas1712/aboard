@@ -54,6 +54,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"InboxSkipsOwnAndAlreadyReadMessages", inboxSkipsOwnAndAlreadyReadMessages},
 		{"InboxHoldsMessagesThatMentionTheReader", inboxHoldsMessagesThatMentionTheReader},
 		{"CountUnreadCountsWhatInboxOrTheTimelineHasLeft", countUnreadCountsWhatInboxOrTheTimelineHasLeft},
+		{"QuestionsUseRecordedRecipientsAndOnlyTheirDirectReply", questionsUseRecordedRecipientsAndOnlyTheirDirectReply},
 		{"MessageRecipientsRoundTrip", messageRecipientsRoundTrip},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},
@@ -1746,6 +1747,39 @@ func threadsListNewestActivityFirst(t *testing.T, st board.Store) {
 		}
 		return nil
 	})
+}
+
+func questionsUseRecordedRecipientsAndOnlyTheirDirectReply(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	questionID := "question"
+	write(t, st, func(tx board.Tx) error {
+		for _, m := range []board.Message{
+			{ID: "question", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.writer.ID, To: []string{"@alex"}, ExpectsReply: true, Recipients: []string{c.alex.ID}},
+			{ID: "legacy", BoardID: "brd_docs", Seq: 7, At: at, SenderID: c.writer.ID, To: []string{"@alex"}, ExpectsReply: true},
+			{ID: "role_question", BoardID: "brd_docs", Seq: 8, At: at, SenderID: c.writer.ID, To: []string{"role:reviewer"}, ExpectsReply: true, Recipients: []string{c.alex.ID}},
+			{ID: "peer_reply", BoardID: "brd_docs", Seq: 9, At: at, SenderID: c.reviewer.ID, To: []string{"all"}, ReplyTo: &questionID},
+		} {
+			if err := tx.InsertMessage(m); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	check := func(want int64) {
+		t.Helper()
+		read(t, st, func(tx board.ReadTx) error {
+			n, err := tx.CountNeedsReply(c.alex)
+			if err == nil && n != want {
+				t.Errorf("questions = %d, want %d", n, want)
+			}
+			return err
+		})
+	}
+	check(2)
+	write(t, st, func(tx board.Tx) error {
+		return tx.InsertMessage(board.Message{ID: "own_reply", BoardID: "brd_docs", Seq: 10, At: at, SenderID: c.alex.ID, To: []string{"all"}, ReplyTo: &questionID})
+	})
+	check(1)
 }
 
 func countUnreadCountsWhatInboxOrTheTimelineHasLeft(t *testing.T, st board.Store) {

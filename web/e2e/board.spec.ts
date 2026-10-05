@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -155,7 +155,7 @@ test("the board view shows the room live, posts as the person and verifies the r
     "aria-current",
     "page",
   );
-  await expect(nav.locator(".message-count [aria-hidden]")).toHaveText("0");
+  await expect(nav.locator(".unread-count")).toHaveCount(0);
   await expect(nav.locator(".charter, .record, .agent")).toHaveCount(0);
   await expect(nav).not.toContainText("Rules Aboard enforces");
 
@@ -257,8 +257,9 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(chip).toHaveCount(0);
   await expect(reviewerSays).toBeVisible();
 
-  // The board list's count follows the board live: five messages were posted above.
-  await expect(nav.locator(".message-count [aria-hidden]")).toHaveText("5");
+  // The selected board shows only messages the person has not seen, not its total.
+  await expect.poll(() => unreadOn("writer-reviewer")).toBe(0);
+  await expect(nav.locator(".unread-count")).toHaveCount(0);
 
   // A closed section and a side panel collapsed to its strip stay that way after a
   // reload, and open again.
@@ -952,6 +953,50 @@ test("the header, the board list and the people on a board show open, private an
 
 // unreadOn reads the person's unread count on a board from the CLI, as another machine of
 // theirs would see it.
+for (const theme of ["light", "dark"] as const) {
+  test(`sidebar separates questions from unread and sorts recent conversations (${theme})`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    const older = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Sidebar earlier", "--json"));
+    const newer = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Sidebar recent", "--json"));
+    const a: string = older.board.name;
+    const b: string = newer.board.name;
+    const open = JSON.parse(aboard("open", "--board", b, "--json"));
+    await openLink(page, open.url);
+    const nav = page.getByRole("navigation", { name: "Boards" });
+    const relevant = nav.locator(`a[href="/?board=${a}"], a[href="/?board=${b}"]`);
+    await expect(relevant.first()).toHaveAttribute("href", `/?board=${b}`);
+    const question = JSON.parse(aboard("say", "--as", "writer", "--board", a, "--to", "@alex", "--expect-reply", "Which wording should we use?", "--json"));
+    const row = nav.locator(`a[href="/?board=${a}"]`);
+    await expect(nav.getByRole("region", { name: "Needs you" }).locator(`a[href="/?board=${a}"]`)).toBeVisible();
+    await expect(row.locator(".needs-reply-count [aria-hidden]")).toHaveText("1");
+    await expect(row.locator(".unread-count [aria-hidden]")).toHaveText("1");
+    if (process.env.ABOARD_SIDEBAR_REVIEW) {
+      const dir = process.env.ABOARD_SIDEBAR_REVIEW;
+      mkdirSync(dir, { recursive: true });
+      for (const [viewport, width, height] of [["desktop", 1280, 800], ["mobile", 390, 844]] as const) {
+        await page.setViewportSize({ width, height });
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await expect(row).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await page.screenshot({ path: join(dir, `${viewport}-${theme}.png`), fullPage: true, animations: "disabled" });
+      }
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
+    aboard("read", "--mark-read", "--board", a);
+    await expect(row.locator(".unread-count")).toHaveCount(0);
+    await expect(row.locator(".needs-reply-count [aria-hidden]")).toHaveText("1");
+    const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+    const owner = readFileSync(found, "utf8").trim();
+    await api(owner, "POST", `/v1/boards/${a}/messages`, { body: "Use the shorter wording.", reply_to: question.message.id, to: ["all"] });
+    await expect(row.locator(".needs-reply-count")).toHaveCount(0);
+    await expect(nav.getByRole("region", { name: "Needs you" }).locator(`a[href="/?board=${a}"]`)).toHaveCount(0);
+    await expect(relevant.first()).toHaveAttribute("href", `/?board=${a}`);
+    aboard("say", "--as", "writer", "--board", b, "A newer conversation.");
+    await expect(relevant.first()).toHaveAttribute("href", `/?board=${b}`);
+    await expect(nav.locator(`a[href="/?board=${b}"]`)).toHaveAttribute("aria-current", "page");
+  });
+}
+
 function unreadOn(board: string): number {
   const out = JSON.parse(aboard("boards", "--json")) as { boards: { name: string; unread: number | null }[] };
   return out.boards.find((b) => b.name === board)?.unread ?? -1;
@@ -984,6 +1029,7 @@ test("the person's read position moves only with what they saw, and receipts say
   aboard("say", "--as", "writer", "--board", board, "Something new while you read back.");
   await expect(page.getByRole("button", { name: /Jump to newest · 1 new/ })).toBeVisible();
   expect(unreadOn(board)).toBe(1);
+  await expect(page.getByRole("navigation", { name: "Boards" }).getByRole("link", { name: /Attention/ }).locator(".unread-count [aria-hidden]")).toHaveText("1");
   await page.getByRole("button", { name: /Jump to newest/ }).click();
   await expect.poll(() => unreadOn(board)).toBe(0);
 
@@ -997,7 +1043,7 @@ test("the person's read position moves only with what they saw, and receipts say
   await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
   aboard("read", "--mark-read", "--board", "writer-reviewer");
   await expect(docs.locator(".unread-count")).toHaveCount(0);
-  await expect(docs.locator(".message-count")).toBeVisible();
+  await expect(docs.locator(".message-count")).toHaveCount(0);
 
   // A message from the person's agent to the reviewer is pending until the reviewer's
   // inbox takes it, then received; the mark lists who, on hover.

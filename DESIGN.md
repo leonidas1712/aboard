@@ -390,9 +390,18 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 - **Sections:** a Label heading with a chevron that opens and closes it (remembered per
   browser), then plain content: a paragraph, a list, a link ("Edit charter", "Tighten
   the rules").
-- **Board list:** each board a list item with 8px by 10px padding; the current one has
-  the `selected` fill and bold text. Its message count sits right-aligned as a plain
-  number in Meta.
+- **Board list:** boards with unresolved questions addressed to the person's fixed
+  member id appear first under "Needs you"; remaining boards appear under "Other
+  boards". Without unresolved questions, the list has no group heading. Within each
+  group, boards sort by `last_message_at` (falling back to `created_at`), newest first,
+  with board id breaking ties. Rows have 6px by 10px padding and a minimum height of
+  44px; the current board has the `selected` fill and bold text.
+- **Board counts:** questions needing a direct reply have a right-aligned marigold
+  (`attention`) count with `ink` text, bold Meta, a 6px radius and 2px by 8px padding.
+  Unread messages have a separate plain Meta count in `muted`, including on the
+  current board while the person is scrolled back. Both use tabular numerals and
+  text equivalents that distinguish questions from unread messages. Reading a
+  question does not clear its reply count.
 - **Add an agent:** a full-width secondary button at the top of the Agents section. It
   opens, in place, a soft box (surface fill, 10px radius) with the role picker (only
   with several roles), the prompt, "Copy prompt" and when the code stops working, and a

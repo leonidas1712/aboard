@@ -24,9 +24,35 @@ import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
 
-/** BoardNav lists the boards this person is on, with how many messages each has. */
+/** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
 export function BoardNav({ current, boards }: { current: string; boards: Board[] | null }) {
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
+  const recent = [...boards].sort((a, b) => {
+    const activity = (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at);
+    return activity || a.id.localeCompare(b.id);
+  });
+  const needs = recent.filter((b) => (b.needs_reply ?? 0) > 0);
+  const others = recent.filter((b) => (b.needs_reply ?? 0) === 0);
+  return (
+    <div className="flex flex-col gap-5">
+      {needs.length > 0 && (
+        <section aria-label="Needs you">
+          <h3 className="mb-1 text-meta font-bold text-ink">Needs you</h3>
+          <BoardLinks current={current} boards={needs} />
+        </section>
+      )}
+      {others.length > 0 && (
+        <section aria-label={needs.length > 0 ? "Other boards" : "Your boards"}>
+          {needs.length > 0 && <h3 className="mb-1 text-meta font-bold text-muted">Other boards</h3>}
+          <BoardLinks current={current} boards={others} />
+        </section>
+      )}
+      {boards.length === 0 && <p className="text-meta text-muted">No boards yet.</p>}
+    </div>
+  );
+}
+
+function BoardLinks({ current, boards }: { current: string; boards: Board[] }) {
   return (
     <ul className="board-nav -mx-2.5 flex flex-col gap-0.5">
       {boards.map((b) => {
@@ -45,20 +71,17 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
                 <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
                 {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
-              {/* Another board with messages the person hasn't read shows how many, in ink;
-                  otherwise the quiet total. */}
-              {!here && (b.unread ?? 0) > 0 ? (
-                <span className="unread-count shrink-0 text-meta font-bold text-ink tabular-nums" title={`${b.unread} unread`}>
+              {(b.needs_reply ?? 0) > 0 && (
+                <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-ink tabular-nums" title={count(b.needs_reply ?? 0, "question needs your reply", "questions need your reply")}>
+                  <span aria-hidden>{b.needs_reply}</span>
+                  <span className="sr-only">, {count(b.needs_reply ?? 0, "question needs your reply", "questions need your reply")}</span>
+                </span>
+              )}
+              {(b.unread ?? 0) > 0 && (
+                <span className="unread-count shrink-0 text-meta text-muted tabular-nums" title={`${b.unread} unread`}>
                   <span aria-hidden>{b.unread}</span>
                   <span className="sr-only">, {b.unread} unread</span>
                 </span>
-              ) : (
-                b.message_count !== null && (
-                  <span className="message-count shrink-0 text-meta text-muted tabular-nums" title={count(b.message_count, "message", "messages")}>
-                    <span aria-hidden>{b.message_count}</span>
-                    <span className="sr-only">, {count(b.message_count, "message", "messages")}</span>
-                  </span>
-                )
               )}
             </a>
           </li>
