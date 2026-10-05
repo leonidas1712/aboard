@@ -73,3 +73,25 @@ func TestSessionBoardsText(t *testing.T) {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// With several seats, status lists one line per seat, sorted by board, and the two
+// reminders that every command acting on one board needs --board.
+func TestSeatsText(t *testing.T) {
+	member, idle, two := "member", "idle", 2
+	rows := []seatRow{
+		{Board: "general", Name: "claude", Role: &member, Delivery: "focused", Presence: &idle, Unread: &two},
+		{Board: "payments-design", Name: "claude-2", Role: &member, Delivery: "all", Presence: &idle},
+	}
+	text, usage := seatsText("https://team.example.com", rows)
+	want := "Seats:  2 in this session, on https://team.example.com\n" +
+		"          general          claude    member  focused  idle  2 unread\n" +
+		"          payments-design  claude-2  member  all      idle\n" +
+		"        Commands that act on one board need --board, such as aboard say --board general \"…\".\n" +
+		"        Reply with: aboard say --board payments-design --reply SEQ \"…\"\n"
+	if text != want {
+		t.Errorf("got:\n%s\nwant:\n%s", text, want)
+	}
+	if len(usage) != 2 {
+		t.Errorf("usage: %v", usage)
+	}
+}
