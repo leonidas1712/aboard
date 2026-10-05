@@ -132,15 +132,17 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 }
 
 // deliveryTarget finds the agent aboard delivery acts on: one of this machine's agents
-// (here is then true), or, named with --as, any agent of the person's on the board that
-// --board or this directory's .aboard file names, reached with the person's login.
+// (here is then true), or, named with --as in a person's own terminal, any agent of the
+// person's on the board that --board or this directory's .aboard file names, reached
+// with the person's login. A command that acts for an agent (inside a harness session,
+// or with ABOARD_AGENT set) never falls back to the person's login.
 func (a *app) deliveryTarget(ctx context.Context, boardFlag, as string) (t target, cred agentCredential, here bool, err error) {
 	t, cred, err = a.agentTarget(ctx, boardFlag, as)
 	if err == nil {
 		return t, cred, true, nil
 	}
 	name := strings.TrimPrefix(strings.TrimSpace(as), "@")
-	if name == "" || asError(err).Code != "agent_not_selected" {
+	if name == "" || asError(err).Code != "agent_not_selected" || a.actsForAgent() {
 		return target{}, agentCredential{}, false, err
 	}
 	if t, err = a.selectBoard(boardFlag); err != nil {
