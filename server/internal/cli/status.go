@@ -151,7 +151,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		}
 	}
 
-	switch _, known := creds.find(t.server.URL, t.board, name); {
+	cred, known := creds.find(t.server.URL, t.board, name)
+	switch {
 	case name == "":
 		fmt.Fprintf(&text, "Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: %s)\n", namesText(out.Agents))
 	case !known:
@@ -164,8 +165,9 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		m := ""
 		var applied *string
 		for _, mem := range members {
-			if mem.Name == name && mem.Kind == api.MemberKindAgent {
+			if cred.MemberID != "" && mem.Id == cred.MemberID && mem.Kind == api.MemberKindAgent {
 				m = heldModeOf(mem)
+				out.Presence = presenceOf([]api.Member{mem}, mem.Name)
 				if mem.Delivery != nil {
 					if parsed, ok := delivery.ParseMode(string(*mem.Delivery)); ok {
 						s := string(parsed)
@@ -175,7 +177,6 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 		}
 		if m == "" {
-			cred, _ := creds.find(t.server.URL, t.board, name)
 			mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name, MemberID: cred.MemberID})
 			if err != nil {
 				return err
@@ -189,7 +190,6 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		if out.DeliveryUnconfirmed {
 			line += keptHereText
 		}
-		out.Presence = presenceOf(members, name)
 		if applied != nil && *applied != m && out.Presence != nil && *out.Presence != "no_session" {
 			// A daemon from an older aboard keeps its own mode; say what it does.
 			line += fmt.Sprintf(" (its delivery daemon applies %s)", *applied)
