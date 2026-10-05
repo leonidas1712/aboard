@@ -214,20 +214,24 @@ func memberByID(tx ReadTx, boardID, id string) (Member, error) {
 }
 
 // JoinInput is a request for a new agent identity: either Code, or Board and Role from
-// a human who is already a member.
+// a human who is already a member. Session is the harness session the agent is for
+// (`<harness>:<id>`), when the caller names one; it is kept with the seat.
 type JoinInput struct {
 	Code    string
 	Board   string
 	Role    string
 	Name    string
 	Harness string
+	Session string
 }
 
-// Joined is a new agent with its token, which is only available here.
+// Joined is an agent with its token, which is only available here: a new one, or, with
+// Reused, a session's working seat that a delegated join gave a new token.
 type Joined struct {
-	Agent Member
-	Token string
-	View  View
+	Agent  Member
+	Token  string
+	View   View
+	Reused bool
 }
 
 // workingCode finds the join code code names, and fails with join_code_invalid unless it
@@ -275,6 +279,9 @@ func codeMaker(tx ReadTx, jc JoinCode) (Member, error) {
 // a pairing code they or their agent made, or directly with a board and a role. A guest
 // joins only with a guest code for them, which puts them on its board.
 func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, error) {
+	if p.Delegation != nil {
+		return s.joinDelegated(ctx, p, in)
+	}
 	if err := requireHuman(p); err != nil {
 		return Joined{}, err
 	}
@@ -306,7 +313,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 				if jc.GuestID == nil || *jc.GuestID != person.ID {
 					return joinCodeInvalid()
 				}
-				out, err = s.redeemGuestCode(tx, jc, person, ptr(p.KeyID), JoinInput{Name: in.Name, Harness: in.Harness}, now)
+				out, err = s.redeemGuestCode(tx, jc, person, ptr(p.KeyID), JoinInput{Name: in.Name, Harness: in.Harness, Session: in.Session}, now)
 				return err
 			}
 			if person.Role == ServerGuest {
@@ -349,7 +356,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		if p.KeyID != "" {
 			keyID = ptr(p.KeyID)
 		}
-		out, err = s.seat(tx, &b, owner, p.Human.Name, in, role, keyID, codeID, now)
+		out, err = s.seat(tx, &b, owner, p.Human.Name, in, role, keyID, codeID, now, nil)
 		return err
 	})
 	if err != nil {
@@ -361,7 +368,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 }
 
 // seat makes a new agent of owner's person on b, in role, and records it.
-func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinInput, role string, keyID, codeID *string, now time.Time) (Joined, error) {
+func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinInput, role string, keyID, codeID *string, now time.Time, extra map[string]any) (Joined, error) {
 	taken := func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }
 	name := in.Name
 	switch {
@@ -388,10 +395,13 @@ func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinI
 	if in.Harness != "" {
 		agent.Harness = ptr(in.Harness)
 	}
+	if in.Session != "" {
+		agent.Session = ptr(in.Session)
+	}
 	if agent.ID, err = s.gen.ID("mem", now); err != nil {
 		return Joined{}, err
 	}
-	if err := s.addMember(tx, b, agent, actorOf(owner), codeID, now); err != nil {
+	if err := s.addMember(tx, b, agent, actorOf(owner), codeID, now, extra); err != nil {
 		return Joined{}, err
 	}
 	view, err := viewOf(tx, *b)
@@ -481,7 +491,7 @@ func (s *Service) redeemGuestCode(tx Tx, jc JoinCode, guest Human, keyID *string
 	if err != nil {
 		return Joined{}, err
 	}
-	out, err := s.seat(tx, &b, me, guest.Name, in, jc.Role, keyID, ptr(jc.ID), now)
+	out, err := s.seat(tx, &b, me, guest.Name, in, jc.Role, keyID, ptr(jc.ID), now, nil)
 	if err != nil {
 		return Joined{}, err
 	}
@@ -522,7 +532,7 @@ func (s *Service) guestOnBoard(tx Tx, b *Board, guest Human, codeID *string, now
 	case err == nil && m.Status == StatusActive:
 		return m, nil
 	case err == nil:
-		err := s.restorePerson(tx, b, &m, actorOf(m), now)
+		err := s.restorePerson(tx, b, &m, actorOf(m), now, nil)
 		return m, err
 	case !errors.Is(err, ErrNotFound):
 		return Member{}, err

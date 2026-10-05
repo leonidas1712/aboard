@@ -277,6 +277,12 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			writeError(w, o.Log, err)
 			return
 		}
+		if p.Delegation != nil && !delegationMay(r) {
+			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden",
+				"A machine's delegation only lists its person's boards and joins sessions to them.",
+				"Use the person's own access key or the agent's token for anything else."))
+			return
+		}
 		if codes && !machines.codes.perPerson.allow(callerPerson(p)) {
 			tooMany(w, o.Log, "Too many attempts with a machine's code.")
 			return
@@ -290,6 +296,19 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 		ctx = context.WithValue(ctx, sessionKey{}, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// delegationMay reports whether a machine's delegation may make request r: list boards,
+// join a session, or ask to make a delegation, which the service refuses it with
+// human_token_required. Everything else is forbidden, whatever the service would do.
+func delegationMay(r *http.Request) bool {
+	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/v1/boards":
+		return true
+	case r.Method == http.MethodPost && (r.URL.Path == "/v1/join" || r.URL.Path == "/v1/delegations"):
+		return true
+	}
+	return false
 }
 
 // Limits are how many requests a minute one kind of request may make: per client

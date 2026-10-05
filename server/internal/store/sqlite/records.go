@@ -88,7 +88,8 @@ func (t *tx) InsertAccessKey(k board.AccessKey) error {
 func (t *tx) KeysOf(humanID, now string) ([]board.KeyUsage, error) {
 	rows, err := t.tx.QueryContext(t.ctx, `SELECT `+accessKeyColumns+`,
 		(SELECT count(*) FROM browser_logins b WHERE b.key_id = access_keys.id AND b.expires_at > ?),
-		(SELECT count(*) FROM members m WHERE m.key_id = access_keys.id AND m.kind = 'agent' AND m.status = 'active')
+		(SELECT count(*) FROM members m WHERE m.key_id = access_keys.id AND m.kind = 'agent' AND m.status = 'active'),
+		(SELECT count(*) FROM delegations d WHERE d.key_id = access_keys.id AND d.ended_at IS NULL)
 		FROM access_keys WHERE human_id = ? ORDER BY created_at, id`, now, humanID)
 	if err != nil {
 		return nil, err
@@ -97,7 +98,7 @@ func (t *tx) KeysOf(humanID, now string) ([]board.KeyUsage, error) {
 	var out []board.KeyUsage
 	for rows.Next() {
 		var u board.KeyUsage
-		if u.AccessKey, err = scanAccessKey(rows, &u.BrowserSessions, &u.AgentSeats); err != nil {
+		if u.AccessKey, err = scanAccessKey(rows, &u.BrowserSessions, &u.AgentSeats, &u.Delegations); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -348,15 +349,15 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 }
 
 const (
-	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id)"
+	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
 	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy)
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
 	m.Delivery.Mode = setting.String
@@ -379,13 +380,25 @@ func (t *tx) SetPresence(memberID string, p board.Presence) error {
 
 // InsertMember adds a member.
 func (t *tx) InsertMember(m board.Member) error {
-	return t.exec("INSERT INTO members ("+memberInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
-		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.KeyID, m.Access, m.Status, m.Cursor, m.JoinedAt)
+	return t.exec("INSERT INTO members ("+memberInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?)",
+		m.ID, m.BoardID, m.Name, m.Kind, m.Role, m.HumanID, m.Owner, m.Harness, m.TokenDigest, m.KeyID, m.Access, m.Status, m.Cursor, m.JoinedAt, m.Session)
 }
 
 // MemberByTokenDigest finds the agent whose token has this digest.
 func (t *tx) MemberByTokenDigest(digest string) (board.Member, error) {
 	return scanMember(t.queryRow("SELECT "+memberColumns+" FROM members WHERE token_digest = ?", digest))
+}
+
+// MemberByID finds a member of any board by id.
+func (t *tx) MemberByID(id string) (board.Member, error) {
+	return scanMember(t.queryRow("SELECT "+memberColumns+" FROM members WHERE id = ?", id))
+}
+
+// SeatForSession finds the human's newest agent on the board made for the session.
+func (t *tx) SeatForSession(boardID, humanID, session string) (board.Member, error) {
+	return scanMember(t.queryRow("SELECT "+memberColumns+" FROM members"+
+		" WHERE board_id = ? AND human_id = ? AND kind = 'agent' AND session = ? ORDER BY joined_at DESC, rowid DESC LIMIT 1",
+		boardID, humanID, session))
 }
 
 // HumanMember finds a human's own membership of a board.
@@ -419,6 +432,45 @@ func (t *tx) Members(boardID string) ([]board.Member, error) {
 // SetMemberStatus sets whether a member is on its board: active, left or removed.
 func (t *tx) SetMemberStatus(memberID, status string) error {
 	return t.exec("UPDATE members SET status = ? WHERE id = ?", status, memberID)
+}
+
+// RemoveAgent marks an agent removed, with when and by whom.
+func (t *tx) RemoveAgent(memberID, at, by string) error {
+	return t.exec("UPDATE members SET status = 'removed', removed_at = ?, removed_by = ? WHERE id = ? AND kind = 'agent'", at, by, memberID)
+}
+
+// SetAgentToken replaces an agent's token and the key it stops with.
+func (t *tx) SetAgentToken(memberID, digest, keyID string) error {
+	return t.exec("UPDATE members SET token_digest = ?, key_id = ? WHERE id = ? AND kind = 'agent'", digest, keyID, memberID)
+}
+
+const delegationColumns = "id, key_id, human_id, name, digest, created_at, ended_at"
+
+func scanDelegation(row interface{ Scan(...any) error }) (board.Delegation, error) {
+	var d board.Delegation
+	err := row.Scan(&d.ID, &d.KeyID, &d.HumanID, &d.Name, &d.Digest, &d.CreatedAt, &d.EndedAt)
+	return d, notFound(err)
+}
+
+// InsertDelegation adds a machine delegation.
+func (t *tx) InsertDelegation(d board.Delegation) error {
+	return t.exec("INSERT INTO delegations ("+delegationColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
+		d.ID, d.KeyID, d.HumanID, d.Name, d.Digest, d.CreatedAt, d.EndedAt)
+}
+
+// EndDelegations ends the key's delegations under the name that haven't ended.
+func (t *tx) EndDelegations(keyID, name, at string) error {
+	return t.exec("UPDATE delegations SET ended_at = ? WHERE key_id = ? AND name = ? AND ended_at IS NULL", at, keyID, name)
+}
+
+// DelegationByDigest finds a machine delegation by the digest of its token.
+func (t *tx) DelegationByDigest(digest string) (board.Delegation, error) {
+	return scanDelegation(t.queryRow("SELECT "+delegationColumns+" FROM delegations WHERE digest = ?", digest))
+}
+
+// DelegationByID finds a machine delegation by id.
+func (t *tx) DelegationByID(id string) (board.Delegation, error) {
+	return scanDelegation(t.queryRow("SELECT "+delegationColumns+" FROM delegations WHERE id = ?", id))
 }
 
 // SetMemberAccess sets what a person may change on their board: admin or member.

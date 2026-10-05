@@ -38,6 +38,7 @@ type presenceEvent struct {
 	Board         string  `json:"board"`
 	BoardID       string  `json:"board_id"`
 	Agent         string  `json:"agent"`
+	MemberID      string  `json:"member_id"`
 	Presence      string  `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
 	// Delivery is the mode the agent's delivery daemon last reported applying, or nil.
@@ -49,12 +50,13 @@ type readEvent struct {
 	Board    string `json:"board"`
 	BoardID  string `json:"board_id"`
 	Agent    string `json:"agent"`
+	MemberID string `json:"member_id"`
 	ReadUpTo int64  `json:"read_up_to"`
 }
 
 func presenceEventOf(pc board.PresenceChange) presenceEvent {
 	return presenceEvent{
-		Board: pc.Board, BoardID: pc.BoardID, Agent: pc.Agent, Presence: pc.Presence.State,
+		Board: pc.Board, BoardID: pc.BoardID, Agent: pc.Agent, MemberID: pc.MemberID, Presence: pc.Presence.State,
 		PresenceSince: nullable(pc.Presence.Since), Delivery: nullable(pc.Presence.Delivery),
 	}
 }
@@ -161,7 +163,7 @@ func streamEvents(u board.Update, ticked bool) []byte {
 		writeEvent(&buf, "presence", presenceEventOf(pc))
 	}
 	for _, rc := range u.Reads {
-		writeEvent(&buf, "read", readEvent{Board: rc.Board, BoardID: rc.BoardID, Agent: rc.Agent, ReadUpTo: rc.Cursor})
+		writeEvent(&buf, "read", readEvent{Board: rc.Board, BoardID: rc.BoardID, Agent: rc.Agent, MemberID: rc.MemberID, ReadUpTo: rc.Cursor})
 	}
 	for _, uc := range u.Unread {
 		writeEvent(&buf, "unread", unreadEvent{Board: uc.Board, BoardID: uc.BoardID, ReadUpTo: uc.Position.ReadUpTo, Unread: uc.Position.Unread})

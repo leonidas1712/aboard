@@ -27,10 +27,15 @@ const (
 	invitePrefix    = "abi_"
 )
 
-// Principal is the authenticated caller: exactly one of Human and Agent is set.
+// Principal is the authenticated caller: exactly one of Human, Agent and Delegation is
+// set.
 type Principal struct {
 	Human *Human
 	Agent *Member
+	// Delegation is a machine's delegation, which acts for its person only to list their
+	// boards (ListBoards) and to give a session a seat (JoinSession); everything else
+	// refuses it.
+	Delegation *Delegation
 	// Browser is set for a browser token, which acts as its human with the human's
 	// permissions, except that it can't log in another browser.
 	Browser bool
@@ -44,6 +49,9 @@ type Principal struct {
 	// keyUsedBefore is, for a person's own key, when it was last used before this
 	// request.
 	keyUsedBefore *string
+	// delegated is set, on a copy of a delegation's principal, only by the operations a
+	// delegation may do, so every other operation's credential check refuses it.
+	delegated bool
 }
 
 // keyWorks reports whether an access key may still be used at now.
@@ -101,6 +109,22 @@ func credentialState(tx ReadTx, p Principal, now string) (*string, error) {
 }
 
 func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error) {
+	if p.Delegation != nil {
+		if !p.delegated {
+			return Human{}, nil, delegationForbidden()
+		}
+		return checkDelegation(tx, *p.Delegation, now)
+	}
+	if p.Agent != nil && p.Agent.TokenDigest != nil {
+		// A seat's token stops working once a later join gave the seat a new one.
+		m, err := tx.MemberByTokenDigest(*p.Agent.TokenDigest)
+		if errors.Is(err, ErrNotFound) || (err == nil && m.ID != p.Agent.ID) {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		if err != nil {
+			return Human{}, nil, err
+		}
+	}
 	person, err := tx.HumanByID(p.personID())
 	if errors.Is(err, ErrNotFound) || (err == nil && person.RemovedAt != nil) {
 		return Human{}, nil, apierr.Unauthorized()
@@ -155,6 +179,9 @@ func keyState(tx ReadTx, p Principal, now string) (*string, error) {
 func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
 	if strings.HasPrefix(token, browserTokenPrefix) {
 		return s.authenticateBrowser(ctx, token)
+	}
+	if strings.HasPrefix(token, delegationPrefix) {
+		return s.authenticateDelegation(ctx, token)
 	}
 	digest := ids.Digest(s.key, token)
 	var p Principal

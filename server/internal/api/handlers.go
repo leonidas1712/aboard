@@ -88,6 +88,13 @@ func (h *handlers) ListBoards(ctx context.Context, req ListBoardsRequestObject) 
 	for _, v := range list.Boards {
 		out.Boards = append(out.Boards, boardOf(v, principal(ctx)))
 	}
+	if principal(ctx).Delegation != nil {
+		// A delegation never gets the person's own read position or questions, and no
+		// hidden boards, whatever all says.
+		return convert[ListBoards200JSONResponse](struct {
+			Boards []wireBoard `json:"boards"`
+		}{Boards: out.Boards})
+	}
 	if all {
 		hidden := []map[string]any{}
 		for _, hb := range list.Hidden {
@@ -205,11 +212,12 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 		Role    string `json:"role"`
 		Name    string `json:"name"`
 		Harness string `json:"harness"`
+		Session string `json:"session"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	j, err := h.svc.Join(ctx, principal(ctx), board.JoinInput{Code: in.Code, Board: in.Board, Role: in.Role, Name: in.Name, Harness: in.Harness})
+	j, err := h.svc.Join(ctx, principal(ctx), board.JoinInput{Code: in.Code, Board: in.Board, Role: in.Role, Name: in.Name, Harness: in.Harness, Session: in.Session})
 	if err != nil {
 		return nil, err
 	}
@@ -219,16 +227,24 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 	}
 	// The answer holds the agent's token, which no cache may keep.
 	noStore := "no-store"
+	if j.Reused {
+		return Join200JSONResponse{Body: body, Headers: Join200ResponseHeaders{CacheControl: &noStore}}, nil
+	}
 	return Join201JSONResponse{Body: body, Headers: Join201ResponseHeaders{CacheControl: &noStore}}, nil
 }
 
 // joinedOf is a new agent with its token and board, as the agent sees the board.
 func joinedOf(j board.Joined, p board.Principal) any {
-	return struct {
-		Agent wireMember `json:"agent"`
-		Token string     `json:"token"`
-		Board wireBoard  `json:"board"`
-	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, p)}
+	out := struct {
+		Agent  wireMember `json:"agent"`
+		Token  string     `json:"token"`
+		Board  wireBoard  `json:"board"`
+		Reused *bool      `json:"reused,omitempty"`
+	}{Agent: memberOf(j.Agent, j.View.Board.Name), Token: j.Token, Board: boardOf(j.View, p)}
+	if j.Reused {
+		out.Reused = &j.Reused
+	}
+	return out
 }
 
 // GuestJoin redeems a guest code. It needs no token: the code is the proof.
@@ -359,12 +375,13 @@ func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (Get
 	return convert[GetInbox200JSONResponse](struct {
 		Board            string        `json:"board"`
 		Agent            string        `json:"agent"`
+		MemberID         string        `json:"member_id"`
 		Messages         []wireMessage `json:"messages"`
 		Cursor           int64         `json:"cursor"`
 		More             bool          `json:"more"`
 		DeliveryMode     string        `json:"delivery_mode"`
 		DeliveryRevision int64         `json:"delivery_revision"`
-	}{r.Board.Name, r.Reader.Name, messagesOf(r), r.Reader.Cursor, more, r.Reader.Delivery.Current(), r.Reader.Delivery.Seq})
+	}{r.Board.Name, r.Reader.Name, r.Reader.ID, messagesOf(r), r.Reader.Cursor, more, r.Reader.Delivery.Current(), r.Reader.Delivery.Seq})
 }
 
 func (h *handlers) SetDeliveryMode(ctx context.Context, req SetDeliveryModeRequestObject) (SetDeliveryModeResponseObject, error) {
@@ -383,7 +400,12 @@ func (h *handlers) AckInbox(ctx context.Context, req AckInboxRequestObject) (Ack
 	if err != nil {
 		return nil, err
 	}
-	return AckInbox200JSONResponse{Cursor: Seq(cursor)}, nil
+	out := AckInbox200JSONResponse{Cursor: Seq(cursor)}
+	// The seat whose cursor this is: the token's member id.
+	if p := principal(ctx); p.Agent != nil {
+		out.MemberId = &p.Agent.ID
+	}
+	return out, nil
 }
 
 func (h *handlers) SetPresence(ctx context.Context, req SetPresenceRequestObject) (SetPresenceResponseObject, error) {
@@ -437,11 +459,21 @@ func (h *handlers) GetMessage(context.Context, GetMessageRequestObject) (GetMess
 	return nil, notImplemented("message status")
 }
 
-// CreateDelegation is in the contract ahead of the server: machine delegations come
-// with team slice 5a.
-func (h *handlers) CreateDelegation(context.Context, CreateDelegationRequestObject) (CreateDelegationResponseObject, error) {
-	return nil, apierr.New(http.StatusNotImplemented, "not_implemented", "This server doesn't provide machine delegations yet.",
-		"Join a board from a session with a join line: a person runs aboard invite --board NAME in a terminal.")
+// CreateDelegation makes a machine's delegation with the caller's own access key.
+func (h *handlers) CreateDelegation(ctx context.Context, req CreateDelegationRequestObject) (CreateDelegationResponseObject, error) {
+	d, err := h.svc.CreateDelegation(ctx, principal(ctx), req.Body.Name)
+	if err != nil {
+		return nil, err
+	}
+	// The answer holds the delegation's token, which no cache may keep.
+	body, err := convert[NewDelegation](map[string]string{
+		"id": d.Delegation.ID, "name": d.Delegation.Name, "key_id": d.Delegation.KeyID, "created_at": d.Delegation.CreatedAt, "token": d.Token,
+	})
+	if err != nil {
+		return nil, err
+	}
+	noStore := "no-store"
+	return CreateDelegation201JSONResponse{Body: body, Headers: CreateDelegation201ResponseHeaders{CacheControl: &noStore}}, nil
 }
 
 func (h *handlers) ListReplies(ctx context.Context, req ListRepliesRequestObject) (ListRepliesResponseObject, error) {

@@ -28,6 +28,10 @@ type View struct {
 	Position *Position
 	// NeedsReply is the person's unanswered question count; nil for other callers.
 	NeedsReply *int64
+	// PeopleCount and AgentCount are given to a machine's delegation: how many people
+	// are on the board, and, where its person is on it, how many working agents.
+	PeopleCount *int
+	AgentCount  *int
 }
 
 // ShowsCounts reports whether p may see how many messages the board holds: people read
@@ -169,7 +173,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, created); err != nil {
 			return err
 		}
-		if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now); err != nil {
+		if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now, nil); err != nil {
 			return err
 		}
 		view = View{Board: b, Creator: creator, OnBoard: true}
@@ -184,7 +188,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 }
 
 // addMember stores a member and appends its member.joined event.
-func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinCodeID *string, at time.Time) error {
+func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinCodeID *string, at time.Time, extra map[string]any) error {
 	if err := tx.InsertMember(m); err != nil {
 		return fmt.Errorf("insert member: %w", err)
 	}
@@ -192,10 +196,14 @@ func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinC
 	if m.Access != "" {
 		access = ptr(m.Access)
 	}
-	if _, err := s.append(tx, b, events.MemberJoined, actor, at, map[string]any{
+	data := map[string]any{
 		"member_id": m.ID, "name": m.Name, "kind": m.Kind, "role": m.Role, "owner": m.Owner,
 		"harness": m.Harness, "access": access, "join_code_id": joinCodeID,
-	}); err != nil {
+	}
+	for k, v := range extra {
+		data[k] = v
+	}
+	if _, err := s.append(tx, b, events.MemberJoined, actor, at, data); err != nil {
 		return err
 	}
 	if m.Kind == "human" {
@@ -226,6 +234,9 @@ type Listing struct {
 // on, and a server admin the private boards they aren't on, as HiddenBoards. An admin's
 // agent gets no more than any agent.
 func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listing, error) {
+	if p.Delegation != nil {
+		return s.delegatedBoards(ctx, p)
+	}
 	var out Listing
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
