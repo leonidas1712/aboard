@@ -2,6 +2,7 @@ package sqlitejournal
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -104,32 +105,20 @@ func TestJournalFromANewerAboardIsRefused(t *testing.T) {
 // A journal from before a session held one binding keeps each session's most recent one.
 func TestMigrationKeepsEachSessionsLatestBinding(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "delivery.db")
-	j, err := Open(ctx, path)
+	path := historicalJournal(t, 3)
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Go back to the schema that allowed several bindings per session.
-	for _, q := range []string{
-		"ALTER TABLE sessions DROP COLUMN lost_server",
-		"ALTER TABLE sessions DROP COLUMN lost_board",
-		"ALTER TABLE sessions DROP COLUMN lost_agent",
-		"ALTER TABLE deliveries DROP COLUMN accepted_at",
-		"ALTER TABLE deliveries DROP COLUMN turn_started_at",
-		"ALTER TABLE deliveries DROP COLUMN stalled",
-		"ALTER TABLE sessions DROP COLUMN turned",
-		"DROP INDEX bindings_one_per_session",
-		"PRAGMA user_version = 3",
-		`INSERT INTO bindings VALUES
+	_, err = db.ExecContext(ctx, `INSERT INTO bindings VALUES
 			('http://127.0.0.1:7400', 'docs', 'reviewer', 'claude-code', 's-a', '2026-10-01T12:00:00Z'),
 			('http://127.0.0.1:7400', 'plans', 'planner', 'claude-code', 's-a', '2026-10-01T12:05:00Z'),
-			('http://127.0.0.1:7400', 'docs', 'writer', 'codex', 's-a', '2026-10-01T11:00:00Z')`,
-	} {
-		if _, err := j.db.ExecContext(ctx, q); err != nil {
-			t.Fatalf("%s: %v", q, err)
-		}
+			('http://127.0.0.1:7400', 'docs', 'writer', 'codex', 's-a', '2026-10-01T11:00:00Z')`)
+	if err != nil {
+		_ = db.Close()
+		t.Fatal(err)
 	}
-	if err := j.Close(); err != nil {
+	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
 	got, err := open(t, path).Bindings(ctx)
