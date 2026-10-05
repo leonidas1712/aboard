@@ -194,6 +194,7 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 	if len(welcome.Agents) == 0 {
 		welcome.Lost = s.lost
 	}
+	welcome.Mode, welcome.Note = s.startNote(reopened, false)
 	if err := c.write(welcome); err != nil {
 		s.d.log.Warn("extension connection: couldn't send welcome", "session", s.key.String(), "error", err)
 		return

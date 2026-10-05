@@ -102,8 +102,11 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	m := r.JSON201
 	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
 	unread, recipients := a.unreadAfterSay(ctx, c, agent), recipientsOf(ctx, c, m)
-	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients}
+	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
 	text := fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board) + unreadText(m.Board, unread) + recipientsText(recipients)
+	if w := out.Warning; w != nil {
+		text += a.out().warn("Warning ("+w.Code+"): "+w.Message+" "+w.Hint) + "\n"
+	}
 	if *waitFor > 0 {
 		wc, err := a.client(ctx, t.server, cred.Token, time.Duration(*waitFor)*time.Second+requestTimeout)
 		if err != nil {
@@ -132,6 +135,7 @@ type sayOutput struct {
 	Message    cliMessage      `json:"message"`
 	Unread     *unreadNote     `json:"unread"`
 	Recipients []recipientNote `json:"recipients"`
+	Warning    *sayWarning     `json:"warning"`
 	// The rest are set only with --wait-reply.
 	Outcome       *string       `json:"outcome,omitempty"`
 	Reply         **cliMessage  `json:"reply,omitempty"`

@@ -10,7 +10,9 @@ them deliberately and record the decision in `design/DECISIONS.md`.
 Names (`claude`, `codex`), delivered messages (`role`, `harness` and the `sender`
 label) and the sender labels match today's CLI. The lines `pair` and `join` print
 differ: today they read "Created board hello and joined as claude (writer, owner
-alex)" and "Joined board hello as codex (reviewer, owner alex)". The SDKs, launchers
+alex)" and "Joined board hello as codex (reviewer, owner alex)", and both end with a
+line naming the agent's delivery mode and its rule ("Delivery mode: focused. …"),
+which the examples leave out. The SDKs, launchers
 and `aboard-lab` don't exist yet. The README's quick start shows the output the CLI
 prints today.
 

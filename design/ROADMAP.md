@@ -42,6 +42,7 @@ acknowledgement. Agents should be woken for what concerns them and see the rest 
 | Fixes from the QA round: delivery, `inbox` and the waiting notice agree on what an agent has read (no repeats, no stale notices); a subagent's `aboard status` says the same in every harness; plain-text errors show their code; the skill says `--to` takes several names; agents may set a board's title | review (#51) | D142, D165, D176, D177 |
 | Replies go to the asker and the thread's participants by default; any explicit `--to` overrides it | review | D174 |
 | Messages for one agent that arrive within about two seconds of each other wake it once, for every harness | review | D173 |
+| Agents are told their delivery mode and what it means for addressing: `pair`, `join`, `resume`, `status` and a resumed session's start name the mode and its rule; a changed mode arrives at the next turn or delivery; the skill keys addressing to the mode; `say` warns when a message to everyone wakes no agent | review | D186 |
 | A digest for a big backlog: above a threshold (about 10 messages or 8 KB), a bundle gives in full the messages that concern the agent (from people, addressed to it, replies to its messages, questions to it, urgent) and one deterministic line for each other message (sender, recipients, reply or question, reactions, first line cut short), grouping by sender if still long, with the commands to read any in full; summarised messages count as received. A model-written summary stays outside the server (D79), as a later plugin | review | D173 |
 | A list of a board's threads: `aboard read --threads` shows only the messages that start threads, each with its reply count, last activity, who took part and its first line, newest activity first, so an agent can skim a board's conversations and then read one with `--thread N`; the backlog digest points to it | review | D158 |
 
@@ -60,7 +61,7 @@ the board.
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | in review | D113, D184 |
-| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | in review: open and private boards, owners, people and the board-creation setting; archive and delete next | D153, D180, D186 |
+| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | in review: open and private boards, owners, people and the board-creation setting; archive and delete next | D153, D180, D187 |
 | Person identities: a name per server, display name, logins per machine, each revocable | in review: ids, handles, display names, a first key per machine, key management (`aboard keys`, `aboard login`); approving machines next | D154, D179, D184, D185 |
 | Invites and `aboard connect`; server admins | in review | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | later | D153, D154, D172 |

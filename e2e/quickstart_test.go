@@ -28,10 +28,10 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	// Terminal 1: aboard pair
 	pair := e.run("pair")
 	got := pair.lines()
-	if len(got) != 6 {
-		t.Fatalf("pair printed %d lines, want 6\n%s", len(got), pair)
+	if len(got) != 7 {
+		t.Fatalf("pair printed %d lines, want 7\n%s", len(got), pair)
 	}
-	joinLine := got[5]
+	joinLine := got[6]
 	code := regexp.MustCompile(`^Join Aboard board general on ` + regexp.QuoteMeta(host) +
 		` as member with code ([0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{3})$`).FindStringSubmatch(joinLine)
 	if code == nil {
@@ -40,6 +40,7 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	expectLines(t, pair,
 		"Started local Aboard at "+url,
 		"Created board general and joined as member (owner alex)",
+		"Delivery mode: focused. "+focusedRule,
 		"Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended",
 		"",
 		"Paste this into your next session:",
@@ -50,6 +51,7 @@ func TestQuickstartTwoTerminals(t *testing.T) {
 	expectLines(t, e.run("join", joinLine),
 		"Joined board general as member-2 (member, owner alex)",
 		"Act as this agent with --as member-2, or set ABOARD_AGENT=member-2.",
+		"Delivery mode: focused. "+focusedRule,
 	)
 
 	// Terminal 1: the first agent shares its plan.
@@ -109,6 +111,7 @@ func TestPairWriterReviewer(t *testing.T) {
 	expectLines(t, e.run("join", pair[len(pair)-1]),
 		"Joined board writer-reviewer as reviewer (owner alex)",
 		"Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.",
+		"Delivery mode: focused. "+focusedRule,
 	)
 }
 
@@ -309,6 +312,7 @@ func TestJoinIntoAnotherBoardSaysSo(t *testing.T) {
 		"Joined board writer-reviewer as reviewer (owner alex)",
 		"Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.",
 		"Linked this directory to board writer-reviewer (it was linked to writer-reviewer-2).",
+		"Delivery mode: focused. "+focusedRule,
 	)
 }
 
@@ -334,6 +338,7 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 		"Setup:  none; aboard init adds the skill and hooks",
 		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
 		"Agent:  writer (from --as); delivery focused; disconnected",
+		"        "+focusedRule,
 		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
 	)
 	v := e.run("status", "--json").json(t)
