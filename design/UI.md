@@ -245,7 +245,7 @@ the API's own (`from`, `role`, `to_me`), so paging back stays correct.
   or changes its rules, with exactly the permissions your CLI has. It signs in through
   the one-time `aboard open` link or by pasting an access key on the login page, into a
   session kept in a cookie its scripts can't read; the session lasts 30 days (never past
-  its key), across server restarts, until you sign out or end it (D163, D188).
+  its key), across server restarts, until you sign out or end it (D163, D189).
 
 ### Who you are
 
