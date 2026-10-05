@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { expect, test } from "@playwright/test";
+import { type Page, type Response, expect, test } from "@playwright/test";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -67,6 +67,16 @@ function base(): string {
   return `http://${env.ABOARD_LOCAL_ADDR}`;
 }
 
+// openLink opens an aboard open link in a browser with no session, as alex: the page asks
+// first, naming alex, and signs in on Continue. It returns the page's response.
+async function openLink(page: Page, url: string): Promise<Response | null> {
+  const resp = await page.goto(url);
+  await expect(page.getByRole("heading", { name: /^Sign in to .* as @alex\?$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  return resp;
+}
+
 // agentToken reads an agent's token from the isolated home's saved credentials, to act
 // as that agent's delivery daemon would.
 function agentToken(name: string): string {
@@ -83,7 +93,7 @@ test("the board view shows the room live, posts as the person and verifies the r
 
   const open = JSON.parse(aboard("open", "--json"));
   expect(open.url).toMatch(/\/#code=abl_[^&]+&board=writer-reviewer$/);
-  await page.goto(open.url);
+  await openLink(page, open.url);
 
   // The page swaps the code for a session in a cookie its scripts can't read: the address
   // bar loses the code, and nothing secret is in the page's storage.
@@ -307,7 +317,7 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   const board: string = pair.board.name;
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(open.url).origin });
-  await page.goto(open.url);
+  await openLink(page, open.url);
 
   // The board's title opens the board panel at Details, with the board's facts.
   await page.getByRole("button", { name: /Invite check.*board details/ }).click();
@@ -366,7 +376,7 @@ test("replies form threads that open in place, remember how they were left and s
   say("--as", "reviewer", "Tests pass locally.");
 
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
-  await page.goto(open.url);
+  await openLink(page, open.url);
 
   // The thread's first message says how many replies and when the last came; a reply to
   // a reply is in the same thread, and closed, the replies stay out of the timeline.
@@ -448,7 +458,7 @@ test("reactions show under messages, toggle as the person and follow the board l
   react("--as", "reviewer", String(ask.seq), "👍");
 
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
-  await page.goto(open.url);
+  await openLink(page, open.url);
 
   // A reaction shows under the message with how many, and who on hover.
   const msg = page.locator(`.message[data-id="${ask.id}"]`);
@@ -514,7 +524,7 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
     (JSON.parse(aboard("read", "--as", "writer", "--board", board, "--json")).messages as Sent[]).find((m) => m.body === body);
 
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
-  await page.goto(open.url);
+  await openLink(page, open.url);
 
   const field = page.getByRole("combobox", { name: /^Message / });
   const list = page.getByRole("listbox", { name: "People, agents and roles to mention" });
@@ -634,6 +644,8 @@ test("a browser without a session signs in with a pasted key it never keeps, and
   await field.fill(key);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  // The page says plainly who it signed in as.
+  await expect(page.locator(".signed-in-as")).toHaveText(/Signed in as @alex with the key web-browser\./);
   // The address bar never had the key, and the page keeps it nowhere: the session is in
   // a cookie its scripts can't read.
   expect(page.url()).toBe(`${base()}/`);
@@ -696,7 +708,7 @@ test("a hostile message is shown as text and runs nothing", async ({ page }) => 
   aboard("say", "--as", "writer", "--board", board, "--to", "@reviewer", hostile);
 
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
-  const resp = await page.goto(open.url);
+  const resp = await openLink(page, open.url);
   // The page allows only its own scripts and the inline ones it was built with, by hash.
   const policy = resp?.headers()["content-security-policy"] ?? "";
   const scripts = policy.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
@@ -706,4 +718,178 @@ test("a hostile message is shown as text and runs nothing", async ({ page }) => 
   await expect(message.locator(".body")).toHaveText(hostile);
   await expect(message.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+});
+
+// api calls the local server as a script would, with key as a bearer token.
+async function api<T>(method: string, path: string, key: string, body?: unknown): Promise<T> {
+  const resp = await fetch(`${base()}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!resp.ok) throw new Error(`${method} ${path}: ${resp.status} ${await resp.text()}`);
+  return (await resp.json()) as T;
+}
+
+let samKey = "";
+
+// linkFor makes an aboard open link for sam, a second person on the server, the way sam
+// would and could then send it to someone else.
+async function linkFor(): Promise<string> {
+  if (samKey === "") {
+    const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+    const admin = readFileSync(found, "utf8").trim();
+    const invite = await api<{ invite: string }>("POST", "/v1/invites", admin, {});
+    const resp = await fetch(`${base()}/v1/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invite: invite.invite, handle: "sam", key_name: "sam-laptop" }),
+    });
+    samKey = ((await resp.json()) as { key: { token: string } }).key.token;
+  }
+  const { code } = await api<{ code: string }>("POST", "/v1/login-codes", samKey);
+  return `${base()}/#code=${encodeURIComponent(code)}`;
+}
+
+// signIns records every request that would sign the page in or look up a code.
+function signIns(page: Page): string[] {
+  const seen: string[] = [];
+  page.on("request", (r) => {
+    const path = new URL(r.url()).pathname;
+    if (path === "/v1/browser-sessions" || path === "/v1/browser-tokens" || path === "/v1/login-codes/preview") {
+      seen.push(`${r.method()} ${path}`);
+    }
+  });
+  return seen;
+}
+
+test("another person's login link never signs in or switches the browser without a click", async ({ page }) => {
+  aboard("up");
+  const sent = signIns(page);
+
+  // With no session, the link names sam and waits; Cancel leaves the browser signed out.
+  await page.goto(await linkFor());
+  await expect(page.getByRole("heading", { name: /^Sign in to .* as @sam\?$/ })).toBeVisible();
+  expect(page.url()).toBe(`${base()}/`);
+  expect(sent).toEqual(["POST /v1/login-codes/preview"]);
+  expect(await page.context().cookies()).toEqual([]);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+  expect(await page.context().cookies()).toEqual([]);
+
+  // Signed in as alex, sam's link says it would switch, names both, and changes nothing
+  // until Continue.
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  sent.length = 0;
+  await page.goto(await linkFor());
+  await expect(page.getByRole("heading", { name: /^Sign in to .* as @sam\?$/ })).toBeVisible();
+  await expect(page.locator(".switch-warning")).toContainText("You're signed in as @alex. This link would sign you in as @sam instead.");
+  expect(sent).toEqual(["POST /v1/login-codes/preview"]);
+  const me = async () => ((await (await page.request.get(`${base()}/v1/me`)).json()) as { name: string }).name;
+  expect(await me()).toBe("alex");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  expect(await me()).toBe("alex");
+
+  // Continue is the only way to switch.
+  await page.goto(await linkFor());
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("button", { name: /^You are sam/ })).toBeVisible();
+  await expect(page.locator(".signed-in-as")).toContainText("Signed in as @sam with the key sam-laptop.");
+  expect(await me()).toBe("sam");
+});
+
+test("aboard open for the person already signed in refreshes without asking", async ({ page }) => {
+  aboard("up");
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  const sent = signIns(page);
+  await page.goto(JSON.parse(aboard("open", "--json")).url);
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Sign in to / })).toHaveCount(0);
+  expect(sent).toEqual(["POST /v1/login-codes/preview", "POST /v1/browser-sessions"]);
+});
+
+test("over plain HTTP away from this computer, the page sends no key, code or token", async ({ page }) => {
+  aboard("up");
+  // The test's server is on 127.0.0.1, which browsers count as secure; this makes the
+  // page see what it would on http://team.example.com.
+  await page.addInitScript(() => Object.defineProperty(window, "isSecureContext", { get: () => false }));
+  const sent = signIns(page);
+  await page.goto(`${base()}/icon.svg`);
+  await page.evaluate(() => localStorage.setItem("aboard.browserToken", "abb_stored"));
+
+  await page.goto(JSON.parse(aboard("open", "--json")).url);
+  await expect(page.locator(".insecure")).toContainText("Signing in with a key needs https.");
+  expect(page.url()).not.toContain("code");
+
+  await page.goto(`${base()}/`);
+  await expect(page.locator(".insecure")).toContainText("Signing in with a key needs https.");
+  await expect(page.getByLabel("Access key")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Sign in" })).toBeDisabled();
+  // Even a submit forced past the disabled button sends nothing.
+  await page.evaluate(() => document.querySelector("form")?.requestSubmit());
+  expect(sent).toEqual([]);
+  expect(await page.evaluate(() => localStorage.getItem("aboard.browserToken"))).toBeNull();
+});
+
+test("a used login link leads to the login page with a note, or leaves a signed-in browser as it was", async ({ page }) => {
+  aboard("up");
+  const url: string = JSON.parse(aboard("open", "--json")).url;
+  await openLink(page, url);
+  await page.goto(`${base()}/icon.svg`);
+  await page.goto(url);
+  await expect(page.locator(".signed-in-as")).toContainText("That login link doesn't work");
+  await expect(page.locator(".signed-in-as")).toContainText("You're still signed in as @alex");
+
+  await page.context().clearCookies();
+  await page.goto(`${base()}/icon.svg`);
+  await page.goto(url);
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+  await expect(page.locator(".login-note")).toContainText("That login link doesn't work: it is wrong, expired or already used.");
+  await expect(page.getByLabel("Access key")).toBeEnabled();
+});
+
+test("a sign-out the server didn't confirm says so and keeps the browser signed in", async ({ page }) => {
+  aboard("up");
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.route("**/v1/me/browser-session", (route) =>
+    route.request().method() === "DELETE" ? route.abort() : route.continue(),
+  );
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await page.getByRole("menuitem", { name: "Sign out of this browser" }).click();
+  await expect(page.locator(".sign-out-problem")).toContainText("Couldn't sign out");
+  await expect(page.locator(".sign-out-problem")).toContainText("This browser is still signed in.");
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toHaveCount(0);
+  await page.unroute("**/v1/me/browser-session");
+  await page.reload();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+});
+
+// The security review's regression: a link to another person's login code, opened in a
+// browser signed in with a pasted key, must leave that session in place. The review's
+// version waited for the page to exchange the code; the page now asks first, so this
+// waits for the question instead and declines it.
+test("review: another persons fragment cannot silently replace an existing session", async ({ page }) => {
+  aboard("up");
+  const victimKey = JSON.parse(aboard("keys", "create", "victim-review", "--json")).key.token;
+  const invite = JSON.parse(aboard("invite", "--server", "--json"));
+  const connected = await fetch(`${base()}/v1/connect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invite: new URL(invite.link).hash.slice(1), handle: "attacker", key_name: "review-machine" }),
+  });
+  const person = (await connected.json()) as { key: { token: string } };
+  const { code } = await api<{ code: string }>("POST", "/v1/login-codes", person.key.token);
+  await page.goto(`${base()}/`);
+  await page.getByLabel("Access key").fill(victimKey);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  await page.goto(`${base()}/icon.svg`);
+  const sent = signIns(page);
+  await page.goto(`${base()}/#code=${encodeURIComponent(code)}`);
+  await expect(page.locator(".switch-warning")).toContainText("You're signed in as @alex. This link would sign you in as @attacker instead.");
+  expect(sent).toEqual(["POST /v1/login-codes/preview"]);
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible({ timeout: 3000 });
+  aboard("keys", "revoke", "victim-review");
 });

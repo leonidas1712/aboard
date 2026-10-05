@@ -45,6 +45,8 @@ export function Account({ admin, onSignOut }: Props) {
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
   const signedIn = session();
+  // A sign-out the server didn't confirm leaves the session on; the page says so.
+  const [signOutProblem, setSignOutProblem] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     get<Me>("/v1/me").then((m) => live && setMe(m), () => {});
@@ -56,6 +58,7 @@ export function Account({ admin, onSignOut }: Props) {
   if (!me) return null;
   const server = mode === "local" ? "This computer (local)" : window.location.host;
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-selected data-[state=open]:bg-selected"
@@ -90,8 +93,24 @@ export function Account({ admin, onSignOut }: Props) {
           <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => signOut().then(onSignOut, onSignOut)}>Sign out of this browser</DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() =>
+            signOut().then(onSignOut, (e: unknown) =>
+              setSignOutProblem(
+                `Couldn't sign out: ${e instanceof Error ? e.message : "the server didn't answer"} This browser is still signed in.`,
+              ),
+            )
+          }
+        >
+          Sign out of this browser
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    {signOutProblem && (
+      <p role="alert" className="sign-out-problem basis-full rounded-box bg-attention px-3 py-2 text-ink">
+        {signOutProblem}
+      </p>
+    )}
+    </>
   );
 }

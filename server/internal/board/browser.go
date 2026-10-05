@@ -121,7 +121,26 @@ type SessionStart struct {
 	Code  string
 	Key   string
 	Token string
+	// CurrentPersonID is the person whose working session the browser already has, if
+	// any, and ConfirmSwitch whether its person confirmed signing in as someone else.
+	CurrentPersonID string
+	ConfirmSwitch   bool
 }
+
+// allowSwitch refuses a sign-in that would switch a browser from one person's session to
+// another's unless its person confirmed it: a link someone else made must not quietly
+// sign the browser in as them.
+func (in SessionStart) allowSwitch(personID string) error {
+	if in.CurrentPersonID == "" || in.CurrentPersonID == personID || in.ConfirmSwitch {
+		return nil
+	}
+	return apierr.New(http.StatusConflict, "browser_session_switch_unconfirmed",
+		"This browser is signed in as someone else; signing in here would switch it to another person.",
+		"Confirm the switch on the board view, or sign out first.")
+}
+
+// anyone allows every sign-in: for the token exchange, which sets no cookie.
+func anyone(string) error { return nil }
 
 // StartedSession is a browser session that just started, with its person and its
 // secret, which goes only into the browser's cookie.
@@ -159,18 +178,18 @@ func (s *Service) StartBrowserSession(ctx context.Context, in SessionStart) (Sta
 	}
 	switch {
 	case in.Code != "":
-		return s.startFromCode(ctx, in.Code)
+		return s.startFromCode(ctx, in.Code, in.allowSwitch)
 	case in.Key != "":
-		return s.startFromKey(ctx, in.Key)
+		return s.startFromKey(ctx, in.Key, in.allowSwitch)
 	}
-	return s.keepStoredToken(ctx, in.Token)
+	return s.keepStoredToken(ctx, in.Token, in.allowSwitch)
 }
 
 // CreateBrowserToken uses up a login code and returns a new browser token for its
 // human, and when it ends, for a page that keeps the token itself. StartBrowserSession
 // does the same and keeps the token in a cookie instead.
 func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token string, expires time.Time, err error) {
-	started, err := s.startFromCode(ctx, code)
+	started, err := s.startFromCode(ctx, code, anyone)
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -181,12 +200,66 @@ func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token st
 	return started.Token, expires, nil
 }
 
+// CodePreview is who a login code would sign a browser in as.
+type CodePreview struct {
+	Person    Human
+	KeyID     string
+	KeyName   string
+	ExpiresAt string
+}
+
+// PreviewLoginCode says who code would sign a browser in as, without using it up, so a
+// page can ask its person before a link someone else made signs it in as them.
+func (s *Service) PreviewLoginCode(ctx context.Context, code string) (CodePreview, error) {
+	digest := ids.Digest(s.key, code)
+	s.codes.mu.Lock()
+	l, ok := s.codes.codes[digest]
+	s.codes.mu.Unlock()
+	if !ok {
+		return CodePreview{}, loginCodeInvalid()
+	}
+	var out CodePreview
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		now := s.clk.Now()
+		if !now.Before(l.expires) {
+			return loginCodeInvalid()
+		}
+		if err := stillValid(tx, Principal{Human: &l.human, KeyID: l.keyID}, stamp(now)); err != nil {
+			if _, ok := apierr.As(err); ok {
+				return loginCodeInvalid()
+			}
+			return err
+		}
+		k, err := tx.AccessKeyByID(l.keyID)
+		if err != nil {
+			return err
+		}
+		h, err := tx.HumanByID(k.HumanID)
+		if err != nil {
+			return err
+		}
+		out = CodePreview{Person: h, KeyID: k.ID, KeyName: k.Name, ExpiresAt: stamp(l.expires)}
+		return nil
+	})
+	if err != nil {
+		return CodePreview{}, fmt.Errorf("preview login code: %w", err)
+	}
+	return out, nil
+}
+
 // startFromCode uses up a login code and starts a session for the key that asked for it.
-func (s *Service) startFromCode(ctx context.Context, code string) (StartedSession, error) {
+func (s *Service) startFromCode(ctx context.Context, code string, allow func(personID string) error) (StartedSession, error) {
 	digest := ids.Digest(s.key, code)
 	now := s.clk.Now()
 	s.codes.mu.Lock()
 	l, ok := s.codes.codes[digest]
+	// A refused switch leaves the code unused, for the person to confirm.
+	if ok {
+		if err := allow(l.human.ID); err != nil {
+			s.codes.mu.Unlock()
+			return StartedSession{}, err
+		}
+	}
 	delete(s.codes.codes, digest)
 	s.codes.mu.Unlock()
 	if !ok || !now.Before(l.expires) {
@@ -222,7 +295,7 @@ func (s *Service) startFromCode(ctx context.Context, code string) (StartedSessio
 
 // startFromKey checks a pasted access key and starts a session for it. Only the
 // session's digest is stored; the key is used for the lookup and dropped.
-func (s *Service) startFromKey(ctx context.Context, key string) (StartedSession, error) {
+func (s *Service) startFromKey(ctx context.Context, key string, allow func(personID string) error) (StartedSession, error) {
 	if !strings.HasPrefix(key, accessKeyPrefix) {
 		return StartedSession{}, accessKeyInvalid()
 	}
@@ -240,6 +313,9 @@ func (s *Service) startFromKey(ctx context.Context, key string) (StartedSession,
 		}
 		if !keyWorks(k, stamp(now)) {
 			return accessKeyInvalid()
+		}
+		if err := allow(k.HumanID); err != nil {
+			return err
 		}
 		used = k
 		out, err = s.insertSession(tx, now, k, SessionFromKey)
@@ -283,13 +359,17 @@ func (s *Service) insertSession(tx Tx, now time.Time, k AccessKey, startedWith s
 }
 
 // keepStoredToken checks a browser token a page kept in its own storage and returns its
-// session unchanged, so the page can move it into a cookie.
-func (s *Service) keepStoredToken(ctx context.Context, token string) (StartedSession, error) {
+// session unchanged: the cookie gets the same secret, which keeps working as a bearer
+// token until the session ends. Nothing is exchanged or used up.
+func (s *Service) keepStoredToken(ctx context.Context, token string, allow func(personID string) error) (StartedSession, error) {
 	if !strings.HasPrefix(token, browserTokenPrefix) {
 		return StartedSession{}, browserLoginEnded()
 	}
 	p, err := s.authenticateBrowser(ctx, token)
 	if err != nil {
+		return StartedSession{}, err
+	}
+	if err := allow(p.Human.ID); err != nil {
 		return StartedSession{}, err
 	}
 	cur, err := s.CurrentBrowserSession(ctx, p)

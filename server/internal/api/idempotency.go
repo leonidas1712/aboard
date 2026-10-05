@@ -137,3 +137,16 @@ func (l *rateLimiter) allow(addr string) bool {
 	l.count[addr]++
 	return l.count[addr] <= l.limit
 }
+
+// refund takes back one attempt allow counted for addr in the current minute, for an
+// attempt that turned out not to need limiting.
+func (l *rateLimiter) refund(addr string) {
+	if l.limit <= 0 {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.count[addr] > 0 {
+		l.count[addr]--
+	}
+}

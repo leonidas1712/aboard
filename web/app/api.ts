@@ -140,7 +140,8 @@ export type Session = {
 };
 
 // legacyTokenKey is where pages from before browser sessions moved into cookies kept
-// their browser token. The page moves such a token into a cookie once and deletes it.
+// their browser token. The page copies such a token into the cookie (the same session,
+// whose secret keeps working until it ends) and deletes it from storage, once.
 const legacyTokenKey = "aboard.browserToken";
 
 // The session this page is signed in with, kept in memory only: its CSRF token is read
@@ -169,8 +170,32 @@ async function failure(resp: Response): Promise<ApiError> {
   return new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "");
 }
 
-// startSession exchanges what signs a browser in for a session cookie.
-async function startSession(body: { code: string } | { key: string } | { token: string }): Promise<Session> {
+/**
+ * secureEnough reports whether this page may send a secret to its server: over HTTPS,
+ * or over plain HTTP only to this computer's own address (127.0.0.1, localhost), which
+ * browsers count as secure. Anywhere else a key, code or token would cross the network
+ * in the clear.
+ */
+export function secureEnough(): boolean {
+  return typeof window === "undefined" || window.isSecureContext;
+}
+
+/** insecureError is what the page says instead of sending a secret over plain HTTP. */
+export function insecureError(): ApiError {
+  return new ApiError(
+    0,
+    "insecure_page",
+    "Signing in with a key needs https.",
+    "Use aboard open from a signed-in machine, or reach this server over https.",
+  );
+}
+
+// startSession exchanges what signs a browser in for a session cookie. It sends nothing
+// from a page that isn't secure enough.
+async function startSession(
+  body: { code: string; confirm_switch?: boolean } | { key: string } | { token: string },
+): Promise<Session> {
+  if (!secureEnough()) throw insecureError();
   const resp = await fetch("/v1/browser-sessions", {
     method: "POST",
     credentials: "same-origin",
@@ -198,14 +223,61 @@ function takeLegacyToken(): string | null {
   }
 }
 
-/** Started is how the page starts: the board to show and the session, null when signed out. */
-export type Started = { board: string | null; session: Session | null };
+/** CodePreview is who a login code would sign this browser in as. */
+export type CodePreview = { person: Session["person"]; key: { id: string; name: string }; expires_at: string };
+
+/** Pending is a login code from the address that waits for the person to confirm it. */
+export type Pending = { code: string; preview: CodePreview };
 
 /**
- * start signs the page in, or finds that it is. A one-time code in the address's
- * fragment (/#code=…&board=NAME) is removed from the address bar and exchanged for a
- * session; a browser token an older page stored is moved into a cookie once; then the
- * page asks which session it has. A failed code throws; no session returns null.
+ * Started is how the page starts: the board to show, the session (null when signed out),
+ * a login code from the address that the person must confirm first, and a note to show
+ * when a link from the address didn't work.
+ */
+export type Started = { board: string | null; session: Session | null; pending?: Pending; note?: string };
+
+async function previewCode(code: string): Promise<CodePreview> {
+  if (!secureEnough()) throw insecureError();
+  const resp = await fetch("/v1/login-codes/preview", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null);
+    const e = body?.error ?? {};
+    throw new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "");
+  }
+  return (await resp.json()) as CodePreview;
+}
+
+// currentSession asks which session this browser has, moving a browser token an older
+// page stored into a cookie first.
+async function currentSession(): Promise<Session | null> {
+  const legacy = takeLegacyToken();
+  // Over plain HTTP the stored token is dropped unsent; the person signs in again.
+  if (legacy && secureEnough()) {
+    try {
+      return await startSession({ token: legacy });
+    } catch {
+      // The stored login ended; the page signs in afresh.
+    }
+  }
+  const resp = await fetch("/v1/me/browser-session", { credentials: "same-origin" });
+  if (resp.status === 401) return null;
+  if (!resp.ok) throw await failure(resp);
+  current = (await resp.json()) as Session;
+  return current;
+}
+
+/**
+ * start finds the page's session. A one-time code in the address's fragment
+ * (/#code=…&board=NAME) is removed from the address bar at once. Since anyone can send a
+ * link, the code never signs the browser in by itself: start asks the server who the
+ * code is for, and only when the browser is already signed in as that same person does it
+ * use the code straight away. Otherwise it returns the code as pending, for the person to
+ * confirm or cancel. A code that doesn't work throws.
  */
 export async function start(): Promise<Started> {
   const frag = new URLSearchParams(window.location.hash.slice(1));
@@ -214,21 +286,36 @@ export async function start(): Promise<Started> {
   if (code) {
     board = frag.get("board");
     history.replaceState(null, "", board ? `/?board=${encodeURIComponent(board)}` : "/");
+  }
+  const session = await currentSession();
+  if (!code) return { board, session };
+  // Over plain HTTP the code isn't sent; the login page says why.
+  if (!secureEnough()) return { board: null, session };
+  let preview: CodePreview;
+  try {
+    preview = await previewCode(code);
+  } catch (e) {
+    // A link that no longer works leaves the browser as it was, with a note.
+    if (e instanceof ApiError && e.code === "login_code_invalid") {
+      history.replaceState(null, "", "/");
+      return { board: null, session, note: "That login link doesn't work: it is wrong, expired or already used." };
+    }
+    throw e;
+  }
+  // Only the permanent id of the session the server just confirmed counts as the same
+  // person; then the link refreshes the session without asking.
+  if (session && session.person.id === preview.person.id) {
     return { board, session: await startSession({ code }) };
   }
-  const legacy = takeLegacyToken();
-  if (legacy) {
-    try {
-      return { board, session: await startSession({ token: legacy }) };
-    } catch {
-      // The stored login ended; the page signs in afresh.
-    }
-  }
-  const resp = await fetch("/v1/me/browser-session", { credentials: "same-origin" });
-  if (resp.status === 401) return { board, session: null };
-  if (!resp.ok) throw await failure(resp);
-  current = (await resp.json()) as Session;
-  return { board, session: current };
+  return { board, session, pending: { code, preview } };
+}
+
+/**
+ * confirmCode signs the browser in with a login code its person confirmed, switching it
+ * from another person's session if it had one.
+ */
+export function confirmCode(p: Pending): Promise<Session> {
+  return startSession({ code: p.code, confirm_switch: true });
 }
 
 /** signInWithKey signs the browser in with an access key, which the page never keeps. */

@@ -165,7 +165,7 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.Method == http.MethodPost && (r.URL.Path == "/v1/browser-sessions" || r.URL.Path == "/v1/browser-tokens") {
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/browser-sessions" || r.URL.Path == "/v1/browser-tokens" || r.URL.Path == "/v1/login-codes/preview") {
 			if !signIns.allow(r) {
 				w.Header().Set("Retry-After", "60")
 				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to sign a browser in.",
@@ -175,14 +175,27 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 			// A forged sign-in would put the victim's browser in someone else's session.
 			// Only a session's cookie can be planted that way; the deprecated token
 			// exchange sets none.
-			if r.URL.Path == "/v1/browser-sessions" {
+			if r.URL.Path != "/v1/browser-tokens" {
 				if err := sameOrigin(r, cookie); err != nil {
 					writeError(w, o.Log, err)
 					return
 				}
 			}
-			// The handler sets the cookie this request's host and scheme call for.
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, requestSession{cookie: cookie})))
+			// The handler sets the cookie this request's host and scheme call for, and
+			// refuses to switch the browser from a session it already has to another
+			// person's without the person's confirmation.
+			session := requestSession{cookie: cookie}
+			if c, err := r.Cookie(cookie.name); err == nil && strings.HasPrefix(c.Value, "abb_") && r.URL.Path == "/v1/browser-sessions" {
+				if p, err := o.Service.Authenticate(r.Context(), c.Value); err == nil && p.Browser && p.Human != nil {
+					session.currentPerson = p.Human.ID
+				}
+			}
+			// Only failed attempts count toward the limits: they are what guessing makes.
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			next.ServeHTTP(rec, r.WithContext(context.WithValue(r.Context(), sessionKey{}, session)))
+			if rec.status < 400 {
+				signIns.refund(r)
+			}
 			return
 		}
 		if r.URL.Path == "/v1/info" {
@@ -238,6 +251,24 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 // connectLimits are two limits on attempts with a secret (redeeming invites, signing a
 // browser in): per client address, and across the server.
 type connectLimits struct{ perAddr, all *rateLimiter }
+
+// refund takes back an attempt from r that succeeded.
+func (l connectLimits) refund(r *http.Request) {
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	l.perAddr.refund(host)
+	l.all.refund("")
+}
+
+// statusRecorder passes a response through and remembers its status.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(status int) {
+	s.status = status
+	s.ResponseWriter.WriteHeader(status)
+}
 
 // allow counts an attempt from r against both limits. Both count every attempt, so a
 // guess spread over many addresses still meets the server-wide one.

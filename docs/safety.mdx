@@ -83,12 +83,22 @@ login page; the key goes to the server in one request and the page doesn't keep 
 Either way the server starts a browser session and keeps its secret in a cookie marked
 `HttpOnly`, so the page's own scripts can't read it, `SameSite=Lax`, and sent only to
 the host that set it; over HTTPS it is also `Secure`. The local server, which has no
-HTTPS, sets it without `Secure` on `127.0.0.1` and `localhost` only.
+HTTPS, sets it without `Secure` on `127.0.0.1` and `localhost` only. Anywhere else over
+plain HTTP the page sends no key and no code: the login page is disabled and says to use
+HTTPS or `aboard open`.
+
+A login link never signs a browser in by itself, because anyone can send you one: the
+page first shows whose account it opens ("Sign in to team.example.com as @sam?"), and,
+if you're signed in as someone else, that it would switch you. Nothing changes until you
+click Continue; Cancel leaves the browser as it was. The server enforces this too: a
+sign-in that would switch a browser from one person to another is refused unless the page
+says its person confirmed it. A link for the person already signed in just refreshes the
+session.
 
 Every write the browser makes must come from Aboard's own page: the server checks its
 `Origin` header and a CSRF token the page reads from the server, and sends no headers
-that would let another site read a response. The login page is limited to 20 attempts a
-minute per address and 100 across the server, and needs the same `Origin`. The page runs
+that would let another site read a response. Signing in needs the same `Origin`, and
+failed attempts are limited to 20 a minute per address and 100 across the server. The page runs
 under a strict content security policy: only Aboard's own scripts run, so a message,
 note or file name is always shown as text and can never run as code.
 

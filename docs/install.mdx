@@ -116,9 +116,12 @@ What happens to what is already running:
   forward only, when the server starts. An older `aboard` refuses data a newer one
   wrote, with the error `data_newer`, instead of misreading it.
 - **Browsers you signed in.** A board view that an older build signed in kept its
-  login in the page's own storage. On its next load the new page moves that login into
+  login in the page's own storage. On its next load the new page copies that login into
   a cookie its scripts can't read and deletes the stored copy, so the browser stays
-  signed in; a login that had already ended shows the login page instead.
+  signed in; a login that had already ended shows the login page instead. It is the same
+  login, not a new one: anyone who copied it from the page's storage before the upgrade
+  can use it until it ends, so if that worries you, end it with
+  `aboard keys sessions end <id>` and sign in again.
 
 `aboard doctor --json` reports a file that still differs from what this build writes:
 `hooks_outdated` or `skill_outdated` when an older `aboard` wrote it and nobody changed

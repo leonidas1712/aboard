@@ -1,24 +1,38 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type Started, signedOutEvent, start } from "./api";
+import { type Session, type Started, signedOutEvent, start } from "./api";
 import BoardList from "./board-list";
 import BoardView from "./board-view";
 import { Header, Problem } from "./chrome";
-import Login from "./login";
+import Login, { ConfirmSignIn, SignedInNotice } from "./login";
 
 // The UI is one static page: /?board=NAME shows a board, / the list of boards. aboard
-// open lands on /#code=…[&board=NAME]; the page signs in with the code first. A browser
-// without a session sees the login page, and goes back to it when its session ends.
+// open lands on /#code=…[&board=NAME]; unless the browser is already signed in as the
+// code's person, the page asks before it signs in with the code. A browser without a
+// session sees the login page, and goes back to it when its session ends.
 export default function Page() {
   const [started, setStarted] = useState<Started | undefined>(undefined);
   const [signedOut, setSignedOut] = useState(false);
+  const [notice, setNotice] = useState<Session | null>(null);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
-    start().then(setStarted, setError);
-    const ended = () => setStarted((s) => (s ? { ...s, session: null } : s));
+    start().then((s) => {
+      setStarted(s);
+      if (s.note && s.session) setNotice(s.session);
+    }, setError);
+    const ended = () => setStarted((s) => (s ? { ...s, session: null, pending: undefined } : s));
+    // A login link opened in a tab already on this page only changes the fragment; load
+    // the page again so the link goes through start, and its confirmation, like any other.
+    const linked = () => {
+      if (new URLSearchParams(window.location.hash.slice(1)).has("code")) window.location.reload();
+    };
     window.addEventListener(signedOutEvent, ended);
-    return () => window.removeEventListener(signedOutEvent, ended);
+    window.addEventListener("hashchange", linked);
+    return () => {
+      window.removeEventListener(signedOutEvent, ended);
+      window.removeEventListener("hashchange", linked);
+    };
   }, []);
   if (error !== null) {
     return (
@@ -31,24 +45,42 @@ export default function Page() {
     );
   }
   if (started === undefined) return null;
-  if (started.session === null) {
+  const signedIn = (session: Session, board = started.board) => {
+    setSignedOut(false);
+    setNotice(session);
+    setStarted({ board, session });
+  };
+  if (started.pending) {
     return (
-      <Login
-        signedOut={signedOut}
-        onSignedIn={(session) => {
-          setSignedOut(false);
-          setStarted({ ...started, session });
+      <ConfirmSignIn
+        pending={started.pending}
+        session={started.session}
+        onSignedIn={(s) => signedIn(s)}
+        onCancel={() => {
+          // The link chose the board too; cancelling leaves both behind.
+          history.replaceState(null, "", "/");
+          setStarted({ board: null, session: started.session });
         }}
       />
     );
   }
+  if (started.session === null) {
+    return <Login signedOut={signedOut} note={started.note} onSignedIn={(s) => signedIn(s)} />;
+  }
   const onSignOut = () => {
     setSignedOut(true);
+    setNotice(null);
     setStarted({ ...started, session: null });
   };
-  return started.board ? (
+  const view = started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />
+  );
+  return (
+    <>
+      {notice && <SignedInNotice session={notice} note={started.note} onClose={() => setNotice(null)} />}
+      {view}
+    </>
   );
 }

@@ -110,6 +110,8 @@ type sessionKey struct{}
 type requestSession struct {
 	cookie sessionCookie
 	token  string // the browser session's secret, when the caller is a browser
+	// currentPerson is, on a sign-in, the person whose session the browser already has.
+	currentPerson string
 }
 
 func sessionOf(ctx context.Context) requestSession {
@@ -141,7 +143,7 @@ func (h *handlers) currentBody(s board.BrowserSession, person board.Human, token
 // StartBrowserSession signs a browser in and sets its session cookie. The body never
 // holds the session's secret.
 func (h *handlers) StartBrowserSession(ctx context.Context, req StartBrowserSessionRequestObject) (StartBrowserSessionResponseObject, error) {
-	in := board.SessionStart{}
+	in := board.SessionStart{CurrentPersonID: sessionOf(ctx).currentPerson, ConfirmSwitch: req.Body.ConfirmSwitch != nil && *req.Body.ConfirmSwitch}
 	if req.Body.Code != nil {
 		in.Code = *req.Body.Code
 	}
@@ -161,6 +163,20 @@ func (h *handlers) StartBrowserSession(ctx context.Context, req StartBrowserSess
 	}
 	set := sessionOf(ctx).cookie.cookie(started.Token, body.ExpiresAt, h.clk.Now())
 	return StartBrowserSession201JSONResponse{Body: body, Headers: StartBrowserSession201ResponseHeaders{SetCookie: &set}}, nil
+}
+
+// PreviewLoginCode says who a login code would sign a browser in as, leaving it unused.
+func (h *handlers) PreviewLoginCode(ctx context.Context, req PreviewLoginCodeRequestObject) (PreviewLoginCodeResponseObject, error) {
+	pv, err := h.svc.PreviewLoginCode(ctx, req.Body.Code)
+	if err != nil {
+		return nil, err
+	}
+	p, err := convert[Person](personOf(pv.Person))
+	if err != nil {
+		return nil, err
+	}
+	expires, _ := time.Parse(time.RFC3339, pv.ExpiresAt)
+	return PreviewLoginCode200JSONResponse{Person: p, Key: BrowserSessionKey{Id: pv.KeyID, Name: pv.KeyName}, ExpiresAt: expires}, nil
 }
 
 // GetBrowserSession returns the session the browser is signed in with, and its CSRF

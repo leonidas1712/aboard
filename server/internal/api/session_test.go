@@ -577,3 +577,116 @@ func TestPagesAndResponsesCarryAStrictPolicy(t *testing.T) {
 		t.Errorf("an API response's policy: %q", got)
 	}
 }
+
+// Away from this computer the server's own origin is https, so a page served over plain
+// HTTP there can't sign in: its Origin doesn't match. The key it sent is refused.
+func TestAPlainHTTPPageAwayFromThisComputerCantSignIn(t *testing.T) {
+	s := newTestServer(t)
+	_, key := s.newKey(s.owner, "phone")
+	for _, path := range []string{"/v1/browser-sessions", "/v1/login-codes/preview"} {
+		body := `{"key":"` + key + `"}`
+		if path == "/v1/login-codes/preview" {
+			body = `{"code":"` + s.loginCode(s.owner) + `"}`
+		}
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://team.example.com"+path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", "http://team.example.com")
+		w := httptest.NewRecorder()
+		s.srv.Config.Handler.ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "origin_not_allowed") || w.Header().Get("Set-Cookie") != "" {
+			t.Fatalf("%s from http://team.example.com: %d %s", path, w.Code, w.Body)
+		}
+	}
+}
+
+// signedInAs checks whose session the browser has.
+func (b *browser) signedInAs(t *testing.T, handle string) {
+	t.Helper()
+	got := b.do(http.MethodGet, "/v1/me/browser-session", nil)
+	if got.status != http.StatusOK || jsonAt(got.body, "person", "handle") != handle {
+		t.Fatalf("the browser's session: %d %s, want %s", got.status, got.raw, handle)
+	}
+}
+
+func (s *testServer) preview(code string, edit func(*http.Request)) call {
+	s.t.Helper()
+	return s.send(http.MethodPost, "/v1/login-codes/preview", map[string]string{"code": code}, edit)
+}
+
+// A page asks who a code would sign it in as before it signs in: the answer names the
+// person and key, and leaves the code working.
+func TestPreviewingALoginCodeNamesItsPersonAndKeepsIt(t *testing.T) {
+	s := newTestServer(t)
+	maya := s.addHuman("maya")
+	code := s.loginCode(maya)
+	got := s.preview(code, s.fromPage)
+	if got.status != http.StatusOK || jsonAt(got.body, "person", "handle") != "maya" || jsonAt(got.body, "key", "name") != "laptop" {
+		t.Fatalf("previewing maya's code: %d %s", got.status, got.raw)
+	}
+	if got.cookie != nil || strings.Contains(got.raw, "abb_") {
+		t.Fatalf("previewing a code started a session: %s", got.raw)
+	}
+	// The code still signs in, once.
+	s.browserFrom(s.signIn(map[string]string{"code": code})).signedInAs(t, "maya")
+	if again := s.preview(code, s.fromPage); again.code() != "login_code_invalid" {
+		t.Fatalf("previewing a used code: %d %s", again.status, again.raw)
+	}
+	if forged := s.preview(s.loginCode(maya), func(r *http.Request) { r.Header.Set("Origin", "https://evil.example") }); forged.code() != "origin_not_allowed" {
+		t.Fatalf("previewing from another site: %d %s", forged.status, forged.raw)
+	}
+}
+
+// Guesses are what the limit is for: a wrong code, previewed or used, counts; a preview or
+// sign-in that works doesn't.
+func TestFailedPreviewsAndSignInsShareTheLimit(t *testing.T) {
+	s := newTestServer(t, func(o *api.Options) { o.SignInsPerMinute, o.SignInsPerMinuteServer = 2, 100 })
+	code := s.loginCode(s.owner)
+	for range 5 {
+		if got := s.preview(code, s.fromPage); got.status != http.StatusOK {
+			t.Fatalf("a preview that works: %d %s", got.status, got.raw)
+		}
+	}
+	s.browserFrom(s.signIn(map[string]string{"code": code})).works(true)
+	if got := s.preview("abl_guess", s.fromPage); got.code() != "login_code_invalid" {
+		t.Fatalf("a wrong code: %d %s", got.status, got.raw)
+	}
+	if got := s.signIn(map[string]string{"code": "abl_guess"}); got.code() != "login_code_invalid" {
+		t.Fatalf("a second wrong code: %d %s", got.status, got.raw)
+	}
+	fresh := s.loginCode(s.owner)
+	if got := s.preview(fresh, s.fromPage); got.status != http.StatusTooManyRequests {
+		t.Fatalf("a preview after two guesses: %d %s", got.status, got.raw)
+	}
+	s.clock.Advance(time.Minute)
+	s.cookieBrowser(s.owner).works(true)
+}
+
+// A sign-in that would switch a browser from one person's session to another's needs
+// confirm_switch, which a page sends only after its person clicked; a refused code stays
+// usable. Signing in again as the same person needs nothing.
+func TestSwitchingABrowserToAnotherPersonNeedsConfirmation(t *testing.T) {
+	s := newTestServer(t)
+	maya := s.addHuman("maya")
+	alex := s.cookieBrowser(s.owner)
+	withCookie := func(body map[string]any) call {
+		return s.send(http.MethodPost, "/v1/browser-sessions", body, func(r *http.Request) {
+			r.AddCookie(alex.cookie)
+			s.fromPage(r)
+		})
+	}
+	code := s.loginCode(maya)
+	_, mayaPhone := s.newKey(maya, "phone")
+	for _, body := range []map[string]any{{"code": code}, {"key": mayaPhone}, {"token": s.browserToken(maya)}} {
+		if got := withCookie(body); got.status != http.StatusConflict || got.code() != "browser_session_switch_unconfirmed" || got.cookie != nil {
+			t.Fatalf("switching to maya with %v: %d %s", body, got.status, got.raw)
+		}
+	}
+	alex.signedInAs(t, "alex")
+	if got := withCookie(map[string]any{"code": s.loginCode(s.owner)}); got.status != http.StatusCreated {
+		t.Fatalf("signing in again as alex: %d %s", got.status, got.raw)
+	}
+	got := withCookie(map[string]any{"code": code, "confirm_switch": true})
+	if got.status != http.StatusCreated || jsonAt(got.body, "person", "handle") != "maya" {
+		t.Fatalf("a confirmed switch with the refused code: %d %s", got.status, got.raw)
+	}
+}
