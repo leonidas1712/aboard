@@ -220,6 +220,14 @@ func TestReceiptsFollowTheRecipientsFixedAtPosting(t *testing.T) {
 	}
 
 	// The record keeps whom it was addressed to.
+	ms, err := s.client(s.owner).ListMembersWithResponse(ctx, boardName)
+	mustStatus(t, ms, err, 200)
+	reviewerID := ""
+	for _, m := range ms.JSON200.Members {
+		if m.Name == "reviewer" {
+			reviewerID = m.Id
+		}
+	}
 	evs, _ := s.eventsOf(s.owner, boardName)
 	for _, e := range evs {
 		if e.Seq != int64(toRole.Seq) && e.Seq != int64(toAll.Seq) {
@@ -231,8 +239,10 @@ func TestReceiptsFollowTheRecipientsFixedAtPosting(t *testing.T) {
 		if err := json.Unmarshal(e.Data, &d); err != nil {
 			t.Fatal(err)
 		}
-		if (e.Seq == int64(toRole.Seq)) != (d.Recipients != nil && len(*d.Recipients) == 1) {
-			t.Fatalf("recipients in the record of #%d: %s", e.Seq, e.Data)
+		// Recipients are member ids: the reviewer's member id, not its name or person.
+		want := e.Seq == int64(toRole.Seq)
+		if want != (d.Recipients != nil && len(*d.Recipients) == 1 && (*d.Recipients)[0] == reviewerID) {
+			t.Fatalf("recipients in the record of #%d: %s, want [%s]", e.Seq, e.Data, reviewerID)
 		}
 	}
 

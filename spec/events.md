@@ -85,8 +85,10 @@ withheld from a reader who may not see the message it is on, as the message's ow
 `message.posted` is.
 
 `recipients` in `message.posted` records whom a message was addressed to at the moment
-it was posted, as member ids: each member named with `@name`, and each member who held
-the role of a `role:R` target then, never the sender. It fixes the message's receipts,
+it was posted, as member ids (`mem_…`, a member's `id`; never handles or person ids):
+each member `to` names with `@name`, and each member who held the role of a `role:R`
+target then, never the sender. Only `to` decides them: a member only mentioned in the
+body is not a recipient and has no receipt. It fixes the message's receipts,
 so someone who takes the role later never becomes a recipient. A message to `all` has
 no `recipients`, and neither do events written before they were recorded; for those a
 reader takes the members named, and the members with the role who joined before the
