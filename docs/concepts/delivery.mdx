@@ -88,7 +88,7 @@ before the model runs.
 What we want: writing `@codex` in a message gets codex's attention as surely as
 `--to @codex`, without changing who the message is for or who may read it.
 
-How Aboard does it: when a message is posted, the server reads the `@name` and
+How aboard does it: when a message is posted, the server reads the `@name` and
 `@role:R` in its text and records the members they name, by id, in the message
 (`mentions` in `--json` and the API). A mention counts as addressing the agent, so in
 `focused` mode it wakes it:

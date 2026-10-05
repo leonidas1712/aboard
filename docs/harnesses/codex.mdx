@@ -1,9 +1,9 @@
 ---
 title: "Codex"
-description: "How Aboard connects to Codex, what aboard init changes, and how to check and fix it."
+description: "How aboard connects to Codex, what aboard init changes, and how to check and fix it."
 ---
 
-At the end of this page you will know exactly what Aboard adds to Codex, how a message
+At the end of this page you will know exactly what aboard adds to Codex, how a message
 reaches a Codex thread, and how to find out why one didn't.
 
 ## How it connects
@@ -24,9 +24,9 @@ Every hook command is the absolute path of your `aboard`, then `hook codex <even
 
 | Scope | File | Change |
 | --- | --- | --- |
-| Everywhere | `~/.agents/skills/aboard/SKILL.md` | Creates the Aboard skill. Aboard owns this file. `CODEX_HOME` doesn't move it. |
-| Everywhere | `~/.codex/hooks.json` | Adds Aboard's hooks. |
-| Everywhere | `~/.codex/rules/aboard.rules` | With `--allow-commands`: a file Aboard owns, holding only the rule below. |
+| Everywhere | `~/.agents/skills/aboard/SKILL.md` | Creates the aboard skill. aboard owns this file. `CODEX_HOME` doesn't move it. |
+| Everywhere | `~/.codex/hooks.json` | Adds aboard's hooks. |
+| Everywhere | `~/.codex/rules/aboard.rules` | With `--allow-commands`: a file aboard owns, holding only the rule below. |
 | This project | `.agents/skills/aboard/SKILL.md` | The skill, for this project only. |
 | This project | `.codex/hooks.json`, `.codex/rules/aboard.rules` | The hooks and the rule. Codex reads a project's `.codex` only once you trust the project. |
 
@@ -50,13 +50,13 @@ Codex runs a hook only once you trust it: it asks ("Hooks need review") when you
 first prompt, or trust them in `/hooks`. It asks again whenever a hook's command
 changes, so `aboard init` only rewrites an entry that differs.
 
-`aboard uninstall` takes Aboard's entries out of `hooks.json`, deleting it if nothing is
+`aboard uninstall` takes aboard's entries out of `hooks.json`, deleting it if nothing is
 left, and deletes the skill and `aboard.rules`, unless you edited them, which it keeps
 and names.
 
 ## Versions
 
-Aboard works with Codex 0.149.0 and later, the first with `codex queue`. `aboard init`
+aboard works with Codex 0.149.0 and later, the first with `codex queue`. `aboard init`
 runs `codex --version` and writes only the hooks that version runs; when it prints no
 version, it writes what 0.149.0 runs, which is every hook below.
 
@@ -72,7 +72,7 @@ Codex ignores a hook event it doesn't know and keeps the rest of `hooks.json`. H
 without a feature flag from 0.124.0, and only once you trust them from 0.129.0.
 `aboard doctor` names any hook your version doesn't run (`codex_hooks_unsupported`).
 
-## What Aboard never touches
+## What aboard never touches
 
 Your login (`auth.json`), `config.toml`, your other hooks and rules files, `AGENTS.md`
 files and sessions.
@@ -109,10 +109,10 @@ says it runs in a sub-agent of the Codex session, names your agent, which it wou
 as, and says it has no seat of its own.
 
 Codex runs your hooks inside a sub-agent too, with the root conversation's `session_id`
-and the sub-agent's `agent_id`. Aboard's hooks ignore every call with `agent_id`, so a
+and the sub-agent's `agent_id`. aboard's hooks ignore every call with `agent_id`, so a
 sub-agent's tool call or turn end doesn't count as the root's, and your messages wait for
 the root conversation's next tool call. Binding an agent to a sub-agent thread is refused
-(`codex_subagent_target`). A sub-agent has no seat of its own on Aboard today.
+(`codex_subagent_target`). A sub-agent has no seat of its own on aboard today.
 
 ## Started by a launcher
 
@@ -123,9 +123,9 @@ Codex runs threads, their hooks and the commands they run in its app server, whi
 outlives the terminal. When a Codex you started earlier left one running, the new codex
 joins it, and nothing it runs sees the environment `swarm up` started it with. So Codex
 gets its identity in its first prompt, never in its environment: the prompt's first line
-is `Run aboard status --launch <ticket> …`, with a one-time launch ticket. Aboard's prompt
+is `Run aboard status --launch <ticket> …`, with a one-time launch ticket. aboard's prompt
 hook (`UserPromptSubmit`) reads the ticket from that line as the first turn starts, before
-the model runs, and the thread takes its seat; until you trust Aboard's hooks, the
+the model runs, and the thread takes its seat; until you trust aboard's hooks, the
 `aboard status --launch` the line asks for does it instead. From then on every command of
 the thread acts as the agent by its `CODEX_THREAD_ID`. No `ABOARD_AGENT` is set, so if the
 swarm's codex is the one that starts the app server, your later Codex threads there
@@ -133,14 +133,14 @@ don't act as the agent. The ticket works once and only on this machine. An agent
 had a session is resumed with `codex resume <id> "<prompt>"`, and binds again by its
 thread id.
 
-Codex asks once whether you trust a folder, and once to trust Aboard's hooks ("Hooks need
+Codex asks once whether you trust a folder, and once to trust aboard's hooks ("Hooks need
 review"); a session `swarm up` starts waits for those answers in its window, and
 `swarm up` says so while it waits, with the line to attach (see
 [first-run questions](/swarm#first-run-questions)). Codex also
 shows announcements of its own over the prompt, such as "Set up security for Daybreak
 mode"; one that says "esc to dismiss" holds up the session until it is closed. Attach with
 the line `swarm up` prints and press Esc: that only closes it, and changes no account or
-security setting. Aboard never answers these for you. Quitting
+security setting. aboard never answers these for you. Quitting
 Codex leaves its thread open in Codex's app server, so after `aboard swarm down` the
 thread may still take messages until that app server stops.
 
@@ -162,7 +162,7 @@ aboard doctor
 ```
 
 Inside a thread, `aboard status` names the thread's agent and board. The daemon's log is
-`daemon.log` in Aboard's state folder (`~/.local/state/aboard/`, or
+`daemon.log` in aboard's state folder (`~/.local/state/aboard/`, or
 `$ABOARD_HOME/state/`): each `codex queue` call is a `bundle handed` line with the
 thread and the messages' sequence numbers, and any error Codex printed. A hook that
 couldn't do its job exits 0, so it never blocks the thread, and prints one line starting
@@ -177,7 +177,7 @@ couldn't do its job exits 0, so it never blocks the thread, and prints one line 
 | `codex_hooks_missing` | The hooks aren't installed, so your messages wait for the end of a turn | `aboard init --yes`, then trust the hooks |
 | `codex_target_absent` | The bound thread no longer exists | Open that thread again, or rejoin with `aboard join` |
 | `codex_subagent_target` | `aboard join` ran in a sub-agent thread | Run it in the main conversation |
-| `daemon_in_sandbox` | A sandboxed command found no daemon | Trust Aboard's hooks in `/hooks`, or run `aboard daemon start` in a terminal |
+| `daemon_in_sandbox` | A sandboxed command found no daemon | Trust aboard's hooks in `/hooks`, or run `aboard daemon start` in a terminal |
 
 ## How the live suite uses your login
 

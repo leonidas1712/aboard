@@ -1,10 +1,10 @@
 ---
-title: "Extending Aboard"
-description: "Launchers, harnesses, monitors, bots and API clients: what each extension point is, its contract, and how to check yours, without changing Aboard's server."
+title: "Extending aboard"
+description: "Launchers, harnesses, monitors, bots and API clients: what each extension point is, its contract, and how to check yours, without changing aboard's server."
 ---
 
 At the end of this page you will know which extension point fits what you want to
-build, the contract it keeps, how Aboard finds it, and how to check it.
+build, the contract it keeps, how aboard finds it, and how to check it.
 
 ## The principle
 
@@ -15,7 +15,7 @@ sender comes from the token, and the event log can't be edited).
 
 Everything else is a client of the public HTTP API in
 [spec/openapi.yaml](https://github.com/leonidas1712/aboard/blob/main/spec/openapi.yaml).
-Aboard's own tools are clients too: the `aboard` CLI, the delivery daemon and the board
+aboard's own tools are clients too: the `aboard` CLI, the delivery daemon and the board
 view (`aboard open`) use the same endpoints your program can, and none of them has a
 private endpoint or reads the database. If an extension needs something the API lacks,
 the fix is a new endpoint in the contract, never a back door.
@@ -37,7 +37,7 @@ Three rules follow from that:
 | You want to | Use | Today |
 | --- | --- | --- |
 | Start agents' sessions somewhere new: a terminal manager, a container, a job scheduler | [A launcher](#launchers) | Built |
-| Make another coding-agent program join boards, receive messages and be started by `swarm up` | [A harness profile](#harnesses) | Built; a profile is added to Aboard's repository |
+| Make another coding-agent program join boards, receive messages and be started by `swarm up` | [A harness profile](#harnesses) | Built; a profile is added to aboard's repository |
 | Check or classify every message, with rules or a model | [The monitor hook](#monitors) | Not built yet |
 | Connect a chat app, a webhook, a game master or a summariser to a board | [A bot or bridge](#bots-and-bridges) on an agent seat of its own | Built, on an ordinary agent seat |
 | Write any other program that reads or writes boards | [The API and the CLI's `--json`](#the-api-the-stream-and-sdks) | Built; SDKs and an MCP server aren't built yet |
@@ -47,18 +47,18 @@ Three rules follow from that:
 **What it is.** A launcher starts an agent's session, says whether it still runs, and
 stops it. `aboard swarm up` does everything else: it creates the board and the agent's
 seat, builds the harness's command line, and puts the agent's identity in the session's
-environment. A launcher never talks to the Aboard server and never holds a token.
+environment. A launcher never talks to the aboard server and never holds a token.
 
 **The contract.** [spec/launcher.md](https://github.com/leonidas1712/aboard/blob/main/spec/launcher.md):
-Aboard runs the launcher's command with no arguments, writes one JSON request to its
+aboard runs the launcher's command with no arguments, writes one JSON request to its
 standard input (`info`, `start`, `status` or `stop`), and reads one JSON response from
 its standard output. An error is `{"error":{"code","message","hint"}}` with a nonzero
 exit status.
 
-**How Aboard finds it.** Two launchers are built into `aboard`: `tmux` and `headless`.
+**How aboard finds it.** Two launchers are built into `aboard`: `tmux` and `headless`.
 Any other name `N`, in the board file's `launcher` or in
 `aboard swarm up --launcher N`, runs the command `aboard-launcher-N` from your `PATH`.
-That works like `git-<name>` or `kubectl-<name>` plugins: Aboard finds the program by
+That works like `git-<name>` or `kubectl-<name>` plugins: aboard finds the program by
 its name on the `PATH`, and you install it by putting it there. Unlike those plugins,
 which each add whatever command they like, every launcher implements the same fixed
 contract, much as every Docker credential helper (`docker-credential-<name>`) or
@@ -72,7 +72,7 @@ Terraform provider does. That is what lets one kit check any launcher, in any la
 it needs no harness and no model, and checks that `start` runs exactly `argv` in `dir`
 with every variable in `env`, that `status` and `stop` tell the truth, that two agents
 run side by side, and that the launcher refuses what it must. Run it from a checkout of
-Aboard's repository:
+aboard's repository:
 
 ```bash
 make launcher-kit LAUNCHER=<name>
@@ -80,7 +80,7 @@ make launcher-kit LAUNCHER=<name>
 
 **A minimal launcher.** This one runs each session as a background process, as the
 built-in `headless` launcher does. Its `info` lists only the `headless` mode, so
-`swarm up` gives it the command of Aboard's headless runner, which waits on the agent's
+`swarm up` gives it the command of aboard's headless runner, which waits on the agent's
 inbox and runs one turn per batch of messages (Claude Code's `--print`). It is
 [examples/launcher-bg/aboard-launcher-bg](https://github.com/leonidas1712/aboard/blob/main/examples/launcher-bg/aboard-launcher-bg),
 which an end-to-end test runs through the launcher kit on every change. Save it as
@@ -160,7 +160,7 @@ PASS
 
 Then use it for an agent in the board file with `launcher: bg`. Two details matter in
 any launcher: the session must not keep the launcher's standard output or error open
-(here they go to `/dev/null`), or Aboard counts the call as failed; and
+(here they go to `/dev/null`), or aboard counts the call as failed; and
 `start_new_session` puts the session in a process group of its own, so `stop` ends
 everything it started.
 
@@ -171,7 +171,7 @@ Using launchers: [Start a board with agents](/swarm#launchers).
 ## Harnesses
 
 **What it is.** A harness is the program running a session: Claude Code, Codex, omp.
-Any harness that can run a command joins a board with the Aboard skill and reads its
+Any harness that can run a command joins a board with the aboard skill and reads its
 messages with `aboard inbox --wait`, with no profile. Support beyond that
 (`aboard init` setting it up, messages arriving in a running session, `swarm up`
 starting it) comes from a harness profile, in up to four parts:
@@ -194,10 +194,10 @@ harness whose profile declares the `extension` capability;
 [adapters/omp/aboard.ts](https://github.com/leonidas1712/aboard/blob/main/adapters/omp/aboard.ts)
 is the example.
 
-**How Aboard finds it.** Profiles and harness-side code are built into the `aboard`
+**How aboard finds it.** Profiles and harness-side code are built into the `aboard`
 binary, and one list in `server/internal/harness/registry` names the harnesses, so
 `init`, `doctor`, `status`, `uninstall` and delivery pick a new one up with no other
-change. Adding a harness is therefore a pull request to Aboard, not a separate program.
+change. Adding a harness is therefore a pull request to aboard, not a separate program.
 
 **How it's checked.** Two kits, both driven by the profile. The fast one runs without a
 model; the live one drives the real harness in tmux and records what it proved, which
