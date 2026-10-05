@@ -86,10 +86,71 @@ func TestUpgradePreservesLegacySessionAndUnacknowledgedDeliveries(t *testing.T) 
 		!slices.Equal(deliveries[0].Seqs, []int{6, 7}) || deliveries[0].Attempts != 2 || deliveries[0].AcceptedAt.IsZero() {
 		t.Fatalf("legacy deliveries awaiting ack: %+v, %v", deliveries, err)
 	}
+	resolved := ref
+	resolved.MemberID = "mem_reviewer"
+	if err := j.ResolveIdentity(ctx, ref, resolved); err != nil {
+		t.Fatal(err)
+	}
+	lost := *sessions[0].Lost
+	resolvedLost := lost
+	resolvedLost.MemberID = "mem_writer"
+	if err := j.ResolveIdentity(ctx, lost, resolvedLost); err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j = open(t, path)
+	bindings, err = j.Bindings(ctx)
+	if err != nil || len(bindings) != 1 || bindings[0].Agent != resolved {
+		t.Fatalf("reopened resolved binding: %+v, %v", bindings, err)
+	}
+	modes, err = ReadModes(ctx, path)
+	if err != nil || len(modes) != 1 || modes[resolved] != delivery.ModeHumans {
+		t.Fatalf("reopened resolved mode: %+v, %v", modes, err)
+	}
+	deliveries, err = j.Deliveries(ctx, delivery.StateConfirmed)
+	if err != nil || len(deliveries) != 1 || deliveries[0].Agent != resolved || deliveries[0].ID != 17 || !slices.Equal(deliveries[0].Seqs, []int{6, 7}) || deliveries[0].Attempts != 2 || deliveries[0].AcceptedAt.IsZero() {
+		t.Fatalf("reopened resolved delivery: %+v, %v", deliveries, err)
+	}
+	sessions, err = j.Sessions(ctx)
+	if err != nil || len(sessions) != 1 || sessions[0].Lost == nil || *sessions[0].Lost != resolvedLost || !sessions[0].Turned || sessions[0].Boot != "boot-old" {
+		t.Fatalf("reopened session: %+v, %v", sessions, err)
+	}
+	ref = resolved
 	now := time.Date(2026, 10, 1, 12, 1, 0, 0, time.UTC)
 	id, err := j.AddDelivery(ctx, delivery.Delivery{Agent: ref, Session: sessions[0].Key,
 		State: delivery.StatePending, Seqs: []int{8}, CreatedAt: now, UpdatedAt: now})
 	if err != nil || id <= 17 {
 		t.Fatalf("new delivery id %d, want greater than preserved id 17: %v", id, err)
+	}
+}
+
+func TestReadModesKeepsHistoricalJournalReadOnly(t *testing.T) {
+	ctx := context.Background()
+	path := historicalJournal(t, 7)
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO modes VALUES ('https://team.example', 'docs', 'reviewer', 'off')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	modes, err := ReadModes(ctx, path)
+	ref := delivery.AgentRef{Server: "https://team.example", Board: "docs", Name: "reviewer"}
+	if err != nil || len(modes) != 1 || modes[ref] != delivery.ModeOff {
+		t.Fatalf("historical modes: %v, %v", modes, err)
+	}
+	db, err = sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 7 {
+		t.Fatalf("read-only schema %d: %v", version, err)
 	}
 }

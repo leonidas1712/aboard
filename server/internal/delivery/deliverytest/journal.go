@@ -24,6 +24,93 @@ var (
 func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 	ctx := context.Background()
 
+	t.Run("SeatIdentitySurvivesRenameAndSeparatesReusedNames", func(t *testing.T) {
+		j := open(t)
+		a := journalSeat(t, review, "mem_first")
+		renamed := a
+		renamed.Name = "renamed"
+		must(t, j.Bind(ctx, delivery.Binding{Agent: a, Session: claudeA, BoundAt: t0}))
+		must(t, j.SetMode(ctx, a, delivery.ModeHumans))
+		must(t, j.Bind(ctx, delivery.Binding{Agent: renamed, Session: claudeB, BoundAt: t0}))
+		must(t, j.SetMode(ctx, renamed, delivery.ModeOff))
+		bindings, err := j.Bindings(ctx)
+		must(t, err)
+		modes, err := j.Modes(ctx)
+		must(t, err)
+		if len(bindings) != 1 || bindings[0].Agent != renamed || len(modes) != 1 || modes[renamed] != delivery.ModeOff {
+			t.Fatalf("rename duplicated seat state: bindings=%+v modes=%v", bindings, modes)
+		}
+		b := journalSeat(t, review, "mem_second")
+		must(t, j.Bind(ctx, delivery.Binding{Agent: b, Session: claudeA, BoundAt: t0}))
+		must(t, j.SetMode(ctx, b, delivery.ModeFocused))
+		otherServer := a
+		otherServer.Server = "https://another.example"
+		must(t, j.SetMode(ctx, otherServer, delivery.ModeAll))
+		modes, err = j.Modes(ctx)
+		must(t, err)
+		bindings, err = j.Bindings(ctx)
+		must(t, err)
+		if len(bindings) != 2 || len(modes) != 3 || modes[renamed] != delivery.ModeOff || modes[b] != delivery.ModeFocused || modes[otherServer] != delivery.ModeAll {
+			t.Fatalf("different seats shared state: bindings=%+v modes=%v", bindings, modes)
+		}
+	})
+
+	t.Run("ResolveIdentityPromotesOnlyVerifiedLegacyState", func(t *testing.T) {
+		j := open(t)
+		resolved := journalSeat(t, review, "mem_verified")
+		unrelated := journalSeat(t, review, "mem_unrelated")
+		must(t, j.Bind(ctx, delivery.Binding{Agent: review, Session: claudeA, BoundAt: t0}))
+		must(t, j.SetMode(ctx, review, delivery.ModeHumans))
+		must(t, j.SetMode(ctx, unrelated, delivery.ModeOff))
+		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "old", Lost: &review, UpdatedAt: t0}))
+		_, err := j.AddDelivery(ctx, delivery.Delivery{Agent: review, Session: claudeA, Boot: "old", State: delivery.StateConfirmed, Seqs: []int{6, 7}, CreatedAt: t0, UpdatedAt: t0})
+		must(t, err)
+		must(t, j.ResolveIdentity(ctx, review, resolved))
+		must(t, j.ResolveIdentity(ctx, review, resolved))
+		bindings, err := j.Bindings(ctx)
+		must(t, err)
+		modes, err := j.Modes(ctx)
+		must(t, err)
+		sessions, err := j.Sessions(ctx)
+		must(t, err)
+		ds, err := j.Deliveries(ctx, delivery.StateConfirmed)
+		must(t, err)
+		if len(bindings) != 1 || bindings[0].Agent != resolved || modes[resolved] != delivery.ModeHumans || modes[unrelated] != delivery.ModeOff ||
+			len(modes) != 2 || sessions[0].Lost == nil || *sessions[0].Lost != resolved || len(ds) != 1 || ds[0].Agent != resolved || !slices.Equal(ds[0].Seqs, []int{6, 7}) {
+			t.Fatalf("resolved legacy state: bindings=%+v modes=%v sessions=%+v deliveries=%+v", bindings, modes, sessions, ds)
+		}
+	})
+
+	t.Run("ResolveIdentityConflictRollsBackEveryRow", func(t *testing.T) {
+		j := open(t)
+		resolved := journalSeat(t, review, "mem_verified")
+		must(t, j.Bind(ctx, delivery.Binding{Agent: review, Session: claudeA, BoundAt: t0}))
+		must(t, j.SetMode(ctx, review, delivery.ModeHumans))
+		must(t, j.SetMode(ctx, resolved, delivery.ModeOff))
+		_, err := j.AddDelivery(ctx, delivery.Delivery{Agent: review, Session: claudeA, State: delivery.StateConfirmed, Seqs: []int{6}, CreatedAt: t0, UpdatedAt: t0})
+		must(t, err)
+		if err := j.ResolveIdentity(ctx, review, resolved); err == nil {
+			t.Fatal("conflicting verified mode was overwritten")
+		}
+		bindings, err := j.Bindings(ctx)
+		must(t, err)
+		ds, err := j.Deliveries(ctx, delivery.StateConfirmed)
+		must(t, err)
+		modes, err := j.Modes(ctx)
+		must(t, err)
+		if len(bindings) != 1 || bindings[0].Agent != review || len(ds) != 1 || ds[0].Agent != review || modes[review] != delivery.ModeHumans || modes[resolved] != delivery.ModeOff {
+			t.Fatalf("conflict partially promoted state: bindings=%+v modes=%v deliveries=%+v", bindings, modes, ds)
+		}
+		wrongServer := resolved
+		wrongServer.Server = "https://another.example"
+		if err := j.ResolveIdentity(ctx, review, wrongServer); err == nil {
+			t.Fatal("cross-server resolution succeeded")
+		}
+		if err := j.ResolveIdentity(ctx, resolved, journalSeat(t, review, "mem_other")); err == nil {
+			t.Fatal("an already verified seat was reassigned")
+		}
+	})
+
 	t.Run("SessionsAreSavedAndUpdated", func(t *testing.T) {
 		j := open(t)
 		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "b1", Open: true, UpdatedAt: t0}))
@@ -190,4 +277,10 @@ func must(t *testing.T, err error) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func journalSeat(t *testing.T, ref delivery.AgentRef, id string) delivery.AgentRef {
+	t.Helper()
+	ref.MemberID = id
+	return ref
 }
