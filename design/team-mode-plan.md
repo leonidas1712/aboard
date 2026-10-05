@@ -137,7 +137,19 @@ acknowledges nothing there and never names a board the seat can't see), and ever
 one board (`say`, replies, `react`, `read`, `invite`, `leave`) needs `--board`: without
 it, it is refused with `board_ambiguous`,
 listing the boards and the flag, even when `--as` or `ABOARD_AGENT` names the agent.
-`aboard status` lists every seat the session holds. There is no hidden "current board".
+`aboard status` lists every seat the session holds, one line each (board, name, role,
+delivery mode, unread), with a reminder of how to use them (`--board` and an example
+reply); a session's start and resume show the same summary. There is no hidden "current
+board". A session's seats are all on one server; joining a board on another server from
+the same session is refused with a hint to use a session for that server.
+
+**Delivery to a session with several seats.** Messages from every board reach the one
+session, each naming its board. The delivery mode is per seat, so an agent can be
+focused on a busy board and get everything on a small one. Messages that arrive close
+together wake it once, grouped by board; the waiting notice counts per board ("2 on
+general, 1 on payments-design"); reply hints include `--board`. Each board still sees
+only its own seat. The details are worked out with Codex before 5a starts and proven
+with real Claude Code and Codex sessions on two boards.
 Message numbers are per board, so every delivered message, reply hint, hook and queued
 wake carries its board and seat; history, read positions and frozen recipients stay
 separate per seat; the skill's examples use `--board` for replies. A board list cached
@@ -185,7 +197,10 @@ from `aboard boards` never authorizes a join: the join is checked again.
    messages under the seat's id; re-adding a person never revives an old seat. Tests:
    removal racing reads and writes, and re-adding followed by the old token's refusal.
 4. **4b. Archive, restore, delete.** Builds on 5c's seat ids.
-5. **Team safety.** Secret redaction in messages; the CLI inbox across boards.
+5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
+   stays small (not required for team-ready): deterministic patterns for known
+   credential formats, as D79's rules checks already intend, replaced before the
+   message is stored.
 6. **7. The server.** Backup before each migration, the version-skew check, the load test.
 7. **Deploy.** HTTPS, a container and one recipe, the release job and install script,
    then the two-machine test with real people.
@@ -194,7 +209,11 @@ Each lands as before: contracts first, failing multi-person tests first, a secur
 review by a second agent, full checks, and `make live` with Claude Code and Codex where
 delivery or setup changes.
 
-### Decisions for the maintainer
+### Decisions (D195)
+
+The maintainer approved these on 2026-10-05; D195 records them.
+
+### Decisions as proposed
 
 1. **One session on several boards: separate seats, or switching?** Proposed: separate
    seats, each its own identity on its board, explicit `--board` when there is more than
