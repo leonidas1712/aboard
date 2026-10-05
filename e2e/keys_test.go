@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // keyID returns the id of the key called name in a keys --json listing.
@@ -380,5 +381,47 @@ func TestSwarmSaysWhenTheKeyItsSeatsCameFromEnds(t *testing.T) {
 		if !strings.Contains(show, "ended: the access key it came from was revoked or has expired") {
 			t.Fatalf("swarm show after the key was revoked:\n%s", show)
 		}
+	}
+
+	// Signed in again with the board file unchanged, swarm up refuses the ended seat at
+	// once instead of starting a session that could never take it.
+	s.run("swarm", "down")
+	started := time.Now()
+	r = s.runExit("swarm", "up", "--json")
+	if r.code != 1 || errorCode(t, r.json(t)) != "seat_ended" || !strings.Contains(r.stdout, "new name in the board file") {
+		t.Fatalf("swarm up with an ended seat:\n%s", r)
+	}
+	if time.Since(started) > 20*time.Second {
+		t.Fatalf("swarm up took %s to refuse the ended seat", time.Since(started))
+	}
+	if ag := agentsByName(t, s.run("swarm", "ps", "--json").json(t))["worker"]; ag["state"] == "running" {
+		t.Fatalf("swarm up started the ended seat's session: %v", ag)
+	}
+}
+
+// aboard login checks where a key would go before it reads or sends one, wherever the
+// server came from: a project's .aboard naming a server over plain http, or an address
+// that isn't a server's, is refused without a request.
+func TestLoginRefusesAnUnsafeServerFromTheProject(t *testing.T) {
+	t.Parallel()
+	home := newPersonHome(t, "maya")
+	for url, code := range map[string]string{
+		"http://team.example.com":      "insecure_server",
+		"https://team.example.com/x":   "invalid_request",
+		"https://u@team.example.com":   "invalid_request",
+		"ftp://team.example.com":       "invalid_request",
+		"https://team.example.com?a=b": "invalid_request",
+	} {
+		project := `{"server":{"name":"` + url + `","url":"` + url + `"},"board":"none"}`
+		if err := os.WriteFile(filepath.Join(home.dir, ".aboard"), []byte(project), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		r := home.exec(nil, "abh_"+strings.Repeat("A", 43)+"\n", "login", "--json")
+		if r.code != 1 || errorCode(t, r.json(t)) != code {
+			t.Fatalf("login with .aboard naming %s:\n%s", url, r)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home.configDir(), "servers.json")); err == nil {
+		t.Fatal("a refused login saved a key")
 	}
 }

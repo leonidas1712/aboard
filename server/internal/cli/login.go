@@ -28,17 +28,21 @@ func runLogin(ctx context.Context, a *app, args []string) error {
 	if err := a.refuseInSession("Signing this machine in", "aboard login"); err != nil {
 		return err
 	}
-	srv := a.localServer()
+	target := a.localServer().URL
 	if len(pos) == 1 {
-		if srv, err = parseServerURL(pos[0]); err != nil {
-			return err
-		}
-		srv = a.serverRefFor(srv.URL)
+		target = pos[0]
 	} else if p, ok, err := a.readProject(); err != nil {
 		return err
 	} else if ok && p.Server.URL != "" {
-		srv = p.Server
+		target = p.Server.URL
 	}
+	// Wherever the server came from, it is checked before a key is read or sent: https,
+	// or this machine over http.
+	srv, err := parseServerURL(target)
+	if err != nil {
+		return err
+	}
+	srv = a.serverRefFor(srv.URL)
 	local := srv.URL == a.localServer().URL
 	key, err := a.readKey(srv)
 	if err != nil {
