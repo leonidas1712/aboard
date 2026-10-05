@@ -361,6 +361,8 @@ func seatTokenReplaced(board string) *apierr.Error {
 // one read, that the caller's credential still works, that they still have the board
 // (for a code, that its maker's authority still holds, even though the first call used
 // it up), that the stored seat wasn't removed, and that its stored token still works.
+// The board is checked first, so a replay never says anything about a board the caller
+// can no longer see; on one they still see, a removed seat is agent_removed.
 // A failed check is the error a new call would get now; a token a later delegated join
 // replaced is seat_token_replaced.
 func (s *Service) CheckJoinReplay(ctx context.Context, p Principal, in JoinInput, memberID, token string) error {
@@ -380,6 +382,17 @@ func (s *Service) CheckJoinReplay(ctx context.Context, p Principal, in JoinInput
 		b, err := tx.BoardByID(seat.BoardID)
 		if err != nil {
 			return err
+		}
+		// The board comes first: a board the caller can't see says nothing about the
+		// seat. One they still see, with the seat removed, says it was removed.
+		if _, _, _, err := s.see(tx, p, b.Name); err != nil {
+			if in.Code != "" && isBoardNotFound(err) {
+				return joinCodeInvalid()
+			}
+			return err
+		}
+		if seat.Status != StatusActive {
+			return agentRemoved(seat, b.Name)
 		}
 		if in.Code != "" {
 			normal, _ := ids.NormalizeJoinCode(in.Code)
@@ -412,9 +425,6 @@ func (s *Service) CheckJoinReplay(ctx context.Context, p Principal, in JoinInput
 			}
 		} else if _, _, err := s.access(tx, p, b.Name); err != nil {
 			return err
-		}
-		if seat.Status != StatusActive {
-			return agentRemoved(seat, b.Name)
 		}
 		if seat.TokenDigest == nil || *seat.TokenDigest != ids.Digest(s.key, token) {
 			return seatTokenReplaced(b.Name)

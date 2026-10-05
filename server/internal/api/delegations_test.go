@@ -581,7 +581,8 @@ func TestAPersonsJoinReplayIsRechecked(t *testing.T) {
 	}
 	s.want(s.call("POST", "/v1/join", maya, body, "k1"), 409, "seat_token_replaced")
 
-	// Another board the person then leaves: the replay gets what a new join would.
+	// An open board the person then leaves: it is still visible to them and their seat
+	// was removed with them, so the replay says the seat was removed.
 	other := s.openBoard(s.owner)
 	if a := s.call("POST", "/v1/boards/"+other+"/people", maya, map[string]any{"handle": "maya"}, ""); a.status != 201 {
 		t.Fatalf("join %s: %d %s", other, a.status, a.raw)
@@ -593,7 +594,35 @@ func TestAPersonsJoinReplayIsRechecked(t *testing.T) {
 	if a := s.call("POST", "/v1/boards/"+other+"/leave", maya, nil, ""); a.status != 200 {
 		t.Fatalf("leave: %d %s", a.status, a.raw)
 	}
-	s.want(s.call("POST", "/v1/join", maya, body2, "k2"), 403, "not_on_board")
+	removed := s.call("POST", "/v1/join", maya, body2, "k2")
+	s.want(removed, 403, "agent_removed")
+	if jsonAt(removed.body, "error", "details", "removed_by") != "person" {
+		t.Errorf("details: %s", removed.raw)
+	}
+}
+
+// A replay never says anything about a board the caller can no longer see: removed
+// from a private board, the replay gets board_not_found, exactly as a new join would.
+func TestAReplayOnAHiddenBoardSaysNothingAboutTheSeat(t *testing.T) {
+	s := newJoinServer(t)
+	maya := s.addHuman("maya")
+	private := s.privateBoard(s.owner)
+	if a := s.call("POST", "/v1/boards/"+private+"/people", s.owner, map[string]any{"handle": "maya"}, ""); a.status != 201 {
+		t.Fatalf("add maya: %d %s", a.status, a.raw)
+	}
+	body := map[string]any{"board": private, "role": "member"}
+	if a := s.call("POST", "/v1/join", maya, body, "k1"); a.status != 201 {
+		t.Fatalf("join: %d %s", a.status, a.raw)
+	}
+	if a := s.call("DELETE", "/v1/boards/"+private+"/people/maya", s.owner, nil, ""); a.status != 200 {
+		t.Fatalf("remove maya: %d %s", a.status, a.raw)
+	}
+	replay := s.call("POST", "/v1/join", maya, body, "k1")
+	fresh := s.call("POST", "/v1/join", maya, body, "k2")
+	s.want(replay, 404, "board_not_found")
+	if replay.raw != fresh.raw {
+		t.Errorf("the replay differs from a new call: %s / %s", replay.raw, fresh.raw)
+	}
 }
 
 // A guest code the first call used up still counts for its own repeat, as long as its
