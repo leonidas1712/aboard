@@ -3,7 +3,6 @@ package cli
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"syscall"
 	"time"
@@ -90,13 +89,19 @@ func stopAboard(ctx context.Context, pid int, stopped func() bool) error {
 	if name, ok := proctable.Name(pid); !ok || name != "aboard" {
 		return fmt.Errorf("process %d is not aboard", pid)
 	}
+	table := proctable.Table{}
+	start, ok := table.StartTime(pid)
+	if !ok {
+		return fmt.Errorf("process %d is not running", pid)
+	}
+	process := delivery.Process{PID: pid, Start: start}
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
 		return fmt.Errorf("signal process %d: %w", pid, err)
 	}
 	deadline := time.Now().Add(stopTimeout)
 	tick := time.NewTicker(50 * time.Millisecond)
 	defer tick.Stop()
-	for !stopped() || !aboardProcessGone(pid) {
+	for !stopped() || table.Alive(process) {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("process %d didn't stop within %s", pid, stopTimeout)
 		}
@@ -107,14 +112,6 @@ func stopAboard(ctx context.Context, pid int, stopped func() bool) error {
 		}
 	}
 	return nil
-}
-
-func aboardProcessGone(pid int) bool {
-	if errors.Is(syscall.Kill(pid, 0), syscall.ESRCH) {
-		return true
-	}
-	name, ok := proctable.Name(pid)
-	return ok && name != "aboard"
 }
 
 // daemonStatus asks a running delivery daemon for its status, without starting one.

@@ -209,6 +209,24 @@ func (s *session) startHookHeld(event string) (*proc, func()) {
 	}
 	go func() { p.done <- cmd.Wait() }()
 	s.e.t.Cleanup(func() { _ = cmd.Process.Kill() })
+	// More than a pipe can buffer: finishing this write proves the hook has
+	// started reading stdin, while withholding EOF keeps it off the daemon.
+	ready := make(chan error, 1)
+	go func() {
+		_, err := io.WriteString(in, strings.Repeat(" ", 512*1024))
+		ready <- err
+	}()
+	select {
+	case err := <-ready:
+		if err != nil {
+			s.e.t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		_ = cmd.Process.Kill()
+		_ = in.Close()
+		<-p.done
+		s.e.t.Fatal("hook did not start reading stdin")
+	}
 	release := func() {
 		_, _ = io.WriteString(in, hookInput(s.id, s.eventName(event), ""))
 		_ = in.Close()
@@ -228,6 +246,10 @@ func (p *proc) wait(within time.Duration) result {
 		}
 		return r
 	case <-time.After(within):
+		// Wait stops the stdout/stderr copy goroutines; only then can the failure
+		// diagnostic read their buffers without racing a final write.
+		_ = p.cmd.Process.Kill()
+		<-p.done
 		p.t.Fatalf("%v still running after %s\nstderr so far:\n%s", p.cmd.Args, within, p.errb.String())
 		return result{}
 	}
