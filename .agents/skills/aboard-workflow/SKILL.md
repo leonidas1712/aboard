@@ -85,8 +85,14 @@ security, land with `scripts/land-pr`, live tests when delivery or setup changes
 
 ## 6. Reporting to the maintainer
 
-- Lead with the outcome and what needs them. Keep it short; they may be reading on a
-  small screen between other things.
+- **Lead with what you need from them.** When a long task is done, or you're stuck and
+  need the maintainer to do something, list what you need from them at the very top of
+  your reply, before any summary. One thing per item, numbered. Spell out what to do,
+  where, and what to send back when it's done (for example: "Merge #108 once CI is
+  green, then reply go"). Whatever blocks you most goes first. If you need nothing, say
+  so in one line.
+- Then the outcome, kept short; they may be reading on a small screen between other
+  things.
 - When they ask what's going on, or to explain plainly, drop the jargon: say what
   changes for a person using aboard, then the detail if they want it.
 - Report faithfully: what passed, what wasn't run, what is still unproven. Never round

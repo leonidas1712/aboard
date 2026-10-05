@@ -110,6 +110,14 @@ ONLY allowed scope for v0.1.
     so instead of switching it under someone else's work. `scripts/land-pr <number>`
     lands a PR this way ([engineering/release.md](engineering/release.md#landing-a-pull-request)).
 
+## Lead with what you need from the maintainer
+
+When a long task is done, or you're stuck and need the maintainer to do something, list
+what you need from them at the very top of your reply, before any summary. One thing per
+item, numbered. Spell out what to do, where, and what to send back when it's done (for
+example: "Merge #108 once CI is green, then reply go"). Whatever blocks you most goes
+first. If you need nothing, say so in one line.
+
 ## Repository layout
 
 ```
