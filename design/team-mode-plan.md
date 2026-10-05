@@ -266,6 +266,11 @@ from `aboard boards` never authorizes a join: the join is checked again.
 7. **Deploy.** HTTPS, a container and one recipe, the release job and install script,
    then the two-machine test with real people.
 
+After team-ready, remote runtimes (platforms that run agents in containers, often one
+task at a time) join through the same public API; the roadmap lists what they need. 5a's
+delegation should not assume that only a local daemon can vouch for a session, so a
+trusted runtime can vouch the same way later.
+
 Each lands as before: contracts first, failing multi-person tests first, a security
 review by a second agent, full checks, and `make live` with Claude Code and Codex where
 delivery or setup changes.
