@@ -43,12 +43,19 @@ type rig struct {
 	ctl     *deliverytest.PipeControl
 	journal *sqlitejournal.Journal
 	tickets launchtickets.Dir
+	seats   delivery.Seats
 	cancel  context.CancelFunc
 	done    chan error
 	resolve func(context.Context, delivery.AgentRef) (delivery.AgentRef, error)
+	remote  delivery.Server
 }
 
 func newRig(t *testing.T) *rig {
+	t.Helper()
+	return newRigWithServer(t, nil)
+}
+
+func newRigWithServer(t *testing.T, wrap func(delivery.Server) delivery.Server) *rig {
 	t.Helper()
 	r := &rig{
 		t: t, clock: clock.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
@@ -58,6 +65,9 @@ func newRig(t *testing.T) *rig {
 		procs:   deliverytest.NewFakeProcesses(),
 		path:    filepath.Join(t.TempDir(), "delivery.db"),
 		tickets: launchtickets.Dir(t.TempDir()),
+	}
+	if wrap != nil {
+		r.remote = wrap(r.server)
 	}
 	r.start()
 	t.Cleanup(r.stop)
@@ -76,9 +86,14 @@ func (r *rig) start() {
 	cfg := delivery.Config{
 		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex, extension.Adapter{Name: "omp"}},
 		ResolveAgent: r.resolve,
-		Connect:      func(string) delivery.Server { return r.server },
-		Control:      r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
-		Tickets: r.tickets,
+		Connect: func(string) delivery.Server {
+			if r.remote != nil {
+				return r.remote
+			}
+			return r.server
+		},
+		Control: r.ctl, Processes: r.procs, Clock: r.clock, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PID: 4182,
+		Tickets: r.tickets, Seats: r.seats,
 	}
 	go func() { r.done <- delivery.Run(ctx, cfg) }()
 }

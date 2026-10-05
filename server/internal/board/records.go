@@ -56,6 +56,24 @@ type KeyUsage struct {
 	AccessKey
 	BrowserSessions int
 	AgentSeats      int
+	// Delegations counts the machine delegations made with the key that haven't ended;
+	// they work only while the key does.
+	Delegations int
+}
+
+// Delegation is a machine's delegation: made with one of a person's access keys, it
+// lists that person's boards and gives the sessions its holder vouches for a seat on
+// them. It is kept by the keyed digest of its token. It works while it hasn't ended
+// (EndedAt nil), its key works and its person is on the server.
+type Delegation struct {
+	ID        string
+	KeyID     string
+	HumanID   string
+	Name      string
+	Digest    string
+	CreatedAt string
+	// EndedAt is when another delegation with the same key and name replaced it.
+	EndedAt *string
 }
 
 // ServerInvite lets one new person onto the server, as a member, once, before it
@@ -188,7 +206,23 @@ type Member struct {
 	PersonRole string
 	// Delivery is an agent's delivery mode as its person set it.
 	Delivery DeliverySetting
+	// Session is the harness session an agent was made for (`<harness>:<id>`), when its
+	// join sent one; never shown or recorded on the board.
+	Session *string
+	// RemovedAt and RemovedBy say when a removed agent was removed and by whom
+	// (RemovedByPerson, RemovedByOwner or RemovedByAdmin); nil for agents removed
+	// before this was kept, and for everyone else.
+	RemovedAt *string
+	RemovedBy *string
 }
+
+// Who removed an agent: its own person (leaving the board), one of the board's owners,
+// or a server admin (removing its person from the server).
+const (
+	RemovedByPerson = "person"
+	RemovedByOwner  = "board_owner"
+	RemovedByAdmin  = "admin"
+)
 
 // Rules returns what the rules package needs to know about the member.
 func (m Member) Rules() rules.Member {

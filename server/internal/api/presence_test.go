@@ -132,6 +132,7 @@ type presenceEvent struct {
 	Board         string  `json:"board"`
 	BoardID       string  `json:"board_id"`
 	Agent         string  `json:"agent"`
+	MemberID      string  `json:"member_id"`
 	Presence      string  `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
 	Delivery      *string `json:"delivery"`
@@ -161,7 +162,10 @@ func TestStreamSendsPresenceChanges(t *testing.T) {
 	first := st.head()
 
 	s.setPresence(writer, api.PresenceWorking)
-	if p := st.presence(); p.Board != boardName || p.BoardID != first.BoardID || p.Agent != "writer" || p.Presence != "working" || p.PresenceSince == nil {
+	me, err := s.client(writer).GetMeWithResponse(context.Background())
+	mustStatus(t, me, err, 200)
+	if p := st.presence(); p.Board != boardName || p.BoardID != first.BoardID || p.Agent != "writer" || p.MemberID != me.JSON200.Id ||
+		p.Presence != "working" || p.PresenceSince == nil {
 		t.Fatalf("presence event: %+v", p)
 	}
 	s.setPresence(writer, api.PresenceWorking) // renews only

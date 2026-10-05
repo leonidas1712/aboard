@@ -75,6 +75,17 @@ type ReadTx interface {
 	WorkingJoinCodes(boardID, now string) ([]JoinCode, error)
 	// MemberByTokenDigest finds the agent whose token has this digest.
 	MemberByTokenDigest(digest string) (Member, error)
+	// MemberByID finds a member of any board by id, whatever its status.
+	MemberByID(id string) (Member, error)
+	// SeatForSession finds the newest agent of the human on the board made for the
+	// harness session (Member.Session), whatever its status. The human's id is part of
+	// the lookup, so another person's seat with the same session string is never found.
+	SeatForSession(boardID, humanID, session string) (Member, error)
+	// DelegationByDigest finds a machine delegation by the digest of its token, whether
+	// or not it still works.
+	DelegationByDigest(digest string) (Delegation, error)
+	// DelegationByID finds a machine delegation by id, whether or not it still works.
+	DelegationByID(id string) (Delegation, error)
 	// HumanMember finds a human's own membership of a board.
 	HumanMember(boardID, humanID string) (Member, error)
 	// MemberByName finds a member of a board by name.
@@ -205,6 +216,17 @@ type Tx interface {
 	InsertMember(m Member) error
 	// SetMemberStatus sets a member's status: StatusActive, StatusLeft or StatusRemoved.
 	SetMemberStatus(memberID, status string) error
+	// RemoveAgent marks an agent removed at a time, by RemovedByPerson, RemovedByOwner or
+	// RemovedByAdmin.
+	RemoveAgent(memberID, at, by string) error
+	// SetAgentToken replaces an agent's token, so every earlier token stops working, and
+	// the access key the new one stops with.
+	SetAgentToken(memberID, digest, keyID string) error
+	// InsertDelegation adds a machine delegation.
+	InsertDelegation(d Delegation) error
+	// EndDelegations ends, at a time, the delegations made with the key under the name
+	// that haven't ended yet.
+	EndDelegations(keyID, name, at string) error
 	// SetMemberAccess sets a person's access on their board; it changes nothing for an
 	// agent.
 	SetMemberAccess(memberID, access string) error

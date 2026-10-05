@@ -160,6 +160,21 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	if *wait < 0 || *limit < 0 {
 		return usageError("--wait and --limit can't be negative.", use)
 	}
+	// In a session with several seats and no --board, the inbox covers every seat.
+	if key, ok := a.sessionKey(); ok && *boardFlag == "" && *as == "" && strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) == "" {
+		if seats, err := a.sessionAgents(ctx, key); err == nil && len(seats) > 1 {
+			creds, err := a.readCredentials()
+			if err != nil {
+				return err
+			}
+			out, err := a.inboxSeats(ctx, seats, creds, *limit, !*peek, *wait)
+			if err != nil {
+				return err
+			}
+			a.emit(out, inboxSeatsText(out))
+			return nil
+		}
+	}
 	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 	if err != nil {
 		return err

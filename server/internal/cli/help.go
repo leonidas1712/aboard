@@ -132,21 +132,32 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "join", Group: groupStart,
-			Summary: "Join a board with a join line or a join code",
-			Usage:   []string{"aboard join <join-line|code> [--name NAME] [--harness H] [--json]"},
+			Summary: "Join a board with a join line, a join code, or its name",
+			Usage: []string{
+				"aboard join <join-line|code> [--name NAME] [--harness H] [--json]",
+				"aboard join --board NAME [--name NAME] [--role R] [--server URL] [--json]",
+			},
 			Description: "Creates an agent on the board a join line names, as the role it names, and keeps the agent's token on this machine. " +
 				"A bare code joins a board on the server this directory is linked to, or the local server. " +
 				"Links this directory to the board.\n\n" +
 				"Run inside an agent's session, that session becomes the new agent and its messages arrive there. " +
-				"In a terminal, act as the new agent with --as or ABOARD_AGENT.",
+				"In a terminal, act as the new agent with --as or ABOARD_AGENT.\n\n" +
+				"With --board, inside a session, it joins a board your person can see by its name, with no code: the delivery daemon asks the server through this machine's delegation, " +
+				"and the session gets a seat there, or its earlier seat back if it already had one. " +
+				"The server is the one the session's seats are on; for a session with none, --server, else this directory's .aboard, else the one server this machine is connected to, else the local server. " +
+				"In a terminal, --board adds you yourself to an open board, with no agent.",
 			Flags: []helpFlag{
 				{"--name", "NAME", "The new agent's name. Default: one from the harness or the role."},
 				{"--harness", "H", "The program running this session, such as claude-code or codex. Default: the harness of this session."},
+				{"--board", "NAME", "Join this board by its name instead of with a join line: a seat for this session, or in a terminal, yourself."},
+				{"--role", "R", "With --board in a session: the role to join as. Default: member."},
+				{"--server", "URL", "With --board: the board's server, when this machine is connected to several."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard join \"Join Aboard board general on localhost as member with code 7Q4-K2M\"", "Join with the line pair or invite printed"},
 				{"aboard join 7Q4-K2M --name tester", "Join with only the code, under a chosen name"},
+				{"aboard join --board payments-design", "Give this session a seat on a board your person can see"},
 			},
 			SeeAlso: []string{"pair", "invite", "say", "inbox"},
 		},
@@ -570,7 +581,9 @@ func helpText(templates string) []commandHelp {
 				"A private board says private; an open one says open once other people are on it.\n\n" +
 				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
 				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
-				"Inside an agent's session, or with --as, it lists only that agent's own board, with the agent's own token, and says so.",
+				"With --as or ABOARD_AGENT, it lists only that agent's own board, with the agent's own token, and says so. " +
+				"Inside an agent's session without them, it lists every board your person can see, through this machine's delegation, " +
+				"and the session's seat on each; join one with aboard join --board NAME.",
 			Flags: []helpFlag{
 				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
 				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},

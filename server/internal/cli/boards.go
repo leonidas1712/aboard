@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -19,7 +20,16 @@ type boardsRow struct {
 	Agents     *int                `json:"agents"`
 	Unread     *int                `json:"unread"`
 	Default    bool                `json:"default"`
+	// Seat is, when listing through the machine's delegation from a session, the
+	// session's seat on the board (its agent's name) or nil.
+	Seat *seatName `json:"seat,omitempty"`
 }
+
+// seatName wraps a seat's name so a row can say "no seat" (null) apart from leaving
+// the field out.
+type seatName struct{ name *string }
+
+func (s seatName) MarshalJSON() ([]byte, error) { return json.Marshal(s.name) }
 
 // runBoards lists the boards the person is on, or with --all every board they can see.
 // When an agent is selected (--as, ABOARD_AGENT or a harness session), it lists only the agent's own board, with the
@@ -42,6 +52,12 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	project, linked, err := a.readProject()
 	if err != nil {
 		return err
+	}
+	if key, inSession := a.sessionKey(); inSession && *as == "" && strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) == "" {
+		if *boardFlag != "" {
+			return usageError("--board picks an agent's board, so it works only with --as.", use)
+		}
+		return a.sessionBoards(ctx, key, project, linked)
 	}
 	if a.agentSelected(*as) {
 		if *all {

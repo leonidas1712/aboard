@@ -71,6 +71,8 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"ServerRolesAndAdminsCounted", serverRolesAndAdminsCounted},
 		{"GuestCodesAreUsedOnce", guestCodesAreUsedOnce},
 		{"MembersCarryTheirPersonsRole", membersCarryTheirPersonsRole},
+		{"DelegationsEndByKeyAndName", delegationsEndByKeyAndName},
+		{"SeatsAreFoundBySessionAndPerson", seatsAreFoundBySessionAndPerson},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

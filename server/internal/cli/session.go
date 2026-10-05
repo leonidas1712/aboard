@@ -46,6 +46,15 @@ func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target
 	}
 	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
 	if name != "" {
+		// In a session with several seats, naming the agent doesn't pick the board:
+		// --board does, and board_ambiguous comes before agent_ambiguous.
+		if key, ok := a.sessionKey(); ok && boardFlag == "" {
+			if seats, err := a.sessionAgents(ctx, key); err == nil {
+				if err := boardAmbiguous(seats, boardFlag); err != nil {
+					return target{}, agentCredential{}, err
+				}
+			}
+		}
 		return a.agentByName(creds, name, boardFlag)
 	}
 	if key, ok := a.sessionKey(); ok {
@@ -119,6 +128,9 @@ func (a *app) agentByName(creds credentials, name, boardFlag string) (target, ag
 func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.SessionKey, boardFlag string) (t target, cred agentCredential, found bool, err error) {
 	agents, err := a.sessionAgents(ctx, key)
 	if err != nil {
+		return target{}, agentCredential{}, false, err
+	}
+	if err := boardAmbiguous(agents, boardFlag); err != nil {
 		return target{}, agentCredential{}, false, err
 	}
 	var matching []delivery.AgentRef

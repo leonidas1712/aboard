@@ -104,10 +104,11 @@ type UnreadChange struct {
 // HeadFeed last looked: by its own inbox acknowledgement, its owner's delivery daemon's,
 // or any other client's. Only the agent's owner is told.
 type ReadChange struct {
-	BoardID string
-	Board   string // the board's name
-	Agent   string
-	Cursor  int64
+	BoardID  string
+	Board    string // the board's name
+	Agent    string
+	MemberID string // the agent's seat; Agent is its name now, for display
+	Cursor   int64
 }
 
 // Next returns what changed since the last call. The first call returns every board's
@@ -176,7 +177,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	f.sent = current
 
-	presence, reads, positions, err := f.s.presenceOn(ctx, ids, f.p)
+	presence, reads, positions, seats, err := f.s.presenceOn(ctx, ids, f.p)
 	if err != nil {
 		return Update{}, err
 	}
@@ -197,7 +198,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 				was = Presence{State: PresenceNoSession}
 			}
 			if known && (was.State != now.State || was.Delivery != now.Delivery) {
-				u.Presence = append(u.Presence, PresenceChange{BoardID: id, Board: names[id], Agent: agent, Presence: now})
+				u.Presence = append(u.Presence, PresenceChange{BoardID: id, Board: names[id], Agent: agent, MemberID: seats[id][agent], Presence: now})
 			}
 		}
 	}
@@ -206,7 +207,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 		before, known := f.reads[id]
 		for _, agent := range slices.Sorted(maps.Keys(reads[id])) {
 			if now := reads[id][agent]; known && now != before[agent] {
-				u.Reads = append(u.Reads, ReadChange{BoardID: id, Board: names[id], Agent: agent, Cursor: now})
+				u.Reads = append(u.Reads, ReadChange{BoardID: id, Board: names[id], Agent: agent, MemberID: seats[id][agent], Cursor: now})
 			}
 		}
 	}
