@@ -241,7 +241,10 @@ from `aboard boards` never authorizes a join: the join is checked again.
    boards with separate acknowledgements, mixed modes, a mode change before a handoff, a
    seat removed while waiting and after the harness accepted, a failed acknowledgement
    then a daemon restart, a late confirmation after resume, `inbox` racing a delivery,
-   the size limit shared fairly, and owner messages mid-turn among older ones. The smallest slice that removes codes for a
+   the size limit shared fairly (a later board's message that fits the whole limit but
+   not the space left waits, never marked too large), owner messages mid-turn among
+   older ones, and an omp batch mixing owner and other agents' messages never delivering
+   the others as an owner aside. The smallest slice that removes codes for a
    team's own sessions.
 2. **5b. Agents start work for their person.** `aboard pair --new` through the
    delegation (the person is creator and owner); agents adding teammates on open boards,
