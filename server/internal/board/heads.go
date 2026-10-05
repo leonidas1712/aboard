@@ -28,6 +28,10 @@ func (s *Service) Heads(ctx context.Context, p Principal) ([]Head, error) {
 	}
 	var out []Head
 	err := s.st.Read(ctx, func(tx ReadTx) error {
+		// A stream reads with its credential checked in the same transaction.
+		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
 		boards, err := tx.BoardsOfHuman(p.Human.ID)
 		if err != nil {
 			return err
@@ -148,7 +152,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	f.sent = current
 
-	presence, reads, err := f.s.presenceOn(ctx, ids, f.p.Human.ID)
+	presence, reads, err := f.s.presenceOn(ctx, ids, f.p)
 	if err != nil {
 		return Update{}, err
 	}

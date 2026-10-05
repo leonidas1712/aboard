@@ -287,22 +287,18 @@ func TestRevokingAKeyEndsItsStreamsAndWaits(t *testing.T) {
 	}
 }
 
-// advanceUntil moves the fake clock by step until done is closed, for a waiter that
-// registers its timer after the test starts it.
-func (s *testServer) advanceUntil(step time.Duration, done <-chan struct{}) {
+// timersWaiting waits until at least n timers wait on the fake clock, so the test moves
+// it only once every waiter it expects has registered, and returns how many there are.
+func (s *testServer) timersWaiting(n int) int {
 	s.t.Helper()
 	deadline := time.Now().Add(streamWait)
-	for {
-		select {
-		case <-done:
-			return
-		case <-time.After(10 * time.Millisecond):
-			if time.Now().After(deadline) {
-				s.t.Fatal("still waiting after the clock moved")
-			}
-			s.clock.Advance(step)
+	for s.clock.Waiters() < n {
+		if time.Now().After(deadline) {
+			s.t.Fatalf("%d timers wait on the clock, want %d", s.clock.Waiters(), n)
 		}
+		<-time.After(time.Millisecond) // a poll interval, not a wait for the server
 	}
+	return s.clock.Waiters()
 }
 
 // When a key expires, its stream ends at that moment and a read waiting with an agent
@@ -337,9 +333,13 @@ func TestAnExpiredKeyEndsItsStreamsAndWaits(t *testing.T) {
 			t.Errorf("the agent's inbox wait as its key expired: %d %s", r.StatusCode(), r.Body)
 		}
 	}()
-	s.advanceUntil(time.Minute, waited)
-	if now := s.clock.Now(); now.After(time.Date(2026, 10, 1, 16, 10, 0, 0, time.UTC)) {
-		t.Fatalf("the wait ended at %s, after its own timeout", now)
+	// The stream's keepalive and expiry, then the wait's timeout and expiry.
+	s.timersWaiting(s.timersWaiting(2) + 2)
+	s.clock.Advance(5 * time.Minute)
+	select {
+	case <-waited:
+	case <-time.After(streamWait):
+		t.Fatal("the inbox wait didn't end when its key expired")
 	}
 	st.ends()
 	s.works(phone, false)
@@ -355,21 +355,12 @@ func TestABrowsersStreamEndsWhenItsLoginExpires(t *testing.T) {
 	browser := s.browserToken(s.owner)
 	st := s.openStream(browser)
 	st.head()
-	ended := make(chan struct{})
-	go func() {
-		defer close(ended)
-		for {
-			select {
-			case <-st.done:
-				return
-			case <-st.blocks:
-			}
-		}
-	}()
-	s.advanceUntil(24*time.Hour, ended)
-	if now := s.clock.Now(); now.Before(time.Date(2026, 10, 31, 16, 0, 0, 0, time.UTC)) {
-		t.Fatalf("the stream ended at %s, before its login expired", now)
-	}
+	// The stream's keepalive and its login's expiry.
+	s.timersWaiting(2)
+	s.clock.Advance(30*24*time.Hour - time.Second)
+	s.works(browser, true)
+	s.clock.Advance(time.Second)
+	st.ends()
 	s.works(browser, false)
 	s.works(s.owner, true)
 }

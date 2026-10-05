@@ -130,10 +130,12 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 		return s.authenticateBrowser(ctx, token)
 	}
 	digest := ids.Digest(s.key, token)
-	now := stamp(s.clk.Now())
 	var p Principal
 	var used *AccessKey
 	err := s.st.Read(ctx, func(tx ReadTx) error {
+		// The time is read inside the transaction, so a key that expires while the read
+		// waits for the store isn't accepted.
+		now := stamp(s.clk.Now())
 		switch {
 		case strings.HasPrefix(token, accessKeyPrefix):
 			k, err := tx.AccessKeyByDigest(digest)

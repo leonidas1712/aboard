@@ -146,6 +146,11 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 		var r ThreadReading
 		var boardID string
 		err := s.st.Read(ctx, func(tx ReadTx) error {
+			// Replies are read with the credential checked in the same transaction, so a
+			// wait whose key ended meanwhile reads nothing new.
+			if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+				return err
+			}
 			m, b, me, err := visibleMessage(tx, p, messageID)
 			if err != nil {
 				return err

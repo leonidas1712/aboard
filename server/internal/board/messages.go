@@ -246,6 +246,11 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 		var r Reading
 		var more bool
 		err := s.st.Read(ctx, func(tx ReadTx) error {
+			// Messages are read with the credential checked in the same transaction, so a
+			// wait whose key ended meanwhile reads nothing new.
+			if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+				return err
+			}
 			b, err := tx.BoardByID(p.Agent.BoardID)
 			if err != nil {
 				return err
