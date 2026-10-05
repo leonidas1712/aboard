@@ -87,15 +87,17 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	// The agent decides the board: when one is selected, its board is the one agent
 	// commands use, even if this directory names another.
 	var agentBoard *target
+	var selectedCred *agentCredential
 	switch {
 	case name != "":
-		if t, _, err := a.agentByName(creds, name, *boardFlag); err == nil {
-			agentBoard = &t
+		if t, cred, err := a.agentByName(creds, name, *boardFlag); err == nil {
+			agentBoard, selectedCred = &t, &cred
 		}
 	default:
 		if key, ok := a.sessionKey(); ok {
 			if t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag); err == nil && found {
 				agentBoard, name, source = &t, cred.Name, agentFromSession
+				selectedCred = &cred
 			}
 		}
 	}
@@ -152,6 +154,9 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 
 	cred, known := creds.find(t.server.URL, t.board, name)
+	if selectedCred != nil && selectedCred.Server == t.server.URL && selectedCred.Board == t.board {
+		cred, known = *selectedCred, true
+	}
 	switch {
 	case name == "":
 		fmt.Fprintf(&text, "Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: %s)\n", namesText(out.Agents))
