@@ -17,6 +17,34 @@ import (
 // doesn't wake it: well past the daemon's gathering and a harness's wake.
 const quietWindow = 15 * time.Second
 
+// Mentioning an idle agent wakes it even when the message is a quiet announcement
+// to everyone; the mention changes delivery, not the message's recipients.
+func TestMentionWakesAnIdleAgentWithoutChangingTo(t *testing.T) {
+	eachHarness(t, "MentionWakesAnIdleAgent", func(t *testing.T, d *driver, rec *recorder) {
+		if !d.p.Delivers() {
+			rec.notApplicable("no automatic delivery")
+		}
+		l := newLab(t)
+		d.setUp(l)
+		l.pairCLI()
+		writer := d.start(l, "writer", l.project("project", d.p.Harness))
+		writer.bind("writer")
+		writer.submit(`When @reviewer posts an Aboard announcement containing MENTION-4217, run aboard say --to @reviewer "MENTION-ACK". For now reply only OK and end your turn; wait for that announcement.`)
+		writer.waitIdle(2 * time.Minute)
+
+		announcement := l.say("reviewer", "FYI for everyone: @writer the release tag is MENTION-4217.")
+		if !slices.Equal(announcement.To, []string{"all"}) {
+			t.Fatalf("the mention changed recipients to %v; want [all]", announcement.To)
+		}
+		if announcement.From.Kind != "agent" || announcement.Urgent {
+			t.Fatalf("want a non-urgent agent announcement, got %+v", announcement)
+		}
+		ack := l.waitMessage("writer", announcement.At, "MENTION-ACK", 3*time.Minute)
+		t.Logf("measured: the idle agent acted on the mention %s after posting", ack.At.Sub(announcement.At))
+		writer.waitIdle(2 * time.Minute)
+	})
+}
+
 // Another agent's message to everyone, asking nothing, doesn't wake an idle session in
 // the default focused mode. When the owner's next prompt starts a turn, the harness's
 // turn-start mechanism adds it before the model runs, so the agent can answer from it,
