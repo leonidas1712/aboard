@@ -176,6 +176,26 @@ How it works, agreed with codex-2:
 - **Size stays bounded.** The existing limit applies to the whole delivery, shared
   fairly between boards, so one board's backlog can't starve another; anything left out
   stays unacknowledged.
+- **Each handoff has its own id.** The same id always means the same content; a retry
+  that drops a seat or adds messages is a new handoff. Delivery stays at least once
+  after a crash, never promised exactly once.
+- **Shared causes end several seats.** Revoking the machine's key, removing the person
+  from the server or the harness process dying ends every seat it covers; resuming or
+  moving one seat never unbinds the others.
+- **A message that doesn't fit waits.** It is skipped as too large only if it exceeds the
+  whole limit, never because another board used the space; the first board considered
+  rotates. `off` adds nothing to a delivery, not even a waiting notice.
+- **The server's one change stream is enough.** Each seat's inbox, position and
+  acknowledgements stay the authority; no stream per seat.
+- **omp separates owner messages by class, not by text.** Its extension decides between
+  a mid-turn aside and a follow-up by looking for an owner message anywhere in the
+  bundle; owner-only mid-turn batches must be kept apart from ordinary ones, so another
+  agent's message never arrives as an aside.
+- **What it changes in the daemon.** Binding a seat today unbinds the session's other
+  seats, and the journal allows one binding per session; both change.
+- **Seats share one harness context.** They separate board identity and access, not the
+  model's memory. A reply comes from the seat its `--board` names; receiving a delivery
+  never chooses which seat the agent acts as.
 - **One seat looks exactly as today.** Claude Code's stop hook and Codex's queue take the
   combined text as they are; omp's extension must prove it in the conformance kit.
 
