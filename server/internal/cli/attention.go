@@ -162,6 +162,9 @@ func seqOf(ctx context.Context, c *client, id string) (int, error) {
 
 // receiptsText is aboard read --receipts' text output.
 func receiptsText(r *api.Receipts) string {
+	if !r.Available {
+		return fmt.Sprintf("%s · #%d · receipts unavailable: recipients were not recorded for this message\n", r.Board, r.Seq)
+	}
 	if r.ToEveryone {
 		return fmt.Sprintf("%s · #%d to everyone · receipts are kept only for messages to someone\n", r.Board, r.Seq)
 	}

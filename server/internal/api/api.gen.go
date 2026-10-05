@@ -216,6 +216,24 @@ func (e BoardVisibilityChangedEventType) Valid() bool {
 	}
 }
 
+// Defines values for BrowserSessionStart.
+const (
+	BrowserSessionStartAccessKey BrowserSessionStart = "access_key"
+	BrowserSessionStartLoginCode BrowserSessionStart = "login_code"
+)
+
+// Valid indicates whether the value is a known member of the BrowserSessionStart enum.
+func (e BrowserSessionStart) Valid() bool {
+	switch e {
+	case BrowserSessionStartAccessKey:
+		return true
+	case BrowserSessionStartLoginCode:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeliveryMode.
 const (
 	DeliveryModeAll     DeliveryMode = "all"
@@ -245,55 +263,63 @@ func (e DeliveryMode) Valid() bool {
 
 // Defines values for ErrorErrorCode.
 const (
-	AckOutOfRange           ErrorErrorCode = "ack_out_of_range"
-	AdminRequired           ErrorErrorCode = "admin_required"
-	AgentTokenRequired      ErrorErrorCode = "agent_token_required"
-	AlreadyOnBoard          ErrorErrorCode = "already_on_board"
-	BoardCreationRestricted ErrorErrorCode = "board_creation_restricted"
-	BoardNameTaken          ErrorErrorCode = "board_name_taken"
-	BoardNotFound           ErrorErrorCode = "board_not_found"
-	BroadcastNotAllowed     ErrorErrorCode = "broadcast_not_allowed"
-	Forbidden               ErrorErrorCode = "forbidden"
-	HandleInvalid           ErrorErrorCode = "handle_invalid"
-	HandleTaken             ErrorErrorCode = "handle_taken"
-	HostNotAllowed          ErrorErrorCode = "host_not_allowed"
-	HumanTokenRequired      ErrorErrorCode = "human_token_required"
-	IdempotencyConflict     ErrorErrorCode = "idempotency_conflict"
-	Internal                ErrorErrorCode = "internal"
-	InvalidRequest          ErrorErrorCode = "invalid_request"
-	InvalidTarget           ErrorErrorCode = "invalid_target"
-	InviteInvalid           ErrorErrorCode = "invite_invalid"
-	JoinCodeInvalid         ErrorErrorCode = "join_code_invalid"
-	JoinCodeNotFound        ErrorErrorCode = "join_code_not_found"
-	KeyNameTaken            ErrorErrorCode = "key_name_taken"
-	KeyNotFound             ErrorErrorCode = "key_not_found"
-	LastOwner               ErrorErrorCode = "last_owner"
-	LoginCodeInvalid        ErrorErrorCode = "login_code_invalid"
-	MachineRequestInvalid   ErrorErrorCode = "machine_request_invalid"
-	MachineRequestRefused   ErrorErrorCode = "machine_request_refused"
-	MemberNotFound          ErrorErrorCode = "member_not_found"
-	MessageNotFound         ErrorErrorCode = "message_not_found"
-	MessageTooLarge         ErrorErrorCode = "message_too_large"
-	NameTaken               ErrorErrorCode = "name_taken"
-	NotFound                ErrorErrorCode = "not_found"
-	NotImplemented          ErrorErrorCode = "not_implemented"
-	NotOnBoard              ErrorErrorCode = "not_on_board"
-	OwnerRequired           ErrorErrorCode = "owner_required"
-	PersonNotFound          ErrorErrorCode = "person_not_found"
-	PersonNotOnBoard        ErrorErrorCode = "person_not_on_board"
-	RateLimited             ErrorErrorCode = "rate_limited"
-	ReplyHasNoRecipients    ErrorErrorCode = "reply_has_no_recipients"
-	RoleNotFound            ErrorErrorCode = "role_not_found"
-	ServerAdminRequired     ErrorErrorCode = "server_admin_required"
-	TemplateNotFound        ErrorErrorCode = "template_not_found"
-	Unauthorized            ErrorErrorCode = "unauthorized"
-	UnknownRecipient        ErrorErrorCode = "unknown_recipient"
-	UrgentNotAllowed        ErrorErrorCode = "urgent_not_allowed"
+	AccessKeyInvalid                ErrorErrorCode = "access_key_invalid"
+	AckOutOfRange                   ErrorErrorCode = "ack_out_of_range"
+	AdminRequired                   ErrorErrorCode = "admin_required"
+	AgentTokenRequired              ErrorErrorCode = "agent_token_required"
+	AlreadyOnBoard                  ErrorErrorCode = "already_on_board"
+	BoardCreationRestricted         ErrorErrorCode = "board_creation_restricted"
+	BoardNameTaken                  ErrorErrorCode = "board_name_taken"
+	BoardNotFound                   ErrorErrorCode = "board_not_found"
+	BroadcastNotAllowed             ErrorErrorCode = "broadcast_not_allowed"
+	BrowserSessionNotFound          ErrorErrorCode = "browser_session_not_found"
+	BrowserSessionRequired          ErrorErrorCode = "browser_session_required"
+	BrowserSessionSwitchUnconfirmed ErrorErrorCode = "browser_session_switch_unconfirmed"
+	CsrfTokenInvalid                ErrorErrorCode = "csrf_token_invalid"
+	Forbidden                       ErrorErrorCode = "forbidden"
+	HandleInvalid                   ErrorErrorCode = "handle_invalid"
+	HandleTaken                     ErrorErrorCode = "handle_taken"
+	HostNotAllowed                  ErrorErrorCode = "host_not_allowed"
+	HumanTokenRequired              ErrorErrorCode = "human_token_required"
+	IdempotencyConflict             ErrorErrorCode = "idempotency_conflict"
+	Internal                        ErrorErrorCode = "internal"
+	InvalidRequest                  ErrorErrorCode = "invalid_request"
+	InvalidTarget                   ErrorErrorCode = "invalid_target"
+	InviteInvalid                   ErrorErrorCode = "invite_invalid"
+	JoinCodeInvalid                 ErrorErrorCode = "join_code_invalid"
+	JoinCodeNotFound                ErrorErrorCode = "join_code_not_found"
+	KeyNameTaken                    ErrorErrorCode = "key_name_taken"
+	KeyNotFound                     ErrorErrorCode = "key_not_found"
+	LastOwner                       ErrorErrorCode = "last_owner"
+	LoginCodeInvalid                ErrorErrorCode = "login_code_invalid"
+	MachineRequestInvalid           ErrorErrorCode = "machine_request_invalid"
+	MachineRequestRefused           ErrorErrorCode = "machine_request_refused"
+	MemberNotFound                  ErrorErrorCode = "member_not_found"
+	MessageNotFound                 ErrorErrorCode = "message_not_found"
+	MessageTooLarge                 ErrorErrorCode = "message_too_large"
+	NameTaken                       ErrorErrorCode = "name_taken"
+	NotFound                        ErrorErrorCode = "not_found"
+	NotImplemented                  ErrorErrorCode = "not_implemented"
+	NotOnBoard                      ErrorErrorCode = "not_on_board"
+	OriginNotAllowed                ErrorErrorCode = "origin_not_allowed"
+	OwnerRequired                   ErrorErrorCode = "owner_required"
+	PersonNotFound                  ErrorErrorCode = "person_not_found"
+	PersonNotOnBoard                ErrorErrorCode = "person_not_on_board"
+	RateLimited                     ErrorErrorCode = "rate_limited"
+	ReplyHasNoRecipients            ErrorErrorCode = "reply_has_no_recipients"
+	RoleNotFound                    ErrorErrorCode = "role_not_found"
+	ServerAdminRequired             ErrorErrorCode = "server_admin_required"
+	TemplateNotFound                ErrorErrorCode = "template_not_found"
+	Unauthorized                    ErrorErrorCode = "unauthorized"
+	UnknownRecipient                ErrorErrorCode = "unknown_recipient"
+	UrgentNotAllowed                ErrorErrorCode = "urgent_not_allowed"
 )
 
 // Valid indicates whether the value is a known member of the ErrorErrorCode enum.
 func (e ErrorErrorCode) Valid() bool {
 	switch e {
+	case AccessKeyInvalid:
+		return true
 	case AckOutOfRange:
 		return true
 	case AdminRequired:
@@ -309,6 +335,14 @@ func (e ErrorErrorCode) Valid() bool {
 	case BoardNotFound:
 		return true
 	case BroadcastNotAllowed:
+		return true
+	case BrowserSessionNotFound:
+		return true
+	case BrowserSessionRequired:
+		return true
+	case BrowserSessionSwitchUnconfirmed:
+		return true
+	case CsrfTokenInvalid:
 		return true
 	case Forbidden:
 		return true
@@ -359,6 +393,8 @@ func (e ErrorErrorCode) Valid() bool {
 	case NotImplemented:
 		return true
 	case NotOnBoard:
+		return true
+	case OriginNotAllowed:
 		return true
 	case OwnerRequired:
 		return true
@@ -1247,7 +1283,7 @@ type AccessKey struct {
 	// AgentSeats Agents whose tokens came from this key; they stop working with it.
 	AgentSeats *int `json:"agent_seats,omitempty"`
 
-	// BrowserSessions Browser logins started from this key that haven't expired or been ended.
+	// BrowserSessions Browser sessions started from this key that haven't expired or been ended; `GET /v1/browser-sessions?key=` lists them.
 	BrowserSessions *int      `json:"browser_sessions,omitempty"`
 	CreatedAt       Timestamp `json:"created_at"`
 
@@ -1554,6 +1590,55 @@ type BoardVisibilityChangedEvent struct {
 // BoardVisibilityChangedEventType defines model for BoardVisibilityChangedEvent.Type.
 type BoardVisibilityChangedEventType string
 
+// BrowserSession defines model for BrowserSession.
+type BrowserSession struct {
+	CreatedAt Timestamp `json:"created_at"`
+
+	// ExpiresAt When the session ends unless it, or its key, ends sooner.
+	ExpiresAt Timestamp `json:"expires_at"`
+	Id        string    `json:"id"`
+
+	// Key The access key a browser session belongs to; the session ends with it.
+	Key BrowserSessionKey `json:"key"`
+
+	// StartedWith How the session started: `login_code` for `aboard open`, `access_key` for a key pasted on the login page.
+	StartedWith BrowserSessionStart `json:"started_with"`
+}
+
+// BrowserSessionKey The access key a browser session belongs to; the session ends with it.
+type BrowserSessionKey struct {
+	Id string `json:"id"`
+
+	// Name Example: maya-laptop
+	Name string `json:"name"`
+}
+
+// BrowserSessionList defines model for BrowserSessionList.
+type BrowserSessionList struct {
+	Person   Person           `json:"person"`
+	Sessions []BrowserSession `json:"sessions"`
+}
+
+// BrowserSessionRequest Exactly one of `code`, `key` and `token`.
+type BrowserSessionRequest struct {
+	// Code A one-time code from `POST /v1/login-codes`.
+	Code *string `json:"code,omitempty"`
+
+	// ConfirmSwitch True when the person confirmed signing this browser in as someone other than the
+	// person its current session belongs to. A page sends it only after the person
+	// clicked to switch.
+	ConfirmSwitch *bool `json:"confirm_switch,omitempty"`
+
+	// Key An access key (`abh_…`). It is checked and never kept.
+	Key *string `json:"key,omitempty"`
+
+	// Token A browser token (`abb_…`) a page kept in its own storage, to copy into the cookie.
+	Token *string `json:"token,omitempty"`
+}
+
+// BrowserSessionStart How the session started: `login_code` for `aboard open`, `access_key` for a key pasted on the login page.
+type BrowserSessionStart string
+
 // BrowserToken defines model for BrowserToken.
 type BrowserToken struct {
 	ExpiresAt Timestamp `json:"expires_at"`
@@ -1651,6 +1736,23 @@ type CreateKeyRequest struct {
 
 	// TtlSeconds How long the key works. Default 7776000 (90 days).
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
+// CurrentBrowserSession defines model for CurrentBrowserSession.
+type CurrentBrowserSession struct {
+	CreatedAt Timestamp `json:"created_at"`
+
+	// CsrfToken Send it as `X-Aboard-CSRF` with every write this session makes. It works only with this session's cookie.
+	CsrfToken string    `json:"csrf_token"`
+	ExpiresAt Timestamp `json:"expires_at"`
+	Id        string    `json:"id"`
+
+	// Key The access key a browser session belongs to; the session ends with it.
+	Key    BrowserSessionKey `json:"key"`
+	Person Person            `json:"person"`
+
+	// StartedWith How the session started: `login_code` for `aboard open`, `access_key` for a key pasted on the login page.
+	StartedWith BrowserSessionStart `json:"started_with"`
 }
 
 // DeliveryMode How messages reach an agent's open session, chosen by its owner. `focused` (the
@@ -1881,6 +1983,16 @@ type LoginCode struct {
 	// Example: abl_q8Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj1Wk2Xl
 	Code      string    `json:"code"`
 	ExpiresAt Timestamp `json:"expires_at"`
+}
+
+// LoginCodePreview defines model for LoginCodePreview.
+type LoginCodePreview struct {
+	// ExpiresAt When the code stops working.
+	ExpiresAt Timestamp `json:"expires_at"`
+
+	// Key The access key a browser session belongs to; the session ends with it.
+	Key    BrowserSessionKey `json:"key"`
+	Person Person            `json:"person"`
 }
 
 // MachineRequest defines model for MachineRequest.
@@ -2236,7 +2348,7 @@ type NewAccessKey struct {
 	// AgentSeats Agents whose tokens came from this key; they stop working with it.
 	AgentSeats *int `json:"agent_seats,omitempty"`
 
-	// BrowserSessions Browser logins started from this key that haven't expired or been ended.
+	// BrowserSessions Browser sessions started from this key that haven't expired or been ended; `GET /v1/browser-sessions?key=` lists them.
 	BrowserSessions *int      `json:"browser_sessions,omitempty"`
 	CreatedAt       Timestamp `json:"created_at"`
 
@@ -2632,6 +2744,9 @@ type ReceiptState string
 
 // Receipts defines model for Receipts.
 type Receipts struct {
+	// Available False for messages posted before recipients were recorded. Their historical recipients are unknown and the receipts list is empty.
+	Available bool `json:"available"`
+
 	// Board Example: writer-reviewer
 	Board     BoardName `json:"board"`
 	MessageId string    `json:"message_id"`
@@ -2985,6 +3100,17 @@ type SetVisibilityParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ListBrowserSessionsParams defines parameters for ListBrowserSessions.
+type ListBrowserSessionsParams struct {
+	// Key Only the sessions of this access key, by id.
+	Key *string `form:"key,omitempty" json:"key,omitempty"`
+}
+
+// EndBrowserSessionParams defines parameters for EndBrowserSession.
+type EndBrowserSessionParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // EndBrowserTokensParams defines parameters for EndBrowserTokens.
 type EndBrowserTokensParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -3048,6 +3174,11 @@ type LookupMachineRequestParams struct {
 
 // RefuseMachineRequestParams defines parameters for RefuseMachineRequest.
 type RefuseMachineRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// SignOutParams defines parameters for SignOut.
+type SignOutParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -3146,7 +3277,12 @@ type AddPersonJSONRequestBody = AddPersonRequest
 // SetVisibilityJSONRequestBody defines body for SetVisibility for application/json ContentType.
 type SetVisibilityJSONRequestBody = SetVisibilityRequest
 
+// StartBrowserSessionJSONRequestBody defines body for StartBrowserSession for application/json ContentType.
+type StartBrowserSessionJSONRequestBody = BrowserSessionRequest
+
 // CreateBrowserTokenJSONRequestBody defines body for CreateBrowserToken for application/json ContentType.
+//
+// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 type CreateBrowserTokenJSONRequestBody = BrowserTokenRequest
 
 // ConnectJSONRequestBody defines body for Connect for application/json ContentType.
@@ -3160,6 +3296,9 @@ type JoinJSONRequestBody = JoinRequest
 
 // CreateKeyJSONRequestBody defines body for CreateKey for application/json ContentType.
 type CreateKeyJSONRequestBody = CreateKeyRequest
+
+// PreviewLoginCodeJSONRequestBody defines body for PreviewLoginCode for application/json ContentType.
+type PreviewLoginCodeJSONRequestBody = BrowserTokenRequest
 
 // StartMachineRequestJSONRequestBody defines body for StartMachineRequest for application/json ContentType.
 type StartMachineRequestJSONRequestBody = StartMachineRequest
@@ -4290,6 +4429,124 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
 	SetVisibility(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListBrowserSessions List your browser sessions
+	//
+	// With a person's own access key. Lists the caller's browser sessions that haven't
+	// ended, newest first, each with the key it belongs to; with `key`, only that key's.
+	// A key id the caller doesn't have gets 404 `key_not_found`. An agent token or a
+	// browser session gets 403 `human_token_required`. `aboard keys sessions` calls this.
+	//
+	// Corresponds with GET /v1/browser-sessions (the `ListBrowserSessions` operationId).
+	ListBrowserSessions(ctx context.Context, params *ListBrowserSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartBrowserSessionWithBody Sign a browser in
+	//
+	// No credential needed: what the body carries is the proof. Starts a browser session
+	// and sets its cookie (see **Browser sessions** above); the response body never holds
+	// the session's secret. The body has exactly one of:
+	//
+	// - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+	//   the page address's fragment. The session belongs to the access key that asked
+	//   for the code. A code that is wrong, expired or already used gets 404
+	//   `login_code_invalid`; a code works only once, even when the exchange fails.
+	//   A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+	//   and wait for the person to confirm, unless it is already signed in as that
+	//   same person: a link is easy to send to someone else.
+	// - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+	//   starts a session that belongs to it and keeps nothing of the key itself. A key
+	//   that is wrong, revoked or expired gets 401 `access_key_invalid`.
+	// - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+	//   browser sessions moved into cookies. The cookie gets that same secret, so it is
+	//   the same session with the same id and expiry; it is not exchanged for a new one,
+	//   and it keeps working as a bearer token until it expires or is ended. The page
+	//   then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+	//
+	// Anything else gets 400 `invalid_request`.
+	//
+	// When the request carries a cookie for a working session of another person, the
+	// browser would switch accounts, and the server refuses with 409
+	// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+	// it only after the person clicked to switch, so a link someone else made can't
+	// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+	// access key expires if that is sooner (a key that expires only once unused doesn't
+	// shorten it), and ends at once when its key is revoked or expires, when its person
+	// signs it out (`DELETE /v1/me/browser-session`) or ends it
+	// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+	//
+	// Against forged sign-ins, the request must carry an `Origin` header equal to the
+	// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+	// other site can send without the server's permission. Failed attempts (any answer of
+	// 400 or more) are limited per client address and across the server (429
+	// `rate_limited`, with `Retry-After`), counted together with
+	// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+	// or not, meets a higher limit too. Neither the body nor the response is logged or
+	// kept for `Idempotency-Key` repeats.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+	StartBrowserSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartBrowserSession Sign a browser in
+	//
+	// No credential needed: what the body carries is the proof. Starts a browser session
+	// and sets its cookie (see **Browser sessions** above); the response body never holds
+	// the session's secret. The body has exactly one of:
+	//
+	// - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+	//   the page address's fragment. The session belongs to the access key that asked
+	//   for the code. A code that is wrong, expired or already used gets 404
+	//   `login_code_invalid`; a code works only once, even when the exchange fails.
+	//   A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+	//   and wait for the person to confirm, unless it is already signed in as that
+	//   same person: a link is easy to send to someone else.
+	// - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+	//   starts a session that belongs to it and keeps nothing of the key itself. A key
+	//   that is wrong, revoked or expired gets 401 `access_key_invalid`.
+	// - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+	//   browser sessions moved into cookies. The cookie gets that same secret, so it is
+	//   the same session with the same id and expiry; it is not exchanged for a new one,
+	//   and it keeps working as a bearer token until it expires or is ended. The page
+	//   then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+	//
+	// Anything else gets 400 `invalid_request`.
+	//
+	// When the request carries a cookie for a working session of another person, the
+	// browser would switch accounts, and the server refuses with 409
+	// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+	// it only after the person clicked to switch, so a link someone else made can't
+	// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+	// access key expires if that is sooner (a key that expires only once unused doesn't
+	// shorten it), and ends at once when its key is revoked or expires, when its person
+	// signs it out (`DELETE /v1/me/browser-session`) or ends it
+	// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+	//
+	// Against forged sign-ins, the request must carry an `Origin` header equal to the
+	// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+	// other site can send without the server's permission. Failed attempts (any answer of
+	// 400 or more) are limited per client address and across the server (429
+	// `rate_limited`, with `Retry-After`), counted together with
+	// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+	// or not, meets a higher limit too. Neither the body nor the response is logged or
+	// kept for `Idempotency-Key` repeats.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+	StartBrowserSession(ctx context.Context, body StartBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EndBrowserSession End one browser session
+	//
+	// With a person's own access key: ends one of their browser sessions. That browser
+	// gets 401 on its next request and its open stream ends within a second; the
+	// person's other sessions keep working. A session the caller doesn't have, or that
+	// already ended, gets 404 `browser_session_not_found`. An agent token or a browser
+	// session gets 403 `human_token_required`. `aboard keys sessions end` calls this.
+	// Nothing is written to a board's record.
+	//
+	// Corresponds with DELETE /v1/browser-sessions/{session} (the `EndBrowserSession` operationId).
+	EndBrowserSession(ctx context.Context, session string, params *EndBrowserSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EndBrowserTokens Log every browser out
 	//
 	// Humans only, with a human token. Ends every browser token of the calling person,
@@ -4303,7 +4560,12 @@ type ClientInterface interface {
 	// Corresponds with DELETE /v1/browser-tokens (the `EndBrowserTokens` operationId).
 	EndBrowserTokens(ctx context.Context, params *EndBrowserTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateBrowserTokenWithBody Exchange a one-time code for a browser token
+	// CreateBrowserTokenWithBody Exchange a one-time code for a browser token (deprecated)
+	//
+	// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+	// cookie the page's scripts can't read. This endpoint still works and counts toward
+	// the same rate limits; a token it returns is a browser session like any other, and
+	// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 	//
 	// No token needed: the code is the proof. Exchanges a code from
 	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -4324,9 +4586,16 @@ type ClientInterface interface {
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CreateBrowserTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateBrowserToken Exchange a one-time code for a browser token
+	// CreateBrowserToken Exchange a one-time code for a browser token (deprecated)
+	//
+	// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+	// cookie the page's scripts can't read. This endpoint still works and counts toward
+	// the same rate limits; a token it returns is a browser session like any other, and
+	// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 	//
 	// No token needed: the code is the proof. Exchanges a code from
 	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -4347,6 +4616,8 @@ type ClientInterface interface {
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CreateBrowserToken(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ConnectWithBody Redeem a server invite and become a person on the server
@@ -4567,6 +4838,42 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
 	CreateLoginCode(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PreviewLoginCodeWithBody Say who a login code would sign a browser in as
+	//
+	// No credential needed: the code is the proof. Returns the person and the access key
+	// a one-time code from `POST /v1/login-codes` would start a browser session for,
+	// without using the code up. A page that finds a code in its address asks the
+	// person to confirm before it signs in with it, so a link someone else made can't
+	// quietly sign the browser in as them. A code that is wrong, expired or already
+	// used gets 404 `login_code_invalid`.
+	//
+	// Like signing in, it needs an `Origin` header equal to the server's own origin
+	// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+	// (429 `rate_limited`). The code is never logged.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+	PreviewLoginCodeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewLoginCode Say who a login code would sign a browser in as
+	//
+	// No credential needed: the code is the proof. Returns the person and the access key
+	// a one-time code from `POST /v1/login-codes` would start a browser session for,
+	// without using the code up. A page that finds a code in its address asks the
+	// person to confirm before it signs in with it, so a link someone else made can't
+	// quietly sign the browser in as them. A code that is wrong, expired or already
+	// used gets 404 `login_code_invalid`.
+	//
+	// Like signing in, it needs an `Origin` header equal to the server's own origin
+	// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+	// (429 `rate_limited`). The code is never logged.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+	PreviewLoginCode(ctx context.Context, body PreviewLoginCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// StartMachineRequestWithBody Ask to connect a new machine, for a person to approve
 	//
 	// No token needed. A machine with no key for this server asks for one, for the
@@ -4766,6 +5073,27 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/me (the `GetMe` operationId).
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SignOut Sign this browser out
+	//
+	// With a browser session only: ends this one session and clears its cookie. The
+	// person's other sessions and keys keep working. Any other credential gets 403
+	// `browser_session_required`. Like every write made with the cookie, it needs the
+	// `Origin` header and the CSRF token.
+	//
+	// Corresponds with DELETE /v1/me/browser-session (the `SignOut` operationId).
+	SignOut(ctx context.Context, params *SignOutParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBrowserSession This browser's session
+	//
+	// With a browser session only. Returns who the browser is signed in as, the access
+	// key the session belongs to, when it ends, and its CSRF token, which the page sends
+	// in `X-Aboard-CSRF` with every write. Any other credential gets 403
+	// `browser_session_required`. A page that gets 401 here isn't signed in and shows
+	// its login page.
+	//
+	// Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
+	GetBrowserSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetInbox Unread messages addressed to this agent
 	//
@@ -5705,6 +6033,164 @@ func (c *Client) SetVisibility(ctx context.Context, board BoardParam, params *Se
 	return c.Client.Do(req)
 }
 
+// ListBrowserSessions List your browser sessions
+//
+// With a person's own access key. Lists the caller's browser sessions that haven't
+// ended, newest first, each with the key it belongs to; with `key`, only that key's.
+// A key id the caller doesn't have gets 404 `key_not_found`. An agent token or a
+// browser session gets 403 `human_token_required`. `aboard keys sessions` calls this.
+//
+// Corresponds with GET /v1/browser-sessions (the `ListBrowserSessions` operationId).
+func (c *Client) ListBrowserSessions(ctx context.Context, params *ListBrowserSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBrowserSessionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartBrowserSessionWithBody Sign a browser in
+//
+// No credential needed: what the body carries is the proof. Starts a browser session
+// and sets its cookie (see **Browser sessions** above); the response body never holds
+// the session's secret. The body has exactly one of:
+//
+//   - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+//     the page address's fragment. The session belongs to the access key that asked
+//     for the code. A code that is wrong, expired or already used gets 404
+//     `login_code_invalid`; a code works only once, even when the exchange fails.
+//     A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+//     and wait for the person to confirm, unless it is already signed in as that
+//     same person: a link is easy to send to someone else.
+//   - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+//     starts a session that belongs to it and keeps nothing of the key itself. A key
+//     that is wrong, revoked or expired gets 401 `access_key_invalid`.
+//   - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+//     browser sessions moved into cookies. The cookie gets that same secret, so it is
+//     the same session with the same id and expiry; it is not exchanged for a new one,
+//     and it keeps working as a bearer token until it expires or is ended. The page
+//     then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+//
+// Anything else gets 400 `invalid_request`.
+//
+// When the request carries a cookie for a working session of another person, the
+// browser would switch accounts, and the server refuses with 409
+// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+// it only after the person clicked to switch, so a link someone else made can't
+// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+// access key expires if that is sooner (a key that expires only once unused doesn't
+// shorten it), and ends at once when its key is revoked or expires, when its person
+// signs it out (`DELETE /v1/me/browser-session`) or ends it
+// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+//
+// Against forged sign-ins, the request must carry an `Origin` header equal to the
+// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+// other site can send without the server's permission. Failed attempts (any answer of
+// 400 or more) are limited per client address and across the server (429
+// `rate_limited`, with `Retry-After`), counted together with
+// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+// or not, meets a higher limit too. Neither the body nor the response is logged or
+// kept for `Idempotency-Key` repeats.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+func (c *Client) StartBrowserSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartBrowserSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartBrowserSession Sign a browser in
+//
+// No credential needed: what the body carries is the proof. Starts a browser session
+// and sets its cookie (see **Browser sessions** above); the response body never holds
+// the session's secret. The body has exactly one of:
+//
+//   - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+//     the page address's fragment. The session belongs to the access key that asked
+//     for the code. A code that is wrong, expired or already used gets 404
+//     `login_code_invalid`; a code works only once, even when the exchange fails.
+//     A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+//     and wait for the person to confirm, unless it is already signed in as that
+//     same person: a link is easy to send to someone else.
+//   - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+//     starts a session that belongs to it and keeps nothing of the key itself. A key
+//     that is wrong, revoked or expired gets 401 `access_key_invalid`.
+//   - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+//     browser sessions moved into cookies. The cookie gets that same secret, so it is
+//     the same session with the same id and expiry; it is not exchanged for a new one,
+//     and it keeps working as a bearer token until it expires or is ended. The page
+//     then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+//
+// Anything else gets 400 `invalid_request`.
+//
+// When the request carries a cookie for a working session of another person, the
+// browser would switch accounts, and the server refuses with 409
+// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+// it only after the person clicked to switch, so a link someone else made can't
+// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+// access key expires if that is sooner (a key that expires only once unused doesn't
+// shorten it), and ends at once when its key is revoked or expires, when its person
+// signs it out (`DELETE /v1/me/browser-session`) or ends it
+// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+//
+// Against forged sign-ins, the request must carry an `Origin` header equal to the
+// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+// other site can send without the server's permission. Failed attempts (any answer of
+// 400 or more) are limited per client address and across the server (429
+// `rate_limited`, with `Retry-After`), counted together with
+// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+// or not, meets a higher limit too. Neither the body nor the response is logged or
+// kept for `Idempotency-Key` repeats.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+func (c *Client) StartBrowserSession(ctx context.Context, body StartBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartBrowserSessionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EndBrowserSession End one browser session
+//
+// With a person's own access key: ends one of their browser sessions. That browser
+// gets 401 on its next request and its open stream ends within a second; the
+// person's other sessions keep working. A session the caller doesn't have, or that
+// already ended, gets 404 `browser_session_not_found`. An agent token or a browser
+// session gets 403 `human_token_required`. `aboard keys sessions end` calls this.
+// Nothing is written to a board's record.
+//
+// Corresponds with DELETE /v1/browser-sessions/{session} (the `EndBrowserSession` operationId).
+func (c *Client) EndBrowserSession(ctx context.Context, session string, params *EndBrowserSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEndBrowserSessionRequest(c.Server, session, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EndBrowserTokens Log every browser out
 //
 // Humans only, with a human token. Ends every browser token of the calling person,
@@ -5728,7 +6214,12 @@ func (c *Client) EndBrowserTokens(ctx context.Context, params *EndBrowserTokensP
 	return c.Client.Do(req)
 }
 
-// CreateBrowserTokenWithBody Exchange a one-time code for a browser token
+// CreateBrowserTokenWithBody Exchange a one-time code for a browser token (deprecated)
+//
+// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+// cookie the page's scripts can't read. This endpoint still works and counts toward
+// the same rate limits; a token it returns is a browser session like any other, and
+// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 //
 // No token needed: the code is the proof. Exchanges a code from
 // `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -5749,6 +6240,7 @@ func (c *Client) EndBrowserTokens(ctx context.Context, params *EndBrowserTokensP
 // Takes any type of body and a specified content type.
 //
 // Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 func (c *Client) CreateBrowserTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateBrowserTokenRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -5761,7 +6253,12 @@ func (c *Client) CreateBrowserTokenWithBody(ctx context.Context, contentType str
 	return c.Client.Do(req)
 }
 
-// CreateBrowserToken Exchange a one-time code for a browser token
+// CreateBrowserToken Exchange a one-time code for a browser token (deprecated)
+//
+// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+// cookie the page's scripts can't read. This endpoint still works and counts toward
+// the same rate limits; a token it returns is a browser session like any other, and
+// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 //
 // No token needed: the code is the proof. Exchanges a code from
 // `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -5782,6 +6279,7 @@ func (c *Client) CreateBrowserTokenWithBody(ctx context.Context, contentType str
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 func (c *Client) CreateBrowserToken(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateBrowserTokenRequest(c.Server, body)
 	if err != nil {
@@ -6132,6 +6630,62 @@ func (c *Client) CreateLoginCode(ctx context.Context, params *CreateLoginCodePar
 	return c.Client.Do(req)
 }
 
+// PreviewLoginCodeWithBody Say who a login code would sign a browser in as
+//
+// No credential needed: the code is the proof. Returns the person and the access key
+// a one-time code from `POST /v1/login-codes` would start a browser session for,
+// without using the code up. A page that finds a code in its address asks the
+// person to confirm before it signs in with it, so a link someone else made can't
+// quietly sign the browser in as them. A code that is wrong, expired or already
+// used gets 404 `login_code_invalid`.
+//
+// Like signing in, it needs an `Origin` header equal to the server's own origin
+// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+// (429 `rate_limited`). The code is never logged.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+func (c *Client) PreviewLoginCodeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewLoginCodeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewLoginCode Say who a login code would sign a browser in as
+//
+// No credential needed: the code is the proof. Returns the person and the access key
+// a one-time code from `POST /v1/login-codes` would start a browser session for,
+// without using the code up. A page that finds a code in its address asks the
+// person to confirm before it signs in with it, so a link someone else made can't
+// quietly sign the browser in as them. A code that is wrong, expired or already
+// used gets 404 `login_code_invalid`.
+//
+// Like signing in, it needs an `Origin` header equal to the server's own origin
+// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+// (429 `rate_limited`). The code is never logged.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+func (c *Client) PreviewLoginCode(ctx context.Context, body PreviewLoginCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewLoginCodeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // StartMachineRequestWithBody Ask to connect a new machine, for a person to approve
 //
 // No token needed. A machine with no key for this server asks for one, for the
@@ -6432,6 +6986,47 @@ func (c *Client) RefuseMachineRequest(ctx context.Context, params *RefuseMachine
 // Corresponds with GET /v1/me (the `GetMe` operationId).
 func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SignOut Sign this browser out
+//
+// With a browser session only: ends this one session and clears its cookie. The
+// person's other sessions and keys keep working. Any other credential gets 403
+// `browser_session_required`. Like every write made with the cookie, it needs the
+// `Origin` header and the CSRF token.
+//
+// Corresponds with DELETE /v1/me/browser-session (the `SignOut` operationId).
+func (c *Client) SignOut(ctx context.Context, params *SignOutParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSignOutRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetBrowserSession This browser's session
+//
+// With a browser session only. Returns who the browser is signed in as, the access
+// key the session belongs to, when it ends, and its CSRF token, which the page sends
+// in `X-Aboard-CSRF` with every write. Any other credential gets 403
+// `browser_session_required`. A page that gets 401 here isn't signed in and shows
+// its login page.
+//
+// Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
+func (c *Client) GetBrowserSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBrowserSessionRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -7917,6 +8512,149 @@ func NewSetVisibilityRequestWithBody(server string, board BoardParam, params *Se
 	return req, nil
 }
 
+// NewListBrowserSessionsRequest constructs an http.Request for the ListBrowserSessions method
+func NewListBrowserSessionsRequest(server string, params *ListBrowserSessionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser-sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Key != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "key", *params.Key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartBrowserSessionRequest calls the generic StartBrowserSession builder with application/json body
+func NewStartBrowserSessionRequest(server string, body StartBrowserSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartBrowserSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartBrowserSessionRequestWithBody constructs an http.Request for the StartBrowserSession method, with any body, and a specified content type
+func NewStartBrowserSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser-sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEndBrowserSessionRequest constructs an http.Request for the EndBrowserSession method
+func NewEndBrowserSessionRequest(server string, session string, params *EndBrowserSessionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "session", session, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser-sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewEndBrowserTokensRequest constructs an http.Request for the EndBrowserTokens method
 func NewEndBrowserTokensRequest(server string, params *EndBrowserTokensParams) (*http.Request, error) {
 	var err error
@@ -8391,6 +9129,46 @@ func NewCreateLoginCodeRequest(server string, params *CreateLoginCodeParams) (*h
 	return req, nil
 }
 
+// NewPreviewLoginCodeRequest calls the generic PreviewLoginCode builder with application/json body
+func NewPreviewLoginCodeRequest(server string, body PreviewLoginCodeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewLoginCodeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewLoginCodeRequestWithBody constructs an http.Request for the PreviewLoginCode method, with any body, and a specified content type
+func NewPreviewLoginCodeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/login-codes/preview")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewStartMachineRequestRequest calls the generic StartMachineRequest builder with application/json body
 func NewStartMachineRequestRequest(server string, params *StartMachineRequestParams, body StartMachineRequestJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -8676,6 +9454,75 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/v1/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSignOutRequest constructs an http.Request for the SignOut method
+func NewSignOutRequest(server string, params *SignOutParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/browser-session")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetBrowserSessionRequest constructs an http.Request for the GetBrowserSession method
+func NewGetBrowserSessionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/browser-session")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9723,6 +10570,128 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
 	SetVisibilityWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error)
 
+	// ListBrowserSessionsWithResponse List your browser sessions
+	//
+	// With a person's own access key. Lists the caller's browser sessions that haven't
+	// ended, newest first, each with the key it belongs to; with `key`, only that key's.
+	// A key id the caller doesn't have gets 404 `key_not_found`. An agent token or a
+	// browser session gets 403 `human_token_required`. `aboard keys sessions` calls this.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/browser-sessions (the `ListBrowserSessions` operationId).
+	ListBrowserSessionsWithResponse(ctx context.Context, params *ListBrowserSessionsParams, reqEditors ...RequestEditorFn) (*ListBrowserSessionsResponse, error)
+
+	// StartBrowserSessionWithBodyWithResponse Sign a browser in
+	//
+	// No credential needed: what the body carries is the proof. Starts a browser session
+	// and sets its cookie (see **Browser sessions** above); the response body never holds
+	// the session's secret. The body has exactly one of:
+	//
+	// - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+	//   the page address's fragment. The session belongs to the access key that asked
+	//   for the code. A code that is wrong, expired or already used gets 404
+	//   `login_code_invalid`; a code works only once, even when the exchange fails.
+	//   A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+	//   and wait for the person to confirm, unless it is already signed in as that
+	//   same person: a link is easy to send to someone else.
+	// - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+	//   starts a session that belongs to it and keeps nothing of the key itself. A key
+	//   that is wrong, revoked or expired gets 401 `access_key_invalid`.
+	// - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+	//   browser sessions moved into cookies. The cookie gets that same secret, so it is
+	//   the same session with the same id and expiry; it is not exchanged for a new one,
+	//   and it keeps working as a bearer token until it expires or is ended. The page
+	//   then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+	//
+	// Anything else gets 400 `invalid_request`.
+	//
+	// When the request carries a cookie for a working session of another person, the
+	// browser would switch accounts, and the server refuses with 409
+	// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+	// it only after the person clicked to switch, so a link someone else made can't
+	// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+	// access key expires if that is sooner (a key that expires only once unused doesn't
+	// shorten it), and ends at once when its key is revoked or expires, when its person
+	// signs it out (`DELETE /v1/me/browser-session`) or ends it
+	// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+	//
+	// Against forged sign-ins, the request must carry an `Origin` header equal to the
+	// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+	// other site can send without the server's permission. Failed attempts (any answer of
+	// 400 or more) are limited per client address and across the server (429
+	// `rate_limited`, with `Retry-After`), counted together with
+	// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+	// or not, meets a higher limit too. Neither the body nor the response is logged or
+	// kept for `Idempotency-Key` repeats.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+	StartBrowserSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBrowserSessionResponse, error)
+
+	// StartBrowserSessionWithResponse Sign a browser in
+	//
+	// No credential needed: what the body carries is the proof. Starts a browser session
+	// and sets its cookie (see **Browser sessions** above); the response body never holds
+	// the session's secret. The body has exactly one of:
+	//
+	// - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+	//   the page address's fragment. The session belongs to the access key that asked
+	//   for the code. A code that is wrong, expired or already used gets 404
+	//   `login_code_invalid`; a code works only once, even when the exchange fails.
+	//   A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+	//   and wait for the person to confirm, unless it is already signed in as that
+	//   same person: a link is easy to send to someone else.
+	// - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+	//   starts a session that belongs to it and keeps nothing of the key itself. A key
+	//   that is wrong, revoked or expired gets 401 `access_key_invalid`.
+	// - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+	//   browser sessions moved into cookies. The cookie gets that same secret, so it is
+	//   the same session with the same id and expiry; it is not exchanged for a new one,
+	//   and it keeps working as a bearer token until it expires or is ended. The page
+	//   then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+	//
+	// Anything else gets 400 `invalid_request`.
+	//
+	// When the request carries a cookie for a working session of another person, the
+	// browser would switch accounts, and the server refuses with 409
+	// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+	// it only after the person clicked to switch, so a link someone else made can't
+	// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+	// access key expires if that is sooner (a key that expires only once unused doesn't
+	// shorten it), and ends at once when its key is revoked or expires, when its person
+	// signs it out (`DELETE /v1/me/browser-session`) or ends it
+	// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+	//
+	// Against forged sign-ins, the request must carry an `Origin` header equal to the
+	// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+	// other site can send without the server's permission. Failed attempts (any answer of
+	// 400 or more) are limited per client address and across the server (429
+	// `rate_limited`, with `Retry-After`), counted together with
+	// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+	// or not, meets a higher limit too. Neither the body nor the response is logged or
+	// kept for `Idempotency-Key` repeats.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+	StartBrowserSessionWithResponse(ctx context.Context, body StartBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBrowserSessionResponse, error)
+
+	// EndBrowserSessionWithResponse End one browser session
+	//
+	// With a person's own access key: ends one of their browser sessions. That browser
+	// gets 401 on its next request and its open stream ends within a second; the
+	// person's other sessions keep working. A session the caller doesn't have, or that
+	// already ended, gets 404 `browser_session_not_found`. An agent token or a browser
+	// session gets 403 `human_token_required`. `aboard keys sessions end` calls this.
+	// Nothing is written to a board's record.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/browser-sessions/{session} (the `EndBrowserSession` operationId).
+	EndBrowserSessionWithResponse(ctx context.Context, session string, params *EndBrowserSessionParams, reqEditors ...RequestEditorFn) (*EndBrowserSessionResponse, error)
+
 	// EndBrowserTokensWithResponse Log every browser out
 	//
 	// Humans only, with a human token. Ends every browser token of the calling person,
@@ -9738,7 +10707,12 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/browser-tokens (the `EndBrowserTokens` operationId).
 	EndBrowserTokensWithResponse(ctx context.Context, params *EndBrowserTokensParams, reqEditors ...RequestEditorFn) (*EndBrowserTokensResponse, error)
 
-	// CreateBrowserTokenWithBodyWithResponse Exchange a one-time code for a browser token
+	// CreateBrowserTokenWithBodyWithResponse Exchange a one-time code for a browser token (deprecated)
+	//
+	// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+	// cookie the page's scripts can't read. This endpoint still works and counts toward
+	// the same rate limits; a token it returns is a browser session like any other, and
+	// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 	//
 	// No token needed: the code is the proof. Exchanges a code from
 	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -9759,9 +10733,16 @@ type ClientWithResponsesInterface interface {
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CreateBrowserTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error)
 
-	// CreateBrowserTokenWithResponse Exchange a one-time code for a browser token
+	// CreateBrowserTokenWithResponse Exchange a one-time code for a browser token (deprecated)
+	//
+	// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+	// cookie the page's scripts can't read. This endpoint still works and counts toward
+	// the same rate limits; a token it returns is a browser session like any other, and
+	// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 	//
 	// No token needed: the code is the proof. Exchanges a code from
 	// `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -9782,6 +10763,8 @@ type ClientWithResponsesInterface interface {
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CreateBrowserTokenWithResponse(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error)
 
 	// ConnectWithBodyWithResponse Redeem a server invite and become a person on the server
@@ -10010,6 +10993,42 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/login-codes (the `CreateLoginCode` operationId).
 	CreateLoginCodeWithResponse(ctx context.Context, params *CreateLoginCodeParams, reqEditors ...RequestEditorFn) (*CreateLoginCodeResponse, error)
 
+	// PreviewLoginCodeWithBodyWithResponse Say who a login code would sign a browser in as
+	//
+	// No credential needed: the code is the proof. Returns the person and the access key
+	// a one-time code from `POST /v1/login-codes` would start a browser session for,
+	// without using the code up. A page that finds a code in its address asks the
+	// person to confirm before it signs in with it, so a link someone else made can't
+	// quietly sign the browser in as them. A code that is wrong, expired or already
+	// used gets 404 `login_code_invalid`.
+	//
+	// Like signing in, it needs an `Origin` header equal to the server's own origin
+	// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+	// (429 `rate_limited`). The code is never logged.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+	PreviewLoginCodeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewLoginCodeResponse, error)
+
+	// PreviewLoginCodeWithResponse Say who a login code would sign a browser in as
+	//
+	// No credential needed: the code is the proof. Returns the person and the access key
+	// a one-time code from `POST /v1/login-codes` would start a browser session for,
+	// without using the code up. A page that finds a code in its address asks the
+	// person to confirm before it signs in with it, so a link someone else made can't
+	// quietly sign the browser in as them. A code that is wrong, expired or already
+	// used gets 404 `login_code_invalid`.
+	//
+	// Like signing in, it needs an `Origin` header equal to the server's own origin
+	// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+	// (429 `rate_limited`). The code is never logged.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+	PreviewLoginCodeWithResponse(ctx context.Context, body PreviewLoginCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewLoginCodeResponse, error)
+
 	// StartMachineRequestWithBodyWithResponse Ask to connect a new machine, for a person to approve
 	//
 	// No token needed. A machine with no key for this server asks for one, for the
@@ -10211,6 +11230,31 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/me (the `GetMe` operationId).
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
+
+	// SignOutWithResponse Sign this browser out
+	//
+	// With a browser session only: ends this one session and clears its cookie. The
+	// person's other sessions and keys keep working. Any other credential gets 403
+	// `browser_session_required`. Like every write made with the cookie, it needs the
+	// `Origin` header and the CSRF token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/me/browser-session (the `SignOut` operationId).
+	SignOutWithResponse(ctx context.Context, params *SignOutParams, reqEditors ...RequestEditorFn) (*SignOutResponse, error)
+
+	// GetBrowserSessionWithResponse This browser's session
+	//
+	// With a browser session only. Returns who the browser is signed in as, the access
+	// key the session belongs to, when it ends, and its CSRF token, which the page sends
+	// in `X-Aboard-CSRF` with every write. Any other credential gets 403
+	// `browser_session_required`. A page that gets 401 here isn't signed in and shows
+	// its login page.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
+	GetBrowserSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserSessionResponse, error)
 
 	// GetInboxWithResponse Unread messages addressed to this agent
 	//
@@ -11741,6 +12785,234 @@ func (r SetVisibilityResponse) ContentType() string {
 	return ""
 }
 
+type ListBrowserSessionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BrowserSessionList
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListBrowserSessionsResponse) GetJSON200() *BrowserSessionList {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ListBrowserSessionsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListBrowserSessionsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListBrowserSessionsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListBrowserSessionsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListBrowserSessionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListBrowserSessionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListBrowserSessionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListBrowserSessionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// StartBrowserSessionResponse201Headers the declared response headers of an HTTP 201 response for StartBrowserSession
+type StartBrowserSessionResponse201Headers struct {
+	SetCookie *string
+}
+
+type StartBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *CurrentBrowserSession
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers201 the parsed response headers for an HTTP 201 response
+	Headers201 *StartBrowserSessionResponse201Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON201() *CurrentBrowserSession {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r StartBrowserSessionResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r StartBrowserSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartBrowserSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EndBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BrowserSession
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EndBrowserSessionResponse) GetJSON200() *BrowserSession {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r EndBrowserSessionResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r EndBrowserSessionResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r EndBrowserSessionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r EndBrowserSessionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r EndBrowserSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EndBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EndBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EndBrowserSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EndBrowserTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11805,6 +13077,8 @@ type CreateBrowserTokenResponse struct {
 	JSON400 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
@@ -11820,6 +13094,11 @@ func (r CreateBrowserTokenResponse) GetJSON400() *Error {
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
 func (r CreateBrowserTokenResponse) GetJSON404() *Error {
 	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r CreateBrowserTokenResponse) GetJSON429() *Error {
+	return r.JSON429
 }
 
 // GetBody returns the raw response body bytes
@@ -12396,6 +13675,75 @@ func (r CreateLoginCodeResponse) ContentType() string {
 	return ""
 }
 
+type PreviewLoginCodeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LoginCodePreview
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewLoginCodeResponse) GetJSON200() *LoginCodePreview {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PreviewLoginCodeResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PreviewLoginCodeResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PreviewLoginCodeResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r PreviewLoginCodeResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewLoginCodeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewLoginCodeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewLoginCodeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewLoginCodeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // StartMachineRequestResponse429Headers the declared response headers of an HTTP 429 response for StartMachineRequest
 type StartMachineRequestResponse429Headers struct {
 	RetryAfter *int
@@ -12839,6 +14187,123 @@ func (r GetMeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// SignOutResponse200Headers the declared response headers of an HTTP 200 response for SignOut
+type SignOutResponse200Headers struct {
+	SetCookie *string
+}
+
+type SignOutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BrowserSession
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *SignOutResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SignOutResponse) GetJSON200() *BrowserSession {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SignOutResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SignOutResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r SignOutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SignOutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SignOutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SignOutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CurrentBrowserSession
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBrowserSessionResponse) GetJSON200() *CurrentBrowserSession {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetBrowserSessionResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetBrowserSessionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetBrowserSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetBrowserSessionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -14105,6 +15570,152 @@ func (c *ClientWithResponses) SetVisibilityWithResponse(ctx context.Context, boa
 	return ParseSetVisibilityResponse(rsp)
 }
 
+// ListBrowserSessionsWithResponse List your browser sessions
+//
+// With a person's own access key. Lists the caller's browser sessions that haven't
+// ended, newest first, each with the key it belongs to; with `key`, only that key's.
+// A key id the caller doesn't have gets 404 `key_not_found`. An agent token or a
+// browser session gets 403 `human_token_required`. `aboard keys sessions` calls this.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/browser-sessions (the `ListBrowserSessions` operationId).
+func (c *ClientWithResponses) ListBrowserSessionsWithResponse(ctx context.Context, params *ListBrowserSessionsParams, reqEditors ...RequestEditorFn) (*ListBrowserSessionsResponse, error) {
+	rsp, err := c.ListBrowserSessions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListBrowserSessionsResponse(rsp)
+}
+
+// StartBrowserSessionWithBodyWithResponse Sign a browser in
+//
+// No credential needed: what the body carries is the proof. Starts a browser session
+// and sets its cookie (see **Browser sessions** above); the response body never holds
+// the session's secret. The body has exactly one of:
+//
+//   - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+//     the page address's fragment. The session belongs to the access key that asked
+//     for the code. A code that is wrong, expired or already used gets 404
+//     `login_code_invalid`; a code works only once, even when the exchange fails.
+//     A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+//     and wait for the person to confirm, unless it is already signed in as that
+//     same person: a link is easy to send to someone else.
+//   - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+//     starts a session that belongs to it and keeps nothing of the key itself. A key
+//     that is wrong, revoked or expired gets 401 `access_key_invalid`.
+//   - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+//     browser sessions moved into cookies. The cookie gets that same secret, so it is
+//     the same session with the same id and expiry; it is not exchanged for a new one,
+//     and it keeps working as a bearer token until it expires or is ended. The page
+//     then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+//
+// Anything else gets 400 `invalid_request`.
+//
+// When the request carries a cookie for a working session of another person, the
+// browser would switch accounts, and the server refuses with 409
+// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+// it only after the person clicked to switch, so a link someone else made can't
+// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+// access key expires if that is sooner (a key that expires only once unused doesn't
+// shorten it), and ends at once when its key is revoked or expires, when its person
+// signs it out (`DELETE /v1/me/browser-session`) or ends it
+// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+//
+// Against forged sign-ins, the request must carry an `Origin` header equal to the
+// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+// other site can send without the server's permission. Failed attempts (any answer of
+// 400 or more) are limited per client address and across the server (429
+// `rate_limited`, with `Retry-After`), counted together with
+// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+// or not, meets a higher limit too. Neither the body nor the response is logged or
+// kept for `Idempotency-Key` repeats.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+func (c *ClientWithResponses) StartBrowserSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBrowserSessionResponse, error) {
+	rsp, err := c.StartBrowserSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartBrowserSessionResponse(rsp)
+}
+
+// StartBrowserSessionWithResponse Sign a browser in
+//
+// No credential needed: what the body carries is the proof. Starts a browser session
+// and sets its cookie (see **Browser sessions** above); the response body never holds
+// the session's secret. The body has exactly one of:
+//
+//   - `code`: a one-time code from `POST /v1/login-codes`, which `aboard open` puts in
+//     the page address's fragment. The session belongs to the access key that asked
+//     for the code. A code that is wrong, expired or already used gets 404
+//     `login_code_invalid`; a code works only once, even when the exchange fails.
+//     A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+//     and wait for the person to confirm, unless it is already signed in as that
+//     same person: a link is easy to send to someone else.
+//   - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
+//     starts a session that belongs to it and keeps nothing of the key itself. A key
+//     that is wrong, revoked or expired gets 401 `access_key_invalid`.
+//   - `token`: a browser token (`abb_…`) that a page kept in its own storage before
+//     browser sessions moved into cookies. The cookie gets that same secret, so it is
+//     the same session with the same id and expiry; it is not exchanged for a new one,
+//     and it keeps working as a bearer token until it expires or is ended. The page
+//     then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
+//
+// Anything else gets 400 `invalid_request`.
+//
+// When the request carries a cookie for a working session of another person, the
+// browser would switch accounts, and the server refuses with 409
+// `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+// it only after the person clicked to switch, so a link someone else made can't
+// quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
+// access key expires if that is sooner (a key that expires only once unused doesn't
+// shorten it), and ends at once when its key is revoked or expires, when its person
+// signs it out (`DELETE /v1/me/browser-session`) or ends it
+// (`DELETE /v1/browser-sessions/{session}`, `DELETE /v1/browser-tokens`).
+//
+// Against forged sign-ins, the request must carry an `Origin` header equal to the
+// server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
+// other site can send without the server's permission. Failed attempts (any answer of
+// 400 or more) are limited per client address and across the server (429
+// `rate_limited`, with `Retry-After`), counted together with
+// `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+// or not, meets a higher limit too. Neither the body nor the response is logged or
+// kept for `Idempotency-Key` repeats.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/browser-sessions (the `StartBrowserSession` operationId).
+func (c *ClientWithResponses) StartBrowserSessionWithResponse(ctx context.Context, body StartBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBrowserSessionResponse, error) {
+	rsp, err := c.StartBrowserSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartBrowserSessionResponse(rsp)
+}
+
+// EndBrowserSessionWithResponse End one browser session
+//
+// With a person's own access key: ends one of their browser sessions. That browser
+// gets 401 on its next request and its open stream ends within a second; the
+// person's other sessions keep working. A session the caller doesn't have, or that
+// already ended, gets 404 `browser_session_not_found`. An agent token or a browser
+// session gets 403 `human_token_required`. `aboard keys sessions end` calls this.
+// Nothing is written to a board's record.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/browser-sessions/{session} (the `EndBrowserSession` operationId).
+func (c *ClientWithResponses) EndBrowserSessionWithResponse(ctx context.Context, session string, params *EndBrowserSessionParams, reqEditors ...RequestEditorFn) (*EndBrowserSessionResponse, error) {
+	rsp, err := c.EndBrowserSession(ctx, session, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEndBrowserSessionResponse(rsp)
+}
+
 // EndBrowserTokensWithResponse Log every browser out
 //
 // Humans only, with a human token. Ends every browser token of the calling person,
@@ -14126,7 +15737,12 @@ func (c *ClientWithResponses) EndBrowserTokensWithResponse(ctx context.Context, 
 	return ParseEndBrowserTokensResponse(rsp)
 }
 
-// CreateBrowserTokenWithBodyWithResponse Exchange a one-time code for a browser token
+// CreateBrowserTokenWithBodyWithResponse Exchange a one-time code for a browser token (deprecated)
+//
+// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+// cookie the page's scripts can't read. This endpoint still works and counts toward
+// the same rate limits; a token it returns is a browser session like any other, and
+// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 //
 // No token needed: the code is the proof. Exchanges a code from
 // `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -14147,6 +15763,8 @@ func (c *ClientWithResponses) EndBrowserTokensWithResponse(ctx context.Context, 
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+//
+// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 func (c *ClientWithResponses) CreateBrowserTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error) {
 	rsp, err := c.CreateBrowserTokenWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
@@ -14155,7 +15773,12 @@ func (c *ClientWithResponses) CreateBrowserTokenWithBodyWithResponse(ctx context
 	return ParseCreateBrowserTokenResponse(rsp)
 }
 
-// CreateBrowserTokenWithResponse Exchange a one-time code for a browser token
+// CreateBrowserTokenWithResponse Exchange a one-time code for a browser token (deprecated)
+//
+// Deprecated: use `POST /v1/browser-sessions`, which keeps the browser's secret in a
+// cookie the page's scripts can't read. This endpoint still works and counts toward
+// the same rate limits; a token it returns is a browser session like any other, and
+// `POST /v1/browser-sessions` with `{"token": …}` moves it into the cookie.
 //
 // No token needed: the code is the proof. Exchanges a code from
 // `POST /v1/login-codes` for a browser token that acts as the human who asked for the
@@ -14176,6 +15799,7 @@ func (c *ClientWithResponses) CreateBrowserTokenWithBodyWithResponse(ctx context
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
+// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 func (c *ClientWithResponses) CreateBrowserTokenWithResponse(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error) {
 	rsp, err := c.CreateBrowserToken(ctx, body, reqEditors...)
 	if err != nil {
@@ -14482,6 +16106,54 @@ func (c *ClientWithResponses) CreateLoginCodeWithResponse(ctx context.Context, p
 	return ParseCreateLoginCodeResponse(rsp)
 }
 
+// PreviewLoginCodeWithBodyWithResponse Say who a login code would sign a browser in as
+//
+// No credential needed: the code is the proof. Returns the person and the access key
+// a one-time code from `POST /v1/login-codes` would start a browser session for,
+// without using the code up. A page that finds a code in its address asks the
+// person to confirm before it signs in with it, so a link someone else made can't
+// quietly sign the browser in as them. A code that is wrong, expired or already
+// used gets 404 `login_code_invalid`.
+//
+// Like signing in, it needs an `Origin` header equal to the server's own origin
+// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+// (429 `rate_limited`). The code is never logged.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+func (c *ClientWithResponses) PreviewLoginCodeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewLoginCodeResponse, error) {
+	rsp, err := c.PreviewLoginCodeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewLoginCodeResponse(rsp)
+}
+
+// PreviewLoginCodeWithResponse Say who a login code would sign a browser in as
+//
+// No credential needed: the code is the proof. Returns the person and the access key
+// a one-time code from `POST /v1/login-codes` would start a browser session for,
+// without using the code up. A page that finds a code in its address asks the
+// person to confirm before it signs in with it, so a link someone else made can't
+// quietly sign the browser in as them. A code that is wrong, expired or already
+// used gets 404 `login_code_invalid`.
+//
+// Like signing in, it needs an `Origin` header equal to the server's own origin
+// (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+// (429 `rate_limited`). The code is never logged.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/login-codes/preview (the `PreviewLoginCode` operationId).
+func (c *ClientWithResponses) PreviewLoginCodeWithResponse(ctx context.Context, body PreviewLoginCodeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewLoginCodeResponse, error) {
+	rsp, err := c.PreviewLoginCode(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewLoginCodeResponse(rsp)
+}
+
 // StartMachineRequestWithBodyWithResponse Ask to connect a new machine, for a person to approve
 //
 // No token needed. A machine with no key for this server asks for one, for the
@@ -14748,6 +16420,43 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 		return nil, err
 	}
 	return ParseGetMeResponse(rsp)
+}
+
+// SignOutWithResponse Sign this browser out
+//
+// With a browser session only: ends this one session and clears its cookie. The
+// person's other sessions and keys keep working. Any other credential gets 403
+// `browser_session_required`. Like every write made with the cookie, it needs the
+// `Origin` header and the CSRF token.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/me/browser-session (the `SignOut` operationId).
+func (c *ClientWithResponses) SignOutWithResponse(ctx context.Context, params *SignOutParams, reqEditors ...RequestEditorFn) (*SignOutResponse, error) {
+	rsp, err := c.SignOut(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSignOutResponse(rsp)
+}
+
+// GetBrowserSessionWithResponse This browser's session
+//
+// With a browser session only. Returns who the browser is signed in as, the access
+// key the session belongs to, when it ends, and its CSRF token, which the page sends
+// in `X-Aboard-CSRF` with every write. Any other credential gets 403
+// `browser_session_required`. A page that gets 401 here isn't signed in and shows
+// its login page.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
+func (c *ClientWithResponses) GetBrowserSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserSessionResponse, error) {
+	rsp, err := c.GetBrowserSession(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBrowserSessionResponse(rsp)
 }
 
 // GetInboxWithResponse Unread messages addressed to this agent
@@ -16064,6 +17773,195 @@ func ParseSetVisibilityResponse(rsp *http.Response) (*SetVisibilityResponse, err
 	return response, nil
 }
 
+// ParseListBrowserSessionsResponse parses an HTTP response from a ListBrowserSessionsWithResponse call
+func ParseListBrowserSessionsResponse(rsp *http.Response) (*ListBrowserSessionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListBrowserSessionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserSessionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartBrowserSessionResponse parses an HTTP response from a StartBrowserSessionWithResponse call
+func ParseStartBrowserSessionResponse(rsp *http.Response) (*StartBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CurrentBrowserSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 201:
+		var headers StartBrowserSessionResponse201Headers
+		if values := rsp.Header.Values("Set-Cookie"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Set-Cookie", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.SetCookie = &value
+		}
+		response.Headers201 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseEndBrowserSessionResponse parses an HTTP response from a EndBrowserSessionWithResponse call
+func ParseEndBrowserSessionResponse(rsp *http.Response) (*EndBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EndBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseEndBrowserTokensResponse parses an HTTP response from a EndBrowserTokensWithResponse call
 func ParseEndBrowserTokensResponse(rsp *http.Response) (*EndBrowserTokensResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -16138,6 +18036,13 @@ func ParseCreateBrowserTokenResponse(rsp *http.Response) (*CreateBrowserTokenRes
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
 
 	}
 
@@ -16581,6 +18486,60 @@ func ParseCreateLoginCodeResponse(rsp *http.Response) (*CreateLoginCodeResponse,
 	return response, nil
 }
 
+// ParsePreviewLoginCodeResponse parses an HTTP response from a PreviewLoginCodeWithResponse call
+func ParsePreviewLoginCodeResponse(rsp *http.Response) (*PreviewLoginCodeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewLoginCodeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LoginCodePreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStartMachineRequestResponse parses an HTTP response from a StartMachineRequestWithResponse call
 func ParseStartMachineRequestResponse(rsp *http.Response) (*StartMachineRequestResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -16964,6 +18923,99 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSignOutResponse parses an HTTP response from a SignOutWithResponse call
+func ParseSignOutResponse(rsp *http.Response) (*SignOutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SignOutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers SignOutResponse200Headers
+		if values := rsp.Header.Values("Set-Cookie"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Set-Cookie", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.SetCookie = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseGetBrowserSessionResponse parses an HTTP response from a GetBrowserSessionWithResponse call
+func ParseGetBrowserSessionResponse(rsp *http.Response) (*GetBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CurrentBrowserSession
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -17502,11 +19554,22 @@ type ServerInterface interface {
 	// SetVisibility Turn a board open or private
 	// (POST /v1/boards/{board}/visibility)
 	SetVisibility(w http.ResponseWriter, r *http.Request, board BoardParam, params SetVisibilityParams)
+	// ListBrowserSessions List your browser sessions
+	// (GET /v1/browser-sessions)
+	ListBrowserSessions(w http.ResponseWriter, r *http.Request, params ListBrowserSessionsParams)
+	// StartBrowserSession Sign a browser in
+	// (POST /v1/browser-sessions)
+	StartBrowserSession(w http.ResponseWriter, r *http.Request)
+	// EndBrowserSession End one browser session
+	// (DELETE /v1/browser-sessions/{session})
+	EndBrowserSession(w http.ResponseWriter, r *http.Request, session string, params EndBrowserSessionParams)
 	// EndBrowserTokens Log every browser out
 	// (DELETE /v1/browser-tokens)
 	EndBrowserTokens(w http.ResponseWriter, r *http.Request, params EndBrowserTokensParams)
-	// CreateBrowserToken Exchange a one-time code for a browser token
+	// CreateBrowserToken Exchange a one-time code for a browser token (deprecated)
 	// (POST /v1/browser-tokens)
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CreateBrowserToken(w http.ResponseWriter, r *http.Request)
 	// Connect Redeem a server invite and become a person on the server
 	// (POST /v1/connect)
@@ -17532,6 +19595,9 @@ type ServerInterface interface {
 	// CreateLoginCode Get a one-time code that logs a browser in
 	// (POST /v1/login-codes)
 	CreateLoginCode(w http.ResponseWriter, r *http.Request, params CreateLoginCodeParams)
+	// PreviewLoginCode Say who a login code would sign a browser in as
+	// (POST /v1/login-codes/preview)
+	PreviewLoginCode(w http.ResponseWriter, r *http.Request)
 	// StartMachineRequest Ask to connect a new machine, for a person to approve
 	// (POST /v1/machine-requests)
 	StartMachineRequest(w http.ResponseWriter, r *http.Request, params StartMachineRequestParams)
@@ -17550,6 +19616,12 @@ type ServerInterface interface {
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// SignOut Sign this browser out
+	// (DELETE /v1/me/browser-session)
+	SignOut(w http.ResponseWriter, r *http.Request, params SignOutParams)
+	// GetBrowserSession This browser's session
+	// (GET /v1/me/browser-session)
+	GetBrowserSession(w http.ResponseWriter, r *http.Request)
 	// GetInbox Unread messages addressed to this agent
 	// (GET /v1/me/inbox)
 	GetInbox(w http.ResponseWriter, r *http.Request, params GetInboxParams)
@@ -18513,6 +20585,103 @@ func (siw *ServerInterfaceWrapper) SetVisibility(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// ListBrowserSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListBrowserSessions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBrowserSessionsParams
+
+	// ------------- Optional query parameter "key" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "key", r.URL.Query(), &params.Key, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBrowserSessions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartBrowserSession operation middleware
+func (siw *ServerInterfaceWrapper) StartBrowserSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartBrowserSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EndBrowserSession operation middleware
+func (siw *ServerInterfaceWrapper) EndBrowserSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "session" -------------
+	var session string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "session", r.PathValue("session"), &session, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "session", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EndBrowserSessionParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EndBrowserSession(w, r, session, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EndBrowserTokens operation middleware
 func (siw *ServerInterfaceWrapper) EndBrowserTokens(w http.ResponseWriter, r *http.Request) {
 
@@ -18870,6 +21039,20 @@ func (siw *ServerInterfaceWrapper) CreateLoginCode(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewLoginCode operation middleware
+func (siw *ServerInterfaceWrapper) PreviewLoginCode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewLoginCode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // StartMachineRequest operation middleware
 func (siw *ServerInterfaceWrapper) StartMachineRequest(w http.ResponseWriter, r *http.Request) {
 
@@ -19080,6 +21263,61 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SignOut operation middleware
+func (siw *ServerInterfaceWrapper) SignOut(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SignOutParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SignOut(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBrowserSession operation middleware
+func (siw *ServerInterfaceWrapper) GetBrowserSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBrowserSession(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19635,6 +21873,12 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/login-codes", wrapper.CreateLoginCode)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/browser-tokens", wrapper.EndBrowserTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/browser-tokens", wrapper.CreateBrowserToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/browser-sessions", wrapper.ListBrowserSessions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/browser-sessions", wrapper.StartBrowserSession)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/login-codes/preview", wrapper.PreviewLoginCode)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/browser-sessions/{session}", wrapper.EndBrowserSession)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/browser-session", wrapper.SignOut)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/browser-session", wrapper.GetBrowserSession)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/invites", wrapper.CreateServerInvite)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/keys", wrapper.ListKeys)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/keys", wrapper.CreateKey)
@@ -21111,6 +23355,279 @@ func (response SetVisibility404JSONResponse) VisitSetVisibilityResponse(w http.R
 	return err
 }
 
+type ListBrowserSessionsRequestObject struct {
+	Params ListBrowserSessionsParams
+}
+
+type ListBrowserSessionsResponseObject interface {
+	VisitListBrowserSessionsResponse(w http.ResponseWriter) error
+}
+
+type ListBrowserSessions200JSONResponse BrowserSessionList
+
+func (response ListBrowserSessions200JSONResponse) VisitListBrowserSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrowserSessions400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListBrowserSessions400JSONResponse) VisitListBrowserSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrowserSessions401JSONResponse Error
+
+func (response ListBrowserSessions401JSONResponse) VisitListBrowserSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrowserSessions403JSONResponse Error
+
+func (response ListBrowserSessions403JSONResponse) VisitListBrowserSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBrowserSessions404JSONResponse Error
+
+func (response ListBrowserSessions404JSONResponse) VisitListBrowserSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSessionRequestObject struct {
+	Body *StartBrowserSessionJSONRequestBody
+}
+
+type StartBrowserSessionResponseObject interface {
+	VisitStartBrowserSessionResponse(w http.ResponseWriter) error
+}
+
+type StartBrowserSession201ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StartBrowserSession201JSONResponse struct {
+	Body    CurrentBrowserSession
+	Headers StartBrowserSession201ResponseHeaders
+}
+
+func (response StartBrowserSession201JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSession400JSONResponse struct{ ErrorJSONResponse }
+
+func (response StartBrowserSession400JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSession401JSONResponse Error
+
+func (response StartBrowserSession401JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSession403JSONResponse Error
+
+func (response StartBrowserSession403JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSession404JSONResponse Error
+
+func (response StartBrowserSession404JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSession409JSONResponse Error
+
+func (response StartBrowserSession409JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartBrowserSession429JSONResponse Error
+
+func (response StartBrowserSession429JSONResponse) VisitStartBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndBrowserSessionRequestObject struct {
+	Session string `json:"session"`
+	Params  EndBrowserSessionParams
+}
+
+type EndBrowserSessionResponseObject interface {
+	VisitEndBrowserSessionResponse(w http.ResponseWriter) error
+}
+
+type EndBrowserSession200JSONResponse BrowserSession
+
+func (response EndBrowserSession200JSONResponse) VisitEndBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndBrowserSession400JSONResponse struct{ ErrorJSONResponse }
+
+func (response EndBrowserSession400JSONResponse) VisitEndBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndBrowserSession401JSONResponse Error
+
+func (response EndBrowserSession401JSONResponse) VisitEndBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndBrowserSession403JSONResponse Error
+
+func (response EndBrowserSession403JSONResponse) VisitEndBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EndBrowserSession404JSONResponse Error
+
+func (response EndBrowserSession404JSONResponse) VisitEndBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type EndBrowserTokensRequestObject struct {
 	Params EndBrowserTokensParams
 }
@@ -21207,6 +23724,20 @@ func (response CreateBrowserToken404JSONResponse) VisitCreateBrowserTokenRespons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBrowserToken429JSONResponse Error
+
+func (response CreateBrowserToken429JSONResponse) VisitCreateBrowserTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -21817,6 +24348,84 @@ func (response CreateLoginCode403JSONResponse) VisitCreateLoginCodeResponse(w ht
 	return err
 }
 
+type PreviewLoginCodeRequestObject struct {
+	Body *PreviewLoginCodeJSONRequestBody
+}
+
+type PreviewLoginCodeResponseObject interface {
+	VisitPreviewLoginCodeResponse(w http.ResponseWriter) error
+}
+
+type PreviewLoginCode200JSONResponse LoginCodePreview
+
+func (response PreviewLoginCode200JSONResponse) VisitPreviewLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewLoginCode400JSONResponse struct{ ErrorJSONResponse }
+
+func (response PreviewLoginCode400JSONResponse) VisitPreviewLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewLoginCode403JSONResponse Error
+
+func (response PreviewLoginCode403JSONResponse) VisitPreviewLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewLoginCode404JSONResponse Error
+
+func (response PreviewLoginCode404JSONResponse) VisitPreviewLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewLoginCode429JSONResponse Error
+
+func (response PreviewLoginCode429JSONResponse) VisitPreviewLoginCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StartMachineRequestRequestObject struct {
 	Params StartMachineRequestParams
 	Body   *StartMachineRequestJSONRequestBody
@@ -22335,6 +24944,115 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignOutRequestObject struct {
+	Params SignOutParams
+}
+
+type SignOutResponseObject interface {
+	VisitSignOutResponse(w http.ResponseWriter) error
+}
+
+type SignOut200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type SignOut200JSONResponse struct {
+	Body    BrowserSession
+	Headers SignOut200ResponseHeaders
+}
+
+func (response SignOut200JSONResponse) VisitSignOutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignOut401JSONResponse struct{ ErrorJSONResponse }
+
+func (response SignOut401JSONResponse) VisitSignOutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SignOut403JSONResponse Error
+
+func (response SignOut403JSONResponse) VisitSignOutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBrowserSessionRequestObject struct {
+}
+
+type GetBrowserSessionResponseObject interface {
+	VisitGetBrowserSessionResponse(w http.ResponseWriter) error
+}
+
+type GetBrowserSession200JSONResponse CurrentBrowserSession
+
+func (response GetBrowserSession200JSONResponse) VisitGetBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBrowserSession401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetBrowserSession401JSONResponse) VisitGetBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBrowserSession403JSONResponse Error
+
+func (response GetBrowserSession403JSONResponse) VisitGetBrowserSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -23076,11 +25794,22 @@ type StrictServerInterface interface {
 	// SetVisibility Turn a board open or private
 	// (POST /v1/boards/{board}/visibility)
 	SetVisibility(ctx context.Context, request SetVisibilityRequestObject) (SetVisibilityResponseObject, error)
+	// ListBrowserSessions List your browser sessions
+	// (GET /v1/browser-sessions)
+	ListBrowserSessions(ctx context.Context, request ListBrowserSessionsRequestObject) (ListBrowserSessionsResponseObject, error)
+	// StartBrowserSession Sign a browser in
+	// (POST /v1/browser-sessions)
+	StartBrowserSession(ctx context.Context, request StartBrowserSessionRequestObject) (StartBrowserSessionResponseObject, error)
+	// EndBrowserSession End one browser session
+	// (DELETE /v1/browser-sessions/{session})
+	EndBrowserSession(ctx context.Context, request EndBrowserSessionRequestObject) (EndBrowserSessionResponseObject, error)
 	// EndBrowserTokens Log every browser out
 	// (DELETE /v1/browser-tokens)
 	EndBrowserTokens(ctx context.Context, request EndBrowserTokensRequestObject) (EndBrowserTokensResponseObject, error)
-	// CreateBrowserToken Exchange a one-time code for a browser token
+	// CreateBrowserToken Exchange a one-time code for a browser token (deprecated)
 	// (POST /v1/browser-tokens)
+	//
+	// Deprecated: this operation has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	CreateBrowserToken(ctx context.Context, request CreateBrowserTokenRequestObject) (CreateBrowserTokenResponseObject, error)
 	// Connect Redeem a server invite and become a person on the server
 	// (POST /v1/connect)
@@ -23106,6 +25835,9 @@ type StrictServerInterface interface {
 	// CreateLoginCode Get a one-time code that logs a browser in
 	// (POST /v1/login-codes)
 	CreateLoginCode(ctx context.Context, request CreateLoginCodeRequestObject) (CreateLoginCodeResponseObject, error)
+	// PreviewLoginCode Say who a login code would sign a browser in as
+	// (POST /v1/login-codes/preview)
+	PreviewLoginCode(ctx context.Context, request PreviewLoginCodeRequestObject) (PreviewLoginCodeResponseObject, error)
 	// StartMachineRequest Ask to connect a new machine, for a person to approve
 	// (POST /v1/machine-requests)
 	StartMachineRequest(ctx context.Context, request StartMachineRequestRequestObject) (StartMachineRequestResponseObject, error)
@@ -23124,6 +25856,12 @@ type StrictServerInterface interface {
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// SignOut Sign this browser out
+	// (DELETE /v1/me/browser-session)
+	SignOut(ctx context.Context, request SignOutRequestObject) (SignOutResponseObject, error)
+	// GetBrowserSession This browser's session
+	// (GET /v1/me/browser-session)
+	GetBrowserSession(ctx context.Context, request GetBrowserSessionRequestObject) (GetBrowserSessionResponseObject, error)
 	// GetInbox Unread messages addressed to this agent
 	// (GET /v1/me/inbox)
 	GetInbox(ctx context.Context, request GetInboxRequestObject) (GetInboxResponseObject, error)
@@ -23761,6 +26499,90 @@ func (sh *strictHandler) SetVisibility(w http.ResponseWriter, r *http.Request, b
 	}
 }
 
+// ListBrowserSessions operation middleware
+func (sh *strictHandler) ListBrowserSessions(w http.ResponseWriter, r *http.Request, params ListBrowserSessionsParams) {
+	var request ListBrowserSessionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBrowserSessions(ctx, request.(ListBrowserSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBrowserSessions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListBrowserSessionsResponseObject); ok {
+		if err := validResponse.VisitListBrowserSessionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartBrowserSession operation middleware
+func (sh *strictHandler) StartBrowserSession(w http.ResponseWriter, r *http.Request) {
+	var request StartBrowserSessionRequestObject
+
+	var body StartBrowserSessionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartBrowserSession(ctx, request.(StartBrowserSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartBrowserSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartBrowserSessionResponseObject); ok {
+		if err := validResponse.VisitStartBrowserSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EndBrowserSession operation middleware
+func (sh *strictHandler) EndBrowserSession(w http.ResponseWriter, r *http.Request, session string, params EndBrowserSessionParams) {
+	var request EndBrowserSessionRequestObject
+
+	request.Session = session
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EndBrowserSession(ctx, request.(EndBrowserSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EndBrowserSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EndBrowserSessionResponseObject); ok {
+		if err := validResponse.VisitEndBrowserSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // EndBrowserTokens operation middleware
 func (sh *strictHandler) EndBrowserTokens(w http.ResponseWriter, r *http.Request, params EndBrowserTokensParams) {
 	var request EndBrowserTokensRequestObject
@@ -24056,6 +26878,37 @@ func (sh *strictHandler) CreateLoginCode(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// PreviewLoginCode operation middleware
+func (sh *strictHandler) PreviewLoginCode(w http.ResponseWriter, r *http.Request) {
+	var request PreviewLoginCodeRequestObject
+
+	var body PreviewLoginCodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewLoginCode(ctx, request.(PreviewLoginCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewLoginCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewLoginCodeResponseObject); ok {
+		if err := validResponse.VisitPreviewLoginCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // StartMachineRequest operation middleware
 func (sh *strictHandler) StartMachineRequest(w http.ResponseWriter, r *http.Request, params StartMachineRequestParams) {
 	var request StartMachineRequestRequestObject
@@ -24238,6 +27091,56 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SignOut operation middleware
+func (sh *strictHandler) SignOut(w http.ResponseWriter, r *http.Request, params SignOutParams) {
+	var request SignOutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SignOut(ctx, request.(SignOutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SignOut")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SignOutResponseObject); ok {
+		if err := validResponse.VisitSignOutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBrowserSession operation middleware
+func (sh *strictHandler) GetBrowserSession(w http.ResponseWriter, r *http.Request) {
+	var request GetBrowserSessionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBrowserSession(ctx, request.(GetBrowserSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBrowserSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBrowserSessionResponseObject); ok {
+		if err := validResponse.VisitGetBrowserSessionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -24532,439 +27435,495 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

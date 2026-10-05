@@ -237,7 +237,7 @@ func TestUpgradeFromSchema13MakesBoardsOpen(t *testing.T) {
 // messages, comes up with each person at their board's head, so nothing they saw counts
 // as unread, and each message to someone with the members it was addressed to then: those
 // named, and those with the role who had joined by then, never the sender.
-func TestUpgradeStartsPeopleAtTheHeadAndFixesRecipients(t *testing.T) {
+func TestUpgradeStartsPeopleAtTheHeadWithoutGuessingRecipients(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "aboard.db")
 	db, err := sql.Open("sqlite", "file:"+path)
@@ -298,7 +298,7 @@ func TestUpgradeStartsPeopleAtTheHeadAndFixesRecipients(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		want := map[int64][]string{6: nil, 7: {"mem_sam"}, 8: {"mem_writer"}, 9: {}}
+		want := map[int64][]string{6: nil, 7: nil, 8: nil, 9: nil}
 		for seq, w := range want {
 			if got := ms[seq].Recipients; !reflect.DeepEqual(got, w) {
 				t.Errorf("recipients of #%d after upgrade: %#v, want %#v", seq, got, w)

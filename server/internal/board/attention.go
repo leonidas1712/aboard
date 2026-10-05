@@ -33,7 +33,7 @@ func positionOf(tx ReadTx, me Member) (Position, error) {
 	return Position{ReadUpTo: me.Cursor, Unread: n}, nil
 }
 
-// startReading puts a person who joins a board, or comes back to it, at its head: what
+// startReading puts a person who first joins a board, at its head: what
 // was posted before is in the timeline, not unread.
 func startReading(tx Tx, b Board, person Member) error {
 	return tx.SetCursor(person.ID, b.HeadSeq)
@@ -141,6 +141,7 @@ type ReceiptsReading struct {
 	Board      Board
 	Message    Message
 	ToEveryone bool
+	Available  bool
 	Recipients []Receipt
 }
 
@@ -162,8 +163,8 @@ func (s *Service) Receipts(ctx context.Context, p Principal, boardName string, s
 		if !ok || !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
 			return messageNotFound()
 		}
-		out = ReceiptsReading{Board: b, Message: m, ToEveryone: m.Recipients == nil, Recipients: []Receipt{}}
-		if out.ToEveryone {
+		out = ReceiptsReading{Board: b, Message: m, ToEveryone: slices.Contains(m.To, rules.TargetAll), Available: m.Recipients != nil || slices.Contains(m.To, rules.TargetAll), Recipients: []Receipt{}}
+		if out.ToEveryone || !out.Available {
 			return nil
 		}
 		members, err := tx.Members(b.ID)

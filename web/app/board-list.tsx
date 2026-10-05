@@ -25,7 +25,7 @@ async function factsOf(b: Board): Promise<Facts> {
   };
 }
 
-export default function BoardList() {
+export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
   const [boards, setBoards] = useState<Board[] | null>(null);
   const [facts, setFacts] = useState<Record<string, Facts>>({});
   const [error, setError] = useState<unknown>(null);
@@ -81,7 +81,7 @@ export default function BoardList() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <Header account={<Account />} />
+      <Header account={<Account onSignOut={onSignOut} />} />
       <main className="mx-auto w-full max-w-[960px] px-4 py-8 sm:px-6">
         <h1 className="mb-4 text-headline font-bold">Your boards</h1>
         {error !== null && <Problem error={error} />}

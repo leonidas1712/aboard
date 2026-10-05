@@ -68,7 +68,7 @@ type Props = {
   onToggle: (root: string, open: boolean) => void;
   /** onShow scrolls to a message, opening its thread first if it is closed. */
   onShow: (id: string) => void;
-  /** onSeen runs with the newest seq while the newest entry is in view. */
+  /** onSeen runs for each message row presented on screen. */
   onSeen: (seq: number) => void;
   /** receipts says where to read the receipts of the person's messages; null shows none. */
   receipts: ReceiptsAt;
@@ -191,8 +191,25 @@ export function Timeline({
   }, [stick, toBottom]);
 
   useEffect(() => {
-    if (atBottom.current && latest > 0) onSeen(latest);
-  }, [latest, onSeen]);
+    const el = scroller.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((observed) => {
+      if (document.visibilityState !== "visible") return;
+      for (const row of observed) {
+        if (row.isIntersecting) onSeen(Number((row.target as HTMLElement).dataset.seq));
+      }
+    }, { root: el });
+    const observe = () => {
+      observer.disconnect();
+      for (const row of el.querySelectorAll<HTMLElement>(".message[data-seq]")) observer.observe(row);
+    };
+    observe();
+    document.addEventListener("visibilitychange", observe);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", observe);
+    };
+  }, [entries, onSeen]);
 
   // The scrollbar shows while the timeline scrolls, then fades back out.
   const scrolling = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,7 +224,6 @@ export function Timeline({
     setShowJump(!bottom);
     if (bottom) {
       setUnseen(0);
-      if (latest > 0) onSeen(latest);
     }
     lastCount.current.height = el.scrollHeight;
   };

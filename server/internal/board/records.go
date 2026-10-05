@@ -101,12 +101,16 @@ const (
 // BrowserLogin is a browser token, kept by the digest of the token and never the token
 // itself. Like a read cursor it is bookkeeping, not part of any board's record.
 type BrowserLogin struct {
+	// ID names the login (ses_…) so its person can list and end it without its secret.
+	ID          string
 	TokenDigest string
 	HumanID     string
 	// KeyID is the access key that started the login, which it never outlives.
-	KeyID     string
-	CreatedAt string
-	ExpiresAt string
+	KeyID string
+	// StartedWith is how the login started: SessionFromLoginCode or SessionFromKey.
+	StartedWith string
+	CreatedAt   string
+	ExpiresAt   string
 }
 
 // Board is a board's current state.
@@ -229,7 +233,8 @@ type Message struct {
 	ExpectsReply bool
 	Redactions   []Redaction
 	// Recipients are the member ids the message was addressed to when it was posted, in
-	// the order it named them; nil for a message to all.
+	// the order it named them; nil for a message to all or a legacy message whose
+	// recipients were not recorded. To distinguishes those cases.
 	Recipients []string
 	// Reactions are the reactions on the message as its reader sees them, in the set's
 	// order. The service fills them for each reader.

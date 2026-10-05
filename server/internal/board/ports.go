@@ -45,6 +45,11 @@ type ReadTx interface {
 	// BrowserLoginByDigest finds a browser login by the digest of its token, whether or
 	// not it has expired.
 	BrowserLoginByDigest(digest string) (BrowserLogin, error)
+	// BrowserLoginByID finds a browser login by id, whether or not it has expired.
+	BrowserLoginByID(id string) (BrowserLogin, error)
+	// BrowserLoginsOf lists a human's browser logins that haven't expired at now, newest
+	// first.
+	BrowserLoginsOf(humanID, now string) ([]BrowserLogin, error)
 	// BoardByName finds a board by name.
 	BoardByName(name string) (Board, error)
 	// BoardByID finds a board by id.
@@ -169,6 +174,8 @@ type Tx interface {
 	// DeleteBrowserLogins removes every browser login of a human and returns how many
 	// of them had not expired at now.
 	DeleteBrowserLogins(humanID, now string) (int, error)
+	// DeleteBrowserLogin removes one browser login by id.
+	DeleteBrowserLogin(id string) error
 	// DeleteExpiredBrowserLogins removes the browser logins whose ExpiresAt is at or
 	// before now.
 	DeleteExpiredBrowserLogins(now string) error

@@ -188,7 +188,8 @@ func (s *Service) restorePerson(tx Tx, b *Board, m *Member, actor events.Actor, 
 	}); err != nil {
 		return err
 	}
-	return startReading(tx, *b, *m)
+	// Rejoining restores access, not evidence of reading messages.
+	return nil
 }
 
 // ownersOf returns the names of the board's owners.

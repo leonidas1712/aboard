@@ -66,6 +66,7 @@ export function ReceiptMark({ board, seq, activity }: { board: string; seq: numb
     if (seen) load();
   }, [seen, activity, load]);
 
+  if (receipts && !receipts.available && !receipts.to_everyone) return <div ref={ref} className="receipts text-meta text-muted">Receipts unavailable</div>;
   const rs = receipts?.recipients ?? [];
   if (rs.length === 0) return <div ref={ref} className="receipts" />;
   const summary = summaryOf(rs);

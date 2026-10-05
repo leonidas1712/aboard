@@ -245,6 +245,8 @@ func helpText(templates string) []commandHelp {
 				"aboard keys [--person HANDLE] [--server URL] [--json]",
 				"aboard keys create <name> [--expires DURATION] [--server URL] [--json]",
 				"aboard keys revoke <name|id> [--person HANDLE] [--yes] [--server URL] [--json]",
+				"aboard keys sessions [<name|id>] [--server URL] [--json]",
+				"aboard keys sessions end <session id> [--server URL] [--json]",
 			},
 			Description: "An access key signs you in as yourself: this machine keeps one, and you can make others for a phone, another browser or a script. " +
 				"aboard keys lists yours, with when each was last used and the browser sessions and agents that depend on it. " +
@@ -252,7 +254,9 @@ func helpText(templates string) []commandHelp {
 				"keys create makes a key and shows it once: save it in a password manager. Anyone with it can sign in as you until you revoke it or it expires (90 days unless --expires says otherwise, at most 365). " +
 				"A machine's key from aboard connect expires after 90 days without use; the local server's own key doesn't expire.\n\n" +
 				"keys revoke ends a key at once, with every browser session and agent seat it started. Your other keys keep working. " +
-				"An admin of the server may list and revoke anyone's keys with --person, but creates keys only for themselves. " +
+				"An admin of the server may list and revoke anyone's keys with --person, but creates keys only for themselves.\n\n" +
+				"keys sessions lists the browsers signed in as you, from aboard open or by pasting a key on the board view's login page, each with its key; name a key to see only its sessions. " +
+				"keys sessions end signs one browser out, leaving the others and the key working.\n\n" +
 				"Keys are up to a person: these commands refuse inside an agent's session.",
 			Flags: []helpFlag{
 				{"--person", "HANDLE", "Another person's keys. Admins only."},
@@ -266,8 +270,10 @@ func helpText(templates string) []commandHelp {
 				{"aboard keys create phone --expires 90d", "A key for your phone's browser"},
 				{"aboard keys revoke maya-laptop", "End a lost laptop's key"},
 				{"aboard keys --person maya", "An admin listing another person's keys"},
+				{"aboard keys sessions phone", "The browsers signed in with your phone's key"},
+				{"aboard keys sessions end ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8", "Sign one browser out"},
 			},
-			SeeAlso: []string{"login", "connect", "logout"},
+			SeeAlso: []string{"login", "connect", "logout", "open"},
 		},
 		{
 			Name: "logout", Group: groupStart,

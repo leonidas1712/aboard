@@ -656,11 +656,8 @@ person ids stable and identity checks behind one boundary, so the adapter slots 
 
 - Agents can create and revoke join codes for anyone; codes that admit other people
   become person-only.
-- Browser sessions don't record which key created them, so revoking one can't cascade;
-  the browser keeps its token where page scripts can read it.
 - A person holds a single token, with no named keys per machine or use.
-- Join codes are six characters; the join limit is per address only, and the browser
-  sign-in exchange isn't limited.
+- Join codes are six characters; the join limit is per address only.
 
 ## Sources
 

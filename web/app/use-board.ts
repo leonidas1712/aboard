@@ -71,6 +71,8 @@ export type BoardState = {
   activity: number;
   /** readFrom is the person's read position when the page opened, read before it could acknowledge anything. */
   readFrom: number | null;
+  /** firstUnread is the first message after the opening cursor, including unloaded messages. */
+  firstUnread: number | null;
 };
 
 /** isReaction is true for the events that add or take back a reaction, shown on their message instead. */
@@ -97,6 +99,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const [rootless, setRootless] = useState<Set<string>>(new Set());
   const [activity, setActivity] = useState(0);
   const [readFrom, setReadFrom] = useState<number | null>(null);
+  const [firstUnread, setFirstUnread] = useState<number | null>(null);
   // acked is the highest position this page asked for, so it asks only to move forward.
   const acked = useRef(0);
   const requested = useRef<Set<string>>(new Set());
@@ -231,10 +234,17 @@ export function useBoard(name: string, filter: Filter): BoardState {
       // The head first: every reaction up to it is already on the messages read after it.
       const first = await get<Board>(path);
       const head = first.head_seq;
-      const [page, who] = await Promise.all([get<MessagePage>(`${path}/messages`, { newest: true, limit: PAGE }), get<Me>("/v1/me")]);
+      const [page, who] = await Promise.all([
+        get<MessagePage>(`${path}/messages`, { newest: true, limit: PAGE }),
+        get<Me>("/v1/me"),
+      ]);
+      // Check coverage after the newest page: a concurrent post must not leave an
+      // empty first-unread result beside a page containing new unread messages.
+      const unread = await get<MessagePage>(`${path}/messages`, { after: first.read_up_to ?? 0, limit: 1 });
       loadedHead.current = head;
       if (!live.current) return;
       setReadFrom(first.read_up_to ?? 0);
+      setFirstUnread(unread.messages[0]?.seq ?? 0);
       setMe(who);
       setBase({ messages: page.messages, prevBefore: page.prev_before });
       newest.current = page.messages.at(-1)?.seq ?? 0;
@@ -382,5 +392,6 @@ export function useBoard(name: string, filter: Filter): BoardState {
     ack,
     activity,
     readFrom,
+    firstUnread,
   };
 }

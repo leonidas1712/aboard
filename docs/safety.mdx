@@ -95,21 +95,47 @@ without a terminal it needs `--yes`. Adding and removing people, making owners a
 changing a board's visibility use your own login, so an agent asked to do one hands you
 the command. Everything is recorded with who did it.
 
-**The browser acts as you, and only `aboard open` logs it in.** `aboard open` logs the
-browser in with a link that works once, for 60 seconds, so your login never appears in a
-URL. The link's code sits after the `#`, which browsers never send to a server, and the
-page removes it from the address bar. The page trades the code for a browser token that
-it keeps in its own storage and sends with each request itself, in a header, so the token
-reaches only Aboard: no cookie is involved, so another website can't make your browser
-use it. The token has exactly your permissions, the same as your `aboard` commands: it can
+**The browser acts as you, through a session its page can't read.** A browser signs in
+two ways. `aboard open` opens it with a link that works once, for 60 seconds, so your
+key never appears in a URL: the link's code sits after the `#`, which browsers never send
+to a server, and the page removes it from the address bar. Or you paste an access key
+(from `aboard keys create <name>`, kept in your password manager) on the board view's
+login page; the key goes to the server in one request and the page doesn't keep it.
+Either way the server starts a browser session and keeps its secret in a cookie marked
+`HttpOnly`, so the page's own scripts can't read it, `SameSite=Lax`, and sent only to
+the host that set it; over HTTPS it is also `Secure`. The local server, which has no
+HTTPS, sets it without `Secure` on `127.0.0.1` and `localhost` only. Anywhere else over
+plain HTTP the page sends no key and no code: the login page is disabled and says to use
+HTTPS or `aboard open`.
+
+A login link never signs a browser in by itself, because anyone can send you one: the
+page first shows whose account it opens ("Sign in to team.example.com as @sam?"), and,
+if you're signed in as someone else, that it would switch you. Nothing changes until you
+click Continue; Cancel leaves the browser as it was. The server enforces this too: a
+sign-in that would switch a browser from one person to another is refused unless the page
+says its person confirmed it. A link for the person already signed in just refreshes the
+session.
+
+Every write the browser makes must come from Aboard's own page: the server checks its
+`Origin` header and a CSRF token the page reads from the server, and sends no headers
+that would let another site read a response. Signing in needs the same `Origin`, and
+failed attempts are limited to 20 a minute per address and 100 across the server, and all
+attempts to 120 and 600. The page runs
+under a strict content security policy: only Aboard's own scripts run, so a message,
+note or file name is always shown as text and can never run as code.
+
+The session has exactly your permissions, the same as your `aboard` commands: it can
 post and reply, and if you are the board's admin, change its policy; a member's browser
-gets `admin_required` like their CLI. It can't make another login link. The browser token
-lasts 30 days, across restarts and upgrades of the server; the server keeps only a digest of
-it, never the token. `aboard logout --browsers` logs every browser out at once, and each
-then asks you to run `aboard open` again. An agent may run `aboard open` for you;
-the command then never prints the link, so the link never reaches the agent. The local
-server answers only requests addressed to `127.0.0.1` or `localhost` at its own port, so
-a web page can't reach it under another name.
+gets `admin_required` like their CLI. It can never create, list or revoke keys, make a
+login link, or end other sessions. It lasts 30 days, or until its key expires if that is
+sooner, across restarts and upgrades of the server; the server keeps only a digest of it.
+Revoking its key ends it at once. "Sign out of this browser" in the board view's menu
+ends just that session; `aboard keys sessions` lists your sessions with their keys,
+`aboard keys sessions end <id>` ends one, and `aboard logout --browsers` ends them all.
+An agent may run `aboard open` for you; the command then never prints the link, so the
+link never reaches the agent. The local server answers only requests addressed to
+`127.0.0.1` or `localhost` at its own port, so a web page can't reach it under another
+name.
 
 ## On one machine
 

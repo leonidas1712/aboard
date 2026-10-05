@@ -28,7 +28,7 @@ const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
 const leftPanel: Limits = { initial: 272, min: 240, max: 400 };
 const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
 
-export default function BoardView({ name }: { name: string }) {
+export default function BoardView({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
@@ -189,32 +189,26 @@ export default function BoardView({ name }: { name: string }) {
     return next?.seq ?? null;
   }, [entries, lastSeen]);
 
-  // What the person saw at the bottom of the timeline is read: the page acknowledges it,
-  // never what a filter showed, and only while the page is in front of them. Seen while
-  // hidden, it is acknowledged once the page shows again.
+  // A cumulative cursor may pass only a contiguous stretch of presented messages.
+  // An unloaded first unread message or a collapsed reply holds it back.
   const { ack } = s;
-  const unseenSeq = useRef(0);
+  const presented = useRef(new Set<number>());
   const onSeen = useCallback(
     (seq: number) => {
-      if (filterActive(filter)) return;
-      if (document.visibilityState !== "visible") {
-        unseenSeq.current = Math.max(unseenSeq.current, seq);
-        return;
+      if (filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
+      presented.current.add(seq);
+      const from = s.readFrom;
+      const unread = (s.messages ?? []).filter((m) => m.seq > from);
+      if (s.firstUnread > 0 && unread[0]?.seq !== s.firstUnread) return;
+      let through = s.readFrom;
+      for (const m of unread) {
+        if (!presented.current.has(m.seq)) break;
+        through = m.seq;
       }
-      ack(seq);
+      if (through > s.readFrom) ack(through);
     },
-    [filter, ack],
+    [filter, ack, s.messages, s.readFrom, s.firstUnread],
   );
-  useEffect(() => {
-    const shown = () => {
-      if (document.visibilityState === "visible" && unseenSeq.current > 0) {
-        ack(unseenSeq.current);
-        unseenSeq.current = 0;
-      }
-    };
-    document.addEventListener("visibilitychange", shown);
-    return () => document.removeEventListener("visibilitychange", shown);
-  }, [ack]);
   const receiptsAt = useMemo(() => ({ board: name, activity: s.activity }), [name, s.activity]);
 
   const quote = useCallback(
@@ -342,7 +336,7 @@ export default function BoardView({ name }: { name: string }) {
           shared={people.length > 1}
           onTitle={s.board ? () => show("board-details") : undefined}
           onStarter={() => show("rules")}
-          account={<Account admin={people.length > 1 && myAccess === "admin"} />}
+          account={<Account admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
         />
         <div
           className="board-columns flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)]"

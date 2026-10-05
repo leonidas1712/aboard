@@ -123,18 +123,53 @@ func (t *tx) UseServerInvite(id, at, humanID string) (bool, error) {
 
 // InsertBrowserLogin adds a browser login.
 func (t *tx) InsertBrowserLogin(l board.BrowserLogin) error {
-	return t.exec("INSERT INTO browser_logins (token_digest, human_id, key_id, created_at, expires_at) VALUES (?, ?, NULLIF(?, ''), ?, ?)",
-		l.TokenDigest, l.HumanID, l.KeyID, l.CreatedAt, l.ExpiresAt)
+	return t.exec("INSERT INTO browser_logins ("+browserLoginColumns+") VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?)",
+		l.ID, l.TokenDigest, l.HumanID, l.KeyID, l.StartedWith, l.CreatedAt, l.ExpiresAt)
+}
+
+const browserLoginColumns = "id, token_digest, human_id, key_id, started_with, created_at, expires_at"
+
+func scanBrowserLogin(row interface{ Scan(...any) error }) (board.BrowserLogin, error) {
+	var l board.BrowserLogin
+	var key sql.NullString
+	err := row.Scan(&l.ID, &l.TokenDigest, &l.HumanID, &key, &l.StartedWith, &l.CreatedAt, &l.ExpiresAt)
+	l.KeyID = key.String
+	return l, notFound(err)
 }
 
 // BrowserLoginByDigest finds a browser login by the digest of its token.
 func (t *tx) BrowserLoginByDigest(digest string) (board.BrowserLogin, error) {
-	var l board.BrowserLogin
-	var key sql.NullString
-	err := t.queryRow("SELECT token_digest, human_id, key_id, created_at, expires_at FROM browser_logins WHERE token_digest = ?", digest).
-		Scan(&l.TokenDigest, &l.HumanID, &key, &l.CreatedAt, &l.ExpiresAt)
-	l.KeyID = key.String
-	return l, notFound(err)
+	return scanBrowserLogin(t.queryRow("SELECT "+browserLoginColumns+" FROM browser_logins WHERE token_digest = ?", digest))
+}
+
+// BrowserLoginByID finds a browser login by id.
+func (t *tx) BrowserLoginByID(id string) (board.BrowserLogin, error) {
+	return scanBrowserLogin(t.queryRow("SELECT "+browserLoginColumns+" FROM browser_logins WHERE id = ?", id))
+}
+
+// BrowserLoginsOf lists a human's browser logins that haven't expired at now, newest
+// first.
+func (t *tx) BrowserLoginsOf(humanID, now string) ([]board.BrowserLogin, error) {
+	rows, err := t.tx.QueryContext(t.ctx, "SELECT "+browserLoginColumns+
+		" FROM browser_logins WHERE human_id = ? AND expires_at > ? ORDER BY created_at DESC, id DESC", humanID, now)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []board.BrowserLogin
+	for rows.Next() {
+		l, err := scanBrowserLogin(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
+}
+
+// DeleteBrowserLogin removes one browser login by id.
+func (t *tx) DeleteBrowserLogin(id string) error {
+	return t.exec("DELETE FROM browser_logins WHERE id = ?", id)
 }
 
 // DeleteBrowserLogins removes every browser login of a human and returns how many had

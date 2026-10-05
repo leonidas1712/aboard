@@ -56,7 +56,8 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 		return apiError(r.StatusCode(), r.Body)
 	}
 	// The code goes in the fragment, which browsers never send to a server; the page
-	// reads it, exchanges it for a browser token and drops it from the address bar.
+	// reads it, exchanges it for a browser session kept in a cookie its scripts can't
+	// read, and drops it from the address bar.
 	link := srv.URL + "/#code=" + url.QueryEscape(r.JSON201.Code)
 	uiURL := srv.URL + "/"
 	if board != "" {

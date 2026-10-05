@@ -91,8 +91,8 @@ target then, never the sender. Only `to` decides them: a member only mentioned i
 body is not a recipient and has no receipt. It fixes the message's receipts,
 so someone who takes the role later never becomes a recipient. A message to `all` has
 no `recipients`, and neither do events written before they were recorded; for those a
-reader takes the members named, and the members with the role who joined before the
-message.
+reader reports receipts unavailable. Current names, roles and join timestamps cannot
+reconstruct historical recipients.
 
 `access` in `member.joined` is what a person may change on the board: `admin` for the
 person who created it, `member` for a person who joined because their agent did. It is

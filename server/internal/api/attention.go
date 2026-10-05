@@ -49,8 +49,9 @@ func (h *handlers) GetReceipts(ctx context.Context, req GetReceiptsRequestObject
 		MessageID  string        `json:"message_id"`
 		To         []string      `json:"to"`
 		ToEveryone bool          `json:"to_everyone"`
+		Available  bool          `json:"available"`
 		Recipients []wireReceipt `json:"recipients"`
-	}{r.Board.Name, r.Message.Seq, r.Message.ID, r.Message.To, r.ToEveryone, recipients})
+	}{r.Board.Name, r.Message.Seq, r.Message.ID, r.Message.To, r.ToEveryone, r.Available, recipients})
 }
 
 // withPosition adds the caller's read position to a board's wire form, when the read
