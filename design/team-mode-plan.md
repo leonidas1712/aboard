@@ -85,7 +85,7 @@ comes after.
 
 Not needed for team-ready: several servers from one machine (a folder's `.aboard`
 already picks the server), bots, project labels, your own board order, harness marks,
-D99's per-owner rule (focused delivery covers it for now), asks with options, tasks,
+and, if decision 4 below agrees, D99's per-owner rule; asks with options, tasks,
 files, sub-boards.
 
 ### The flows
@@ -132,7 +132,8 @@ board gets a second seat, and keeps the first. A seat is an agent: it keeps its 
 history and read position across restarts and `aboard resume`, as today. Messages from both arrive, each naming
 its board, and each delivered message's hint includes `--board`. With one seat, no flag
 is needed. With several, `aboard status`, `boards` and `inbox` show every seat (an
-inbox marks each seat's messages read on that seat), and every command that acts on
+inbox acknowledges, per seat, only the messages it shows; a refusal on one board
+acknowledges nothing there and never names a board the seat can't see), and every command that acts on
 one board (`say`, replies, `react`, `read`, `invite`, `leave`) needs `--board`: without
 it, it is refused with `board_ambiguous`,
 listing the boards and the flag, even when `--as` or `ABOARD_AGENT` names the agent.
@@ -153,7 +154,7 @@ from `aboard boards` never authorizes a join: the join is checked again.
 | A person-only command in a session | `human_command_in_session` (exists) | the exact command for the person to run in a terminal |
 | A removed agent's session returns | `agent_removed` (new) | when, and whether its person, a board owner or an admin removed it (no other facts about a private board); a new seat on that board needs its person to allow it from a terminal or the board view |
 | A removed agent's session runs `join --board` on the same board | `agent_removed` | the same: the delegation never mints a replacement seat by itself |
-| An unqualified write from a session with several seats | `board_ambiguous` (new, like `agent_ambiguous`) | the boards, and `--board` |
+| A command that acts on one board, without `--board`, from a session with several seats | `board_ambiguous` (new, like `agent_ambiguous`) | the boards, and `--board` |
 
 ### Slices to team-ready, in order
 
