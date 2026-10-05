@@ -1,11 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -77,13 +83,17 @@ const noUIPage = `<!doctype html><meta charset="utf-8"><title>Aboard</title>` +
 
 // serveUI serves the web UI's files for GET requests. With no files, it serves a page
 // at / saying how to get them.
-func serveUI(files fs.FS) http.Handler {
+func serveUI(files fs.FS) (http.Handler, error) {
 	var static http.Handler
 	if files != nil {
 		static = http.FileServerFS(files)
 	}
+	csp, err := uiPolicy(files)
+	if err != nil {
+		return nil, err
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", csp)
 		switch {
 		case r.Method != http.MethodGet && r.Method != http.MethodHead:
 			w.Header().Set("Allow", "GET, HEAD")
@@ -96,5 +106,74 @@ func serveUI(files fs.FS) http.Handler {
 		default:
 			http.NotFound(w, r)
 		}
+	}), nil
+}
+
+// inlineScript matches a script element with no src attribute and its text.
+var inlineScript = regexp.MustCompile(`(?is)<script((?:\s[^>]*)?)>(.*?)</script>`)
+
+// uiPolicy is the Content-Security-Policy for the UI's pages. Scripts run only from this
+// server's own files and the inline scripts the built pages hold, each allowed by its
+// SHA-256 hash, read from the files when the server starts: the page's next build
+// changes them, and nothing else can add one. So text that reaches the page (a message,
+// a note, a file name) can't run as a script even if it got into the page as HTML.
+// Styles may be inline, because the UI's components position menus and tooltips with
+// style attributes and tags; a style can't run code. Nothing loads from another origin,
+// and no other site may frame the page.
+func uiPolicy(files fs.FS) (string, error) {
+	hashes := map[string]bool{}
+	if files != nil {
+		err := fs.WalkDir(files, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".html") {
+				return err
+			}
+			page, err := fs.ReadFile(files, path)
+			if err != nil {
+				return err
+			}
+			for _, m := range inlineScript.FindAllSubmatch(page, -1) {
+				if bytes.Contains(bytes.ToLower(m[1]), []byte("src=")) || len(m[2]) == 0 {
+					continue
+				}
+				sum := sha256.Sum256(m[2])
+				hashes["'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'"] = true
+			}
+			return nil
+		})
+		if err != nil {
+			return "", fmt.Errorf("read the UI's pages: %w", err)
+		}
+	}
+	scripts := []string{"'self'"}
+	for _, h := range slices.Sorted(maps.Keys(hashes)) {
+		scripts = append(scripts, h)
+	}
+	return "default-src 'self'; script-src " + strings.Join(scripts, " ") +
+		"; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'" +
+		"; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'", nil
+}
+
+// apiPolicy is the Content-Security-Policy for API responses, which are data, never
+// pages: a response opened in a browser tab loads and runs nothing.
+const apiPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+
+// apiHeaders marks every API response as data that no page may run or frame.
+func apiHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", apiPolicy)
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityHeaders sets what every response carries: no page of another site may frame
+// this server's, browsers don't guess content types, and no address of this server (a
+// board name in a query, say) is sent to another site as a referrer.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
 	})
 }

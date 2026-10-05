@@ -66,12 +66,16 @@ type ServerInvite struct {
 // BrowserLogin is a browser token, kept by the digest of the token and never the token
 // itself. Like a read cursor it is bookkeeping, not part of any board's record.
 type BrowserLogin struct {
+	// ID names the login (ses_…) so its person can list and end it without its secret.
+	ID          string
 	TokenDigest string
 	HumanID     string
 	// KeyID is the access key that started the login, which it never outlives.
-	KeyID     string
-	CreatedAt string
-	ExpiresAt string
+	KeyID string
+	// StartedWith is how the login started: SessionFromLoginCode or SessionFromKey.
+	StartedWith string
+	CreatedAt   string
+	ExpiresAt   string
 }
 
 // Board is a board's current state.

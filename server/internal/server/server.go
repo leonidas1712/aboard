@@ -111,6 +111,7 @@ func Run(ctx context.Context, o Options) error {
 	}
 	handler, err := api.NewHandler(api.Options{
 		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30, ConnectsPerMinute: 10, ConnectsPerMinuteServer: 60,
+		SignInsPerMinute: 20, SignInsPerMinuteServer: 100,
 		Shutdown: shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
 	})
 	if err != nil {

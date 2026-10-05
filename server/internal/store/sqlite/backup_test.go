@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -140,6 +141,10 @@ func TestUpgradeGivesInvitedPeoplesKeysAnIdleExpiry(t *testing.T) {
 		for _, q := range []string{
 			"INSERT INTO humans (id, name, role, created_at) VALUES ('hum_a', 'alex', 'admin', '2026-10-01T16:00:00.000Z'), ('hum_m', 'maya', 'member', '2026-10-01T16:00:00.000Z')",
 			"INSERT INTO access_keys (id, human_id, name, digest, created_at) VALUES ('key_a', 'hum_a', 'laptop', 'd-a', '2026-10-01T16:00:00.000Z'), ('key_m', 'hum_m', 'laptop', 'd-m', '2026-10-01T16:00:00.000Z')",
+			// Undo what the later migrations added, so the database is as schema 12 left it.
+			"DROP INDEX browser_logins_by_id",
+			"ALTER TABLE browser_logins DROP COLUMN id",
+			"ALTER TABLE browser_logins DROP COLUMN started_with",
 			"PRAGMA user_version = 12",
 		} {
 			if err := x.exec(q); err != nil {
@@ -181,5 +186,29 @@ func TestUpgradeGivesInvitedPeoplesKeysAnIdleExpiry(t *testing.T) {
 	at, err := time.Parse("2006-01-02T15:04:05.000Z", *expires["key_m"])
 	if err != nil || time.Until(at) < 89*24*time.Hour || time.Until(at) > 91*24*time.Hour {
 		t.Fatalf("maya's key expires at %v (%v)", *expires["key_m"], err)
+	}
+}
+
+// A browser login from before sessions had ids gets one on upgrade, in the form the API
+// names sessions by, and counts as started from aboard open, the only way there was.
+func TestUpgradeGivesBrowserLoginsAnID(t *testing.T) {
+	ctx := context.Background()
+	st, err := Open(ctx, copyFixture(t), clock.Real{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	err = st.read(ctx, func(x *tx) error {
+		var id, startedWith string
+		if err := x.queryRow("SELECT id, started_with FROM browser_logins").Scan(&id, &startedWith); err != nil {
+			return err
+		}
+		if !regexp.MustCompile(`^ses_[0-9A-HJKMNP-TV-Z]{26}$`).MatchString(id) || startedWith != "login_code" {
+			t.Errorf("the browser login after the upgrade: id %q, started with %q", id, startedWith)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

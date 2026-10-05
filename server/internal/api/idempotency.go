@@ -43,6 +43,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 		key := r.Header.Get("Idempotency-Key")
 		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" ||
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
+			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost)
 		if key == "" || r.Method == http.MethodGet || secret {
 			next.ServeHTTP(w, r)

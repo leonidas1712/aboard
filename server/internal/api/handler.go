@@ -43,6 +43,11 @@ type Options struct {
 	// ConnectsPerMinuteServer across every address. Zero means no limit.
 	ConnectsPerMinute       int
 	ConnectsPerMinuteServer int
+	// SignInsPerMinute limits browser sign-ins (POST /v1/browser-sessions and
+	// POST /v1/browser-tokens) per client address, and SignInsPerMinuteServer across
+	// every address. Zero means no limit.
+	SignInsPerMinute       int
+	SignInsPerMinuteServer int
 	// Shutdown is done when the server starts shutting down. Open event streams on
 	// GET /v1/stream end then; without it they end only when their clients disconnect.
 	Shutdown context.Context
@@ -91,11 +96,16 @@ func NewHandler(o Options) (http.Handler, error) {
 	})
 	limiter := newRateLimiter(o.Clock, o.JoinsPerMinute)
 	connects := connectLimits{perAddr: newRateLimiter(o.Clock, o.ConnectsPerMinute), all: newRateLimiter(o.Clock, o.ConnectsPerMinuteServer)}
-	apiChain := validate(authenticate(o, limiter, connects, idempotent(o, routes)))
+	signIns := connectLimits{perAddr: newRateLimiter(o.Clock, o.SignInsPerMinute), all: newRateLimiter(o.Clock, o.SignInsPerMinuteServer)}
+	apiChain := validate(authenticate(o, limiter, connects, signIns, idempotent(o, routes)))
+	ui, err := serveUI(o.UI)
+	if err != nil {
+		return nil, err
+	}
 	outer := http.NewServeMux()
-	outer.Handle("/v1/", apiChain)
-	outer.Handle("/", serveUI(o.UI))
-	return recoverPanics(o.Log, checkHost(o.Log, o.Hosts, outer)), nil
+	outer.Handle("/v1/", apiHeaders(apiChain))
+	outer.Handle("/", ui)
+	return recoverPanics(o.Log, securityHeaders(checkHost(o.Log, o.Hosts, outer))), nil
 }
 
 func notFound(r *http.Request) *apierr.Error {
@@ -136,17 +146,18 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// authenticate resolves the bearer token for every route except GET /v1/info,
-// POST /v1/browser-tokens and POST /v1/connect, and rate limits join attempts by client
-// address, and invite redemptions by client address and across the server.
-func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next http.Handler) http.Handler {
+// authenticate resolves the caller's credential for every route except GET /v1/info,
+// the browser sign-in routes and POST /v1/connect, and rate limits join attempts by
+// client address, and invite redemptions and browser sign-ins by client address and
+// across the server. The credential is the Authorization header's bearer token or,
+// without that header, a browser session's cookie, whose writes must also pass the
+// Origin and CSRF checks.
+func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie := cookieFor(r)
+		r = r.WithContext(context.WithValue(r.Context(), sessionKey{}, requestSession{cookie: cookie}))
 		if r.URL.Path == "/v1/connect" && r.Method == http.MethodPost {
-			host, _, _ := net.SplitHostPort(r.RemoteAddr)
-			// Both limits count every attempt, so a guess spread over many addresses
-			// still meets the server-wide one.
-			perAddr, all := connects.perAddr.allow(host), connects.all.allow("")
-			if !perAddr || !all {
+			if !connects.allow(r) {
 				w.Header().Set("Retry-After", "60")
 				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to redeem an invite.",
 					"Wait a minute, then try again."))
@@ -155,7 +166,26 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next 
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/v1/info" || (r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) {
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/browser-sessions" || r.URL.Path == "/v1/browser-tokens") {
+			if !signIns.allow(r) {
+				w.Header().Set("Retry-After", "60")
+				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to sign a browser in.",
+					"Wait a minute, then try again."))
+				return
+			}
+			// A forged sign-in would put the victim's browser in someone else's session.
+			// Only a session's cookie can be planted that way; the deprecated token
+			// exchange sets none.
+			if r.URL.Path == "/v1/browser-sessions" {
+				if err := sameOrigin(r, cookie); err != nil {
+					writeError(w, o.Log, err)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/v1/info" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -169,6 +199,22 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next 
 			}
 		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if r.Header.Get("Authorization") == "" {
+			if c, err := r.Cookie(cookie.name); err == nil && c.Value != "" {
+				// Only a browser session's secret lives in the cookie.
+				if !strings.HasPrefix(c.Value, "abb_") {
+					writeError(w, o.Log, apierr.Unauthorized())
+					return
+				}
+				// Checked before the session is looked up, so a forged write records no
+				// use of the key.
+				if err := checkCSRF(r, o.Service, cookie, c.Value); err != nil {
+					writeError(w, o.Log, err)
+					return
+				}
+				token, ok = c.Value, true
+			}
+		}
 		if !ok || token == "" {
 			writeError(w, o.Log, apierr.Unauthorized())
 			return
@@ -180,13 +226,24 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next 
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
 		ctx = context.WithValue(ctx, scopeKey{}, scopeOf(token))
+		if p.Browser {
+			ctx = context.WithValue(ctx, sessionKey{}, requestSession{cookie: cookie, token: token})
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-// connectLimits are the two limits on redeeming invites: per client address, and across
-// the server.
+// connectLimits are two limits on attempts with a secret (redeeming invites, signing a
+// browser in): per client address, and across the server.
 type connectLimits struct{ perAddr, all *rateLimiter }
+
+// allow counts an attempt from r against both limits. Both count every attempt, so a
+// guess spread over many addresses still meets the server-wide one.
+func (l connectLimits) allow(r *http.Request) bool {
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	perAddr, all := l.perAddr.allow(host), l.all.allow("")
+	return perAddr && all
+}
 
 type scopeKey struct{}
 
