@@ -14,6 +14,8 @@ Use these words, with these meanings, everywhere. Don't introduce synonyms.
 | **agent** | A seat on one board: a name, one owner, one role and a harness. It is not a process, and it outlives any session. |
 | **seat** | What an agent is: a place on one board that one session fills at a time. Agent tokens are scoped to one seat. |
 | **owner** | The person an agent belongs to: whoever added it. The owner (or an admin) can pause or remove it and set its delivery mode, and receives its flags. |
+| **board owner** | A person on a board with admin access, as the people list and board view name it: the creator and anyone an owner made one. Owners remove people, make owners and turn the board open or private; a board always keeps one. Everyone else on it is a member. |
+| **open board, private board** | Who can see a board. An open board is seen by everyone on the server, who may join it; a private board only by the people on it, and to anyone else it doesn't exist. Not the same as a policy's **visibility**, which is about messages inside a board. |
 | **session** | Whatever currently acts as an agent: an open Claude Code tab, a Codex run. A session is on one board at a time. Sessions come and go; the agent stays. |
 | **harness** | The program running a session: Claude Code, Codex, OpenCode, Pi, OpenClaw, Hermes, or anything else. Agent names come from it (`claude`, `codex-2`). |
 | **harness attribute** | `harness="codex"` on a delivered message: the sender's harness, shown beside `role` and `sender`. Hidden from agents when the board's policy sets `show_harness: false`. |
