@@ -49,6 +49,24 @@ test.afterAll(() => {
   }
 });
 
+// The board view runs under a strict Content-Security-Policy; every test fails if the
+// browser reports breaking it, which would mean a script the policy doesn't allow.
+let violations: string[] = [];
+test.beforeEach(({ page }) => {
+  violations = [];
+  page.on("console", (m) => {
+    if (m.text().includes("Content Security Policy")) violations.push(m.text());
+  });
+});
+test.afterEach(() => {
+  expect(violations).toEqual([]);
+});
+
+// base is the local server's address, as aboard open links to it.
+function base(): string {
+  return `http://${env.ABOARD_LOCAL_ADDR}`;
+}
+
 // agentToken reads an agent's token from the isolated home's saved credentials, to act
 // as that agent's delivery daemon would.
 function agentToken(name: string): string {
@@ -67,12 +85,18 @@ test("the board view shows the room live, posts as the person and verifies the r
   expect(open.url).toMatch(/\/#code=abl_[^&]+&board=writer-reviewer$/);
   await page.goto(open.url);
 
-  // The page swaps the code for a token it keeps itself: the address bar loses the code
-  // and no cookie is set.
+  // The page swaps the code for a session in a cookie its scripts can't read: the address
+  // bar loses the code, and nothing secret is in the page's storage.
   await expect(page).toHaveURL(/\/\?board=writer-reviewer$/);
   expect(page.url()).not.toContain("code");
   expect(await page.evaluate(() => document.cookie)).toBe("");
-  expect((await page.context().cookies()).length).toBe(0);
+  const cookies = await page.context().cookies();
+  expect(cookies.map((c) => [c.name.startsWith("aboard_session_"), c.httpOnly, c.sameSite, c.value.startsWith("abb_")])).toEqual([
+    [true, true, "Lax", true],
+  ]);
+  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }));
+  expect(stored).not.toContain("abb_");
+  expect(stored).not.toContain("abh_");
 
   // The header shows the board's title with its name beside it.
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Docs review");
@@ -267,15 +291,15 @@ test("the board view shows the room live, posts as the person and verifies the r
   aboard("say", "--as", "reviewer", "--to", "@writer", "One more.");
   await expect(row.locator(".messages")).toContainText("6");
 
-  // The login outlasts a restart of the server; once the person ends it, the page says to
-  // log in again.
+  // The session outlasts a restart of the server; once the person ends it, the page shows
+  // the login page.
   aboard("down");
   aboard("up");
   await page.reload();
   await expect(page.locator(".board-row", { hasText: "Docs review" })).toBeVisible();
   aboard("logout", "--browsers");
   await page.reload();
-  await expect(page.locator(".problem")).toContainText("Run aboard open again");
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
 });
 
 test("the board panel shows the board's details and adds an agent with a prompt the CLI can join with", async ({ page, context }) => {
@@ -590,4 +614,96 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
   expect(reply?.to).toEqual(["@writer", "@scout"]);
   expect(reply?.reply_to).toBe(ask.id);
   await expect(page.locator(".recipient-chip")).toHaveCount(0);
+});
+
+test("a browser without a session signs in with a pasted key it never keeps, and signs out", async ({ page }) => {
+  aboard("up");
+  const key: string = JSON.parse(aboard("keys", "create", "web-browser", "--json")).key.token;
+  await page.goto(`${base()}/`);
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+  const field = page.getByLabel("Access key");
+  await expect(field).toHaveAttribute("type", "password");
+
+  // A wrong key says so, and nothing is signed in.
+  await field.fill("abh_not-a-real-key");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.locator(".problem")).toContainText("That access key doesn't work");
+  await expect(field).toHaveValue("");
+  expect(await page.context().cookies()).toEqual([]);
+
+  await field.fill(key);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  // The address bar never had the key, and the page keeps it nowhere: the session is in
+  // a cookie its scripts can't read.
+  expect(page.url()).toBe(`${base()}/`);
+  const secret = key.slice(4);
+  const kept = await page.evaluate(
+    () => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.cookie + document.documentElement.outerHTML,
+  );
+  expect(kept).not.toContain(secret);
+  const cookies = await page.context().cookies();
+  expect(cookies).toHaveLength(1);
+  expect(cookies[0].httpOnly).toBe(true);
+  expect(cookies[0].value).not.toContain(secret);
+
+  // The menu says which key the session came from, and signs this browser out.
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await expect(page.locator(".session-key")).toHaveText("web-browser");
+  await page.getByRole("menuitem", { name: "Sign out of this browser" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+  await expect(page.locator(".signed-out")).toContainText("You signed out of this browser");
+  expect(await page.context().cookies()).toEqual([]);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+
+  // Signing out ended that one session; the key keeps working.
+  expect(JSON.parse(aboard("keys", "sessions", "web-browser", "--json")).sessions).toEqual([]);
+  const keys = JSON.parse(aboard("keys", "--json")).keys as { name: string; state: string }[];
+  expect(keys.find((k) => k.name === "web-browser")?.state).toBe("working");
+  aboard("keys", "revoke", "web-browser");
+});
+
+test("a login an older page kept in storage moves into a cookie once", async ({ page }) => {
+  aboard("pair", "writer-reviewer", "--new", "--title", "Upgrade check");
+  const open = JSON.parse(aboard("open", "--json"));
+  const code = new URLSearchParams(new URL(open.url).hash.slice(1)).get("code");
+  // An older page traded the code for a token it kept in localStorage.
+  const resp = await fetch(`${base()}/v1/browser-tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const { token } = (await resp.json()) as { token: string };
+  expect(token).toMatch(/^abb_/);
+  await page.goto(`${base()}/icon.svg`);
+  await page.evaluate((t) => localStorage.setItem("aboard.browserToken", t), token);
+
+  await page.goto(`${base()}/`);
+  await expect(page.locator(".board-row", { hasText: "Upgrade check" })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("aboard.browserToken"))).toBeNull();
+  const cookies = await page.context().cookies();
+  expect(cookies.map((c) => [c.value === token, c.httpOnly])).toEqual([[true, true]]);
+  await page.reload();
+  await expect(page.locator(".board-row", { hasText: "Upgrade check" })).toBeVisible();
+});
+
+test("a hostile message is shown as text and runs nothing", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Hostile", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  const hostile = `<img src=x onerror="window.__xss=1"><script>window.__xss=2</script><a href="javascript:window.__xss=3">link</a>`;
+  aboard("say", "--as", "writer", "--board", board, "--to", "@reviewer", hostile);
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  const resp = await page.goto(open.url);
+  // The page allows only its own scripts and the inline ones it was built with, by hash.
+  const policy = resp?.headers()["content-security-policy"] ?? "";
+  const scripts = policy.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
+  expect(scripts).toMatch(/^\s*script-src 'self'( 'sha256-[A-Za-z0-9+/=]+')+$/);
+  expect(resp?.headers()["referrer-policy"]).toBe("no-referrer");
+  const message = page.locator(".message", { hasText: "window.__xss=2" });
+  await expect(message.locator(".body")).toHaveText(hostile);
+  await expect(message.locator("img, script, a[href^='javascript:']")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
 });

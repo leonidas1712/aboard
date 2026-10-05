@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { login } from "./api";
+import { type Started, signedOutEvent, start } from "./api";
 import BoardList from "./board-list";
 import BoardView from "./board-view";
 import { Header, Problem } from "./chrome";
+import Login from "./login";
 
 // The UI is one static page: /?board=NAME shows a board, / the list of boards. aboard
-// open lands on /#code=…[&board=NAME]; the page logs in with the code first.
+// open lands on /#code=…[&board=NAME]; the page signs in with the code first. A browser
+// without a session sees the login page, and goes back to it when its session ends.
 export default function Page() {
-  const [board, setBoard] = useState<string | null | undefined>(undefined);
+  const [started, setStarted] = useState<Started | undefined>(undefined);
+  const [signedOut, setSignedOut] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
-    login().then(
-      () => setBoard(new URLSearchParams(window.location.search).get("board")),
-      setError,
-    );
+    start().then(setStarted, setError);
+    const ended = () => setStarted((s) => (s ? { ...s, session: null } : s));
+    window.addEventListener(signedOutEvent, ended);
+    return () => window.removeEventListener(signedOutEvent, ended);
   }, []);
   if (error !== null) {
     return (
@@ -27,6 +30,25 @@ export default function Page() {
       </div>
     );
   }
-  if (board === undefined) return null;
-  return board ? <BoardView name={board} /> : <BoardList />;
+  if (started === undefined) return null;
+  if (started.session === null) {
+    return (
+      <Login
+        signedOut={signedOut}
+        onSignedIn={(session) => {
+          setSignedOut(false);
+          setStarted({ ...started, session });
+        }}
+      />
+    );
+  }
+  const onSignOut = () => {
+    setSignedOut(true);
+    setStarted({ ...started, session: null });
+  };
+  return started.board ? (
+    <BoardView name={started.board} onSignOut={onSignOut} />
+  ) : (
+    <BoardList onSignOut={onSignOut} />
+  );
 }

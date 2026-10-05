@@ -97,10 +97,10 @@ export function Problem({ error }: { error: unknown }) {
   let what: ReactNode;
   let next: ReactNode;
   if (error instanceof ApiError && error.status === 401) {
-    what = "This browser isn't logged in to Aboard, or its login has ended.";
+    what = "This browser isn't signed in to Aboard, or its session has ended.";
     next = (
       <>
-        Run <code>aboard open</code> again in a terminal to log in.
+        <a href="/">Sign in</a> with an access key, or run <code>aboard open</code> in a terminal.
       </>
     );
   } else if (error instanceof ApiError && error.code === "board_not_found") {

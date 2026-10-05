@@ -1,7 +1,8 @@
-// The parts of Aboard's public API the UI uses (spec/openapi.yaml). The page logs in
-// with the one-time code `aboard open` puts in the address's fragment, keeps the browser
-// token it gets for it, which acts as that person, and sends it in a header with every
-// request. No cookie is involved.
+// The parts of Aboard's public API the UI uses (spec/openapi.yaml). The page signs in
+// with the one-time code `aboard open` puts in the address's fragment, or with an access
+// key pasted on the login page. Either is exchanged for a browser session the server
+// keeps in a cookie this page's scripts can't read; the page holds only the session's
+// CSRF token, in memory, and sends it with every write. Nothing secret is stored.
 
 export type Policy = {
   preset: "starter" | "recommended";
@@ -127,63 +128,119 @@ export class ApiError extends Error {
   }
 }
 
-const tokenKey = "aboard.browserToken";
+/** Session is the browser session this page is signed in with: who, and with which key. */
+export type Session = {
+  id: string;
+  key: { id: string; name: string };
+  started_with: "login_code" | "access_key";
+  created_at: string;
+  expires_at: string;
+  person: { id: string; handle: string; display_name: string | null; server_role: "admin" | "member" };
+  csrf_token: string;
+};
 
-// The token lives in localStorage, which browsers keep per origin, port included. Some
-// browsers refuse storage (private windows, blocked site data); the page then works
-// until it is reloaded.
-let memoryToken: string | null = null;
+// legacyTokenKey is where pages from before browser sessions moved into cookies kept
+// their browser token. The page moves such a token into a cookie once and deletes it.
+const legacyTokenKey = "aboard.browserToken";
 
-function token(): string | null {
-  try {
-    return localStorage.getItem(tokenKey) ?? memoryToken;
-  } catch {
-    return memoryToken;
-  }
+// The session this page is signed in with, kept in memory only: its CSRF token is read
+// again from the server after a reload.
+let current: Session | null = null;
+
+/** session is the browser session this page is signed in with, or null. */
+export function session(): Session | null {
+  return current;
 }
 
-function keepToken(t: string | null) {
-  memoryToken = t;
-  try {
-    if (t === null) localStorage.removeItem(tokenKey);
-    else localStorage.setItem(tokenKey, t);
-  } catch {
-    // Kept in memory only.
-  }
-}
+/** signedOutEvent fires on window when the server says this browser isn't signed in. */
+export const signedOutEvent = "aboard:signed-out";
 
-function headers(): HeadersInit {
-  const t = token();
-  return t ? { Authorization: `Bearer ${t}` } : {};
+function writeHeaders(): Record<string, string> {
+  return current ? { "X-Aboard-CSRF": current.csrf_token } : {};
 }
 
 async function failure(resp: Response): Promise<ApiError> {
   const body = await resp.json().catch(() => null);
   const e = body?.error ?? {};
-  if (resp.status === 401) keepToken(null);
+  if (resp.status === 401 && current) {
+    current = null;
+    window.dispatchEvent(new Event(signedOutEvent));
+  }
   return new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "");
 }
 
+// startSession exchanges what signs a browser in for a session cookie.
+async function startSession(body: { code: string } | { key: string } | { token: string }): Promise<Session> {
+  const resp = await fetch("/v1/browser-sessions", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => null);
+    const e = body?.error ?? {};
+    throw new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "");
+  }
+  current = (await resp.json()) as Session;
+  return current;
+}
+
+// takeLegacyToken returns a browser token an older page kept in this browser's storage,
+// and deletes it, so it never stays there.
+function takeLegacyToken(): string | null {
+  try {
+    const t = localStorage.getItem(legacyTokenKey);
+    localStorage.removeItem(legacyTokenKey);
+    return t;
+  } catch {
+    return null;
+  }
+}
+
+/** Started is how the page starts: the board to show and the session, null when signed out. */
+export type Started = { board: string | null; session: Session | null };
+
 /**
- * login reads the one-time code from the address's fragment (/#code=…&board=NAME),
- * removes it from the address bar, and exchanges it for a browser token. It returns
- * the board the fragment named, if any. Without a code it does nothing.
+ * start signs the page in, or finds that it is. A one-time code in the address's
+ * fragment (/#code=…&board=NAME) is removed from the address bar and exchanged for a
+ * session; a browser token an older page stored is moved into a cookie once; then the
+ * page asks which session it has. A failed code throws; no session returns null.
  */
-export async function login(): Promise<string | null> {
+export async function start(): Promise<Started> {
   const frag = new URLSearchParams(window.location.hash.slice(1));
   const code = frag.get("code");
-  if (!code) return null;
-  const board = frag.get("board");
-  history.replaceState(null, "", board ? `/?board=${encodeURIComponent(board)}` : "/");
-  const resp = await fetch("/v1/browser-tokens", {
-    method: "POST",
-    credentials: "omit",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
-  });
+  let board = new URLSearchParams(window.location.search).get("board");
+  if (code) {
+    board = frag.get("board");
+    history.replaceState(null, "", board ? `/?board=${encodeURIComponent(board)}` : "/");
+    return { board, session: await startSession({ code }) };
+  }
+  const legacy = takeLegacyToken();
+  if (legacy) {
+    try {
+      return { board, session: await startSession({ token: legacy }) };
+    } catch {
+      // The stored login ended; the page signs in afresh.
+    }
+  }
+  const resp = await fetch("/v1/me/browser-session", { credentials: "same-origin" });
+  if (resp.status === 401) return { board, session: null };
   if (!resp.ok) throw await failure(resp);
-  keepToken(((await resp.json()) as { token: string }).token);
-  return board;
+  current = (await resp.json()) as Session;
+  return { board, session: current };
+}
+
+/** signInWithKey signs the browser in with an access key, which the page never keeps. */
+export function signInWithKey(key: string): Promise<Session> {
+  return startSession({ key });
+}
+
+/** signOut ends this browser's session, and only this one. */
+export async function signOut(): Promise<void> {
+  const resp = await fetch("/v1/me/browser-session", { method: "DELETE", credentials: "same-origin", headers: writeHeaders() });
+  if (!resp.ok && resp.status !== 401) throw await failure(resp);
+  current = null;
 }
 
 export async function get<T>(path: string, query: Record<string, string | number | boolean | undefined> = {}): Promise<T> {
@@ -192,7 +249,7 @@ export async function get<T>(path: string, query: Record<string, string | number
     if (v !== undefined && v !== "" && v !== false) params.set(k, String(v));
   }
   const qs = params.toString();
-  const resp = await fetch(qs ? `${path}?${qs}` : path, { credentials: "omit", headers: headers() });
+  const resp = await fetch(qs ? `${path}?${qs}` : path, { credentials: "same-origin" });
   if (resp.ok) return (await resp.json()) as T;
   throw await failure(resp);
 }
@@ -204,8 +261,8 @@ export async function get<T>(path: string, query: Record<string, string | number
 export async function post<T>(path: string, body: unknown, key: string = crypto.randomUUID()): Promise<T> {
   const resp = await fetch(path, {
     method: "POST",
-    credentials: "omit",
-    headers: { ...headers(), "Content-Type": "application/json", "Idempotency-Key": key },
+    credentials: "same-origin",
+    headers: { ...writeHeaders(), "Content-Type": "application/json", "Idempotency-Key": key },
     body: JSON.stringify(body),
   });
   if (resp.ok) return (await resp.json()) as T;
@@ -214,7 +271,7 @@ export async function post<T>(path: string, body: unknown, key: string = crypto.
 
 /** send makes a write without a body, such as PUT or DELETE, with an Idempotency-Key. */
 export async function send<T>(method: "PUT" | "DELETE", path: string, key: string = crypto.randomUUID()): Promise<T> {
-  const resp = await fetch(path, { method, credentials: "omit", headers: { ...headers(), "Idempotency-Key": key } });
+  const resp = await fetch(path, { method, credentials: "same-origin", headers: { ...writeHeaders(), "Idempotency-Key": key } });
   if (resp.ok) return (await resp.json()) as T;
   throw await failure(resp);
 }
@@ -237,12 +294,12 @@ export type StreamHandlers = {
   presence?: (p: PresenceEvent) => void;
   /** open runs each time the stream connects, so a reader can reread what it may have missed. */
   open?: () => void;
-  /** error gets a rejected token; following then ends. */
+  /** error gets a refused session; following then ends. */
   error: (e: ApiError) => void;
 };
 
 /**
- * follow reads the server's event stream with fetch, so it can send the token. It
+ * follow reads the server's event stream with fetch, with the session cookie. It
  * reconnects when the stream ends or goes silent; the server then sends every head
  * again, so nothing is missed. It returns a function that stops.
  */
@@ -255,7 +312,7 @@ export function follow(on: StreamHandlers): () => void {
       stopped.signal.addEventListener("abort", stop);
       let silence = setTimeout(stop, silentLimit);
       try {
-        const resp = await fetch("/v1/stream", { credentials: "omit", headers: headers(), signal: conn.signal });
+        const resp = await fetch("/v1/stream", { credentials: "same-origin", signal: conn.signal });
         if (resp.status === 401 || resp.status === 403) {
           on.error(await failure(resp));
           return;

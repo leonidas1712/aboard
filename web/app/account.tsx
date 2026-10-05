@@ -8,13 +8,14 @@ import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type Me, get } from "./api";
+import { type Me, get, session, signOut } from "./api";
 import { usePref } from "./prefs";
 import { SenderMark } from "./timeline";
 import { personIdentity } from "./words";
@@ -35,12 +36,15 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 type Props = {
   /** admin is true when the person is an admin of this board and another person is on it. */
   admin?: boolean;
+  /** onSignOut runs once this browser has signed out. */
+  onSignOut: () => void;
 };
 
-export function Account({ admin }: Props) {
+export function Account({ admin, onSignOut }: Props) {
   const [me, setMe] = useState<Me | null>(null);
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
+  const signedIn = session();
   useEffect(() => {
     let live = true;
     get<Me>("/v1/me").then((m) => live && setMe(m), () => {});
@@ -69,6 +73,14 @@ export function Account({ admin }: Props) {
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 px-3 pb-2 text-meta">
           <dt className="text-muted">Server</dt>
           <dd className="break-all">{server}</dd>
+          {signedIn && (
+            <>
+              <dt className="text-muted">Key</dt>
+              <dd className="session-key break-all">{signedIn.key.name}</dd>
+              <dt className="text-muted">Until</dt>
+              <dd>{new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
+            </>
+          )}
         </dl>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
@@ -77,6 +89,8 @@ export function Account({ admin }: Props) {
           <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => signOut().then(onSignOut, onSignOut)}>Sign out of this browser</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
