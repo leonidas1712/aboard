@@ -242,7 +242,7 @@ func (d *Daemon) resolveAgent(ctx context.Context, agent AgentRef) (AgentRef, er
 	}
 	if resolved.Server != agent.Server || resolved.Board != agent.Board || resolved.MemberID == "" ||
 		(agent.MemberID != "" && resolved.MemberID != agent.MemberID) {
-		return AgentRef{}, fmt.Errorf("%w: saved credential does not prove this seat", ErrUnauthorized)
+		return AgentRef{}, fmt.Errorf("%w: saved credential does not prove this seat", ErrSeatMismatch)
 	}
 	if agent.MemberID == "" {
 		if err := d.cfg.Journal.ResolveIdentity(ctx, agent, resolved); err != nil {
@@ -273,6 +273,10 @@ func (d *Daemon) resolveRequest(ctx context.Context, req Request) (Request, *Res
 		if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrBoardGone) {
 			r = errorResponse("unauthorized", "This machine cannot verify the agent's seat.",
 				"Run aboard status; use the seat's current credentials or ask your person to add a new agent.")
+		}
+		if errors.Is(err, ErrSeatMismatch) {
+			r = errorResponse("invalid_request", "The member_id does not match the seat's own credential.",
+				"Use the seat identity returned by aboard status; the existing binding is unchanged.")
 		}
 		return req, &r
 	}

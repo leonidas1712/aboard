@@ -103,3 +103,25 @@ func TestTemporaryOutageKeepsAnAlreadyVerifiedJournalSeat(t *testing.T) {
 		t.Fatalf("outage dropped verified binding: %+v", got)
 	}
 }
+
+func TestBindRejectsAMemberIDThatDoesNotMatchItsToken(t *testing.T) {
+	r := newRig(t)
+	r.register("session", "boot")
+	r.stop()
+	r.resolve = func(_ context.Context, ref delivery.AgentRef) (delivery.AgentRef, error) {
+		ref.MemberID = "mem_actual"
+		return ref, nil
+	}
+	r.start()
+	r.register("session", "boot")
+	ref := reviewer
+	ref.MemberID = "mem_claimed"
+	got := r.call(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "session", Agent: &ref})
+	if got.Error == nil || got.Error.Code != "invalid_request" {
+		t.Fatalf("mismatched seat identity: %+v", got)
+	}
+	seats := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "session"})
+	if len(seats.Agents) != 0 {
+		t.Fatalf("mismatch bound a seat: %+v", seats)
+	}
+}

@@ -232,7 +232,7 @@ func (t daemonTokens) ResolveAgent(ctx context.Context, agent delivery.AgentRef)
 		*me.Board != cred.Board || (cred.MemberID != "" && cred.MemberID != me.Id) ||
 		(agent.MemberID != "" && agent.MemberID != me.Id) ||
 		(cred.MemberID == "" && me.Name != cred.Name) {
-		return denied()
+		return delivery.AgentRef{}, delivery.ErrSeatMismatch
 	}
 	resolved := delivery.AgentRef{Server: cred.Server, Board: *me.Board, Name: me.Name, MemberID: me.Id}
 	p, err := t.a.paths()

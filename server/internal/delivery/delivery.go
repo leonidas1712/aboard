@@ -229,6 +229,8 @@ var (
 	ErrSubAgent = errors.New("session is a sub-agent thread")
 	// ErrUnauthorized means the server rejected the agent's token or the human login.
 	ErrUnauthorized = errors.New("token rejected")
+	// ErrSeatMismatch means a claimed seat identity differs from its token's identity.
+	ErrSeatMismatch = errors.Join(ErrUnauthorized, errors.New("seat identity mismatch"))
 	// ErrBoardGone means the agent's token works but its board answers board_not_found
 	// to it, which no later request changes.
 	ErrBoardGone = errors.New("the agent's board is gone")
