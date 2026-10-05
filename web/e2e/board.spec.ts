@@ -591,3 +591,55 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
   expect(reply?.reply_to).toBe(ask.id);
   await expect(page.locator(".recipient-chip")).toHaveCount(0);
 });
+
+// api calls the local server with a token, as a client of the public API.
+async function api(token: string, method: string, path: string, body?: unknown): Promise<Record<string, unknown>> {
+  const resp = await fetch(`http://${env.ABOARD_LOCAL_ADDR}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const out = (await resp.json()) as Record<string, unknown>;
+  if (!resp.ok) throw new Error(`${method} ${path}: ${resp.status} ${JSON.stringify(out)}`);
+  return out;
+}
+
+test("the header, the board list and the people on a board show open, private and owners", async ({ page }) => {
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // A second person, maya, comes onto the server, and alex makes a private board with her on it.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "maya", key_name: "laptop" });
+  const created = await api(owner, "POST", "/v1/boards", { template: "general", name: "secret-plans", title: "Secret plans", visibility: "private" });
+  expect(created.visibility).toBe("private");
+  await api(owner, "POST", "/v1/boards/secret-plans/people", { handle: "maya" });
+
+  const open = JSON.parse(aboard("open", "--board", "secret-plans", "--json"));
+  await page.goto(open.url);
+  const banner = page.getByRole("banner");
+  await expect(banner.locator('[data-visibility="private"]')).toHaveText("Private");
+  const people = page.locator('section[aria-labelledby="people"]');
+  await expect(people.locator('[data-person="alex"] .board-role')).toHaveText("Owner");
+  await expect(people.locator('[data-person="maya"] .board-role')).toHaveText("Member");
+
+  for (const theme of ["Dark", "Light"]) {
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    await page.getByRole("menuitemradio", { name: theme }).click();
+    await page.keyboard.press("Escape");
+    await expect(banner.locator('[data-visibility="private"]')).toBeVisible();
+  }
+
+  // Turned open, the header says so, since others are on the board.
+  await api(owner, "POST", "/v1/boards/secret-plans/visibility", { visibility: "open" });
+  await page.reload();
+  await expect(banner.locator('[data-visibility="open"]')).toHaveText("Open");
+  await api(owner, "POST", "/v1/boards/secret-plans/visibility", { visibility: "private" });
+
+  // The board list marks the private board, and says nothing on a board only alex is on.
+  await page.goto(`http://${env.ABOARD_LOCAL_ADDR}/`);
+  const row = page.locator(".board-row", { hasText: "Secret plans" });
+  await expect(row.locator('[data-visibility="private"]')).toHaveText("Private");
+  const alone = page.locator(".board-row", { hasText: "Docs review" });
+  await expect(alone).toBeVisible();
+  await expect(alone.locator(".visibility")).toHaveCount(0);
+});

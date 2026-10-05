@@ -97,7 +97,7 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 	token := s.browserToken(s.owner)
 	b := s.client(token)
 
-	boards, err := b.ListBoardsWithResponse(ctx)
+	boards, err := b.ListBoardsWithResponse(ctx, nil)
 	mustStatus(t, boards, err, 200)
 	if len(boards.JSON200.Boards) != 1 || boards.JSON200.Boards[0].Name != boardName {
 		t.Fatalf("boards: %s", bodyOf(boards))
@@ -139,7 +139,7 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 	}
 
 	s.clock.Advance(30*24*time.Hour + time.Second)
-	ended, err := b.ListBoardsWithResponse(ctx)
+	ended, err := b.ListBoardsWithResponse(ctx, nil)
 	if code := errorCode(t, ended, err, 401); code != "unauthorized" || !strings.Contains(ended.JSON401.Error.Hint, "aboard open") {
 		t.Fatalf("after 30 days: %s", bodyOf(ended))
 	}
@@ -172,7 +172,7 @@ func TestBrowserTokensSurviveARestartUntilTheyExpire(t *testing.T) {
 
 	s.clock.Advance(29 * 24 * time.Hour)
 	s.restart()
-	r, err := s.client(token).ListBoardsWithResponse(ctx)
+	r, err := s.client(token).ListBoardsWithResponse(ctx, nil)
 	mustStatus(t, r, err, 200)
 	// Login codes last a minute and are kept in memory only: a restart ends them.
 	lost, err := s.exchange(code)
@@ -182,7 +182,7 @@ func TestBrowserTokensSurviveARestartUntilTheyExpire(t *testing.T) {
 
 	s.clock.Advance(24*time.Hour + time.Second)
 	s.restart()
-	ended, err := s.client(token).ListBoardsWithResponse(ctx)
+	ended, err := s.client(token).ListBoardsWithResponse(ctx, nil)
 	if c := errorCode(t, ended, err, 401); c != "unauthorized" || !strings.Contains(ended.JSON401.Error.Hint, "aboard open") {
 		t.Fatalf("browser token 30 days after it was made: %s", bodyOf(ended))
 	}
@@ -213,12 +213,12 @@ func TestEndBrowserTokensLogsThePersonsBrowsersOut(t *testing.T) {
 		t.Fatalf("ended %d browser logins, want 2", r.JSON200.Ended)
 	}
 	for _, token := range []string{first, second} {
-		got, err := s.client(token).ListBoardsWithResponse(ctx)
+		got, err := s.client(token).ListBoardsWithResponse(ctx, nil)
 		if c := errorCode(t, got, err, 401); c != "unauthorized" {
 			t.Fatalf("a browser after logout: %s", c)
 		}
 	}
-	got, err := s.client(theirs).ListBoardsWithResponse(ctx)
+	got, err := s.client(theirs).ListBoardsWithResponse(ctx, nil)
 	mustStatus(t, got, err, 200)
 
 	again, err := s.client(s.owner).EndBrowserTokensWithResponse(ctx, nil)

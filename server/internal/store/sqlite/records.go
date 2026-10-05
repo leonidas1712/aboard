@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
@@ -158,12 +159,12 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at"
+const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility"
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -185,9 +186,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
-		b.MessageCount, b.LastMessageAt)
+		b.MessageCount, b.LastMessageAt, b.Visibility)
 }
 
 // SetBoardPolicy replaces a board's policy.
@@ -221,10 +222,46 @@ func (t *tx) BoardNameTaken(name string) (bool, error) {
 	return n > 0, err
 }
 
-// BoardsOfHuman lists the boards a human is a member of, by name.
+// onBoard selects the ids of the boards a human is on.
+const onBoard = "(SELECT board_id FROM members WHERE human_id = ? AND kind = 'human' AND status = 'active')"
+
+// BoardsOfHuman lists the boards a human is on, by name.
 func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
-	rows, err := t.tx.QueryContext(t.ctx, "SELECT "+boardColumns+" FROM boards WHERE id IN "+
-		"(SELECT board_id FROM members WHERE human_id = ? AND kind = 'human') ORDER BY name", humanID)
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE id IN "+onBoard+" ORDER BY name", humanID)
+}
+
+// BoardsSeenBy lists, by name, the open boards and the boards the human is on.
+func (t *tx) BoardsSeenBy(humanID string) ([]board.Board, error) {
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE visibility = 'open' OR id IN "+onBoard+" ORDER BY name", humanID)
+}
+
+// PrivateBoardsNotOn lists, oldest first, the private boards the human isn't on.
+func (t *tx) PrivateBoardsNotOn(humanID string) ([]board.Board, error) {
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE visibility = 'private' AND id NOT IN "+onBoard+" ORDER BY created_at, id", humanID)
+}
+
+// SetBoardVisibility makes a board open or private.
+func (t *tx) SetBoardVisibility(boardID, visibility string) error {
+	return t.exec("UPDATE boards SET visibility = ? WHERE id = ?", visibility, boardID)
+}
+
+// BoardCreation returns who may create boards; with nothing set, every member may.
+func (t *tx) BoardCreation() (string, error) {
+	var v string
+	err := t.queryRow("SELECT value FROM meta WHERE key = 'board_creation'").Scan(&v)
+	if errors.Is(err, sql.ErrNoRows) {
+		return board.CreationMembers, nil
+	}
+	return v, err
+}
+
+// SetBoardCreation sets who may create boards.
+func (t *tx) SetBoardCreation(v string) error {
+	return t.exec("INSERT INTO meta (key, value) VALUES ('board_creation', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", v)
+}
+
+func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
+	rows, err := t.tx.QueryContext(t.ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -301,6 +338,16 @@ func (t *tx) Members(boardID string) ([]board.Member, error) {
 	return out, rows.Err()
 }
 
+// SetMemberStatus sets whether a member is on its board: active, left or removed.
+func (t *tx) SetMemberStatus(memberID, status string) error {
+	return t.exec("UPDATE members SET status = ? WHERE id = ?", status, memberID)
+}
+
+// SetMemberAccess sets what a person may change on their board: admin or member.
+func (t *tx) SetMemberAccess(memberID, access string) error {
+	return t.exec("UPDATE members SET access = ? WHERE id = ? AND kind = 'human'", access, memberID)
+}
+
 // SetCursor moves a member's read position forward; it never moves it back.
 func (t *tx) SetCursor(memberID string, seq int64) error {
 	return t.exec("UPDATE members SET cursor = max(cursor, ?) WHERE id = ?", seq, memberID)
@@ -328,6 +375,25 @@ func (t *tx) JoinCodeByDigest(digest string) (board.JoinCode, error) {
 // JoinCodeByID finds a join code by id.
 func (t *tx) JoinCodeByID(id string) (board.JoinCode, error) {
 	return scanJoinCode(t.queryRow("SELECT "+joinCodeColumns+" FROM join_codes WHERE id = ?", id))
+}
+
+// WorkingJoinCodes lists a board's join codes that are neither revoked nor expired at
+// now, oldest first.
+func (t *tx) WorkingJoinCodes(boardID, now string) ([]board.JoinCode, error) {
+	rows, err := t.tx.QueryContext(t.ctx, "SELECT "+joinCodeColumns+" FROM join_codes WHERE board_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY rowid", boardID, now)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }() // rows.Err is checked below
+	var out []board.JoinCode
+	for rows.Next() {
+		var j board.JoinCode
+		if err := rows.Scan(&j.ID, &j.BoardID, &j.CodeDigest, &j.Role, &j.ExpiresAt, &j.CreatedAt, &j.CreatedBy, &j.RevokedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
 }
 
 // RevokeJoinCode marks a join code revoked.
