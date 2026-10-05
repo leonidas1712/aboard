@@ -126,7 +126,7 @@ session reconnects by itself).
 
 ```json
 {"v":1,"op":"register","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","source":"resume","process":{"pid":4182,"start":1759500000}}
-{"v":1,"boot":"9a1f0c2b7d4e6f80","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}],"reopened":true,"mode":"focused","note":"Aboard: this session is reviewer on writer-reviewer again, as it was before it closed; messages that waited for reviewer arrive when this turn ends. Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."}
+{"v":1,"boot":"9a1f0c2b7d4e6f80","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}],"reopened":true,"mode":"focused","note":"Aboard: this session is reviewer on writer-reviewer again, as it was before it closed; messages that waited for reviewer arrive when this turn ends. Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply."}
 ```
 
 With `launch`, the session was started by `aboard swarm up` (see "Launch tickets"

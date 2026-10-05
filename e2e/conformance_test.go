@@ -142,6 +142,7 @@ func TestHarnessConformance(t *testing.T) {
 			run("Delivery/QuietWaitsForTheNextTurn", "idle_delivery", kitQuietWaitsForTheNextTurn)
 			run("Delivery/QuietWhileBusy", "turn_end", kitQuietWhileBusy)
 			run("Delivery/WakingCarriesTheQuiet", "idle_delivery", kitWakingCarriesTheQuiet)
+			run("Delivery/MentionWakes", "idle_delivery", kitMentionWakes)
 			run("Delivery/CombinesWakes", "idle_delivery", kitCombinesWakes)
 			run("Delivery/Digest", "idle_delivery", kitDigest)
 			run("Delivery/AllMode", "idle_delivery", kitAllMode)

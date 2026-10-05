@@ -299,6 +299,11 @@ func TextMessage(m api.Message) deliverytext.Message {
 	for _, to := range m.To {
 		t.To = append(t.To, string(to))
 	}
+	for _, mn := range m.Mentions {
+		if mn.Wakes {
+			t.Mentions = append(t.Mentions, mn.Name)
+		}
+	}
 	for _, r := range m.Reactions {
 		t.Reactions = append(t.Reactions, deliverytext.Reaction{Emoji: string(r.Emoji), Count: r.Count})
 	}

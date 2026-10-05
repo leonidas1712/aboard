@@ -169,12 +169,13 @@ func ParseMode(s string) (Mode, bool) {
 
 // Concerns reports whether m concerns the agent called name, so that in focused mode it
 // wakes the agent's session: a person sent it, it is addressed to the agent or its role
-// (an inbox holds only messages addressed to the agent, its role or everyone, so any
-// target but all), it replies to one of the agent's messages, it asks for a reply, or it
-// is urgent. A message whose targets aren't known counts as addressed.
+// (an inbox holds only messages addressed to the agent, its role or everyone, and those
+// whose mention wakes it, so any target but all), its mention wakes the agent, it
+// replies to one of the agent's messages, it asks for a reply, or it is urgent. A
+// message whose targets aren't known counts as addressed.
 func Concerns(m Message, name string) bool {
 	return m.FromHuman || m.Urgent || m.ExpectsReply || m.ReplyToFrom == name ||
-		len(m.To) == 0 || !slices.Contains(m.To, "all")
+		slices.Contains(m.Mentions, name) || len(m.To) == 0 || !slices.Contains(m.To, "all")
 }
 
 // Reason codes recorded on failed or skipped deliveries and reported by aboard doctor.

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { ApiError, type MemberRef, type Message, type ReactionName, react } from "./api";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
-import { knownTargets, replyRecipients } from "./mentions";
+import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
@@ -57,7 +57,6 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const people = useMemo(() => (s.members ?? []).filter((m) => m.kind === "human"), [s.members]);
   const roles = useMemo(() => Object.keys(s.board?.roles ?? {}).sort(), [s.board]);
   // Every name and role a message can mention, so the timeline marks only real mentions.
-  const mentionable = useMemo(() => knownTargets(s.members ?? [], roles), [s.members, roles]);
 
   // Every loaded message: the timeline, the filter's matches and threads read whole.
   const known = s.known;
@@ -375,7 +374,6 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 quote={quote}
                 answer={answer}
                 identity={identity}
-                mentionable={mentionable}
                 onMention={onMention}
                 waiting={waiting}
                 onReply={setReplyTo}

@@ -37,6 +37,9 @@ type Message struct {
 	ReplyToFrom string
 	// To are the message's targets: all, @name or role:R. Nil when not known.
 	To []string
+	// Mentions are the names of the agents the message's mentions wake (`@name` or
+	// `@role:R` in the body, resolved by the server when it was posted).
+	Mentions []string
 	// Reactions are the message's reactions, one per emoji, as a digest line counts
 	// them.
 	Reactions []Reaction
@@ -327,8 +330,8 @@ func ModeRule(mode string) string {
 		return "Nothing wakes you or arrives by itself: read your messages with aboard inbox, " +
 			"or wait for one with aboard inbox --wait 60."
 	default:
-		return "A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. " +
-			"To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."
+		return "A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. " +
+			"To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply."
 	}
 }
 
