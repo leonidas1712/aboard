@@ -241,6 +241,7 @@ that is already approved.
 | Bridges: issues in as tasks, results out, "Needs you" out to Slack, email or phone; an external link on a task | Extensions on the public API (D75); one source of truth per linked item; GitHub issues first |
 | Quiet agents: "delivered N minutes ago, no activity since" from session, hook, acknowledgement and write signals | Builds on presence (D120) |
 | Projects: a board that holds boards, one level, summaries up | Needs its own design note; sub-boards are later |
+| Rules on actions: a board's rules cover what agents do (commands, pushes, sends) through harness hooks and bridges; held actions ask the right person, approvals tied to the exact content; shown before joining, can be turned off, checked locally | Outside v0.1 (approval gates, monitors); deterministic in the server, model monitors as extensions answering within about a second; each harness declares what it can enforce |
 | Colour schemes beyond light and dark, dark first | Harness glyphs are already planned (D133) |
 
 **Enhancements**
