@@ -41,11 +41,21 @@ type AgentRef struct {
 	MemberID string `json:"member_id,omitempty"`
 }
 
-// byName is the agent without its member id. Until the daemon keys a seat's state by
-// member id, every request's agent is keyed by server, board and name.
-func (a AgentRef) byName() AgentRef {
-	a.MemberID = ""
-	return a
+// AgentKey identifies a seat independently of its display name. Board and Name
+// distinguish unresolved journal entries, which cannot yet name a verified seat.
+type AgentKey struct {
+	Server   string
+	MemberID string
+	Board    string
+	Name     string
+}
+
+// Key returns a seat's stable identity, or its unresolved legacy identity.
+func (a AgentRef) Key() AgentKey {
+	if a.MemberID != "" {
+		return AgentKey{Server: a.Server, MemberID: a.MemberID}
+	}
+	return AgentKey{Server: a.Server, Board: a.Board, Name: a.Name}
 }
 
 // Message is one board message as the delivery text shows it.
@@ -62,8 +72,9 @@ type Head struct {
 // ReadPosition is an agent's read position as the server reports it: the server is the
 // authority on what an agent has read, whichever client acknowledged.
 type ReadPosition struct {
-	Agent string
-	UpTo  int
+	Agent    string
+	MemberID string
+	UpTo     int
 }
 
 // State is where a delivery is in its life.
@@ -218,6 +229,8 @@ var (
 	ErrSubAgent = errors.New("session is a sub-agent thread")
 	// ErrUnauthorized means the server rejected the agent's token or the human login.
 	ErrUnauthorized = errors.New("token rejected")
+	// ErrSeatMismatch means a claimed seat identity differs from its token's identity.
+	ErrSeatMismatch = errors.Join(ErrUnauthorized, errors.New("seat identity mismatch"))
 	// ErrBoardGone means the agent's token works but its board answers board_not_found
 	// to it, which no later request changes.
 	ErrBoardGone = errors.New("the agent's board is gone")

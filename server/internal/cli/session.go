@@ -153,7 +153,7 @@ func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.
 		return target{}, agentCredential{}, false, nil
 	}
 	ag := matching[0]
-	c, ok := creds.find(ag.Server, ag.Board, ag.Name)
+	c, ok := creds.forSeat(ag)
 	if !ok {
 		return target{}, agentCredential{}, false, newError("agent_not_selected",
 			"This session is bound to "+ag.Name+" on board "+ag.Board+", but this machine has no credentials for it.",
@@ -264,7 +264,7 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	ref := delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name}
+	ref := delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name, MemberID: cred.MemberID}
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBind, Harness: key.Harness, Session: key.ID, Agent: &ref})
 	if err != nil {
 		return err

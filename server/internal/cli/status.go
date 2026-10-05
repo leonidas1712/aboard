@@ -91,13 +91,14 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	// The agent decides the board: when one is selected, its board is the one agent
 	// commands use, even if this directory names another.
 	var agentBoard *target
+	var selectedCred *agentCredential
 	switch {
 	case name != "":
 		if err := a.oneSeat(ctx, *boardFlag); err != nil {
 			return err
 		}
-		if t, _, err := a.agentByName(creds, name, *boardFlag); err == nil {
-			agentBoard = &t
+		if t, cred, err := a.agentByName(creds, name, *boardFlag); err == nil {
+			agentBoard, selectedCred = &t, &cred
 		}
 	default:
 		if key, ok := a.sessionKey(); ok {
@@ -117,6 +118,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 			if t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag); err == nil && found {
 				agentBoard, name, source = &t, cred.Name, agentFromSession
+				selectedCred = &cred
 			}
 		}
 	}
@@ -172,7 +174,11 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		}
 	}
 
-	switch _, known := creds.find(t.server.URL, t.board, name); {
+	cred, known := creds.find(t.server.URL, t.board, name)
+	if selectedCred != nil && selectedCred.Server == t.server.URL && selectedCred.Board == t.board {
+		cred, known = *selectedCred, true
+	}
+	switch {
 	case name == "":
 		fmt.Fprintf(&text, "Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: %s)\n", namesText(out.Agents))
 	case !known:
@@ -185,8 +191,9 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		m := ""
 		var applied *string
 		for _, mem := range members {
-			if mem.Name == name && mem.Kind == api.MemberKindAgent {
+			if cred.MemberID != "" && mem.Id == cred.MemberID && mem.Kind == api.MemberKindAgent {
 				m = heldModeOf(mem)
+				out.Presence = presenceOf([]api.Member{mem}, mem.Name)
 				if mem.Delivery != nil {
 					if parsed, ok := delivery.ParseMode(string(*mem.Delivery)); ok {
 						s := string(parsed)
@@ -196,7 +203,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 		}
 		if m == "" {
-			mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name})
+			mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name, MemberID: cred.MemberID})
 			if err != nil {
 				return err
 			}
@@ -209,7 +216,6 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		if out.DeliveryUnconfirmed {
 			line += keptHereText
 		}
-		out.Presence = presenceOf(members, name)
 		if applied != nil && *applied != m && out.Presence != nil && *out.Presence != "no_session" {
 			// A daemon from an older aboard keeps its own mode; say what it does.
 			line += fmt.Sprintf(" (its delivery daemon applies %s)", *applied)

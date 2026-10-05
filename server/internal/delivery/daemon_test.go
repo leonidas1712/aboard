@@ -44,6 +44,7 @@ type rig struct {
 	journal *sqlitejournal.Journal
 	tickets launchtickets.Dir
 	seats   delivery.Seats
+	resolve func(context.Context, delivery.AgentRef) (delivery.AgentRef, error)
 	// configure, when set, changes the daemon's config before each start.
 	configure func(*delivery.Config)
 	cancel    context.CancelFunc
@@ -86,6 +87,7 @@ func (r *rig) start() {
 	r.cancel, r.done = cancel, make(chan error, 1)
 	cfg := delivery.Config{
 		Journal: j, Adapters: []delivery.Adapter{r.claude, r.codex, extension.Adapter{Name: "omp"}},
+		ResolveAgent: r.resolve,
 		Connect: func(string) delivery.Server {
 			if r.remote != nil {
 				return r.remote

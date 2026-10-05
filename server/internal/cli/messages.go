@@ -100,7 +100,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		return apiError(r.StatusCode(), r.Body)
 	}
 	m := r.JSON201
-	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
+	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
 	unread, recipients := a.unreadAfterSay(ctx, c, agent), recipientsOf(ctx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
 	text := fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board) + unreadText(m.Board, unread) + recipientsText(recipients)
@@ -187,7 +187,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	ref := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name}
+	ref := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
 	deadline := time.Now().Add(time.Duration(*wait) * time.Second)
 	var (
 		in    *api.Inbox

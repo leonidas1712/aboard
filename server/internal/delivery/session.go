@@ -37,6 +37,8 @@ type sessionMsg struct {
 	checkAlive bool
 	// modeChanged says an agent's delivery mode changed, so what may be delivered did.
 	modeChanged bool
+	// credentialChanged refreshes a reused seat after its saved token changed.
+	credentialChanged *AgentRef
 	// renewPresence asks the session to report its agents' presence again.
 	renewPresence bool
 	// hold starts keeping replies to a message out of bundles, answered on reply;
@@ -125,7 +127,7 @@ type session struct {
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
 	working bool
 	// reported is the presence and delivery mode last reported for each agent.
-	reported map[AgentRef]reportedPresence
+	reported map[AgentKey]reportedPresence
 	// waiter is the connection waiting while the session is idle: its stop hook's, or
 	// its extension's.
 	waiter Waiter
@@ -143,7 +145,7 @@ type session struct {
 	// the turn they should start; stallAt is when they count as stalled.
 	awaitingTurn []*Delivery
 	stallAt      time.Time
-	agents       map[AgentRef]*agentState
+	agents       map[AgentKey]*agentState
 	// restored is set for sessions loaded from the journal at start.
 	restored bool
 	// refreshing holds refreshes whose results a waiting hook should see before a
@@ -154,7 +156,7 @@ type session struct {
 	gatherUntil time.Time
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
-	forward map[AgentRef]*session
+	forward map[AgentKey]*session
 	// holds are the replies commands are waiting for themselves.
 	holds map[*hold]bool
 	// readers are the commands reading an agent's inbox now.
@@ -235,7 +237,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 	case m.ack != nil:
 		s.onAck(ctx, *m.ack)
 	case m.refused != nil:
-		if a, ok := s.agents[m.refused.agent]; ok {
+		if a, ok := s.agents[m.refused.agent.Key()]; ok {
 			s.setProblem(a, problemOf(m.refused.err))
 		}
 	case m.release != nil:
@@ -244,11 +246,15 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onAdopt(ctx, *m.adopt)
 	case m.checkAlive:
 		s.checkAlive(ctx)
+	case m.credentialChanged != nil:
+		if a := s.agents[m.credentialChanged.Key()]; a != nil && !a.adopting {
+			s.refresh(a, s.waiter != nil)
+		}
 	case m.modeChanged:
 		s.refreshAll(false)
 	case m.renewPresence:
 	case m.hold != nil:
-		_, ok := s.agents[m.hold.agent]
+		_, ok := s.agents[m.hold.agent.Key()]
 		if ok && s.open {
 			s.holds[m.hold] = true
 		}
@@ -362,10 +368,15 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		s.setOpen(ctx, false)
 	case OpBind:
-		ok.Previous = s.bind(ctx, *req.Agent)
+		var err error
+		ok.Previous, err = s.bind(ctx, *req.Agent)
+		if err != nil {
+			return errorResponse("internal", "Couldn't save the seat binding.", "Look at the daemon log and try again.")
+		}
+		ok.Agents = s.agentRefs()
 		// The command that binds an agent (join, pair, resume, status for a launched
 		// session) shows its delivery mode, as the server holds it.
-		if a := s.agents[*req.Agent]; a != nil && s.d.heldMode(*req.Agent) {
+		if a := s.agents[req.Agent.Key()]; a != nil && s.d.heldMode(*req.Agent) {
 			a.told = s.d.mode(*req.Agent)
 		}
 		if !s.open {
@@ -430,15 +441,16 @@ type reportedPresence struct {
 // anyway.
 func (s *session) reportPresence(renew bool) {
 	p := s.presence()
-	for ref, a := range s.agents {
+	for _, a := range s.agents {
+		ref := a.ref
 		if a.adopting || a.gone() {
 			continue
 		}
 		now := reportedPresence{state: p, mode: s.d.mode(ref)}
-		if last, ok := s.reported[ref]; ok && last == now && (!renew || p == PresenceNoSession) {
+		if last, ok := s.reported[ref.Key()]; ok && last == now && (!renew || p == PresenceNoSession) {
 			continue
 		}
-		s.reported[ref] = now
+		s.reported[ref.Key()] = now
 		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: now.state, mode: now.mode})
 	}
 }
@@ -447,14 +459,17 @@ func (s *session) reportPresence(renew bool) {
 // that is already what was reported. The session that takes the agent next reports
 // after this, through the same server connection, so its report wins.
 func (s *session) leavePresence(ref AgentRef) {
-	if last, ok := s.reported[ref]; ok && last.state != PresenceNoSession {
+	if last, ok := s.reported[ref.Key()]; ok && last.state != PresenceNoSession {
 		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession, mode: last.mode})
 	}
-	delete(s.reported, ref)
+	delete(s.reported, ref.Key())
 }
 
 func (s *session) agentRefs() []AgentRef {
-	refs := slices.Collect(maps.Keys(s.agents))
+	refs := make([]AgentRef, 0, len(s.agents))
+	for _, a := range s.agents {
+		refs = append(refs, a.ref)
+	}
 	slices.SortFunc(refs, compareAgents)
 	return refs
 }
@@ -592,31 +607,39 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 
 // bind makes the session the one the agent's messages go to. A session fills one seat
 // at a time, so an agent it held before is let go; bind returns that agent.
-func (s *session) bind(ctx context.Context, agent AgentRef) *AgentRef {
+func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
+	if a, ok := s.agents[agent.Key()]; ok && !a.adopting && a.ref == agent {
+		return nil, nil
+	}
+	if err := s.d.cfg.Journal.Bind(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now()}); err != nil {
+		s.d.log.Error("bind agent", "agent", agent.Name, "board", agent.Board, "error", err)
+		return nil, err
+	}
 	if s.lost != nil {
 		s.lost = nil
 		s.saveSession(ctx)
 	}
 	var previous *AgentRef
 	for _, ref := range s.agentRefs() {
-		if ref != agent {
+		if ref.Key() != agent.Key() {
 			s.unbind(ctx, ref)
 			previous = &ref
 		}
 	}
-	if a, ok := s.agents[agent]; ok && !a.adopting {
-		return previous
+	if a, ok := s.agents[agent.Key()]; ok && !a.adopting {
+		a.ref = agent
+		s.d.mu.Lock()
+		s.d.rememberLocked(agent)
+		s.d.mu.Unlock()
+		return previous, nil
 	}
-	if err := s.d.cfg.Journal.Bind(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now()}); err != nil {
-		s.d.log.Error("bind agent", "agent", agent.Name, "board", agent.Board, "error", err)
-	}
-	s.agents[agent] = newAgentState(agent, true)
+	s.agents[agent.Key()] = newAgentState(agent, true)
 	if prev := s.d.setOwner(agent, s); prev != nil {
 		prev.mail.put(sessionMsg{release: &agent, adopter: s})
-		return previous
+		return previous, nil
 	}
 	s.onAdopt(ctx, agent)
-	return previous
+	return previous, nil
 }
 
 // unbind lets an agent go with no session to take it. Bundles handed here and never
@@ -624,7 +647,7 @@ func (s *session) bind(ctx context.Context, agent AgentRef) *AgentRef {
 // server, so whichever session binds the agent next gets both. The journal's binding
 // is replaced when the session's new agent is bound.
 func (s *session) unbind(ctx context.Context, agent AgentRef) {
-	if a := s.agents[agent]; !a.adopting {
+	if a := s.agents[agent.Key()]; !a.adopting {
 		for _, dl := range a.deliveries {
 			if dl.State == StateHanded || dl.State == StateHeld {
 				s.setState(ctx, dl, StatePending)
@@ -633,7 +656,7 @@ func (s *session) unbind(ctx context.Context, agent AgentRef) {
 	}
 	// An agent still being adopted is given up by its previous session, which puts its
 	// bundles back to pending; the adoption, when it arrives, finds no agent here.
-	delete(s.agents, agent)
+	delete(s.agents, agent.Key())
 	s.leavePresence(agent)
 	s.d.dropOwner(agent, s)
 }
@@ -641,9 +664,9 @@ func (s *session) unbind(ctx context.Context, agent AgentRef) {
 // onRelease gives an agent up to the session that bound it. Bundles this session never
 // confirmed go to the new one.
 func (s *session) onRelease(ctx context.Context, agent AgentRef, to *session) {
-	a, ok := s.agents[agent]
+	a, ok := s.agents[agent.Key()]
 	if ok && a.adopting {
-		s.forward[agent] = to
+		s.forward[agent.Key()] = to
 		return
 	}
 	if ok {
@@ -652,7 +675,7 @@ func (s *session) onRelease(ctx context.Context, agent AgentRef, to *session) {
 				s.setState(ctx, dl, StatePending)
 			}
 		}
-		delete(s.agents, agent)
+		delete(s.agents, agent.Key())
 		s.leavePresence(agent)
 		// Kept so that, if this session starts again, it says the agent went elsewhere
 		// rather than silently having none.
@@ -664,13 +687,13 @@ func (s *session) onRelease(ctx context.Context, agent AgentRef, to *session) {
 
 // onAdopt takes over an agent once no other session holds it, loading its deliveries.
 func (s *session) onAdopt(ctx context.Context, agent AgentRef) {
-	if to, fwd := s.forward[agent]; fwd {
-		delete(s.forward, agent)
-		delete(s.agents, agent)
+	if to, fwd := s.forward[agent.Key()]; fwd {
+		delete(s.forward, agent.Key())
+		delete(s.agents, agent.Key())
 		to.mail.put(sessionMsg{adopt: &agent})
 		return
 	}
-	a, ok := s.agents[agent]
+	a, ok := s.agents[agent.Key()]
 	if !ok || !a.adopting {
 		return
 	}
@@ -679,7 +702,7 @@ func (s *session) onAdopt(ctx context.Context, agent AgentRef) {
 		s.d.log.Error("load deliveries", "agent", agent.Name, "error", err)
 	}
 	for i := range ds {
-		if ds[i].Agent != agent {
+		if ds[i].Agent.Key() != agent.Key() {
 			continue
 		}
 		dl := ds[i]
@@ -722,7 +745,7 @@ func (s *session) refresh(a *agentState, gate bool) {
 
 func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	delete(s.refreshing, r.refresh)
-	a, ok := s.agents[r.agent]
+	a, ok := s.agents[r.agent.Key()]
 	if !ok || a.gone() {
 		return
 	}
@@ -787,7 +810,7 @@ func (s *session) setProblem(a *agentState, reason string) {
 	if a.gone() {
 		// Nothing is reported for the agent from now on, not even no_session when it
 		// leaves the session.
-		delete(s.reported, a.ref)
+		delete(s.reported, a.ref.Key())
 	}
 }
 
@@ -872,7 +895,7 @@ func (s *session) queueFilter() filter {
 // held reports whether a command is waiting itself for m, a reply it asked for.
 func (s *session) held(agent AgentRef, m Message) bool {
 	for h := range s.holds {
-		if h.agent == agent && m.ReplyToSeq == h.replyTo {
+		if h.agent.Key() == agent.Key() && m.ReplyToSeq == h.replyTo {
 			return true
 		}
 	}
@@ -883,7 +906,7 @@ func (s *session) held(agent AgentRef, m Message) bool {
 // had confirmed them, so they are acknowledged in turn and never handed over. A message
 // already in a delivery is left as it is.
 func (s *session) onClaim(ctx context.Context, c claimRequest) []int {
-	a, ok := s.agents[c.agent]
+	a, ok := s.agents[c.agent.Key()]
 	if !ok || a.adopting {
 		return nil
 	}
@@ -927,7 +950,7 @@ func (s *session) queueNow() {
 // command leaves out: the server still counts it unread until the daemon's
 // acknowledgement lands.
 func (s *session) onReading(ctx context.Context, req Request, rd *reading) Response {
-	a, ok := s.agents[rd.agent]
+	a, ok := s.agents[rd.agent.Key()]
 	if !ok || a.adopting {
 		return Response{V: ProtocolVersion}
 	}
@@ -961,7 +984,7 @@ func (s *session) received(a *agentState) []int {
 // even one handed and not yet confirmed, is done, and none of them is handed or named in
 // a notice again.
 func (s *session) onRead(ctx context.Context, r readMove) {
-	a, ok := s.agents[r.agent]
+	a, ok := s.agents[r.agent.Key()]
 	if !ok || a.adopting || r.upTo <= a.ackedUpTo {
 		return
 	}
@@ -980,7 +1003,7 @@ func (s *session) onRead(ctx context.Context, r readMove) {
 // beingRead reports whether a command is reading the agent's inbox now.
 func (s *session) beingRead(agent AgentRef) bool {
 	for rd := range s.readers {
-		if rd.agent == agent {
+		if rd.agent.Key() == agent.Key() {
 			return true
 		}
 	}
@@ -1022,7 +1045,7 @@ func (s *session) maybeAck(a *agentState) {
 }
 
 func (s *session) onAck(ctx context.Context, r ackResult) {
-	a, ok := s.agents[r.agent]
+	a, ok := s.agents[r.agent.Key()]
 	if !ok || a.gone() {
 		return
 	}
@@ -1062,7 +1085,7 @@ func (s *session) offers(f filter) []offer {
 	now := s.now()
 	var out []offer
 	for _, ref := range s.agentRefs() {
-		a := s.agents[ref]
+		a := s.agents[ref.Key()]
 		mode := s.d.mode(ref)
 		if a.adopting || !a.fetched || a.problem != "" || mode == ModeOff || s.beingRead(ref) {
 			continue
@@ -1437,7 +1460,7 @@ func (s *session) failed(ctx context.Context, ds []*Delivery, err error) {
 func (s *session) record(ctx context.Context, parts []offer, st State) []*Delivery {
 	var out []*Delivery
 	for _, p := range parts {
-		a := s.agents[p.agent]
+		a := s.agents[p.agent.Key()]
 		if p.redeliver != 0 {
 			dl := a.deliveries[p.redeliver]
 			dl.Session, dl.Boot = s.key, s.boot
@@ -1467,7 +1490,7 @@ func (s *session) skip(ctx context.Context, parts []offer) {
 		s.d.log.Warn("message too large to deliver", "agent", dl.Agent.Name, "board", dl.Agent.Board, "seqs", dl.Seqs)
 	}
 	for _, p := range parts {
-		s.maybeAck(s.agents[p.agent])
+		s.maybeAck(s.agents[p.agent.Key()])
 	}
 }
 
@@ -1504,7 +1527,7 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 		}
 	}
 	for _, o := range c.tooLarge {
-		a := s.agents[o.agent]
+		a := s.agents[o.agent.Key()]
 		m := o.msgs[0]
 		if a.previewed[m.Seq] {
 			continue
@@ -1521,7 +1544,7 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	}
 	var announced []int
 	for _, ref := range s.agentRefs() {
-		a := s.agents[ref]
+		a := s.agents[ref.Key()]
 		if n, seqs := s.noticeFor(a); n != "" && len(bundle)+len(notice)+len(n) < MidTurnLimit {
 			notice += n
 			announced = append(announced, seqs...)
@@ -1572,7 +1595,7 @@ func (s *session) modeNotes() (notes string, told map[AgentRef]Mode) {
 	var lines []string
 	told = map[AgentRef]Mode{}
 	for _, ref := range s.agentRefs() {
-		a := s.agents[ref]
+		a := s.agents[ref.Key()]
 		if a.adopting {
 			continue
 		}
@@ -1589,7 +1612,7 @@ func (s *session) modeNotes() (notes string, told map[AgentRef]Mode) {
 // markTold records the modes a turn start or a bundle told the session.
 func (s *session) markTold(told map[AgentRef]Mode) {
 	for ref, m := range told {
-		if a := s.agents[ref]; a != nil {
+		if a := s.agents[ref.Key()]; a != nil {
 			a.told = m
 		}
 	}
@@ -1696,7 +1719,7 @@ const recheckTimeout = 5 * time.Second
 // one request per agent, made only when there is something to hand or announce.
 func (s *session) recheck(ctx context.Context) {
 	for _, ref := range s.agentRefs() {
-		if a := s.agents[ref]; a.adopting || a.gone() {
+		if a := s.agents[ref.Key()]; a.adopting || a.gone() {
 			continue
 		}
 		rctx, cancel := context.WithTimeout(ctx, recheckTimeout)

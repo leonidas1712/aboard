@@ -191,7 +191,7 @@ func (a *app) showDelivery(ctx context.Context, t target, cred agentCredential, 
 	if ok {
 		return held.Mode, &held.Revision, false, nil
 	}
-	mode, err = a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name})
+	mode, err = a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name, MemberID: cred.MemberID})
 	return mode, nil, !reached, err
 }
 
@@ -241,7 +241,7 @@ func (a *app) changeDelivery(ctx context.Context, t target, cred agentCredential
 	if err != nil {
 		return c.unreachable(err)
 	}
-	ref := delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name}
+	ref := delivery.AgentRef{Server: t.server.URL, Board: cred.Board, Name: cred.Name, MemberID: cred.MemberID}
 	if r.JSON200 == nil {
 		e := apiError(r.StatusCode(), r.Body)
 		if here && (e.Code == "not_found" || e.Code == "not_implemented") {
@@ -310,13 +310,22 @@ func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delive
 		return "", err
 	}
 	for _, ref := range []delivery.AgentRef{agent, {}} {
-		if m, ok := modes[ref]; ok {
+		if m, ok := journalMode(modes, ref); ok {
 			if parsed, ok := delivery.ParseMode(string(m)); ok {
 				return parsed, nil
 			}
 		}
 	}
 	return delivery.ModeFocused, nil
+}
+
+func journalMode(modes map[delivery.AgentRef]delivery.Mode, agent delivery.AgentRef) (delivery.Mode, bool) {
+	for ref, mode := range modes {
+		if ref.Key() == agent.Key() {
+			return mode, true
+		}
+	}
+	return "", false
 }
 
 // journalModes reads every delivery mode the daemon's journal keeps.

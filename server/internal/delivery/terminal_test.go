@@ -26,17 +26,17 @@ func TestLateResultsCannotReviveAGoneAgent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			d := &Daemon{
 				cfg: Config{Clock: clock.Real{}}, log: slog.New(slog.NewTextHandler(io.Discard, nil)),
-				problems: map[AgentRef]string{}, modes: map[AgentRef]Mode{ref: ModeOff},
+				problems: map[AgentKey]string{}, modes: map[AgentKey]Mode{ref.Key(): ModeOff},
 			}
 			a := newAgentState(ref, false)
 			s := &session{
-				d: d, agents: map[AgentRef]*agentState{ref: a},
-				reported: map[AgentRef]reportedPresence{}, refreshing: map[int64]bool{3: true},
+				d: d, agents: map[AgentKey]*agentState{ref.Key(): a},
+				reported: map[AgentKey]reportedPresence{}, refreshing: map[int64]bool{3: true},
 			}
 			s.setProblem(a, ReasonBoardGone)
 			s.handle(context.Background(), tc.result)
-			if !a.gone() || d.problems[ref] != ReasonBoardGone {
-				t.Fatalf("late result changed terminal problem: agent=%q, daemon=%q", a.problem, d.problems[ref])
+			if !a.gone() || d.problems[ref.Key()] != ReasonBoardGone {
+				t.Fatalf("late result changed terminal problem: agent=%q, daemon=%q", a.problem, d.problems[ref.Key()])
 			}
 			if a.fetched || a.ackedUpTo != 0 || len(a.unread) != 0 || a.acking {
 				t.Fatalf("late result consumed content or changed read state: %+v", a)

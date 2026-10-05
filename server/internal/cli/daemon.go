@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -16,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/apiserver"
@@ -107,8 +109,9 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	err = delivery.Run(ctx, delivery.Config{
-		Journal:  journal,
-		Adapters: adapters,
+		Journal:      journal,
+		ResolveAgent: (daemonTokens{a: a}).ResolveAgent,
+		Adapters:     adapters,
 		Connect: func(url string) delivery.Server {
 			return apiserver.New(url, daemonTokens{a: a}, a.env.Rand)
 		},
@@ -187,11 +190,73 @@ func (t daemonTokens) AgentToken(agent delivery.AgentRef) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	cred, ok := creds.find(agent.Server, agent.Board, agent.Name)
+	cred, ok := creds.forSeat(agent)
 	if !ok || cred.Token == "" {
 		return "", fmt.Errorf("%w: no token for %s on %s", delivery.ErrUnauthorized, agent.Name, agent.Board)
 	}
 	return cred.Token, nil
+}
+
+// ResolveAgent proves a saved credential's seat before any delivery state uses it.
+func (t daemonTokens) ResolveAgent(ctx context.Context, agent delivery.AgentRef) (delivery.AgentRef, error) {
+	denied := func() (delivery.AgentRef, error) {
+		return delivery.AgentRef{}, fmt.Errorf("%w: the saved token does not identify this seat", delivery.ErrUnauthorized)
+	}
+	srv, err := parseServerURL(agent.Server)
+	if err != nil || srv.URL != agent.Server {
+		return denied()
+	}
+	creds, err := t.a.readCredentials()
+	if err != nil {
+		return delivery.AgentRef{}, err
+	}
+	cred, ok := creds.forSeat(agent)
+	if !ok || cred.Token == "" || (agent.Board != "" && cred.Board != agent.Board) {
+		return denied()
+	}
+	c, err := t.a.newClient(srv, cred.Token, requestTimeout)
+	if err != nil {
+		return delivery.AgentRef{}, err
+	}
+	r, err := c.api.GetMeWithResponse(ctx)
+	if err != nil {
+		return delivery.AgentRef{}, c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		if r.StatusCode() == http.StatusUnauthorized || r.StatusCode() == http.StatusForbidden {
+			return denied()
+		}
+		return delivery.AgentRef{}, apiError(r.StatusCode(), r.Body)
+	}
+	me := r.JSON200
+	if me.Kind != api.MeKindAgent || !strings.HasPrefix(me.Id, "mem_") || me.Board == nil ||
+		*me.Board != cred.Board || (cred.MemberID != "" && cred.MemberID != me.Id) ||
+		(agent.MemberID != "" && agent.MemberID != me.Id) ||
+		(cred.MemberID == "" && me.Name != cred.Name) {
+		return delivery.AgentRef{}, delivery.ErrSeatMismatch
+	}
+	resolved := delivery.AgentRef{Server: cred.Server, Board: *me.Board, Name: me.Name, MemberID: me.Id}
+	p, err := t.a.paths()
+	if err != nil {
+		return delivery.AgentRef{}, err
+	}
+	var current credentials
+	err = updateJSONFile(p.credentials(), &current, func() error {
+		now, exists := current.forSeat(agent)
+		if !exists || now.Token != cred.Token {
+			return delivery.ErrUnauthorized
+		}
+		if now.MemberID == "" {
+			now.Legacy = &legacyCredentialIdentity{Board: now.Board, Name: now.Name}
+		}
+		now.MemberID, now.Board, now.Name = me.Id, *me.Board, me.Name
+		current.put(now)
+		return nil
+	})
+	if err != nil {
+		return delivery.AgentRef{}, err
+	}
+	return resolved, nil
 }
 
 // HumanToken returns this machine's person's access key for the server at url: the

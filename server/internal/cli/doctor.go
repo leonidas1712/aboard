@@ -128,7 +128,7 @@ func (a *app) checkKeptModes(ctx context.Context) []doctorCheck {
 	}
 	var checks []doctorCheck
 	for _, cred := range creds.Agents {
-		kept, ok := modes[delivery.AgentRef{Server: cred.Server, Board: cred.Board, Name: cred.Name}]
+		kept, ok := journalMode(modes, delivery.AgentRef{Server: cred.Server, Board: cred.Board, Name: cred.Name, MemberID: cred.MemberID})
 		if !ok {
 			kept, ok = modes[delivery.AgentRef{}]
 		}

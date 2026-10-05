@@ -92,13 +92,13 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board, Name: joined.Agent.Name, Token: joined.Token}); err != nil {
+	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id, Token: joined.Token}); err != nil {
 		return err
 	}
 	useAs := useFor(joined.Agent.Name)
 	var moved *previousAgent
 	if inSession {
-		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}); err != nil {
+		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id}); err != nil {
 			return err
 		}
 		useAs.BoundSession = optional(session.String())
@@ -137,7 +137,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}, heldModeOf(joined.Agent))
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id}, heldModeOf(joined.Agent))
 	text.WriteString(mode.line())
 	if notice != nil {
 		text.WriteString(st.warn(notice.Message) + "\n")
@@ -271,13 +271,13 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	board, agent := joined.Board, joined.Agent
-	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board.Name, Name: agent.Name, Token: joined.Token}); err != nil {
+	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board.Name, Name: agent.Name, MemberID: agent.Id, Token: joined.Token}); err != nil {
 		return err
 	}
 	useAs := useFor(agent.Name)
 	var moved *previousAgent
 	if inSession {
-		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}); err != nil {
+		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name, MemberID: agent.Id}); err != nil {
 			return err
 		}
 		useAs.BoundSession = optional(session.String())
@@ -294,7 +294,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if inSession {
 		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
 	}
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}, heldModeOf(agent))
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name, MemberID: agent.Id}, heldModeOf(agent))
 	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent))
 	if guest {
 		text += fmt.Sprintf("You're a guest on %s: you and your agents reach only the boards you're invited to. This machine's key, %q, is saved.\n",

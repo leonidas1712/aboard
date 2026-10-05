@@ -20,8 +20,11 @@ import (
 
 // Config is everything the daemon needs from outside.
 type Config struct {
-	Journal  Journal
-	Adapters []Adapter
+	Journal Journal
+	// ResolveAgent verifies a seat using its saved credential. Nil is used by
+	// adapters whose agent references are already trusted, such as contract fixtures.
+	ResolveAgent func(context.Context, AgentRef) (AgentRef, error)
+	Adapters     []Adapter
 	// Connect returns the connection to one server. It is called once per server URL,
 	// when the first agent on that server is bound.
 	Connect func(serverURL string) Server
@@ -66,18 +69,19 @@ type Daemon struct {
 	// its goroutine touches it.
 	mu       sync.Mutex
 	sessions map[SessionKey]*session
-	owners   map[AgentRef]*session
+	owners   map[AgentKey]*session
+	refs     map[AgentKey]AgentRef
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
 	// turned holds the sessions that have run a turn, for status.
 	turned   map[SessionKey]bool
-	problems map[AgentRef]string
+	problems map[AgentKey]string
 	// modes holds each agent's delivery mode as the journal keeps it: one set on this
 	// machine, or the last one read from its server. An agent not in it has the default.
-	modes map[AgentRef]Mode
+	modes map[AgentKey]Mode
 	// held holds each agent's delivery mode as its server holds it, once read from the
 	// server in this run. It wins over modes.
-	held map[AgentRef]HeldMode
+	held map[AgentKey]HeldMode
 	// stalled are the deliveries handed to an idle session that started no turn, by id.
 	stalled map[int64]StatusItem
 	// openChanged fires when a session opens or closes.
@@ -94,9 +98,9 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	d := &Daemon{
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
-		sessions: map[SessionKey]*session{}, owners: map[AgentRef]*session{},
-		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentRef]string{},
-		modes: map[AgentRef]Mode{}, held: map[AgentRef]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
+		refs: map[AgentKey]AgentRef{}, sessions: map[SessionKey]*session{}, owners: map[AgentKey]*session{},
+		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentKey]string{},
+		modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -125,6 +129,10 @@ func Run(ctx context.Context, cfg Config) error {
 
 // restore loads the sessions, bindings and deliveries the journal holds.
 func (d *Daemon) restore(ctx context.Context) error {
+	blocked, err := d.resolveJournal(ctx)
+	if err != nil {
+		return err
+	}
 	records, err := d.cfg.Journal.Sessions(ctx)
 	if err != nil {
 		return fmt.Errorf("load sessions: %w", err)
@@ -149,7 +157,8 @@ func (d *Daemon) restore(ctx context.Context) error {
 	for a, m := range modes {
 		// A mode an earlier build saved as auto is all.
 		if parsed, ok := ParseMode(string(m)); ok {
-			d.modes[a] = parsed
+			d.modes[a.Key()] = parsed
+			d.rememberLocked(a)
 		}
 	}
 	for _, r := range records {
@@ -162,6 +171,11 @@ func (d *Daemon) restore(ctx context.Context) error {
 		d.turned[r.Key] = r.Turned
 	}
 	for _, b := range bindings {
+		if reason, ended := blocked[b.Agent.Key()]; ended {
+			d.rememberLocked(b.Agent)
+			d.problems[b.Agent.Key()] = reason
+			continue
+		}
 		s := d.sessions[b.Session]
 		if s == nil {
 			continue
@@ -170,13 +184,14 @@ func (d *Daemon) restore(ctx context.Context) error {
 		// What a session was told before the daemon stopped isn't kept: it is taken to
 		// know the mode its agent has when its inbox is first read (onInbox).
 		for i := range deliveries {
-			if deliveries[i].Agent == b.Agent {
+			if deliveries[i].Agent.Key() == b.Agent.Key() {
 				dl := deliveries[i]
 				a.deliveries[dl.ID] = &dl
 			}
 		}
-		s.agents[b.Agent] = a
-		d.owners[b.Agent] = s
+		s.agents[b.Agent.Key()] = a
+		d.rememberLocked(b.Agent)
+		d.owners[b.Agent.Key()] = s
 		d.watchLocked(b.Agent)
 	}
 	for _, s := range d.sessions {
@@ -184,6 +199,97 @@ func (d *Daemon) restore(ctx context.Context) error {
 		d.startSession(s)
 	}
 	return nil
+}
+
+func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, error) {
+	blocked := map[AgentKey]string{}
+	if d.cfg.ResolveAgent == nil {
+		return blocked, nil
+	}
+	bindings, err := d.cfg.Journal.Bindings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read bindings for identity resolution: %w", err)
+	}
+	seen := map[AgentKey]bool{}
+	for _, b := range bindings {
+		if seen[b.Agent.Key()] {
+			continue
+		}
+		seen[b.Agent.Key()] = true
+		resolved, err := d.resolveAgent(ctx, b.Agent)
+		if err != nil {
+			if b.Agent.MemberID != "" && !errors.Is(err, ErrUnauthorized) && !errors.Is(err, ErrBoardGone) {
+				d.log.Warn("seat identity server unavailable; keeping verified journal identity", "server", b.Agent.Server, "member_id", b.Agent.MemberID)
+				continue
+			}
+			reason := problemOf(err)
+			if reason == "" {
+				reason = "identity_unresolved"
+			}
+			blocked[b.Agent.Key()] = reason
+			d.log.Warn("resolve journal seat", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name, "error", err)
+		} else if b.Agent.MemberID != "" && resolved != b.Agent {
+			b.Agent = resolved
+			if err := d.cfg.Journal.Bind(ctx, b); err != nil {
+				return nil, fmt.Errorf("refresh restored seat metadata: %w", err)
+			}
+		}
+	}
+	return blocked, nil
+}
+
+func (d *Daemon) resolveAgent(ctx context.Context, agent AgentRef) (AgentRef, error) {
+	if d.cfg.ResolveAgent == nil || agent == (AgentRef{}) {
+		return agent, nil
+	}
+	rctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
+	defer cancel()
+	resolved, err := d.cfg.ResolveAgent(rctx, agent)
+	if err != nil {
+		return AgentRef{}, err
+	}
+	if resolved.Server != agent.Server || resolved.Board != agent.Board || resolved.MemberID == "" ||
+		(agent.MemberID != "" && resolved.MemberID != agent.MemberID) {
+		return AgentRef{}, fmt.Errorf("%w: saved credential does not prove this seat", ErrSeatMismatch)
+	}
+	if agent.MemberID == "" {
+		if err := d.cfg.Journal.ResolveIdentity(ctx, agent, resolved); err != nil {
+			return AgentRef{}, fmt.Errorf("resolve journal identity: %w", err)
+		}
+		d.mu.Lock()
+		if mode, ok := d.modes[agent.Key()]; ok {
+			if _, known := d.modes[resolved.Key()]; !known {
+				d.modes[resolved.Key()] = mode
+			}
+			delete(d.modes, agent.Key())
+		}
+		delete(d.problems, agent.Key())
+		delete(d.refs, agent.Key())
+		d.rememberLocked(resolved)
+		d.mu.Unlock()
+	}
+	return resolved, nil
+}
+
+func (d *Daemon) resolveRequest(ctx context.Context, req Request) (Request, *Response) {
+	if req.Agent == nil {
+		return req, nil
+	}
+	resolved, err := d.resolveAgent(ctx, *req.Agent)
+	if err != nil {
+		r := errorResponse("server_unreachable", "The agent's seat could not be verified right now.", "Check the server connection and try again; the existing binding is unchanged.")
+		if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrBoardGone) {
+			r = errorResponse("unauthorized", "This machine cannot verify the agent's seat.",
+				"Run aboard status; use the seat's current credentials or ask your person to add a new agent.")
+		}
+		if errors.Is(err, ErrSeatMismatch) {
+			r = errorResponse("invalid_request", "The member_id does not match the seat's own credential.",
+				"Use the seat identity returned by aboard status; the existing binding is unchanged.")
+		}
+		return req, &r
+	}
+	req.Agent = &resolved
+	return req, nil
 }
 
 // recoverHanded decides, as the daemon starts, what happens to deliveries an earlier
@@ -230,9 +336,9 @@ func (d *Daemon) newSessionLocked(key SessionKey) *session {
 	}
 	s := &session{
 		d: d, key: key, adapter: ad, mail: newMailbox[sessionMsg](),
-		agents: map[AgentRef]*agentState{}, refreshing: map[int64]bool{}, forward: map[AgentRef]*session{},
+		agents: map[AgentKey]*agentState{}, refreshing: map[int64]bool{}, forward: map[AgentKey]*session{},
 		holds: map[*hold]bool{}, readers: map[*reading]bool{},
-		reported: map[AgentRef]reportedPresence{},
+		reported: map[AgentKey]reportedPresence{},
 	}
 	d.sessions[key] = s
 	return s
@@ -263,8 +369,9 @@ func (d *Daemon) session(key SessionKey, create bool) *session {
 func (d *Daemon) setOwner(agent AgentRef, s *session) *session {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	prev := d.owners[agent]
-	d.owners[agent] = s
+	d.rememberLocked(agent)
+	prev := d.owners[agent.Key()]
+	d.owners[agent.Key()] = s
 	d.watchLocked(agent)
 	if prev == s {
 		return nil
@@ -277,15 +384,22 @@ func (d *Daemon) setOwner(agent AgentRef, s *session) *session {
 func (d *Daemon) dropOwner(agent AgentRef, s *session) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if d.owners[agent] == s {
-		delete(d.owners, agent)
+	if d.owners[agent.Key()] == s {
+		delete(d.owners, agent.Key())
 	}
 }
 
 func (d *Daemon) owner(agent AgentRef) *session {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.owners[agent]
+	return d.owners[agent.Key()]
+}
+
+func (d *Daemon) rememberLocked(agent AgentRef) {
+	if d.refs == nil {
+		d.refs = map[AgentKey]AgentRef{}
+	}
+	d.refs[agent.Key()] = agent
 }
 
 // server returns the connection to a server, starting it on first use.
@@ -299,7 +413,7 @@ func (d *Daemon) serverLocked(url string) *serverConn {
 	if c, ok := d.servers[url]; ok {
 		return c
 	}
-	c := &serverConn{d: d, url: url, srv: d.cfg.Connect(url), mail: newMailbox[srvMsg](), watched: map[AgentRef]bool{}, gone: map[AgentRef]bool{}}
+	c := &serverConn{d: d, url: url, srv: d.cfg.Connect(url), mail: newMailbox[srvMsg](), watched: map[AgentKey]AgentRef{}, gone: map[AgentKey]bool{}}
 	d.servers[url] = c
 	d.g.Go(func() error { return c.run(d.ctx) })
 	return c
@@ -360,10 +474,11 @@ func (d *Daemon) setProblem(agent AgentRef, reason string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if reason == "" {
-		delete(d.problems, agent)
+		delete(d.problems, agent.Key())
 		return
 	}
-	d.problems[agent] = reason
+	d.rememberLocked(agent)
+	d.problems[agent.Key()] = reason
 }
 
 // mode returns the agent's delivery mode: the one its server holds, once read; else the
@@ -380,19 +495,19 @@ func (d *Daemon) mode(agent AgentRef) Mode {
 func (d *Daemon) heldMode(agent AgentRef) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	_, ok := d.held[agent]
+	_, ok := d.held[agent.Key()]
 	return ok
 }
 
 // modeLocked is mode, for a caller that holds d.mu.
 func (d *Daemon) modeLocked(agent AgentRef) Mode {
-	if h, ok := d.held[agent]; ok {
+	if h, ok := d.held[agent.Key()]; ok {
 		return h.Mode
 	}
-	if m, ok := d.modes[agent]; ok {
+	if m, ok := d.modes[agent.Key()]; ok {
 		return m
 	}
-	if m, ok := d.modes[AgentRef{}]; ok {
+	if m, ok := d.modes[AgentKey{}]; ok {
 		return m
 	}
 	return ModeFocused
@@ -412,24 +527,25 @@ func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool
 		h.Mode = ModeFocused
 	}
 	d.mu.Lock()
-	prev, known := d.held[agent]
+	prev, known := d.held[agent.Key()]
 	if known && h.Revision < prev.Revision {
 		d.mu.Unlock()
 		return false
 	}
 	before := d.modeLocked(agent)
-	d.held[agent] = h
-	cached, inJournal := d.modes[agent]
+	cached, inJournal := d.modes[agent.Key()]
 	save := h.Revision > 0 && (!inJournal || cached != h.Mode)
 	if save {
-		d.modes[agent] = h.Mode
-	}
-	d.mu.Unlock()
-	if save {
+		// Keep the persisted cache unchanged on failure, so an identical read retries.
 		if err := d.cfg.Journal.SetMode(ctx, agent, h.Mode); err != nil {
 			d.log.Warn("save the delivery mode read from the server", "agent", agent.Name, "board", agent.Board, "error", err)
+		} else {
+			d.modes[agent.Key()] = h.Mode
 		}
+		d.rememberLocked(agent)
 	}
+	d.held[agent.Key()] = h
+	d.mu.Unlock()
 	if before == h.Mode {
 		return false
 	}
@@ -471,10 +587,11 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 		return errorResponse("internal", "Couldn't save the delivery mode: "+err.Error(), "Look at the daemon log.")
 	}
 	d.mu.Lock()
-	d.modes[agent] = req.Mode
+	d.rememberLocked(agent)
+	d.modes[agent.Key()] = req.Mode
 	var owners []*session
 	for a, s := range d.owners {
-		if _, own := d.modes[a]; a == agent || (agent == AgentRef{} && !own) {
+		if _, own := d.modes[a]; a == agent.Key() || (agent == AgentRef{} && !own) {
 			owners = append(owners, s)
 		}
 	}
@@ -584,9 +701,13 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 			"Install the same aboard as the running daemon, or run aboard down so this one starts its own."))
 		return
 	}
-	if req.Agent != nil {
-		agent := req.Agent.byName()
-		req.Agent = &agent
+	if req.Op == OpMode || req.Op == OpHold || req.Op == OpInbox {
+		var refusal *Response
+		req, refusal = d.resolveRequest(ctx, req)
+		if refusal != nil {
+			_ = WriteFrame(conn, *refusal)
+			return
+		}
 	}
 	switch req.Op {
 	case OpStatus:
@@ -625,10 +746,6 @@ func sessionUnknown(key SessionKey) Response {
 
 // call routes one request to its session and returns the session's answer.
 func (d *Daemon) call(ctx context.Context, req Request) Response {
-	if req.Agent != nil {
-		agent := req.Agent.byName()
-		req.Agent = &agent
-	}
 	ad, ok := d.adapters[req.Harness]
 	if !ok || req.Session == "" {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),
@@ -672,6 +789,13 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 			return Response{V: ProtocolVersion}
 		}
 	}
+	if req.Op == OpBind {
+		var refusal *Response
+		req, refusal = d.resolveRequest(ctx, req)
+		if refusal != nil {
+			return *refusal
+		}
+	}
 	reply := make(chan Response, 1)
 	s.mail.put(sessionMsg{req: req, reply: reply})
 	select {
@@ -703,7 +827,10 @@ func (d *Daemon) bindLaunch(ctx context.Context, req Request, ticket string, res
 		return b
 	}
 	d.log.Info("session took its launched seat", "session", req.Key().String(), "agent", agent.Name, "board", agent.Board)
-	resp.Agents, resp.Lost, resp.Previous, resp.Mode = []AgentRef{agent}, nil, b.Previous, d.mode(agent)
+	resp.Agents, resp.Lost, resp.Previous = b.Agents, nil, b.Previous
+	if len(b.Agents) == 1 {
+		resp.Mode = d.mode(b.Agents[0])
+	}
 	return resp
 }
 
@@ -841,10 +968,10 @@ func (d *Daemon) status(ctx context.Context) Response {
 		st.Servers = append(st.Servers, ServerStatus{URL: url, Connected: connected, Problem: problem})
 	}
 	for a, reason := range d.problems {
-		st.Agents = append(st.Agents, AgentProblem{Agent: a, Reason: reason})
+		st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: reason})
 	}
 	for a, s := range d.owners {
-		st.Bindings = append(st.Bindings, BindingStatus{Agent: a, Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
+		st.Bindings = append(st.Bindings, BindingStatus{Agent: d.refs[a], Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
 	}
 	d.mu.Unlock()
 	slices.SortFunc(st.Servers, func(a, b ServerStatus) int { return strings.Compare(a.URL, b.URL) })

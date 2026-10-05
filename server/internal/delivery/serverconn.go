@@ -39,11 +39,11 @@ type serverConn struct {
 	srv  Server
 	mail *mailbox[srvMsg]
 
-	watched map[AgentRef]bool
+	watched map[AgentKey]AgentRef
 	// gone holds watched agents whose board answered board_not_found, whose inboxes a
 	// head change no longer reads. Watching an agent again, when a session binds it,
 	// clears it.
-	gone map[AgentRef]bool
+	gone map[AgentKey]bool
 
 	mu        sync.Mutex
 	connected bool
@@ -80,12 +80,16 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 	for _, m := range batch {
 		switch {
 		case m.watch != nil:
-			c.watched[*m.watch] = true
-			delete(c.gone, *m.watch)
+			c.watched[m.watch.Key()] = *m.watch
+			delete(c.gone, m.watch.Key())
 		case m.head != nil && m.head.Read != nil:
 			// The server says an agent read up to a point, whoever acknowledged: its session
 			// drops what is at or below it from what it would hand over or announce.
-			agent := AgentRef{Server: c.url, Board: m.head.Board, Name: m.head.Read.Agent}
+			if m.head.Read.MemberID == "" {
+				boards[m.head.Board] = true
+				continue
+			}
+			agent := AgentRef{Server: c.url, Board: m.head.Board, Name: m.head.Read.Agent, MemberID: m.head.Read.MemberID}
 			if s := c.d.owner(agent); s != nil {
 				s.mail.put(sessionMsg{read: &readMove{agent: agent, upTo: m.head.Read.UpTo}})
 			}
@@ -95,8 +99,8 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 			all = true
 		}
 	}
-	for agent := range c.watched {
-		if (all || boards[agent.Board]) && !c.gone[agent] {
+	for _, agent := range c.watched {
+		if (all || boards[agent.Board]) && !c.gone[agent.Key()] {
 			if s := c.d.owner(agent); s != nil {
 				s.mail.put(sessionMsg{inbox: c.fetch(ctx, agent, 0)})
 			}
@@ -120,14 +124,14 @@ var errStillGone = fmt.Errorf("%w: not asked again", ErrBoardGone)
 
 // ack acknowledges an agent's messages, unless its board is gone.
 func (c *serverConn) ack(ctx context.Context, agent AgentRef, upTo int) error {
-	if c.gone[agent] {
+	if c.gone[agent.Key()] {
 		return errStillGone
 	}
 	actx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
 	err := c.srv.Ack(actx, agent, upTo)
 	if errors.Is(err, ErrBoardGone) {
-		c.gone[agent] = true
+		c.gone[agent.Key()] = true
 	}
 	return err
 }
@@ -138,22 +142,22 @@ func (c *serverConn) ack(ctx context.Context, agent AgentRef, upTo int) error {
 // it had. A refusal that stops the agent (its board is gone, or its token is rejected)
 // goes to the session that holds the agent, as a failed inbox read would.
 func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
-	latest := map[AgentRef]srvMsg{}
+	latest := map[AgentKey]srvMsg{}
 	var order []AgentRef
 	for _, m := range batch {
 		if m.presence == nil {
 			continue
 		}
-		if _, seen := latest[*m.presence]; !seen {
+		if _, seen := latest[m.presence.Key()]; !seen {
 			order = append(order, *m.presence)
 		}
-		latest[*m.presence] = m
+		latest[m.presence.Key()] = m
 	}
 	for _, agent := range order {
-		if c.gone[agent] {
+		if c.gone[agent.Key()] {
 			continue
 		}
-		m := latest[agent]
+		m := latest[agent.Key()]
 		pctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 		err := c.srv.SetPresence(pctx, agent, m.state, m.mode)
 		cancel()
@@ -162,7 +166,7 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 		}
 		c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", m.state, "error", err)
 		if errors.Is(err, ErrBoardGone) {
-			c.gone[agent] = true
+			c.gone[agent.Key()] = true
 		}
 		if problemOf(err) != "" {
 			if s := c.d.owner(agent); s != nil {
@@ -173,14 +177,14 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 }
 
 func (c *serverConn) fetch(ctx context.Context, agent AgentRef, refresh int64) *inboxResult {
-	if c.gone[agent] {
+	if c.gone[agent.Key()] {
 		return &inboxResult{agent: agent, err: errStillGone, refresh: refresh}
 	}
 	fctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
 	msgs, cursor, mode, err := c.srv.Inbox(fctx, agent)
 	if errors.Is(err, ErrBoardGone) {
-		c.gone[agent] = true
+		c.gone[agent.Key()] = true
 	}
 	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, mode: mode, err: err, refresh: refresh}
 }
