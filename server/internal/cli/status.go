@@ -338,6 +338,17 @@ type daemonReport struct {
 	Replaced     *replacement `json:"replaced"`
 	// Stalled counts deliveries handed to an idle session that started no turn.
 	Stalled int `json:"stalled"`
+	// StoppedAgents are agents whose deliveries the daemon stopped, with why.
+	StoppedAgents []stoppedAgent `json:"stopped_agents,omitempty"`
+}
+
+// stoppedAgent is an agent whose deliveries the daemon stopped, such as one whose board
+// is gone.
+type stoppedAgent struct {
+	Server string `json:"server"`
+	Board  string `json:"board"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
 }
 
 // runningLines writes the Server and Daemon lines of aboard status, saying what the
@@ -380,4 +391,12 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 	}
 	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s%s%s\n", pid, st.OpenSessions,
 		plural(st.OpenSessions, "session", "sessions"), stalled, a.daemonReplaced.text())
+	for _, p := range st.Agents {
+		d.StoppedAgents = append(d.StoppedAgents, stoppedAgent{Server: p.Agent.Server, Board: p.Agent.Board, Name: p.Agent.Name, Reason: p.Reason})
+		if p.Reason == delivery.ReasonBoardGone {
+			fmt.Fprintf(text, "        %s. Join again with a new agent (aboard join) if the person still belongs on it.\n", boardGoneText(p.Agent.Name, p.Agent.Board))
+			continue
+		}
+		fmt.Fprintf(text, "        deliveries for %s on %s stopped (%s); see aboard doctor\n", p.Agent.Name, p.Agent.Board, p.Reason)
+	}
 }

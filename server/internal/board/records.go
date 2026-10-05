@@ -209,6 +209,31 @@ type Redaction struct {
 	Count int    `json:"count"`
 }
 
+// Mention is one member a message mentions, as the server resolved it when the message
+// was posted. Its JSON form is part of the message.posted event payload, which is hashed
+// into the chain, so the field names are fixed.
+type Mention struct {
+	MemberID string `json:"id"`
+	Kind     string `json:"kind"`
+	Name     string `json:"name"`
+	// Text is the mention as written: "@codex" or "@role:reviewer".
+	Text string `json:"text"`
+	// Wakes is true when the mention counts as addressing the agent.
+	Wakes bool `json:"wakes"`
+	// Reason says why an agent's mention doesn't wake it: MentionLimit or
+	// MentionCannotRead. Nil otherwise.
+	Reason *string `json:"reason"`
+}
+
+// Why a mention of an agent doesn't wake it.
+const (
+	// MentionLimit: the message mentions more agents than MaxMentionWakes.
+	MentionLimit = "limit"
+	// MentionCannotRead: the agent may not read the message, and a mention grants no
+	// access.
+	MentionCannotRead = "cannot_read"
+)
+
 // Message is a stored message with its sender.
 type Message struct {
 	ID         string
@@ -234,6 +259,8 @@ type Message struct {
 	Urgent       bool
 	ExpectsReply bool
 	Redactions   []Redaction
+	// Mentions are the members the body mentions, each once, in the order first mentioned.
+	Mentions []Mention
 	// Reactions are the reactions on the message as its reader sees them, in the set's
 	// order. The service fills them for each reader.
 	Reactions []ReactionCount

@@ -595,6 +595,14 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
   await sent.locator(".mention", { hasText: "@writer" }).click();
   await expect(page.locator('[data-agent="writer"]')).toBeInViewport();
 
+  // The timeline marks the mentions the server recorded when the message was posted:
+  // never a name in code, and never someone who joined after it.
+  say("--as", "writer", "Run `aboard say --to @scout` when @scout is free, and @late too.");
+  aboard("join", invite.join_line, "--name", "late");
+  await page.reload();
+  const coded = page.locator(".message", { hasText: "when @scout is free" });
+  await expect(coded.locator(".mention")).toHaveText(["@scout"]);
+
   // The "To" menu is the other way to pick: a name ticked there becomes a chip, and the
   // chip removes it.
   await to.click();

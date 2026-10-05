@@ -207,23 +207,27 @@ type swarmAgent struct {
 	Seated    bool    `json:"seated"`
 	Presence  *string `json:"presence"`
 	Delivery  *string `json:"delivery"`
-	// SeatCredential says whether the seat's token still works ("works") or ended with
-	// the access key it came from ("ended"), as swarm ps and show check it with the
-	// server; nil when unchecked.
+	// SeatCredential says whether the seat's token still works on its board ("works"),
+	// ended with the access key it came from ("ended"), or works but can't reach the
+	// board any more ("board_gone"), as swarm ps and show check it with the server; nil
+	// when unchecked.
 	SeatCredential *string `json:"seat_credential"`
 }
 
 // Values of swarmAgent.SeatCredential.
 const (
-	seatWorks = "works"
-	seatEnded = "ended"
+	seatWorks     = "works"
+	seatEnded     = "ended"
+	seatBoardGone = "board_gone"
 )
 
-// seatStates asks the server, with each named agent's own token and all at once,
-// whether its seat still works: a seat whose token the server refuses as unauthorized
-// ended with the access key it came from, though its session may still run. Agents this
-// machine holds no token for, and any other answer (none, or a refusal with another
-// code), are left out. Each check counts as a use of the key behind the seat.
+// seatStates asks the server, reading the board with each named agent's own token and
+// all at once, whether its seat still works: a seat whose token the server refuses as
+// unauthorized ended with the access key it came from, and one whose board answers
+// board_not_found can't reach the board any more (the board was deleted or is hidden
+// from the person, or the agent was removed from it), though either's session may still
+// run. Agents this machine holds no token for, and any other answer, are left out. Each
+// check counts as a use of the key behind the seat.
 func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names []string) map[string]string {
 	creds, err := a.readCredentials()
 	if err != nil {
@@ -246,14 +250,19 @@ func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names
 			if err != nil {
 				return
 			}
-			r, err := c.api.GetMeWithResponse(ctx)
+			r, err := c.api.GetBoardWithResponse(ctx, board)
 			state := ""
 			switch {
 			case err != nil:
 			case r.JSON200 != nil:
 				state = seatWorks
-			case apiError(r.StatusCode(), r.Body).Code == "unauthorized":
-				state = seatEnded
+			default:
+				switch apiError(r.StatusCode(), r.Body).Code {
+				case "unauthorized":
+					state = seatEnded
+				case "board_not_found":
+					state = seatBoardGone
+				}
 			}
 			if state != "" {
 				mu.Lock()
@@ -291,22 +300,52 @@ func seatEndedError(board string, names []string) *Error {
 	return e
 }
 
-// endedSeatsText warns about agents whose seats ended, or is "" when none has.
-func endedSeatsText(st styles, board string, rows []swarmAgent) string {
+// seatBoardGoneError refuses to start agents that can't reach their board any more:
+// their sessions could never act on it, and those seats never work on it again.
+func seatBoardGoneError(board string, names []string) *Error {
+	e := newError("seat_board_gone", boardGoneSeatsText(board, names),
+		"Once you can see "+board+" again, give "+plural(len(names), "it a new name", "each a new name")+
+			" in the board file and run aboard swarm up again, or remove "+plural(len(names), "it", "them")+" from the file.")
+	e.Details = map[string]any{"agents": names, "board": board}
+	return e
+}
+
+// boardGoneSeatsText says that agents can't reach their board any more.
+func boardGoneSeatsText(board string, names []string) string {
+	return fmt.Sprintf("%s can't reach %s any more: the board is gone or hidden from you, or the %s removed from it.",
+		strings.Join(names, ", "), board, plural(len(names), "agent was", "agents were"))
+}
+
+// seatsIn returns the names of the rows whose seat is in state.
+func seatsIn(rows []swarmAgent, state string) []string {
 	var names []string
 	for _, r := range rows {
-		if deref(r.SeatCredential) == seatEnded {
+		if deref(r.SeatCredential) == state {
 			names = append(names, r.Name)
 		}
 	}
-	if len(names) == 0 {
-		return ""
+	return names
+}
+
+// endedSeatsText warns about agents whose seats ended or can't reach the board, or is
+// "" when none has.
+func endedSeatsText(st styles, board string, rows []swarmAgent) string {
+	var b strings.Builder
+	if names := seatsIn(rows, seatEnded); len(names) > 0 {
+		b.WriteString(st.warn(fmt.Sprintf("%s can't act on %s any more: the access key %s came from was revoked or has expired.",
+			strings.Join(names, ", "), board, plural(len(names), "its seat", "their seats"))) + "\n" +
+			"Stop " + plural(len(names), "its session", "their sessions") + " with aboard swarm down; to start " +
+			plural(len(names), "it", "them") + " again, give " + plural(len(names), "it a new name", "each a new name") +
+			" in the board file and run aboard swarm up.\n")
 	}
-	return st.warn(fmt.Sprintf("%s can't act on %s any more: the access key %s came from was revoked or has expired.",
-		strings.Join(names, ", "), board, plural(len(names), "its seat", "their seats"))) + "\n" +
-		"Stop " + plural(len(names), "its session", "their sessions") + " with aboard swarm down; to start " +
-		plural(len(names), "it", "them") + " again, give " + plural(len(names), "it a new name", "each a new name") +
-		" in the board file and run aboard swarm up.\n"
+	if names := seatsIn(rows, seatBoardGone); len(names) > 0 {
+		b.WriteString(st.warn(boardGoneSeatsText(board, names)) + "\n" +
+			"Stop " + plural(len(names), "its session", "their sessions") + " with aboard swarm down; to start " +
+			plural(len(names), "it", "them") + " again once you can see " + board + ", give " +
+			plural(len(names), "it a new name", "each a new name") + " in the board file and run aboard swarm up, or remove " +
+			plural(len(names), "it", "them") + " from the file.\n")
+	}
+	return b.String()
 }
 
 // swarmUpAgent is one agent in swarm up's output.
@@ -388,6 +427,33 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	rec.Server, rec.Board, rec.File, rec.Title, rec.UpAt = srv.URL, board.Name, f.path, deref(board.Title), time.Now().UTC()
+	// A seat that ended with its access key, or can't reach the board any more, can't be
+	// taken again: refuse before starting anything, rather than start a session that
+	// waits for it in vain. This comes before reading the board's members, which a person
+	// taken off the board can't.
+	names := make([]string, 0, len(f.Agents))
+	for _, spec := range f.Agents {
+		names = append(names, spec.Name)
+	}
+	var ended, gone []string
+	for name, state := range a.seatStates(ctx, srv, board.Name, names) {
+		switch state {
+		case seatEnded:
+			ended = append(ended, name)
+		case seatBoardGone:
+			gone = append(gone, name)
+		}
+	}
+	if len(ended) > 0 {
+		slices.Sort(ended)
+		prog.finish()
+		return seatEndedError(board.Name, ended)
+	}
+	if len(gone) > 0 {
+		slices.Sort(gone)
+		prog.finish()
+		return seatBoardGoneError(board.Name, gone)
+	}
 	members, err := boardMembers(ctx, c, board.Name)
 	if err != nil {
 		return err
@@ -396,23 +462,6 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	creds, err := a.readCredentials()
 	if err != nil {
 		return err
-	}
-	// A seat that ended with its access key can't be taken again: refuse before starting
-	// anything, rather than start a session that waits for it in vain.
-	names := make([]string, 0, len(f.Agents))
-	for _, spec := range f.Agents {
-		names = append(names, spec.Name)
-	}
-	var ended []string
-	for name, state := range a.seatStates(ctx, srv, board.Name, names) {
-		if state == seatEnded {
-			ended = append(ended, name)
-		}
-	}
-	if len(ended) > 0 {
-		slices.Sort(ended)
-		prog.finish()
-		return seatEndedError(board.Name, ended)
 	}
 	tickets := launchtickets.Dir(p.launches())
 	var out []swarmUpAgent
@@ -515,7 +564,16 @@ func ensureSwarmBoard(ctx context.Context, c *client, f swarmFile) (*api.Board, 
 		return nil, false, c.unreachable(err)
 	}
 	if r.JSON201 == nil {
-		return nil, false, apiError(r.StatusCode(), r.Body)
+		e := apiError(r.StatusCode(), r.Body)
+		if e.Code == "board_name_taken" {
+			// The board wasn't found, yet its name is taken: most likely a private board
+			// the person isn't on, which the server doesn't confirm.
+			e.Message = fmt.Sprintf("Board %s can't be created: the name is taken, so it may exist but be hidden from you, as a private board you aren't on.", f.Board)
+			e.Hint = "Ask one of its owners to add you (aboard board add @<your handle> --board " + f.Board +
+				"), then run aboard swarm up again; or name another board in the board file."
+			e.Details = map[string]any{"board": f.Board}
+		}
+		return nil, false, e
 	}
 	return r.JSON201, true, nil
 }

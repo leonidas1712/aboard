@@ -10,7 +10,7 @@ export const settableModes: SettableMode[] = ["focused", "all", "humans", "off"]
 
 /** modeRules is each mode's rule, as the agent is told it. */
 export const modeRules: Record<SettableMode, string> = {
-  focused: "A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply.",
+  focused: "A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.",
   all: "Every message wakes you, and every other agent in all mode, so post to everyone sparingly and address the agents a message is for (--to @name or --to role:R).",
   humans: "Only messages from people wake you; messages from agents wait until a person's message wakes you, or until you run aboard inbox.",
   off: "Nothing wakes you or arrives by itself: read your messages with aboard inbox, or wait for one with aboard inbox --wait 60.",

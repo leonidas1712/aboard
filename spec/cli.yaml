@@ -152,7 +152,16 @@ $defs:
       seat_ended (swarm up found agents whose seats ended with the access key they came
       from, which the server refuses as unauthorized; it starts nothing, details.agents
       names them, details.board their board, and the hint says to give each a new name
-      in the board file).
+      in the board file) · seat_board_gone (swarm up found agents whose token works but
+      whose board answers board_not_found: the board was deleted or is hidden from the
+      person, or the agents were removed from it, as they are for good when their person
+      is removed from or leaves the board; it starts nothing, details.agents names them,
+      details.board their board, and the hint says to give each a new name in the board
+      file once the person can see the board again, or to remove it from the file) ·
+      board_name_taken from swarm up (the board file's board isn't one the person can see,
+      but its name is taken, so it may be a private board they aren't on; details.board
+      names it, and the hint says to ask one of its owners to add them, or to name
+      another board).
   ServerRef:
     type: object
     required: [name, url]
@@ -187,9 +196,10 @@ $defs:
       every command that shows it, in the session-start note of a session that comes
       back, and in the notice of a changed mode (spec/delivery.md, "Telling the agent
       its mode"):
-        focused  A message to everyone wakes no agent in focused mode, you included; it
-                 arrives quietly at each one's next turn. To make an agent act soon,
-                 address it (--to @name or --to role:R) or ask with --expect-reply.
+        focused  A message to everyone wakes only the agents it mentions in focused
+                 mode, you included; the others get it quietly at their next turn. To
+                 make an agent act soon, address or mention it (--to @name, --to role:R,
+                 or @name in the text) or ask with --expect-reply.
         all      Every message wakes you, and every other agent in all mode, so post to
                  everyone sparingly and address the agents a message is for (--to @name
                  or --to role:R).
@@ -201,7 +211,7 @@ $defs:
       "Delivery mode: <mode>. <rule>" (pair, join, resume) or indented under the Agent
       line (status).
     type: string
-    examples: ["A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."]
+    examples: ["A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply."]
   PreviousBoard:
     description: |
       The board this directory was linked to before the command re-linked it, or null if
@@ -250,6 +260,7 @@ $defs:
       show_owner: { $ref: openapi.yaml#/components/schemas/Message/properties/show_owner }
       redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
       reactions: { $ref: openapi.yaml#/components/schemas/Message/properties/reactions }
+      mentions: { $ref: openapi.yaml#/components/schemas/Message/properties/mentions }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -512,7 +523,7 @@ $defs:
       Text output:
         Joined board writer-reviewer as reviewer (owner alex)
         This session acts as reviewer, and messages for reviewer arrive here.
-        Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply.
+        Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.
       Outside a harness session the second line is "Act as this agent with --as
       reviewer, or set ABOARD_AGENT=reviewer.".
     type: object
@@ -826,6 +837,17 @@ $defs:
         their inbox). A reply without --to goes to the people and agents already in its
         thread (openapi.yaml, PostMessageRequest.to), which the first line names.
 
+        A member the message mentions (`@name` or `@role:R` in the text; spec/events.md,
+        "Mentions") is listed too, with `mentioned` true, whether or not the message is
+        addressed to it. A mention that wakes an agent counts as addressing it, so its
+        outcome is `now`, `turn_end`, `no_session` or `not_woken` (its mode is `off`, or
+        `humans` and the sender is an agent), never `next_turn`. A mentioned agent the
+        message isn't addressed to and the mention can't wake has one of two more
+        outcomes: `cannot_read` (the board's visibility is `addressed`, so the agent may
+        not read the message, and a mention doesn't change that) or `over_limit` (the
+        message mentions more than 8 agents that may read it, and only the first 8 are
+        woken).
+
       Text output: "Sent #<seq> to <targets> on <board>", then a line about the sender's
       unread messages when there are any, then one line about the recipients, grouped by
       outcome in the order above, naming up to five per group and counting the rest:
@@ -833,17 +855,22 @@ $defs:
         2 unread on general: #6, #7; run aboard inbox
         @reviewer gets it now. @codex, @claude-2 get it when their turn ends. @alex sees it on the board or in their inbox.
       The other groups read "@omp sees it at its next turn." ("@omp, @codex see it at
-      their next turn."), "@bot won't be woken: it sees it when it checks its inbox."
-      and "@old is disconnected: it sees it in its inbox or when its session
-      reconnects.", with "they … their" for several ("are disconnected … when their
-      sessions reconnect").
+      their next turn."), "@bot won't be woken: it sees it when it checks its inbox.",
+      "@old is disconnected: it sees it in its inbox or when its session
+      reconnects.", "@codex can't read it: on this board an agent reads only messages
+      addressed to it, and a mention doesn't change that." and "@omp won't get it: a
+      message's mentions wake at most 8 agents.", with "they … their" for several ("are
+      disconnected … when their sessions reconnect", "can't read it: on this board
+      agents read only messages addressed to them, …").
 
       `warning` is set when the message is to everyone and wakes no agent: at least one
-      recipient's outcome is `next_turn` and none is `now` or `turn_end`. In focused mode,
+      recipient's outcome is `next_turn` and none is `now` or `turn_end`. A mentioned
+      agent counts by its outcome: one its mention wakes now or at its turn's end stops
+      the warning, and one in `off` mode doesn't. In focused mode,
       the default, a message to everyone that asks nothing and answers nothing wakes no
       agent, so an agent that posts to everyone when it means one agent leaves that agent
       asleep. Text output then ends with one more line, in yellow at a terminal:
-        Warning (wakes_no_agent): No agent wakes for this message to everyone; agents in focused mode see it at their next turn. To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply.
+        Warning (wakes_no_agent): No agent wakes for this message to everyone; agents in focused mode see it at their next turn. To make one act soon, mention it (@name in the text), send it with --to @name or --to role:R, or ask with --expect-reply.
 
       --wait-reply N (which implies --expect-reply) then waits up to N seconds, inside the
       same command, for a reply: a message whose `reply_to` is this one. The command
@@ -882,13 +909,16 @@ $defs:
                 name: { type: string }
                 sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
       recipients:
-        description: Every member the message is addressed to, except the sender; null if the members couldn't be read.
+        description: Every member the message is addressed to or mentions, except the sender; null if the members couldn't be read.
         type: [array, "null"]
         items:
           type: object
-          required: [name, presence, delivery, outcome]
+          required: [name, presence, delivery, outcome, mentioned]
           properties:
             name: { type: string }
+            mentioned:
+              type: boolean
+              description: True when the message mentions this member.
             presence:
               type: [string, "null"]
               enum: [working, idle, waiting, no_session, null]
@@ -898,7 +928,7 @@ $defs:
               enum: [focused, all, humans, off, auto, null]
               description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
-              enum: [now, turn_end, next_turn, not_woken, no_session, person]
+              enum: [now, turn_end, next_turn, not_woken, no_session, cannot_read, over_limit, person]
       warning:
         description: |
           Set when the message is to everyone and wakes no agent (see above); null
@@ -912,7 +942,7 @@ $defs:
             examples: ["No agent wakes for this message to everyone; agents in focused mode see it at their next turn."]
           hint:
             type: string
-            examples: ["To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply."]
+            examples: ["To make one act soon, mention it (@name in the text), send it with --to @name or --to role:R, or ask with --expect-reply."]
       outcome:
         description: Present with --wait-reply.
         enum: [reply, owner_message, timeout]
@@ -1305,7 +1335,7 @@ $defs:
       and any bundle left unconfirmed are delivered to this session. A session bound to
       another agent moves to this one (see PreviousAgent). Text output:
         Resumed reviewer on writer-reviewer in this session.
-        Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; …
+        Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; …
     type: object
     required: [agent, board, session, previous_agent]
     properties:
@@ -1571,7 +1601,7 @@ $defs:
         Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as); delivery focused; idle
-                A message to everyone wakes no agent in focused mode, you included; …
+                A message to everyone wakes only the agents it mentions in focused mode, you included; …
         Policy: starter (a starting point; tighten with aboard board policy recommended)
         People: alex (admin), sam (member)
       The line under the Agent line is the agent's delivery rule (DeliveryRule), indented.
@@ -1627,6 +1657,28 @@ $defs:
               Deliveries handed to an idle session that started no turn within 10 seconds,
               until a turn starts or the session closes. aboard doctor names each
               (delivery_stalled). They are never handed again because of it.
+          stopped_agents:
+            type: array
+            description: |
+              Agents on this machine whose deliveries the daemon stopped, with why:
+              board_gone when the agent's board answers board_not_found to it (the board
+              was deleted or is hidden from its person, or the agent was removed from it,
+              as it is for good when its person is removed from or leaves the board), and
+              the daemon reads nothing more for it; unauthorized when the server rejects its
+              token. Text output adds an indented line under the Daemon line for each: for
+              board_gone, "writer can't reach docs any more: the board is gone or hidden
+              from its person, or the agent was removed from it. Join again with a new agent
+              (aboard join) if the person still belongs on it."; otherwise "deliveries for
+              writer on docs stopped (unauthorized); see aboard doctor". Left out when the
+              daemon isn't running.
+            items:
+              type: object
+              required: [server, board, name, reason]
+              properties:
+                server: { type: string }
+                board: { type: string }
+                name: { type: string }
+                reason: { type: string, examples: [board_gone, unauthorized] }
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]
@@ -1984,16 +2036,20 @@ $defs:
         type: [string, "null"]
         description: The agent's delivery mode as the board shows it.
       seat_credential:
-        enum: [works, ended, null]
+        enum: [works, ended, board_gone, null]
         description: |
-          Whether the token of the agent's seat still works, as swarm ps and show check it
-          with the server (all agents at once, each with its own token, which counts as a
-          use of the key behind it): ended when the server refuses the token as
-          unauthorized, because the access key the seat came from was revoked or has
-          expired, so its session can no longer act on the board, and text output says
-          so; null when this machine holds no token for the agent, the server couldn't be
-          asked or refused for another reason, or the command doesn't fill it in (swarm
-          up, which instead refuses ended seats with seat_ended before starting anything).
+          Whether the token of the agent's seat still works on its board, as swarm ps and
+          show check it with the server by reading the board with the agent's own token
+          (all agents at once, which counts as a use of the key behind each): ended when
+          the server refuses the token as unauthorized, because the access key the seat
+          came from was revoked or has expired; board_gone when the token works but the
+          board answers board_not_found, because the board was deleted or is hidden from
+          the person, or the agent was removed from it (as an agent is for good when its
+          person is removed from or leaves the board, even if they come back). Either way
+          its session can no longer act on the board, and text output says so. null when
+          this machine holds no token for the agent, the server couldn't be asked or
+          answered otherwise, or the command doesn't fill it in (swarm up, which instead
+          refuses such seats with seat_ended or seat_board_gone before starting anything).
 
   SwarmUpOutput:
     description: |

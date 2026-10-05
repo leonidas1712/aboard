@@ -37,5 +37,10 @@ func TestFakeServerPassesTheServerContract(t *testing.T) {
 			s.HoldModes()
 			return s, to, func(m delivery.Mode) int { return s.SetHeldMode(to, m) }
 		},
+		Gone: func(*testing.T) (delivery.Server, delivery.AgentRef) {
+			s := NewFakeServer()
+			s.TakeOff(to)
+			return s, to
+		},
 	})
 }

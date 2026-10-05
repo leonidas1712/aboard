@@ -95,7 +95,9 @@ func (s *Server) idempotencyKey() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// statusError turns an unexpected response into an error, marking a rejected token.
+// statusError turns an unexpected response into an error, marking a rejected token and
+// a board that answers board_not_found. An agent's requests here act only on its own
+// board, so for them that answer means the agent can't reach its board.
 func statusError(what string, status int, body []byte) error {
 	var w struct {
 		Error struct {
@@ -110,6 +112,9 @@ func statusError(what string, status int, body []byte) error {
 	}
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
 		return fmt.Errorf("%s: %w (%s)", what, delivery.ErrUnauthorized, detail)
+	}
+	if status == http.StatusNotFound && w.Error.Code == "board_not_found" {
+		return fmt.Errorf("%s: %w (%s)", what, delivery.ErrBoardGone, detail)
 	}
 	return fmt.Errorf("%s: %s", what, detail)
 }
@@ -301,6 +306,11 @@ func TextMessage(m api.Message) deliverytext.Message {
 	}
 	for _, to := range m.To {
 		t.To = append(t.To, string(to))
+	}
+	for _, mn := range m.Mentions {
+		if mn.Wakes {
+			t.Mentions = append(t.Mentions, mn.Name)
+		}
 	}
 	for _, r := range m.Reactions {
 		t.Reactions = append(t.Reactions, deliverytext.Reaction{Emoji: string(r.Emoji), Count: r.Count})
