@@ -215,6 +215,13 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 	if bound.Error != nil {
 		return bound
 	}
+	// The server connection finishes old-token requests before this fresh read.
+	// Binding the same seat alone is a no-op and would leave their refusal in place.
+	if grant.Reused {
+		if s := d.session(req.Key(), false); s != nil {
+			s.mail.put(sessionMsg{credentialChanged: &agent})
+		}
+	}
 	mode := grant.Mode
 	if mode == "" {
 		mode = d.mode(agent)

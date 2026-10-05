@@ -37,6 +37,8 @@ type sessionMsg struct {
 	checkAlive bool
 	// modeChanged says an agent's delivery mode changed, so what may be delivered did.
 	modeChanged bool
+	// credentialChanged refreshes a reused seat after its saved token changed.
+	credentialChanged *AgentRef
 	// renewPresence asks the session to report its agents' presence again.
 	renewPresence bool
 	// hold starts keeping replies to a message out of bundles, answered on reply;
@@ -244,6 +246,10 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onAdopt(ctx, *m.adopt)
 	case m.checkAlive:
 		s.checkAlive(ctx)
+	case m.credentialChanged != nil:
+		if a := s.agents[m.credentialChanged.Key()]; a != nil && !a.adopting {
+			s.refresh(a, s.waiter != nil)
+		}
 	case m.modeChanged:
 		s.refreshAll(false)
 	case m.renewPresence:
