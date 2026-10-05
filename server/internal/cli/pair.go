@@ -134,6 +134,8 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name})
+	text.WriteString(mode.line())
 	if notice != nil {
 		text.WriteString(st.warn(notice.Message) + "\n")
 	}
@@ -149,10 +151,11 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		PolicyNotice  *policyNotice  `json:"policy_notice"`
 		PreviousBoard *string        `json:"previous_board"`
 		PreviousAgent *previousAgent `json:"previous_agent"`
+		seatDelivery
 	}{
 		srv, started, joined.Board, joined.Agent, useAs,
 		pairJoin{Code: deref(jc.Code), Line: line, Role: jc.Role, ExpiresAt: jc.ExpiresAt},
-		notice, optional(previous), moved,
+		notice, optional(previous), moved, mode,
 	}, text.String())
 	return nil
 }
@@ -262,8 +265,9 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if inSession {
 		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
 	}
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name})
 	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent)) + how +
-		movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous)
+		movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous) + mode.line()
 	a.emit(struct {
 		Server        serverRef      `json:"server"`
 		Board         api.Board      `json:"board"`
@@ -274,7 +278,8 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		PolicyNotice  *policyNotice  `json:"policy_notice"`
 		PreviousBoard *string        `json:"previous_board"`
 		PreviousAgent *previousAgent `json:"previous_agent"`
-	}{srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous), moved}, text)
+		seatDelivery
+	}{srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous), moved, mode}, text)
 	return nil
 }
 

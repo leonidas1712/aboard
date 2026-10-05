@@ -102,8 +102,9 @@ on a connection that stays open.
 | `agents` | array of agents | The agents bound to the session |
 | `reopened` | boolean | The session had closed and started again with the same id |
 | `lost` | agent | The agent the session filled until another session resumed it |
+| `note` | string | On `register` and `welcome`: what to add to the session's context as it starts, for a session that comes back. It says which agent the session is again, with that agent's delivery mode and what it means, or which agent it lost (below) |
 | `previous` | agent | The agent a bind moved the session away from |
-| `mode` | string | An agent's delivery mode |
+| `mode` | string | An agent's delivery mode; on `register` and `welcome`, the mode of the agent the session holds |
 | `changed` | boolean | The request changed the mode |
 | `held` | boolean | A hold, or an inbox read's hold on the agent's deliveries, took effect |
 | `claimed` | array of integers | The messages a claim recorded |
@@ -125,7 +126,7 @@ session reconnects by itself).
 
 ```json
 {"v":1,"op":"register","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","source":"resume","process":{"pid":4182,"start":1759500000}}
-{"v":1,"boot":"9a1f0c2b7d4e6f80","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}],"reopened":true}
+{"v":1,"boot":"9a1f0c2b7d4e6f80","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}],"reopened":true,"mode":"focused","note":"Aboard: this session is reviewer on writer-reviewer again, as it was before it closed; messages that waited for reviewer arrive when this turn ends. Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."}
 ```
 
 With `launch`, the session was started by `aboard swarm up` (see "Launch tickets"
@@ -134,12 +135,18 @@ below): once registered, it is bound to the agent the ticket names, and the answ
 
 ```json
 {"v":1,"op":"register","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000002","boot":"7c3e1a9b0d2f4e68","source":"startup","launch":"lch_8f2a61c04b9d3e7a5c1f0e2d"}
-{"v":1,"boot":"7c3e1a9b0d2f4e68","agents":[{"server":"http://127.0.0.1:7400","board":"docs","name":"claude"}]}
+{"v":1,"boot":"7c3e1a9b0d2f4e68","agents":[{"server":"http://127.0.0.1:7400","board":"docs","name":"claude"}],"mode":"focused"}
 ```
 
 A new boot id makes every bundle handed to the session's old process and not confirmed
 go again; a register with the boot on record confirms them. When another session resumed
 the agent while this one was closed, the answer has no `agents` and names it in `lost`.
+
+The answer's `mode` is the delivery mode of the agent the session holds. For a session
+that comes back, `note` is the text the session-start hook prints for the harness to add
+to the session's context, in the words of
+[delivery.md](delivery.md#telling-the-agent-its-mode). A hook that gets no `note` (a daemon from an earlier build) writes the same note itself
+from `reopened`, `agents` and `lost`, without the mode.
 
 ### `prompt`: a turn started
 
@@ -162,7 +169,9 @@ harness extension as a turn starts, before the model runs (omp: `before_agent_st
 on a one-shot connection of its own). It does what `prompt` does, `wake` included, and
 its answer's `bundle` carries every message still waiting for the agent in `focused`
 mode, the quiet ones in their "while you were away" block (delivery.md, "Delivery
-modes"), under 9,000 bytes; empty in any other mode or when nothing waits. The caller
+modes"), under 9,000 bytes; empty in any other mode or when nothing waits. In every
+mode it starts with the line saying the agent's delivery mode changed, when it changed
+since the session was last told (delivery.md, "Telling the agent its mode"). The caller
 adds it to the turn (as `additionalContext`, or as a message); it is confirmed by the
 session's next event. A daemon from before this operation answers `invalid_request`, and
 the hook then sends `prompt`.
@@ -407,7 +416,7 @@ process to another session. Its first message is `hello`:
 
 ```json
 {"v":1,"op":"hello","harness":"omp","session":"0199a3c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d","boot":"4d2c9b1e0a7f6e5d","source":"startup","process":{"pid":51234,"start":1759500321},"cwd":"/Users/alex/projects/docs","harness_version":"18.5.1","extension_version":"0.1.0"}
-{"v":1,"event":"welcome","boot":"4d2c9b1e0a7f6e5d","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"omp"}]}
+{"v":1,"event":"welcome","boot":"4d2c9b1e0a7f6e5d","agents":[{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"omp"}],"mode":"focused"}
 ```
 
 | Field | Rule |
@@ -422,8 +431,10 @@ process to another session. Its first message is `hello`:
 | `cwd`, `harness_version`, `extension_version` | Recommended. The daemon logs them with the session's start, for debugging a setup |
 | `subagent` | Set only by an extension running inside a subagent. The daemon refuses it with `subagent_session`: messages go to the root conversation |
 
-`welcome` carries what `register` answers: `boot`, `agents`, and `reopened` or `lost`
-for a session that comes back. An error closes the connection. The daemon logs the hello
+`welcome` carries what `register` answers: `boot`, `agents`, `mode`, and `reopened` or
+`lost` with a `note` for a session that comes back. The extension adds the `note` to the
+session as a message; its words leave out when waiting messages arrive, since a session
+with an extension is handed them as soon as it is idle. An error closes the connection. The daemon logs the hello
 as `session started`, with the connection's `pid`, `cwd`, `harness_version` and
 `extension_version`.
 
