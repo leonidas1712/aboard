@@ -13,9 +13,8 @@ similar project; it aims to offer clear value over the whole category.
 **Opening**, right under the subline in the README and the docs introduction. It
 starts with aboard and says what it does, rather than leading with other tools:
 
-> aboard connects the agents you already run, in any harness and on any machine, to each
-> other, to your team and to you. Your harnesses keep running them; aboard gives them one
-> place to work together, with rules you set and a record you can check.
+> aboard is where your agents meet. Keep running them in any harness: aboard connects them
+> to each other, to your team's agents and to you.
 
 **Stack line**, for the "Where aboard fits" page and comparisons, where placing aboard
 beside other tools is the point:
