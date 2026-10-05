@@ -242,7 +242,7 @@ another, and answers the one it ended as `previous`; binding an agent another se
 holds moves the agent to this session, and that session is left with no agent. The
 journal holds at most one binding per session (its migration 004). A client may send
 the seat's `member_id` in `agent`; a daemon that keys seats by it finds it itself when
-it is left out ("Seats").
+it is left out, and checks one that is sent against the seat's own token ("Seats").
 
 ```json
 {"v":1,"op":"bind","harness":"codex","session":"019a0000-0000-7000-8000-000000000001","agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"reviewer"}}
@@ -286,18 +286,36 @@ Sent by `aboard join --board` run in a session. The command chooses the server
 2. Refuses a server other than the one the session's seats are on
    (`session_on_another_server`), and a server this machine has no key for
    (`login_required`).
-3. If the session holds a working seat on that board, answers it with `reused` and asks
-   the server nothing.
-4. Otherwise sends `POST /v1/join` with its delegation, `board`, `role`, `name`, the
-   session's harness as `harness`, and `session` as `<harness>:<id>`. The server answers
-   the session's earlier seat (`reused`), a new seat, or a refusal, which the daemon
-   passes on as it is.
-5. Saves the seat's token in the credentials file with its `member_id` ("Seats"), binds
-   the seat to the session exactly as `bind` does, and answers `joined`, `board`,
-   `member` and `mode`, with `previous` (one-seat binding) or `seats` (multi-seat
-   binding).
+3. Always sends `POST /v1/join` with its delegation, `board`, `role`, `name`, the
+   session's harness as `harness`, and `session` as `<harness>:<id>`, even when the
+   session already holds a seat on that board: only the server decides reuse. Inside
+   the join's transaction it checks the delegation, the access key behind it, the
+   person's standing, their access to the board and that the seat isn't removed, and
+   only then answers the session's earlier seat (`reused`) with a new token, whose
+   parent is that access key. It answers a new seat, or a refusal, which the daemon
+   passes on as it is. The daemon never answers a join from its own records: when the
+   server can't be reached or fails (a 5xx), the join fails with
+   `server_unreachable`, whose hint is to check the server or the network and run the
+   join again, and the session's bindings and credentials stay as they were.
+4. Saves the seat's token in the credentials file with its `member_id` ("Seats"),
+   replacing the seat's earlier token, binds the seat to the session exactly as `bind`
+   does, and answers `joined`, `board`, `member` and `mode`, with `previous` (one-seat
+   binding) or `seats` (multi-seat binding).
 
 The answer never carries a token, the delegation or the person's key.
+
+**Joins at the same time.** A reused seat's earlier token stops working the moment the
+server answers, so two joins for one seat must not race. The daemon runs at most one
+join at a time for each server, person, session and board; a second waits for the
+first and then sends its own request. It writes the token the server answered to the
+credentials file atomically (a whole new file renamed into place) before it binds the
+seat or answers success, so the token a session holds is always the newest one the
+server issued. When the write fails, the join answers `internal` and binds nothing; the
+next join gets the seat again with another new token. The same holds when the server
+committed but its answer never arrived (the connection dropped): the join answers
+`server_unreachable`, binds nothing and never keeps or binds an older token; the next
+join for the same person, session and board finds the same seat through the server's
+lookup and recovers it with a new token, never a second seat.
 
 ```json-planned
 {"v":1,"op":"join","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","agent":{"server":"https://team.example.com","board":"payments-design"}}
@@ -372,6 +390,19 @@ state, and a new seat with an old seat's name never inherits it.
 - **On the socket.** `agent` objects carry `member_id` wherever the daemon knows it. A
   client that leaves it out names the seat by server, board and name, and the daemon
   finds its `member_id` as above before keying anything by it.
+- **A member id is checked against its seat's own token.** A `member_id` that comes
+  from outside the seat's credentials (sent by a client in `bind` or another
+  operation's `agent`, or answered by the server to an inbox acknowledgement) keys
+  nothing until the daemon has matched it to the identity of the seat's own saved
+  token: the `member_id` saved with that token, or its `GET /v1/me` `id`. A `bind`
+  whose `member_id` doesn't match is refused with `invalid_request` and binds nothing;
+  an acknowledgement whose `member_id` doesn't match moves no read position.
+- **A stream event without a member id.** A `read` event from the server's stream
+  without `member_id` (from a server before seat ids were sent) is only a hint to
+  refresh: the daemon reads that seat's position again with the seat's own token
+  (`GET /v1/me/inbox`, its `cursor`) and never moves a read position, or hands any state, because the
+  event's board and name match a seat. The same holds for a `presence` event without
+  `member_id`.
 
 ## Several seats
 
@@ -537,7 +568,7 @@ A hook that gets an error, or can't reach the daemon, prints one line starting
 | Code | When |
 | --- | --- |
 | `daemon_protocol_mismatch` | The first message's `v` isn't the daemon's version |
-| `invalid_request` | An unknown operation, a message over 128 KiB, an unknown harness, a missing session, agent or `reply_to`, or an unknown delivery mode |
+| `invalid_request` | An unknown operation, a message over 128 KiB, an unknown harness, a missing session, agent or `reply_to`, an unknown delivery mode, or a `member_id` that isn't the identity of its seat's own token ("Seats") |
 | `session_unknown` | `wait`, `bind` or `agents` for a session the daemon has no record of, for a harness that needs its hooks to register sessions |
 | `codex_subagent_target` | `register` or `bind` for a sub-agent: messages go to the root conversation |
 | `codex_target_absent` | `register` or `bind` for a session the harness says doesn't exist |
@@ -549,6 +580,7 @@ A hook that gets an error, or can't reach the daemon, prints one line starting
 | `session_on_another_server` | `join` on a server other than the one the session's seats are on |
 | `delegation_revoked`, `board_not_found`, `agent_removed`, `guest_not_allowed`, `name_taken`, `role_not_found` | `boards` or `join`: the server's refusal, passed on as it is |
 | `server_outdated` | `boards` or `join` on a server without delegations |
+| `server_unreachable` | `boards` or `join` when the server can't be reached or fails; a join never succeeds from the daemon's own records |
 
 The `codex_` codes are named for the first harness that gave them and keep their names;
 any harness's adapter may return them.

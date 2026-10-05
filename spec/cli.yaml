@@ -589,7 +589,9 @@ $defs:
       session already has a working seat reuses it (reused true), never a second one.
       Refusals: board_not_found (a board the person can't see, a guest's other boards),
       delegation_revoked, agent_removed, guest_not_allowed (a guest's agents come only
-      from guest codes), session_on_another_server, name_taken, role_not_found. With
+      from guest codes), session_on_another_server, name_taken, role_not_found, and
+      server_unreachable when the server can't be reached: the daemon always asks the
+      server, which decides reuse, and never answers a join from its own records. With
       --as or ABOARD_AGENT and no session, it fails with session_unknown: there is no
       session to give a seat. Text output:
         Joined board payments-design as claude (owner maya)

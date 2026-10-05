@@ -139,6 +139,13 @@ info:
     **Writes.** Every POST, PUT, PATCH and DELETE accepts an `Idempotency-Key` header. A repeat
     with the same key and body (per token, kept 24 hours) returns the first response with
     `Idempotent-Replayed: true`. The same key with a different body is `idempotency_conflict`.
+    Two rules on top, for answers that carry a secret (a token, a key, a code): such an answer
+    is not kept, so a repeat is a new call, unless a lost answer would make a retry create a
+    second resource (a second agent, say). Then it is kept, and a repeat returns it only to
+    the credential that made the first call, only after rechecking in the transaction that
+    reads it that the caller may still have it, and never once the secret has stopped working;
+    otherwise the repeat gets the error a new call would get now. Each endpoint says which
+    rule it follows.
 
     **Errors.** One shape everywhere: `{"error":{"code","message","hint"}}`.
   license:
@@ -903,11 +910,15 @@ paths:
         included) and with its person's removal from the server. Its use counts as a use
         of its key, as an agent token's does. The token is returned only here; the server
         keeps its keyed digest. Not recorded on any board. Answers `Cache-Control:
-        no-store` and is never kept for an `Idempotency-Key` repeat.
+        no-store` and is never kept for an `Idempotency-Key` repeat: the key is accepted
+        and ignored, so a repeat with the same key is a new call, which makes another
+        delegation and ends the one the first call made (same `name`).
 
         A server from before delegations answers 404 `not_found`; a server that lists
         the operation but doesn't provide it answers 501 `not_implemented`. The daemon
         then tells the command that asked (`server_outdated`).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -1334,24 +1345,62 @@ paths:
            `board_not_found`, exactly as a board that doesn't exist. A guest's
            delegation gets 403 `guest_not_allowed` on their own board, since a guest's
            agents come only from guest codes.
-        3. The newest seat recorded for this `session` on this board, if any (made
-           through a delegation, or by a person's key that sent `session`): if it was
-           removed, 403 `agent_removed`, and the delegation never makes a replacement
-           (`details`: `agent`, the seat's name; `removed_at`; `removed_by`, one of
-           `person` for its own person, `board_owner` or `admin`, and nothing else about
-           the board);
+        3. The newest seat recorded for this person, this board and this `session`
+           together, if any (made through a delegation, or by this person's own key that
+           sent `session`). The lookup is keyed by the person's id, which never changes,
+           the board's id and the session string, never by the session and board alone:
+           a seat that another person's join recorded with the same session string is
+           never found, reused or given a new token, and two people whose harnesses
+           supply the same session string each get their own seat.
+           If the seat was removed, 403 `agent_removed`, and the delegation never makes a
+           replacement (`details`: `agent`, the seat's name; `removed_at`; `removed_by`,
+           one of `person` for its own person, `board_owner` or `admin`, and nothing
+           else about the board);
            if it still works, the answer is 200 with that same seat, `reused: true` and a
-           new token for it, and the seat's earlier token stops working. A reuse writes
-           no event.
+           new token for it. Reuse is decided only here, after steps 1 and 2 have
+           checked the delegation, its access key, the person's standing and their
+           access to the board in this transaction, and after this step has checked
+           that the seat isn't removed. The new token's parent is the access key behind
+           this delegation, the one step 1 checked, so revoking that key ends it, as it
+           ends a new seat's token; every earlier token of the seat stops working in the
+           same transaction. A reuse writes no event.
         4. The person is on the board. On an open board they aren't on, they are added
-           first, under their old member id if they were on it before, as joining it
-           themselves would add them (`person.added` with `via: "delegation"`).
+           first, as a member and never as an owner, under their old member id if they
+           were on it before, as joining it themselves would add them (`person.added`
+           with `via: "delegation"`).
         5. The board's roles and policy: the role exists (`role_not_found`) and the name
-           follows them (`name_taken`).
+           follows them (`name_taken`), and the board's policy allows the join.
 
         It then writes `member.joined` with `via: "delegation"` and `delegation_id`, and
         answers 201. The actor of both events is the person, as for any join their
-        credential makes. The session string is never written to the record.
+        credential makes. The session string is never written to the record. A refusal
+        at any step undoes the whole join, the person's addition in step 4 included:
+        when step 5 refuses, there is no `person.added`, no `member.joined`, no seat and
+        no membership.
+
+        Every answer that carries a token is sent with `Cache-Control: no-store`. An
+        answer to a delegation is never kept for `Idempotency-Key` repeats, since it
+        holds a token: the key is accepted and ignored, so a repeat with the same key is
+        a new call. It finds the seat the first call made or reused and answers it again
+        (200, `reused: true`) with another new token, and the token the first answer
+        carried stops working.
+
+        **Joins with a person's key or a code keep their replay.** These create a new
+        agent on every call, so a lost answer must not turn a retry into a second seat.
+        A repeat with the same `Idempotency-Key` returns the answer the first call
+        stored, its token included, as it does today, but only after rechecking, in the
+        transaction that reads the stored answer, that the caller's credential still
+        works, that they still have the board, and that the stored seat hasn't been
+        removed. A code the first call used up still counts for its own repeat: the
+        check is that its maker's authority still holds, not that the code is unused.
+        When any check fails, the repeat gets the error a new call would get now (for a
+        removed seat, 403 `agent_removed`), never the stored token. If the stored token
+        has since stopped working because a later delegated join from the same session
+        reused the seat and gave it a new token, the repeat gets 409
+        `seat_token_replaced`, whose hint says to join again from that session
+        (`aboard join --board <name>`); it never makes another seat. The stored
+        answer is kept only as long as other idempotent answers are, and is served only
+        to the credential that made the first call.
 
         A server from before delegations answers a delegation as an unknown token (401
         `unauthorized`).
@@ -1365,11 +1414,17 @@ paths:
       responses:
         "200":
           description: A machine's delegation joined a session that already had a working seat on the board; that seat, with a new token
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/JoinResult" }
         "201":
           description: Joined
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/JoinResult" }
