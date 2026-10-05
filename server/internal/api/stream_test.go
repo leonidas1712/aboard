@@ -218,10 +218,8 @@ func TestStreamPicksUpBoardsTheHumanJoinsAfterConnecting(t *testing.T) {
 	sam := s.addHuman("sam")
 	st := s.openStream(sam) // sam is on no board yet
 
-	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
-	mustStatus(t, code, err, 201)
-	j, err := s.client(sam).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
-	mustStatus(t, j, err, 201)
+	added, err := s.client(s.owner).AddPersonWithResponse(ctx, boardName, nil, api.AddPersonRequest{Handle: "sam"})
+	mustStatus(t, added, err, 201)
 	if got, want := st.head(), s.boardHead(sam, boardName); got != want {
 		t.Fatalf("head after joining %+v, want %+v", got, want)
 	}

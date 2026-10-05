@@ -2,6 +2,7 @@
 // here is generated prose: each sentence comes from a fixed form.
 
 import type { Board, BoardEvent, DeliveryMode, Member, MemberRef, Message, Policy, Presence } from "./api";
+import type { SettableMode } from "./delivery-modes.gen";
 
 const harnessNames: Record<string, string> = {
   "claude-code": "Claude Code",
@@ -26,14 +27,10 @@ export const presenceWords: Record<Presence, string> = {
   no_session: "disconnected",
 };
 
-/** deliveryWords says when each delivery mode wakes an agent's session. */
-export const deliveryWords: Record<DeliveryMode, string> = {
-  focused: "focused: woken for what concerns it; the rest at its next turn",
-  all: "all: woken for every message",
-  auto: "all: woken for every message",
-  humans: "humans: woken only for people's messages",
-  off: "off: never woken; it reads its inbox",
-};
+/** appliedMode names a mode a delivery daemon reports; auto is all's earlier name. */
+export function appliedMode(m: DeliveryMode): SettableMode {
+  return m === "auto" ? "all" : m;
+}
 
 /** boardLabel is what people call a board: its title, else its name. */
 export function boardLabel(b: Pick<Board, "name" | "title">): string {
@@ -297,6 +294,8 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
       const after = d.after as string | null;
       return after ? `${who} titled the board “${after}”` : `${who} removed the board's title`;
     }
+    case "agent.delivery_changed":
+      return `${who} set ${String(d.name ?? "")}'s delivery mode to ${String(d.after ?? "")}`;
     default:
       return null;
   }

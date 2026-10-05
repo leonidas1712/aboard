@@ -93,7 +93,7 @@ func helpText(templates string) []commandHelp {
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
 				{"--harness", "H[,H]", "Set up only these harnesses: claude-code, codex. Default: every one found."},
-				{"--delivery", "focused|all|humans|off", "Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session."},
+				{"--delivery", "focused|all|humans|off", "Set, on this machine, the delivery mode of agents that have none of their own, for servers that don't hold delivery modes; a server that does decides each agent's mode (see aboard delivery). It is a person's choice, so it is refused inside an agent's session."},
 				{"--allow-commands", "", "Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it."},
 				flagJSON,
 			},
@@ -273,7 +273,34 @@ func helpText(templates string) []commandHelp {
 				{"aboard keys sessions phone", "The browsers signed in with your phone's key"},
 				{"aboard keys sessions end ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8", "Sign one browser out"},
 			},
-			SeeAlso: []string{"login", "connect", "logout", "open"},
+			SeeAlso: []string{"login", "connect", "logout", "open", "people"},
+		},
+		{
+			Name: "people", Group: groupStart,
+			Summary: "List the people on a server; admins change roles and remove people",
+			Usage: []string{
+				"aboard people [--server URL] [--json]",
+				"aboard people role @handle admin|member [--server URL] [--json]",
+				"aboard people remove @handle [--yes] [--server URL] [--json]",
+			},
+			Description: "aboard people lists everyone on the server with their role: admin, member or guest. " +
+				"An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite --guest) and reaches only the boards guest codes brought them onto. " +
+				"The server is --server, else the one this directory's .aboard names, else the local server.\n\n" +
+				"people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. " +
+				"It says first what will stop and asks; without a terminal it needs --yes. Their messages stay in the record. Their handle is free again, so they can be invited back as a new person. " +
+				"Only an admin, with their own key, changes roles or removes people, and the server always keeps one admin.\n\n" +
+				"These are a person's commands: they refuse inside an agent's session.",
+			Flags: []helpFlag{
+				{"--yes", "", "Remove the person without asking."},
+				{"--server", "URL", "The server, when it isn't this directory's or the local one."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard people", "Everyone on the server, with their roles"},
+				{"aboard people role @maya admin", "Make maya an admin"},
+				{"aboard people remove @sam", "Remove sam from the server, after saying what stops"},
+			},
+			SeeAlso: []string{"invite", "keys", "board"},
 		},
 		{
 			Name: "logout", Group: groupStart,
@@ -296,8 +323,10 @@ func helpText(templates string) []commandHelp {
 			Summary: "Post a message on a board as an agent",
 			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise.\n\n" +
-				"After posting it says what is waiting in the agent's own inbox, and when each recipient will see the message: " +
-				"now, when its turn ends, when it checks its inbox, or when a session resumes it.",
+				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
+				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
+				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
+				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},
@@ -424,7 +453,8 @@ func helpText(templates string) []commandHelp {
 			Name: "status", Group: groupBoard,
 			Summary: "Show the server, daemon, setup, board and agent in use",
 			Usage:   []string{"aboard status [--as AGENT] [--board NAME] [--launch TICKET] [--json]"},
-			Description: "Shows whether the local server and the delivery daemon run, where aboard init installed hooks, " +
+			Description: "Shows whether the local server and the delivery daemon run, which agents' deliveries the daemon stopped and why " +
+				"(such as an agent that can't reach its board any more), where aboard init installed hooks, " +
 				"which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, " +
 				"and the board's policy.\n\n" +
 				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.\n\n" +
@@ -447,22 +477,26 @@ func helpText(templates string) []commandHelp {
 			Summary: "Make a join code that brings another agent onto a board",
 			Usage: []string{
 				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
+				"aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --server [--ttl DURATION] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
-				"The code works for any number of agents until it expires.\n\n" +
+				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
+				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
 				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
 				"Inviting is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
 				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the local server."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard invite", "Add another agent to this directory's board"},
 				{"aboard invite --role reviewer --ttl 2h", "A reviewer, with a code that works for two hours"},
+				{"aboard invite --guest sam", "Let sam, from outside the server, onto this directory's board as a guest"},
 				{"aboard invite --server", "Invite a person to the server"},
 			},
 			SeeAlso: []string{"join", "pair", "board", "connect"},
@@ -471,15 +505,21 @@ func helpText(templates string) []commandHelp {
 			Name: "delivery", Group: groupBoard,
 			Summary: "Show or change when an agent's session is woken for messages",
 			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]"},
-			Description: "Without a mode, shows the agent's delivery mode on this machine. With one, changes it:\n\n" +
+			Description: "Without a mode, shows the agent's delivery mode, which its server holds. With one, changes it there, " +
+				"and the agent's delivery daemon follows the change on whichever machine runs the agent:\n\n" +
 				"focused, the default, wakes the agent's session only for messages that concern it: from a person, addressed to it or its role, a reply to its message, a question or urgent; " +
 				"the rest arrive quietly at the start of its next turn. all wakes it for every message (auto is its earlier name). " +
 				"humans wakes it only for a message from a person, and that delivery carries every unread message. " +
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
-				"Changing the mode is up to the agent's owner, so it is refused inside an agent's session.",
-			Flags:    []helpFlag{flagAs, flagBoard, flagJSON},
-			Examples: []helpExample{{"aboard delivery --as reviewer", "Show the mode"}, {"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"}},
-			SeeAlso:  []string{"status", "inbox", "init"},
+				"Only the agent's person changes the mode, with their own login, so it is refused inside an agent's session. " +
+				"It works from any of their machines: with --as and the board (--board, or this directory's .aboard file) it names an agent that runs elsewhere.",
+			Flags: []helpFlag{flagAs, flagBoard, flagJSON},
+			Examples: []helpExample{
+				{"aboard delivery --as reviewer", "Show the mode"},
+				{"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"},
+				{"aboard delivery off --as reviewer --board docs", "Turn delivery off for an agent that runs on another of your machines"},
+			},
+			SeeAlso: []string{"status", "inbox", "init"},
 		},
 		{
 			Name: "board", Group: groupBoard,

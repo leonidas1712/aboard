@@ -4,6 +4,8 @@
 // keeps in a cookie this page's scripts can't read; the page holds only the session's
 // CSRF token, in memory, and sends it with every write. Nothing secret is stored.
 
+import type { SettableMode } from "./delivery-modes.gen";
+
 export type Policy = {
   preset: "starter" | "recommended";
   visibility: "open" | "addressed";
@@ -66,12 +68,27 @@ export type Member = MemberRef & {
   id: string;
   harness: string | null;
   access: "admin" | "member" | null;
+  /** server_role is a person's role on the server: a guest came in through a guest code. Null for agents. */
+  server_role?: "admin" | "member" | "guest" | null;
   joined_at: string;
   presence: Presence | null;
   presence_since: string | null;
-  /** delivery is the agent's delivery mode as its owner's daemon last reported it; null for people and when never reported. */
+  /** delivery is the mode the agent's delivery daemon last reported applying; null for people and when never reported. */
   delivery?: DeliveryMode | null;
+  /** owner_id is an agent's person's permanent id; null for people. */
+  owner_id?: string | null;
+  /** delivery_mode is the agent's delivery mode as its person set it, held by the server; null for people. */
+  delivery_mode?: SettableMode | null;
+  delivery_revision?: number | null;
 };
+
+/** DeliverySetting is an agent's delivery mode after a person sets it. */
+export type DeliverySetting = { board: string; agent: string; mode: SettableMode; revision: number; changed: boolean };
+
+/** setDelivery sets the delivery mode of one of the person's own agents. */
+export function setDelivery(board: string, agent: string, mode: SettableMode): Promise<DeliverySetting> {
+  return put<DeliverySetting>(`/v1/boards/${encodeURIComponent(board)}/members/${encodeURIComponent(agent)}/delivery`, { mode });
+}
 
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
 
@@ -96,6 +113,21 @@ export type Message = {
   show_owner: boolean;
   /** reactions are the emoji on the message, in the set's order; empty when there are none. */
   reactions: Reaction[];
+  /** mentions are the members the text mentions, as the server resolved them when it was posted. */
+  mentions: Mention[];
+};
+
+/**
+ * Mention is one member a message mentions: `text` is how it was written ("@codex" or
+ * "@role:reviewer"), and `wakes` whether it counts as addressing the agent.
+ */
+export type Mention = {
+  id: string;
+  kind: "agent" | "human";
+  name: string;
+  text: string;
+  wakes: boolean;
+  reason: "limit" | "cannot_read" | null;
 };
 
 export type ReactionName = "thumbsup" | "check" | "eyes" | "heart" | "tada" | "question";
@@ -377,6 +409,18 @@ export async function post<T>(path: string, body: unknown, key: string = crypto.
   throw await failure(resp);
 }
 
+/** put replaces something as the person, with an Idempotency-Key. */
+async function put<T>(path: string, body: unknown, key: string = crypto.randomUUID()): Promise<T> {
+  const resp = await fetch(path, {
+    method: "PUT",
+    credentials: "same-origin",
+    headers: { ...writeHeaders(), "Content-Type": "application/json", "Idempotency-Key": key },
+    body: JSON.stringify(body),
+  });
+  if (resp.ok) return (await resp.json()) as T;
+  throw await failure(resp);
+}
+
 /** send makes a write without a body, such as PUT or DELETE, with an Idempotency-Key. */
 export async function send<T>(method: "PUT" | "DELETE", path: string, key: string = crypto.randomUUID()): Promise<T> {
   const resp = await fetch(path, { method, credentials: "same-origin", headers: { ...writeHeaders(), "Idempotency-Key": key } });
@@ -401,7 +445,14 @@ export function react(message: string, name: ReactionName, add: boolean): Promis
 // than this is taken as dead and reopened.
 const silentLimit = 60_000;
 
-export type PresenceEvent = { board: string; agent: string; presence: Presence; presence_since: string | null };
+export type PresenceEvent = {
+  board: string;
+  agent: string;
+  presence: Presence;
+  presence_since: string | null;
+  /** delivery is the mode the agent's delivery daemon reports applying. */
+  delivery?: DeliveryMode | null;
+};
 
 export type StreamHandlers = {
   /** head runs each time a board's head moves, and for every board when the stream (re)opens. */

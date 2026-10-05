@@ -18,17 +18,38 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
-// accessGate is the real store, except that once armed its next read waits, before it
-// starts its transaction, until the test lets it go; and every finished read is
-// signaled on reads, so a test knows when a long poll has read and is waiting.
+// accessGate is the real store, except that once armed its next read (or with armWrite,
+// its next write) waits, before it starts its transaction, until the test lets it go;
+// and every finished read is signaled on reads, so a test knows when a long poll has
+// read and is waiting.
 type accessGate struct {
 	board.Store
-	mu      sync.Mutex
-	waiting chan struct{}
-	release chan struct{}
-	reads   chan struct{}
+	mu                    sync.Mutex
+	waiting               chan struct{}
+	release               chan struct{}
+	writeWait, writeLetGo chan struct{}
+	reads                 chan struct{}
 	// skip is how many reads go through before the armed one waits.
 	skip int
+}
+
+func (g *accessGate) armWrite() (waiting, release chan struct{}) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.writeWait, g.writeLetGo = make(chan struct{}), make(chan struct{})
+	return g.writeWait, g.writeLetGo
+}
+
+func (g *accessGate) Write(ctx context.Context, fn func(board.Tx) error) error {
+	g.mu.Lock()
+	waiting, release := g.writeWait, g.writeLetGo
+	g.writeWait, g.writeLetGo = nil, nil
+	g.mu.Unlock()
+	if waiting != nil {
+		close(waiting)
+		<-release
+	}
+	return g.Store.Write(ctx, fn)
 }
 
 func (g *accessGate) arm() (waiting, release chan struct{}) {

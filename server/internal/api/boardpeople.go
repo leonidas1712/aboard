@@ -14,7 +14,8 @@ func boardPersonOf(bp board.Person, boardName string) map[string]any {
 	}
 	return map[string]any{
 		"id": bp.Person.ID, "handle": bp.Person.Name, "display_name": bp.Person.DisplayName, "board": boardName,
-		"name": bp.Member.Name, "member_id": bp.Member.ID, "board_role": role, "joined_at": bp.Member.JoinedAt,
+		"name": bp.Member.Name, "member_id": bp.Member.ID, "board_role": role, "server_role": bp.Person.Role,
+		"joined_at": bp.Member.JoinedAt,
 	}
 }
 

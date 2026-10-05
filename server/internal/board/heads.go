@@ -151,6 +151,12 @@ func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, t
 	}
 }
 
+// Start reads what the feed begins with: every board's head, and the presence and read
+// positions later updates are measured against. Call it once, before Next and before the
+// client is told the stream is open, so a change the client makes once it sees the
+// stream open is never taken into the starting point and lost.
+func (f *HeadFeed) Start(ctx context.Context) (Update, error) { return f.read(ctx) }
+
 // read returns the heads and presence that differ from those last returned and
 // remembers them. Boards the human is no longer on are forgotten.
 func (f *HeadFeed) read(ctx context.Context) (Update, error) {
@@ -192,7 +198,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 			if !ok {
 				was = Presence{State: PresenceNoSession}
 			}
-			if known && was.State != now.State {
+			if known && (was.State != now.State || was.Delivery != now.Delivery) {
 				u.Presence = append(u.Presence, PresenceChange{BoardID: id, Board: names[id], Agent: agent, Presence: now})
 			}
 		}

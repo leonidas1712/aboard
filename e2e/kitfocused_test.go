@@ -211,6 +211,22 @@ func kitWakingCarriesTheQuiet(t *testing.T, p support.Profile) {
 	}
 }
 
+// kitMentionWakes checks another agent's message to everyone that mentions the agent
+// (`@reviewer` in its text) wakes it in focused mode, in full, as one addressed to it
+// would; the same message without the mention wouldn't.
+func kitMentionWakes(t *testing.T, p support.Profile) {
+	kitDelivers(t, p)
+	e := kitEnv(t, p)
+	s := e.kitStart(p, kitID(), "startup", nil)
+	kitPair(t, e, s)
+	w := s.idle()
+	seq := writerBroadcasts(t, e, "@reviewer: please look at notes.md.")
+	bundle := s.nextBundle(w, 10*time.Second)
+	if !strings.Contains(bundle, `seq="`+strconv.Itoa(seq)+`"`) || strings.Contains(bundle, "while you were away") {
+		t.Fatalf("a message to everyone that mentions the agent should wake it, in full:\n%s", bundle)
+	}
+}
+
 // kitCombinesWakes checks messages that arrive within about two seconds of each other
 // wake an idle session once.
 func kitCombinesWakes(t *testing.T, p support.Profile) {

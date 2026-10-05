@@ -67,8 +67,12 @@ type Daemon struct {
 	// turned holds the sessions that have run a turn, for status.
 	turned   map[SessionKey]bool
 	problems map[AgentRef]string
-	// modes holds each agent's delivery mode; an agent not in it has the default.
+	// modes holds each agent's delivery mode as the journal keeps it: one set on this
+	// machine, or the last one read from its server. An agent not in it has the default.
 	modes map[AgentRef]Mode
+	// held holds each agent's delivery mode as its server holds it, once read from the
+	// server in this run. It wins over modes.
+	held map[AgentRef]HeldMode
 	// stalled are the deliveries handed to an idle session that started no turn, by id.
 	stalled map[int64]StatusItem
 	// openChanged fires when a session opens or closes.
@@ -84,7 +88,7 @@ func Run(ctx context.Context, cfg Config) error {
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		sessions: map[SessionKey]*session{}, owners: map[AgentRef]*session{},
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentRef]string{},
-		modes: map[AgentRef]Mode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
+		modes: map[AgentRef]Mode{}, held: map[AgentRef]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -156,8 +160,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 		}
 		a := newAgentState(b.Agent, false)
 		// What a session was told before the daemon stopped isn't kept: it is taken to
-		// know the mode its agent has now.
-		a.told = d.modeLocked(b.Agent)
+		// know the mode its agent has when its inbox is first read (onInbox).
 		for i := range deliveries {
 			if deliveries[i].Agent == b.Agent {
 				dl := deliveries[i]
@@ -288,7 +291,7 @@ func (d *Daemon) serverLocked(url string) *serverConn {
 	if c, ok := d.servers[url]; ok {
 		return c
 	}
-	c := &serverConn{d: d, url: url, srv: d.cfg.Connect(url), mail: newMailbox[srvMsg](), watched: map[AgentRef]bool{}}
+	c := &serverConn{d: d, url: url, srv: d.cfg.Connect(url), mail: newMailbox[srvMsg](), watched: map[AgentRef]bool{}, gone: map[AgentRef]bool{}}
 	d.servers[url] = c
 	d.g.Go(func() error { return c.run(d.ctx) })
 	return c
@@ -355,16 +358,29 @@ func (d *Daemon) setProblem(agent AgentRef, reason string) {
 	d.problems[agent] = reason
 }
 
-// mode returns the agent's delivery mode: its own, else the machine's default (kept
-// under the empty AgentRef), else focused.
+// mode returns the agent's delivery mode: the one its server holds, once read; else the
+// one the journal keeps for it, else the machine's default (kept under the empty
+// AgentRef), else focused. The journal's are what a server that doesn't hold modes
+// goes by, and what the daemon goes by after a restart until it reads the server again.
 func (d *Daemon) mode(agent AgentRef) Mode {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.modeLocked(agent)
 }
 
+// heldMode reports whether the daemon has read the agent's mode from its server.
+func (d *Daemon) heldMode(agent AgentRef) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	_, ok := d.held[agent]
+	return ok
+}
+
 // modeLocked is mode, for a caller that holds d.mu.
 func (d *Daemon) modeLocked(agent AgentRef) Mode {
+	if h, ok := d.held[agent]; ok {
+		return h.Mode
+	}
 	if m, ok := d.modes[agent]; ok {
 		return m
 	}
@@ -374,9 +390,51 @@ func (d *Daemon) modeLocked(agent AgentRef) Mode {
 	return ModeFocused
 }
 
-// setMode answers OpMode: it shows the agent's delivery mode, or saves a new one and has
-// the agent's session apply it at once. The empty AgentRef names the default for agents
-// without a mode of their own.
+// learnMode takes an agent's delivery mode as its server holds it, read with its inbox
+// or passed on by the command that set it there. A read older than one already taken
+// (a lower revision) changes nothing, since reads can arrive out of order. A mode its
+// person set is kept in the journal too, for the daemon's next start; one never set
+// (revision 0) leaves the journal as it is, so aboard doctor can still name a mode set
+// on this machine that the server doesn't have. It reports whether the mode in force
+// changed.
+func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool {
+	if parsed, ok := ParseMode(string(h.Mode)); ok {
+		h.Mode = parsed
+	} else {
+		h.Mode = ModeFocused
+	}
+	d.mu.Lock()
+	prev, known := d.held[agent]
+	if known && h.Revision < prev.Revision {
+		d.mu.Unlock()
+		return false
+	}
+	before := d.modeLocked(agent)
+	d.held[agent] = h
+	cached, inJournal := d.modes[agent]
+	save := h.Revision > 0 && (!inJournal || cached != h.Mode)
+	if save {
+		d.modes[agent] = h.Mode
+	}
+	d.mu.Unlock()
+	if save {
+		if err := d.cfg.Journal.SetMode(ctx, agent, h.Mode); err != nil {
+			d.log.Warn("save the delivery mode read from the server", "agent", agent.Name, "board", agent.Board, "error", err)
+		}
+	}
+	if before == h.Mode {
+		return false
+	}
+	d.log.Info("delivery mode changed on the server", "agent", agent.Name, "board", agent.Board,
+		"from", before, "to", h.Mode, "revision", h.Revision)
+	return true
+}
+
+// setMode answers OpMode: it shows the agent's delivery mode, or takes a new one and has
+// the agent's session apply it at once. A mode with a revision is the one the agent's
+// server now holds (the command that set it there passes it on); one without is kept on
+// this machine only, and applies while the server holds none. The empty AgentRef names
+// the default for agents without a mode of their own.
 func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	if req.Agent == nil {
 		return errorResponse("invalid_request", "A mode request needs an agent.", "Send the agent's server, board and name.")
@@ -389,6 +447,13 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	mode, ok := ParseMode(string(req.Mode))
 	if !ok {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a delivery mode.", req.Mode), "Use focused, all, humans or off.")
+	}
+	if req.Revision > 0 && agent != (AgentRef{}) {
+		changed := d.learnMode(ctx, agent, HeldMode{Mode: mode, Revision: req.Revision})
+		if s := d.owner(agent); s != nil && changed {
+			s.mail.put(sessionMsg{modeChanged: true})
+		}
+		return Response{V: ProtocolVersion, Mode: d.mode(agent), Changed: changed}
 	}
 	if mode == prev {
 		return Response{V: ProtocolVersion, Mode: prev}
@@ -405,12 +470,14 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 			owners = append(owners, s)
 		}
 	}
+	now := d.modeLocked(agent)
 	d.mu.Unlock()
 	for _, s := range owners {
 		s.mail.put(sessionMsg{modeChanged: true})
 	}
-	d.log.Info("delivery mode changed", "agent", agent.Name, "board", agent.Board, "mode", req.Mode)
-	return Response{V: ProtocolVersion, Mode: req.Mode, Changed: true}
+	d.log.Info("delivery mode changed on this machine", "agent", agent.Name, "board", agent.Board, "mode", req.Mode)
+	// A server that holds the agent's mode decides it, so the answer is the mode in force.
+	return Response{V: ProtocolVersion, Mode: now, Changed: now == req.Mode}
 }
 
 // idleLoop stops the daemon once no session has been open for IdleExit.

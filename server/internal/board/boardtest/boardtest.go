@@ -45,12 +45,14 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MemberLookups", memberLookups},
 		{"SetCursorOnlyMovesForward", setCursorOnlyMovesForward},
 		{"SetPresenceReplacesIt", setPresenceReplacesIt},
+		{"SetDeliveryReplacesItAndKeepsPresence", setDeliveryReplacesItAndKeepsPresence},
 		{"JoinCodesByDigestAndID", joinCodesByDigestAndID},
 		{"RevokeJoinCodeKeepsFirstTime", revokeJoinCodeKeepsFirstTime},
 		{"TimelineReadAllReturnsEveryMessage", timelineReadAllReturnsEveryMessage},
 		{"TimelineAddressedReturnsOnlyVisibleMessages", timelineAddressedReturnsOnlyVisibleMessages},
 		{"TimelineFiltersAndWindows", timelineFiltersAndWindows},
 		{"InboxSkipsOwnAndAlreadyReadMessages", inboxSkipsOwnAndAlreadyReadMessages},
+		{"InboxHoldsMessagesThatMentionTheReader", inboxHoldsMessagesThatMentionTheReader},
 		{"CountUnreadCountsWhatInboxOrTheTimelineHasLeft", countUnreadCountsWhatInboxOrTheTimelineHasLeft},
 		{"MessageRecipientsRoundTrip", messageRecipientsRoundTrip},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
@@ -64,6 +66,10 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"PeopleWhoLeftAreNotOnTheBoard", peopleWhoLeftAreNotOnTheBoard},
 		{"WorkingJoinCodesSkipRevokedAndExpired", workingJoinCodesSkipRevokedAndExpired},
 		{"BoardCreationDefaultsToMembers", boardCreationDefaultsToMembers},
+		{"RemovedPeopleFreeTheirHandles", removedPeopleFreeTheirHandles},
+		{"ServerRolesAndAdminsCounted", serverRolesAndAdminsCounted},
+		{"GuestCodesAreUsedOnce", guestCodesAreUsedOnce},
+		{"MembersCarryTheirPersonsRole", membersCarryTheirPersonsRole},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,7 +124,7 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	}
 	m := board.Member{
 		ID: "mem_" + name, BoardID: b.ID, Name: humanID, Kind: "human", HumanID: humanID,
-		Access: rules.AccessAdmin, Status: "active", JoinedAt: at,
+		Access: rules.AccessAdmin, Status: "active", JoinedAt: at, PersonRole: board.ServerMember,
 	}
 	if err := tx.InsertMember(m); err != nil {
 		return board.Board{}, board.Member{}, err
@@ -126,11 +132,12 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	return b, m, nil
 }
 
-// agent returns an agent owned by humanID on board b.
+// agent returns an agent owned by humanID, a member of the server, on board b.
 func agent(b board.Board, humanID, name, role string) board.Member {
 	return board.Member{
 		ID: "mem_" + b.Name + "_" + name, BoardID: b.ID, Name: name, Kind: "agent", Role: ptr(role), HumanID: humanID,
 		Owner: ptr(humanID), Harness: ptr("claude-code"), TokenDigest: ptr("digest-" + b.Name + "-" + name), Status: "active", JoinedAt: at,
+		PersonRole: board.ServerMember,
 	}
 }
 
@@ -979,7 +986,7 @@ func membersInJoinOrder(t *testing.T, st board.Store) {
 		}
 		blair := board.Member{
 			ID: "mem_docs_blair", BoardID: b.ID, Name: "blair", Kind: "human", HumanID: "hum_blair",
-			Access: rules.AccessMember, Status: "active", JoinedAt: at,
+			Access: rules.AccessMember, Status: "active", JoinedAt: at, PersonRole: board.ServerMember,
 		}
 		if err := tx.InsertMember(blair); err != nil {
 			return err
@@ -1095,10 +1102,42 @@ func setPresenceReplacesIt(t *testing.T, st board.Store) {
 	}
 }
 
+// An agent's delivery mode as its person set it starts unset, and SetDelivery replaces it
+// without touching the presence its daemon reported, and the other way round.
+func setDeliveryReplacesItAndKeepsPresence(t *testing.T, st board.Store) {
+	write(t, st, func(tx board.Tx) error {
+		b, _, err := newBoard(tx, "docs")
+		if err != nil {
+			return err
+		}
+		return tx.InsertMember(agent(b, "hum_alex", "writer", "member"))
+	})
+	memberIs := func(want board.DeliverySetting, presence board.Presence) {
+		t.Helper()
+		read(t, st, func(tx board.ReadTx) error {
+			m, err := tx.MemberByName("brd_docs", "writer")
+			if err == nil && (m.Delivery != want || m.Presence != presence) {
+				t.Errorf("writer: delivery %+v presence %+v, want %+v and %+v", m.Delivery, m.Presence, want, presence)
+			}
+			return err
+		})
+	}
+	memberIs(board.DeliverySetting{}, board.Presence{})
+	reported := board.Presence{State: board.PresenceIdle, Since: at, At: at, Delivery: "all"}
+	write(t, st, func(tx board.Tx) error { return tx.SetPresence("mem_docs_writer", reported) })
+	for _, d := range []board.DeliverySetting{{Mode: "off", Seq: 7}, {Mode: "humans", Seq: 9}} {
+		write(t, st, func(tx board.Tx) error { return tx.SetDelivery("mem_docs_writer", d) })
+		memberIs(d, reported)
+	}
+	again := board.Presence{State: board.PresenceWorking, Since: at, At: at, Delivery: "humans"}
+	write(t, st, func(tx board.Tx) error { return tx.SetPresence("mem_docs_writer", again) })
+	memberIs(board.DeliverySetting{Mode: "humans", Seq: 9}, again)
+}
+
 func joinCode(b board.Board, creator board.Member) board.JoinCode {
 	return board.JoinCode{
 		ID: "jc_1", BoardID: b.ID, CodeDigest: "digest-code", Role: "reviewer",
-		ExpiresAt: "2026-10-02T16:00:00.000Z", CreatedAt: at, CreatedBy: creator.ID,
+		ExpiresAt: "2026-10-02T16:00:00.000Z", CreatedAt: at, CreatedBy: creator.ID, Kind: board.CodePairing,
 	}
 }
 
@@ -1195,7 +1234,7 @@ func newConversation(t *testing.T, st board.Store) conversation {
 			seq := int64(i + 1)
 			m := board.Message{
 				ID: fmt.Sprintf("msg_%d", seq), BoardID: b.ID, Seq: seq, At: at, SenderID: p.from.ID, To: []string{p.to},
-				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{},
+				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{}, Mentions: []board.Mention{},
 				SenderName: p.from.Name, SenderKind: p.from.Kind, SenderRole: p.from.Role, SenderOwner: p.from.Owner, SenderHuman: p.from.HumanID,
 				SenderHarness: p.from.Harness, AgentOwners: 1, // every agent here is alex's
 			}
@@ -1312,14 +1351,14 @@ func inboxSkipsOwnAndAlreadyReadMessages(t *testing.T, st board.Store) {
 			return err
 		}
 		// Not 1 (at the cursor), not 3 (to @writer), not 5 (its own).
-		got, err := tx.Inbox(reviewer, 10)
+		got, err := tx.Inbox(reviewer, true, 10)
 		if err != nil {
 			return err
 		}
 		if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, []int64{2, 4}) {
 			t.Errorf("Inbox seqs = %v, want [2 4]", seqs)
 		}
-		limited, err := tx.Inbox(reviewer, 1)
+		limited, err := tx.Inbox(reviewer, true, 1)
 		if err != nil {
 			return err
 		}
@@ -1330,67 +1369,48 @@ func inboxSkipsOwnAndAlreadyReadMessages(t *testing.T, st board.Store) {
 	})
 }
 
-// countUnreadCountsWhatInboxOrTheTimelineHasLeft: an agent's unread count is what its
-// inbox holds; a person's is every message after their cursor that they didn't send.
-func countUnreadCountsWhatInboxOrTheTimelineHasLeft(t *testing.T, st board.Store) {
+// A message that mentions the reader with Wakes set is in its inbox, whatever it is
+// addressed to, but only when the caller asks for mentions; one whose mention doesn't
+// wake isn't.
+func inboxHoldsMessagesThatMentionTheReader(t *testing.T, st board.Store) {
 	c := newConversation(t, st)
-	write(t, st, func(tx board.Tx) error { return tx.SetCursor(c.reviewer.ID, 1) })
-	read(t, st, func(tx board.ReadTx) error {
-		reviewer, err := tx.MemberByName("brd_docs", "reviewer")
-		if err != nil {
-			return err
+	mentionOf := func(m board.Member, wakes bool) board.Mention {
+		mn := board.Mention{MemberID: m.ID, Kind: m.Kind, Name: m.Name, Text: "@" + m.Name, Wakes: wakes}
+		if !wakes {
+			mn.Reason = ptr(board.MentionLimit)
 		}
-		// 2 and 4, as Inbox returns them.
-		if n, err := tx.CountUnread(reviewer, true); err != nil || n != 2 {
-			t.Errorf("CountUnread(reviewer, addressed) = %d, %v, want 2", n, err)
-		}
-		// Everything after 1 it didn't send: 2, 3 and 4.
-		if n, err := tx.CountUnread(reviewer, false); err != nil || n != 3 {
-			t.Errorf("CountUnread(reviewer, all) = %d, %v, want 3", n, err)
-		}
-		alex := c.alex
-		alex.Cursor = 3
-		// Only 5: 4 is alex's own.
-		if n, err := tx.CountUnread(alex, false); err != nil || n != 1 {
-			t.Errorf("CountUnread(alex after 3) = %d, %v, want 1", n, err)
-		}
-		alex.Cursor = 5
-		if n, err := tx.CountUnread(alex, false); err != nil || n != 0 {
-			t.Errorf("CountUnread(alex at the end) = %d, %v, want 0", n, err)
-		}
-		return nil
-	})
-}
-
-// messageRecipientsRoundTrip: a message's recipients read back in order; an empty list
-// stays empty, apart from a message with none recorded (one to all), which reads nil.
-func messageRecipientsRoundTrip(t *testing.T, st board.Store) {
-	c := newConversation(t, st)
+		return mn
+	}
 	write(t, st, func(tx board.Tx) error {
-		for _, m := range []board.Message{
-			{ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.alex.ID, To: []string{"@writer", "role:reviewer"}, Body: "two", Recipients: []string{c.writer.ID, c.reviewer.ID}},
-			{ID: "msg_7", BoardID: "brd_docs", Seq: 7, At: at, SenderID: c.reviewer.ID, To: []string{"role:reviewer"}, Body: "none", Recipients: []string{}},
-			{ID: "msg_8", BoardID: "brd_docs", Seq: 8, At: at, SenderID: c.alex.ID, To: []string{"all"}, Body: "everyone"},
+		for i, mentions := range [][]board.Mention{
+			{mentionOf(c.other, true), mentionOf(c.reviewer, true)},
+			{mentionOf(c.reviewer, false)},
 		} {
-			if err := tx.InsertMessage(m); err != nil {
+			seq := int64(6 + i)
+			if err := tx.InsertMessage(board.Message{
+				ID: fmt.Sprintf("msg_%d", seq), BoardID: "brd_docs", Seq: seq, At: at, SenderID: c.writer.ID,
+				To: []string{"@other"}, Body: "message", Mentions: mentions,
+			}); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
 	read(t, st, func(tx board.ReadTx) error {
-		got, err := tx.MessagesBySeq("brd_docs", []int64{6, 7, 8})
-		if err != nil {
-			return err
-		}
-		if r := got[6].Recipients; !reflect.DeepEqual(r, []string{c.writer.ID, c.reviewer.ID}) {
-			t.Errorf("recipients of #6 = %#v, want writer then reviewer", r)
-		}
-		if r := got[7].Recipients; r == nil || len(r) != 0 {
-			t.Errorf("recipients of #7 = %#v, want an empty list", r)
-		}
-		if r := got[8].Recipients; r != nil {
-			t.Errorf("recipients of a message to all = %#v, want nil", r)
+		for _, tt := range []struct {
+			mentions bool
+			want     []int64
+		}{{true, []int64{1, 2, 4, 6}}, {false, []int64{1, 2, 4}}} {
+			got, err := tx.Inbox(c.reviewer, tt.mentions, 10)
+			if err != nil {
+				return err
+			}
+			if seqs := messageSeqs(got); !reflect.DeepEqual(seqs, tt.want) {
+				t.Errorf("Inbox with mentions %v: seqs = %v, want %v", tt.mentions, seqs, tt.want)
+			}
+			if n, err := tx.CountUnread(c.reviewer, true, tt.mentions); err != nil || n != int64(len(tt.want)) {
+				t.Errorf("CountUnread with mentions %v = %d, %v, want %d", tt.mentions, n, err, len(tt.want))
+			}
 		}
 		return nil
 	})
@@ -1402,6 +1422,10 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 		ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.writer.ID, To: []string{"@reviewer", "role:reviewer"},
 		Body: "Fixed, see notes.", ReplyTo: ptr("msg_2"), Urgent: true, ExpectsReply: true,
 		Redactions: []board.Redaction{{Kind: "github_token", Count: 2}}, Recipients: []string{c.reviewer.ID},
+		Mentions: []board.Mention{
+			{MemberID: c.reviewer.ID, Kind: "agent", Name: "reviewer", Text: "@reviewer", Wakes: true},
+			{MemberID: c.other.ID, Kind: "agent", Name: "other", Text: "@role:member", Reason: ptr(board.MentionLimit)},
+		},
 	}
 	plain := board.Message{ID: "msg_7", BoardID: "brd_docs", Seq: 7, At: at, SenderID: c.alex.ID, To: []string{"all"}, Body: "ok"}
 	write(t, st, func(tx board.Tx) error {
@@ -1427,6 +1451,9 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 		}
 		// A message stored without redactions reads back with an empty list, not nil, so
 		// it is shown as [] rather than null.
+		if got.Mentions == nil || len(got.Mentions) != 0 {
+			t.Errorf("mentions of a message stored without any = %#v, want an empty list", got.Mentions)
+		}
 		if got.Redactions == nil || len(got.Redactions) != 0 {
 			t.Errorf("redactions of a message stored without any = %#v, want an empty list", got.Redactions)
 		}
@@ -1716,6 +1743,70 @@ func threadsListNewestActivityFirst(t *testing.T, st board.Store) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("%s: Threads = %+v,\nwant %+v", tt.name, got, tt.want)
 			}
+		}
+		return nil
+	})
+}
+
+func countUnreadCountsWhatInboxOrTheTimelineHasLeft(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	write(t, st, func(tx board.Tx) error { return tx.SetCursor(c.reviewer.ID, 1) })
+	read(t, st, func(tx board.ReadTx) error {
+		reviewer, err := tx.MemberByName("brd_docs", "reviewer")
+		if err != nil {
+			return err
+		}
+		// 2 and 4, as Inbox returns them.
+		if n, err := tx.CountUnread(reviewer, true, false); err != nil || n != 2 {
+			t.Errorf("CountUnread(reviewer, addressed) = %d, %v, want 2", n, err)
+		}
+		// Everything after 1 it didn't send: 2, 3 and 4.
+		if n, err := tx.CountUnread(reviewer, false, false); err != nil || n != 3 {
+			t.Errorf("CountUnread(reviewer, all) = %d, %v, want 3", n, err)
+		}
+		alex := c.alex
+		alex.Cursor = 3
+		// Only 5: 4 is alex's own.
+		if n, err := tx.CountUnread(alex, false, false); err != nil || n != 1 {
+			t.Errorf("CountUnread(alex after 3) = %d, %v, want 1", n, err)
+		}
+		alex.Cursor = 5
+		if n, err := tx.CountUnread(alex, false, false); err != nil || n != 0 {
+			t.Errorf("CountUnread(alex at the end) = %d, %v, want 0", n, err)
+		}
+		return nil
+	})
+}
+
+// messageRecipientsRoundTrip: a message's recipients read back in order; an empty list
+// stays empty, apart from a message with none recorded (one to all), which reads nil.
+func messageRecipientsRoundTrip(t *testing.T, st board.Store) {
+	c := newConversation(t, st)
+	write(t, st, func(tx board.Tx) error {
+		for _, m := range []board.Message{
+			{ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.alex.ID, To: []string{"@writer", "role:reviewer"}, Body: "two", Recipients: []string{c.writer.ID, c.reviewer.ID}},
+			{ID: "msg_7", BoardID: "brd_docs", Seq: 7, At: at, SenderID: c.reviewer.ID, To: []string{"role:reviewer"}, Body: "none", Recipients: []string{}},
+			{ID: "msg_8", BoardID: "brd_docs", Seq: 8, At: at, SenderID: c.alex.ID, To: []string{"all"}, Body: "everyone"},
+		} {
+			if err := tx.InsertMessage(m); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.MessagesBySeq("brd_docs", []int64{6, 7, 8})
+		if err != nil {
+			return err
+		}
+		if r := got[6].Recipients; !reflect.DeepEqual(r, []string{c.writer.ID, c.reviewer.ID}) {
+			t.Errorf("recipients of #6 = %#v, want writer then reviewer", r)
+		}
+		if r := got[7].Recipients; r == nil || len(r) != 0 {
+			t.Errorf("recipients of #7 = %#v, want an empty list", r)
+		}
+		if r := got[8].Recipients; r != nil {
+			t.Errorf("recipients of a message to all = %#v, want nil", r)
 		}
 		return nil
 	})

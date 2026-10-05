@@ -154,10 +154,11 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 }
 
 // authenticate resolves the caller's credential for every route except GET /v1/info,
-// the browser sign-in routes, POST /v1/connect and the two a new machine calls before it
-// has a key. The credential is the Authorization header's bearer token or, without that
+// the browser sign-in routes, POST /v1/connect, POST /v1/guest-join and the two a new
+// machine calls before it has a key. The credential is the Authorization header's bearer token or, without that
 // header, a browser session's cookie, whose writes must also pass the Origin and CSRF
-// checks. It rate limits join attempts by client address; invite redemptions, browser
+// checks. It rate limits join attempts by client address; redemptions of invites and
+// guest codes, browser
 // sign-ins and what a new machine does by client address and across the server; and
 // attempts with a machine's short code by client address, by person and across the
 // server.
@@ -189,13 +190,13 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 				codes = true
 			}
 		}
-		if r.URL.Path == "/v1/connect" && r.Method == http.MethodPost {
+		if (r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join") && r.Method == http.MethodPost {
 			// Both limits count every attempt, so a guess spread over many addresses
 			// still meets the server-wide one.
 			perAddr, all := connects.perAddr.allow(host), connects.all.allow("")
 			if !perAddr || !all {
 				w.Header().Set("Retry-After", "60")
-				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to redeem an invite.",
+				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to redeem an invite or a guest code.",
 					"Wait a minute, then try again."))
 				return
 			}

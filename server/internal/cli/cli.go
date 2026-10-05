@@ -100,6 +100,7 @@ func commands() []command {
 		{"approve", runApprove},
 		{"login", runLogin},
 		{"keys", runKeys},
+		{"people", runPeople},
 		{"say", runSay},
 		{"inbox", runInbox},
 		{"read", runRead},

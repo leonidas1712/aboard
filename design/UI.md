@@ -325,8 +325,11 @@ In the Agents section:
     ("2 agents disconnected"). The owner's delivery daemon reports it; it is
     bookkeeping, never part of the record.
   - Fields: Owner (only with a second person), Role (opens to the role's one-line
-    description), Harness (Claude Code, Codex), and Delivery (every message, people's
-    messages only, or off), which only the agent's owner can change.
+    description), Harness (Claude Code, Codex), and Delivery (focused, all, humans or
+    off, as the server holds it), which only the agent's owner can change: for their
+    own agents it is a quiet menu of the four modes, each with the rule the agent is
+    told (D192); others see the word. When the agent's delivery daemon reports applying
+    another mode, a line under it says so ("Its delivery daemon still applies all.").
 - **People:** each person with their access (Admin), shown once a second person joins.
   Solo, there is no people list, so you never see the word "admin".
 - **Open tasks** and **Pinned** files, once the board has them.

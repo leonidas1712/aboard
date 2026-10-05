@@ -138,9 +138,14 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 		Browser     bool    `json:"browser"`
 		ServerRole  *string `json:"server_role"`
 		DisplayName *string `json:"display_name"`
+		// DeliveryMode and DeliveryRevision are an agent's; null for a person.
+		DeliveryMode     *string `json:"delivery_mode"`
+		DeliveryRevision *int64  `json:"delivery_revision"`
 	}{Browser: me.Browser}
 	if me.Agent != nil {
 		out.ID, out.Kind, out.Name, out.Board, out.Owner = me.Agent.ID, "agent", me.Agent.Name, &me.Board, me.Agent.Owner
+		mode, rev := me.Agent.Delivery.Current(), me.Agent.Delivery.Seq
+		out.DeliveryMode, out.DeliveryRevision = &mode, &rev
 	} else {
 		out.ID, out.Kind, out.Name = me.Human.ID, "human", me.Human.Name
 		out.ServerRole, out.DisplayName = &me.Human.Role, me.Human.DisplayName
@@ -167,12 +172,17 @@ func (h *handlers) CreateJoinCode(ctx context.Context, req CreateJoinCodeRequest
 	if req.Body.TtlSeconds != nil {
 		ttl = time.Duration(*req.Body.TtlSeconds) * time.Second
 	}
-	jc, err := h.svc.CreateJoinCode(ctx, principal(ctx), req.Board, req.Body.Role, ttl)
+	in := board.JoinCodeInput{Role: req.Body.Role, TTL: ttl}
+	if req.Body.Guest != nil {
+		in.Guest = *req.Body.Guest
+	}
+	jc, err := h.svc.CreateJoinCode(ctx, principal(ctx), req.Board, in)
 	if err != nil {
 		return nil, err
 	}
 	return convert[CreateJoinCode201JSONResponse](wireJoinCode{
-		ID: jc.JoinCode.ID, Code: jc.Code, JoinLine: jc.Line, Board: jc.Board, Role: jc.JoinCode.Role,
+		ID: jc.JoinCode.ID, Kind: jc.JoinCode.Kind, Guest: jc.JoinCode.Guest,
+		Code: jc.Code, JoinLine: jc.Line, Board: jc.Board, Role: jc.JoinCode.Role,
 		ExpiresAt: jc.JoinCode.ExpiresAt, CreatedAt: jc.JoinCode.CreatedAt, CreatedBy: refOf(jc.Creator),
 	})
 }
@@ -183,7 +193,7 @@ func (h *handlers) RevokeJoinCode(ctx context.Context, req RevokeJoinCodeRequest
 		return nil, err
 	}
 	return convert[RevokeJoinCode200JSONResponse](wireJoinCode{
-		ID: jc.ID, Board: req.Board, Role: jc.Role, ExpiresAt: jc.ExpiresAt, CreatedAt: jc.CreatedAt,
+		ID: jc.ID, Kind: jc.Kind, Guest: jc.Guest, Board: req.Board, Role: jc.Role, ExpiresAt: jc.ExpiresAt, CreatedAt: jc.CreatedAt,
 		CreatedBy: refOf(creator), RevokedAt: jc.RevokedAt,
 	})
 }
@@ -203,11 +213,41 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 	if err != nil {
 		return nil, err
 	}
-	return convert[Join201JSONResponse](struct {
+	return convert[Join201JSONResponse](joinedOf(j, principal(ctx)))
+}
+
+// joinedOf is a new agent with its token and board, as the agent sees the board.
+func joinedOf(j board.Joined, p board.Principal) any {
+	return struct {
 		Agent wireMember `json:"agent"`
 		Token string     `json:"token"`
 		Board wireBoard  `json:"board"`
-	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, principal(ctx))})
+	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, p)}
+}
+
+// GuestJoin redeems a guest code. It needs no token: the code is the proof.
+func (h *handlers) GuestJoin(ctx context.Context, req GuestJoinRequestObject) (GuestJoinResponseObject, error) {
+	in := board.GuestJoinInput{Code: req.Body.Code, KeyName: req.Body.KeyName}
+	if req.Body.Name != nil {
+		in.Name = *req.Body.Name
+	}
+	if req.Body.Harness != nil {
+		in.Harness = *req.Body.Harness
+	}
+	g, err := h.svc.GuestJoin(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	k := g.Key
+	return convert[GuestJoin201JSONResponse](map[string]any{
+		"server_id": h.svc.Config().ServerID, "person": personOf(g.Person),
+		"key": map[string]any{
+			"id": k.ID, "name": k.Name, "created_at": k.CreatedAt, "expires_at": k.ExpiresAt,
+			"idle_expiry_seconds": k.IdleSeconds, "token": g.KeyToken,
+		},
+		"agent": memberOf(g.Agent, g.View.Board.Name), "token": g.Token,
+		"board": boardOf(g.View, board.Principal{Agent: &g.Agent}),
+	})
 }
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {
@@ -311,12 +351,25 @@ func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (Get
 		return nil, err
 	}
 	return convert[GetInbox200JSONResponse](struct {
-		Board    string        `json:"board"`
-		Agent    string        `json:"agent"`
-		Messages []wireMessage `json:"messages"`
-		Cursor   int64         `json:"cursor"`
-		More     bool          `json:"more"`
-	}{r.Board.Name, r.Reader.Name, messagesOf(r), r.Reader.Cursor, more})
+		Board            string        `json:"board"`
+		Agent            string        `json:"agent"`
+		Messages         []wireMessage `json:"messages"`
+		Cursor           int64         `json:"cursor"`
+		More             bool          `json:"more"`
+		DeliveryMode     string        `json:"delivery_mode"`
+		DeliveryRevision int64         `json:"delivery_revision"`
+	}{r.Board.Name, r.Reader.Name, messagesOf(r), r.Reader.Cursor, more, r.Reader.Delivery.Current(), r.Reader.Delivery.Seq})
+}
+
+func (h *handlers) SetDeliveryMode(ctx context.Context, req SetDeliveryModeRequestObject) (SetDeliveryModeResponseObject, error) {
+	c, err := h.svc.SetDeliveryMode(ctx, principal(ctx), req.Board, req.Member, string(req.Body.Mode))
+	if err != nil {
+		return nil, err
+	}
+	return SetDeliveryMode200JSONResponse{
+		Board: c.Board.Name, Agent: c.Agent.Name, Mode: DeliveryModeSetting(c.Agent.Delivery.Current()),
+		Revision: int(c.Agent.Delivery.Seq), Changed: c.Changed,
+	}, nil
 }
 
 func (h *handlers) AckInbox(ctx context.Context, req AckInboxRequestObject) (AckInboxResponseObject, error) {

@@ -2,6 +2,7 @@ package deliverytest
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,6 +15,13 @@ type ServerFixture struct {
 	// New returns the server and an agent that receives messages from a peer, and a
 	// function that posts a message from the peer to it and returns its sequence number.
 	New func(t *testing.T) (srv delivery.Server, to delivery.AgentRef, post func(body string, urgent bool) int)
+	// WithModes returns a server that holds delivery modes, an agent on it, and a
+	// function that sets the agent's mode as its person would and returns the sequence
+	// number of the event that set it.
+	WithModes func(t *testing.T) (srv delivery.Server, to delivery.AgentRef, set func(delivery.Mode) int)
+	// Gone returns the server and an agent whose token still works but whose board no
+	// longer answers to it, because its person was removed from the board.
+	Gone func(t *testing.T) (srv delivery.Server, agent delivery.AgentRef)
 }
 
 // streamWait bounds how long the suite waits for a head on the stream.
@@ -27,7 +35,7 @@ func RunServer(t *testing.T, f ServerFixture) {
 		srv, to, post := f.New(t)
 		first := post("first", false)
 		second := post("second", true)
-		msgs, _, err := srv.Inbox(ctx, to)
+		msgs, _, _, err := srv.Inbox(ctx, to)
 		must(t, err)
 		if len(msgs) != 2 || msgs[0].Seq != first || msgs[1].Seq != second || msgs[0].Body != "first" ||
 			msgs[0].Urgent || !msgs[1].Urgent || msgs[0].Board != to.Board || msgs[0].Sender != "owner_agent" {
@@ -40,17 +48,33 @@ func RunServer(t *testing.T, f ServerFixture) {
 		first := post("first", false)
 		second := post("second", false)
 		must(t, srv.Ack(ctx, to, first))
-		msgs, cursor, err := srv.Inbox(ctx, to)
+		msgs, cursor, _, err := srv.Inbox(ctx, to)
 		must(t, err)
 		if cursor != first || len(msgs) != 1 || msgs[0].Seq != second {
 			t.Fatalf("after ack %d: cursor %d, inbox %+v", first, cursor, msgs)
 		}
 		must(t, srv.Ack(ctx, to, second))
 		must(t, srv.Ack(ctx, to, first))
-		msgs, cursor, err = srv.Inbox(ctx, to)
+		msgs, cursor, _, err = srv.Inbox(ctx, to)
 		must(t, err)
 		if cursor != second || len(msgs) != 0 {
 			t.Fatalf("a lower ack moved the read position back: cursor %d, inbox %+v", cursor, msgs)
+		}
+	})
+
+	t.Run("InboxCarriesTheModeTheServerHolds", func(t *testing.T) {
+		srv, to, set := f.WithModes(t)
+		_, _, mode, err := srv.Inbox(ctx, to)
+		must(t, err)
+		if mode == nil || *mode != (delivery.HeldMode{Mode: delivery.ModeFocused}) {
+			t.Fatalf("an agent whose mode was never set: %+v, want focused at revision 0", mode)
+		}
+		first := set(delivery.ModeHumans)
+		second := set(delivery.ModeOff)
+		_, _, mode, err = srv.Inbox(ctx, to)
+		must(t, err)
+		if first <= 0 || second <= first || mode == nil || *mode != (delivery.HeldMode{Mode: delivery.ModeOff, Revision: int64(second)}) {
+			t.Fatalf("after setting humans (%d) then off (%d): %+v", first, second, mode)
 		}
 	})
 
@@ -58,6 +82,19 @@ func RunServer(t *testing.T, f ServerFixture) {
 		srv, to, _ := f.New(t)
 		for _, p := range []delivery.Presence{delivery.PresenceIdle, delivery.PresenceWorking, delivery.PresenceWorking, delivery.PresenceNoSession} {
 			must(t, srv.SetPresence(ctx, to, p, delivery.ModeAuto))
+		}
+	})
+
+	t.Run("AnAgentWhoseBoardIsGoneGetsErrBoardGone", func(t *testing.T) {
+		srv, agent := f.Gone(t)
+		if _, _, _, err := srv.Inbox(ctx, agent); !errors.Is(err, delivery.ErrBoardGone) || errors.Is(err, delivery.ErrUnauthorized) {
+			t.Fatalf("Inbox = %v, want ErrBoardGone", err)
+		}
+		if err := srv.Ack(ctx, agent, 1); !errors.Is(err, delivery.ErrBoardGone) {
+			t.Fatalf("Ack = %v, want ErrBoardGone", err)
+		}
+		if err := srv.SetPresence(ctx, agent, delivery.PresenceIdle, delivery.ModeFocused); !errors.Is(err, delivery.ErrBoardGone) {
+			t.Fatalf("SetPresence = %v, want ErrBoardGone", err)
 		}
 	})
 

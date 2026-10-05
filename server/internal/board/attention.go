@@ -25,8 +25,8 @@ type Position struct {
 
 // positionOf reads me's position on its board. Callers run it in the transaction that
 // checked me's access.
-func positionOf(tx ReadTx, me Member) (Position, error) {
-	n, err := tx.CountUnread(me, me.Kind == "agent")
+func positionOf(tx ReadTx, me Member, mentions bool) (Position, error) {
+	n, err := tx.CountUnread(me, me.Kind == "agent", mentions)
 	if err != nil {
 		return Position{}, fmt.Errorf("count unread for %s: %w", me.ID, err)
 	}
@@ -68,7 +68,7 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		}
 		moved, id = upTo > me.Cursor, b.ID
 		me.Cursor = max(me.Cursor, upTo)
-		pos, err := positionOf(tx, me)
+		pos, err := positionOf(tx, me, readsAll(b, me))
 		out = Acked{Board: b.Name, Position: pos}
 		return err
 	})

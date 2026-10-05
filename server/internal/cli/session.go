@@ -251,7 +251,11 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	if resp.Previous != nil {
 		prev = &previousAgent{Name: resp.Previous.Name, Board: resp.Previous.Board}
 	}
-	mode := a.deliveryFor(ctx, ref)
+	held := ""
+	if h, ok := a.heldMode(ctx, t, cred); ok {
+		held = string(h.Mode)
+	}
+	mode := a.deliveryFor(ctx, ref, held)
 	a.emit(struct {
 		Agent         string         `json:"agent"`
 		Board         string         `json:"board"`

@@ -202,6 +202,10 @@ func (s *Service) decideMachineRequest(ctx context.Context, p Principal, code, s
 		if err != nil {
 			return err
 		}
+		// A guest gets keys only through guest codes, never by approving a machine.
+		if h.Role == ServerGuest && state == MachineApproved {
+			return guestNotAllowed("approve a new machine")
+		}
 		r, err := s.pendingRequest(tx, h, code, now)
 		if err != nil {
 			return err

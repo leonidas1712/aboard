@@ -17,22 +17,57 @@ func (t *tx) InsertHuman(h board.Human) error {
 		h.ID, h.Name, h.DisplayName, h.Role, h.CreatedAt)
 }
 
-const humanColumns = "id, name, display_name, role, created_at"
+const humanColumns = "id, name, display_name, role, created_at, removed_at, removed_by"
 
-func scanHuman(row *sql.Row) (board.Human, error) {
+func scanHuman(row interface{ Scan(...any) error }) (board.Human, error) {
 	var h board.Human
-	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt)
+	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt, &h.RemovedAt, &h.RemovedBy)
 	return h, notFound(err)
 }
 
-// HumanByID finds a human by id.
+// HumanByID finds a human by id, removed or not.
 func (t *tx) HumanByID(id string) (board.Human, error) {
 	return scanHuman(t.queryRow("SELECT "+humanColumns+" FROM humans WHERE id = ?", id))
 }
 
-// HumanByName finds a human by handle.
+// HumanByName finds a human still on the server by handle.
 func (t *tx) HumanByName(name string) (board.Human, error) {
-	return scanHuman(t.queryRow("SELECT "+humanColumns+" FROM humans WHERE name = ?", name))
+	return scanHuman(t.queryRow("SELECT "+humanColumns+" FROM humans WHERE name = ? AND removed_at IS NULL", name))
+}
+
+// PeopleOnServer lists the people still on the server, oldest first.
+func (t *tx) PeopleOnServer() ([]board.Human, error) {
+	rows, err := t.tx.QueryContext(t.ctx, "SELECT "+humanColumns+" FROM humans WHERE removed_at IS NULL ORDER BY created_at, rowid")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }() // rows.Err is checked below
+	var out []board.Human
+	for rows.Next() {
+		h, err := scanHuman(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
+// AdminCount returns how many admins are still on the server.
+func (t *tx) AdminCount() (int, error) {
+	var n int
+	err := t.queryRow("SELECT count(*) FROM humans WHERE role = 'admin' AND removed_at IS NULL").Scan(&n)
+	return n, err
+}
+
+// SetHumanRole sets a person's server role.
+func (t *tx) SetHumanRole(id, role string) error {
+	return t.exec("UPDATE humans SET role = ? WHERE id = ?", role, id)
+}
+
+// RemoveHuman marks a person removed from the server, keeping the first time.
+func (t *tx) RemoveHuman(id, at, by string) error {
+	return t.exec("UPDATE humans SET removed_at = ?, removed_by = ? WHERE id = ? AND removed_at IS NULL", at, by, id)
 }
 
 const accessKeyColumns = "id, human_id, name, digest, created_at, expires_at, revoked_at, last_used_at, idle_seconds"
@@ -314,17 +349,25 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id)"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
-	var access, presence, since, at, mode sql.NullString
+	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&presence, &since, &at, &mode)
+		&presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole)
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
+	m.Delivery.Mode = setting.String
 	return m, notFound(err)
+}
+
+// SetDelivery records an agent's delivery mode as its person set it, and the seq of the
+// event that set it.
+func (t *tx) SetDelivery(memberID string, d board.DeliverySetting) error {
+	return t.exec("UPDATE members SET delivery_setting = ?, delivery_setting_seq = ? WHERE id = ?",
+		sql.NullString{String: d.Mode, Valid: d.Mode != ""}, d.Seq, memberID)
 }
 
 // SetPresence records an agent's presence, when it began and when it was reported, and
@@ -388,18 +431,31 @@ func (t *tx) SetCursor(memberID string, seq int64) error {
 	return t.exec("UPDATE members SET cursor = max(cursor, ?) WHERE id = ?", seq, memberID)
 }
 
-const joinCodeColumns = "id, board_id, code_digest, role, expires_at, created_at, created_by, revoked_at"
+const joinCodeColumns = "id, board_id, code_digest, role, expires_at, created_at, created_by, revoked_at, kind, guest, guest_id, used_at, used_by"
 
-func scanJoinCode(row *sql.Row) (board.JoinCode, error) {
+func scanJoinCode(row interface{ Scan(...any) error }) (board.JoinCode, error) {
 	var j board.JoinCode
-	err := row.Scan(&j.ID, &j.BoardID, &j.CodeDigest, &j.Role, &j.ExpiresAt, &j.CreatedAt, &j.CreatedBy, &j.RevokedAt)
+	err := row.Scan(&j.ID, &j.BoardID, &j.CodeDigest, &j.Role, &j.ExpiresAt, &j.CreatedAt, &j.CreatedBy, &j.RevokedAt, &j.Kind, &j.Guest, &j.GuestID, &j.UsedAt, &j.UsedBy)
 	return j, notFound(err)
 }
 
-// InsertJoinCode adds a join code.
+// InsertJoinCode adds a join code; a code with no kind is a pairing code.
 func (t *tx) InsertJoinCode(j board.JoinCode) error {
-	return t.exec("INSERT INTO join_codes ("+joinCodeColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		j.ID, j.BoardID, j.CodeDigest, j.Role, j.ExpiresAt, j.CreatedAt, j.CreatedBy, j.RevokedAt)
+	if j.Kind == "" {
+		j.Kind = board.CodePairing
+	}
+	return t.exec("INSERT INTO join_codes ("+joinCodeColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		j.ID, j.BoardID, j.CodeDigest, j.Role, j.ExpiresAt, j.CreatedAt, j.CreatedBy, j.RevokedAt, j.Kind, j.Guest, j.GuestID, j.UsedAt, j.UsedBy)
+}
+
+// UseJoinCode marks an unused join code used, and reports whether it was unused.
+func (t *tx) UseJoinCode(id, at, memberID string) (bool, error) {
+	res, err := t.tx.ExecContext(t.ctx, "UPDATE join_codes SET used_at = ?, used_by = ? WHERE id = ? AND used_at IS NULL", at, memberID, id)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
 }
 
 // JoinCodeByDigest finds a join code by the digest of the code.
@@ -412,18 +468,18 @@ func (t *tx) JoinCodeByID(id string) (board.JoinCode, error) {
 	return scanJoinCode(t.queryRow("SELECT "+joinCodeColumns+" FROM join_codes WHERE id = ?", id))
 }
 
-// WorkingJoinCodes lists a board's join codes that are neither revoked nor expired at
-// now, oldest first.
+// WorkingJoinCodes lists a board's join codes that are neither revoked, used nor expired
+// at now, oldest first.
 func (t *tx) WorkingJoinCodes(boardID, now string) ([]board.JoinCode, error) {
-	rows, err := t.tx.QueryContext(t.ctx, "SELECT "+joinCodeColumns+" FROM join_codes WHERE board_id = ? AND revoked_at IS NULL AND expires_at > ? ORDER BY rowid", boardID, now)
+	rows, err := t.tx.QueryContext(t.ctx, "SELECT "+joinCodeColumns+" FROM join_codes WHERE board_id = ? AND revoked_at IS NULL AND used_at IS NULL AND expires_at > ? ORDER BY rowid", boardID, now)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }() // rows.Err is checked below
 	var out []board.JoinCode
 	for rows.Next() {
-		var j board.JoinCode
-		if err := rows.Scan(&j.ID, &j.BoardID, &j.CodeDigest, &j.Role, &j.ExpiresAt, &j.CreatedAt, &j.CreatedBy, &j.RevokedAt); err != nil {
+		j, err := scanJoinCode(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, j)

@@ -52,8 +52,10 @@ type Server interface {
 	// acknowledged, until ctx ends or the connection fails. connected is called once the
 	// stream is open.
 	Follow(ctx context.Context, connected func(), head func(Head)) error
-	// Inbox returns the agent's unread messages, oldest first, and its read position.
-	Inbox(ctx context.Context, agent AgentRef) (msgs []Message, cursor int, err error)
+	// Inbox returns the agent's unread messages, oldest first, its read position, and
+	// its delivery mode as the server holds it, read together; mode is nil from a server
+	// that doesn't hold delivery modes.
+	Inbox(ctx context.Context, agent AgentRef) (msgs []Message, cursor int, mode *HeldMode, err error)
 	// Ack moves the agent's read position up to seq.
 	Ack(ctx context.Context, agent AgentRef, upTo int) error
 	// SetPresence reports what the agent's session is doing, and the agent's delivery
@@ -68,9 +70,10 @@ type Journal interface {
 	Sessions(ctx context.Context) ([]SessionRecord, error)
 	Bind(ctx context.Context, b Binding) error
 	Bindings(ctx context.Context) ([]Binding, error)
-	// SetMode records an agent's delivery mode.
+	// SetMode records an agent's delivery mode: one set on this machine, or the last one
+	// read from a server that holds it.
 	SetMode(ctx context.Context, agent AgentRef, mode Mode) error
-	// Modes returns every agent's recorded delivery mode. An agent not in it is auto.
+	// Modes returns every agent's recorded delivery mode.
 	Modes(ctx context.Context) (map[AgentRef]Mode, error)
 	// AddDelivery records a new delivery with its messages and returns its id.
 	AddDelivery(ctx context.Context, d Delivery) (int64, error)

@@ -59,11 +59,17 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		AgentSource    string       `json:"agent_source"`
 		Delivery       *string      `json:"delivery"`
 		DeliveryRule   *string      `json:"delivery_rule"`
-		Presence       *string      `json:"presence"`
-		Agents         []string     `json:"agents"`
-		Policy         *api.Policy  `json:"policy"`
-		People         []person     `json:"people"`
-		Subagent       *subagentOf  `json:"subagent"`
+		// DeliveryApplied is the mode the agent's delivery daemon last reported applying,
+		// when the server has one.
+		DeliveryApplied *string `json:"delivery_applied"`
+		// DeliveryUnconfirmed is true when the server couldn't be read, so the mode is the
+		// one this machine kept.
+		DeliveryUnconfirmed bool        `json:"delivery_unconfirmed"`
+		Presence            *string     `json:"presence"`
+		Agents              []string    `json:"agents"`
+		Policy              *api.Policy `json:"policy"`
+		People              []person    `json:"people"`
+		Subagent            *subagentOf `json:"subagent"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -153,14 +159,41 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	default:
 		out.Agent, out.AgentSource = &name, source
 		label := map[string]string{agentFromFlag: "--as", agentFromEnv: "ABOARD_AGENT", agentFromSession: "this session"}[source]
-		mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name})
-		if err != nil {
-			return err
+		// The mode the agent's server holds, or, from a server that doesn't hold modes,
+		// this machine's.
+		m := ""
+		var applied *string
+		for _, mem := range members {
+			if mem.Name == name && mem.Kind == api.MemberKindAgent {
+				m = heldModeOf(mem)
+				if mem.Delivery != nil {
+					if parsed, ok := delivery.ParseMode(string(*mem.Delivery)); ok {
+						s := string(parsed)
+						applied = &s
+					}
+				}
+			}
 		}
-		m := string(mode)
-		out.Delivery = &m
+		if m == "" {
+			mode, err := a.deliveryMode(ctx, delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: name})
+			if err != nil {
+				return err
+			}
+			m = string(mode)
+			// No members read means the server couldn't be: the mode is this machine's.
+			out.DeliveryUnconfirmed = members == nil
+		}
+		out.Delivery, out.DeliveryApplied = &m, applied
 		line := fmt.Sprintf("Agent:  %s (from %s); delivery %s", name, label, m)
-		if out.Presence = presenceOf(members, name); out.Presence != nil {
+		if out.DeliveryUnconfirmed {
+			line += keptHereText
+		}
+		out.Presence = presenceOf(members, name)
+		if applied != nil && *applied != m && out.Presence != nil && *out.Presence != "no_session" {
+			// A daemon from an older aboard keeps its own mode; say what it does.
+			line += fmt.Sprintf(" (its delivery daemon applies %s)", *applied)
+		}
+		if out.Presence != nil {
 			line += "; " + presenceText(*out.Presence)
 		}
 		rule := deliverytext.ModeRule(m)
@@ -305,6 +338,17 @@ type daemonReport struct {
 	Replaced     *replacement `json:"replaced"`
 	// Stalled counts deliveries handed to an idle session that started no turn.
 	Stalled int `json:"stalled"`
+	// StoppedAgents are agents whose deliveries the daemon stopped, with why.
+	StoppedAgents []stoppedAgent `json:"stopped_agents,omitempty"`
+}
+
+// stoppedAgent is an agent whose deliveries the daemon stopped, such as one whose board
+// is gone.
+type stoppedAgent struct {
+	Server string `json:"server"`
+	Board  string `json:"board"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
 }
 
 // runningLines writes the Server and Daemon lines of aboard status, saying what the
@@ -347,4 +391,12 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 	}
 	fmt.Fprintf(text, "Daemon: running (pid %d), %d open %s%s%s\n", pid, st.OpenSessions,
 		plural(st.OpenSessions, "session", "sessions"), stalled, a.daemonReplaced.text())
+	for _, p := range st.Agents {
+		d.StoppedAgents = append(d.StoppedAgents, stoppedAgent{Server: p.Agent.Server, Board: p.Agent.Board, Name: p.Agent.Name, Reason: p.Reason})
+		if p.Reason == delivery.ReasonBoardGone {
+			fmt.Fprintf(text, "        %s. Join again with a new agent (aboard join) if the person still belongs on it.\n", boardGoneText(p.Agent.Name, p.Agent.Board))
+			continue
+		}
+		fmt.Fprintf(text, "        deliveries for %s on %s stopped (%s); see aboard doctor\n", p.Agent.Name, p.Agent.Board, p.Reason)
+	}
 }

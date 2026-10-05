@@ -96,7 +96,7 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 		if cur.State != state || cur.Since == "" {
 			next.Since = next.At
 		}
-		changed = cur.State != state
+		changed = cur.State != state || next.Delivery != me.Presence.Delivery
 		me.Presence = next
 		return tx.SetPresence(me.ID, next)
 	})
@@ -142,7 +142,7 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			} else if err != nil {
 				return err
 			}
-			if positions[id], err = positionOf(tx, me); err != nil {
+			if positions[id], err = positionOf(tx, me, false); err != nil {
 				return err
 			}
 			members, err := tx.Members(id)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -134,7 +135,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(movedText(moved, joined.Agent.Name, board))
 	text.WriteString(relinkedText(board, previous))
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name})
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name}, heldModeOf(joined.Agent))
 	text.WriteString(mode.line())
 	if notice != nil {
 		text.WriteString(st.warn(notice.Message) + "\n")
@@ -214,7 +215,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	srv, code, err := a.joinTarget(strings.Join(pos, " "))
+	srv, code, guest, err := a.joinTarget(strings.Join(pos, " "))
 	if err != nil {
 		return err
 	}
@@ -227,9 +228,12 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	token, err := a.readOwnerToken(srv)
-	if err != nil {
-		return err
+	// A guest has no key for the server: the guest code is the only proof sent.
+	token := ""
+	if !guest {
+		if token, err = a.readOwnerToken(srv); err != nil {
+			return err
+		}
 	}
 	c, err := a.client(ctx, srv, token, requestTimeout)
 	if err != nil {
@@ -237,7 +241,15 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	joined, err := c.join(ctx, api.JoinRequest{Code: &code, Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness)})
+	var joined *api.JoinResult
+	var keyName string
+	if guest {
+		joined, keyName, err = a.guestJoin(ctx, c, api.GuestJoinRequest{
+			Code: code, KeyName: machineName(), Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness),
+		})
+	} else {
+		joined, err = c.join(ctx, api.JoinRequest{Code: &code, Name: optional(*agentName), Harness: harnessOf(session, inSession, *harness)})
+	}
 	if err != nil {
 		return err
 	}
@@ -265,10 +277,15 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if inSession {
 		how = fmt.Sprintf("This session acts as %s, and messages for %s arrive here.\n", agent.Name, agent.Name)
 	}
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name})
-	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent)) + how +
-		movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous) + mode.line()
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board.Name, Name: agent.Name}, heldModeOf(agent))
+	text := fmt.Sprintf("Joined board %s as %s\n", board.Name, agentText(agent))
+	if guest {
+		text += fmt.Sprintf("You're a guest on %s: you and your agents reach only the boards you're invited to. This machine's key, %q, is saved.\n",
+			srv.URL, keyName)
+	}
+	text += how + movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous) + mode.line()
 	a.emit(struct {
+		Guest         bool           `json:"guest,omitempty"`
 		Server        serverRef      `json:"server"`
 		Board         api.Board      `json:"board"`
 		Agent         api.Member     `json:"agent"`
@@ -279,40 +296,96 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		PreviousBoard *string        `json:"previous_board"`
 		PreviousAgent *previousAgent `json:"previous_agent"`
 		seatDelivery
-	}{srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous), moved, mode}, text)
+	}{guest, srv, board, agent, useAs, board.Charter, roleCharter, noticeFor(board.Policy), optional(previous), moved, mode}, text)
 	return nil
 }
 
+// guestJoin redeems a guest code with c, which sends no key, and saves the key the server
+// gives this machine for the guest, for that server alone, as aboard connect does. It
+// returns the new agent and the key's name.
+func (a *app) guestJoin(ctx context.Context, c *client, req api.GuestJoinRequest) (*api.JoinResult, string, error) {
+	r, err := c.api.GuestJoinWithResponse(ctx, nil, req)
+	if err != nil {
+		return nil, "", c.unreachable(err)
+	}
+	if r.JSON201 == nil {
+		return nil, "", apiError(r.StatusCode(), r.Body)
+	}
+	got := r.JSON201
+	p, err := a.paths()
+	if err != nil {
+		return nil, "", err
+	}
+	var saved serverLogins
+	err = updateJSONFile(p.servers(), &saved, func() error {
+		if _, ok := saved.find(c.server.URL); ok {
+			return newError("already_connected", "This machine connected to "+c.server.URL+" meanwhile.", "Use that connection.")
+		}
+		saved.Servers = append(saved.Servers, serverLogin{
+			URL: c.server.URL, ServerID: got.ServerId, PersonID: got.Person.Id, Handle: got.Person.Handle,
+			KeyID: got.Key.Id, KeyName: got.Key.Name, Key: got.Key.Token,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return &api.JoinResult{Agent: got.Agent, Token: got.Token, Board: got.Board}, got.Key.Name, nil
+}
+
 // joinTarget finds the server and join code in a join line, or takes a bare code for
-// the project's server.
-func (a *app) joinTarget(text string) (serverRef, string, error) {
+// the project's server. A guest code's line ("as guest") naming a server this machine
+// has no key for is redeemed as a guest, with no key: guest is true, and the server is
+// the line's host over https, or over http when it is this machine.
+func (a *app) joinTarget(text string) (srv serverRef, code string, guest bool, err error) {
 	line, lineErr := joinline.Parse(text)
 	if lineErr == nil {
 		logins, err := a.readServerLogins()
 		if err != nil {
-			return serverRef{}, "", err
+			return serverRef{}, "", false, err
 		}
 		srv, err := mapJoinServer(line.Server, a.localAddr(), logins.Servers)
-		return srv, line.Code, err
+		var e *Error
+		if errors.As(err, &e) && e.Code == "server_unknown" && line.Role == guestLineRole {
+			return guestServer(line.Server), line.Code, true, nil
+		}
+		return srv, line.Code, false, err
 	}
 	code, ok := ids.NormalizeJoinCode(text)
 	if !ok {
-		return serverRef{}, "", &Error{
+		return serverRef{}, "", false, &Error{
 			Code:    "join_line_invalid",
 			Message: "That isn't a join line or a join code.",
 			Hint:    `Paste the whole line, such as "Join Aboard board docs on localhost as reviewer with code 7Q4-K2M", or just the code.`,
 			Err:     lineErr,
 		}
 	}
-	srv := a.localServer()
+	srv = a.localServer()
 	p, found, err := a.readProject()
 	if err != nil {
-		return serverRef{}, "", err
+		return serverRef{}, "", false, err
 	}
 	if found && p.Server.URL != "" {
 		srv = p.Server
 	}
-	return srv, code, nil
+	return srv, code, false, nil
+}
+
+// guestLineRole is what a guest code's join line says in place of a role.
+const guestLineRole = "guest"
+
+// guestServer is the server a guest code's join line names: over http only when it is
+// this machine (localhost or a loopback address), otherwise over https.
+func guestServer(host string) serverRef {
+	h, _, err := net.SplitHostPort(host)
+	if err != nil {
+		h = host
+	}
+	scheme := "https://"
+	if loopback(h) {
+		scheme = "http://"
+	}
+	return serverRef{Name: scheme + host, URL: scheme + host}
 }
 
 // refuseIfLinked stops pair from quietly replacing the board this directory is linked

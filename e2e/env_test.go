@@ -211,8 +211,12 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e := &env{t: t, bin: binary, home: home, dir: dir, addr: freeAddr(t)}
+	// Each race-instrumented CLI otherwise waits a fixed second before exiting. Keep
+	// race reporting and the caller's options, but omit that delay across the suite.
+	raceOptions := strings.TrimSpace(os.Getenv("GORACE") + " atexit_sleep_ms=0")
 	e.vars = []string{
 		"HOME=" + home,
+		"GORACE=" + raceOptions,
 		"USER=alex",
 		"PATH=" + fakeBin + string(os.PathListSeparator) + systemPath,
 		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
@@ -240,6 +244,7 @@ func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state")
 
 // stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
+	var stopped []int
 	for _, pidFile := range []string{
 		filepath.Join(e.dataDir(), "server.pid"),
 		filepath.Join(e.stateDir(), "daemon.pid"),
@@ -248,9 +253,18 @@ func (e *env) stopServer() {
 		if err != nil {
 			continue
 		}
-		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil {
-			_ = syscall.Kill(pid, syscall.SIGTERM)
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil && pid > 1 {
+			if err := syscall.Kill(pid, syscall.SIGTERM); err == nil {
+				stopped = append(stopped, pid)
+			}
 		}
+	}
+	// The background processes can still write after SIGTERM. Wait for exit before
+	// TempDir removes their files, rather than relying on a CLI's exit delay.
+	for _, pid := range stopped {
+		eventually(e.t, 5*time.Second, fmt.Sprintf("background process %d to exit", pid), func() bool {
+			return errors.Is(syscall.Kill(pid, 0), syscall.ESRCH)
+		})
 	}
 }
 

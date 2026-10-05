@@ -94,6 +94,42 @@ func (h *handlers) RevokeKey(ctx context.Context, req RevokeKeyRequestObject) (R
 	return convert[RevokeKey200JSONResponse](keyOf(k))
 }
 
+// ListServerPeople lists the people on the server with their roles.
+func (h *handlers) ListServerPeople(ctx context.Context, _ ListServerPeopleRequestObject) (ListServerPeopleResponseObject, error) {
+	people, err := h.svc.ListServerPeople(ctx, principal(ctx))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]any, 0, len(people))
+	for _, p := range people {
+		out = append(out, personOf(p))
+	}
+	return convert[ListServerPeople200JSONResponse](map[string]any{"people": out})
+}
+
+// SetServerRole makes a person an admin of the server, or a member again.
+func (h *handlers) SetServerRole(ctx context.Context, req SetServerRoleRequestObject) (SetServerRoleResponseObject, error) {
+	c, err := h.svc.SetServerRole(ctx, principal(ctx), req.Handle, string(req.Body.ServerRole))
+	if err != nil {
+		return nil, err
+	}
+	return convert[SetServerRole200JSONResponse](map[string]any{"person": personOf(c.Person), "changed": c.Changed})
+}
+
+// RemoveFromServer removes a person from the server, or previews it.
+func (h *handlers) RemoveFromServer(ctx context.Context, req RemoveFromServerRequestObject) (RemoveFromServerResponseObject, error) {
+	dry := req.Params.DryRun != nil && *req.Params.DryRun
+	r, err := h.svc.RemoveFromServer(ctx, principal(ctx), req.Handle, dry)
+	if err != nil {
+		return nil, err
+	}
+	return convert[RemoveFromServer200JSONResponse](map[string]any{
+		"person": personOf(r.Person), "dry_run": r.DryRun, "keys_revoked": r.KeysRevoked,
+		"browser_sessions_ended": r.BrowserSessions, "agents_removed": r.Agents, "boards_left": r.Boards,
+		"owners_passed": r.OwnersPassed, "unreachable_boards": r.Unreachable,
+	})
+}
+
 // personOf is a person as the API shows them.
 func personOf(p board.Human) map[string]any {
 	return map[string]any{"id": p.ID, "handle": p.Name, "display_name": p.DisplayName, "server_role": p.Role, "created_at": p.CreatedAt}

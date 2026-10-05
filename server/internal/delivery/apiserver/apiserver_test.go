@@ -119,9 +119,60 @@ func pairedAgents(t *testing.T, url, owner string) (board, writerToken, reviewer
 	return board, join("writer"), join("reviewer")
 }
 
+// removedPersonsAgent brings a second person, sam, onto the server and the owner's
+// board, joins an agent of sam's and removes sam from the board, and returns the board
+// and the agent's token, which still signs in.
+func removedPersonsAgent(t *testing.T, url, owner string) (board, token string) {
+	t.Helper()
+	ctx := context.Background()
+	c := apiClient(t, url, owner)
+	board, _, _ = pairedAgents(t, url, owner)
+	inv, err := c.CreateServerInviteWithResponse(ctx, &api.CreateServerInviteParams{}, api.CreateInviteRequest{})
+	if err != nil || inv.JSON201 == nil {
+		t.Fatalf("invite: %v %s", err, inv.Body)
+	}
+	conn, err := apiClient(t, url, "").ConnectWithResponse(ctx, &api.ConnectParams{},
+		api.ConnectRequest{Invite: inv.JSON201.Invite, Handle: "sam", KeyName: "sam-laptop"})
+	if err != nil || conn.JSON201 == nil {
+		t.Fatalf("connect: %v %s", err, conn.Body)
+	}
+	if r, err := c.AddPersonWithResponse(ctx, board, &api.AddPersonParams{}, api.AddPersonRequest{Handle: "sam"}); err != nil || r.JSON201 == nil {
+		t.Fatalf("add sam: %v %s", err, r.Body)
+	}
+	role := "reviewer"
+	joined, err := apiClient(t, url, conn.JSON201.Key.Token).JoinWithResponse(ctx, &api.JoinParams{}, api.JoinRequest{Board: &board, Role: &role})
+	if err != nil || joined.JSON201 == nil {
+		t.Fatalf("sam's agent joins: %v %s", err, joined.Body)
+	}
+	if r, err := c.RemovePersonWithResponse(ctx, board, "sam", &api.RemovePersonParams{}); err != nil || r.JSON200 == nil {
+		t.Fatalf("remove sam: %v %s", err, r.Body)
+	}
+	return board, joined.JSON201.Token
+}
+
 // The adapter passes the server contract against a real Aboard server, stream included.
 func TestAPIServerPassesTheServerContract(t *testing.T) {
-	deliverytest.RunServer(t, deliverytest.ServerFixture{New: func(t *testing.T) (delivery.Server, delivery.AgentRef, func(string, bool) int) {
+	deliverytest.RunServer(t, deliverytest.ServerFixture{WithModes: func(t *testing.T) (delivery.Server, delivery.AgentRef, func(delivery.Mode) int) {
+		url, owner := localServer(t)
+		board, _, reviewerToken := pairedAgents(t, url, owner)
+		to := delivery.AgentRef{Server: url, Board: board, Name: "reviewer"}
+		srv := New(url, tokens{human: map[string]string{url: owner}, agents: map[delivery.AgentRef]string{to: reviewerToken}}, rand.Reader)
+		person := apiClient(t, url, owner)
+		set := func(m delivery.Mode) int {
+			r, err := person.SetDeliveryModeWithResponse(context.Background(), board, "reviewer", &api.SetDeliveryModeParams{},
+				api.SetDeliveryModeJSONRequestBody{Mode: api.DeliveryModeSetting(m)})
+			if err != nil || r.JSON200 == nil {
+				t.Fatalf("set the delivery mode: %v %s", err, r.Body)
+			}
+			return r.JSON200.Revision
+		}
+		return srv, to, set
+	}, Gone: func(t *testing.T) (delivery.Server, delivery.AgentRef) {
+		url, owner := localServer(t)
+		board, token := removedPersonsAgent(t, url, owner)
+		agent := delivery.AgentRef{Server: url, Board: board, Name: "sam-reviewer"}
+		return New(url, tokens{agents: map[delivery.AgentRef]string{agent: token}}, rand.Reader), agent
+	}, New: func(t *testing.T) (delivery.Server, delivery.AgentRef, func(string, bool) int) {
 		url, owner := localServer(t)
 		board, writerToken, reviewerToken := pairedAgents(t, url, owner)
 		to := delivery.AgentRef{Server: url, Board: board, Name: "reviewer"}
@@ -145,7 +196,7 @@ func TestRejectedAgentTokenIsUnauthorized(t *testing.T) {
 	board, _, _ := pairedAgents(t, url, owner)
 	to := delivery.AgentRef{Server: url, Board: board, Name: "reviewer"}
 	srv := New(url, tokens{agents: map[delivery.AgentRef]string{to: "aba_not-a-real-token"}}, rand.Reader)
-	if _, _, err := srv.Inbox(context.Background(), to); !errors.Is(err, delivery.ErrUnauthorized) {
+	if _, _, _, err := srv.Inbox(context.Background(), to); !errors.Is(err, delivery.ErrUnauthorized) {
 		t.Fatalf("Inbox with a bad token = %v, want ErrUnauthorized", err)
 	}
 	if err := srv.Ack(context.Background(), to, 1); !errors.Is(err, delivery.ErrUnauthorized) {
