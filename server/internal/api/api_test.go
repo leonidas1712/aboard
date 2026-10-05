@@ -36,50 +36,60 @@ type testServer struct {
 	srv   *httptest.Server
 	clock *clock.Fake
 	st    *sqlite.Store
+	path  string // the database file
 	key   []byte
 	owner string // the first human's token
 	// shutdown tells the handler the server is shutting down, which ends event streams.
 	shutdown context.CancelFunc
 }
 
-func newTestServer(t *testing.T) *testServer {
+// newTestServer starts the server; opts change its API options.
+func newTestServer(t *testing.T, opts ...func(*api.Options)) *testServer {
 	t.Helper()
 	ctx := context.Background()
 	clk := clock.NewFake(time.Date(2026, 10, 1, 16, 0, 0, 0, time.UTC))
-	st, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "aboard.db"), clk)
+	path := filepath.Join(t.TempDir(), "aboard.db")
+	st, err := sqlite.Open(ctx, path, clk)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	key := []byte("test digest key")
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{ServerID: "srv_TEST", Mode: "local", JoinHost: "localhost"}, log)
-	owner, err := svc.BootstrapOwner(ctx, "alex")
+	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local", JoinHost: "localhost"}, log)
+	owner, err := svc.BootstrapOwner(ctx, "alex", "laptop")
 	if err != nil {
 		t.Fatal(err)
 	}
 	shutdown, startShutdown := context.WithCancel(ctx)
 	t.Cleanup(startShutdown)
-	h, err := api.NewHandler(api.Options{Service: svc, Responses: st, Clock: clk, Log: log, Version: "test", JoinsPerMinute: 5, Shutdown: shutdown})
+	o := api.Options{Service: svc, Responses: st, Clock: clk, Log: log, Version: "test", JoinsPerMinute: 5, Shutdown: shutdown}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	h, err := api.NewHandler(o)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	return &testServer{t: t, url: srv.URL, srv: srv, clock: clk, st: st, key: key, owner: owner, shutdown: startShutdown}
+	return &testServer{t: t, url: srv.URL, srv: srv, clock: clk, st: st, path: path, key: key, owner: owner, shutdown: startShutdown}
 }
 
-// addHuman creates another person with a login on the server and returns their token.
+// addHuman brings another person onto the server the way people join it, through an
+// invite from the first person, an admin, and returns their access key.
 func (s *testServer) addHuman(name string) string {
 	s.t.Helper()
-	token := "abh_" + strings.Repeat(name[:1], 43)
-	err := s.st.Write(context.Background(), func(tx board.Tx) error {
-		return tx.InsertHuman(board.Human{ID: "hum_" + name, Name: name, TokenDigest: ids.Digest(s.key, token), CreatedAt: "2026-10-01T16:00:00.000Z"})
-	})
-	if err != nil {
-		s.t.Fatal(err)
+	ctx := context.Background()
+	inv, err := s.client(s.owner).CreateServerInviteWithResponse(ctx, nil, api.CreateInviteRequest{})
+	if err != nil || inv.JSON201 == nil {
+		s.t.Fatalf("invite %s: %v %s", name, err, inv.Body)
 	}
-	return token
+	c, err := s.client("").ConnectWithResponse(ctx, nil, api.ConnectRequest{Invite: inv.JSON201.Invite, Handle: name, KeyName: "laptop"})
+	if err != nil || c.JSON201 == nil {
+		s.t.Fatalf("connect %s: %v %s", name, err, c.Body)
+	}
+	return c.JSON201.Key.Token
 }
 
 // client returns an API client for token whose every response is checked against the

@@ -32,6 +32,7 @@ type loginCodes struct {
 
 type loginCode struct {
 	human   Human
+	keyID   string // the access key that asked for the code
 	expires time.Time
 }
 
@@ -75,7 +76,7 @@ func (s *Service) CreateLoginCode(_ context.Context, p Principal) (LoginCode, er
 	s.codes.mu.Lock()
 	defer s.codes.mu.Unlock()
 	s.codes.prune(now)
-	s.codes.codes[ids.Digest(s.key, code)] = loginCode{human: *p.Human, expires: expires}
+	s.codes.codes[ids.Digest(s.key, code)] = loginCode{human: *p.Human, keyID: p.KeyID, expires: expires}
 	return LoginCode{Code: code, ExpiresAt: stamp(expires)}, nil
 }
 
@@ -103,13 +104,26 @@ func (s *Service) CreateBrowserToken(ctx context.Context, code string) (token st
 	if token, err = s.gen.Token("abb"); err != nil {
 		return "", time.Time{}, err
 	}
-	expires = now.Add(BrowserTokenTTL)
 	err = s.st.Write(ctx, func(tx Tx) error {
+		// The time is read again once the transaction holds the write lock, so a code or
+		// key that ends while the exchange waits for it doesn't work.
+		now := s.clk.Now()
+		if !now.Before(l.expires) {
+			return loginCodeInvalid()
+		}
+		expires = now.Add(BrowserTokenTTL)
+		// The key that asked for the code must still work when the code is used.
+		if err := stillValid(tx, Principal{Human: &l.human, KeyID: l.keyID}, stamp(now)); err != nil {
+			if _, ok := apierr.As(err); ok {
+				return loginCodeInvalid()
+			}
+			return err
+		}
 		if err := tx.DeleteExpiredBrowserLogins(stamp(now)); err != nil {
 			return err
 		}
 		return tx.InsertBrowserLogin(BrowserLogin{
-			TokenDigest: ids.Digest(s.key, token), HumanID: l.human.ID, CreatedAt: stamp(now), ExpiresAt: stamp(expires),
+			TokenDigest: ids.Digest(s.key, token), HumanID: l.human.ID, KeyID: l.keyID, CreatedAt: stamp(now), ExpiresAt: stamp(expires),
 		})
 	})
 	if err != nil {
@@ -128,14 +142,23 @@ func browserLoginEnded() *apierr.Error {
 // authenticateBrowser resolves a browser token to the human it acts as.
 func (s *Service) authenticateBrowser(ctx context.Context, token string) (Principal, error) {
 	var h Human
+	var keyID string
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		l, err := tx.BrowserLoginByDigest(ids.Digest(s.key, token))
 		if err != nil {
 			return err
 		}
-		if l.ExpiresAt <= stamp(s.clk.Now()) {
+		now := stamp(s.clk.Now())
+		if l.ExpiresAt <= now {
 			return ErrNotFound
 		}
+		// A browser login never outlives the access key that started it.
+		if l.KeyID != "" {
+			if err := workingKey(tx, l.KeyID, now); err != nil {
+				return err
+			}
+		}
+		keyID = l.KeyID
 		h, err = tx.HumanByID(l.HumanID)
 		return err
 	})
@@ -145,7 +168,7 @@ func (s *Service) authenticateBrowser(ctx context.Context, token string) (Princi
 	if err != nil {
 		return Principal{}, fmt.Errorf("authenticate browser: %w", err)
 	}
-	return Principal{Human: &h, Browser: true}, nil
+	return Principal{Human: &h, Browser: true, KeyID: keyID}, nil
 }
 
 // EndBrowserLogins ends every browser login of the calling human and returns how many
@@ -161,7 +184,7 @@ func (s *Service) EndBrowserLogins(ctx context.Context, p Principal) (int, error
 			"Run aboard logout --browsers in a terminal.")
 	}
 	var n int
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var err error
 		n, err = tx.DeleteBrowserLogins(p.Human.ID, stamp(s.clk.Now()))
 		return err

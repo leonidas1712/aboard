@@ -30,7 +30,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		to = []string{rules.TargetAll}
 	}
 	var msg Message
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, me, err := access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -283,7 +283,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 		cursor int64
 		moved  bool
 	)
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, err := tx.BoardByID(p.Agent.BoardID)
 		if err != nil {
 			return err

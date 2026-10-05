@@ -49,7 +49,7 @@ func (s *Service) React(ctx context.Context, p Principal, messageID, name string
 	}
 	var r Reading
 	changed := false
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		m, b, me, err := visibleMessage(tx, p, messageID)
 		if err != nil {
 			return err

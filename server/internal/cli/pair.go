@@ -283,7 +283,11 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 func (a *app) joinTarget(text string) (serverRef, string, error) {
 	line, lineErr := joinline.Parse(text)
 	if lineErr == nil {
-		srv, err := mapJoinServer(line.Server, a.localAddr())
+		logins, err := a.readServerLogins()
+		if err != nil {
+			return serverRef{}, "", err
+		}
+		srv, err := mapJoinServer(line.Server, a.localAddr(), logins.Servers)
 		return srv, line.Code, err
 	}
 	code, ok := ids.NormalizeJoinCode(text)

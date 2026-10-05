@@ -41,6 +41,8 @@ type Options struct {
 	DataDir string
 	// OwnerName is the local owner's login name, normalized into a member name.
 	OwnerName string
+	// MachineName names the owner's first access key, normalized like a member name.
+	MachineName string
 	// OwnerTokenPath is where local mode writes the owner's token (mode 0600) the first
 	// time it starts.
 	OwnerTokenPath string
@@ -90,7 +92,7 @@ func Run(ctx context.Context, o Options) error {
 		return err
 	}
 	svc := board.New(st, notify.NewInProcess(), o.Clock, ids.New(o.Rand), key, board.Config{ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}, o.Log)
-	token, err := svc.BootstrapOwner(ctx, rules.NormalizeName(o.OwnerName))
+	token, err := svc.BootstrapOwner(ctx, rules.NormalizeName(o.OwnerName), rules.NormalizeName(o.MachineName))
 	if err != nil {
 		return err
 	}
@@ -108,7 +110,7 @@ func Run(ctx context.Context, o Options) error {
 		return fmt.Errorf("listen on %s: %w", o.Addr, err)
 	}
 	handler, err := api.NewHandler(api.Options{
-		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30,
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30, ConnectsPerMinute: 10, ConnectsPerMinuteServer: 60,
 		Shutdown: shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
 	})
 	if err != nil {

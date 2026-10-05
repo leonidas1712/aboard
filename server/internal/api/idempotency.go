@@ -35,12 +35,15 @@ type SavedResponse struct {
 // idempotent replays the saved response when a write is retried with the same
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
-// again. The responses that carry a login code or a browser token are never saved, so
-// neither is ever written to disk: those writes ignore the key.
+// again. The responses that carry a login code, a browser token, a server invite or an
+// access key are never saved, so none is ever written to disk: those writes ignore the
+// key.
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
-		if key == "" || r.Method == http.MethodGet || r.URL.Path == "/v1/login-codes" || (r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) {
+		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" ||
+			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost)
+		if key == "" || r.Method == http.MethodGet || secret {
 			next.ServeHTTP(w, r)
 			return
 		}

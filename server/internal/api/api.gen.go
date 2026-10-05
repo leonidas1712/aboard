@@ -147,12 +147,15 @@ const (
 	BoardNotFound        ErrorErrorCode = "board_not_found"
 	BroadcastNotAllowed  ErrorErrorCode = "broadcast_not_allowed"
 	Forbidden            ErrorErrorCode = "forbidden"
+	HandleInvalid        ErrorErrorCode = "handle_invalid"
+	HandleTaken          ErrorErrorCode = "handle_taken"
 	HostNotAllowed       ErrorErrorCode = "host_not_allowed"
 	HumanTokenRequired   ErrorErrorCode = "human_token_required"
 	IdempotencyConflict  ErrorErrorCode = "idempotency_conflict"
 	Internal             ErrorErrorCode = "internal"
 	InvalidRequest       ErrorErrorCode = "invalid_request"
 	InvalidTarget        ErrorErrorCode = "invalid_target"
+	InviteInvalid        ErrorErrorCode = "invite_invalid"
 	JoinCodeInvalid      ErrorErrorCode = "join_code_invalid"
 	JoinCodeNotFound     ErrorErrorCode = "join_code_not_found"
 	LoginCodeInvalid     ErrorErrorCode = "login_code_invalid"
@@ -165,6 +168,7 @@ const (
 	RateLimited          ErrorErrorCode = "rate_limited"
 	ReplyHasNoRecipients ErrorErrorCode = "reply_has_no_recipients"
 	RoleNotFound         ErrorErrorCode = "role_not_found"
+	ServerAdminRequired  ErrorErrorCode = "server_admin_required"
 	TemplateNotFound     ErrorErrorCode = "template_not_found"
 	Unauthorized         ErrorErrorCode = "unauthorized"
 	UnknownRecipient     ErrorErrorCode = "unknown_recipient"
@@ -188,6 +192,10 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case Forbidden:
 		return true
+	case HandleInvalid:
+		return true
+	case HandleTaken:
+		return true
 	case HostNotAllowed:
 		return true
 	case HumanTokenRequired:
@@ -199,6 +207,8 @@ func (e ErrorErrorCode) Valid() bool {
 	case InvalidRequest:
 		return true
 	case InvalidTarget:
+		return true
+	case InviteInvalid:
 		return true
 	case JoinCodeInvalid:
 		return true
@@ -223,6 +233,8 @@ func (e ErrorErrorCode) Valid() bool {
 	case ReplyHasNoRecipients:
 		return true
 	case RoleNotFound:
+		return true
+	case ServerAdminRequired:
 		return true
 	case TemplateNotFound:
 		return true
@@ -891,6 +903,53 @@ func (e ServerInfoName) Valid() bool {
 	}
 }
 
+// Defines values for ServerInviteServerRole.
+const (
+	ServerInviteServerRoleMember ServerInviteServerRole = "member"
+)
+
+// Valid indicates whether the value is a known member of the ServerInviteServerRole enum.
+func (e ServerInviteServerRole) Valid() bool {
+	switch e {
+	case ServerInviteServerRoleMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerRole.
+const (
+	ServerRoleAdmin  ServerRole = "admin"
+	ServerRoleMember ServerRole = "member"
+)
+
+// Valid indicates whether the value is a known member of the ServerRole enum.
+func (e ServerRole) Valid() bool {
+	switch e {
+	case ServerRoleAdmin:
+		return true
+	case ServerRoleMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccessKey defines model for AccessKey.
+type AccessKey struct {
+	CreatedAt Timestamp `json:"created_at"`
+
+	// ExpiresAt When the key stops working. Null for a key that doesn't expire.
+	ExpiresAt *time.Time `json:"expires_at"`
+	Id        string     `json:"id"`
+
+	// Name What the key is for, usually the machine that keeps it.
+	//
+	// Example: maya-laptop
+	Name string `json:"name"`
+}
+
 // Actor defines model for Actor.
 type Actor struct {
 	Kind     ActorKind `json:"kind"`
@@ -1058,6 +1117,27 @@ type BrowserTokensEnded struct {
 	Ended int `json:"ended"`
 }
 
+// ConnectRequest defines model for ConnectRequest.
+type ConnectRequest struct {
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Handle The handle to take: lowercase letters, digits and single dashes, at most 40 characters.
+	Handle string `json:"handle"`
+
+	// Invite A server invite from `POST /v1/invites`.
+	Invite string `json:"invite"`
+
+	// KeyName The name of the first access key, usually the machine that keeps it.
+	KeyName string `json:"key_name"`
+}
+
+// Connected defines model for Connected.
+type Connected struct {
+	Key      NewAccessKey `json:"key"`
+	Person   Person       `json:"person"`
+	ServerId string       `json:"server_id"`
+}
+
 // CreateBoardRequest defines model for CreateBoardRequest.
 type CreateBoardRequest struct {
 	// Charter Overrides the template's charter.
@@ -1079,6 +1159,12 @@ type CreateBoardRequest struct {
 	//
 	// Example: Payments retry design
 	Title *BoardTitle `json:"title,omitempty"`
+}
+
+// CreateInviteRequest defines model for CreateInviteRequest.
+type CreateInviteRequest struct {
+	// TtlSeconds How long the invite works. Default 604800 (7 days).
+	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
 
 // CreateJoinCodeRequest defines model for CreateJoinCodeRequest.
@@ -1153,6 +1239,11 @@ type EventPage struct {
 	HeadSeq   Seq  `json:"head_seq"`
 	NextAfter *int `json:"next_after"`
 }
+
+// Handle A person's name on the server, unique there. It is also their member name on boards.
+//
+// Example: maya
+type Handle = string
 
 // Harness Free text for known values (`claude-code`, `codex`, `opencode`, `pi`, `openclaw`, `hermes`) or anything else.
 //
@@ -1306,6 +1397,9 @@ type Me struct {
 	// Browser True for a browser token, which acts as its person.
 	Browser bool `json:"browser"`
 
+	// DisplayName The person's display name, when they gave one. Null for an agent.
+	DisplayName *string `json:"display_name,omitempty"`
+
 	// Id Stable for as long as the person or agent exists: a person's id (`hum_…`) is
 	// the same on every board, and an agent's (`mem_…`) is its seat on its board,
 	// the `id` of its member. Clients can key anything per person on it.
@@ -1317,6 +1411,9 @@ type Me struct {
 
 	// Owner The agent's owner. Null for a person.
 	Owner *string `json:"owner"`
+
+	// ServerRole The person's role on the server. Null for an agent.
+	ServerRole *ServerRole `json:"server_role,omitempty"`
 }
 
 // MeKind defines model for Me.Kind.
@@ -1577,6 +1674,23 @@ type MessageStatus struct {
 	Recipients []RecipientStatus `json:"recipients"`
 }
 
+// NewAccessKey defines model for NewAccessKey.
+type NewAccessKey struct {
+	CreatedAt Timestamp `json:"created_at"`
+
+	// ExpiresAt When the key stops working. Null for a key that doesn't expire.
+	ExpiresAt *time.Time `json:"expires_at"`
+	Id        string     `json:"id"`
+
+	// Name What the key is for, usually the machine that keeps it.
+	//
+	// Example: maya-laptop
+	Name string `json:"name"`
+
+	// Token Shown once. Send it as `Authorization: Bearer <token>`; it acts as its person.
+	Token string `json:"token"`
+}
+
 // Permission defines model for Permission.
 type Permission string
 
@@ -1588,6 +1702,26 @@ type PermissionGrant struct {
 // PermissionGrant1 defines model for PermissionGrant.1.
 type PermissionGrant1 struct {
 	ClaimTasks []string `json:"claim_tasks"`
+}
+
+// Person defines model for Person.
+type Person struct {
+	CreatedAt Timestamp `json:"created_at"`
+
+	// DisplayName Example: Maya Chen
+	DisplayName *string `json:"display_name"`
+
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle Handle `json:"handle"`
+
+	// Id Permanent. A person keeps it whatever their handle.
+	Id string `json:"id"`
+
+	// ServerRole `admin` manages the server's people (inviting them); `member` is everyone else.
+	// The first person on a server is its admin.
+	ServerRole ServerRole `json:"server_role"`
 }
 
 // Policy defines model for Policy.
@@ -1832,6 +1966,25 @@ type ServerInfoMode string
 // ServerInfoName defines model for ServerInfo.Name.
 type ServerInfoName string
 
+// ServerInvite defines model for ServerInvite.
+type ServerInvite struct {
+	ExpiresAt Timestamp `json:"expires_at"`
+	Id        string    `json:"id"`
+
+	// Invite The secret, shown once. Redeem it with `POST /v1/connect`.
+	Invite string `json:"invite"`
+
+	// ServerRole The role the new person gets. Always `member`.
+	ServerRole ServerInviteServerRole `json:"server_role"`
+}
+
+// ServerInviteServerRole The role the new person gets. Always `member`.
+type ServerInviteServerRole string
+
+// ServerRole `admin` manages the server's people (inviting them); `member` is everyone else.
+// The first person on a server is its admin.
+type ServerRole string
+
 // Target `all`, `@name`, or `role:R`. New kinds may be added; clients must not reject unknown ones.
 //
 // Example: @reviewer
@@ -1969,6 +2122,16 @@ type EndBrowserTokensParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ConnectParams defines parameters for Connect.
+type ConnectParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CreateServerInviteParams defines parameters for CreateServerInvite.
+type CreateServerInviteParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // JoinParams defines parameters for Join.
 type JoinParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -2059,6 +2222,12 @@ type PostMessageJSONRequestBody = PostMessageRequest
 
 // CreateBrowserTokenJSONRequestBody defines body for CreateBrowserToken for application/json ContentType.
 type CreateBrowserTokenJSONRequestBody = BrowserTokenRequest
+
+// ConnectJSONRequestBody defines body for Connect for application/json ContentType.
+type ConnectJSONRequestBody = ConnectRequest
+
+// CreateServerInviteJSONRequestBody defines body for CreateServerInvite for application/json ContentType.
+type CreateServerInviteJSONRequestBody = CreateInviteRequest
 
 // JoinJSONRequestBody defines body for Join for application/json ContentType.
 type JoinJSONRequestBody = JoinRequest
@@ -2813,6 +2982,48 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
 	CreateBrowserToken(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ConnectWithBody Redeem a server invite and become a person on the server
+	//
+	// No token needed: the invite is the proof. Uses up the invite and, in one step,
+	// creates a new person with the chosen `handle` as a server `member`, and their first
+	// access key, named `key_name`. The key is in the response once, and never again;
+	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	//
+	// An invite works once: a second redemption, an expired invite, a wrong one, and one
+	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+	// which. A handle another person already has gets 409 `handle_taken` and leaves the
+	// invite unused: a handle never signs anyone in as an existing person. A handle that
+	// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+	// Attempts are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a key.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/connect (the `Connect` operationId).
+	ConnectWithBody(ctx context.Context, params *ConnectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Connect Redeem a server invite and become a person on the server
+	//
+	// No token needed: the invite is the proof. Uses up the invite and, in one step,
+	// creates a new person with the chosen `handle` as a server `member`, and their first
+	// access key, named `key_name`. The key is in the response once, and never again;
+	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	//
+	// An invite works once: a second redemption, an expired invite, a wrong one, and one
+	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+	// which. A handle another person already has gets 409 `handle_taken` and leaves the
+	// invite unused: a handle never signs anyone in as an existing person. A handle that
+	// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+	// Attempts are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a key.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/connect (the `Connect` operationId).
+	Connect(ctx context.Context, params *ConnectParams, body ConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetInfo Identify the server
 	//
 	// Returns the server's name, build and identity. A client uses the build to tell a
@@ -2820,6 +3031,46 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/info (the `GetInfo` operationId).
 	GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateServerInviteWithBody Invite a person to the server
+	//
+	// Server admins only, with their own access key. Returns a server invite: a long
+	// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+	// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+	// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+	// fragment, which browsers never send to a server. `aboard invite --server` prints
+	// that link.
+	//
+	// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+	// only a digest of it, never writes it to a board's event log and doesn't keep the
+	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+	// or a browser token gets 403 `human_token_required`; a person who isn't a server
+	// admin gets 403 `server_admin_required`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+	CreateServerInviteWithBody(ctx context.Context, params *CreateServerInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateServerInvite Invite a person to the server
+	//
+	// Server admins only, with their own access key. Returns a server invite: a long
+	// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+	// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+	// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+	// fragment, which browsers never send to a server. `aboard invite --server` prints
+	// that link.
+	//
+	// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+	// only a digest of it, never writes it to a board's event log and doesn't keep the
+	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+	// or a browser token gets 403 `human_token_required`; a person who isn't a server
+	// admin gets 403 `server_admin_required`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+	CreateServerInvite(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// JoinWithBody Create a new agent identity on a board
 	//
@@ -3509,6 +3760,68 @@ func (c *Client) CreateBrowserToken(ctx context.Context, body CreateBrowserToken
 	return c.Client.Do(req)
 }
 
+// ConnectWithBody Redeem a server invite and become a person on the server
+//
+// No token needed: the invite is the proof. Uses up the invite and, in one step,
+// creates a new person with the chosen `handle` as a server `member`, and their first
+// access key, named `key_name`. The key is in the response once, and never again;
+// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+//
+// An invite works once: a second redemption, an expired invite, a wrong one, and one
+// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+// which. A handle another person already has gets 409 `handle_taken` and leaves the
+// invite unused: a handle never signs anyone in as an existing person. A handle that
+// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+// Attempts are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a key.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/connect (the `Connect` operationId).
+func (c *Client) ConnectWithBody(ctx context.Context, params *ConnectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConnectRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Connect Redeem a server invite and become a person on the server
+//
+// No token needed: the invite is the proof. Uses up the invite and, in one step,
+// creates a new person with the chosen `handle` as a server `member`, and their first
+// access key, named `key_name`. The key is in the response once, and never again;
+// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+//
+// An invite works once: a second redemption, an expired invite, a wrong one, and one
+// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+// which. A handle another person already has gets 409 `handle_taken` and leaves the
+// invite unused: a handle never signs anyone in as an existing person. A handle that
+// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+// Attempts are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a key.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/connect (the `Connect` operationId).
+func (c *Client) Connect(ctx context.Context, params *ConnectParams, body ConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConnectRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetInfo Identify the server
 //
 // Returns the server's name, build and identity. A client uses the build to tell a
@@ -3517,6 +3830,66 @@ func (c *Client) CreateBrowserToken(ctx context.Context, body CreateBrowserToken
 // Corresponds with GET /v1/info (the `GetInfo` operationId).
 func (c *Client) GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetInfoRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateServerInviteWithBody Invite a person to the server
+//
+// Server admins only, with their own access key. Returns a server invite: a long
+// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+// fragment, which browsers never send to a server. `aboard invite --server` prints
+// that link.
+//
+// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+// only a digest of it, never writes it to a board's event log and doesn't keep the
+// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+// or a browser token gets 403 `human_token_required`; a person who isn't a server
+// admin gets 403 `server_admin_required`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+func (c *Client) CreateServerInviteWithBody(ctx context.Context, params *CreateServerInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServerInviteRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateServerInvite Invite a person to the server
+//
+// Server admins only, with their own access key. Returns a server invite: a long
+// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+// fragment, which browsers never send to a server. `aboard invite --server` prints
+// that link.
+//
+// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+// only a digest of it, never writes it to a board's event log and doesn't keep the
+// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+// or a browser token gets 403 `human_token_required`; a person who isn't a server
+// admin gets 403 `server_admin_required`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+func (c *Client) CreateServerInvite(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateServerInviteRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4660,6 +5033,61 @@ func NewCreateBrowserTokenRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewConnectRequest calls the generic Connect builder with application/json body
+func NewConnectRequest(server string, params *ConnectParams, body ConnectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewConnectRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewConnectRequestWithBody constructs an http.Request for the Connect method, with any body, and a specified content type
+func NewConnectRequestWithBody(server string, params *ConnectParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/connect")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetInfoRequest constructs an http.Request for the GetInfo method
 func NewGetInfoRequest(server string) (*http.Request, error) {
 	var err error
@@ -4682,6 +5110,61 @@ func NewGetInfoRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateServerInviteRequest calls the generic CreateServerInvite builder with application/json body
+func NewCreateServerInviteRequest(server string, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateServerInviteRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateServerInviteRequestWithBody constructs an http.Request for the CreateServerInvite method, with any body, and a specified content type
+func NewCreateServerInviteRequestWithBody(server string, params *CreateServerInviteParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/invites")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -5572,6 +6055,48 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/browser-tokens (the `CreateBrowserToken` operationId).
 	CreateBrowserTokenWithResponse(ctx context.Context, body CreateBrowserTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserTokenResponse, error)
 
+	// ConnectWithBodyWithResponse Redeem a server invite and become a person on the server
+	//
+	// No token needed: the invite is the proof. Uses up the invite and, in one step,
+	// creates a new person with the chosen `handle` as a server `member`, and their first
+	// access key, named `key_name`. The key is in the response once, and never again;
+	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	//
+	// An invite works once: a second redemption, an expired invite, a wrong one, and one
+	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+	// which. A handle another person already has gets 409 `handle_taken` and leaves the
+	// invite unused: a handle never signs anyone in as an existing person. A handle that
+	// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+	// Attempts are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a key.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/connect (the `Connect` operationId).
+	ConnectWithBodyWithResponse(ctx context.Context, params *ConnectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectResponse, error)
+
+	// ConnectWithResponse Redeem a server invite and become a person on the server
+	//
+	// No token needed: the invite is the proof. Uses up the invite and, in one step,
+	// creates a new person with the chosen `handle` as a server `member`, and their first
+	// access key, named `key_name`. The key is in the response once, and never again;
+	// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+	//
+	// An invite works once: a second redemption, an expired invite, a wrong one, and one
+	// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+	// which. A handle another person already has gets 409 `handle_taken` and leaves the
+	// invite unused: a handle never signs anyone in as an existing person. A handle that
+	// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+	// Attempts are limited per client address and across the server; over the limit
+	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+	// repeats, since it holds a key.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/connect (the `Connect` operationId).
+	ConnectWithResponse(ctx context.Context, params *ConnectParams, body ConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectResponse, error)
+
 	// GetInfoWithResponse Identify the server
 	//
 	// Returns the server's name, build and identity. A client uses the build to tell a
@@ -5581,6 +6106,46 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/info (the `GetInfo` operationId).
 	GetInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetInfoResponse, error)
+
+	// CreateServerInviteWithBodyWithResponse Invite a person to the server
+	//
+	// Server admins only, with their own access key. Returns a server invite: a long
+	// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+	// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+	// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+	// fragment, which browsers never send to a server. `aboard invite --server` prints
+	// that link.
+	//
+	// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+	// only a digest of it, never writes it to a board's event log and doesn't keep the
+	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+	// or a browser token gets 403 `human_token_required`; a person who isn't a server
+	// admin gets 403 `server_admin_required`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+	CreateServerInviteWithBodyWithResponse(ctx context.Context, params *CreateServerInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServerInviteResponse, error)
+
+	// CreateServerInviteWithResponse Invite a person to the server
+	//
+	// Server admins only, with their own access key. Returns a server invite: a long
+	// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+	// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+	// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+	// fragment, which browsers never send to a server. `aboard invite --server` prints
+	// that link.
+	//
+	// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+	// only a digest of it, never writes it to a board's event log and doesn't keep the
+	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+	// or a browser token gets 403 `human_token_required`; a person who isn't a server
+	// admin gets 403 `server_admin_required`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+	CreateServerInviteWithResponse(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServerInviteResponse, error)
 
 	// JoinWithBodyWithResponse Create a new agent identity on a board
 	//
@@ -6651,6 +7216,89 @@ func (r CreateBrowserTokenResponse) ContentType() string {
 	return ""
 }
 
+// ConnectResponse429Headers the declared response headers of an HTTP 429 response for Connect
+type ConnectResponse429Headers struct {
+	RetryAfter *int
+}
+
+type ConnectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Connected
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *Error
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *ConnectResponse429Headers
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r ConnectResponse) GetJSON201() *Connected {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ConnectResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ConnectResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ConnectResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r ConnectResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r ConnectResponse) GetJSON429() *Error {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r ConnectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ConnectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConnectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ConnectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6686,6 +7334,68 @@ func (r GetInfoResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetInfoResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateServerInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ServerInvite
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateServerInviteResponse) GetJSON201() *ServerInvite {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateServerInviteResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CreateServerInviteResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateServerInviteResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateServerInviteResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateServerInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateServerInviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateServerInviteResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7787,6 +8497,60 @@ func (c *ClientWithResponses) CreateBrowserTokenWithResponse(ctx context.Context
 	return ParseCreateBrowserTokenResponse(rsp)
 }
 
+// ConnectWithBodyWithResponse Redeem a server invite and become a person on the server
+//
+// No token needed: the invite is the proof. Uses up the invite and, in one step,
+// creates a new person with the chosen `handle` as a server `member`, and their first
+// access key, named `key_name`. The key is in the response once, and never again;
+// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+//
+// An invite works once: a second redemption, an expired invite, a wrong one, and one
+// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+// which. A handle another person already has gets 409 `handle_taken` and leaves the
+// invite unused: a handle never signs anyone in as an existing person. A handle that
+// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+// Attempts are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a key.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/connect (the `Connect` operationId).
+func (c *ClientWithResponses) ConnectWithBodyWithResponse(ctx context.Context, params *ConnectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectResponse, error) {
+	rsp, err := c.ConnectWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConnectResponse(rsp)
+}
+
+// ConnectWithResponse Redeem a server invite and become a person on the server
+//
+// No token needed: the invite is the proof. Uses up the invite and, in one step,
+// creates a new person with the chosen `handle` as a server `member`, and their first
+// access key, named `key_name`. The key is in the response once, and never again;
+// the server keeps only its digest. `aboard connect` calls this and keeps the key.
+//
+// An invite works once: a second redemption, an expired invite, a wrong one, and one
+// whose admin is no longer an admin all get 404 `invite_invalid`, which doesn't say
+// which. A handle another person already has gets 409 `handle_taken` and leaves the
+// invite unused: a handle never signs anyone in as an existing person. A handle that
+// isn't lowercase letters, digits and single dashes gets 422 `handle_invalid`.
+// Attempts are limited per client address and across the server; over the limit
+// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
+// repeats, since it holds a key.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/connect (the `Connect` operationId).
+func (c *ClientWithResponses) ConnectWithResponse(ctx context.Context, params *ConnectParams, body ConnectJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectResponse, error) {
+	rsp, err := c.Connect(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConnectResponse(rsp)
+}
+
 // GetInfoWithResponse Identify the server
 //
 // Returns the server's name, build and identity. A client uses the build to tell a
@@ -7801,6 +8565,58 @@ func (c *ClientWithResponses) GetInfoWithResponse(ctx context.Context, reqEditor
 		return nil, err
 	}
 	return ParseGetInfoResponse(rsp)
+}
+
+// CreateServerInviteWithBodyWithResponse Invite a person to the server
+//
+// Server admins only, with their own access key. Returns a server invite: a long
+// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+// fragment, which browsers never send to a server. `aboard invite --server` prints
+// that link.
+//
+// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+// only a digest of it, never writes it to a board's event log and doesn't keep the
+// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+// or a browser token gets 403 `human_token_required`; a person who isn't a server
+// admin gets 403 `server_admin_required`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+func (c *ClientWithResponses) CreateServerInviteWithBodyWithResponse(ctx context.Context, params *CreateServerInviteParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateServerInviteResponse, error) {
+	rsp, err := c.CreateServerInviteWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServerInviteResponse(rsp)
+}
+
+// CreateServerInviteWithResponse Invite a person to the server
+//
+// Server admins only, with their own access key. Returns a server invite: a long
+// secret that `POST /v1/connect` redeems once, before it expires, to create one new
+// person, always as a `member`; an invite never makes anyone an admin. Clients put it
+// in a link for the newcomer, `<server URL>/join#<invite>`, with the secret in the
+// fragment, which browsers never send to a server. `aboard invite --server` prints
+// that link.
+//
+// The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+// only a digest of it, never writes it to a board's event log and doesn't keep the
+// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
+// or a browser token gets 403 `human_token_required`; a person who isn't a server
+// admin gets 403 `server_admin_required`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
+func (c *ClientWithResponses) CreateServerInviteWithResponse(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServerInviteResponse, error) {
+	rsp, err := c.CreateServerInvite(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateServerInviteResponse(rsp)
 }
 
 // JoinWithBodyWithResponse Create a new agent identity on a board
@@ -8756,6 +9572,80 @@ func ParseCreateBrowserTokenResponse(rsp *http.Response) (*CreateBrowserTokenRes
 	return response, nil
 }
 
+// ParseConnectResponse parses an HTTP response from a ConnectWithResponse call
+func ParseConnectResponse(rsp *http.Response) (*ConnectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConnectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Connected
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers ConnectResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseGetInfoResponse parses an HTTP response from a GetInfoWithResponse call
 func ParseGetInfoResponse(rsp *http.Response) (*GetInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8776,6 +9666,53 @@ func ParseGetInfoResponse(rsp *http.Response) (*GetInfoResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateServerInviteResponse parses an HTTP response from a CreateServerInviteWithResponse call
+func ParseCreateServerInviteResponse(rsp *http.Response) (*CreateServerInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateServerInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ServerInvite
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -9363,9 +10300,15 @@ type ServerInterface interface {
 	// CreateBrowserToken Exchange a one-time code for a browser token
 	// (POST /v1/browser-tokens)
 	CreateBrowserToken(w http.ResponseWriter, r *http.Request)
+	// Connect Redeem a server invite and become a person on the server
+	// (POST /v1/connect)
+	Connect(w http.ResponseWriter, r *http.Request, params ConnectParams)
 	// GetInfo Identify the server
 	// (GET /v1/info)
 	GetInfo(w http.ResponseWriter, r *http.Request)
+	// CreateServerInvite Invite a person to the server
+	// (POST /v1/invites)
+	CreateServerInvite(w http.ResponseWriter, r *http.Request, params CreateServerInviteParams)
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(w http.ResponseWriter, r *http.Request, params JoinParams)
@@ -9998,11 +10941,93 @@ func (siw *ServerInterfaceWrapper) CreateBrowserToken(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// Connect operation middleware
+func (siw *ServerInterfaceWrapper) Connect(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConnectParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Connect(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetInfo(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetInfo(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateServerInvite operation middleware
+func (siw *ServerInterfaceWrapper) CreateServerInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateServerInviteParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateServerInvite(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10599,6 +11624,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/login-codes", wrapper.CreateLoginCode)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/browser-tokens", wrapper.EndBrowserTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/browser-tokens", wrapper.CreateBrowserToken)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/invites", wrapper.CreateServerInvite)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/connect", wrapper.Connect)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards", wrapper.ListBoards)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards", wrapper.CreateBoard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}", wrapper.GetBoard)
@@ -11445,6 +12472,109 @@ func (response CreateBrowserToken404JSONResponse) VisitCreateBrowserTokenRespons
 	return err
 }
 
+type ConnectRequestObject struct {
+	Params ConnectParams
+	Body   *ConnectJSONRequestBody
+}
+
+type ConnectResponseObject interface {
+	VisitConnectResponse(w http.ResponseWriter) error
+}
+
+type Connect201JSONResponse Connected
+
+func (response Connect201JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Connect400JSONResponse struct{ ErrorJSONResponse }
+
+func (response Connect400JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Connect404JSONResponse Error
+
+func (response Connect404JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Connect409JSONResponse Error
+
+func (response Connect409JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Connect422JSONResponse Error
+
+func (response Connect422JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Connect429ResponseHeaders struct {
+	RetryAfter *int
+}
+
+type Connect429JSONResponse struct {
+	Body    Error
+	Headers Connect429ResponseHeaders
+}
+
+func (response Connect429JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetInfoRequestObject struct {
 }
 
@@ -11462,6 +12592,71 @@ func (response GetInfo200JSONResponse) VisitGetInfoResponse(w http.ResponseWrite
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateServerInviteRequestObject struct {
+	Params CreateServerInviteParams
+	Body   *CreateServerInviteJSONRequestBody
+}
+
+type CreateServerInviteResponseObject interface {
+	VisitCreateServerInviteResponse(w http.ResponseWriter) error
+}
+
+type CreateServerInvite201JSONResponse ServerInvite
+
+func (response CreateServerInvite201JSONResponse) VisitCreateServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateServerInvite400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateServerInvite400JSONResponse) VisitCreateServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateServerInvite401JSONResponse Error
+
+func (response CreateServerInvite401JSONResponse) VisitCreateServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateServerInvite403JSONResponse Error
+
+func (response CreateServerInvite403JSONResponse) VisitCreateServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -12273,9 +13468,15 @@ type StrictServerInterface interface {
 	// CreateBrowserToken Exchange a one-time code for a browser token
 	// (POST /v1/browser-tokens)
 	CreateBrowserToken(ctx context.Context, request CreateBrowserTokenRequestObject) (CreateBrowserTokenResponseObject, error)
+	// Connect Redeem a server invite and become a person on the server
+	// (POST /v1/connect)
+	Connect(ctx context.Context, request ConnectRequestObject) (ConnectResponseObject, error)
 	// GetInfo Identify the server
 	// (GET /v1/info)
 	GetInfo(ctx context.Context, request GetInfoRequestObject) (GetInfoResponseObject, error)
+	// CreateServerInvite Invite a person to the server
+	// (POST /v1/invites)
+	CreateServerInvite(ctx context.Context, request CreateServerInviteRequestObject) (CreateServerInviteResponseObject, error)
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(ctx context.Context, request JoinRequestObject) (JoinResponseObject, error)
@@ -12727,6 +13928,39 @@ func (sh *strictHandler) CreateBrowserToken(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// Connect operation middleware
+func (sh *strictHandler) Connect(w http.ResponseWriter, r *http.Request, params ConnectParams) {
+	var request ConnectRequestObject
+
+	request.Params = params
+
+	var body ConnectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Connect(ctx, request.(ConnectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Connect")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConnectResponseObject); ok {
+		if err := validResponse.VisitConnectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetInfo operation middleware
 func (sh *strictHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	var request GetInfoRequestObject
@@ -12744,6 +13978,42 @@ func (sh *strictHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetInfoResponseObject); ok {
 		if err := validResponse.VisitGetInfoResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateServerInvite operation middleware
+func (sh *strictHandler) CreateServerInvite(w http.ResponseWriter, r *http.Request, params CreateServerInviteParams) {
+	var request CreateServerInviteRequestObject
+
+	request.Params = params
+
+	var body CreateServerInviteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateServerInvite(ctx, request.(CreateServerInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateServerInvite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateServerInviteResponseObject); ok {
+		if err := validResponse.VisitCreateServerInviteResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -13064,259 +14334,286 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"5v8GAAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

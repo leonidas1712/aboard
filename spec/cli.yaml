@@ -31,7 +31,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, invite, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, invite, connect, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -49,7 +49,8 @@
 #   (CODEX_THREAD_ID) wins over an ABOARD_SESSION naming a harness that gives way to it
 #   (Claude Code's, inherited by a Codex started inside it).
 # - Files and addresses: aboard keeps its files in $XDG_CONFIG_HOME/aboard (the owner
-#   token and credentials), $XDG_DATA_HOME/aboard (the local server's database, pid file
+#   token, credentials and servers.json, the access keys aboard connect saved, one per
+#   server), $XDG_DATA_HOME/aboard (the local server's database, pid file
 #   and log) and $XDG_STATE_HOME/aboard (verified audit heads, the install manifest
 #   installs.json, and the delivery daemon's journal, pid, log and socket), defaulting to ~/.config, ~/.local/share and
 #   ~/.local/state. The local server listens on 127.0.0.1:7400.
@@ -86,6 +87,10 @@ $defs:
       CLI-only codes, in addition to the API's:
       server_not_running · server_unreachable · server_unknown (join line names a server
       this machine hasn't accepted) · login_required (team mode: run aboard connect) ·
+      invite_link_invalid (aboard connect was given something that isn't an invite link) ·
+      insecure_server (the invite link names a server other than this machine's over
+      http; only https is used for one) · already_connected (this machine already has a
+      key for that server; details.handle names whose) ·
       agent_not_selected (details.choices lists your agents on this board;
       details.board_source says where the board came from) · agent_ambiguous
       (details.boards lists the boards with that agent name) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
@@ -502,6 +507,55 @@ $defs:
         examples: ["Join Aboard board general on localhost as member with code 7Q4-K2M\nYou have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board."]
       expires_at: { type: string, format: date-time }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
+
+  # ---------- aboard invite --server [--ttl DURATION] ----------
+  ServerInviteOutput:
+    description: |
+      A person command for a server admin, with their access key: it makes a server
+      invite (POST /v1/invites) and prints the link a newcomer passes to aboard connect.
+      The server is the one this directory's .aboard names, else the local server, which
+      it starts if needed. The invite works once, makes a member (never an admin) and
+      expires after --ttl (Go duration, 1m to 720h; default 168h). A person who isn't a
+      server admin gets server_admin_required. Inside a harness session it refuses with
+      human_command_in_session, so an agent never sees the link. Text output:
+        Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
+          aboard connect http://127.0.0.1:7400/join#abi_K8s2…
+      preceded by "Started local Aboard at http://127.0.0.1:7400" when it started the server.
+    type: object
+    required: [server, link, expires_at]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      link:
+        type: string
+        format: uri
+        description: The server's URL, then /join#, then the invite. Works once.
+        examples: ["http://127.0.0.1:7400/join#abi_K8s2Lq9Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj"]
+      expires_at: { type: string, format: date-time }
+
+  # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] ----------
+  ConnectOutput:
+    description: |
+      Redeems a server invite (POST /v1/connect) and saves the new person's first access
+      key in servers.json, readable only by its owner, under the server's URL. From then
+      on the CLI sends that key only to that server: join lines that name it and
+      projects whose .aboard names it use it, and no request follows a redirect. The
+      handle comes from --handle, else a question when there is a terminal (default: the
+      system user name), else the system user name. The key is named after this machine.
+      A server other than this machine's must use https (insecure_server). A machine
+      already connected to the server fails with already_connected; a used, expired or
+      wrong invite with invite_invalid; a taken handle with handle_taken, leaving the
+      invite unused. Inside a harness session it refuses with human_command_in_session.
+      Text output:
+        Connected to http://127.0.0.1:7400 as maya (member). This machine's key, "maya-laptop", is saved.
+    type: object
+    required: [server, server_id, person, key]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      server_id: { type: string }
+      person: { $ref: "openapi.yaml#/components/schemas/Person" }
+      key:
+        $ref: "openapi.yaml#/components/schemas/AccessKey"
+        description: The saved key, without its secret.
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]

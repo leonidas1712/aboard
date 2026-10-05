@@ -40,7 +40,7 @@ func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*cl
 	c, err := api.NewClientWithResponses(srv.URL,
 		api.WithHTTPClient(&http.Client{Timeout: timeout, Transport: &outdatedServer{
 			base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL,
-		}}),
+		}, CheckRedirect: noRedirects}),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -61,6 +61,11 @@ func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*cl
 	sandbox, _ := a.networkBlocked()
 	return &client{api: c, server: srv, sandbox: sandbox}, nil
 }
+
+// noRedirects stops the client at a redirect instead of following it. The API never
+// redirects, and following one would carry the request's key to wherever it points;
+// the redirect's response becomes the command's error.
+func noRedirects(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
 func idempotencyKey(rnd io.Reader) (string, error) {
 	b := make([]byte, 16)

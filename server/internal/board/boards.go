@@ -84,7 +84,7 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	}
 
 	var view View
-	err = s.st.Write(ctx, func(tx Tx) error {
+	err = s.writeAs(ctx, p, func(tx Tx) error {
 		name := in.Name
 		if name != "" {
 			taken, err := tx.BoardNameTaken(name)
@@ -300,7 +300,7 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		}
 	}
 	var v View
-	err := s.st.Write(ctx, func(tx Tx) error {
+	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, me, err := access(tx, p, name)
 		if err != nil {
 			return err

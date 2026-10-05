@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/rules"
 	"github.com/leonidas1712/aboard/server/internal/server"
 	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
@@ -153,6 +154,7 @@ func runServe(ctx context.Context, a *app, args []string) error {
 		Addr:           a.localAddr(),
 		DataDir:        p.data,
 		OwnerName:      owner,
+		MachineName:    machineName(),
 		OwnerTokenPath: p.ownerToken(),
 		Version:        b.Version,
 		Commit:         b.Commit,
@@ -171,6 +173,18 @@ func runServe(ctx context.Context, a *app, args []string) error {
 		return &Error{Code: "server_not_running", Message: "The local server stopped: " + err.Error(), Hint: hint, Err: err}
 	}
 	return nil
+}
+
+// machineName is this machine's name without its domain, such as "maya-laptop" for
+// maya-laptop.local, or "machine" when the system doesn't say. Access keys made here are
+// named after it.
+func machineName() string {
+	host, err := os.Hostname()
+	host, _, _ = strings.Cut(host, ".")
+	if err != nil || host == "" {
+		return "machine"
+	}
+	return rules.NormalizeName(host)
 }
 
 // runUp starts the local server in the background.

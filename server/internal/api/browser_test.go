@@ -154,7 +154,7 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 func (s *testServer) restart() {
 	s.t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := board.New(s.st, notify.NewInProcess(), s.clock, ids.New(rand.Reader), s.key, board.Config{ServerID: "srv_TEST", Mode: "local"}, log)
+	svc := board.New(s.st, notify.NewInProcess(), s.clock, ids.New(rand.Reader), s.key, board.Config{ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local"}, log)
 	h, err := api.NewHandler(api.Options{Service: svc, Responses: s.st, Clock: s.clock, Log: log, Version: "test"})
 	if err != nil {
 		s.t.Fatal(err)
@@ -240,7 +240,7 @@ func TestServerRefusesOtherHostsAndServesTheUI(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), []byte("key"), board.Config{ServerID: "srv_TEST", Mode: "local"}, log)
+	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), []byte("key"), board.Config{ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local"}, log)
 	h, err := api.NewHandler(api.Options{
 		Service: svc, Responses: st, Clock: clk, Log: log, Version: "test",
 		Hosts: api.LocalHosts("127.0.0.1:7400"), UI: fstest.MapFS{"index.html": {Data: []byte("the board list")}},

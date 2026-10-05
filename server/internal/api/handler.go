@@ -39,6 +39,10 @@ type Options struct {
 	CommitTime time.Time
 	// JoinsPerMinute limits POST /v1/join per client address.
 	JoinsPerMinute int
+	// ConnectsPerMinute limits POST /v1/connect per client address, and
+	// ConnectsPerMinuteServer across every address. Zero means no limit.
+	ConnectsPerMinute       int
+	ConnectsPerMinuteServer int
 	// Shutdown is done when the server starts shutting down. Open event streams on
 	// GET /v1/stream end then; without it they end only when their clients disconnect.
 	Shutdown context.Context
@@ -86,7 +90,8 @@ func NewHandler(o Options) (http.Handler, error) {
 		},
 	})
 	limiter := newRateLimiter(o.Clock, o.JoinsPerMinute)
-	apiChain := validate(authenticate(o, limiter, idempotent(o, routes)))
+	connects := connectLimits{perAddr: newRateLimiter(o.Clock, o.ConnectsPerMinute), all: newRateLimiter(o.Clock, o.ConnectsPerMinuteServer)}
+	apiChain := validate(authenticate(o, limiter, connects, idempotent(o, routes)))
 	outer := http.NewServeMux()
 	outer.Handle("/v1/", apiChain)
 	outer.Handle("/", serveUI(o.UI))
@@ -131,10 +136,25 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
-// authenticate resolves the bearer token for every route except GET /v1/info and
-// POST /v1/browser-tokens, and rate limits join attempts by client address.
-func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handler {
+// authenticate resolves the bearer token for every route except GET /v1/info,
+// POST /v1/browser-tokens and POST /v1/connect, and rate limits join attempts by client
+// address, and invite redemptions by client address and across the server.
+func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/connect" && r.Method == http.MethodPost {
+			host, _, _ := net.SplitHostPort(r.RemoteAddr)
+			// Both limits count every attempt, so a guess spread over many addresses
+			// still meets the server-wide one.
+			perAddr, all := connects.perAddr.allow(host), connects.all.allow("")
+			if !perAddr || !all {
+				w.Header().Set("Retry-After", "60")
+				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many attempts to redeem an invite.",
+					"Wait a minute, then try again."))
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
 		if r.URL.Path == "/v1/info" || (r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) {
 			next.ServeHTTP(w, r)
 			return
@@ -163,6 +183,10 @@ func authenticate(o Options, limiter *rateLimiter, next http.Handler) http.Handl
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// connectLimits are the two limits on redeeming invites: per client address, and across
+// the server.
+type connectLimits struct{ perAddr, all *rateLimiter }
 
 type scopeKey struct{}
 

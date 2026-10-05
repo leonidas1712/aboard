@@ -19,12 +19,19 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
-	// HumanByTokenDigest finds the human whose login token has this digest.
-	HumanByTokenDigest(digest string) (Human, error)
+	// AccessKeyByDigest finds an access key by the digest of its secret, whether or not
+	// it still works.
+	AccessKeyByDigest(digest string) (AccessKey, error)
+	// AccessKeyByID finds an access key by id.
+	AccessKeyByID(id string) (AccessKey, error)
 	// HumanByID finds a human by id.
 	HumanByID(id string) (Human, error)
-	// HumanCount returns how many humans have a login on this server.
+	// HumanByName finds a human by handle.
+	HumanByName(name string) (Human, error)
+	// HumanCount returns how many people this server has.
 	HumanCount() (int, error)
+	// ServerInviteByDigest finds a server invite by the digest of its secret.
+	ServerInviteByDigest(digest string) (ServerInvite, error)
 	// BrowserLoginByDigest finds a browser login by the digest of its token, whether or
 	// not it has expired.
 	BrowserLoginByDigest(digest string) (BrowserLogin, error)
@@ -102,8 +109,17 @@ type TimelineQuery struct {
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
 	ReadTx
-	// InsertHuman adds a human.
+	// InsertHuman adds a human, whose handle no other human has.
 	InsertHuman(h Human) error
+	// InsertAccessKey adds an access key.
+	InsertAccessKey(k AccessKey) error
+	// NameUnnamedKeys gives every access key with an empty name this name.
+	NameUnnamedKeys(name string) error
+	// InsertServerInvite adds a server invite.
+	InsertServerInvite(i ServerInvite) error
+	// UseServerInvite marks an unused invite used at a time by a person. It reports
+	// false, changing nothing, when the invite was already used.
+	UseServerInvite(id, at, humanID string) (bool, error)
 	// InsertBrowserLogin adds a browser login.
 	InsertBrowserLogin(l BrowserLogin) error
 	// DeleteBrowserLogins removes every browser login of a human and returns how many

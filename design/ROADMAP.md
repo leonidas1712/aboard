@@ -59,10 +59,10 @@ the board.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | next | D113 |
+| Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | in review | D113, D184 |
 | Team members and open or private boards; who may create boards | later | D153 |
-| Person identities: a name per server, display name, logins per machine, each revocable | later | D154 |
-| Invites and `aboard connect`; server admins | later | D104, D111 |
+| Person identities: a name per server, display name, logins per machine, each revocable | in review: ids, handles, display names, a first key per machine; key management next | D154, D179, D184 |
+| Invites and `aboard connect`; server admins | in review | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | later | D153, D154, D172 |
 | An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers | later | D172 |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |

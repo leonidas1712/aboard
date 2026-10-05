@@ -193,12 +193,11 @@ func (t daemonTokens) AgentToken(agent delivery.AgentRef) (string, error) {
 	return cred.Token, nil
 }
 
-// HumanToken returns the local owner login, and only for the local server.
+// HumanToken returns this machine's person's access key for the server at url: the
+// local owner's for the local server, the one aboard connect saved for another. A key
+// only ever goes to the server that issued it.
 func (t daemonTokens) HumanToken(url string) (string, error) {
-	if url != t.a.localServer().URL {
-		return "", delivery.ErrLoginMissing
-	}
-	token, err := t.a.readOwnerToken(t.a.localServer())
+	token, err := t.a.readOwnerToken(t.a.serverRefFor(url))
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", delivery.ErrLoginMissing, err)
 	}

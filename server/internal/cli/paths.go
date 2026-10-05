@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,7 @@ type paths struct {
 
 func (p paths) ownerToken() string  { return filepath.Join(p.config, "local-owner-token") }
 func (p paths) credentials() string { return filepath.Join(p.config, "credentials.json") }
+func (p paths) servers() string     { return filepath.Join(p.config, "servers.json") }
 func (p paths) heads() string       { return filepath.Join(p.state, "heads.json") }
 func (p paths) pidFile() string     { return filepath.Join(p.data, "server.pid") }
 func (p paths) serverLog() string   { return filepath.Join(p.data, "server.log") }
@@ -178,10 +180,10 @@ func (a *app) localServer() serverRef {
 	return serverRef{Name: localServerName, URL: "http://" + a.localAddr()}
 }
 
-// mapJoinServer decides which server a join line's host names. Only the local server
-// is known: "localhost" (the default port), or localhost or 127.0.0.1 with the local
-// server's port.
-func mapJoinServer(host, localAddr string) (serverRef, error) {
+// mapJoinServer decides which server a join line's host names: the local server
+// ("localhost" for the default port, or localhost or 127.0.0.1 with the local server's
+// port), else a server this machine connected to with aboard connect.
+func mapJoinServer(host, localAddr string, connected []serverLogin) (serverRef, error) {
 	_, localPort, err := net.SplitHostPort(localAddr)
 	if err != nil {
 		return serverRef{}, newError("invalid_request",
@@ -189,14 +191,46 @@ func mapJoinServer(host, localAddr string) (serverRef, error) {
 			"Set ABOARD_LOCAL_ADDR to an address such as 127.0.0.1:7400, or unset it.")
 	}
 	h, port, err := net.SplitHostPort(host)
+	explicit := port
 	if err != nil {
-		h = host
+		h, explicit = host, ""
 		_, port, _ = net.SplitHostPort(server.DefaultLocalAddr)
 	}
 	if (h == "localhost" || h == "127.0.0.1") && port == localPort {
 		return serverRef{Name: localServerName, URL: "http://" + localAddr}, nil
 	}
+	for _, l := range connected {
+		if joinHostNames(h, explicit, l.URL) {
+			return serverRef{Name: l.URL, URL: l.URL}, nil
+		}
+	}
 	return serverRef{}, newError("server_unknown",
 		"The join line names the server "+host+", which this machine doesn't know.",
-		"Only the local Aboard server on this machine can be joined. Ask for a join line for this machine's local server.")
+		"Only this machine's local server and servers it connected to with aboard connect can be joined. "+
+			"Ask for a join line for one of them, or an invite link to that server.")
+}
+
+// joinHostNames reports whether a join line's host and port (empty when the line gives
+// none) name the server at serverURL. A join line names a server on this machine by
+// localhost, with the default local port when it gives none; another server by its host,
+// with its scheme's port when it gives none.
+func joinHostNames(host, port, serverURL string) bool {
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		return false
+	}
+	sport := u.Port()
+	if sport == "" {
+		sport = map[string]string{"http": "80", "https": "443"}[u.Scheme]
+	}
+	if loopback(host) && loopback(u.Hostname()) {
+		if port == "" {
+			_, port, _ = net.SplitHostPort(server.DefaultLocalAddr)
+		}
+		return port == sport
+	}
+	if port == "" {
+		port = map[string]string{"http": "80", "https": "443"}[u.Scheme]
+	}
+	return strings.EqualFold(host, u.Hostname()) && port == sport
 }
