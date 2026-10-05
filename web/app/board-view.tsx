@@ -312,7 +312,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const notLoggedIn = error instanceof ApiError && error.status === 401;
   if (notLoggedIn || (error && !s.board)) {
     return (
-      <div className="flex min-h-dvh flex-col">
+      <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header />
         <main className="mx-auto w-full max-w-[640px] px-4 py-8">
           <Problem error={error} />
@@ -326,7 +326,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
 
   return (
     <TooltipProvider delayDuration={250}>
-      <div className="flex min-h-dvh flex-col lg:h-dvh">
+      <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header
           board={name}
           title={s.board?.title}

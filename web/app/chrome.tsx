@@ -74,7 +74,7 @@ export function Header({ board, title, starter, visibility, shared = false, acco
     </>
   );
   return (
-    <header className="border-b border-rule bg-surface">
+    <header className="shrink-0 border-b border-rule bg-surface">
       <div className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-5">
         <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
           <Mark className="size-[22px]" />

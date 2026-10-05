@@ -1002,6 +1002,47 @@ function unreadOn(board: string): number {
   return out.boards.find((b) => b.name === board)?.unread ?? -1;
 }
 
+test("the desktop room scrolls its timeline and panels without moving the page", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 720 });
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Scroll room", "--json"));
+  aboard("join", pair.join.line);
+  for (let i = 1; i <= 30; i++) aboard("say", "--as", "writer", "--board", pair.board.name, `Scroll message ${i}.`);
+  const open = JSON.parse(aboard("open", "--board", pair.board.name, "--json"));
+  await openLink(page, open.url);
+  await expect(page.getByText("Scroll message 30.", { exact: true })).toBeVisible();
+  const timeline = page.getByRole("log", { name: "Timeline" });
+  expect(await timeline.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+  await page.getByRole("button", { name: /Scroll room.*board details/ }).click();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(720);
+  const composer = await page.getByRole("button", { name: "Post", exact: true }).boundingBox();
+  expect(composer!.y + composer!.height).toBeLessThanOrEqual(720);
+  for (const theme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: theme });
+    await timeline.evaluate((el) => { el.scrollTop = 0; });
+    await expect(page.getByText("Scroll message 1.", { exact: true })).toBeVisible();
+    await timeline.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await expect(page.getByText("Scroll message 30.", { exact: true })).toBeVisible();
+    await page.screenshot({ path: join(tmpdir(), `aboard-scroll-desktop-${theme}.png`) });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.getByRole("complementary", { name: "Scroll room" }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole("complementary", { name: "Scroll room" })).toBeVisible();
+    await page.screenshot({ path: join(tmpdir(), `aboard-scroll-mobile-${theme}.png`) });
+    await page.setViewportSize({ width: 1440, height: 720 });
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  }
+  await page.getByRole("button", { name: "Dismiss", exact: true }).click();
+  await expect(page.locator(".signed-in-as")).toHaveCount(0);
+  await page.setViewportSize({ width: 1100, height: 500 });
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  const shortComposer = await page.getByRole("button", { name: "Post", exact: true }).boundingBox();
+  expect(shortComposer!.y + shortComposer!.height).toBeLessThanOrEqual(500);
+});
+
 test("the person's read position moves only with what they saw, and receipts say who has a message", async ({ page }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Attention", "--json"));
   const board: string = pair.board.name;
