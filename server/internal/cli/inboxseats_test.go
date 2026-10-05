@@ -9,6 +9,9 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -213,5 +216,83 @@ func TestTheInboxWaitsForAnySeat(t *testing.T) {
 	}
 	if time.Since(start) > 10*time.Second || len(out.Seats[1].Messages) != 1 {
 		t.Fatalf("waited %s: %+v", time.Since(start), out.Seats)
+	}
+}
+
+// A seat that can't be reached never hides the seats read before it: their messages are
+// shown and acknowledged, and it is only counted.
+func TestAnUnreachableSeatHidesNoOtherSeat(t *testing.T) {
+	srvURL, owner := testServer(t)
+	a := inboxApp(t)
+	first := seatOn(t, srvURL, owner)
+	postTo(t, srvURL, owner, first.Board, 2)
+	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := "http://" + l.Addr().String()
+	_ = l.Close()
+	lost := agentCredential{Server: dead, Board: "zz-lost", Name: "claude", MemberID: "mem_01JB8Z3K7Q4M2N5P6R8S9T0V1Z", Token: "aba_lost"}
+	creds := credentials{Agents: []agentCredential{first, lost}}
+	seats := []delivery.AgentRef{
+		{Server: srvURL, Board: first.Board, Name: first.Name, MemberID: first.MemberID},
+		{Server: dead, Board: lost.Board, Name: lost.Name, MemberID: lost.MemberID},
+	}
+	out, err := a.inboxSeats(context.Background(), seats, creds, 0, true, 0)
+	if err != nil {
+		t.Fatalf("an unreachable seat failed the whole inbox: %v", err)
+	}
+	if len(out.Seats) != 1 || len(out.Seats[0].Messages) != 2 || out.Seats[0].AckedUpTo == nil || out.Unavailable != 1 {
+		t.Fatalf("out: %+v", out)
+	}
+	raw, _ := json.Marshal(out)
+	if strings.Contains(string(raw), "zz-lost") {
+		t.Errorf("the unreachable seat is named: %s", raw)
+	}
+}
+
+// An acknowledgement that fails hides nothing: every seat read is shown, the failed one
+// is counted as unacknowledged, and its messages come again.
+func TestAFailedAcknowledgementHidesNoBlock(t *testing.T) {
+	srvURL, owner := testServer(t)
+	a := inboxApp(t)
+	one, two := seatOn(t, srvURL, owner), seatOn(t, srvURL, owner)
+	postTo(t, srvURL, owner, one.Board, 1)
+	postTo(t, srvURL, owner, two.Board, 1)
+	target, _ := neturl.Parse(srvURL)
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/ack") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":{"code":"internal","message":"no","hint":"no"}}`))
+			return
+		}
+		r.Host = target.Host // the server answers only its own host
+		proxy.ServeHTTP(w, r)
+	}))
+	defer failing.Close()
+	// One seat is read through a server whose acknowledgements fail.
+	one.Server = failing.URL
+	creds := credentials{Agents: []agentCredential{one, two}}
+	seats := []delivery.AgentRef{
+		{Server: one.Server, Board: one.Board, Name: one.Name, MemberID: one.MemberID},
+		{Server: two.Server, Board: two.Board, Name: two.Name, MemberID: two.MemberID},
+	}
+	out, err := a.inboxSeats(context.Background(), seats, creds, 0, true, 0)
+	if err != nil {
+		t.Fatalf("a failed acknowledgement failed the inbox: %v", err)
+	}
+	failed, worked := 0, 1
+	if out.Seats[0].Board != one.Board {
+		failed, worked = 1, 0
+	}
+	if len(out.Seats) != 2 || out.Unacknowledged != 1 || out.Seats[failed].AckedUpTo != nil || len(out.Seats[failed].Messages) != 1 ||
+		out.Seats[worked].AckedUpTo == nil || len(out.Seats[worked].Messages) != 1 || out.Bundle == nil || strings.Count(*out.Bundle, "<aboard-messages ") != 2 {
+		t.Fatalf("out: %+v", out)
+	}
+	again, err := a.inboxSeats(context.Background(), seats, creds, 0, false, 0)
+	if err != nil || len(again.Seats[failed].Messages) != 1 || len(again.Seats[worked].Messages) != 0 {
+		t.Fatalf("again: %+v %v", again.Seats, err)
 	}
 }
