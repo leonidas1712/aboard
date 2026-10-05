@@ -139,8 +139,8 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 func (c *serverConn) fetch(ctx context.Context, agent AgentRef, refresh int64) *inboxResult {
 	fctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
-	msgs, cursor, err := c.srv.Inbox(fctx, agent)
-	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, err: err, refresh: refresh}
+	msgs, cursor, mode, err := c.srv.Inbox(fctx, agent)
+	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, mode: mode, err: err, refresh: refresh}
 }
 
 // followOnce follows the stream until it fails, recording why. It reports whether the

@@ -503,7 +503,7 @@ $defs:
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
       delivery:
         enum: [focused, all, humans, off]
-        description: The new agent's delivery mode on this machine (see DeliveryOutput).
+        description: The new agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
@@ -529,7 +529,7 @@ $defs:
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
       delivery:
         enum: [focused, all, humans, off]
-        description: The new agent's delivery mode on this machine (see DeliveryOutput).
+        description: The new agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard invite [--role R] [--ttl DURATION] [--board NAME] ----------
@@ -1274,7 +1274,7 @@ $defs:
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
       delivery:
         enum: [focused, all, humans, off]
-        description: The agent's delivery mode on this machine (see DeliveryOutput).
+        description: The agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery MODE] [--allow-commands] ----------
@@ -1326,10 +1326,14 @@ $defs:
       access, so aboard commands Codex runs can't reach the local server; add
       --allow-commands to let Codex run them outside its sandbox."
 
-      --delivery sets the delivery mode of every agent on this machine that has none of
-      its own (see DeliveryOutput); it goes through the delivery daemon. Like aboard
-      delivery, it is refused with human_command_in_session inside a harness session.
-      Without --delivery (or an answer to the question) the mode is left alone.
+      --delivery sets, in this machine's delivery daemon, the delivery mode of every agent
+      on this machine that has none of its own (see DeliveryOutput). It applies only
+      while an agent's server doesn't hold delivery modes; a server that does decides
+      every agent's mode, focused when its person never set one, and aboard doctor warns
+      (delivery_mode_kept_here) about each agent whose mode this machine kept differs
+      from it. Like aboard delivery, it is refused with human_command_in_session inside
+      a harness session. Without --delivery (or an answer to the question) the mode is
+      left alone.
 
       Once it has written, init records each file in the install manifest
       (installs.json in the state folder): its path, harness, scope, kind, the version of
@@ -1410,6 +1414,14 @@ $defs:
       messages and …", fix "update Claude Code to 2.1.69 or later, then run aboard
       init"), and <check>_version_unknown says the version couldn't be read, so only
       what the oldest supported version runs was installed.
+      A check named delivery_mode warns, with code delivery_mode_kept_here, about each of
+      this machine's agents whose delivery mode this machine kept (set here by an aboard
+      from before servers held modes, or by aboard init --delivery) and its server
+      doesn't hold, which now applies the server's mode: "reviewer on writer-reviewer:
+      this machine kept delivery mode all for it, which its server doesn't hold, so it is
+      focused now", fix "to keep all, run aboard delivery all --as reviewer in a
+      terminal; to keep focused, run aboard delivery focused --as reviewer". Nothing
+      moves the mode to the server by itself; it is the agent's person's choice.
     type: object
     required: [checks]
     properties:
@@ -1419,7 +1431,7 @@ $defs:
           type: object
           required: [name, level, code, message, fix]
           properties:
-            name: { type: string, examples: [local_server, daemon, claude_hooks, claude_skill, codex, codex_hooks, codex_allow, codex_skill] }
+            name: { type: string, examples: [local_server, daemon, claude_hooks, claude_skill, codex, codex_hooks, codex_allow, codex_skill, delivery_mode] }
             level: { enum: [ok, warning, error] }
             code: { type: [string, "null"], description: "Null when ok; otherwise a code from spec/delivery.md." }
             message: { type: string }
@@ -1442,9 +1454,13 @@ $defs:
   # ---------- aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] ----------
   DeliveryOutput:
     description: |
-      Shows or changes the acting agent's delivery mode on this machine. The mode is kept
-      by the delivery daemon, per agent; an agent nobody set has the machine's default
-      (aboard init --delivery), else focused.
+      Shows or changes an agent's delivery mode. The agent's server holds the mode
+      (openapi.yaml, PUT /boards/{board}/members/{member}/delivery), so it is the same on
+      every machine and in the board view, and the delivery daemon running the agent's
+      session follows a change made anywhere. An agent nobody set is focused. The agent
+      is the acting one (--as, ABOARD_AGENT or this session's), or, with --as and the
+      board (--board or this directory's .aboard file), any agent of the person's, even
+      one that runs on another machine.
         focused wakes the agent's session only for messages that concern it: from a
                 person, addressed to it or its role, a reply to its message, a question,
                 or urgent; the rest arrive quietly at the start of its next turn
@@ -1455,11 +1471,18 @@ $defs:
         off     delivers nothing; the agent reads its inbox itself
       auto, the earlier name of all, is still accepted and shown as all.
       With no argument it shows the mode, anywhere, without starting the daemon. With a
-      mode it changes it: a human action, so it refuses with human_command_in_session
-      when run inside a harness session (any of the variables in a harness profile's
-      session_env or sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …).
-      A running daemon from an older aboard is replaced first; if that fails and it lacks
-      the operation, the command fails with daemon_outdated. Text output:
+      mode it changes it on the server with the person's own login, and tells this
+      machine's delivery daemon at once if it runs. It is a human action, so it refuses
+      with human_command_in_session when run inside a harness session (any of the
+      variables in a harness profile's session_env or sandbox_env is set: ABOARD_SESSION,
+      CLAUDECODE, CODEX_THREAD_ID, …) or with ABOARD_AGENT set. Only the agent's own
+      person may change it: anyone else gets agent_owner_required, a board owner and an
+      admin included; a name that isn't an agent on the board gets agent_not_found.
+      Against a server that doesn't hold delivery modes (an older aboard), the mode of an
+      agent on this machine is kept by this machine's delivery daemon instead, and
+      revision is null; a running daemon from an older aboard is replaced first, and if
+      that fails and it lacks the operation, the command fails with daemon_outdated.
+      Text output:
         reviewer on writer-reviewer: delivery humans (wakes only for messages from people)
         reviewer on writer-reviewer: delivery now off (delivers nothing; the agent reads its inbox itself)
       "now" marks a change. all reads "(wakes for every message)" and focused "(wakes
@@ -1471,6 +1494,12 @@ $defs:
       agent: { type: string }
       mode: { enum: [focused, all, humans, off] }
       changed: { type: boolean, description: "True when this command changed the mode." }
+      revision:
+        type: [integer, "null"]
+        description: |
+          The server's revision of the mode: the sequence number of the board event that
+          last set it, 0 when it was never set. Null when the server doesn't hold delivery
+          modes and the mode is this machine's.
 
   # ---------- aboard status [--as AGENT] [--board NAME] [--launch TICKET] ----------
   StatusOutput:
@@ -1557,7 +1586,17 @@ $defs:
         description: "flag: --as. env: ABOARD_AGENT. session: the agent bound to this harness session."
       delivery:
         enum: [focused, all, humans, off, null]
-        description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
+        description: |
+          The agent's delivery mode as its server holds it (see DeliveryOutput), or this
+          machine's from a server that doesn't hold modes; null with no agent.
+      delivery_applied:
+        enum: [focused, all, humans, off, null]
+        description: |
+          The mode the agent's delivery daemon last reported applying (Member.delivery in
+          openapi.yaml); null with no agent or when none was reported. When it differs
+          from delivery while the agent has a session, as with a daemon from an older
+          aboard that keeps its own mode, the Agent line says so after the mode: "delivery
+          focused (its delivery daemon applies all)".
       delivery_rule:
         oneOf:
           - $ref: "#/$defs/DeliveryRule"

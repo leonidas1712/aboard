@@ -516,6 +516,7 @@ agent reaches, never the kind of action: an admin's agent has no admin powers.
 | Pairing codes (own sessions) | – | – | ✓ | ✓ | ✓ | ✓ |
 | Guest codes for a board | – | – | boards they're on | – | boards they're on | – |
 | Cancel a code it created | – | – | ✓ | ✓ | ✓ | ✓ |
+| Set an agent's delivery mode | their own agents | – | their own agents | – | their own agents | – |
 | Add a bot to a board | – | – | boards they're on | – | boards they're on | – |
 | Revoke a bot | – | – | their own | – | any | – |
 | Invite or remove people on the server | – | – | – | – | ✓ | – |

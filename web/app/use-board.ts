@@ -236,7 +236,11 @@ export function useBoard(name: string, filter: Filter): BoardState {
       presence: (p) => {
         if (p.board !== name) return;
         setMembers((ms) =>
-          ms?.map((m) => (m.name === p.agent ? { ...m, presence: p.presence, presence_since: p.presence_since } : m)) ?? ms,
+          ms?.map((m) =>
+            m.name === p.agent
+              ? { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }) }
+              : m,
+          ) ?? ms,
         );
       },
       error: (e) => {

@@ -101,6 +101,10 @@ type Request struct {
 	Agent   *AgentRef `json:"agent,omitempty"`
 	// Mode is the delivery mode an OpMode request sets; empty only shows it.
 	Mode Mode `json:"mode,omitempty"`
+	// Revision, on an OpMode request that sets a mode, says the mode is the one the
+	// agent's server holds, at this revision: the daemon takes it as if it had read it
+	// from the server. Without it the mode is kept on this machine only.
+	Revision int64 `json:"revision,omitempty"`
 	// Process is the harness process the request came from, when the caller found it.
 	Process *Process `json:"process,omitempty"`
 	// ReplyTo is the sequence number whose replies an OpHold keeps out of bundles.

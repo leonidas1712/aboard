@@ -833,7 +833,11 @@ func (a *app) swarmRow(name string, ar *swarmAgentRecord, state string, b delive
 		if m.Presence != nil {
 			row.Presence = optional(string(*m.Presence))
 		}
-		if m.Delivery != nil {
+		// The mode its person set, as the board shows it; from a server that doesn't hold
+		// modes, the one its delivery daemon reports.
+		if held := heldModeOf(m); held != "" {
+			row.Delivery = optional(held)
+		} else if m.Delivery != nil {
 			row.Delivery = optional(string(*m.Delivery))
 		}
 		// A headless agent's runner reports its presence itself, and holds no session.

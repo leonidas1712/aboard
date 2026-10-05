@@ -190,6 +190,8 @@ type Tx interface {
 	SetCursor(memberID string, seq int64) error
 	// SetPresence replaces an agent's presence.
 	SetPresence(memberID string, p Presence) error
+	// SetDelivery replaces an agent's delivery mode as its person set it.
+	SetDelivery(memberID string, d DeliverySetting) error
 	// InsertJoinCode adds a join code.
 	InsertJoinCode(j JoinCode) error
 	// RevokeJoinCode marks a join code revoked at a time; a revoked code keeps its first time.

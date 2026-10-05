@@ -93,7 +93,7 @@ func helpText(templates string) []commandHelp {
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
 				{"--harness", "H[,H]", "Set up only these harnesses: claude-code, codex. Default: every one found."},
-				{"--delivery", "focused|all|humans|off", "Set the delivery mode of the agents on this machine that have none of their own. It is a person's choice, so it is refused inside an agent's session."},
+				{"--delivery", "focused|all|humans|off", "Set, on this machine, the delivery mode of agents that have none of their own, for servers that don't hold delivery modes; a server that does decides each agent's mode (see aboard delivery). It is a person's choice, so it is refused inside an agent's session."},
 				{"--allow-commands", "", "Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it."},
 				flagJSON,
 			},
@@ -453,15 +453,21 @@ func helpText(templates string) []commandHelp {
 			Name: "delivery", Group: groupBoard,
 			Summary: "Show or change when an agent's session is woken for messages",
 			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]"},
-			Description: "Without a mode, shows the agent's delivery mode on this machine. With one, changes it:\n\n" +
+			Description: "Without a mode, shows the agent's delivery mode, which its server holds. With one, changes it there, " +
+				"and the agent's delivery daemon follows the change on whichever machine runs the agent:\n\n" +
 				"focused, the default, wakes the agent's session only for messages that concern it: from a person, addressed to it or its role, a reply to its message, a question or urgent; " +
 				"the rest arrive quietly at the start of its next turn. all wakes it for every message (auto is its earlier name). " +
 				"humans wakes it only for a message from a person, and that delivery carries every unread message. " +
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
-				"Changing the mode is up to the agent's owner, so it is refused inside an agent's session.",
-			Flags:    []helpFlag{flagAs, flagBoard, flagJSON},
-			Examples: []helpExample{{"aboard delivery --as reviewer", "Show the mode"}, {"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"}},
-			SeeAlso:  []string{"status", "inbox", "init"},
+				"Only the agent's person changes the mode, with their own login, so it is refused inside an agent's session. " +
+				"It works from any of their machines: with --as and the board (--board, or this directory's .aboard file) it names an agent that runs elsewhere.",
+			Flags: []helpFlag{flagAs, flagBoard, flagJSON},
+			Examples: []helpExample{
+				{"aboard delivery --as reviewer", "Show the mode"},
+				{"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"},
+				{"aboard delivery off --as reviewer --board docs", "Turn delivery off for an agent that runs on another of your machines"},
+			},
+			SeeAlso: []string{"status", "inbox", "init"},
 		},
 		{
 			Name: "board", Group: groupBoard,

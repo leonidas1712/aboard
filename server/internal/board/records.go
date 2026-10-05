@@ -172,6 +172,8 @@ type Member struct {
 	JoinedAt string
 	// Presence is what was last reported for an agent; read it with CurrentPresence.
 	Presence Presence
+	// Delivery is an agent's delivery mode as its person set it.
+	Delivery DeliverySetting
 }
 
 // Rules returns what the rules package needs to know about the member.

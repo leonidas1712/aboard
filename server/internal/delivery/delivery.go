@@ -156,6 +156,15 @@ const (
 	ModeAuto Mode = "auto"
 )
 
+// HeldMode is an agent's delivery mode as its person set it on the agent's server.
+// Revision is the sequence number of the board event that set it, 0 when it was never
+// set (the mode is then focused); it only grows, so of two reads the one with the higher
+// revision is the newer.
+type HeldMode struct {
+	Mode     Mode
+	Revision int64
+}
+
 // ParseMode reads a mode's name. auto, the earlier name of all, is read as all.
 func ParseMode(s string) (Mode, bool) {
 	switch m := Mode(s); m {

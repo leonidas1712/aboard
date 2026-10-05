@@ -114,29 +114,37 @@ func statusError(what string, status int, body []byte) error {
 	return fmt.Errorf("%s: %s", what, detail)
 }
 
-// Inbox returns the agent's unread messages, oldest first, and its read position.
-func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, err error) {
+// Inbox returns the agent's unread messages, oldest first, its read position and its
+// delivery mode as the server holds it; mode is nil from a server that doesn't hold
+// delivery modes.
+func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, mode *delivery.HeldMode, err error) {
 	token, err := s.tokens.AgentToken(agent)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	c, err := s.client(token)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 	limit := inboxPage
 	r, err := c.GetInboxWithResponse(ctx, &api.GetInboxParams{Limit: &limit})
 	if err != nil {
-		return nil, 0, fmt.Errorf("read inbox of %s on %s: %w", agent.Name, agent.Board, err)
+		return nil, 0, nil, fmt.Errorf("read inbox of %s on %s: %w", agent.Name, agent.Board, err)
 	}
 	if r.JSON200 == nil {
-		return nil, 0, statusError("read inbox of "+agent.Name+" on "+agent.Board, r.StatusCode(), r.Body)
+		return nil, 0, nil, statusError("read inbox of "+agent.Name+" on "+agent.Board, r.StatusCode(), r.Body)
 	}
 	msgs = make([]delivery.Message, 0, len(r.JSON200.Messages))
 	for _, m := range r.JSON200.Messages {
 		msgs = append(msgs, TextMessage(m))
 	}
-	return msgs, r.JSON200.Cursor, nil
+	if in := r.JSON200; in.DeliveryMode != nil {
+		mode = &delivery.HeldMode{Mode: delivery.Mode(*in.DeliveryMode)}
+		if in.DeliveryRevision != nil {
+			mode.Revision = int64(*in.DeliveryRevision)
+		}
+	}
+	return msgs, r.JSON200.Cursor, mode, nil
 }
 
 // Ack moves the agent's read position up to upTo.

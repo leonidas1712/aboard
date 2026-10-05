@@ -34,8 +34,13 @@ type wireMember struct {
 	// Presence and PresenceSince are null for people.
 	Presence      *string `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
-	// Delivery is the agent's delivery mode as last reported; null for people.
+	// Delivery is the agent's delivery mode as its daemon last reported it; null for
+	// people.
 	Delivery *string `json:"delivery"`
+	// DeliveryMode and DeliveryRevision are the agent's delivery mode as its person set
+	// it and the seq of the event that set it; null for people.
+	DeliveryMode     *string `json:"delivery_mode"`
+	DeliveryRevision *int64  `json:"delivery_revision"`
 }
 
 type wireBoard struct {
@@ -131,6 +136,8 @@ func memberOf(m board.Member, boardName string) wireMember {
 			state = board.PresenceNoSession
 		}
 		w.Presence, w.PresenceSince, w.Delivery = &state, nullable(m.Presence.Since), nullable(m.Presence.Delivery)
+		mode, rev := m.Delivery.Current(), m.Delivery.Seq
+		w.DeliveryMode, w.DeliveryRevision = &mode, &rev
 	}
 	return w
 }

@@ -80,14 +80,16 @@ func TestAPrivateBoardLooksLikeNoBoardToOutsiders(t *testing.T) {
 		{"POST", "/v1/boards/%s/visibility"},
 		{"POST", "/v1/boards/%s/join-codes"},
 		{"PATCH", "/v1/boards/%s"},
+		{"PUT", "/v1/boards/%s/members/claude/delivery"},
 	}
 	bodies := map[string]any{
-		"/v1/boards/%s/messages":   map[string]any{"body": "hi"},
-		"/v1/boards/%s/people":     map[string]any{"handle": "sam"},
-		"/v1/boards/%s/owners":     map[string]any{"handle": "sam"},
-		"/v1/boards/%s/visibility": map[string]any{"visibility": "open"},
-		"/v1/boards/%s/join-codes": map[string]any{"role": "member"},
-		"/v1/boards/%s":            map[string]any{"title": "x"},
+		"/v1/boards/%s/messages":                map[string]any{"body": "hi"},
+		"/v1/boards/%s/people":                  map[string]any{"handle": "sam"},
+		"/v1/boards/%s/owners":                  map[string]any{"handle": "sam"},
+		"/v1/boards/%s/visibility":              map[string]any{"visibility": "open"},
+		"/v1/boards/%s/join-codes":              map[string]any{"role": "member"},
+		"/v1/boards/%s":                         map[string]any{"title": "x"},
+		"/v1/boards/%s/members/claude/delivery": map[string]any{"mode": "off"},
 	}
 	// sam is a member of the server; alex, its admin, isn't on the board either.
 	for who, token := range map[string]string{"a member": sam, "the admin": s.owner} {

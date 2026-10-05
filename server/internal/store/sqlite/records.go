@@ -279,17 +279,25 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
-	var access, presence, since, at, mode sql.NullString
+	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&presence, &since, &at, &mode)
+		&presence, &since, &at, &mode, &setting, &m.Delivery.Seq)
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
+	m.Delivery.Mode = setting.String
 	return m, notFound(err)
+}
+
+// SetDelivery records an agent's delivery mode as its person set it, and the seq of the
+// event that set it.
+func (t *tx) SetDelivery(memberID string, d board.DeliverySetting) error {
+	return t.exec("UPDATE members SET delivery_setting = ?, delivery_setting_seq = ? WHERE id = ?",
+		sql.NullString{String: d.Mode, Valid: d.Mode != ""}, d.Seq, memberID)
 }
 
 // SetPresence records an agent's presence, when it began and when it was reported, and

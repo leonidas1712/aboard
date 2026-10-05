@@ -44,6 +44,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MemberLookups", memberLookups},
 		{"SetCursorOnlyMovesForward", setCursorOnlyMovesForward},
 		{"SetPresenceReplacesIt", setPresenceReplacesIt},
+		{"SetDeliveryReplacesItAndKeepsPresence", setDeliveryReplacesItAndKeepsPresence},
 		{"JoinCodesByDigestAndID", joinCodesByDigestAndID},
 		{"RevokeJoinCodeKeepsFirstTime", revokeJoinCodeKeepsFirstTime},
 		{"TimelineReadAllReturnsEveryMessage", timelineReadAllReturnsEveryMessage},
@@ -1028,6 +1029,38 @@ func setPresenceReplacesIt(t *testing.T, st board.Store) {
 			return nil
 		})
 	}
+}
+
+// An agent's delivery mode as its person set it starts unset, and SetDelivery replaces it
+// without touching the presence its daemon reported, and the other way round.
+func setDeliveryReplacesItAndKeepsPresence(t *testing.T, st board.Store) {
+	write(t, st, func(tx board.Tx) error {
+		b, _, err := newBoard(tx, "docs")
+		if err != nil {
+			return err
+		}
+		return tx.InsertMember(agent(b, "hum_alex", "writer", "member"))
+	})
+	memberIs := func(want board.DeliverySetting, presence board.Presence) {
+		t.Helper()
+		read(t, st, func(tx board.ReadTx) error {
+			m, err := tx.MemberByName("brd_docs", "writer")
+			if err == nil && (m.Delivery != want || m.Presence != presence) {
+				t.Errorf("writer: delivery %+v presence %+v, want %+v and %+v", m.Delivery, m.Presence, want, presence)
+			}
+			return err
+		})
+	}
+	memberIs(board.DeliverySetting{}, board.Presence{})
+	reported := board.Presence{State: board.PresenceIdle, Since: at, At: at, Delivery: "all"}
+	write(t, st, func(tx board.Tx) error { return tx.SetPresence("mem_docs_writer", reported) })
+	for _, d := range []board.DeliverySetting{{Mode: "off", Seq: 7}, {Mode: "humans", Seq: 9}} {
+		write(t, st, func(tx board.Tx) error { return tx.SetDelivery("mem_docs_writer", d) })
+		memberIs(d, reported)
+	}
+	again := board.Presence{State: board.PresenceWorking, Since: at, At: at, Delivery: "humans"}
+	write(t, st, func(tx board.Tx) error { return tx.SetPresence("mem_docs_writer", again) })
+	memberIs(board.DeliverySetting{Mode: "humans", Seq: 9}, again)
 }
 
 func joinCode(b board.Board, creator board.Member) board.JoinCode {

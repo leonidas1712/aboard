@@ -78,6 +78,7 @@ optional; each operation says which it reads.
 | `started` | string | When the hook's or command's process started (RFC 3339) |
 | `agent` | object | An agent: `{"server","board","name"}` |
 | `mode` | string | A delivery mode to set: `focused`, `all`, `humans` or `off` (`auto`, the earlier name of `all`, is accepted and saved as `all`) |
+| `revision` | integer | With `mode`: the mode is the one the agent's server now holds, at this revision (delivery.md, "Where the mode is held") |
 | `process` | object | The harness process the request came from: `{"pid","start"}`, `start` in the system's own units, so a reused pid isn't mistaken for it |
 | `reply_to` | integer | The message whose replies a hold keeps out of bundles |
 | `seqs` | array of integers | Messages a claim records as received |
@@ -238,16 +239,22 @@ Sent by any command run in a session that needs its agent.
 
 ### `mode`: an agent's delivery mode
 
-Without `mode` it shows the mode; with one it sets it (`aboard delivery`). The empty
-agent names the default for agents without a mode of their own.
+Without `mode` it shows the mode the daemon applies to the agent. With `mode` and
+`revision`, sent by `aboard delivery` after it set the mode on the agent's server, the
+daemon takes it as if it had read it from the server: it applies it at once unless it
+already has a higher revision, and answers the mode it applies, `changed` when that
+changed.
 
 ```json
-{"v":1,"op":"mode","agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"mode":"humans"}
+{"v":1,"op":"mode","agent":{"server":"http://127.0.0.1:7400","board":"writer-reviewer","name":"writer"},"mode":"humans","revision":9}
 {"v":1,"mode":"humans","changed":true}
 ```
 
-An agent with no mode of its own, and no default, is `focused`. A mode saved as `auto` by
-an earlier build is answered as `all`.
+With `mode` and no `revision` it keeps the mode on this machine, for a server that
+doesn't hold delivery modes; the empty agent names the default for agents without a mode
+of their own. A mode the agent's server holds wins over it, so the answer is the mode
+that applies, unchanged. An agent with no mode anywhere is `focused`. A mode saved as
+`auto` by an earlier build is answered as `all`.
 
 ### `status`: the daemon's state
 

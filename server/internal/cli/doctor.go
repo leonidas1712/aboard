@@ -83,6 +83,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	if status != nil {
 		checks = append(checks, a.statusChecks(status)...)
 	}
+	checks = append(checks, a.checkKeptModes(ctx)...)
 
 	failed := false
 	var text strings.Builder
@@ -105,6 +106,51 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 		return errCheckFailed
 	}
 	return nil
+}
+
+// checkKeptModes warns about each of this machine's agents whose delivery mode was set
+// here before its server held modes (aboard delivery or aboard init --delivery from an
+// older aboard) and that its server doesn't have: the server's mode, focused, applies
+// now. Moving the mode to the server is up to the agent's person, so the fix is their
+// command; nothing uploads it by itself.
+func (a *app) checkKeptModes(ctx context.Context) []doctorCheck {
+	modes, err := a.journalModes(ctx)
+	if err != nil || len(modes) == 0 {
+		return nil
+	}
+	creds, err := a.readCredentials()
+	if err != nil {
+		return nil
+	}
+	boards := map[string]int{}
+	for _, c := range creds.Agents {
+		boards[c.Name]++
+	}
+	var checks []doctorCheck
+	for _, cred := range creds.Agents {
+		kept, ok := modes[delivery.AgentRef{Server: cred.Server, Board: cred.Board, Name: cred.Name}]
+		if !ok {
+			kept, ok = modes[delivery.AgentRef{}]
+		}
+		kept, parsed := delivery.ParseMode(string(kept))
+		if !ok || !parsed {
+			continue
+		}
+		held, ok := a.heldMode(ctx, target{server: a.serverRefFor(cred.Server), board: cred.Board}, cred)
+		if !ok || held.Revision > 0 || held.Mode == kept {
+			continue
+		}
+		as := "--as " + cred.Name
+		if boards[cred.Name] > 1 {
+			as += " --board " + cred.Board
+		}
+		checks = append(checks, problem("delivery_mode", levelWarning, "delivery_mode_kept_here",
+			fmt.Sprintf("%s on %s: this machine kept delivery mode %s for it, which its server doesn't hold, so it is %s now",
+				cred.Name, cred.Board, kept, held.Mode),
+			fmt.Sprintf("to keep %s, run aboard delivery %s %s in a terminal; to keep %s, run aboard delivery %s %s",
+				kept, kept, as, held.Mode, held.Mode, as)))
+	}
+	return checks
 }
 
 // checkDaemon starts the daemon if needed and asks it for its status.
