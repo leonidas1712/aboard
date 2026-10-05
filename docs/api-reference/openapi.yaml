@@ -220,15 +220,25 @@ paths:
           the page address's fragment. The session belongs to the access key that asked
           for the code. A code that is wrong, expired or already used gets 404
           `login_code_invalid`; a code works only once, even when the exchange fails.
+          A page should show who the code signs in as (`POST /v1/login-codes/preview`)
+          and wait for the person to confirm, unless it is already signed in as that
+          same person: a link is easy to send to someone else.
         - `key`: an access key (`abh_…`) pasted on the login page. The server checks it,
           starts a session that belongs to it and keeps nothing of the key itself. A key
           that is wrong, revoked or expired gets 401 `access_key_invalid`.
         - `token`: a browser token (`abb_…`) that a page kept in its own storage before
-          browser sessions moved into cookies. The same session moves into the cookie,
-          keeping its id and expiry; the page then deletes its stored copy. A token that
-          doesn't work gets 401 `unauthorized`.
+          browser sessions moved into cookies. The cookie gets that same secret, so it is
+          the same session with the same id and expiry; it is not exchanged for a new one,
+          and it keeps working as a bearer token until it expires or is ended. The page
+          then deletes its stored copy. A token that doesn't work gets 401 `unauthorized`.
 
-        Anything else gets 400 `invalid_request`. A session lasts 30 days, or until its
+        Anything else gets 400 `invalid_request`.
+
+        When the request carries a cookie for a working session of another person, the
+        browser would switch accounts, and the server refuses with 409
+        `browser_session_switch_unconfirmed` unless `confirm_switch` is true. A page sends
+        it only after the person clicked to switch, so a link someone else made can't
+        quietly sign the browser in as them. A refused code isn't used up. A session lasts 30 days, or until its
         access key expires if that is sooner (a key that expires only once unused doesn't
         shorten it), and ends at once when its key is revoked or expires, when its person
         signs it out (`DELETE /v1/me/browser-session`) or ends it
@@ -236,9 +246,11 @@ paths:
 
         Against forged sign-ins, the request must carry an `Origin` header equal to the
         server's own origin (403 `origin_not_allowed` otherwise) and a JSON body, which no
-        other site can send without the server's permission. Attempts are limited per
-        client address and across the server (429 `rate_limited`, with `Retry-After`).
-        Neither the body nor the response is logged or kept for `Idempotency-Key` repeats.
+        other site can send without the server's permission. Failed attempts (any answer of
+        400 or more) are limited per client address and across the server (429
+        `rate_limited`, with `Retry-After`), counted together with
+        `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`. Neither the body nor
+        the response is logged or kept for `Idempotency-Key` repeats.
       security: []
       requestBody:
         required: true
@@ -259,6 +271,7 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
     get:
       tags: [people]
@@ -285,6 +298,40 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+
+  /v1/login-codes/preview:
+    post:
+      tags: [server]
+      operationId: previewLoginCode
+      summary: Say who a login code would sign a browser in as
+      description: |
+        No credential needed: the code is the proof. Returns the person and the access key
+        a one-time code from `POST /v1/login-codes` would start a browser session for,
+        without using the code up. A page that finds a code in its address asks the
+        person to confirm before it signs in with it, so a link someone else made can't
+        quietly sign the browser in as them. A code that is wrong, expired or already
+        used gets 404 `login_code_invalid`.
+
+        Like signing in, it needs an `Origin` header equal to the server's own origin
+        (403 `origin_not_allowed`), and its failed attempts count toward the same limits
+        per client address and across the server (429 `rate_limited`). The code is never
+        logged.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserTokenRequest" }
+      responses:
+        "200":
+          description: Who the code signs in as
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginCodePreview" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
 
   /v1/browser-sessions/{session}:
     parameters:
@@ -1392,6 +1439,7 @@ components:
                 - csrf_token_invalid
                 - browser_session_required
                 - browser_session_not_found
+                - browser_session_switch_unconfirmed
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -1462,7 +1510,13 @@ components:
       properties:
         code: { type: string, maxLength: 200, description: "A one-time code from `POST /v1/login-codes`." }
         key: { type: string, maxLength: 200, description: "An access key (`abh_…`). It is checked and never kept." }
-        token: { type: string, maxLength: 200, description: "A browser token (`abb_…`) a page kept in its own storage, to move into the cookie." }
+        token: { type: string, maxLength: 200, description: "A browser token (`abb_…`) a page kept in its own storage, to copy into the cookie." }
+        confirm_switch:
+          type: boolean
+          description: |
+            True when the person confirmed signing this browser in as someone other than the
+            person its current session belongs to. A page sends it only after the person
+            clicked to switch.
 
     BrowserSessionKey:
       type: object
@@ -1502,6 +1556,16 @@ components:
         csrf_token:
           type: string
           description: Send it as `X-Aboard-CSRF` with every write this session makes. It works only with this session's cookie.
+
+    LoginCodePreview:
+      type: object
+      required: [person, key, expires_at]
+      properties:
+        person: { $ref: "#/components/schemas/Person" }
+        key: { $ref: "#/components/schemas/BrowserSessionKey" }
+        expires_at:
+          allOf: [{ $ref: "#/components/schemas/Timestamp" }]
+          description: When the code stops working.
 
     BrowserSessionList:
       type: object
