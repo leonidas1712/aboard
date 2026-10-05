@@ -84,6 +84,10 @@ Do:    No agent can post as someone else. The server takes the sender from the t
 Don't: Aboard has robust, enterprise-grade identity controls.
 ```
 
+Write the product's name lowercase, "aboard", in the README and docs prose, even at the
+start of a sentence ([positioning.md](../design/positioning.md)); CLI output and code
+keep what they print.
+
 Write so an agent can use the page on its own: an agent reading the docs and the skill,
 and nothing else, should be able to explain Aboard correctly and build an extension.
 

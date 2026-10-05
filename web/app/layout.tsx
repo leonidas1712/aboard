@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Aboard" };
+export const metadata: Metadata = { title: "aboard" };
 
 export const viewport: Viewport = {
   themeColor: [

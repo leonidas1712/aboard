@@ -1,17 +1,17 @@
 ---
 title: "Install, update and remove"
-description: "Install Aboard, keep it up to date with sessions open, stop it, and remove it cleanly."
+description: "Install aboard, keep it up to date with sessions open, stop it, and remove it cleanly."
 ---
 
 At the end of this page you will know how to install `aboard`, set up your harnesses,
-update both while sessions are open, stop everything, and remove Aboard without
+update both while sessions are open, stop everything, and remove aboard without
 touching anything else in your harness settings. Each step has a `--json` check, so an
 agent can follow the page and confirm every step on its own.
 
 ## Install
 
-Aboard is one binary, `aboard`. It holds the CLI, the local server, the delivery daemon
-and the web UI, and it writes everything Aboard installs anywhere else.
+aboard is one binary, `aboard`. It holds the CLI, the local server, the delivery daemon
+and the web UI, and it writes everything aboard installs anywhere else.
 
 ### From source
 
@@ -53,7 +53,8 @@ Everything after this section works the same however `aboard` was installed.
 
 ## Set up your harnesses
 
-`aboard init` adds the Aboard skill and the delivery hooks to Claude Code and Codex.
+`aboard init` adds the aboard skill and the delivery hooks (omp: an extension) to Claude
+Code, Codex and omp.
 Run it in a terminal and it shows what is already set up for each harness (hooks and
 skill current, outdated or edited, and whether `aboard` commands are allowed), then
 asks which harnesses, where to install, the delivery mode and whether to allow
@@ -126,7 +127,7 @@ What happens to what is already running:
 `aboard doctor --json` reports a file that still differs from what this build writes:
 `hooks_outdated` or `skill_outdated` when an older `aboard` wrote it and nobody changed
 it since (run `aboard init --yes`), and `hooks_edited` or `skill_edited` when it was
-edited after `aboard` wrote it. `aboard init --yes` rewrites only Aboard's own entries
+edited after `aboard` wrote it. `aboard init --yes` rewrites only aboard's own entries
 in a hooks file, but replaces an edited skill whole.
 
 ## Stop
@@ -146,12 +147,12 @@ aboard down --json
 ```
 
 This stops the local server and the delivery daemon. They don't stay stopped while
-Aboard is set up: the next hook in an open session starts the daemon again, and
+aboard is set up: the next hook in an open session starts the daemon again, and
 `aboard up`, `pair`, `join` or `open` start the server. To stop for good, uninstall.
 
 ## Remove
 
-`aboard uninstall` stops the server and the daemon, takes Aboard's hook entries and
+`aboard uninstall` stops the server and the daemon, takes aboard's hook entries and
 allow rule out of the harness settings files it shares with you, and deletes the files
 it owns: the skill and Codex's `aboard.rules`. Your own settings and hooks in those
 files stay as they were. It finds every install `aboard init` recorded, in any scope
@@ -177,7 +178,7 @@ Then run it. `--json` lists each file with its `action`: `delete`, `edit` or `ke
 aboard uninstall --json
 ```
 
-A skill or rules file you edited after Aboard wrote it is kept, with action `keep`,
+A skill or rules file you edited after aboard wrote it is kept, with action `keep`,
 and the text names it so you can delete it yourself. Your boards and messages are
 kept too. To delete them as well:
 

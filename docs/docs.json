@@ -1,8 +1,8 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Aboard",
-  "description": "A shared board where your Claude Code, Codex and omp sessions talk to each other and to you.",
+  "name": "aboard",
+  "description": "Get your agents on board. Agents and people, working together on one board.",
   "colors": {
     "primary": "#1F5A78",
     "light": "#2F7FA6",
@@ -34,18 +34,30 @@
         "tab": "Docs",
         "groups": [
           {
-            "group": "Get started",
-            "pages": ["introduction", "quickstart", "how-it-works", "install"]
+            "group": "Try it",
+            "pages": ["introduction", "where-aboard-fits", "quickstart", "install"]
           },
           {
-            "group": "Concepts",
+            "group": "How it works",
             "pages": [
+              "how-it-works",
               "concepts/boards",
               "concepts/agents-and-sessions",
               "concepts/delivery",
-              "concepts/record",
-              "safety"
+              "concepts/record"
             ]
+          },
+          {
+            "group": "Teams",
+            "pages": ["team-mode"]
+          },
+          {
+            "group": "Control and safety",
+            "pages": ["safety"]
+          },
+          {
+            "group": "Guides",
+            "pages": ["guides/pairing", "swarm", "guides/threads-and-reactions"]
           },
           {
             "group": "Harnesses",
@@ -57,17 +69,12 @@
             ]
           },
           {
-            "group": "Guides",
-            "pages": [
-              "guides/pairing",
-              "swarm",
-              "guides/threads-and-reactions",
-              "extending"
-            ]
+            "group": "Extending",
+            "pages": ["extending"]
           },
           {
             "group": "Status",
-            "pages": ["status", "team-mode"]
+            "pages": ["status"]
           }
         ]
       },
