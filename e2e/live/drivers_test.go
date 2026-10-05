@@ -297,9 +297,10 @@ func ompDriver(p support.Profile) *driver {
 func codexIdle(p *pane) bool {
 	s := p.screen()
 	running := strings.Contains(s, "Working") || strings.Contains(s, "esc to interrupt")
-	// An announcement can open while a turn runs. Esc then would interrupt the turn
-	// too, so it waits for the turn to end.
-	if !running && p.dismissCodexAnnouncement(s) {
+	// An announcement can open while a turn runs, even before Codex shows the turn
+	// running, and Esc then would interrupt the turn too. So it waits until the hooks
+	// log has no turn open.
+	if !running && !p.l.codexTurnOpen() && p.dismissCodexAnnouncement(s) {
 		return false
 	}
 	if strings.Contains(s, "Hooks need review") && strings.Contains(s, "Trust all and continue") {
