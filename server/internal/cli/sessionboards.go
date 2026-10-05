@@ -60,7 +60,7 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 		}
 		if marked.Seat != nil {
 			row.Seat.name = &marked.Seat.Name
-			if cred, ok := creds.find(srv.URL, marked.Seat.Board, marked.Seat.Name); ok {
+			if cred, ok := seatCredential(creds, srv.URL, marked.Seat.MemberID); ok {
 				row.Unread = a.seatUnread(ctx, srv, cred)
 			}
 		}

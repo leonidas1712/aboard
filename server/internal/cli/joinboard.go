@@ -128,7 +128,7 @@ func runJoinBoard(ctx context.Context, a *app, board, role, name, serverFlag str
 	}
 	useAs := useFor(agent.Name)
 	useAs.BoundSession = optional(key.String())
-	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: b.Name, Name: agent.Name}, string(resp.Mode))
+	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: b.Name, Name: agent.Name, MemberID: agent.Id}, string(resp.Mode))
 	first := fmt.Sprintf("Joined board %s as %s\n", b.Name, agentText(agent))
 	if resp.Reused {
 		first = fmt.Sprintf("This session is already %s on %s.\n", agent.Name, b.Name)

@@ -148,16 +148,21 @@ func TestTheInboxReadsEverySeat(t *testing.T) {
 	agent, _ := j["agent"].(map[string]any)
 	goneName, _ := agent["name"].(string)
 	goneToken, _ := j["token"].(string)
-	gone := agentCredential{Server: url, Board: hidden, Name: goneName, Token: goneToken}
+	goneID, _ := agent["id"].(string)
+	gone := agentCredential{Server: url, Board: hidden, Name: goneName, MemberID: goneID, Token: goneToken}
 	postTo(t, url, sam, hidden, 1)
 	do(t, "POST", url+"/v1/boards/"+hidden+"/visibility", sam, map[string]any{"visibility": "private"})
 	if st, b := do(t, "DELETE", url+"/v1/boards/"+hidden+"/people/maya", sam, nil); st != 200 {
 		t.Fatalf("remove maya: %d %v", st, b)
 	}
-	creds := credentials{Agents: []agentCredential{general, plans, gone}}
+	// An earlier seat with general's name, whose token no longer works, is never read
+	// in its place: seats are found by member id.
+	stale := general
+	stale.MemberID, stale.Token = "mem_01JB8Z3K7Q4M2N5P6R8S9T0V1A", "aba_stale"
+	creds := credentials{Agents: []agentCredential{stale, general, plans, gone}}
 	seats := []delivery.AgentRef{}
-	for _, c := range creds.Agents {
-		seats = append(seats, delivery.AgentRef{Server: c.Server, Board: c.Board, Name: c.Name})
+	for _, c := range []agentCredential{general, plans, gone} {
+		seats = append(seats, delivery.AgentRef{Server: c.Server, Board: c.Board, Name: c.Name, MemberID: c.MemberID})
 	}
 	out, err := a.inboxSeats(context.Background(), seats, creds, 2, true, 0)
 	if err != nil {
@@ -194,7 +199,9 @@ func TestTheInboxWaitsForAnySeat(t *testing.T) {
 	a := inboxApp(t)
 	one, two := seatOn(t, url, owner), seatOn(t, url, owner)
 	creds := credentials{Agents: []agentCredential{one, two}}
-	seats := []delivery.AgentRef{{Server: url, Board: one.Board, Name: one.Name}, {Server: url, Board: two.Board, Name: two.Name}}
+	seats := []delivery.AgentRef{
+		{Server: url, Board: one.Board, Name: one.Name, MemberID: one.MemberID}, {Server: url, Board: two.Board, Name: two.Name, MemberID: two.MemberID},
+	}
 	go func() {
 		time.Sleep(300 * time.Millisecond) // the message arrives while the inbox waits
 		postTo(t, url, owner, two.Board, 1)

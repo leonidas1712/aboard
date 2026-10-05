@@ -55,7 +55,7 @@ func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds c
 	timeout := time.Duration(wait)*time.Second + requestTimeout
 	var readers []seatReader
 	for _, ref := range sorted {
-		cred, ok := creds.find(ref.Server, ref.Board, ref.Name)
+		cred, ok := seatCredential(creds, ref.Server, ref.MemberID)
 		if !ok {
 			out.Unavailable++
 			continue

@@ -30,13 +30,13 @@ type seatRow struct {
 func (a *app) sessionSeats(ctx context.Context, agents []delivery.AgentRef, creds credentials) []seatRow {
 	rows := make([]seatRow, 0, len(agents))
 	for _, ag := range agents {
-		row := seatRow{Server: ag.Server, Board: ag.Board, Name: ag.Name, Delivery: string(delivery.ModeFocused)}
+		row := seatRow{Server: ag.Server, Board: ag.Board, Name: ag.Name, MemberID: ag.MemberID, Delivery: string(delivery.ModeFocused)}
 		if m, err := a.deliveryMode(ctx, ag); err == nil {
 			row.Delivery = string(m)
 		}
-		cred, ok := creds.find(ag.Server, ag.Board, ag.Name)
-		if ok {
-			row.MemberID = cred.MemberID
+		// The seat is found by its member id only, so a replacement seat with the same
+		// name never fills its row.
+		if cred, ok := seatCredential(creds, ag.Server, ag.MemberID); ok {
 			a.readSeat(ctx, cred, &row)
 		}
 		rows = append(rows, row)
@@ -45,7 +45,8 @@ func (a *app) sessionSeats(ctx context.Context, agents []delivery.AgentRef, cred
 	return rows
 }
 
-// readSeat fills a seat's role, mode, presence and unread inbox from its server.
+// readSeat fills a seat's role, mode, presence and unread inbox from its server, for
+// the member with the seat's id.
 func (a *app) readSeat(ctx context.Context, cred agentCredential, row *seatRow) {
 	srv := a.serverRefFor(cred.Server)
 	c, err := a.client(ctx, srv, cred.Token, requestTimeout)
@@ -56,10 +57,10 @@ func (a *app) readSeat(ctx context.Context, cred agentCredential, row *seatRow) 
 	defer cancel()
 	if m, err := c.api.ListMembersWithResponse(ctx, cred.Board); err == nil && m.JSON200 != nil {
 		for _, mem := range m.JSON200.Members {
-			if mem.Name != cred.Name || mem.Kind != api.MemberKindAgent {
+			if mem.Id != cred.MemberID || mem.Kind != api.MemberKindAgent {
 				continue
 			}
-			row.Role, row.MemberID = mem.Role, mem.Id
+			row.Role, row.Name = mem.Role, mem.Name
 			if held := heldModeOf(mem); held != "" {
 				row.Delivery = held
 			}

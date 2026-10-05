@@ -71,3 +71,17 @@ func (s *daemonSeats) SeatID(agent delivery.AgentRef) (string, bool) {
 	}
 	return "", false
 }
+
+// seatCredential finds the credential of the exact seat with memberID on server, never
+// one with the same board and name: a replacement seat can take an old seat's name.
+func seatCredential(creds credentials, server, memberID string) (agentCredential, bool) {
+	if memberID == "" {
+		return agentCredential{}, false
+	}
+	for _, c := range creds.Agents {
+		if c.Server == server && c.MemberID == memberID {
+			return c, true
+		}
+	}
+	return agentCredential{}, false
+}
