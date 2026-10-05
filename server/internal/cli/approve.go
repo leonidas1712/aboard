@@ -25,16 +25,25 @@ func runApprove(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	// again is the command to run again, naming the server when it was given or picked,
+	// so a person on several servers can copy it as it is.
 	again := "aboard approve " + shellWord(pos[0])
-	if *refuse {
-		again += " --refuse"
+	if *serverFlag != "" {
+		again += " --server " + shellWord(*serverFlag)
 	}
-	if err := a.refuseInSession("Approving a machine", again); err != nil {
+	inTerminal := again
+	if *refuse {
+		inTerminal += " --refuse"
+	}
+	if err := a.refuseInSession("Approving a machine", inTerminal); err != nil {
 		return err
 	}
 	srv, err := a.approveServer(ctx, *serverFlag)
 	if err != nil {
 		return err
+	}
+	if *serverFlag == "" && srv.URL != a.localServer().URL {
+		again += " --server " + srv.URL
 	}
 	c, err := a.keysClient(ctx, srv)
 	if err != nil {

@@ -196,6 +196,11 @@ func TestOnlyTheNamedPersonApprovesTheirMachine(t *testing.T) {
 			t.Fatalf("sam running %v on maya's code:\n%s", args, r)
 		}
 	}
+	// The hint to run it again names the server it picked, so it can be copied as it is.
+	if r := maya.runExit("approve", code, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "confirmation_required" ||
+		!strings.Contains(r.stdout, "aboard approve "+code+" --server "+tm.url()+" --yes") {
+		t.Fatalf("approve without --yes:\n%s", r)
+	}
 	maya.run("approve", code, "--yes")
 
 	done := connecting.wait()
