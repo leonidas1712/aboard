@@ -24,7 +24,7 @@ type rotationServer struct {
 	dropHeads     bool
 }
 
-func (s *rotationServer) Inbox(ctx context.Context, a delivery.AgentRef) ([]delivery.Message, int, *delivery.HeldMode, error) {
+func (s *rotationServer) Inbox(ctx context.Context, a delivery.AgentRef) (messages []delivery.Message, held int, mode *delivery.HeldMode, err error) {
 	s.seats.mu.Lock()
 	token := s.seats.saved[a.MemberID]
 	s.seats.mu.Unlock()
