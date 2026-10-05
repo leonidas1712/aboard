@@ -167,6 +167,17 @@ func (t *tx) CountUnread(reader board.Member, addressedOnly, mentions bool) (int
 	return n, err
 }
 
+// CountNeedsReply uses recorded recipient ids so a reused name cannot inherit questions.
+func (t *tx) CountNeedsReply(reader board.Member) (int64, error) {
+	var n int64
+	err := t.tx.QueryRowContext(t.ctx, `SELECT COUNT(*) FROM messages m
+		WHERE m.board_id = ? AND m.expects_reply AND m.sender_id <> ?
+		AND EXISTS (SELECT 1 FROM json_each(m.recipients_json) WHERE value = ?)
+		AND NOT EXISTS (SELECT 1 FROM messages r WHERE r.reply_to = m.id AND r.sender_id = ?)`,
+		reader.BoardID, reader.ID, reader.ID, reader.ID).Scan(&n)
+	return n, err
+}
+
 // visibleTo returns the condition and arguments that keep the messages reader may see.
 func visibleTo(reader board.Member, readAll bool) (cond string, args []any) {
 	return visibleAs("m", reader, readAll)
