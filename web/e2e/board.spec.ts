@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Page, type Response, expect, test } from "@playwright/test";
+import { modeRules, settableModes } from "../app/delivery-modes.gen";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -594,6 +595,14 @@ test("the message box addresses by mention, and a reply adds anyone to the threa
   await sent.locator(".mention", { hasText: "@writer" }).click();
   await expect(page.locator('[data-agent="writer"]')).toBeInViewport();
 
+  // The timeline marks the mentions the server recorded when the message was posted:
+  // never a name in code, and never someone who joined after it.
+  say("--as", "writer", "Run `aboard say --to @scout` when @scout is free, and @late too.");
+  aboard("join", invite.join_line, "--name", "late");
+  await page.reload();
+  const coded = page.locator(".message", { hasText: "when @scout is free" });
+  await expect(coded.locator(".mention")).toHaveText(["@scout"]);
+
   // The "To" menu is the other way to pick: a name ticked there becomes a chip, and the
   // chip removes it.
   await to.click();
@@ -913,6 +922,12 @@ test("the header, the board list and the people on a board show open, private an
   await expect(people.locator('[data-person="alex"] .board-role')).toHaveText("Owner");
   await expect(people.locator('[data-person="maya"] .board-role')).toHaveText("Member");
 
+  // lee, from outside the server, comes on through a guest code and shows as a guest.
+  const code = await api(owner, "POST", "/v1/boards/secret-plans/join-codes", { role: "member", guest: "lee" });
+  await api("", "POST", "/v1/guest-join", { code: code.code, key_name: "lees-laptop", harness: "codex" });
+  await page.reload();
+  await expect(people.locator('[data-person="lee"] .board-role')).toHaveText("Guest");
+
   for (const theme of ["Dark", "Light"]) {
     await page.getByRole("button", { name: /^You are alex/ }).click();
     await page.getByRole("menuitemradio", { name: theme }).click();
@@ -933,4 +948,167 @@ test("the header, the board list and the people on a board show open, private an
   const alone = page.locator(".board-row", { hasText: "Docs review" });
   await expect(alone).toBeVisible();
   await expect(alone.locator(".visibility")).toHaveCount(0);
+});
+
+// unreadOn reads the person's unread count on a board from the CLI, as another machine of
+// theirs would see it.
+function unreadOn(board: string): number {
+  const out = JSON.parse(aboard("boards", "--json")) as { boards: { name: string; unread: number | null }[] };
+  return out.boards.find((b) => b.name === board)?.unread ?? -1;
+}
+
+test("the person's read position moves only with what they saw, and receipts say who has a message", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Attention", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  for (let i = 1; i <= 30; i++) aboard("say", "--as", "writer", "--board", board, `Step ${i} of the plan, written out so the timeline scrolls.`);
+  expect(unreadOn(board)).toBe(30);
+
+  // Opening at the newest message does not read the older rows above the viewport.
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  await expect(page.getByText("Step 30 of the plan")).toBeVisible();
+  expect(unreadOn(board)).toBeGreaterThan(0);
+  const rows = page.locator(".message");
+  for (let i = (await rows.count()) - 1; i >= 0; i--) await rows.nth(i).scrollIntoViewIfNeeded();
+  await expect.poll(() => unreadOn(board)).toBe(0);
+  await page.getByText("Step 30 of the plan").scrollIntoViewIfNeeded();
+
+  // Reading further back shows nothing new, so what arrives meanwhile stays unread until
+  // the person comes back down to it.
+  await page.locator(".timeline").evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.getByRole("button", { name: /Jump to newest/ })).toBeVisible();
+  aboard("say", "--as", "writer", "--board", board, "Something new while you read back.");
+  await expect(page.getByRole("button", { name: /Jump to newest · 1 new/ })).toBeVisible();
+  expect(unreadOn(board)).toBe(1);
+  await page.getByRole("button", { name: /Jump to newest/ }).click();
+  await expect.poll(() => unreadOn(board)).toBe(0);
+
+  // Another board with something unread shows how many in the board list, and marking it
+  // read from the CLI clears it here too.
+  aboard("read", "--mark-read", "--board", "writer-reviewer", "--limit", "200");
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const docs = nav.getByRole("link", { name: /Docs review/ });
+  await expect(docs.locator(".unread-count")).toHaveCount(0);
+  aboard("say", "--as", "reviewer", "--board", "writer-reviewer", "A note on the other board.");
+  await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  aboard("read", "--mark-read", "--board", "writer-reviewer");
+  await expect(docs.locator(".unread-count")).toHaveCount(0);
+  await expect(docs.locator(".message-count")).toBeVisible();
+
+  // A message from the person's agent to the reviewer is pending until the reviewer's
+  // inbox takes it, then received; the mark lists who, on hover.
+  aboard("say", "--as", "writer", "--board", board, "--to", "@reviewer", "Please check the intro.");
+  const toReviewer = page.locator(".message", { hasText: "Please check the intro." }).locator(".receipt-mark");
+  await expect(toReviewer).toHaveText("Pending");
+  aboard("inbox", "--as", "reviewer", "--board", board);
+  await expect(toReviewer).toHaveText("Received");
+  await toReviewer.hover();
+  await expect(page.locator(".receipt-list")).toHaveText("reviewer: received");
+  await page.mouse.move(0, 0);
+
+  // A message to the person is read once the page has shown it; one to everyone has no mark.
+  aboard("say", "--as", "writer", "--board", board, "--to", "@alex", "Can you decide on the title?");
+  await expect(page.locator(".message", { hasText: "Can you decide on the title?" }).locator(".receipt-mark")).toHaveText("Read");
+  await expect(page.locator(".message", { hasText: "Step 30 of the plan" }).locator(".receipt-mark")).toHaveCount(0);
+
+  // The other board opens with "New since you last looked" where the server's position
+  // says, which the CLI moved above, and showing it marks it read.
+  aboard("say", "--as", "reviewer", "--board", "writer-reviewer", "Back on the first board.");
+  await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await docs.click();
+  await expect(page.locator(".new-divider + .message")).toContainText("Back on the first board.");
+  await expect.poll(() => unreadOn("writer-reviewer")).toBe(0);
+});
+
+test("the newest page does not acknowledge older unloaded messages", async ({ page }) => {
+ const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--json"));
+ const board = pair.board.name;
+ for (let i=1; i<=51; i++) aboard("say", "--as", "writer", "--board", board, `review unseen item ${i}`);
+ expect(unreadOn(board)).toBe(51);
+ const open = JSON.parse(aboard("open", "--board", board, "--json"));
+ await openLink(page, open.url);
+ await expect(page.getByText("review unseen item 51", {exact:true})).toBeVisible();
+ await expect(page.getByText("review unseen item 1", {exact:true})).toHaveCount(0);
+ await expect.poll(() => unreadOn(board)).toBeGreaterThan(0);
+});
+
+
+test("a collapsed reply is not read by showing its thread summary", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--json"));
+  const board = pair.board.name;
+  const root = JSON.parse(aboard("say", "--as", "writer", "--board", board, "Read this root", "--json")).message;
+  // A reaction consumes a sequence without becoming an unread message.
+  aboard("react", "--as", "writer", "--board", board, String(root.seq), "👍");
+  aboard("say", "--as", "writer", "--board", board, "--reply", root.id, "--to", "all", "This reply is still hidden");
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  await expect(page.getByText("Read this root", { exact: true })).toBeVisible();
+  await expect(page.getByText("This reply is still hidden", { exact: true })).toHaveCount(0);
+  await expect.poll(() => unreadOn(board)).toBe(1);
+  await page.getByRole("button", { name: /^Show 1 reply/ }).click();
+  await expect(page.getByText("This reply is still hidden", { exact: true })).toBeVisible();
+  await expect.poll(() => unreadOn(board)).toBe(0);
+});
+
+test("each agent shows its delivery mode, and its person changes it from a menu with each mode's rule", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Delivery check", "--json"));
+  const board: string = pair.board.name;
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // kim, another person on the server, has an agent on alex's board too.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  const kim = await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "kim", key_name: "laptop" });
+  const kimKey = (kim.key as { token: string }).token;
+  await api(kimKey, "POST", `/v1/boards/${board}/people`, { handle: "kim" });
+  const kimAgent = ((await api(kimKey, "POST", "/v1/join", { board, role: "reviewer" })).agent as { name: string }).name;
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Delivery check" });
+  const writer = panel.locator('[data-agent="writer"]');
+
+  // alex's own agent's mode is a menu; kim's agent shows its mode as a label only.
+  const theirs = panel.locator(`[data-agent="${kimAgent}"]`);
+  await expect(theirs.locator(".delivery-mode")).toHaveText("focused");
+  await expect(theirs.locator(".delivery-mode")).toHaveAttribute("title", modeRules.focused);
+  await expect(theirs.getByRole("button", { name: /^Delivery mode of/ })).toHaveCount(0);
+
+  for (const theme of ["Dark", "Light"]) {
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    await page.getByRole("menuitemradio", { name: theme }).click();
+    await page.keyboard.press("Escape");
+    await writer.getByRole("button", { name: "Delivery mode of writer: focused. Change it" }).click();
+    // Each mode comes with the rule the agent is told, in the same words as the CLI's.
+    const menu = page.locator(".delivery-modes");
+    for (const mode of settableModes) {
+      await expect(menu.getByRole("menuitemradio", { name: new RegExp(`^${mode}`) })).toContainText(modeRules[mode]);
+    }
+    await expect(menu.getByRole("menuitemradio", { name: /^focused/ })).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+  }
+
+  await writer.getByRole("button", { name: /^Delivery mode of writer/ }).click();
+  await page.getByRole("menuitemradio", { name: /^off/ }).click();
+  await expect(writer.getByRole("button", { name: "Delivery mode of writer: off. Change it" })).toBeVisible();
+
+  // The server holds it: the CLI reads the same mode, and the record says who changed it.
+  expect(JSON.parse(aboard("delivery", "--as", "writer", "--board", board, "--json")).mode).toBe("off");
+  await expect(page.locator(".board-event", { hasText: "alex set writer's delivery mode to off" })).toBeVisible();
+
+  // A change made elsewhere shows live.
+  aboard("delivery", "humans", "--as", "writer", "--board", board);
+  await expect(writer.getByRole("button", { name: "Delivery mode of writer: humans. Change it" })).toBeVisible();
+
+  // kim's agent is kim's to set: alex is refused, through the API too.
+  const refused = await fetch(`http://${env.ABOARD_LOCAL_ADDR}/v1/boards/${board}/members/${kimAgent}/delivery`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${owner}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "off" }),
+  });
+  expect(refused.status).toBe(403);
+  expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
 });

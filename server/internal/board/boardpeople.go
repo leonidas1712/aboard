@@ -110,12 +110,21 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		if b, me, on, err = s.see(tx, p, boardName); err != nil {
 			return err
 		}
+		if person, err := caller(tx, p, stamp(s.clk.Now())); err != nil || person.Role == ServerGuest {
+			if err != nil {
+				return err
+			}
+			return guestNotAllowed("add people to a board")
+		}
 		target, err := tx.HumanByName(handle)
 		if errors.Is(err, ErrNotFound) {
 			return noSuchPerson(handle)
 		}
 		if err != nil {
 			return err
+		}
+		if target.Role == ServerGuest {
+			return personIsGuest(handle, "A guest comes onto a board only through a guest code for it: aboard invite --guest "+handle+" --board "+b.Name+".")
 		}
 		if !on && target.ID != p.Human.ID {
 			return notOnBoard(b.Name, p.Human.Name)
@@ -159,6 +168,9 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		}); err != nil {
 			return err
 		}
+		if err := startReading(tx, b, m); err != nil {
+			return err
+		}
 		out = Person{Member: m, Person: target}
 		return nil
 	})
@@ -180,10 +192,13 @@ func (s *Service) restorePerson(tx Tx, b *Board, m *Member, actor events.Actor, 
 		return err
 	}
 	m.Status, m.Access = StatusActive, rules.AccessMember
-	_, err := s.append(tx, b, events.PersonAdded, actor, at, map[string]any{
+	if _, err := s.append(tx, b, events.PersonAdded, actor, at, map[string]any{
 		"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "access": m.Access, "rejoined": true,
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	// Rejoining restores access, not evidence of reading messages.
+	return nil
 }
 
 // ownersOf returns the names of the board's owners.
@@ -255,7 +270,8 @@ func (s *Service) RemovePerson(ctx context.Context, p Principal, boardName, hand
 		if err := requireOwner(tx, b, me, "remove people from it"); err != nil {
 			return err
 		}
-		return s.takeOff(tx, &b, out.Member, StatusRemoved, events.PersonRemoved, actorOf(me))
+		_, err = s.takeOff(tx, &b, out.Member, StatusRemoved, events.PersonRemoved, actorOf(me), nil)
+		return err
 	})
 	if err != nil {
 		return Person{}, err
@@ -308,21 +324,23 @@ func (s *Service) leave(tx Tx, b *Board, me Member) error {
 				"Make someone else an owner first: aboard board owner @name --board "+b.Name+".")
 		}
 	}
-	return s.takeOff(tx, b, me, StatusLeft, events.PersonLeft, actorOf(me))
+	_, err := s.takeOff(tx, b, me, StatusLeft, events.PersonLeft, actorOf(me), nil)
+	return err
 }
 
-// takeOff ends a person's membership of b, and records why. Their agents on b end with
-// them, for good: each is marked removed, so its token never works on b again, even if
-// the person comes back, and the event names them. The join codes the person and their
-// agents made for b stop working too.
-func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor events.Actor) error {
+// takeOff ends a person's membership of b, and records why, with extra in the event's
+// data. Their agents on b end with them, for good: each is marked removed, so its token
+// never works on b again, even if the person comes back, and the event names them. The
+// join codes the person and their agents made for b stop working too. It returns the
+// agents that ended.
+func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor events.Actor, extra map[string]any) ([]string, error) {
 	now := s.clk.Now()
 	if err := tx.SetMemberStatus(m.ID, status); err != nil {
-		return err
+		return nil, err
 	}
 	members, err := tx.Members(b.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	theirs := map[string]bool{}
 	agents := []string{}
@@ -333,19 +351,21 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 		theirs[x.ID] = true
 		if x.Kind == "agent" && x.Status == StatusActive {
 			if err := tx.SetMemberStatus(x.ID, StatusRemoved); err != nil {
-				return err
+				return nil, err
 			}
 			agents = append(agents, x.ID)
 		}
 	}
-	if _, err := s.append(tx, b, typ, actor, now, map[string]any{
-		"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "agents": agents,
-	}); err != nil {
-		return err
+	data := map[string]any{"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "agents": agents}
+	for k, v := range extra {
+		data[k] = v
+	}
+	if _, err := s.append(tx, b, typ, actor, now, data); err != nil {
+		return nil, err
 	}
 	codes, err := tx.WorkingJoinCodes(b.ID, stamp(now))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var stop []JoinCode
 	for _, jc := range codes {
@@ -353,7 +373,7 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 			stop = append(stop, jc)
 		}
 	}
-	return s.cancelCodes(tx, b, stop, actor, now)
+	return agents, s.cancelCodes(tx, b, stop, actor, now)
 }
 
 // cancelCodes revokes join codes, recording each.
@@ -389,6 +409,9 @@ func (s *Service) MakeOwner(ctx context.Context, p Principal, boardName, handle 
 		}
 		if out, err = onBoardByHandle(tx, b, handle); err != nil {
 			return err
+		}
+		if out.Person.Role == ServerGuest {
+			return personIsGuest(handle, "A guest never owns a board; make someone on the server an owner instead.")
 		}
 		if out.IsOwner() {
 			return nil

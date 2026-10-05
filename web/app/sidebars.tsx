@@ -7,13 +7,22 @@
 import { ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { Board, Member } from "./api";
+import { ApiError, type Board, type Member, setDelivery } from "./api";
 import { AddAgent, Details } from "./board-details";
+import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
-import { boardLabel, charterBlocks, count, deliveryWords, harnessName, presenceWords, rules } from "./words";
+import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
 
 /** BoardNav lists the boards this person is on, with how many messages each has. */
 export function BoardNav({ current, boards }: { current: string; boards: Board[] | null }) {
@@ -36,11 +45,20 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
                 <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
                 {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
-              {b.message_count !== null && (
-                <span className="message-count shrink-0 text-meta text-muted tabular-nums" title={count(b.message_count, "message", "messages")}>
-                  <span aria-hidden>{b.message_count}</span>
-                  <span className="sr-only">, {count(b.message_count, "message", "messages")}</span>
+              {/* Another board with messages the person hasn't read shows how many, in ink;
+                  otherwise the quiet total. */}
+              {!here && (b.unread ?? 0) > 0 ? (
+                <span className="unread-count shrink-0 text-meta font-bold text-ink tabular-nums" title={`${b.unread} unread`}>
+                  <span aria-hidden>{b.unread}</span>
+                  <span className="sr-only">, {b.unread} unread</span>
                 </span>
+              ) : (
+                b.message_count !== null && (
+                  <span className="message-count shrink-0 text-meta text-muted tabular-nums" title={count(b.message_count, "message", "messages")}>
+                    <span aria-hidden>{b.message_count}</span>
+                    <span className="sr-only">, {count(b.message_count, "message", "messages")}</span>
+                  </span>
+                )
               )}
             </a>
           </li>
@@ -59,6 +77,8 @@ type BoardPanelProps = {
   record: RecordCheck;
   /** me is the person's own name. */
   me: string | null;
+  /** meId is the person's permanent id, which their agents name as owner_id. */
+  meId: string | null;
   /** canInvite shows "Add an agent": the browser acts as a person. */
   canInvite: boolean;
   /** from is the member the timeline is filtered to, if any. */
@@ -69,7 +89,7 @@ type BoardPanelProps = {
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, canInvite, from, onPick, reveal }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
@@ -77,7 +97,7 @@ export function BoardPanel({ board, members, record, me, canInvite, from, onPick
       <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
         <div className="flex flex-col gap-4 pt-1">
           {canInvite && board && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} from={from} onPick={onPick} />
+          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
         </div>
       </Section>
 
@@ -208,11 +228,12 @@ type WhosHereProps = {
   board: Board | null;
   members: Member[] | null;
   me: string | null;
+  meId: string | null;
   from: string | undefined;
   onPick: (name: string) => void;
 };
 
-function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
+function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -229,6 +250,8 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
             <AgentItem
               key={a.id}
               agent={a}
+              board={board?.name}
+              mine={meId !== null && a.owner_id === meId}
               roleCharter={board?.roles[a.role ?? ""]?.charter}
               showOwner={showOwner}
               picked={from === a.name}
@@ -249,7 +272,7 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
                   {p.name}
                   {p.name === me && <span className="font-normal text-muted"> (you)</span>}
                 </NameButton>
-                <span className="board-role text-meta text-muted">{p.access === "admin" ? "Owner" : "Member"}</span>
+                <span className="board-role text-meta text-muted">{boardRole(p)}</span>
               </li>
             ))}
           </ul>
@@ -257,6 +280,12 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
       )}
     </div>
   );
+}
+
+/** boardRole names a person's place on the board: a guest of the server, an owner or a member. */
+function boardRole(p: Member): string {
+  if (p.server_role === "guest") return "Guest";
+  return p.access === "admin" ? "Owner" : "Member";
 }
 
 /** NameButton is a member's name that filters the timeline to them. */
@@ -279,12 +308,18 @@ function NameButton({ name, picked, onPick, children }: { name: string; picked: 
 
 function AgentItem({
   agent,
+  board,
+  mine,
   roleCharter,
   showOwner,
   picked,
   onPick,
 }: {
   agent: Member;
+  /** board is the board's name, once it is loaded. */
+  board?: string;
+  /** mine is true for the person's own agent, whose delivery mode they may change. */
+  mine: boolean;
   roleCharter?: string;
   showOwner: boolean;
   picked: boolean;
@@ -293,6 +328,11 @@ function AgentItem({
   const presence = agent.presence ?? "no_session";
   const waiting = presence === "waiting";
   const label = cn("text-meta", waiting ? "text-ink" : "text-muted");
+  // The mode its person set, held by the server; a server that holds none shows what
+  // the agent's delivery daemon reports applying.
+  const held = agent.delivery_mode ?? null;
+  const applied = agent.delivery ? appliedMode(agent.delivery) : null;
+  const mode = held ?? applied;
   return (
     <li className={cn("agent transition-colors duration-200 ease-out", waiting && "-mx-3 rounded-box bg-attention px-3 py-2.5")} data-agent={agent.name}>
       <div className="flex items-center justify-between gap-3">
@@ -341,14 +381,92 @@ function AgentItem({
             <dd>{harnessName(agent.harness)}</dd>
           </>
         )}
-        {agent.delivery && (
+        {mode && (
           <>
             <dt className={label}>Delivery</dt>
-            <dd className="delivery">{deliveryWords[agent.delivery]}</dd>
+            <dd className="delivery">
+              {mine && held && board ? (
+                <DeliveryMenu board={board} agent={agent.name} mode={held} />
+              ) : (
+                <span className="delivery-mode" title={modeRules[mode]}>
+                  {mode}
+                </span>
+              )}
+              {held && applied && applied !== held && presence !== "no_session" && (
+                <p
+                  className="delivery-applied mt-1 text-meta text-muted"
+                  title="A delivery daemon from an older aboard keeps the mode on its own machine."
+                >
+                  Its delivery daemon still applies {applied}.
+                </p>
+              )}
+            </dd>
           </>
         )}
       </dl>
     </li>
+  );
+}
+
+/**
+ * DeliveryMenu is the person's own agent's delivery mode, as a quiet menu of the four
+ * modes, each with the rule the agent is told. Choosing one sets it on the server, so
+ * the agent's delivery daemon follows it on whichever machine runs the agent.
+ */
+function DeliveryMenu({ board, agent, mode }: { board: string; agent: string; mode: SettableMode }) {
+  // chosen is the mode picked here until the board's members show it.
+  const [chosen, setChosen] = useState<SettableMode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setChosen(null), [mode]);
+  const current = chosen ?? mode;
+  const pick = (value: string) => {
+    const next = value as SettableMode;
+    if (next === current) return;
+    setChosen(next);
+    setError(null);
+    setDelivery(board, agent, next).then(
+      (r) => setChosen(r.mode),
+      (e: unknown) => {
+        setChosen(null);
+        setError(e instanceof ApiError ? e.message : "Couldn't change the delivery mode.");
+      },
+    );
+  };
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="delivery-menu group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px] data-[state=open]:underline"
+          aria-label={`Delivery mode of ${agent}: ${current}. Change it`}
+        >
+          {current}
+          <ChevronDown
+            className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
+            strokeWidth={1.5}
+            aria-hidden
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="delivery-modes w-[22rem] max-w-[calc(100vw-2rem)]">
+          <DropdownMenuLabel>When messages wake {agent}</DropdownMenuLabel>
+          <p className="px-3 pb-1 text-meta text-muted">Each mode with the rule {agent} is told.</p>
+          <DropdownMenuRadioGroup value={current} onValueChange={pick}>
+            {settableModes.map((m) => (
+              <DropdownMenuRadioItem key={m} value={m} className="items-start">
+                <span className="flex flex-col gap-0.5">
+                  <span className="font-bold">{m}</span>
+                  <span className="text-meta text-muted">{modeRules[m]}</span>
+                </span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {error && (
+        <p role="alert" className="mt-1 text-meta">
+          {error}
+        </p>
+      )}
+    </>
   );
 }
 

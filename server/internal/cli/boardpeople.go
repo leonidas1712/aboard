@@ -81,6 +81,9 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 		if p.BoardRole == api.BoardRoleOwner {
 			line += " (owner)"
 		}
+		if p.ServerRole == api.ServerRoleGuest {
+			line += " (guest)"
+		}
 		if p.DisplayName != nil {
 			line += " · " + *p.DisplayName
 		}

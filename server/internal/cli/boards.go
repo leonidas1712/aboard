@@ -17,6 +17,7 @@ type boardsRow struct {
 	Role       *api.BoardRole      `json:"role"`
 	People     int                 `json:"people"`
 	Agents     *int                `json:"agents"`
+	Unread     *int                `json:"unread"`
 	Default    bool                `json:"default"`
 }
 
@@ -98,7 +99,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	rows := []boardsRow{}
 	for _, b := range r.JSON200.Boards {
 		row := boardsRow{
-			Name: b.Name, Title: b.Title, Visibility: b.Visibility, OnBoard: b.OnBoard,
+			Name: b.Name, Title: b.Title, Visibility: b.Visibility, OnBoard: b.OnBoard, Unread: b.Unread,
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 		}
 		p, err := c.api.ListPeopleWithResponse(ctx, b.Name)
@@ -179,6 +180,9 @@ func boardsText(srv serverRef, agent *string, all bool, rows []boardsRow, hidden
 		parts = append(parts, peopleCount(r.People))
 		if r.Agents != nil {
 			parts = append(parts, counted(*r.Agents, "agent"))
+		}
+		if r.Unread != nil && *r.Unread > 0 {
+			parts = append(parts, fmt.Sprintf("%d unread", *r.Unread))
 		}
 		if r.Default {
 			parts = append(parts, "default")

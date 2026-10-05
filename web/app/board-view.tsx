@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 import { ApiError, type MemberRef, type Message, type ReactionName, react } from "./api";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
-import { knownTargets, replyRecipients } from "./mentions";
+import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
-import { readStored, store, usePref } from "./prefs";
+import { usePref } from "./prefs";
 import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
@@ -46,9 +46,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const [stick, setStick] = useState(0);
   const [postError, setPostError] = useState<unknown>(null);
   const [reveal, setReveal] = useState<Reveal>(null);
-  // The last message seen on this board, from the last visit, read once when the page opens.
-  const seenKey = `aboard.lastSeen.${name}`;
-  const [lastSeen] = useState(() => Number(readStored(seenKey) ?? "0") || 0);
+  // How far the person had read the board when the page opened: their read position on
+  // the server, the same in every tab and on every machine.
+  const lastSeen = s.readFrom ?? 0;
   const prefs = useThreadPrefs(name);
 
   const error = s.error ?? postError;
@@ -57,7 +57,6 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const people = useMemo(() => (s.members ?? []).filter((m) => m.kind === "human"), [s.members]);
   const roles = useMemo(() => Object.keys(s.board?.roles ?? {}).sort(), [s.board]);
   // Every name and role a message can mention, so the timeline marks only real mentions.
-  const mentionable = useMemo(() => knownTargets(s.members ?? [], roles), [s.members, roles]);
 
   // Every loaded message: the timeline, the filter's matches and threads read whole.
   const known = s.known;
@@ -189,12 +188,27 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     return next?.seq ?? null;
   }, [entries, lastSeen]);
 
+  // A cumulative cursor may pass only a contiguous stretch of presented messages.
+  // An unloaded first unread message or a collapsed reply holds it back.
+  const { ack } = s;
+  const presented = useRef(new Set<number>());
   const onSeen = useCallback(
     (seq: number) => {
-      if (!filterActive(filter)) store(seenKey, String(seq));
+      if (filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
+      presented.current.add(seq);
+      const from = s.readFrom;
+      const unread = (s.messages ?? []).filter((m) => m.seq > from);
+      if (s.firstUnread > 0 && unread[0]?.seq !== s.firstUnread) return;
+      let through = s.readFrom;
+      for (const m of unread) {
+        if (!presented.current.has(m.seq)) break;
+        through = m.seq;
+      }
+      if (through > s.readFrom) ack(through);
     },
-    [seenKey, filter],
+    [filter, ack, s.messages, s.readFrom, s.firstUnread],
   );
+  const receiptsAt = useMemo(() => ({ board: name, activity: s.activity }), [name, s.activity]);
 
   const quote = useCallback(
     (m: Message) => {
@@ -375,7 +389,6 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 quote={quote}
                 answer={answer}
                 identity={identity}
-                mentionable={mentionable}
                 onMention={onMention}
                 waiting={waiting}
                 onReply={setReplyTo}
@@ -384,6 +397,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 onToggle={onToggle}
                 onShow={onShow}
                 onSeen={onSeen}
+                receipts={receiptsAt}
                 stick={stick}
                 resetKey={JSON.stringify(filter)}
                 empty={filterActive(filter) ? <NoMatches clear={() => setFilter({})} /> : <Empty agents={agents.length} />}
@@ -427,6 +441,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               members={s.members}
               record={s.record}
               me={me}
+              meId={s.me?.kind === "human" ? s.me.id : null}
               canInvite={s.me?.kind === "human"}
               from={filter.from}
               onPick={pick}

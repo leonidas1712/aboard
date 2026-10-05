@@ -56,6 +56,10 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		if to, err = checkTargets(tx, b, to); err != nil {
 			return err
 		}
+		recipients, err := recipientsOf(tx, b, me, to)
+		if err != nil {
+			return err
+		}
 		var role rules.Role
 		if me.Role != nil {
 			role = b.Roles[*me.Role]
@@ -71,21 +75,32 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 				"Send it without --urgent; it is delivered when the recipient is idle.")
 		}
 
+		// Mentions are read from the body as stored, against the members on the board now,
+		// so later joins never change who a message mentioned.
+		mentions, err := resolveMentions(tx, b, me, to, in.Body)
+		if err != nil {
+			return err
+		}
 		now := s.clk.Now()
 		id, err := s.gen.ID("msg", now)
 		if err != nil {
 			return err
 		}
-		e, err := s.append(tx, &b, events.MessagePosted, actorOf(me), now, map[string]any{
+		data := map[string]any{
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
-			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{},
-		})
+			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{}, "mentions": mentions,
+		}
+		if recipients != nil {
+			data["recipients"] = recipients
+		}
+		e, err := s.append(tx, &b, events.MessagePosted, actorOf(me), now, data)
 		if err != nil {
 			return err
 		}
 		msg = Message{
 			ID: id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
 			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
+			Recipients: recipients, Mentions: mentions,
 			SenderName: me.Name, SenderKind: me.Kind, SenderRole: me.Role, SenderOwner: me.Owner, SenderHuman: me.HumanID,
 		}
 		if err := tx.InsertMessage(msg); err != nil {
@@ -257,7 +272,8 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			}
 			from := me
 			from.Cursor = max(me.Cursor, after)
-			msgs, err := tx.Inbox(from, limit+1)
+			// A mention brings a message to the inbox only when the agent may read it.
+			msgs, err := tx.Inbox(from, readsAll(b, me), limit+1)
 			if err != nil {
 				return err
 			}
@@ -300,9 +316,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 			return err
 		}
 		if upTo > b.HeadSeq {
-			return apierr.New(http.StatusUnprocessableEntity, "ack_out_of_range",
-				fmt.Sprintf("Sequence %d is past the end of the board (%d).", upTo, b.HeadSeq),
-				"Acknowledge up to the last sequence number you received.")
+			return ackOutOfRange(upTo, b.HeadSeq)
 		}
 		before, err := tx.MemberByName(b.ID, p.Agent.Name)
 		if err != nil {

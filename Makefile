@@ -29,15 +29,15 @@ fmt: $(GOLANGCI_LINT)
 
 fmt-check: $(GOLANGCI_LINT)
 	@$(REQUIRE_GO); \
-	out="$$($(GOLANGCI_LINT) fmt --diff)"; \
+	out="$$($(GOLANGCI_LINT) fmt --diff)" || exit 1; \
 	if [ -n "$$out" ]; then echo "$$out"; echo "Run: make fmt"; exit 1; fi
 
 # The live suite builds only with its tag, so it is linted and vetted on its own.
 lint: $(GOLANGCI_LINT)
-	@$(REQUIRE_GO); $(GOLANGCI_LINT) run ./...; $(GOLANGCI_LINT) run --build-tags live ./e2e/live/...
+	@$(REQUIRE_GO); $(GOLANGCI_LINT) run ./... && $(GOLANGCI_LINT) run --build-tags live ./e2e/live/...
 
 vet:
-	@$(REQUIRE_GO); go vet ./...; go vet -tags live ./e2e/live/...
+	@$(REQUIRE_GO); go vet ./... && go vet -tags live ./e2e/live/...
 
 ## generate: regenerate code from spec/openapi.yaml
 generate:
@@ -47,7 +47,7 @@ generate:
 generate-check:
 	@$(REQUIRE_GO); \
 	before="$$(git status --porcelain --untracked-files=all; git diff | shasum)"; \
-	go generate ./...; \
+	go generate ./... || exit 1; \
 	after="$$(git status --porcelain --untracked-files=all; git diff | shasum)"; \
 	if [ "$$before" != "$$after" ]; then \
 		git status --short; echo "Generated code is out of date. Run: make generate"; exit 1; \
@@ -165,11 +165,11 @@ DOCS_HELP = go run ./server/cmd/aboard help --json
 
 ## docs-cli: write the docs' CLI reference and API spec copy from aboard help and spec/openapi.yaml
 docs-cli:
-	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli; 	cp spec/openapi.yaml docs/api-reference/openapi.yaml
+	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli || exit 1; 	cp spec/openapi.yaml docs/api-reference/openapi.yaml
 
 ## docs-check: fail if the docs' CLI reference or API spec copy is out of date
 docs-check:
-	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli -check; 	if ! cmp -s spec/openapi.yaml docs/api-reference/openapi.yaml; then 		echo "docs/api-reference/openapi.yaml differs from spec/openapi.yaml: run make docs-cli"; exit 1; 	fi
+	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli -check || exit 1; 	if ! cmp -s spec/openapi.yaml docs/api-reference/openapi.yaml; then 		echo "docs/api-reference/openapi.yaml differs from spec/openapi.yaml: run make docs-cli"; exit 1; 	fi
 
 # The Mintlify CLI needs Node 20.17 or later and the network on first use. It runs from
 # docs/node_modules (npm ci there), never a global install. Not part of make check.

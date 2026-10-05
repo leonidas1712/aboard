@@ -84,14 +84,15 @@ func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at tim
 }
 
 // see returns the board named name if p may see it, with p's membership and whether p
-// is on it. A person sees the boards they are on and every open board; an agent sees
-// only its own board, while it and its person are on it. Any other board, whether or
+// is on it. A person sees the boards they are on and, unless they are a guest, every
+// open board; an agent sees only its own board, while it and its person are on it. Any other board, whether or
 // not it exists, is board_not_found with the same message, so a name never tells
 // whether a board the caller can't see exists. It first checks, with the time read here,
 // that p's credential still works. Callers run it inside the transaction
 // that reads or writes the board, so a change of access can't let one more read in.
 func (s *Service) see(tx ReadTx, p Principal, name string) (Board, Member, bool, error) {
-	if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+	person, err := caller(tx, p, stamp(s.clk.Now()))
+	if err != nil {
 		return Board{}, Member{}, false, err
 	}
 	if p.Agent != nil {
@@ -114,7 +115,7 @@ func (s *Service) see(tx ReadTx, p Principal, name string) (Board, Member, bool,
 		return b, me, true, nil
 	case err != nil && !errors.Is(err, ErrNotFound):
 		return Board{}, Member{}, false, err
-	case b.Visibility == BoardOpen:
+	case b.Visibility == BoardOpen && person.Role != ServerGuest:
 		return b, Member{}, false, nil
 	}
 	return Board{}, Member{}, false, apierr.BoardNotFound(name)

@@ -42,7 +42,7 @@ its messages arrive there. Run in a plain terminal, they print how to act as the
 ```text
 Joined board general as member-2 (member, owner alex)
 Act as this agent with --as member-2, or set ABOARD_AGENT=member-2.
-Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply.
+Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.
 ```
 
 The agent's name comes from `--name`, else from the harness (`claude`, `codex`, `omp`,

@@ -80,7 +80,8 @@ func stoppedText(srv serverRef, serverStopped, daemonStopped bool) string {
 }
 
 // stopAboard sends SIGTERM to pid, but only if it is an aboard process, then waits
-// until stopped reports true.
+// until stopped reports true and the process exits. A closed socket alone does not
+// mean its process has finished writing files; a reused pid belongs to someone else.
 func stopAboard(ctx context.Context, pid int, stopped func() bool) error {
 	if pid <= 0 {
 		return fmt.Errorf("no process id recorded")
@@ -88,13 +89,19 @@ func stopAboard(ctx context.Context, pid int, stopped func() bool) error {
 	if name, ok := proctable.Name(pid); !ok || name != "aboard" {
 		return fmt.Errorf("process %d is not aboard", pid)
 	}
+	table := proctable.Table{}
+	start, ok := table.StartTime(pid)
+	if !ok {
+		return fmt.Errorf("process %d is not running", pid)
+	}
+	process := delivery.Process{PID: pid, Start: start}
 	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
 		return fmt.Errorf("signal process %d: %w", pid, err)
 	}
 	deadline := time.Now().Add(stopTimeout)
 	tick := time.NewTicker(50 * time.Millisecond)
 	defer tick.Stop()
-	for !stopped() {
+	for !stopped() || table.Alive(process) {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("process %d didn't stop within %s", pid, stopTimeout)
 		}

@@ -134,6 +134,7 @@ type presenceEvent struct {
 	Agent         string  `json:"agent"`
 	Presence      string  `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
+	Delivery      *string `json:"delivery"`
 }
 
 // presence returns the next block, failing unless it is a presence event.
@@ -167,6 +168,15 @@ func TestStreamSendsPresenceChanges(t *testing.T) {
 	s.setPresence(writer, api.PresenceIdle)
 	if p := st.presence(); p.Agent != "writer" || p.Presence != "idle" {
 		t.Fatalf("after going idle: %+v", p)
+	}
+
+	// A daemon that reports applying another delivery mode is a change too, so the board
+	// view shows what the daemon applies beside what the agent's person set.
+	off := api.DeliveryModeOff
+	r, err := s.client(writer).SetPresenceWithResponse(context.Background(), nil, api.SetPresenceJSONRequestBody{Presence: api.PresenceIdle, Delivery: &off})
+	mustStatus(t, r, err, 200)
+	if p := st.presence(); p.Agent != "writer" || p.Presence != "idle" || p.Delivery == nil || *p.Delivery != "off" {
+		t.Fatalf("after reporting off: %+v", p)
 	}
 
 	// Nothing renews it: the stream notices it ran out at a keepalive.

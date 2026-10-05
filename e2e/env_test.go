@@ -211,8 +211,12 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e := &env{t: t, bin: binary, home: home, dir: dir, addr: freeAddr(t)}
+	// Each race-instrumented CLI otherwise waits a fixed second before exiting. Keep
+	// race reporting and the caller's options, but omit that delay across the suite.
+	raceOptions := strings.TrimSpace(os.Getenv("GORACE") + " atexit_sleep_ms=0")
 	e.vars = []string{
 		"HOME=" + home,
+		"GORACE=" + raceOptions,
 		"USER=alex",
 		"PATH=" + fakeBin + string(os.PathListSeparator) + systemPath,
 		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
@@ -240,16 +244,19 @@ func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state")
 
 // stopServer stops the background local server and delivery daemon this env started.
 func (e *env) stopServer() {
-	for _, pidFile := range []string{
-		filepath.Join(e.dataDir(), "server.pid"),
-		filepath.Join(e.stateDir(), "daemon.pid"),
-	} {
-		raw, err := os.ReadFile(pidFile)
-		if err != nil {
-			continue
-		}
-		if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil {
-			_ = syscall.Kill(pid, syscall.SIGTERM)
+	// down waits for the original processes to exit, including unreaped exits, so
+	// TempDir cannot remove files while the daemon or server is still writing them.
+	if r := e.exec(nil, "", "down", "--json"); r.code != 0 {
+		e.t.Errorf("stop background processes before removing their home:\n%s", r)
+		// A failing shutdown must not leave the processes this home started behind.
+		for _, path := range []string{filepath.Join(e.dataDir(), "server.pid"), filepath.Join(e.stateDir(), "daemon.pid")} {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			if pid, err := strconv.Atoi(strings.TrimSpace(string(raw))); err == nil && pid > 1 {
+				_ = syscall.Kill(pid, syscall.SIGTERM)
+			}
 		}
 	}
 }

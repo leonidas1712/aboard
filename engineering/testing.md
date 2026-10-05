@@ -312,6 +312,16 @@ retried.
 A test that failed once and could not be made to fail again is listed here with what is
 known, so the next failure is compared against it rather than retried.
 
+- `TestInitShowsWhatIsAlreadySetUp` (`e2e/terminal_test.go`) reported a race on
+  GitHub's ubuntu-latest runner for PR #94, commit `f29df43`, run `37291410541`,
+  on 2026-10-05. The race was between `cancelreader`'s Linux
+  `epollCancelReader.wait` calling `os.File.Fd` and `epollCancelReader.Close`
+  closing its cancellation pipe during Bubble Tea shutdown after Ctrl-C.
+  Ten runs with `-race` passed on macOS; they do not exercise Linux's epoll reader.
+  Local Linux reproduction was unavailable because the Docker daemon did not
+  respond. The test remains unchanged; compare the next Linux failure with this
+  stack before treating it as the same problem.
+
 - `TestHumansModeWakesOnlyForPeople` (`e2e/modes_test.go`): timed out after 5 s waiting
   for both messages to be acknowledged, once, on GitHub's ubuntu-latest runner for
   branch `claude/dev-isolation` on 2026-10-03. It did not fail again in 130 Linux runs

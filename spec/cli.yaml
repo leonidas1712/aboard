@@ -28,11 +28,13 @@
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
 #   and logout always use it. board title, board people and boards act as an agent when
 #   one is selected by --as, ABOARD_AGENT or the session, for its owner, and never use the
-#   human login then.
+#   human login then. read --receipts does the same: as the selected agent when there is
+#   one, otherwise with the human login. read --mark-read always reads as the person, with
+#   the human login: a person's read position is theirs alone.
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board add, remove, leave, owner and visibility, invite, connect, approve, login, keys, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, board add, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -152,7 +154,16 @@ $defs:
       seat_ended (swarm up found agents whose seats ended with the access key they came
       from, which the server refuses as unauthorized; it starts nothing, details.agents
       names them, details.board their board, and the hint says to give each a new name
-      in the board file).
+      in the board file) · seat_board_gone (swarm up found agents whose token works but
+      whose board answers board_not_found: the board was deleted or is hidden from the
+      person, or the agents were removed from it, as they are for good when their person
+      is removed from or leaves the board; it starts nothing, details.agents names them,
+      details.board their board, and the hint says to give each a new name in the board
+      file once the person can see the board again, or to remove it from the file) ·
+      board_name_taken from swarm up (the board file's board isn't one the person can see,
+      but its name is taken, so it may be a private board they aren't on; details.board
+      names it, and the hint says to ask one of its owners to add them, or to name
+      another board).
   ServerRef:
     type: object
     required: [name, url]
@@ -187,9 +198,10 @@ $defs:
       every command that shows it, in the session-start note of a session that comes
       back, and in the notice of a changed mode (spec/delivery.md, "Telling the agent
       its mode"):
-        focused  A message to everyone wakes no agent in focused mode, you included; it
-                 arrives quietly at each one's next turn. To make an agent act soon,
-                 address it (--to @name or --to role:R) or ask with --expect-reply.
+        focused  A message to everyone wakes only the agents it mentions in focused
+                 mode, you included; the others get it quietly at their next turn. To
+                 make an agent act soon, address or mention it (--to @name, --to role:R,
+                 or @name in the text) or ask with --expect-reply.
         all      Every message wakes you, and every other agent in all mode, so post to
                  everyone sparingly and address the agents a message is for (--to @name
                  or --to role:R).
@@ -201,7 +213,7 @@ $defs:
       "Delivery mode: <mode>. <rule>" (pair, join, resume) or indented under the Agent
       line (status).
     type: string
-    examples: ["A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."]
+    examples: ["A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply."]
   PreviousBoard:
     description: |
       The board this directory was linked to before the command re-linked it, or null if
@@ -250,6 +262,7 @@ $defs:
       show_owner: { $ref: openapi.yaml#/components/schemas/Message/properties/show_owner }
       redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
       reactions: { $ref: openapi.yaml#/components/schemas/Message/properties/reactions }
+      mentions: { $ref: openapi.yaml#/components/schemas/Message/properties/mentions }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -503,7 +516,7 @@ $defs:
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
       delivery:
         enum: [focused, all, humans, off]
-        description: The new agent's delivery mode on this machine (see DeliveryOutput).
+        description: The new agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
@@ -512,12 +525,29 @@ $defs:
       Text output:
         Joined board writer-reviewer as reviewer (owner alex)
         This session acts as reviewer, and messages for reviewer arrive here.
-        Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply.
+        Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.
       Outside a harness session the second line is "Act as this agent with --as
       reviewer, or set ABOARD_AGENT=reviewer.".
+      A pairing code (a join line that names a role) is redeemed with this machine's
+      access key for the server the line names, and only its maker's own sessions may
+      use it: anyone else gets join_code_not_yours. A guest code's line says "as guest"
+      ("Join Aboard board docs on team.example.com as guest with code 9TR-4MW"); on a
+      machine with no key for that server it is redeemed with no key at all
+      (POST /v1/guest-join), over https unless the server is this machine, and guest is
+      true: the server makes the guest a person with the role guest, and the key it gives
+      this machine for them is saved in servers.json, as aboard connect saves one, so
+      their delivery daemon follows the board. The output then adds the line "You're a
+      guest on <server>: you and your agents reach only the boards you're invited to.
+      This machine's key, "<name>", is saved." On a machine with a key for that server, a
+      guest code works only for the guest identity it was issued for (a guest invited to a
+      second board); an anonymous redemption never issues a key for an existing person.
+      For anyone else it fails with guest_code_not_for_members.
     type: object
     required: [server, board, agent, use, charter, role_charter, policy_notice]
     properties:
+      guest:
+        type: boolean
+        description: True when the agent joined through a guest code, as a guest's agent.
       server: { $ref: "#/$defs/ServerRef" }
       board: { $ref: openapi.yaml#/components/schemas/Board }
       agent: { $ref: openapi.yaml#/components/schemas/Member }
@@ -529,7 +559,7 @@ $defs:
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
       delivery:
         enum: [focused, all, humans, off]
-        description: The new agent's delivery mode on this machine (see DeliveryOutput).
+        description: The new agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard invite [--role R] [--ttl DURATION] [--board NAME] ----------
@@ -539,7 +569,8 @@ $defs:
       board and prints a prompt to paste into an agent's session. The role defaults to
       the one the board's template invites when pairing (`reviewer` on writer-reviewer),
       else `member`. --ttl is how long the code works (Go duration, 1m to 168h; default
-      24h); any number of agents can join with it until then. Text output ends with the
+      24h); any number of the person's own agents can join with it until then, and
+      nobody else's (it is a pairing code). Text output ends with the
       prompt alone, after a blank line, so it can be copied whole. Inside a harness
       session it refuses with human_command_in_session, whose hint is the command to run.
     type: object
@@ -556,6 +587,35 @@ $defs:
         examples: ["Join Aboard board general on localhost as member with code 7Q4-K2M\nYou have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board."]
       expires_at: { type: string, format: date-time }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
+
+  # ---------- aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] ----------
+  GuestInviteOutput:
+    description: |
+      A person command with their own login: it makes a guest code for the board
+      (POST /boards/{board}/join-codes with guest) and prints the prompt to give the
+      guest, a person from outside the server, for their agent's session. The code lets
+      that one person onto this board only, once, as the guest HANDLE, before it
+      expires (--ttl, Go duration, 1m to 168h; default 24h). HANDLE must be free on the
+      server or a guest's; a member's is handle_taken. Agents can't make guest codes:
+      inside a harness session, or with ABOARD_AGENT set, it refuses with
+      human_command_in_session before it sends anything. Text output:
+        Created a guest code for board payments-design: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
+
+        Give this to sam, to paste into their agent's session:
+
+        Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW
+        You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board.
+    type: object
+    required: [board, role, guest, join_line, prompt, expires_at]
+    properties:
+      board: { type: string, examples: [payments-design] }
+      role: { type: string, examples: [member] }
+      guest: { $ref: openapi.yaml#/components/schemas/Handle }
+      join_line:
+        type: string
+        examples: ["Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW"]
+      prompt: { type: string }
+      expires_at: { type: string, format: date-time }
 
   # ---------- aboard invite --server [--ttl DURATION] ----------
   ServerInviteOutput:
@@ -826,6 +886,17 @@ $defs:
         their inbox). A reply without --to goes to the people and agents already in its
         thread (openapi.yaml, PostMessageRequest.to), which the first line names.
 
+        A member the message mentions (`@name` or `@role:R` in the text; spec/events.md,
+        "Mentions") is listed too, with `mentioned` true, whether or not the message is
+        addressed to it. A mention that wakes an agent counts as addressing it, so its
+        outcome is `now`, `turn_end`, `no_session` or `not_woken` (its mode is `off`, or
+        `humans` and the sender is an agent), never `next_turn`. A mentioned agent the
+        message isn't addressed to and the mention can't wake has one of two more
+        outcomes: `cannot_read` (the board's visibility is `addressed`, so the agent may
+        not read the message, and a mention doesn't change that) or `over_limit` (the
+        message mentions more than 8 agents that may read it, and only the first 8 are
+        woken).
+
       Text output: "Sent #<seq> to <targets> on <board>", then a line about the sender's
       unread messages when there are any, then one line about the recipients, grouped by
       outcome in the order above, naming up to five per group and counting the rest:
@@ -833,17 +904,22 @@ $defs:
         2 unread on general: #6, #7; run aboard inbox
         @reviewer gets it now. @codex, @claude-2 get it when their turn ends. @alex sees it on the board or in their inbox.
       The other groups read "@omp sees it at its next turn." ("@omp, @codex see it at
-      their next turn."), "@bot won't be woken: it sees it when it checks its inbox."
-      and "@old is disconnected: it sees it in its inbox or when its session
-      reconnects.", with "they … their" for several ("are disconnected … when their
-      sessions reconnect").
+      their next turn."), "@bot won't be woken: it sees it when it checks its inbox.",
+      "@old is disconnected: it sees it in its inbox or when its session
+      reconnects.", "@codex can't read it: on this board an agent reads only messages
+      addressed to it, and a mention doesn't change that." and "@omp won't get it: a
+      message's mentions wake at most 8 agents.", with "they … their" for several ("are
+      disconnected … when their sessions reconnect", "can't read it: on this board
+      agents read only messages addressed to them, …").
 
       `warning` is set when the message is to everyone and wakes no agent: at least one
-      recipient's outcome is `next_turn` and none is `now` or `turn_end`. In focused mode,
+      recipient's outcome is `next_turn` and none is `now` or `turn_end`. A mentioned
+      agent counts by its outcome: one its mention wakes now or at its turn's end stops
+      the warning, and one in `off` mode doesn't. In focused mode,
       the default, a message to everyone that asks nothing and answers nothing wakes no
       agent, so an agent that posts to everyone when it means one agent leaves that agent
       asleep. Text output then ends with one more line, in yellow at a terminal:
-        Warning (wakes_no_agent): No agent wakes for this message to everyone; agents in focused mode see it at their next turn. To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply.
+        Warning (wakes_no_agent): No agent wakes for this message to everyone; agents in focused mode see it at their next turn. To make one act soon, mention it (@name in the text), send it with --to @name or --to role:R, or ask with --expect-reply.
 
       --wait-reply N (which implies --expect-reply) then waits up to N seconds, inside the
       same command, for a reply: a message whose `reply_to` is this one. The command
@@ -882,13 +958,16 @@ $defs:
                 name: { type: string }
                 sender: { $ref: openapi.yaml#/components/schemas/Message/properties/sender }
       recipients:
-        description: Every member the message is addressed to, except the sender; null if the members couldn't be read.
+        description: Every member the message is addressed to or mentions, except the sender; null if the members couldn't be read.
         type: [array, "null"]
         items:
           type: object
-          required: [name, presence, delivery, outcome]
+          required: [name, presence, delivery, outcome, mentioned]
           properties:
             name: { type: string }
+            mentioned:
+              type: boolean
+              description: True when the message mentions this member.
             presence:
               type: [string, "null"]
               enum: [working, idle, waiting, no_session, null]
@@ -898,7 +977,7 @@ $defs:
               enum: [focused, all, humans, off, auto, null]
               description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
-              enum: [now, turn_end, next_turn, not_woken, no_session, person]
+              enum: [now, turn_end, next_turn, not_woken, no_session, cannot_read, over_limit, person]
       warning:
         description: |
           Set when the message is to everyone and wakes no agent (see above); null
@@ -912,7 +991,7 @@ $defs:
             examples: ["No agent wakes for this message to everyone; agents in focused mode see it at their next turn."]
           hint:
             type: string
-            examples: ["To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply."]
+            examples: ["To make one act soon, mention it (@name in the text), send it with --to @name or --to role:R, or ask with --expect-reply."]
       outcome:
         description: Present with --wait-reply.
         enum: [reply, owner_message, timeout]
@@ -1097,6 +1176,84 @@ $defs:
         items: { $ref: "#/$defs/Message" }
       next_after: { type: [integer, "null"] }
       prev_before: { type: [integer, "null"] }
+
+  # ---------- aboard read --mark-read [--limit N] [--board B] ----------
+  ReadMarkOutput:
+    description: |
+      A person's unread messages on a board, read with their own login, and marked read.
+      It shows the oldest messages after the person's read position (at most --limit,
+      default 50), then moves the position to the last one shown, so it never marks read
+      a message it didn't show. It is a person's command: inside a harness session or with
+      ABOARD_AGENT set it refuses with human_command_in_session, and --as is a usage
+      error (an agent's read position moves with aboard inbox). It can't be combined with
+      the window flags, the filters, --thread, --threads, --receipts or --markdown (usage
+      error). The board is --board, then this directory's .aboard, then the machine's
+      default.
+
+      Text output: the header line "<board> · <n> unread" ("<board> · nothing unread"
+      when there is none), the messages in read's format, then one line saying what moved:
+        general · 2 unread
+        #6  @codex → @maya
+            member · codex · owner_agent
+            The tests pass.
+        #8  @sam → all
+            other_person
+            Lunch?
+        Marked read up to #8.
+      When more unread messages remain, a last line says how to see them:
+        3 more unread: aboard read --mark-read
+    type: object
+    required: [board, messages, read_up_to, unread]
+    properties:
+      board: { type: string }
+      messages:
+        type: array
+        items: { $ref: "#/$defs/Message" }
+      read_up_to:
+        type: integer
+        minimum: 0
+        description: The person's read position after this command.
+      unread:
+        type: integer
+        minimum: 0
+        description: How many messages are still unread after it.
+
+  # ---------- aboard read --receipts MSG ----------
+  ReadReceiptsOutput:
+    description: |
+      Whether one message has reached each member it was addressed to, as the API's
+      receipts give it: pending, received (an agent's read position has passed it) or
+      read (a person's has). Recipients are fixed when the message is posted; a message
+      to everyone has none. An agent's presence is the one it has now, which can say why
+      a message is still pending. MSG is any message reference. With an agent selected
+      (--as, ABOARD_AGENT or the session) it reads as that agent, on its board; otherwise
+      with the person's login, on --board, then this directory's .aboard, then the
+      machine's default. --receipts can't be combined with any other read flag but --as
+      and --board (usage error).
+
+      Legacy messages have no recorded recipients: available is false and text says receipts unavailable.
+      Text output: the header line "<board> · #<seq> to <targets>", then one line per
+      recipient, its name and state, and for a pending agent its presence now:
+        general · #12 to @codex, role:reviewer
+          codex  received
+          omp    pending · working now
+          maya   read
+      For a message to everyone:
+        general · #12 to everyone · receipts are kept only for messages to someone
+    type: object
+    required: [board, seq, message_id, to, to_everyone, available, recipients]
+    properties:
+      board: { type: string }
+      seq: { type: integer, minimum: 1 }
+      message_id: { type: string }
+      to:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/Target }
+      to_everyone: { type: boolean }
+      available: { type: boolean }
+      recipients:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/Receipt }
 
   # ---------- aboard read --thread MSG [--markdown] ----------
   ReadThreadOutput:
@@ -1305,7 +1462,7 @@ $defs:
       and any bundle left unconfirmed are delivered to this session. A session bound to
       another agent moves to this one (see PreviousAgent). Text output:
         Resumed reviewer on writer-reviewer in this session.
-        Delivery mode: focused. A message to everyone wakes no agent in focused mode, you included; …
+        Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; …
     type: object
     required: [agent, board, session, previous_agent]
     properties:
@@ -1315,7 +1472,7 @@ $defs:
       previous_agent: { $ref: "#/$defs/PreviousAgent" }
       delivery:
         enum: [focused, all, humans, off]
-        description: The agent's delivery mode on this machine (see DeliveryOutput).
+        description: The agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
   # ---------- aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery MODE] [--allow-commands] ----------
@@ -1367,10 +1524,14 @@ $defs:
       access, so aboard commands Codex runs can't reach the local server; add
       --allow-commands to let Codex run them outside its sandbox."
 
-      --delivery sets the delivery mode of every agent on this machine that has none of
-      its own (see DeliveryOutput); it goes through the delivery daemon. Like aboard
-      delivery, it is refused with human_command_in_session inside a harness session.
-      Without --delivery (or an answer to the question) the mode is left alone.
+      --delivery sets, in this machine's delivery daemon, the delivery mode of every agent
+      on this machine that has none of its own (see DeliveryOutput). It applies only
+      while an agent's server doesn't hold delivery modes; a server that does decides
+      every agent's mode, focused when its person never set one, and aboard doctor warns
+      (delivery_mode_kept_here) about each agent whose mode this machine kept differs
+      from it. Like aboard delivery, it is refused with human_command_in_session inside
+      a harness session. Without --delivery (or an answer to the question) the mode is
+      left alone.
 
       Once it has written, init records each file in the install manifest
       (installs.json in the state folder): its path, harness, scope, kind, the version of
@@ -1451,6 +1612,17 @@ $defs:
       messages and …", fix "update Claude Code to 2.1.69 or later, then run aboard
       init"), and <check>_version_unknown says the version couldn't be read, so only
       what the oldest supported version runs was installed.
+      A check named delivery_mode warns, with code delivery_mode_kept_here, about each of
+      this machine's agents whose delivery mode this machine kept (set here by an aboard
+      from before servers held modes, or by aboard init --delivery) and its server
+      doesn't hold, which now applies the server's mode: "reviewer on writer-reviewer:
+      this machine kept delivery mode all for it, which its server doesn't hold, so it is
+      focused now", fix "to keep all, run aboard delivery all --as reviewer in a
+      terminal; to keep focused, run aboard delivery focused --as reviewer". Nothing
+      moves the mode to the server by itself; it is the agent's person's choice. When
+      the agent's server can't be reached, the same check warns with code
+      delivery_mode_unconfirmed: "reviewer on writer-reviewer: delivery off (kept on this
+      machine; the server couldn't be reached)".
     type: object
     required: [checks]
     properties:
@@ -1460,7 +1632,7 @@ $defs:
           type: object
           required: [name, level, code, message, fix]
           properties:
-            name: { type: string, examples: [local_server, daemon, claude_hooks, claude_skill, codex, codex_hooks, codex_allow, codex_skill] }
+            name: { type: string, examples: [local_server, daemon, claude_hooks, claude_skill, codex, codex_hooks, codex_allow, codex_skill, delivery_mode] }
             level: { enum: [ok, warning, error] }
             code: { type: [string, "null"], description: "Null when ok; otherwise a code from spec/delivery.md." }
             message: { type: string }
@@ -1483,9 +1655,13 @@ $defs:
   # ---------- aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] ----------
   DeliveryOutput:
     description: |
-      Shows or changes the acting agent's delivery mode on this machine. The mode is kept
-      by the delivery daemon, per agent; an agent nobody set has the machine's default
-      (aboard init --delivery), else focused.
+      Shows or changes an agent's delivery mode. The agent's server holds the mode
+      (openapi.yaml, PUT /boards/{board}/members/{member}/delivery), so it is the same on
+      every machine and in the board view, and the delivery daemon running the agent's
+      session follows a change made anywhere. An agent nobody set is focused. The agent
+      is the acting one (--as, ABOARD_AGENT or this session's), or, with --as and the
+      board (--board or this directory's .aboard file), any agent of the person's, even
+      one that runs on another machine.
         focused wakes the agent's session only for messages that concern it: from a
                 person, addressed to it or its role, a reply to its message, a question,
                 or urgent; the rest arrive quietly at the start of its next turn
@@ -1496,11 +1672,18 @@ $defs:
         off     delivers nothing; the agent reads its inbox itself
       auto, the earlier name of all, is still accepted and shown as all.
       With no argument it shows the mode, anywhere, without starting the daemon. With a
-      mode it changes it: a human action, so it refuses with human_command_in_session
-      when run inside a harness session (any of the variables in a harness profile's
-      session_env or sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …).
-      A running daemon from an older aboard is replaced first; if that fails and it lacks
-      the operation, the command fails with daemon_outdated. Text output:
+      mode it changes it on the server with the person's own login, and tells this
+      machine's delivery daemon at once if it runs. It is a human action, so it refuses
+      with human_command_in_session when run inside a harness session (any of the
+      variables in a harness profile's session_env or sandbox_env is set: ABOARD_SESSION,
+      CLAUDECODE, CODEX_THREAD_ID, …) or with ABOARD_AGENT set. Only the agent's own
+      person may change it: anyone else gets agent_owner_required, a board owner and an
+      admin included; a name that isn't an agent on the board gets agent_not_found.
+      Against a server that doesn't hold delivery modes (an older aboard), the mode of an
+      agent on this machine is kept by this machine's delivery daemon instead, and
+      revision is null; a running daemon from an older aboard is replaced first, and if
+      that fails and it lacks the operation, the command fails with daemon_outdated.
+      Text output:
         reviewer on writer-reviewer: delivery humans (wakes only for messages from people)
         reviewer on writer-reviewer: delivery now off (delivers nothing; the agent reads its inbox itself)
       "now" marks a change. all reads "(wakes for every message)" and focused "(wakes
@@ -1512,6 +1695,19 @@ $defs:
       agent: { type: string }
       mode: { enum: [focused, all, humans, off] }
       changed: { type: boolean, description: "True when this command changed the mode." }
+      revision:
+        type: [integer, "null"]
+        description: |
+          The server's revision of the mode: the sequence number of the board event that
+          last set it, 0 when it was never set. Null when the server doesn't hold delivery
+          modes and the mode is this machine's.
+      unconfirmed:
+        type: boolean
+        description: |
+          True when the agent's server couldn't be read, so the mode shown is the one this
+          machine kept (its daemon's journal), which its daemon applies until it reads the
+          server again. The text then reads "delivery off (kept on this machine; the
+          server couldn't be reached) (…)".
 
   # ---------- aboard status [--as AGENT] [--board NAME] [--launch TICKET] ----------
   StatusOutput:
@@ -1532,7 +1728,7 @@ $defs:
         Setup:  claude-code everywhere, codex in this project
         Board:  writer-reviewer on http://127.0.0.1:7400 (from ./.aboard)
         Agent:  writer (from --as); delivery focused; idle
-                A message to everyone wakes no agent in focused mode, you included; …
+                A message to everyone wakes only the agents it mentions in focused mode, you included; …
         Policy: starter (a starting point; tighten with aboard board policy recommended)
         People: alex (admin), sam (member)
       The line under the Agent line is the agent's delivery rule (DeliveryRule), indented.
@@ -1588,6 +1784,28 @@ $defs:
               Deliveries handed to an idle session that started no turn within 10 seconds,
               until a turn starts or the session closes. aboard doctor names each
               (delivery_stalled). They are never handed again because of it.
+          stopped_agents:
+            type: array
+            description: |
+              Agents on this machine whose deliveries the daemon stopped, with why:
+              board_gone when the agent's board answers board_not_found to it (the board
+              was deleted or is hidden from its person, or the agent was removed from it,
+              as it is for good when its person is removed from or leaves the board), and
+              the daemon reads nothing more for it; unauthorized when the server rejects its
+              token. Text output adds an indented line under the Daemon line for each: for
+              board_gone, "writer can't reach docs any more: the board is gone or hidden
+              from its person, or the agent was removed from it. Join again with a new agent
+              (aboard join) if the person still belongs on it."; otherwise "deliveries for
+              writer on docs stopped (unauthorized); see aboard doctor". Left out when the
+              daemon isn't running.
+            items:
+              type: object
+              required: [server, board, name, reason]
+              properties:
+                server: { type: string }
+                board: { type: string }
+                name: { type: string }
+                reason: { type: string, examples: [board_gone, unauthorized] }
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]
@@ -1598,7 +1816,23 @@ $defs:
         description: "flag: --as. env: ABOARD_AGENT. session: the agent bound to this harness session."
       delivery:
         enum: [focused, all, humans, off, null]
-        description: The agent's delivery mode on this machine (see DeliveryOutput); null with no agent.
+        description: |
+          The agent's delivery mode as its server holds it (see DeliveryOutput), or this
+          machine's from a server that doesn't hold modes; null with no agent.
+      delivery_applied:
+        enum: [focused, all, humans, off, null]
+        description: |
+          The mode the agent's delivery daemon last reported applying (Member.delivery in
+          openapi.yaml); null with no agent or when none was reported. When it differs
+          from delivery while the agent has a session, as with a daemon from an older
+          aboard that keeps its own mode, the Agent line says so after the mode: "delivery
+          focused (its delivery daemon applies all)".
+      delivery_unconfirmed:
+        type: boolean
+        description: |
+          True when the server couldn't be read, so delivery is the mode this machine kept;
+          the Agent line says "delivery off (kept on this machine; the server couldn't be
+          reached)".
       delivery_rule:
         oneOf:
           - $ref: "#/$defs/DeliveryRule"
@@ -1701,8 +1935,9 @@ $defs:
       (hidden_boards). Inside a harness session, or with --as, it lists only the agent's
       own board, with the agent's token, and says so (as names the agent; role is null). An agent is selected by --as, then ABOARD_AGENT, then the session; --all with an agent selected is a usage error.
       Text output is one line per board: its name, its title, its visibility (Private
-      always; Open only when more than one person is on it), the role, the counts, and
-      "default" for this directory's board.
+      always; Open only when more than one person is on it), the role, the counts, how
+      many messages are unread ("3 unread", left out when none are), and "default" for
+      this directory's board.
     type: object
     required: [server, as, all, boards, hidden_boards]
     properties:
@@ -1715,7 +1950,7 @@ $defs:
         type: array
         items:
           type: object
-          required: [name, title, visibility, on_board, role, people, agents, default]
+          required: [name, title, visibility, on_board, role, people, agents, unread, default]
           properties:
             name: { type: string }
             title: { type: [string, "null"] }
@@ -1731,6 +1966,13 @@ $defs:
               type: [integer, "null"]
               minimum: 0
               description: Null for an open board the person isn't on, whose members they can't read.
+            unread:
+              type: [integer, "null"]
+              minimum: 0
+              description: |
+                How many messages on the board are unread: for a person, every message after
+                their read position that they didn't send; for an agent, its unread inbox.
+                Null for an open board the person isn't on.
             default:
               type: boolean
               description: True for the board this directory's .aboard names.
@@ -1746,7 +1988,8 @@ $defs:
       (theirs, or an open one); with --as or ABOARD_AGENT, or inside a harness session, it acts as the
       agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
       <n> people", then one line per person: their name on the board, "(owner)" for an
-      owner, and their display name when they have one.
+      owner, "(guest)" for a guest of the server, and their display name when they have
+      one. Each person's server_role is in the JSON.
     type: object
     required: [board, visibility, people]
     properties:
@@ -1832,6 +2075,62 @@ $defs:
           - { $ref: openapi.yaml#/components/schemas/Reveals }
           - { type: "null" }
       join_codes_canceled: { type: integer, minimum: 0 }
+
+  # ---------- aboard people [--server URL] ----------
+  PeopleOutput:
+    description: |
+      The people on the server (GET /v1/people), oldest first, each with their server
+      role: admin, member or guest. The server is --server (one this machine holds a key
+      for), else the one this directory's .aboard names, else the local server, which it
+      starts if needed. A person command: inside a harness session, or with ABOARD_AGENT
+      set, it refuses with human_command_in_session before it sends anything. Text
+      output:
+        People on https://team.example.com:
+          alex  admin
+          maya  member  Maya Chen
+          sam   guest
+    type: object
+    required: [server, people]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      people:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/Person }
+
+  # ---------- aboard people role @handle admin|member [--server URL] ----------
+  PeopleRoleOutput:
+    description: |
+      Makes a person an admin of the server, or a member again (PATCH /v1/people/{handle});
+      admins only, with their own key (server_admin_required otherwise). The last admin
+      can't be made a member (last_admin), and a guest's role can't change
+      (person_is_guest). Refuses inside a harness session or with ABOARD_AGENT set, as
+      every people command does. Text: "maya is now an admin of <server>." or "maya is
+      already a member of <server>." (changed false).
+    type: object
+    required: [server, person, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: openapi.yaml#/components/schemas/Person }
+      changed: { type: boolean }
+
+  # ---------- aboard people remove @handle [--yes] [--server URL] ----------
+  PeopleRemoveOutput:
+    description: |
+      Removes a person from the server (DELETE /v1/people/{handle}); admins only, with
+      their own key. It first asks the server what the removal does (dry_run) and says
+      it: the keys, browser sessions and agents that stop, how many boards they leave,
+      where ownership passes, and any private board no one could read again. It asks
+      "Remove <handle> from <server>? [y/N]" in a terminal; elsewhere, or with --json,
+      it needs --yes and otherwise fails with confirmation_required, whose message says
+      the same. The last admin can't be removed (last_admin). Text after removing:
+        Removed maya from https://team.example.com: 2 keys, 1 browser session and 3 agents stopped, and maya left 4 boards.
+      then, when they apply, "Ownership of 1 board passes to the person on it longest."
+      and "1 private board has no one left on it, so no one can read it again (brd_…)."
+    type: object
+    required: [server, removal]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      removal: { $ref: openapi.yaml#/components/schemas/PersonRemoval }
 
   # ---------- aboard audit verify ----------
   AuditVerifyOutput:
@@ -1929,16 +2228,20 @@ $defs:
         type: [string, "null"]
         description: The agent's delivery mode as the board shows it.
       seat_credential:
-        enum: [works, ended, null]
+        enum: [works, ended, board_gone, null]
         description: |
-          Whether the token of the agent's seat still works, as swarm ps and show check it
-          with the server (all agents at once, each with its own token, which counts as a
-          use of the key behind it): ended when the server refuses the token as
-          unauthorized, because the access key the seat came from was revoked or has
-          expired, so its session can no longer act on the board, and text output says
-          so; null when this machine holds no token for the agent, the server couldn't be
-          asked or refused for another reason, or the command doesn't fill it in (swarm
-          up, which instead refuses ended seats with seat_ended before starting anything).
+          Whether the token of the agent's seat still works on its board, as swarm ps and
+          show check it with the server by reading the board with the agent's own token
+          (all agents at once, which counts as a use of the key behind each): ended when
+          the server refuses the token as unauthorized, because the access key the seat
+          came from was revoked or has expired; board_gone when the token works but the
+          board answers board_not_found, because the board was deleted or is hidden from
+          the person, or the agent was removed from it (as an agent is for good when its
+          person is removed from or leaves the board, even if they come back). Either way
+          its session can no longer act on the board, and text output says so. null when
+          this machine holds no token for the agent, the server couldn't be asked or
+          answered otherwise, or the command doesn't fill it in (swarm up, which instead
+          refuses such seats with seat_ended or seat_board_gone before starting anything).
 
   SwarmUpOutput:
     description: |

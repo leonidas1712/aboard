@@ -307,6 +307,8 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	markdown := fs.Bool("markdown", false, "print a Markdown transcript to paste into a session")
 	thread := fs.String("thread", "", "show the whole thread this message is in: msg_…, 6 or #6")
 	threads := fs.Bool("threads", false, "list the board's threads, the newest activity first")
+	markRead := fs.Bool("mark-read", false, "show your unread messages, as yourself, and mark the ones shown read")
+	receipts := fs.String("receipts", "", "whether this message has reached each recipient: msg_…, 6 or #6")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board")
 	if _, err := a.parse(fs, args, readUsage, 0, 0); err != nil {
@@ -327,6 +329,21 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	}
 	if *threads && (*thread != "" || windows > 0 || *from != "" || *role != "" || *toMe || *markdown) {
 		return usageError("--threads lists every thread, so it can't be combined with --thread, --after, --before, --around, --from, --role, --to-me or --markdown.", readUsage)
+	}
+	if *receipts != "" {
+		if *markRead || *thread != "" || *threads || windows > 0 || *from != "" || *role != "" || *toMe || *limit > 0 || *markdown {
+			return usageError("--receipts shows one message's receipts, so it can be combined only with --as and --board.", readUsage)
+		}
+		return runReadReceipts(ctx, a, *receipts, *boardFlag, *as)
+	}
+	if *markRead {
+		if *thread != "" || *threads || windows > 0 || *from != "" || *role != "" || *toMe || *markdown {
+			return usageError("--mark-read shows your unread messages from your read position on, so it can't be combined with --thread, --threads, --after, --before, --around, --from, --role, --to-me or --markdown.", readUsage)
+		}
+		if *as != "" {
+			return usageError("--mark-read moves your own read position, as a person. An agent's moves with aboard inbox.", readUsage)
+		}
+		return runReadMarked(ctx, a, *boardFlag, *limit)
 	}
 	f := readFilter{from: strings.TrimPrefix(*from, "@"), role: *role, toMe: *toMe, limit: *limit}
 	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)

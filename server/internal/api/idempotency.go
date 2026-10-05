@@ -36,12 +36,12 @@ type SavedResponse struct {
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
 // again. The responses that carry a login code, a browser token, a server invite, an
-// access key or a machine request's secrets are never saved, so none is ever written to disk: those writes ignore the
+// access key, a guest's key and agent token, or a machine request's secrets are never saved, so none is ever written to disk: those writes ignore the
 // key.
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
-		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" ||
+		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||

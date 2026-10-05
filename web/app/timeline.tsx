@@ -9,8 +9,9 @@ import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useM
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardEvent, Message, MemberRef } from "./api";
-import { segments } from "./mentions";
+import { mentionedTargets, segments } from "./mentions";
 import { type OnReact, ReactButton, Reactions } from "./reactions";
+import { ReceiptMark, wantsReceipts } from "./receipts";
 import { clockTime, count, displayName, exactTime, markOf, recipients, relativeTime } from "./words";
 
 /**
@@ -52,8 +53,6 @@ type Props = {
   answer: (m: Message) => Message | null;
   /** identity is the sender's identity colour, 1 to 8. */
   identity: (from: MemberRef) => number;
-  /** mentionable holds every target a mention may name ("@codex", "role:reviewer"). */
-  mentionable: Set<string>;
   /** onMention shows a mentioned member or role in the board panel. */
   onMention: (target: string) => void;
   /** waiting holds the ids of questions waiting for the person's reply. */
@@ -67,8 +66,10 @@ type Props = {
   onToggle: (root: string, open: boolean) => void;
   /** onShow scrolls to a message, opening its thread first if it is closed. */
   onShow: (id: string) => void;
-  /** onSeen runs with the newest seq while the newest entry is in view. */
+  /** onSeen runs for each message row presented on screen. */
   onSeen: (seq: number) => void;
+  /** receipts says where to read the receipts of the person's messages; null shows none. */
+  receipts: ReceiptsAt;
   /** stick asks the timeline to scroll to the newest entry once, as after posting. */
   stick: number;
   /** resetKey changes when the timeline shows something else, such as a new filter. */
@@ -113,7 +114,6 @@ export function Timeline({
   quote,
   answer,
   identity,
-  mentionable,
   onMention,
   waiting,
   onReply,
@@ -122,6 +122,7 @@ export function Timeline({
   onToggle,
   onShow,
   onSeen,
+  receipts,
   stick,
   resetKey,
   empty,
@@ -133,7 +134,7 @@ export function Timeline({
   const [unseen, setUnseen] = useState(0);
   const lastCount = useRef({ first: 0, last: 0, height: 0, messages: 0 });
   const now = useNow();
-  const mentions = useMemo(() => ({ known: mentionable, onMention }), [mentionable, onMention]);
+  const mentions = useMemo(() => ({ onMention }), [onMention]);
 
   const newestSeq = entries.at(-1)?.seq ?? 0;
   // latest is the newest message shown anywhere, replies in threads included.
@@ -187,8 +188,25 @@ export function Timeline({
   }, [stick, toBottom]);
 
   useEffect(() => {
-    if (atBottom.current && latest > 0) onSeen(latest);
-  }, [latest, onSeen]);
+    const el = scroller.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((observed) => {
+      if (document.visibilityState !== "visible") return;
+      for (const row of observed) {
+        if (row.isIntersecting) onSeen(Number((row.target as HTMLElement).dataset.seq));
+      }
+    }, { root: el });
+    const observe = () => {
+      observer.disconnect();
+      for (const row of el.querySelectorAll<HTMLElement>(".message[data-seq]")) observer.observe(row);
+    };
+    observe();
+    document.addEventListener("visibilitychange", observe);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", observe);
+    };
+  }, [entries, onSeen]);
 
   // The scrollbar shows while the timeline scrolls, then fades back out.
   const scrolling = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -203,7 +221,6 @@ export function Timeline({
     setShowJump(!bottom);
     if (bottom) {
       setUnseen(0);
-      if (latest > 0) onSeen(latest);
     }
     lastCount.current.height = el.scrollHeight;
   };
@@ -249,6 +266,7 @@ export function Timeline({
                       onReact={onReact}
                       me={me}
                       onShow={onShow}
+                      receipts={receipts}
                       grouped={!divider && continues(entries[i - 1], x)}
                       groupGoesOn={!x.thread && !nextDivider && next !== undefined && continues(x, next)}
                       ruled={i > 0 && !divider && entries[i - 1].kind === "message"}
@@ -273,6 +291,7 @@ export function Timeline({
                       me={me}
                       onToggle={onToggle}
                       onShow={onShow}
+                      receipts={receipts}
                       openedAt={openedAt.current!}
                     />
                   )}
@@ -410,6 +429,9 @@ function Kind({ m, nested }: { m: Message; nested: boolean }) {
   );
 }
 
+/** ReceiptsAt is the board to read receipts on and what moves them; null shows none. */
+export type ReceiptsAt = { board: string; activity: number } | null;
+
 function MessageEntry({
   m,
   now,
@@ -422,6 +444,7 @@ function MessageEntry({
   onReact,
   me,
   onShow,
+  receipts,
   grouped,
   groupGoesOn,
   ruled,
@@ -441,6 +464,7 @@ function MessageEntry({
   onReact: OnReact;
   me: string | null;
   onShow: (id: string) => void;
+  receipts: ReceiptsAt;
   /** grouped is true when the message shows under the header of the one before. */
   grouped: boolean;
   /** groupGoesOn is true when the next message shows under this one's header. */
@@ -551,9 +575,10 @@ function MessageEntry({
           </p>
         )}
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
-          <Body text={m.body} mentions={mentions} />
+          <Body m={m} mentions={mentions} />
         </p>
         <Reactions m={m} me={me} onReact={onReact} />
+        {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
         {grouped && <div className="absolute top-0 right-2.5">{actions}</div>}
         {waiting && (
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
@@ -586,6 +611,7 @@ function ThreadBlock({
   me,
   onToggle,
   onShow,
+  receipts,
   openedAt,
 }: {
   root: Message;
@@ -601,6 +627,7 @@ function ThreadBlock({
   me: string | null;
   onToggle: (root: string, open: boolean) => void;
   onShow: (id: string) => void;
+  receipts: ReceiptsAt;
   openedAt: number;
 }) {
   const id = `thread-${root.id}`;
@@ -672,6 +699,7 @@ function ThreadBlock({
                   onReact={onReact}
                   me={me}
                   onShow={onShow}
+                  receipts={receipts}
                   grouped={prev !== undefined && follows(prev, r)}
                   groupGoesOn={next !== undefined && follows(r, next)}
                   ruled={false}
@@ -697,15 +725,16 @@ function ThreadBlock({
   );
 }
 
-/** Mentions is what a message body needs to mark its mentions: who can be named, and what a click does. */
-type Mentions = { known: Set<string>; onMention: (target: string) => void };
+/** Mentions is what a message body needs to mark its mentions: what a click on one does. */
+type Mentions = { onMention: (target: string) => void };
 
 /**
- * Body is a message's text as written, with each mention of a member or role marked
- * as a button that shows them in the board panel. The text stays text, never HTML.
+ * Body is a message's text as written, with each mention the server recorded when it
+ * was posted marked as a button that shows the member or role in the board panel. The
+ * text stays text, never HTML.
  */
-function Body({ text, mentions }: { text: string; mentions: Mentions }) {
-  return segments(text, mentions.known).map((s, i) =>
+function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
+  return segments(m.body, mentionedTargets(m)).map((s, i) =>
     s.target ? (
       <button
         key={i}

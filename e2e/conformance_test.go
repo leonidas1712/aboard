@@ -142,6 +142,7 @@ func TestHarnessConformance(t *testing.T) {
 			run("Delivery/QuietWaitsForTheNextTurn", "idle_delivery", kitQuietWaitsForTheNextTurn)
 			run("Delivery/QuietWhileBusy", "turn_end", kitQuietWhileBusy)
 			run("Delivery/WakingCarriesTheQuiet", "idle_delivery", kitWakingCarriesTheQuiet)
+			run("Delivery/MentionWakes", "idle_delivery", kitMentionWakes)
 			run("Delivery/CombinesWakes", "idle_delivery", kitCombinesWakes)
 			run("Delivery/Digest", "idle_delivery", kitDigest)
 			run("Delivery/AllMode", "idle_delivery", kitAllMode)
@@ -908,7 +909,14 @@ func kitHooks(t *testing.T, p support.Profile) {
 	if _, ok := p.Hook("prompt"); ok {
 		var w *proc
 		if p.WaitsForIdle() {
+			// Registration already reports idle. Start a turn first, so idle below
+			// proves the stop hook reached the daemon before the next prompt.
+			if r := s.op("prompt", `"prompt":"before the wait"`); r.code != 0 {
+				t.Fatalf("prompt before the wait failed\n%s", r)
+			}
+			e.presenceIs("writer-reviewer", "reviewer", "working", "")
 			w = s.idle()
+			e.presenceIs("writer-reviewer", "reviewer", "idle", "")
 		}
 		if r := s.op("prompt", `"prompt":"work"`); r.code != 0 {
 			t.Fatalf("prompt hook failed\n%s", r)

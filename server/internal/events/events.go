@@ -32,6 +32,8 @@ const (
 	PersonLeft             = "person.left"
 	PersonMadeOwner        = "person.made_owner"
 	BoardVisibilityChanged = "board.visibility_changed"
+	// AgentDeliveryChanged is an agent's person changing its delivery mode.
+	AgentDeliveryChanged = "agent.delivery_changed"
 )
 
 // Actor is who caused an event, taken from the authenticated token.

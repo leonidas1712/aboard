@@ -63,6 +63,10 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         const b = listed.current.find((x) => x.name === p.board);
         if (b) void loadFacts(b);
       },
+      unread: (u) => {
+        if (!live) return;
+        setBoards((bs) => bs?.map((b) => (b.name === u.board ? { ...b, read_up_to: u.read_up_to, unread: u.unread } : b)) ?? bs);
+      },
       error: (e) => live && setError(e),
     });
     const tick = setInterval(() => setNow(Date.now()), 30_000);
@@ -165,6 +169,7 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
         {sep}
         <span className="md:hidden">{count(b.message_count ?? 0, "message", "messages")}</span>
         <span className="max-md:hidden">{b.message_count ?? 0}</span>
+        {(b.unread ?? 0) > 0 && <span className="unread ml-2 font-bold text-ink">{b.unread} unread</span>}
       </td>
       <td className={cell}>
         {sep}

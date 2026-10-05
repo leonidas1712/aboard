@@ -77,17 +77,44 @@ func (s *Service) writeAs(ctx context.Context, p Principal, fn func(Tx) error) e
 	})
 }
 
-// stillValid checks that the access key behind p still works and still belongs to p's
-// person, and for a browser that its login hasn't ended. An agent from before keys were
-// recorded has no key to check.
+// stillValid checks that p's person is still on the server, that the access key behind
+// p still works and still belongs to that person, and for a browser that its login
+// hasn't ended. An agent from before keys were recorded, or a guest's agent, has no key
+// to check.
 func stillValid(tx ReadTx, p Principal, now string) error {
-	_, err := credentialState(tx, p, now)
+	_, _, err := checkCredential(tx, p, now)
 	return err
+}
+
+// caller checks p's credential as stillValid does and returns p's person as they are
+// now, with their current server role.
+func caller(tx ReadTx, p Principal, now string) (Human, error) {
+	h, _, err := checkCredential(tx, p, now)
+	return h, err
 }
 
 // credentialState checks p's credential as stillValid does and returns when it expires:
 // the earlier of its key's expiry and its browser login's, or nil if neither expires.
 func credentialState(tx ReadTx, p Principal, now string) (*string, error) {
+	_, end, err := checkCredential(tx, p, now)
+	return end, err
+}
+
+func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error) {
+	person, err := tx.HumanByID(p.personID())
+	if errors.Is(err, ErrNotFound) || (err == nil && person.RemovedAt != nil) {
+		return Human{}, nil, apierr.Unauthorized()
+	}
+	if err != nil {
+		return Human{}, nil, err
+	}
+	end, err := keyState(tx, p, now)
+	return person, end, err
+}
+
+// keyState checks the key and browser login behind p, and returns when the earlier of
+// them expires.
+func keyState(tx ReadTx, p Principal, now string) (*string, error) {
 	if p.KeyID == "" {
 		if p.Human != nil {
 			return nil, apierr.Unauthorized()
@@ -149,11 +176,20 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 			if err != nil {
 				return err
 			}
+			if h.RemovedAt != nil {
+				return ErrNotFound
+			}
 			p.Human, p.KeyID, p.keyUsedBefore, used = &h, k.ID, k.LastUsedAt, &k
 		case strings.HasPrefix(token, "aba_"):
 			m, err := tx.MemberByTokenDigest(digest)
 			if err != nil {
 				return err
+			}
+			if h, err := tx.HumanByID(m.HumanID); err != nil || h.RemovedAt != nil {
+				if err != nil && !errors.Is(err, ErrNotFound) {
+					return err
+				}
+				return ErrNotFound
 			}
 			if m.KeyID != nil {
 				k, err := workingKey(tx, *m.KeyID, now)
@@ -355,7 +391,7 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 			return inviteInvalid()
 		}
 		// The admin's authority is checked again as the invite is used.
-		if admin, err := tx.HumanByID(inv.CreatedBy); err != nil || admin.Role != ServerAdmin {
+		if admin, err := tx.HumanByID(inv.CreatedBy); err != nil || admin.Role != ServerAdmin || admin.RemovedAt != nil {
 			if err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
