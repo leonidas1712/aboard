@@ -43,11 +43,15 @@ type Options struct {
 	// ConnectsPerMinuteServer across every address. Zero means no limit.
 	ConnectsPerMinute       int
 	ConnectsPerMinuteServer int
-	// SignInsPerMinute limits browser sign-ins (POST /v1/browser-sessions and
-	// POST /v1/browser-tokens) per client address, and SignInsPerMinuteServer across
-	// every address. Zero means no limit.
-	SignInsPerMinute       int
-	SignInsPerMinuteServer int
+	// SignInsPerMinute limits failed browser sign-ins (POST /v1/browser-sessions,
+	// POST /v1/browser-tokens and POST /v1/login-codes/preview) per client address, and
+	// SignInsPerMinuteServer across every address: failures are what guessing makes.
+	// SignInAttemptsPerMinute and SignInAttemptsPerMinuteServer cap every attempt, failed
+	// or not, higher, to bound the work they cost. Zero means no limit.
+	SignInsPerMinute              int
+	SignInsPerMinuteServer        int
+	SignInAttemptsPerMinute       int
+	SignInAttemptsPerMinuteServer int
 	// Shutdown is done when the server starts shutting down. Open event streams on
 	// GET /v1/stream end then; without it they end only when their clients disconnect.
 	Shutdown context.Context
@@ -96,7 +100,10 @@ func NewHandler(o Options) (http.Handler, error) {
 	})
 	limiter := newRateLimiter(o.Clock, o.JoinsPerMinute)
 	connects := connectLimits{perAddr: newRateLimiter(o.Clock, o.ConnectsPerMinute), all: newRateLimiter(o.Clock, o.ConnectsPerMinuteServer)}
-	signIns := connectLimits{perAddr: newRateLimiter(o.Clock, o.SignInsPerMinute), all: newRateLimiter(o.Clock, o.SignInsPerMinuteServer)}
+	signIns := signInLimits{
+		failed:   connectLimits{perAddr: newRateLimiter(o.Clock, o.SignInsPerMinute), all: newRateLimiter(o.Clock, o.SignInsPerMinuteServer)},
+		attempts: connectLimits{perAddr: newRateLimiter(o.Clock, o.SignInAttemptsPerMinute), all: newRateLimiter(o.Clock, o.SignInAttemptsPerMinuteServer)},
+	}
 	apiChain := validate(authenticate(o, limiter, connects, signIns, idempotent(o, routes)))
 	ui, err := serveUI(o.UI)
 	if err != nil {
@@ -152,7 +159,7 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 // across the server. The credential is the Authorization header's bearer token or,
 // without that header, a browser session's cookie, whose writes must also pass the
 // Origin and CSRF checks.
-func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimits, next http.Handler) http.Handler {
+func authenticate(o Options, limiter *rateLimiter, connects connectLimits, signIns signInLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie := cookieFor(r)
 		if r.URL.Path == "/v1/connect" && r.Method == http.MethodPost {
@@ -172,6 +179,14 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 					"Wait a minute, then try again."))
 				return
 			}
+			// Every answer of 400 or more counts as a failure, in the minute it happens.
+			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+			w = rec
+			defer func() {
+				if rec.status >= 400 {
+					signIns.failedAttempt(r)
+				}
+			}()
 			// A forged sign-in would put the victim's browser in someone else's session.
 			// Only a session's cookie can be planted that way; the deprecated token
 			// exchange sets none.
@@ -190,12 +205,7 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 					session.currentPerson = p.Human.ID
 				}
 			}
-			// Only failed attempts count toward the limits: they are what guessing makes.
-			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-			next.ServeHTTP(rec, r.WithContext(context.WithValue(r.Context(), sessionKey{}, session)))
-			if rec.status < 400 {
-				signIns.refund(r)
-			}
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), sessionKey{}, session)))
 			return
 		}
 		if r.URL.Path == "/v1/info" {
@@ -252,11 +262,24 @@ func authenticate(o Options, limiter *rateLimiter, connects, signIns connectLimi
 // browser in): per client address, and across the server.
 type connectLimits struct{ perAddr, all *rateLimiter }
 
-// refund takes back an attempt from r that succeeded.
-func (l connectLimits) refund(r *http.Request) {
+// signInLimits are the limits on signing a browser in: on failed attempts, which is
+// what guessing a code or key makes, and a higher one on every attempt, which bounds the
+// work sign-ins cost.
+type signInLimits struct{ failed, attempts connectLimits }
+
+// allow counts r against the limit on attempts and checks the one on failures, without
+// counting r as a failure: failed records that once r has failed.
+func (l signInLimits) allow(r *http.Request) bool {
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	l.perAddr.refund(host)
-	l.all.refund("")
+	full := l.failed.perAddr.full(host) || l.failed.all.full("")
+	return l.attempts.allow(r) && !full
+}
+
+// failedAttempt counts a failed attempt from r, in the minute it failed in.
+func (l signInLimits) failedAttempt(r *http.Request) {
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	l.failed.perAddr.fail(host)
+	l.failed.all.fail("")
 }
 
 // statusRecorder passes a response through and remembers its status.

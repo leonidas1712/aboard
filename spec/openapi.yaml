@@ -249,8 +249,9 @@ paths:
         other site can send without the server's permission. Failed attempts (any answer of
         400 or more) are limited per client address and across the server (429
         `rate_limited`, with `Retry-After`), counted together with
-        `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`. Neither the body nor
-        the response is logged or kept for `Idempotency-Key` repeats.
+        `POST /v1/login-codes/preview` and `POST /v1/browser-tokens`; every attempt, failed
+        or not, meets a higher limit too. Neither the body nor the response is logged or
+        kept for `Idempotency-Key` repeats.
       security: []
       requestBody:
         required: true
@@ -313,9 +314,8 @@ paths:
         used gets 404 `login_code_invalid`.
 
         Like signing in, it needs an `Origin` header equal to the server's own origin
-        (403 `origin_not_allowed`), and its failed attempts count toward the same limits
-        per client address and across the server (429 `rate_limited`). The code is never
-        logged.
+        (403 `origin_not_allowed`), and it counts toward the same limits as signing in
+        (429 `rate_limited`). The code is never logged.
       security: []
       requestBody:
         required: true

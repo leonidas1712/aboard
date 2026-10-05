@@ -98,7 +98,8 @@ session.
 Every write the browser makes must come from Aboard's own page: the server checks its
 `Origin` header and a CSRF token the page reads from the server, and sends no headers
 that would let another site read a response. Signing in needs the same `Origin`, and
-failed attempts are limited to 20 a minute per address and 100 across the server. The page runs
+failed attempts are limited to 20 a minute per address and 100 across the server, and all
+attempts to 120 and 600. The page runs
 under a strict content security policy: only Aboard's own scripts run, so a message,
 note or file name is always shown as text and can never run as code.
 

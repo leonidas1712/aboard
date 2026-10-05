@@ -389,12 +389,15 @@ func TestSignInIsRateLimitedPerAddressAndAcrossTheServer(t *testing.T) {
 	if got := try("192.0.2.1"); got != http.StatusTooManyRequests {
 		t.Fatalf("the fourth attempt from one address: %d", got)
 	}
-	// The server-wide limit counts every attempt, refused ones too, from any address.
-	if got := try("192.0.2.2"); got != http.StatusUnauthorized {
-		t.Fatalf("the fifth attempt across the server: %d", got)
+	// The server-wide limit counts every failure, from any address; a refused attempt
+	// isn't one.
+	for _, addr := range []string{"192.0.2.2", "192.0.2.3"} {
+		if got := try(addr); got != http.StatusUnauthorized {
+			t.Fatalf("failures four and five across the server: %d", got)
+		}
 	}
-	if got := try("192.0.2.3"); got != http.StatusTooManyRequests {
-		t.Fatalf("the sixth attempt across the server: %d", got)
+	if got := try("192.0.2.4"); got != http.StatusTooManyRequests {
+		t.Fatalf("an attempt after five failures across the server: %d", got)
 	}
 	s.clock.Advance(time.Minute)
 	if got := try("192.0.2.2"); got != http.StatusUnauthorized {
@@ -634,6 +637,27 @@ func TestPreviewingALoginCodeNamesItsPersonAndKeepsIt(t *testing.T) {
 	if forged := s.preview(s.loginCode(maya), func(r *http.Request) { r.Header.Set("Origin", "https://evil.example") }); forged.code() != "origin_not_allowed" {
 		t.Fatalf("previewing from another site: %d %s", forged.status, forged.raw)
 	}
+}
+
+// Attempts that work don't reach the failure limit, but a higher limit on every attempt
+// still bounds them, previews and sign-ins together.
+func TestEveryAttemptMeetsTheHigherLimit(t *testing.T) {
+	s := newTestServer(t, func(o *api.Options) {
+		o.SignInsPerMinute, o.SignInsPerMinuteServer = 1, 1
+		o.SignInAttemptsPerMinute, o.SignInAttemptsPerMinuteServer = 3, 100
+	})
+	code := s.loginCode(s.owner)
+	for range 2 {
+		if got := s.preview(code, s.fromPage); got.status != http.StatusOK {
+			t.Fatalf("a preview within the limits: %d %s", got.status, got.raw)
+		}
+	}
+	s.browserFrom(s.signIn(map[string]string{"code": code}))
+	if got := s.preview(s.loginCode(s.owner), s.fromPage); got.status != http.StatusTooManyRequests {
+		t.Fatalf("a fourth attempt in the minute: %d %s", got.status, got.raw)
+	}
+	s.clock.Advance(time.Minute)
+	s.cookieBrowser(s.owner).works(true)
 }
 
 // Guesses are what the limit is for: a wrong code, previewed or used, counts; a preview or

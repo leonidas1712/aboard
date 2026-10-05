@@ -124,29 +124,45 @@ func newRateLimiter(clk clock.Clock, perMinute int) *rateLimiter {
 	return &rateLimiter{clk: clk, limit: perMinute, count: map[string]int{}}
 }
 
+// window starts a new minute once the current one is over. Call it with mu held.
+func (l *rateLimiter) window() {
+	if now := l.clk.Now(); now.Sub(l.start) >= time.Minute {
+		l.start, l.count = now, map[string]int{}
+	}
+}
+
+// allow counts an attempt from addr and reports whether it is within the limit.
 func (l *rateLimiter) allow(addr string) bool {
 	if l.limit <= 0 {
 		return true
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	now := l.clk.Now()
-	if now.Sub(l.start) >= time.Minute {
-		l.start, l.count = now, map[string]int{}
-	}
+	l.window()
 	l.count[addr]++
 	return l.count[addr] <= l.limit
 }
 
-// refund takes back one attempt allow counted for addr in the current minute, for an
-// attempt that turned out not to need limiting.
-func (l *rateLimiter) refund(addr string) {
+// full reports, without counting anything, whether addr already reached the limit this
+// minute. With fail it limits only what failed: check full before an attempt, call fail
+// after one that failed.
+func (l *rateLimiter) full(addr string) bool {
+	if l.limit <= 0 {
+		return false
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.window()
+	return l.count[addr] >= l.limit
+}
+
+// fail counts a failed attempt from addr in the minute it failed in.
+func (l *rateLimiter) fail(addr string) {
 	if l.limit <= 0 {
 		return
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.count[addr] > 0 {
-		l.count[addr]--
-	}
+	l.window()
+	l.count[addr]++
 }
