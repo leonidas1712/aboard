@@ -90,7 +90,8 @@ type RoleChange struct {
 
 // SetServerRole makes the person called handle an admin of the server, or a member again.
 // Only an admin may, with their own key. The last admin stays one, and a guest's role
-// doesn't change: a guest becomes a member only by connecting with a server invite.
+// doesn't change: upgrading a guest in place is not supported. A server invite creates
+// a new identity.
 func (s *Service) SetServerRole(ctx context.Context, p Principal, handle, role string) (RoleChange, error) {
 	if err := adminKey(p, "change a person's role", "aboard people role @"+handle+" "+role); err != nil {
 		return RoleChange{}, err
@@ -111,7 +112,7 @@ func (s *Service) SetServerRole(ctx context.Context, p Principal, handle, role s
 			return err
 		}
 		if target.Role == ServerGuest {
-			return personIsGuest(handle, "A guest becomes a member by connecting with a server invite: aboard invite --server.")
+			return personIsGuest(handle, "Upgrading a guest in place is not supported. An admin can remove them and invite a new identity with aboard invite --server; their board owners must add that new person again.")
 		}
 		out.Person = target
 		if target.Role == role {

@@ -423,11 +423,11 @@ func (t *tx) SetCursor(memberID string, seq int64) error {
 	return t.exec("UPDATE members SET cursor = max(cursor, ?) WHERE id = ?", seq, memberID)
 }
 
-const joinCodeColumns = "id, board_id, code_digest, role, expires_at, created_at, created_by, revoked_at, kind, guest, used_at, used_by"
+const joinCodeColumns = "id, board_id, code_digest, role, expires_at, created_at, created_by, revoked_at, kind, guest, guest_id, used_at, used_by"
 
 func scanJoinCode(row interface{ Scan(...any) error }) (board.JoinCode, error) {
 	var j board.JoinCode
-	err := row.Scan(&j.ID, &j.BoardID, &j.CodeDigest, &j.Role, &j.ExpiresAt, &j.CreatedAt, &j.CreatedBy, &j.RevokedAt, &j.Kind, &j.Guest, &j.UsedAt, &j.UsedBy)
+	err := row.Scan(&j.ID, &j.BoardID, &j.CodeDigest, &j.Role, &j.ExpiresAt, &j.CreatedAt, &j.CreatedBy, &j.RevokedAt, &j.Kind, &j.Guest, &j.GuestID, &j.UsedAt, &j.UsedBy)
 	return j, notFound(err)
 }
 
@@ -436,8 +436,8 @@ func (t *tx) InsertJoinCode(j board.JoinCode) error {
 	if j.Kind == "" {
 		j.Kind = board.CodePairing
 	}
-	return t.exec("INSERT INTO join_codes ("+joinCodeColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		j.ID, j.BoardID, j.CodeDigest, j.Role, j.ExpiresAt, j.CreatedAt, j.CreatedBy, j.RevokedAt, j.Kind, j.Guest, j.UsedAt, j.UsedBy)
+	return t.exec("INSERT INTO join_codes ("+joinCodeColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		j.ID, j.BoardID, j.CodeDigest, j.Role, j.ExpiresAt, j.CreatedAt, j.CreatedBy, j.RevokedAt, j.Kind, j.Guest, j.GuestID, j.UsedAt, j.UsedBy)
 }
 
 // UseJoinCode marks an unused join code used, and reports whether it was unused.

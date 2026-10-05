@@ -95,14 +95,14 @@ func (s *testServer) addHuman(name string) string {
 // joinBoard has the board's owner add the person whose key is token to the board, then
 // joins an agent of theirs in role with a pairing code they make themselves, as a
 // teammate's own sessions join.
-func (s *testServer) joinBoard(token, board, role string, harness *string) *api.JoinResponse {
+func (s *testServer) joinBoard(token, boardName, role string, harness *string) *api.JoinResponse {
 	s.t.Helper()
 	ctx := context.Background()
 	me, err := s.client(token).GetMeWithResponse(ctx)
 	mustStatus(s.t, me, err, 200)
-	added, err := s.client(s.owner).AddPersonWithResponse(ctx, board, nil, api.AddPersonRequest{Handle: me.JSON200.Name})
+	added, err := s.client(s.owner).AddPersonWithResponse(ctx, boardName, nil, api.AddPersonRequest{Handle: me.JSON200.Name})
 	mustStatus(s.t, added, err, 201)
-	code, err := s.client(token).CreateJoinCodeWithResponse(ctx, board, nil, api.CreateJoinCodeRequest{Role: role})
+	code, err := s.client(token).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: role})
 	mustStatus(s.t, code, err, 201)
 	j, err := s.client(token).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code, Harness: harness})
 	mustStatus(s.t, j, err, 201)

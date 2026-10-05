@@ -108,7 +108,13 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName str
 		lineRole := in.Role
 		if in.Guest != "" {
 			jc.Kind, jc.Guest = CodeGuest, ptr(in.Guest)
-			data["kind"], data["guest"] = CodeGuest, in.Guest
+			guest, err := tx.HumanByName(in.Guest)
+			if err == nil {
+				jc.GuestID = ptr(guest.ID)
+			} else if !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			data["kind"], data["guest"], data["guest_id"] = CodeGuest, in.Guest, jc.GuestID
 			lineRole = guestLineRole
 		}
 		if err := tx.InsertJoinCode(jc); err != nil {
@@ -292,10 +298,13 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 				return err
 			}
 			if jc.Kind == CodeGuest {
-				if person.Role != ServerGuest || deref(jc.Guest) != person.Name {
+				if person.Role != ServerGuest || (jc.GuestID != nil && *jc.GuestID != person.ID) || (jc.GuestID == nil && deref(jc.Guest) != person.Name) {
 					return apierr.New(http.StatusForbidden, "guest_code_not_for_members",
 						fmt.Sprintf("That is a guest code for %s: it brings them onto board %s from outside this server, and you are on this server already.", deref(jc.Guest), b.Name),
 						fmt.Sprintf("Ask someone on %s to add you: aboard board add @%s --board %s.", b.Name, person.Name, b.Name))
+				}
+				if jc.GuestID == nil || *jc.GuestID != person.ID {
+					return joinCodeInvalid()
 				}
 				out, err = s.redeemGuestCode(tx, jc, person, ptr(p.KeyID), JoinInput{Name: in.Name, Harness: in.Harness}, now)
 				return err
@@ -411,7 +420,7 @@ type GuestJoined struct {
 }
 
 // GuestJoin uses up a guest code and, in the same transaction, puts the guest it names
-// onto its board, as a person with the server role guest (created the first time), with
+// onto its board, as a newly created person with the server role guest, with
 // an access key for their machine and a new agent, whose secrets are returned. A code
 // that is wrong, used, expired, revoked, a pairing code, or whose maker has left the
 // board or the server fails the same way.
@@ -427,7 +436,7 @@ func (s *Service) GuestJoin(ctx context.Context, in GuestJoinInput) (GuestJoined
 		if err != nil {
 			return err
 		}
-		if jc.Kind != CodeGuest || jc.Guest == nil {
+		if jc.Kind != CodeGuest || jc.Guest == nil || jc.GuestID != nil {
 			return joinCodeInvalid()
 		}
 		guest, err := s.guestPerson(tx, *jc.Guest, now)
@@ -485,18 +494,13 @@ func (s *Service) redeemGuestCode(tx Tx, jc JoinCode, guest Human, keyID *string
 	return out, nil
 }
 
-// guestPerson returns the guest called handle, making them a person with the server role
-// guest when no one on the server has the handle. A handle that has become a member's
-// since the code was made is refused.
+// guestPerson creates a new guest. A code never proves an existing person's identity,
+// even if its handle was free when issued.
 func (s *Service) guestPerson(tx Tx, handle string, now time.Time) (Human, error) {
 	h, err := tx.HumanByName(handle)
 	switch {
-	case err == nil && h.Role == ServerGuest:
-		return h, nil
 	case err == nil:
-		return Human{}, apierr.New(http.StatusConflict, "handle_taken",
-			fmt.Sprintf("Someone on this server is called %s now, so this guest code can't bring a guest of that name.", handle),
-			"Ask whoever gave you the code for a new one, with another name.")
+		return Human{}, joinCodeInvalid()
 	case !errors.Is(err, ErrNotFound):
 		return Human{}, err
 	}

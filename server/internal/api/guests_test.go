@@ -168,7 +168,7 @@ func TestServerPeopleRolesAndRemoval(t *testing.T) {
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
 	maya := s.addHuman("maya")
-	j := s.joinBoard(maya, boardName, "reviewer", nil)
+	j := s.joinBoard(maya, boardName, "writer", nil)
 	mayaAgent, mayaBrowser := j.JSON201.Token, s.browserToken(maya)
 
 	people, err := s.client(maya).ListServerPeopleWithResponse(ctx)

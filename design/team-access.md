@@ -356,7 +356,9 @@ GET /v1/boards/incident-42/messages             with aba_S1pay…   404  as if i
 ```
 
 A guest never adds or removes anyone, and a guest code never makes anyone a member. A
-second board takes Sam only through another guest code for `sam`, which his key redeems.
+second board takes Sam only through another guest code for `sam`, which his key redeems. That code binds his permanent person id when issued; it
+never issues another key anonymously. Two codes issued before the first join cannot both
+create the identity: the second invitation must be issued after the person exists.
 
 ### Scripts and bots
 

@@ -93,8 +93,8 @@ type headStream struct {
 }
 
 // VisitStreamResponse writes events until the client disconnects or the server shuts
-// down. It always returns nil: once the status is written, a failure can only end the
-// stream, and the client reconnects.
+// down. Start failures use the normal error response; after the status is written,
+// a failure can only end the stream, and the client reconnects.
 func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()
@@ -104,8 +104,6 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 	}
 
 	rc := http.NewResponseController(w)
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
 	// Each keepalive timer is started before the write that precedes it, so a client
 	// that has read up to here knows the next one is already running.
 	keepalive := s.clk.After(keepaliveEvery)
@@ -113,9 +111,10 @@ func (s headStream) VisitStreamResponse(w http.ResponseWriter) error {
 	// sees the stream open is then sure its change comes as an event.
 	first, err := s.feed.Start(ctx)
 	if err != nil {
-		s.ended(ctx, err)
-		return nil
+		return err
 	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
 	if !s.send(rc, func() error {
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write(streamEvents(first, false))

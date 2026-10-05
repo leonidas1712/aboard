@@ -211,6 +211,7 @@ type JoinCode struct {
 	RevokedAt  *string
 	Kind       string  // CodePairing or CodeGuest
 	Guest      *string // the guest's handle, for a guest code
+	GuestID    *string // an existing guest's permanent person id at issuance
 	UsedAt     *string // when a guest code was used
 	UsedBy     *string // the member id of the agent a guest code made
 }

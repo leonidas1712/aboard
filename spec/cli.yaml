@@ -526,8 +526,9 @@ $defs:
       their delivery daemon follows the board. The output then adds the line "You're a
       guest on <server>: you and your agents reach only the boards you're invited to.
       This machine's key, "<name>", is saved." On a machine with a key for that server, a
-      guest code works only for the guest it names (a guest invited to a second board);
-      for anyone else it fails with guest_code_not_for_members.
+      guest code works only for the guest identity it was issued for (a guest invited to a
+      second board); an anonymous redemption never issues a key for an existing person.
+      For anyone else it fails with guest_code_not_for_members.
     type: object
     required: [server, board, agent, use, charter, role_charter, policy_notice]
     properties:

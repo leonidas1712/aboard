@@ -129,7 +129,7 @@ func TestAGuestSeesOnlyTheirBoard(t *testing.T) {
 			_, err = w.svc.Join(ctx, kim, board.JoinInput{Code: pairing.Code})
 			wantCode(t, "the guest redeeming maya's pairing code", err, "guest_not_allowed")
 			_, _, err = w.svc.RevokeJoinCode(ctx, kim, w.board, pairing.JoinCode.ID)
-			wantCode(t, "the guest cancelling maya's code", err, "guest_not_allowed")
+			wantCode(t, "the guest canceling maya's code", err, "guest_not_allowed")
 			_, err = w.svc.ListKeys(ctx, kim, "")
 			wantCode(t, "the guest listing keys", err, "guest_not_allowed")
 			_, err = w.svc.CreateKey(ctx, kim, "phone", 0)
@@ -231,7 +231,7 @@ func TestAGuestOnTwoBoardsIsOnePerson(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: jc.Code, KeyName: "laptop"})
+	second, err := w.svc.Join(ctx, w.auth(ctx, t, first.KeyToken), board.JoinInput{Code: jc.Code})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestAGuestCodeIsCheckedWhenItIsUsed(t *testing.T) {
 		}, "join_code_invalid"},
 		"handle taken by a member": {func(ctx context.Context, w *teamWorld, t *testing.T) {
 			w.person(ctx, t, "kim")
-		}, "handle_taken"},
+		}, "join_code_invalid"},
 	}
 	for name, c := range changes {
 		t.Run(name, func(t *testing.T) {
@@ -316,4 +316,60 @@ func TestRemovingAGuestEndsTheirAgents(t *testing.T) {
 	if _, err := w.svc.Authenticate(ctx, joined.Token); err == nil {
 		t.Fatal("the removed guest's agent token still authenticates")
 	}
+}
+
+func TestRacingGuestCodesCreateOnlyOneIdentity(t *testing.T) {
+	w := newTeamWorld(t)
+	ctx := context.Background()
+	codes := []string{w.guestCode(ctx, t, w.maya, "lee"), w.guestCode(ctx, t, w.maya, "lee")}
+	ready := make(chan struct{})
+	results := make(chan error, len(codes))
+	for _, code := range codes {
+		go func() {
+			<-ready
+			_, err := w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: code, KeyName: "laptop"})
+			results <- err
+		}()
+	}
+	close(ready)
+	success := 0
+	for range codes {
+		err := <-results
+		if err == nil {
+			success++
+		} else {
+			wantCode(t, "another code for the same new guest", err, "join_code_invalid")
+		}
+	}
+	if success != 1 {
+		t.Fatalf("%d guest identities created, want exactly one", success)
+	}
+}
+
+func TestAGuestCodeDoesNotFollowAReusedHandle(t *testing.T) {
+	w := newTeamWorld(t)
+	ctx := context.Background()
+	first, err := w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: w.guestCode(ctx, t, w.maya, "kim"), KeyName: "laptop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := w.openBoard(ctx, t)
+	oldCode, err := w.svc.CreateJoinCode(ctx, w.alex, other, board.JoinCodeInput{Role: "member", Guest: "kim"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.RemoveFromServer(ctx, w.alex, "kim", false); err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: w.guestCode(ctx, t, w.maya, "kim"), KeyName: "laptop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Person.ID == replacement.Person.ID {
+		t.Fatal("removed identity was restored")
+	}
+	_, err = w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: oldCode.Code, KeyName: "phone"})
+	wantCode(t, "anonymous redemption of an identity-bound code", err, "join_code_invalid")
+	_, err = w.svc.Join(ctx, w.auth(ctx, t, replacement.KeyToken), board.JoinInput{Code: oldCode.Code})
+	wantCode(t, "replacement person redeeming the old person's code", err, "guest_code_not_for_members")
 }

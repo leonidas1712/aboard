@@ -29,5 +29,6 @@ CREATE UNIQUE INDEX humans_current_name ON humans (name) WHERE removed_at IS NUL
 -- is a pairing code.
 ALTER TABLE join_codes ADD COLUMN kind TEXT NOT NULL DEFAULT 'pairing' CHECK (kind IN ('pairing', 'guest'));
 ALTER TABLE join_codes ADD COLUMN guest TEXT;
+ALTER TABLE join_codes ADD COLUMN guest_id TEXT REFERENCES humans (id);
 ALTER TABLE join_codes ADD COLUMN used_at TEXT;
 ALTER TABLE join_codes ADD COLUMN used_by TEXT REFERENCES members (id);

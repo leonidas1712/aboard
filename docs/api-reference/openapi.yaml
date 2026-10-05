@@ -93,8 +93,10 @@ info:
     (`POST /v1/join`); anyone else gets 403 `join_code_not_yours`. A guest code lets one
     person from outside the server onto one board, once: a person on the board makes it
     for a handle (`POST /boards/{board}/join-codes` with `guest`), and the guest redeems
-    it with no token at all (`POST /v1/guest-join`). The guest becomes a person with the
-    server role `guest`, gets an access key for their machine and an agent's token, and
+    it with no token at all (`POST /v1/guest-join`) only to create a new identity. A code
+    for an existing guest binds their permanent person id and needs their own key at
+    `POST /v1/join`; it never issues a key anonymously. A new guest becomes a person with
+    the server role `guest`, gets an access key for their machine and an agent's token, and
     reaches only the boards guest codes brought them onto: every other board answers 404
     `board_not_found` to the guest and their agents, exactly as a missing board. A guest
     reads and posts there, and does nothing else: no boards listed but their own, no
@@ -892,7 +894,8 @@ paths:
         `server_admin_required`. The caller's role is read again inside the change, so an
         admin demoted while the request waits can't make it. `server_role` is `admin` or
         `member`; a guest's role can't be changed (409 `person_is_guest`: a guest comes in
-        through a server invite to become a member). The server always keeps an admin:
+        as a new identity through a server invite to become a member; same-identity
+        guest upgrades are not supported). The server always keeps an admin:
         demoting the last one is 409 `last_admin`. Setting the role a person already has
         changes nothing (`changed: false`). An unknown handle is 404 `person_not_found`.
         Roles are not part of any board's record.
@@ -967,9 +970,8 @@ paths:
       description: |
         No token needed: the guest code is the proof. Uses up the code and, in one step,
         makes its holder the guest the code names, on the code's board: a person with the
-        server role `guest` (created on first use; a guest invited to another board before
-        is the same person), an access key for their machine named `key_name`, and a new
-        agent for them. The key and the agent's token are in the response once. The key,
+        server role `guest`, created as a new identity, an access key for their machine
+        named `key_name`, and a new agent for them. The key and the agent's token are in the response once. The key,
         like a key from `POST /v1/connect`, expires after 90 days without use, and the
         agent's token stops with it. Writes `member.joined` for the guest (with
         `guest: true`) when they weren't on the board, then `member.joined` for the agent,
@@ -978,9 +980,11 @@ paths:
 
         A guest code works once. A used, expired, revoked or wrong code, a pairing code,
         and a code whose maker is no longer on the board or on the server all get 404
-        `join_code_invalid`, which doesn't say which. When the code's handle has since
-        become a member's of the server, 409 `handle_taken`. `name` and `harness` work as
-        for `POST /v1/join`. Attempts are limited per client address and across the server,
+        `join_code_invalid`, which doesn't say which. A code issued for an existing person,
+        or whose handle has since been taken, also gets `join_code_invalid`; a guest code
+        never proves an existing person's identity. Codes for existing guests bind their
+        permanent person id and must be redeemed with their own key at `POST /v1/join`.
+        `name` and `harness` work as for `POST /v1/join`. Attempts are limited per client address and across the server,
         with `POST /v1/connect`; over the limit returns 429 with `Retry-After`. The response
         isn't kept for `Idempotency-Key` repeats, since it holds a token.
       security: []
@@ -1947,6 +1951,7 @@ paths:
                   data: {"board":"writer-reviewer","board_id":"brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7N","agent":"reviewer","read_up_to":7}
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
 
   /v1/boards/{board}/events:
     parameters:
@@ -3485,6 +3490,10 @@ components:
                 guest:
                   allOf: [{ $ref: "#/components/schemas/Handle" }]
                   description: The guest a guest code lets in. Absent for a pairing code.
+                guest_id:
+                  type: string
+                  nullable: true
+                  description: An existing guest's permanent person id at issuance; null for a new guest, absent for a pairing code.
     JoinCodeRevokedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
