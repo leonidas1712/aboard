@@ -36,6 +36,8 @@ type extFrame struct {
 	Notice   string `json:"notice"`
 	Boot     string `json:"boot"`
 	Reopened bool   `json:"reopened"`
+	Mode     string `json:"mode"`
+	Note     string `json:"note"`
 	Agents   []struct {
 		Board string `json:"board"`
 		Name  string `json:"name"`

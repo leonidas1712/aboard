@@ -127,7 +127,30 @@ type Board struct {
 	LastMessageAt *string
 	CreatedAt     string
 	CreatedBy     string // member id of the creating human
+	// Visibility is BoardOpen or BoardPrivate: who can see the board at all.
+	Visibility string
 }
+
+// Who can see a board. An open board is seen by every person on the server, who may
+// join it; a private one only by the people on it.
+const (
+	BoardOpen    = "open"
+	BoardPrivate = "private"
+)
+
+// Who may create boards on the server.
+const (
+	CreationMembers = "members"
+	CreationAdmins  = "admins"
+)
+
+// Whether a member is on its board. A person who left or was removed keeps their row,
+// so their messages stay theirs and they come back under the same name.
+const (
+	StatusActive  = "active"
+	StatusLeft    = "left"
+	StatusRemoved = "removed"
+)
 
 // Member is a human or agent on a board.
 type Member struct {

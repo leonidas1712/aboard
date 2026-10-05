@@ -1,8 +1,35 @@
 // The parts every screen shares: the header with Aboard's mark, and the problem box.
 
+import { Lock, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiError } from "./api";
+import { ApiError, type Visibility } from "./api";
+
+/**
+ * VisibilityLabel says who can see a board. A private board always says so; an open one
+ * only when others can be on it (shared), so a person alone on their server never meets
+ * the word.
+ */
+export function VisibilityLabel({ visibility, shared, className }: { visibility?: Visibility; shared: boolean; className?: string }) {
+  if (visibility === "private") {
+    return (
+      <span className={cn("visibility inline-flex items-center gap-1 text-meta text-muted", className)} data-visibility="private" title="Only the people on this board can see it.">
+        <Lock className="size-3.5" strokeWidth={1.75} aria-hidden />
+        Private
+      </span>
+    );
+  }
+  if (visibility === "open" && shared) {
+    return (
+      <span className={cn("visibility inline-flex items-center gap-1 text-meta text-muted", className)} data-visibility="open" title="Everyone on this server can see this board and join it.">
+        <Users className="size-3.5" strokeWidth={1.75} aria-hidden />
+        Open
+      </span>
+    );
+  }
+  return null;
+}
 
 /**
  * Mark is Aboard's mark, the same drawing as the tab icon (icon.svg): a room, and inside
@@ -23,6 +50,9 @@ type HeaderProps = {
   board?: string;
   title?: string | null;
   starter?: boolean;
+  /** visibility and shared decide the open or private label beside the title. */
+  visibility?: Visibility;
+  shared?: boolean;
   account?: ReactNode;
   /** onTitle, when given, makes the board's title a button that shows the board's details. */
   onTitle?: () => void;
@@ -35,7 +65,7 @@ type HeaderProps = {
  * it, whether it is on the starter policy, and who you are at the right once the
  * browser is logged in.
  */
-export function Header({ board, title, starter, account, onTitle, onStarter }: HeaderProps) {
+export function Header({ board, title, starter, visibility, shared = false, account, onTitle, onStarter }: HeaderProps) {
   const label = title?.trim();
   const words = board && (
     <>
@@ -73,6 +103,7 @@ export function Header({ board, title, starter, account, onTitle, onStarter }: H
             )}
           </h1>
         )}
+        {board && <VisibilityLabel visibility={visibility} shared={shared} />}
         {starter &&
           (onStarter ? (
             <button

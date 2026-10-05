@@ -25,6 +25,13 @@ const (
 	MessagePosted      = "message.posted"
 	ReactionAdded      = "reaction.added"
 	ReactionRemoved    = "reaction.removed"
+	// People coming onto a board, leaving it and becoming its owners, and the board
+	// turning open or private.
+	PersonAdded            = "person.added"
+	PersonRemoved          = "person.removed"
+	PersonLeft             = "person.left"
+	PersonMadeOwner        = "person.made_owner"
+	BoardVisibilityChanged = "board.visibility_changed"
 )
 
 // Actor is who caused an event, taken from the authenticated token.

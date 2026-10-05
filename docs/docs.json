@@ -96,6 +96,7 @@
               "cli/invite",
               "cli/delivery",
               "cli/board",
+              "cli/boards",
               "cli/audit",
               "cli/resume",
               "cli/up",

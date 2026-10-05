@@ -139,9 +139,14 @@ type Response struct {
 	Agents []AgentRef `json:"agents,omitempty"`
 	Status *Status    `json:"status,omitempty"`
 	// Mode is the agent's delivery mode, in answer to OpMode; Changed says whether the
-	// request changed it.
-	Mode    Mode `json:"mode,omitempty"`
-	Changed bool `json:"changed,omitempty"`
+	// request changed it. In answer to OpRegister and in EventWelcome, it is the mode of
+	// the agent the session holds.
+	Mode Mode `json:"mode,omitempty"`
+	// Note, in answer to OpRegister and in EventWelcome, is what to add to the context
+	// of a session that comes back: which agent it is again, with that agent's delivery
+	// mode and its rule, or which agent it lost.
+	Note    string `json:"note,omitempty"`
+	Changed bool   `json:"changed,omitempty"`
 	// Previous is the agent the session was bound to before an OpBind moved it to
 	// another one; nil when the session had no agent or keeps the same one.
 	Previous *AgentRef `json:"previous,omitempty"`

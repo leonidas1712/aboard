@@ -51,8 +51,18 @@ type ReadTx interface {
 	BoardByID(id string) (Board, error)
 	// BoardNameTaken reports whether a board already has this name.
 	BoardNameTaken(name string) (bool, error)
-	// BoardsOfHuman lists, by name, the boards the human is a human member of.
+	// BoardsOfHuman lists, by name, the boards the human is on: those where their own
+	// membership is active.
 	BoardsOfHuman(humanID string) ([]Board, error)
+	// BoardsSeenBy lists, by name, every open board and every board the human is on.
+	BoardsSeenBy(humanID string) ([]Board, error)
+	// PrivateBoardsNotOn lists, oldest first, the private boards the human isn't on.
+	PrivateBoardsNotOn(humanID string) ([]Board, error)
+	// BoardCreation returns who may create boards: CreationMembers unless set.
+	BoardCreation() (string, error)
+	// WorkingJoinCodes lists a board's join codes that are neither revoked nor expired
+	// at now, oldest first.
+	WorkingJoinCodes(boardID, now string) ([]JoinCode, error)
 	// MemberByTokenDigest finds the agent whose token has this digest.
 	MemberByTokenDigest(digest string) (Member, error)
 	// HumanMember finds a human's own membership of a board.
@@ -165,8 +175,17 @@ type Tx interface {
 	SetBoardPolicy(boardID string, p rules.Policy) error
 	// SetBoardTitle replaces a board's title; nil removes it.
 	SetBoardTitle(boardID string, title *string) error
+	// SetBoardVisibility makes a board BoardOpen or BoardPrivate.
+	SetBoardVisibility(boardID, visibility string) error
+	// SetBoardCreation sets who may create boards.
+	SetBoardCreation(v string) error
 	// InsertMember adds a member to its board.
 	InsertMember(m Member) error
+	// SetMemberStatus sets a member's status: StatusActive, StatusLeft or StatusRemoved.
+	SetMemberStatus(memberID, status string) error
+	// SetMemberAccess sets a person's access on their board; it changes nothing for an
+	// agent.
+	SetMemberAccess(memberID, access string) error
 	// SetCursor moves a member's read position forward; it never moves it back.
 	SetCursor(memberID string, seq int64) error
 	// SetPresence replaces an agent's presence.

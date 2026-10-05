@@ -97,7 +97,7 @@ func TestUnconfirmedBundleGoesToTheNextSession(t *testing.T) {
 	reviewer.hook("end", `"reason":"other"`)
 
 	next := e.claudeSession("s-reviewer-2")
-	expectLines(t, next.run("resume", "reviewer"), "Resumed reviewer on writer-reviewer in this session.")
+	expectLines(t, next.run("resume", "reviewer"), "Resumed reviewer on writer-reviewer in this session.", "Delivery mode: focused. "+focusedRule)
 	woke := next.startHook("stop").wait(5 * time.Second)
 	if woke.code != 2 || !strings.Contains(woke.stderr, "please review") || !strings.Contains(woke.stderr, `seq="6"`) {
 		t.Fatalf("the unconfirmed bundle should be delivered again, with the same seq\n%s", woke)

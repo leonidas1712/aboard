@@ -311,3 +311,58 @@ func Notice(board string, ms []Message) string {
 	return `<aboard-notice board="` + attrEscaper.Replace(board) + `" waiting="` + strconv.Itoa(len(ms)) + `">` +
 		attrEscaper.Replace(text) + "</aboard-notice>"
 }
+
+// ModeRule says, in a sentence or two, what an agent's delivery mode means for when it
+// wakes, and how to address a message so the agents it is for act on it soon. mode is
+// focused, all, humans or off; anything else reads as focused, the default.
+func ModeRule(mode string) string {
+	switch mode {
+	case "all":
+		return "Every message wakes you, and every other agent in all mode, so post to everyone sparingly " +
+			"and address the agents a message is for (--to @name or --to role:R)."
+	case "humans":
+		return "Only messages from people wake you; messages from agents wait until a person's message wakes you, " +
+			"or until you run aboard inbox."
+	case "off":
+		return "Nothing wakes you or arrives by itself: read your messages with aboard inbox, " +
+			"or wait for one with aboard inbox --wait 60."
+	default:
+		return "A message to everyone wakes no agent in focused mode, you included; it arrives quietly at each one's next turn. " +
+			"To make an agent act soon, address it (--to @name or --to role:R) or ask with --expect-reply."
+	}
+}
+
+// ModeLine names an agent's delivery mode and its rule, for the places an agent learns
+// about its seat: "Delivery mode: focused. A message to everyone …".
+func ModeLine(mode string) string {
+	return "Delivery mode: " + mode + ". " + ModeRule(mode)
+}
+
+// ModeChanged tells an agent, at its next turn or delivery, that its delivery mode on
+// board changed, and what the new one means.
+func ModeChanged(board, from, to string) string {
+	return fmt.Sprintf("Aboard: your delivery mode on %s changed from %s to %s. %s", board, from, to, ModeRule(to))
+}
+
+// Reopened tells a session that started again with the same session id which agent it
+// is again, and that agent's delivery mode when mode isn't empty. turnEnd says the
+// messages that waited arrive when this turn ends: for a harness whose session start
+// comes before its first turn, with no hook waiting yet.
+func Reopened(name, board, mode string, turnEnd bool) string {
+	note := fmt.Sprintf("Aboard: this session is %s on %s again, as it was before it closed", name, board)
+	if turnEnd {
+		note += fmt.Sprintf("; messages that waited for %s arrive when this turn ends", name)
+	}
+	note += "."
+	if mode != "" {
+		note += " " + ModeLine(mode)
+	}
+	return note
+}
+
+// Lost tells a session that started again that another session resumed the agent it
+// filled meanwhile, so it has none now, and how to take the agent back.
+func Lost(name, board string) string {
+	return fmt.Sprintf("Aboard: this session was %s on %s until another session resumed %s; it has no agent now. "+
+		"To act as %s here again, run aboard resume %s, which leaves the other session without it.", name, board, name, name, name)
+}

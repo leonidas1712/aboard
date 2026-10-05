@@ -7,6 +7,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // inSession reports the harness whose session this command runs in, if any, from the
@@ -29,32 +30,33 @@ func withArticle(name string) string {
 	return "a " + name
 }
 
-// refuseInSession refuses a command that is up to a person (it acts or reads with the
-// human login, or changes a delivery mode) when it runs for an agent: inside a harness
-// session, where an allow rule for aboard would let an agent run it without asking, or
-// with ABOARD_AGENT set, which says the process acts as an agent whatever runs it (a
-// harness Aboard can't detect, a launched session, a script driving an agent). It
-// refuses before the command reads a key or makes a request. what says what the command
-// does; command is the command to run in a terminal instead.
-func (a *app) refuseInSession(what, command string) error {
-	if harness, in := a.inSession(); in {
-		return newError("human_command_in_session",
-			what+" is up to a person, and this command runs inside "+withArticle(harness)+" session.",
-			"Give your human this command to run in their own terminal, outside any agent session: "+command)
-	}
-	if agent := strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")); agent != "" {
-		return newError("human_command_in_session",
-			what+" is up to a person, and this command runs for the agent "+agent+": ABOARD_AGENT is set.",
-			"Give your human this command to run in their own terminal, without ABOARD_AGENT set: "+command)
-	}
-	return nil
-}
-
-// actsForAgent reports whether this command runs for an agent, as refuseInSession
-// decides it.
+// actsForAgent reports whether the command runs for an agent rather than its person:
+// inside a harness session, or with ABOARD_AGENT naming an agent, which is how an
+// agent's environment says who it is. A person's own command refuses then.
 func (a *app) actsForAgent() bool {
 	_, in := a.inSession()
 	return in || strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) != ""
+}
+
+// refuseInSession refuses a command that is up to a person (it acts or reads with the
+// human login, or changes a delivery mode) when it runs inside a harness session, where
+// an allow rule for aboard would let an agent run it without asking, or when
+// ABOARD_AGENT names an agent, which is how an agent's environment says who it is. It
+// refuses before anything reads the person's key. what says what the command does;
+// command is the command to run in a terminal instead.
+func (a *app) refuseInSession(what, command string) error {
+	if agent := strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")); agent != "" {
+		return newError("human_command_in_session",
+			what+" is up to a person, and ABOARD_AGENT says this command runs as the agent "+agent+".",
+			"Give your human this command to run in their own terminal, without ABOARD_AGENT set: "+command)
+	}
+	harness, in := a.inSession()
+	if !in {
+		return nil
+	}
+	return newError("human_command_in_session",
+		what+" is up to a person, and this command runs inside "+withArticle(harness)+" session.",
+		"Give your human this command to run in their own terminal, outside any agent session: "+command)
 }
 
 // modeText explains what each delivery mode does, for text output.
@@ -66,7 +68,7 @@ var modeText = map[delivery.Mode]string{
 }
 
 // runDelivery shows the acting agent's delivery mode, or changes it. Changing it is a
-// person's decision, so it refuses inside a harness session, where an agent runs it.
+// person's decision, so it refuses where an agent runs it: inside a harness session, or with ABOARD_AGENT set.
 func runDelivery(ctx context.Context, a *app, args []string) error {
 	use := usageOf("delivery")
 	fs := a.flags("delivery")
@@ -150,3 +152,24 @@ func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delive
 	}
 	return delivery.ModeFocused, nil
 }
+
+// seatDelivery is an agent's delivery mode and its rule, as the commands that seat an
+// agent show them (DeliveryRule in spec/cli.yaml).
+type seatDelivery struct {
+	Mode delivery.Mode `json:"delivery"`
+	Rule string        `json:"delivery_rule"`
+}
+
+// deliveryFor reads the agent's delivery mode for a command that seats it. A journal
+// that can't be read gives focused, the default: the command has seated the agent by
+// then, and the line is advice.
+func (a *app) deliveryFor(ctx context.Context, agent delivery.AgentRef) seatDelivery {
+	mode, err := a.deliveryMode(ctx, agent)
+	if err != nil {
+		mode = delivery.ModeFocused
+	}
+	return seatDelivery{Mode: mode, Rule: deliverytext.ModeRule(string(mode))}
+}
+
+// line is the text line naming the mode and its rule.
+func (d seatDelivery) line() string { return deliverytext.ModeLine(string(d.Mode)) + "\n" }

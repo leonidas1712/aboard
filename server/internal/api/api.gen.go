@@ -66,6 +66,21 @@ func (e ActorKind) Valid() bool {
 	}
 }
 
+// Defines values for BoardCreatedEventDataVisibility.
+const (
+	BoardCreatedEventDataVisibilityPrivate BoardCreatedEventDataVisibility = "private"
+)
+
+// Valid indicates whether the value is a known member of the BoardCreatedEventDataVisibility enum.
+func (e BoardCreatedEventDataVisibility) Valid() bool {
+	switch e {
+	case BoardCreatedEventDataVisibilityPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BoardCreatedEventType.
 const (
 	BoardCreated BoardCreatedEventType = "board.created"
@@ -75,6 +90,24 @@ const (
 func (e BoardCreatedEventType) Valid() bool {
 	switch e {
 	case BoardCreated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BoardCreation.
+const (
+	Admins  BoardCreation = "admins"
+	Members BoardCreation = "members"
+)
+
+// Valid indicates whether the value is a known member of the BoardCreation enum.
+func (e BoardCreation) Valid() bool {
+	switch e {
+	case Admins:
+		return true
+	case Members:
 		return true
 	default:
 		return false
@@ -117,6 +150,24 @@ func (e BoardPolicyChangedEventType) Valid() bool {
 	}
 }
 
+// Defines values for BoardRole.
+const (
+	BoardRoleMember BoardRole = "member"
+	BoardRoleOwner  BoardRole = "owner"
+)
+
+// Valid indicates whether the value is a known member of the BoardRole enum.
+func (e BoardRole) Valid() bool {
+	switch e {
+	case BoardRoleMember:
+		return true
+	case BoardRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BoardTitledEventType.
 const (
 	BoardTitled BoardTitledEventType = "board.titled"
@@ -126,6 +177,39 @@ const (
 func (e BoardTitledEventType) Valid() bool {
 	switch e {
 	case BoardTitled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BoardVisibility.
+const (
+	BoardVisibilityOpen    BoardVisibility = "open"
+	BoardVisibilityPrivate BoardVisibility = "private"
+)
+
+// Valid indicates whether the value is a known member of the BoardVisibility enum.
+func (e BoardVisibility) Valid() bool {
+	switch e {
+	case BoardVisibilityOpen:
+		return true
+	case BoardVisibilityPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BoardVisibilityChangedEventType.
+const (
+	BoardVisibilityChanged BoardVisibilityChangedEventType = "board.visibility_changed"
+)
+
+// Valid indicates whether the value is a known member of the BoardVisibilityChangedEventType enum.
+func (e BoardVisibilityChangedEventType) Valid() bool {
+	switch e {
+	case BoardVisibilityChanged:
 		return true
 	default:
 		return false
@@ -161,44 +245,50 @@ func (e DeliveryMode) Valid() bool {
 
 // Defines values for ErrorErrorCode.
 const (
-	AckOutOfRange         ErrorErrorCode = "ack_out_of_range"
-	AdminRequired         ErrorErrorCode = "admin_required"
-	AgentTokenRequired    ErrorErrorCode = "agent_token_required"
-	BoardNameTaken        ErrorErrorCode = "board_name_taken"
-	BoardNotFound         ErrorErrorCode = "board_not_found"
-	BroadcastNotAllowed   ErrorErrorCode = "broadcast_not_allowed"
-	Forbidden             ErrorErrorCode = "forbidden"
-	HandleInvalid         ErrorErrorCode = "handle_invalid"
-	HandleTaken           ErrorErrorCode = "handle_taken"
-	HostNotAllowed        ErrorErrorCode = "host_not_allowed"
-	HumanTokenRequired    ErrorErrorCode = "human_token_required"
-	IdempotencyConflict   ErrorErrorCode = "idempotency_conflict"
-	Internal              ErrorErrorCode = "internal"
-	InvalidRequest        ErrorErrorCode = "invalid_request"
-	InvalidTarget         ErrorErrorCode = "invalid_target"
-	InviteInvalid         ErrorErrorCode = "invite_invalid"
-	JoinCodeInvalid       ErrorErrorCode = "join_code_invalid"
-	JoinCodeNotFound      ErrorErrorCode = "join_code_not_found"
-	KeyNameTaken          ErrorErrorCode = "key_name_taken"
-	KeyNotFound           ErrorErrorCode = "key_not_found"
-	LoginCodeInvalid      ErrorErrorCode = "login_code_invalid"
-	MachineRequestInvalid ErrorErrorCode = "machine_request_invalid"
-	MachineRequestRefused ErrorErrorCode = "machine_request_refused"
-	MemberNotFound        ErrorErrorCode = "member_not_found"
-	MessageNotFound       ErrorErrorCode = "message_not_found"
-	MessageTooLarge       ErrorErrorCode = "message_too_large"
-	NameTaken             ErrorErrorCode = "name_taken"
-	NotFound              ErrorErrorCode = "not_found"
-	NotImplemented        ErrorErrorCode = "not_implemented"
-	PersonNotFound        ErrorErrorCode = "person_not_found"
-	RateLimited           ErrorErrorCode = "rate_limited"
-	ReplyHasNoRecipients  ErrorErrorCode = "reply_has_no_recipients"
-	RoleNotFound          ErrorErrorCode = "role_not_found"
-	ServerAdminRequired   ErrorErrorCode = "server_admin_required"
-	TemplateNotFound      ErrorErrorCode = "template_not_found"
-	Unauthorized          ErrorErrorCode = "unauthorized"
-	UnknownRecipient      ErrorErrorCode = "unknown_recipient"
-	UrgentNotAllowed      ErrorErrorCode = "urgent_not_allowed"
+	AckOutOfRange           ErrorErrorCode = "ack_out_of_range"
+	AdminRequired           ErrorErrorCode = "admin_required"
+	AgentTokenRequired      ErrorErrorCode = "agent_token_required"
+	AlreadyOnBoard          ErrorErrorCode = "already_on_board"
+	BoardCreationRestricted ErrorErrorCode = "board_creation_restricted"
+	BoardNameTaken          ErrorErrorCode = "board_name_taken"
+	BoardNotFound           ErrorErrorCode = "board_not_found"
+	BroadcastNotAllowed     ErrorErrorCode = "broadcast_not_allowed"
+	Forbidden               ErrorErrorCode = "forbidden"
+	HandleInvalid           ErrorErrorCode = "handle_invalid"
+	HandleTaken             ErrorErrorCode = "handle_taken"
+	HostNotAllowed          ErrorErrorCode = "host_not_allowed"
+	HumanTokenRequired      ErrorErrorCode = "human_token_required"
+	IdempotencyConflict     ErrorErrorCode = "idempotency_conflict"
+	Internal                ErrorErrorCode = "internal"
+	InvalidRequest          ErrorErrorCode = "invalid_request"
+	InvalidTarget           ErrorErrorCode = "invalid_target"
+	InviteInvalid           ErrorErrorCode = "invite_invalid"
+	JoinCodeInvalid         ErrorErrorCode = "join_code_invalid"
+	JoinCodeNotFound        ErrorErrorCode = "join_code_not_found"
+	KeyNameTaken            ErrorErrorCode = "key_name_taken"
+	KeyNotFound             ErrorErrorCode = "key_not_found"
+	LastOwner               ErrorErrorCode = "last_owner"
+	LoginCodeInvalid        ErrorErrorCode = "login_code_invalid"
+	MachineRequestInvalid   ErrorErrorCode = "machine_request_invalid"
+	MachineRequestRefused   ErrorErrorCode = "machine_request_refused"
+	MemberNotFound          ErrorErrorCode = "member_not_found"
+	MessageNotFound         ErrorErrorCode = "message_not_found"
+	MessageTooLarge         ErrorErrorCode = "message_too_large"
+	NameTaken               ErrorErrorCode = "name_taken"
+	NotFound                ErrorErrorCode = "not_found"
+	NotImplemented          ErrorErrorCode = "not_implemented"
+	NotOnBoard              ErrorErrorCode = "not_on_board"
+	OwnerRequired           ErrorErrorCode = "owner_required"
+	PersonNotFound          ErrorErrorCode = "person_not_found"
+	PersonNotOnBoard        ErrorErrorCode = "person_not_on_board"
+	RateLimited             ErrorErrorCode = "rate_limited"
+	ReplyHasNoRecipients    ErrorErrorCode = "reply_has_no_recipients"
+	RoleNotFound            ErrorErrorCode = "role_not_found"
+	ServerAdminRequired     ErrorErrorCode = "server_admin_required"
+	TemplateNotFound        ErrorErrorCode = "template_not_found"
+	Unauthorized            ErrorErrorCode = "unauthorized"
+	UnknownRecipient        ErrorErrorCode = "unknown_recipient"
+	UrgentNotAllowed        ErrorErrorCode = "urgent_not_allowed"
 )
 
 // Valid indicates whether the value is a known member of the ErrorErrorCode enum.
@@ -209,6 +299,10 @@ func (e ErrorErrorCode) Valid() bool {
 	case AdminRequired:
 		return true
 	case AgentTokenRequired:
+		return true
+	case AlreadyOnBoard:
+		return true
+	case BoardCreationRestricted:
 		return true
 	case BoardNameTaken:
 		return true
@@ -244,6 +338,8 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case KeyNotFound:
 		return true
+	case LastOwner:
+		return true
 	case LoginCodeInvalid:
 		return true
 	case MachineRequestInvalid:
@@ -262,7 +358,13 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case NotImplemented:
 		return true
+	case NotOnBoard:
+		return true
+	case OwnerRequired:
+		return true
 	case PersonNotFound:
+		return true
+	case PersonNotOnBoard:
 		return true
 	case RateLimited:
 		return true
@@ -279,6 +381,21 @@ func (e ErrorErrorCode) Valid() bool {
 	case UnknownRecipient:
 		return true
 	case UrgentNotAllowed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HiddenBoardVisibility.
+const (
+	HiddenBoardVisibilityPrivate HiddenBoardVisibility = "private"
+)
+
+// Valid indicates whether the value is a known member of the HiddenBoardVisibility enum.
+func (e HiddenBoardVisibility) Valid() bool {
+	switch e {
+	case HiddenBoardVisibilityPrivate:
 		return true
 	default:
 		return false
@@ -672,6 +789,81 @@ func (e Permission) Valid() bool {
 	case PermissionUrgent:
 		return true
 	case PermissionWriteNotes:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonAddedEventType.
+const (
+	PersonAdded PersonAddedEventType = "person.added"
+)
+
+// Valid indicates whether the value is a known member of the PersonAddedEventType enum.
+func (e PersonAddedEventType) Valid() bool {
+	switch e {
+	case PersonAdded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonEventDataAccess.
+const (
+	PersonEventDataAccessMember PersonEventDataAccess = "member"
+)
+
+// Valid indicates whether the value is a known member of the PersonEventDataAccess enum.
+func (e PersonEventDataAccess) Valid() bool {
+	switch e {
+	case PersonEventDataAccessMember:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonLeftEventType.
+const (
+	PersonLeft PersonLeftEventType = "person.left"
+)
+
+// Valid indicates whether the value is a known member of the PersonLeftEventType enum.
+func (e PersonLeftEventType) Valid() bool {
+	switch e {
+	case PersonLeft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonMadeOwnerEventType.
+const (
+	PersonMadeOwner PersonMadeOwnerEventType = "person.made_owner"
+)
+
+// Valid indicates whether the value is a known member of the PersonMadeOwnerEventType enum.
+func (e PersonMadeOwnerEventType) Valid() bool {
+	switch e {
+	case PersonMadeOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonRemovedEventType.
+const (
+	PersonRemoved PersonRemovedEventType = "person.removed"
+)
+
+// Valid indicates whether the value is a known member of the PersonRemovedEventType enum.
+func (e PersonRemovedEventType) Valid() bool {
+	switch e {
+	case PersonRemoved:
 		return true
 	default:
 		return false
@@ -1090,6 +1282,14 @@ type Actor struct {
 // ActorKind defines model for Actor.Kind.
 type ActorKind string
 
+// AddPersonRequest defines model for AddPersonRequest.
+type AddPersonRequest struct {
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle Handle `json:"handle"`
+}
+
 // Board defines model for Board.
 type Board struct {
 	Charter   string    `json:"charter"`
@@ -1110,8 +1310,13 @@ type Board struct {
 	MessageCount *int `json:"message_count"`
 
 	// Name Example: writer-reviewer
-	Name   BoardName `json:"name"`
-	Policy Policy    `json:"policy"`
+	Name BoardName `json:"name"`
+
+	// OnBoard Whether the caller is on the board: a person on it, or an agent on its own
+	// board. False for an open board a person can see but hasn't joined; they read
+	// its messages after adding themselves (`POST /boards/{board}/people`).
+	OnBoard bool   `json:"on_board"`
+	Policy  Policy `json:"policy"`
 
 	// Roles Role name to role. Always includes `member`.
 	Roles map[string]Role `json:"roles"`
@@ -1121,6 +1326,11 @@ type Board struct {
 
 	// Title Null when the board has no title.
 	Title *BoardTitle `json:"title"`
+
+	// Visibility Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Visibility BoardVisibility `json:"visibility"`
 }
 
 // BoardCreatedEvent defines model for BoardCreatedEvent.
@@ -1140,6 +1350,9 @@ type BoardCreatedEvent struct {
 
 		// Title Present only when the board was made with a title.
 		Title *BoardTitle `json:"title,omitempty"`
+
+		// Visibility Present only for a board created private; a board without it was created open.
+		Visibility *BoardCreatedEventDataVisibility `json:"visibility,omitempty"`
 	} `json:"data,omitempty"`
 	DataHash Hash `json:"data_hash"`
 
@@ -1154,11 +1367,53 @@ type BoardCreatedEvent struct {
 	Type BoardCreatedEventType `json:"type"`
 }
 
+// BoardCreatedEventDataVisibility Present only for a board created private; a board without it was created open.
+type BoardCreatedEventDataVisibility string
+
 // BoardCreatedEventType defines model for BoardCreatedEvent.Type.
 type BoardCreatedEventType string
 
+// BoardCreation Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+type BoardCreation string
+
 // BoardName Example: writer-reviewer
 type BoardName = string
+
+// BoardPeople defines model for BoardPeople.
+type BoardPeople struct {
+	// Board Example: writer-reviewer
+	Board  BoardName     `json:"board"`
+	People []BoardPerson `json:"people"`
+
+	// Visibility Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Visibility BoardVisibility `json:"visibility"`
+}
+
+// BoardPerson defines model for BoardPerson.
+type BoardPerson struct {
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// BoardRole A person's role on a board. `owner`: the creator, and anyone an owner made one;
+	// owners remove people, make others owners, turn the board open or private, and
+	// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+	// everyone else. Agents have no board role.
+	BoardRole   BoardRole `json:"board_role"`
+	DisplayName *string   `json:"display_name"`
+
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle   Handle    `json:"handle"`
+	Id       string    `json:"id"`
+	JoinedAt Timestamp `json:"joined_at"`
+	MemberId string    `json:"member_id"`
+
+	// Name The person's member name on the board, usually their handle.
+	Name MemberName `json:"name"`
+}
 
 // BoardPolicyChangedEvent defines model for BoardPolicyChangedEvent.
 type BoardPolicyChangedEvent struct {
@@ -1188,6 +1443,12 @@ type BoardPolicyChangedEventDataPresetApplied string
 
 // BoardPolicyChangedEventType defines model for BoardPolicyChangedEvent.Type.
 type BoardPolicyChangedEventType string
+
+// BoardRole A person's role on a board. `owner`: the creator, and anyone an owner made one;
+// owners remove people, make others owners, turn the board open or private, and
+// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+// everyone else. Agents have no board role.
+type BoardRole string
 
 // BoardTitle Free text people read, such as `Payments retry design`, on one line. The board's
 // name stays its address; clients show the title with the name beside it, and the
@@ -1221,6 +1482,46 @@ type BoardTitledEvent struct {
 
 // BoardTitledEventType defines model for BoardTitledEvent.Type.
 type BoardTitledEventType string
+
+// BoardVisibility Who can see the board. `open`: every person on the server sees it and may join
+// it. `private`: only the people on it. Not to be confused with the policy's
+// `visibility`, which decides who reads which messages inside a board.
+type BoardVisibility string
+
+// BoardVisibilityChangedEvent defines model for BoardVisibilityChangedEvent.
+type BoardVisibilityChangedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		// After Who can see the board. `open`: every person on the server sees it and may join
+		// it. `private`: only the people on it. Not to be confused with the policy's
+		// `visibility`, which decides who reads which messages inside a board.
+		After BoardVisibility `json:"after"`
+
+		// Before Who can see the board. `open`: every person on the server sees it and may join
+		// it. `private`: only the people on it. Not to be confused with the policy's
+		// `visibility`, which decides who reads which messages inside a board.
+		Before BoardVisibility `json:"before"`
+
+		// Reveals For a private board turning open, how many messages and files it held then. Null otherwise.
+		Reveals *Reveals `json:"reveals"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                             `json:"seq"`
+	Type BoardVisibilityChangedEventType `json:"type"`
+}
+
+// BoardVisibilityChangedEventType defines model for BoardVisibilityChangedEvent.Type.
+type BoardVisibilityChangedEventType string
 
 // BrowserToken defines model for BrowserToken.
 type BrowserToken struct {
@@ -1294,6 +1595,9 @@ type CreateBoardRequest struct {
 	//
 	// Example: Payments retry design
 	Title *BoardTitle `json:"title,omitempty"`
+
+	// Visibility `open` unless given.
+	Visibility *BoardVisibility `json:"visibility,omitempty"`
 }
 
 // CreateInviteRequest defines model for CreateInviteRequest.
@@ -1396,6 +1700,21 @@ type Harness = string
 
 // Hash defines model for Hash.
 type Hash = string
+
+// HiddenBoard A private board a server admin isn't on, as they see it: that it exists, and
+// nothing of its name, title, people or content.
+type HiddenBoard struct {
+	CreatedAt Timestamp `json:"created_at"`
+	CreatedBy PersonRef `json:"created_by"`
+	Id        string    `json:"id"`
+
+	// People How many people are on it.
+	People     int                   `json:"people"`
+	Visibility HiddenBoardVisibility `json:"visibility"`
+}
+
+// HiddenBoardVisibility defines model for HiddenBoard.Visibility.
+type HiddenBoardVisibility string
 
 // Inbox defines model for Inbox.
 type Inbox struct {
@@ -1946,6 +2265,136 @@ type Person struct {
 	ServerRole ServerRole `json:"server_role"`
 }
 
+// PersonAddedEvent defines model for PersonAddedEvent.
+type PersonAddedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type PersonAddedEventType `json:"type"`
+}
+
+// PersonAddedEventType defines model for PersonAddedEvent.Type.
+type PersonAddedEventType string
+
+// PersonEventData The person the event is about. Who did it is the event's actor.
+type PersonEventData struct {
+	// Access In `person.added` only, the access the person comes back or comes in with.
+	Access *PersonEventDataAccess `json:"access,omitempty"`
+
+	// Agents In `person.removed` and `person.left`: the member ids of the person's agents on
+	// the board, which end with them for good. Their tokens never work on the board
+	// again, even if the person is added back. Absent from events written before
+	// agents ended this way.
+	Agents   *[]string `json:"agents,omitempty"`
+	MemberId string    `json:"member_id"`
+
+	// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
+	//
+	// Example: reviewer
+	Name     MemberName `json:"name"`
+	PersonId string     `json:"person_id"`
+
+	// Rejoined In `person.added` only. True for a person who was on the board before, back under their old member id and name.
+	Rejoined *bool `json:"rejoined,omitempty"`
+}
+
+// PersonEventDataAccess In `person.added` only, the access the person comes back or comes in with.
+type PersonEventDataAccess string
+
+// PersonLeftEvent defines model for PersonLeftEvent.
+type PersonLeftEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                 `json:"seq"`
+	Type PersonLeftEventType `json:"type"`
+}
+
+// PersonLeftEventType defines model for PersonLeftEvent.Type.
+type PersonLeftEventType string
+
+// PersonMadeOwnerEvent defines model for PersonMadeOwnerEvent.
+type PersonMadeOwnerEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                      `json:"seq"`
+	Type PersonMadeOwnerEventType `json:"type"`
+}
+
+// PersonMadeOwnerEventType defines model for PersonMadeOwnerEvent.Type.
+type PersonMadeOwnerEventType string
+
+// PersonRef defines model for PersonRef.
+type PersonRef struct {
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle Handle `json:"handle"`
+	Id     string `json:"id"`
+}
+
+// PersonRemovedEvent defines model for PersonRemovedEvent.
+type PersonRemovedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+
+	// Data The person the event is about. Who did it is the event's actor.
+	Data     *PersonEventData `json:"data,omitempty"`
+	DataHash Hash             `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                    `json:"seq"`
+	Type PersonRemovedEventType `json:"type"`
+}
+
+// PersonRemovedEventType defines model for PersonRemovedEvent.Type.
+type PersonRemovedEventType string
+
 // Policy defines model for Policy.
 type Policy struct {
 	// Broadcast `everyone`: any member may post to `all`. `granted`: only roles with `broadcast`.
@@ -2149,6 +2598,12 @@ type ReplyPage struct {
 	Root *Message `json:"root"`
 }
 
+// Reveals defines model for Reveals.
+type Reveals struct {
+	Files    int `json:"files"`
+	Messages int `json:"messages"`
+}
+
 // Role defines model for Role.
 type Role struct {
 	Can     []PermissionGrant `json:"can"`
@@ -2207,6 +2662,29 @@ type ServerInviteServerRole string
 // The first person on a server is its admin.
 type ServerRole string
 
+// ServerSettings defines model for ServerSettings.
+type ServerSettings struct {
+	// BoardCreation Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+	BoardCreation BoardCreation `json:"board_creation"`
+}
+
+// ServerSettingsChange defines model for ServerSettingsChange.
+type ServerSettingsChange struct {
+	// BoardCreation Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+	BoardCreation *BoardCreation `json:"board_creation,omitempty"`
+}
+
+// SetVisibilityRequest defines model for SetVisibilityRequest.
+type SetVisibilityRequest struct {
+	// DryRun Say what the change would do without making it.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Visibility Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Visibility BoardVisibility `json:"visibility"`
+}
+
 // StartMachineRequest defines model for StartMachineRequest.
 type StartMachineRequest struct {
 	// Handle The person the machine is for. Only their own key can approve the request.
@@ -2259,6 +2737,32 @@ type UpdateBoardRequest struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// VisibilityChange defines model for VisibilityChange.
+type VisibilityChange struct {
+	// After Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	After BoardVisibility `json:"after"`
+
+	// Before Who can see the board. `open`: every person on the server sees it and may join
+	// it. `private`: only the people on it. Not to be confused with the policy's
+	// `visibility`, which decides who reads which messages inside a board.
+	Before BoardVisibility `json:"before"`
+
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// Changed False when the board already had that visibility; nothing was recorded.
+	Changed bool `json:"changed"`
+	DryRun  bool `json:"dry_run"`
+
+	// JoinCodesCanceled For an open board turning private, how many working join codes were (or, with `dry_run`, would be) canceled.
+	JoinCodesCanceled int `json:"join_codes_canceled"`
+
+	// Reveals For a private board turning open, the history every person on the server can then read. Null otherwise.
+	Reveals *Reveals `json:"reveals"`
+}
+
 // After defines model for After.
 type After = int
 
@@ -2293,6 +2797,12 @@ type SenderRole = string
 // ToMe defines model for ToMe.
 type ToMe = bool
 
+// ListBoardsParams defines parameters for ListBoards.
+type ListBoardsParams struct {
+	// All Also list open boards the caller isn't on, and for a server admin, private boards they aren't on.
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
 // CreateBoardParams defines parameters for CreateBoard.
 type CreateBoardParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -2317,6 +2827,11 @@ type CreateJoinCodeParams struct {
 
 // RevokeJoinCodeParams defines parameters for RevokeJoinCode.
 type RevokeJoinCodeParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// LeaveBoardParams defines parameters for LeaveBoard.
+type LeaveBoardParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -2347,9 +2862,29 @@ type PostMessageParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// AddOwnerParams defines parameters for AddOwner.
+type AddOwnerParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AddPersonParams defines parameters for AddPerson.
+type AddPersonParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RemovePersonParams defines parameters for RemovePerson.
+type RemovePersonParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ListThreadsParams defines parameters for ListThreads.
 type ListThreadsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SetVisibilityParams defines parameters for SetVisibility.
+type SetVisibilityParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
 // EndBrowserTokensParams defines parameters for EndBrowserTokens.
@@ -2484,6 +3019,11 @@ type ListRepliesParams struct {
 	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
 }
 
+// UpdateSettingsParams defines parameters for UpdateSettings.
+type UpdateSettingsParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // CreateBoardJSONRequestBody defines body for CreateBoard for application/json ContentType.
 type CreateBoardJSONRequestBody = CreateBoardRequest
 
@@ -2495,6 +3035,15 @@ type CreateJoinCodeJSONRequestBody = CreateJoinCodeRequest
 
 // PostMessageJSONRequestBody defines body for PostMessage for application/json ContentType.
 type PostMessageJSONRequestBody = PostMessageRequest
+
+// AddOwnerJSONRequestBody defines body for AddOwner for application/json ContentType.
+type AddOwnerJSONRequestBody = AddPersonRequest
+
+// AddPersonJSONRequestBody defines body for AddPerson for application/json ContentType.
+type AddPersonJSONRequestBody = AddPersonRequest
+
+// SetVisibilityJSONRequestBody defines body for SetVisibility for application/json ContentType.
+type SetVisibilityJSONRequestBody = SetVisibilityRequest
 
 // CreateBrowserTokenJSONRequestBody defines body for CreateBrowserToken for application/json ContentType.
 type CreateBrowserTokenJSONRequestBody = BrowserTokenRequest
@@ -2531,6 +3080,9 @@ type AckInboxJSONRequestBody AckInboxJSONBody
 
 // SetPresenceJSONRequestBody defines body for SetPresence for application/json ContentType.
 type SetPresenceJSONRequestBody SetPresenceJSONBody
+
+// UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
+type UpdateSettingsJSONRequestBody = ServerSettingsChange
 
 // AsBoardCreatedEvent returns the union data inside the Event as a BoardCreatedEvent
 func (t Event) AsBoardCreatedEvent() (BoardCreatedEvent, error) {
@@ -2838,6 +3390,176 @@ func (t *Event) MergeReactionRemovedEvent(v ReactionRemovedEvent) error {
 	return err
 }
 
+// AsPersonAddedEvent returns the union data inside the Event as a PersonAddedEvent
+func (t Event) AsPersonAddedEvent() (PersonAddedEvent, error) {
+	var body PersonAddedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonAddedEvent overwrites any union data inside the Event as the provided PersonAddedEvent
+func (t *Event) FromPersonAddedEvent(v PersonAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.added"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonAddedEvent performs a merge with any union data inside the Event, using the provided PersonAddedEvent
+func (t *Event) MergePersonAddedEvent(v PersonAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.added"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonRemovedEvent returns the union data inside the Event as a PersonRemovedEvent
+func (t Event) AsPersonRemovedEvent() (PersonRemovedEvent, error) {
+	var body PersonRemovedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonRemovedEvent overwrites any union data inside the Event as the provided PersonRemovedEvent
+func (t *Event) FromPersonRemovedEvent(v PersonRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.removed"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonRemovedEvent performs a merge with any union data inside the Event, using the provided PersonRemovedEvent
+func (t *Event) MergePersonRemovedEvent(v PersonRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.removed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonLeftEvent returns the union data inside the Event as a PersonLeftEvent
+func (t Event) AsPersonLeftEvent() (PersonLeftEvent, error) {
+	var body PersonLeftEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonLeftEvent overwrites any union data inside the Event as the provided PersonLeftEvent
+func (t *Event) FromPersonLeftEvent(v PersonLeftEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.left"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonLeftEvent performs a merge with any union data inside the Event, using the provided PersonLeftEvent
+func (t *Event) MergePersonLeftEvent(v PersonLeftEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.left"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonMadeOwnerEvent returns the union data inside the Event as a PersonMadeOwnerEvent
+func (t Event) AsPersonMadeOwnerEvent() (PersonMadeOwnerEvent, error) {
+	var body PersonMadeOwnerEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonMadeOwnerEvent overwrites any union data inside the Event as the provided PersonMadeOwnerEvent
+func (t *Event) FromPersonMadeOwnerEvent(v PersonMadeOwnerEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.made_owner"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonMadeOwnerEvent performs a merge with any union data inside the Event, using the provided PersonMadeOwnerEvent
+func (t *Event) MergePersonMadeOwnerEvent(v PersonMadeOwnerEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.made_owner"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBoardVisibilityChangedEvent returns the union data inside the Event as a BoardVisibilityChangedEvent
+func (t Event) AsBoardVisibilityChangedEvent() (BoardVisibilityChangedEvent, error) {
+	var body BoardVisibilityChangedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBoardVisibilityChangedEvent overwrites any union data inside the Event as the provided BoardVisibilityChangedEvent
+func (t *Event) FromBoardVisibilityChangedEvent(v BoardVisibilityChangedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"board.visibility_changed"}`))
+	t.union = b
+	return err
+}
+
+// MergeBoardVisibilityChangedEvent performs a merge with any union data inside the Event, using the provided BoardVisibilityChangedEvent
+func (t *Event) MergeBoardVisibilityChangedEvent(v BoardVisibilityChangedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"board.visibility_changed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Event) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2858,6 +3580,8 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsBoardPolicyChangedEvent()
 	case "board.titled":
 		return t.AsBoardTitledEvent()
+	case "board.visibility_changed":
+		return t.AsBoardVisibilityChangedEvent()
 	case "joincode.created":
 		return t.AsJoinCodeCreatedEvent()
 	case "joincode.revoked":
@@ -2866,6 +3590,14 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsMemberJoinedEvent()
 	case "message.posted":
 		return t.AsMessagePostedEvent()
+	case "person.added":
+		return t.AsPersonAddedEvent()
+	case "person.left":
+		return t.AsPersonLeftEvent()
+	case "person.made_owner":
+		return t.AsPersonMadeOwnerEvent()
+	case "person.removed":
+		return t.AsPersonRemovedEvent()
 	case "reaction.added":
 		return t.AsReactionAddedEvent()
 	case "reaction.removed":
@@ -3021,17 +3753,29 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
-	// ListBoards List boards the caller is a member of
+	// ListBoards List boards the caller is on, or every board it can see
+	//
+	// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+	// board. With `all=true`, a person also gets the open boards they aren't on
+	// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+	// boards they aren't on, each with only its id, when and by whom it was created and
+	// how many people are on it, never its name, title, people or content. An agent
+	// gets its own board either way.
 	//
 	// Corresponds with GET /v1/boards (the `ListBoards` operationId).
-	ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListBoards(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateBoardWithBody Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -3041,9 +3785,14 @@ type ClientInterface interface {
 	// CreateBoard Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -3051,6 +3800,9 @@ type ClientInterface interface {
 	CreateBoard(ctx context.Context, params *CreateBoardParams, body CreateBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetBoard Get one board
+	//
+	// Any board the caller can see: one it is on, or for a person, an open board
+	// (`on_board` says which). Anything else is 404 `board_not_found`.
 	//
 	// Corresponds with GET /v1/boards/{board} (the `GetBoard` operationId).
 	GetBoard(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3128,6 +3880,17 @@ type ClientInterface interface {
 	// Corresponds with DELETE /v1/boards/{board}/join-codes/{join_code} (the `RevokeJoinCode` operationId).
 	RevokeJoinCode(ctx context.Context, board BoardParam, joinCode string, params *RevokeJoinCodeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// LeaveBoard Leave a board
+	//
+	// The caller, a person, leaves the board: writes `person.left`; they lose access to
+	// it at once, their agents on it end for good as on removal, and the join codes they
+	// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+	// hint says to make someone else an owner first. An agent gets 403
+	// `human_token_required`.
+	//
+	// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+	LeaveBoard(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListMembers List members of a board
 	//
 	// Corresponds with GET /v1/boards/{board}/members (the `ListMembers` operationId).
@@ -3203,6 +3966,95 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
 	PostMessage(ctx context.Context, board BoardParam, params *PostMessageParams, body PostMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AddOwnerWithBody Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwnerWithBody(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddOwner Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwner(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPeople List the people on a board, with their board role
+	//
+	// The people on the board, in the order they came onto it, each an `owner` or a
+	// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+	// the board may list its people: the people on it, their agents, and on an open
+	// board every person on the server.
+	//
+	// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+	ListPeople(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddPersonWithBody Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPersonWithBody(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddPerson Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPerson(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemovePerson Remove a person from the board
+	//
+	// Owners only, with a person's own token: anyone else on the board gets 403
+	// `owner_required`, whose hint names the owners, and an agent 403
+	// `human_token_required`. Writes `person.removed`. The person loses access to the
+	// board at once, and their agents on it end for good (named in the event's
+	// `agents`): their tokens never work on the board again, even if the person is
+	// added back, when they join with new agents. The join codes they or their agents
+	// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+	// the record.
+	// Removing someone from an open board doesn't keep them out, since anyone on the
+	// server may join it again; making the board private does.
+	//
+	// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+	// Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+	RemovePerson(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListThreads List the board's threads
 	//
 	// The messages on the board that start a thread with replies, the thread with the
@@ -3216,6 +4068,48 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/boards/{board}/threads (the `ListThreads` operationId).
 	ListThreads(ctx context.Context, board BoardParam, params *ListThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetVisibilityWithBody Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibilityWithBody(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetVisibility Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibility(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EndBrowserTokens Log every browser out
 	//
@@ -3858,6 +4752,35 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/messages/{message}/replies (the `ListReplies` operationId).
 	ListReplies(ctx context.Context, message MessageParam, params *ListRepliesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetSettings Read the server's settings
+	//
+	// People only; an agent gets 403 `human_token_required`.
+	//
+	// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+	GetSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSettingsWithBody Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettingsWithBody(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSettings Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettings(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Stream Follow the heads of your boards
 	//
 	// Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -3892,11 +4815,18 @@ type ClientInterface interface {
 	Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-// ListBoards List boards the caller is a member of
+// ListBoards List boards the caller is on, or every board it can see
+//
+// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+// board. With `all=true`, a person also gets the open boards they aren't on
+// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+// boards they aren't on, each with only its id, when and by whom it was created and
+// how many people are on it, never its name, title, people or content. An agent
+// gets its own board either way.
 //
 // Corresponds with GET /v1/boards (the `ListBoards` operationId).
-func (c *Client) ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListBoardsRequest(c.Server)
+func (c *Client) ListBoards(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBoardsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3910,9 +4840,14 @@ func (c *Client) ListBoards(ctx context.Context, reqEditors ...RequestEditorFn) 
 // CreateBoardWithBody Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes any type of body and a specified content type.
 //
@@ -3932,9 +4867,14 @@ func (c *Client) CreateBoardWithBody(ctx context.Context, params *CreateBoardPar
 // CreateBoard Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3952,6 +4892,9 @@ func (c *Client) CreateBoard(ctx context.Context, params *CreateBoardParams, bod
 }
 
 // GetBoard Get one board
+//
+// Any board the caller can see: one it is on, or for a person, an open board
+// (`on_board` says which). Anything else is 404 `board_not_found`.
 //
 // Corresponds with GET /v1/boards/{board} (the `GetBoard` operationId).
 func (c *Client) GetBoard(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -4099,6 +5042,27 @@ func (c *Client) RevokeJoinCode(ctx context.Context, board BoardParam, joinCode 
 	return c.Client.Do(req)
 }
 
+// LeaveBoard Leave a board
+//
+// The caller, a person, leaves the board: writes `person.left`; they lose access to
+// it at once, their agents on it end for good as on removal, and the join codes they
+// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+// hint says to make someone else an owner first. An agent gets 403
+// `human_token_required`.
+//
+// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+func (c *Client) LeaveBoard(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLeaveBoardRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListMembers List members of a board
 //
 // Corresponds with GET /v1/boards/{board}/members (the `ListMembers` operationId).
@@ -4214,6 +5178,155 @@ func (c *Client) PostMessage(ctx context.Context, board BoardParam, params *Post
 	return c.Client.Do(req)
 }
 
+// AddOwnerWithBody Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *Client) AddOwnerWithBody(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOwnerRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddOwner Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *Client) AddOwner(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddOwnerRequest(c.Server, board, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPeople List the people on a board, with their board role
+//
+// The people on the board, in the order they came onto it, each an `owner` or a
+// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+// the board may list its people: the people on it, their agents, and on an open
+// board every person on the server.
+//
+// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+func (c *Client) ListPeople(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPeopleRequest(c.Server, board)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddPersonWithBody Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *Client) AddPersonWithBody(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddPersonRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AddPerson Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *Client) AddPerson(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddPersonRequest(c.Server, board, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemovePerson Remove a person from the board
+//
+// Owners only, with a person's own token: anyone else on the board gets 403
+// `owner_required`, whose hint names the owners, and an agent 403
+// `human_token_required`. Writes `person.removed`. The person loses access to the
+// board at once, and their agents on it end for good (named in the event's
+// `agents`): their tokens never work on the board again, even if the person is
+// added back, when they join with new agents. The join codes they or their agents
+// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+// the record.
+// Removing someone from an open board doesn't keep them out, since anyone on the
+// server may join it again; making the board private does.
+//
+// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+// Someone not on the board is 404 `person_not_on_board`.
+//
+// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+func (c *Client) RemovePerson(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemovePersonRequest(c.Server, board, handle, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListThreads List the board's threads
 //
 // The messages on the board that start a thread with replies, the thread with the
@@ -4228,6 +5341,68 @@ func (c *Client) PostMessage(ctx context.Context, board BoardParam, params *Post
 // Corresponds with GET /v1/boards/{board}/threads (the `ListThreads` operationId).
 func (c *Client) ListThreads(ctx context.Context, board BoardParam, params *ListThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListThreadsRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetVisibilityWithBody Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *Client) SetVisibilityWithBody(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetVisibilityRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetVisibility Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *Client) SetVisibility(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetVisibilityRequest(c.Server, board, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5229,6 +6404,65 @@ func (c *Client) ListReplies(ctx context.Context, message MessageParam, params *
 	return c.Client.Do(req)
 }
 
+// GetSettings Read the server's settings
+//
+// People only; an agent gets 403 `human_token_required`.
+//
+// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+func (c *Client) GetSettings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSettingsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateSettingsWithBody Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *Client) UpdateSettingsWithBody(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSettingsRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateSettings Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *Client) UpdateSettings(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSettingsRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // Stream Follow the heads of your boards
 //
 // Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -5273,7 +6507,7 @@ func (c *Client) Stream(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 }
 
 // NewListBoardsRequest constructs an http.Request for the ListBoards method
-func NewListBoardsRequest(server string) (*http.Request, error) {
+func NewListBoardsRequest(server string, params *ListBoardsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -5289,6 +6523,33 @@ func NewListBoardsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.All != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "all", *params.All, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -5641,6 +6902,55 @@ func NewRevokeJoinCodeRequest(server string, board BoardParam, joinCode string, 
 	return req, nil
 }
 
+// NewLeaveBoardRequest constructs an http.Request for the LeaveBoard method
+func NewLeaveBoardRequest(server string, board BoardParam, params *LeaveBoardParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/leave", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListMembersRequest constructs an http.Request for the ListMembers method
 func NewListMembersRequest(server string, board BoardParam) (*http.Request, error) {
 	var err error
@@ -5870,6 +7180,220 @@ func NewPostMessageRequestWithBody(server string, board BoardParam, params *Post
 	return req, nil
 }
 
+// NewAddOwnerRequest calls the generic AddOwner builder with application/json body
+func NewAddOwnerRequest(server string, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddOwnerRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewAddOwnerRequestWithBody constructs an http.Request for the AddOwner method, with any body, and a specified content type
+func NewAddOwnerRequestWithBody(server string, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/owners", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListPeopleRequest constructs an http.Request for the ListPeople method
+func NewListPeopleRequest(server string, board BoardParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/people", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddPersonRequest calls the generic AddPerson builder with application/json body
+func NewAddPersonRequest(server string, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddPersonRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewAddPersonRequestWithBody constructs an http.Request for the AddPerson method, with any body, and a specified content type
+func NewAddPersonRequestWithBody(server string, board BoardParam, params *AddPersonParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/people", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRemovePersonRequest constructs an http.Request for the RemovePerson method
+func NewRemovePersonRequest(server string, board BoardParam, handle Handle, params *RemovePersonParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "handle", handle, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/people/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListThreadsRequest constructs an http.Request for the ListThreads method
 func NewListThreadsRequest(server string, board BoardParam, params *ListThreadsParams) (*http.Request, error) {
 	var err error
@@ -5926,6 +7450,68 @@ func NewListThreadsRequest(server string, board BoardParam, params *ListThreadsP
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetVisibilityRequest calls the generic SetVisibility builder with application/json body
+func NewSetVisibilityRequest(server string, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetVisibilityRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewSetVisibilityRequestWithBody constructs an http.Request for the SetVisibility method, with any body, and a specified content type
+func NewSetVisibilityRequestWithBody(server string, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/visibility", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -7126,6 +8712,88 @@ func NewListRepliesRequest(server string, message MessageParam, params *ListRepl
 	return req, nil
 }
 
+// NewGetSettingsRequest constructs an http.Request for the GetSettings method
+func NewGetSettingsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSettingsRequest calls the generic UpdateSettings builder with application/json body
+func NewUpdateSettingsRequest(server string, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSettingsRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewUpdateSettingsRequestWithBody constructs an http.Request for the UpdateSettings method, with any body, and a specified content type
+func NewUpdateSettingsRequestWithBody(server string, params *UpdateSettingsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/settings")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewStreamRequest constructs an http.Request for the Stream method
 func NewStreamRequest(server string) (*http.Request, error) {
 	var err error
@@ -7197,19 +8865,31 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
-	// ListBoardsWithResponse List boards the caller is a member of
+	// ListBoardsWithResponse List boards the caller is on, or every board it can see
+	//
+	// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+	// board. With `all=true`, a person also gets the open boards they aren't on
+	// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+	// boards they aren't on, each with only its id, when and by whom it was created and
+	// how many people are on it, never its name, title, people or content. An agent
+	// gets its own board either way.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/boards (the `ListBoards` operationId).
-	ListBoardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error)
+	ListBoardsWithResponse(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error)
 
 	// CreateBoardWithBodyWithResponse Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7219,9 +8899,14 @@ type ClientWithResponsesInterface interface {
 	// CreateBoardWithResponse Create a board, optionally from a template
 	//
 	// Humans only. Writes `board.created` and a `member.joined` for the calling human,
-	// who becomes the board's first admin.
+	// who becomes the board's first admin and owner.
 	// If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 	// `title` is optional free text people read; the name stays the board's address.
+	// `visibility` is `open` unless `private` is given.
+	//
+	// Whether every person or only the server's admins may create boards is a server
+	// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+	// `board_creation_restricted`.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7229,6 +8914,9 @@ type ClientWithResponsesInterface interface {
 	CreateBoardWithResponse(ctx context.Context, params *CreateBoardParams, body CreateBoardJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBoardResponse, error)
 
 	// GetBoardWithResponse Get one board
+	//
+	// Any board the caller can see: one it is on, or for a person, an open board
+	// (`on_board` says which). Anything else is 404 `board_not_found`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -7312,6 +9000,19 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /v1/boards/{board}/join-codes/{join_code} (the `RevokeJoinCode` operationId).
 	RevokeJoinCodeWithResponse(ctx context.Context, board BoardParam, joinCode string, params *RevokeJoinCodeParams, reqEditors ...RequestEditorFn) (*RevokeJoinCodeResponse, error)
 
+	// LeaveBoardWithResponse Leave a board
+	//
+	// The caller, a person, leaves the board: writes `person.left`; they lose access to
+	// it at once, their agents on it end for good as on removal, and the join codes they
+	// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+	// hint says to make someone else an owner first. An agent gets 403
+	// `human_token_required`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+	LeaveBoardWithResponse(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*LeaveBoardResponse, error)
+
 	// ListMembersWithResponse List members of a board
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -7391,6 +9092,99 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
 	PostMessageWithResponse(ctx context.Context, board BoardParam, params *PostMessageParams, body PostMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostMessageResponse, error)
 
+	// AddOwnerWithBodyWithResponse Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwnerWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error)
+
+	// AddOwnerWithResponse Make a person on the board an owner
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+	// already is one. Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+	AddOwnerWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error)
+
+	// ListPeopleWithResponse List the people on a board, with their board role
+	//
+	// The people on the board, in the order they came onto it, each an `owner` or a
+	// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+	// the board may list its people: the people on it, their agents, and on an open
+	// board every person on the server.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+	ListPeopleWithResponse(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*ListPeopleResponse, error)
+
+	// AddPersonWithBodyWithResponse Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPersonWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddPersonResponse, error)
+
+	// AddPersonWithResponse Add a person on the server to the board
+	//
+	// A person on the board adds another person on the server, by handle, as a
+	// `member`; on an open board, a person may also add themselves, which is how they
+	// join it. Writes `person.added`. A person who left or was removed comes back as a
+	// member under their old name on the board.
+	//
+	// Only people's own tokens (an access key or a browser) add people; an agent gets
+	// 403 `human_token_required`. A person not on an open board who adds someone else
+	// gets 403 `not_on_board`. A handle no one on the server has is 404
+	// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+	// board the caller can't see is 404 `board_not_found`, before the handle is looked
+	// at.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+	AddPersonWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*AddPersonResponse, error)
+
+	// RemovePersonWithResponse Remove a person from the board
+	//
+	// Owners only, with a person's own token: anyone else on the board gets 403
+	// `owner_required`, whose hint names the owners, and an agent 403
+	// `human_token_required`. Writes `person.removed`. The person loses access to the
+	// board at once, and their agents on it end for good (named in the event's
+	// `agents`): their tokens never work on the board again, even if the person is
+	// added back, when they join with new agents. The join codes they or their agents
+	// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+	// the record.
+	// Removing someone from an open board doesn't keep them out, since anyone on the
+	// server may join it again; making the board private does.
+	//
+	// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+	// Someone not on the board is 404 `person_not_on_board`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+	RemovePersonWithResponse(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*RemovePersonResponse, error)
+
 	// ListThreadsWithResponse List the board's threads
 	//
 	// The messages on the board that start a thread with replies, the thread with the
@@ -7406,6 +9200,48 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/boards/{board}/threads (the `ListThreads` operationId).
 	ListThreadsWithResponse(ctx context.Context, board BoardParam, params *ListThreadsParams, reqEditors ...RequestEditorFn) (*ListThreadsResponse, error)
+
+	// SetVisibilityWithBodyWithResponse Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibilityWithBodyWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error)
+
+	// SetVisibilityWithResponse Turn a board open or private
+	//
+	// Owners only, with a person's own token (403 `owner_required` or
+	// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+	// the change would do, so a client can ask for confirmation first.
+	//
+	// - **To private:** the people on the board stay, with their agents; everyone else
+	//   loses sight of it at once, and every join code for it that still works is
+	//   canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+	// - **To open:** every person on the server can see the board and join it, and
+	//   after joining read its whole history. `reveals` says how much: the board's
+	//   messages and files.
+	//
+	// Writes `board.visibility_changed`, unless the board already has that visibility
+	// (`changed: false`).
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+	SetVisibilityWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error)
 
 	// EndBrowserTokensWithResponse Log every browser out
 	//
@@ -8070,6 +9906,37 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/messages/{message}/replies (the `ListReplies` operationId).
 	ListRepliesWithResponse(ctx context.Context, message MessageParam, params *ListRepliesParams, reqEditors ...RequestEditorFn) (*ListRepliesResponse, error)
 
+	// GetSettingsWithResponse Read the server's settings
+	//
+	// People only; an agent gets 403 `human_token_required`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+	GetSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSettingsResponse, error)
+
+	// UpdateSettingsWithBodyWithResponse Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettingsWithBodyWithResponse(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error)
+
+	// UpdateSettingsWithResponse Change the server's settings
+	//
+	// Server admins only, with their own access key: an agent token or a browser token
+	// gets 403 `human_token_required`, and a person who isn't a server admin 403
+	// `server_admin_required`. Settings are not part of any board's record.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+	UpdateSettingsWithResponse(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error)
+
 	// StreamWithResponse Follow the heads of your boards
 	//
 	// Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -8112,6 +9979,9 @@ type ListBoardsResponse struct {
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
 		Boards []Board `json:"boards"`
+
+		// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+		HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
@@ -8120,6 +9990,9 @@ type ListBoardsResponse struct {
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r ListBoardsResponse) GetJSON200() *struct {
 	Boards []Board `json:"boards"`
+
+	// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+	HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 } {
 	return r.JSON200
 }
@@ -8241,6 +10114,8 @@ type GetBoardResponse struct {
 	JSON200 *Board
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8253,6 +10128,11 @@ func (r GetBoardResponse) GetJSON200() *Board {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r GetBoardResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetBoardResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8372,6 +10252,8 @@ type ListEventsResponse struct {
 	JSON200 *EventPage
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8384,6 +10266,11 @@ func (r ListEventsResponse) GetJSON200() *EventPage {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListEventsResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListEventsResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8551,6 +10438,75 @@ func (r RevokeJoinCodeResponse) ContentType() string {
 	return ""
 }
 
+type LeaveBoardResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPerson
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LeaveBoardResponse) GetJSON200() *BoardPerson {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r LeaveBoardResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r LeaveBoardResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r LeaveBoardResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r LeaveBoardResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r LeaveBoardResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LeaveBoardResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LeaveBoardResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LeaveBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListMembersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8560,6 +10516,8 @@ type ListMembersResponse struct {
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8574,6 +10532,11 @@ func (r ListMembersResponse) GetJSON200() *struct {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListMembersResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListMembersResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8617,6 +10580,8 @@ type ListMessagesResponse struct {
 	JSON200 *MessagePage
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8629,6 +10594,11 @@ func (r ListMessagesResponse) GetJSON200() *MessagePage {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListMessagesResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListMessagesResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8741,6 +10711,282 @@ func (r PostMessageResponse) ContentType() string {
 	return ""
 }
 
+type AddOwnerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPerson
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AddOwnerResponse) GetJSON200() *BoardPerson {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AddOwnerResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AddOwnerResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AddOwnerResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AddOwnerResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r AddOwnerResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AddOwnerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddOwnerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddOwnerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPeopleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPeople
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPeopleResponse) GetJSON200() *BoardPeople {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListPeopleResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListPeopleResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListPeopleResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPeopleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPeopleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPeopleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPeopleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AddPersonResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BoardPerson
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r AddPersonResponse) GetJSON201() *BoardPerson {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AddPersonResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AddPersonResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AddPersonResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AddPersonResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r AddPersonResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r AddPersonResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AddPersonResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddPersonResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AddPersonResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemovePersonResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardPerson
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RemovePersonResponse) GetJSON200() *BoardPerson {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RemovePersonResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RemovePersonResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RemovePersonResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RemovePersonResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r RemovePersonResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemovePersonResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemovePersonResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemovePersonResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListThreadsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8748,6 +10994,8 @@ type ListThreadsResponse struct {
 	JSON200 *ThreadList
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
 }
@@ -8760,6 +11008,11 @@ func (r ListThreadsResponse) GetJSON200() *ThreadList {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListThreadsResponse) GetJSON401() *Error {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListThreadsResponse) GetJSON403() *Error {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -8790,6 +11043,75 @@ func (r ListThreadsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListThreadsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetVisibilityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *VisibilityChange
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetVisibilityResponse) GetJSON200() *VisibilityChange {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetVisibilityResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetVisibilityResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetVisibilityResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r SetVisibilityResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r SetVisibilityResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetVisibilityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetVisibilityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetVisibilityResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -10375,6 +12697,123 @@ func (r ListRepliesResponse) ContentType() string {
 	return ""
 }
 
+type GetSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerSettings
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSettingsResponse) GetJSON200() *ServerSettings {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetSettingsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetSettingsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateSettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerSettings
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateSettingsResponse) GetJSON200() *ServerSettings {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateSettingsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r UpdateSettingsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r UpdateSettingsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateSettingsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSettingsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateSettingsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type StreamResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10423,13 +12862,20 @@ func (r StreamResponse) ContentType() string {
 	return ""
 }
 
-// ListBoardsWithResponse List boards the caller is a member of
+// ListBoardsWithResponse List boards the caller is on, or every board it can see
+//
+// Without `all`, the boards the caller is on: a person's boards, or an agent's own
+// board. With `all=true`, a person also gets the open boards they aren't on
+// (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+// boards they aren't on, each with only its id, when and by whom it was created and
+// how many people are on it, never its name, title, people or content. An agent
+// gets its own board either way.
 //
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /v1/boards (the `ListBoards` operationId).
-func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error) {
-	rsp, err := c.ListBoards(ctx, reqEditors...)
+func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, params *ListBoardsParams, reqEditors ...RequestEditorFn) (*ListBoardsResponse, error) {
+	rsp, err := c.ListBoards(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -10439,9 +12885,14 @@ func (c *ClientWithResponses) ListBoardsWithResponse(ctx context.Context, reqEdi
 // CreateBoardWithBodyWithResponse Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -10457,9 +12908,14 @@ func (c *ClientWithResponses) CreateBoardWithBodyWithResponse(ctx context.Contex
 // CreateBoardWithResponse Create a board, optionally from a template
 //
 // Humans only. Writes `board.created` and a `member.joined` for the calling human,
-// who becomes the board's first admin.
+// who becomes the board's first admin and owner.
 // If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
 // `title` is optional free text people read; the name stays the board's address.
+// `visibility` is `open` unless `private` is given.
+//
+// Whether every person or only the server's admins may create boards is a server
+// setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+// `board_creation_restricted`.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -10473,6 +12929,9 @@ func (c *ClientWithResponses) CreateBoardWithResponse(ctx context.Context, param
 }
 
 // GetBoardWithResponse Get one board
+//
+// Any board the caller can see: one it is on, or for a person, an open board
+// (`on_board` says which). Anything else is 404 `board_not_found`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -10598,6 +13057,25 @@ func (c *ClientWithResponses) RevokeJoinCodeWithResponse(ctx context.Context, bo
 	return ParseRevokeJoinCodeResponse(rsp)
 }
 
+// LeaveBoardWithResponse Leave a board
+//
+// The caller, a person, leaves the board: writes `person.left`; they lose access to
+// it at once, their agents on it end for good as on removal, and the join codes they
+// or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+// hint says to make someone else an owner first. An agent gets 403
+// `human_token_required`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/leave (the `LeaveBoard` operationId).
+func (c *ClientWithResponses) LeaveBoardWithResponse(ctx context.Context, board BoardParam, params *LeaveBoardParams, reqEditors ...RequestEditorFn) (*LeaveBoardResponse, error) {
+	rsp, err := c.LeaveBoard(ctx, board, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLeaveBoardResponse(rsp)
+}
+
 // ListMembersWithResponse List members of a board
 //
 // Returns a wrapper object for the known response body format(s).
@@ -10701,6 +13179,135 @@ func (c *ClientWithResponses) PostMessageWithResponse(ctx context.Context, board
 	return ParsePostMessageResponse(rsp)
 }
 
+// AddOwnerWithBodyWithResponse Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *ClientWithResponses) AddOwnerWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error) {
+	rsp, err := c.AddOwnerWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddOwnerResponse(rsp)
+}
+
+// AddOwnerWithResponse Make a person on the board an owner
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+// already is one. Someone not on the board is 404 `person_not_on_board`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/owners (the `AddOwner` operationId).
+func (c *ClientWithResponses) AddOwnerWithResponse(ctx context.Context, board BoardParam, params *AddOwnerParams, body AddOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*AddOwnerResponse, error) {
+	rsp, err := c.AddOwner(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddOwnerResponse(rsp)
+}
+
+// ListPeopleWithResponse List the people on a board, with their board role
+//
+// The people on the board, in the order they came onto it, each an `owner` or a
+// `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+// the board may list its people: the people on it, their agents, and on an open
+// board every person on the server.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/people (the `ListPeople` operationId).
+func (c *ClientWithResponses) ListPeopleWithResponse(ctx context.Context, board BoardParam, reqEditors ...RequestEditorFn) (*ListPeopleResponse, error) {
+	rsp, err := c.ListPeople(ctx, board, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPeopleResponse(rsp)
+}
+
+// AddPersonWithBodyWithResponse Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *ClientWithResponses) AddPersonWithBodyWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddPersonResponse, error) {
+	rsp, err := c.AddPersonWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddPersonResponse(rsp)
+}
+
+// AddPersonWithResponse Add a person on the server to the board
+//
+// A person on the board adds another person on the server, by handle, as a
+// `member`; on an open board, a person may also add themselves, which is how they
+// join it. Writes `person.added`. A person who left or was removed comes back as a
+// member under their old name on the board.
+//
+// Only people's own tokens (an access key or a browser) add people; an agent gets
+// 403 `human_token_required`. A person not on an open board who adds someone else
+// gets 403 `not_on_board`. A handle no one on the server has is 404
+// `person_not_found`; someone already on the board is 409 `already_on_board`. A
+// board the caller can't see is 404 `board_not_found`, before the handle is looked
+// at.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/people (the `AddPerson` operationId).
+func (c *ClientWithResponses) AddPersonWithResponse(ctx context.Context, board BoardParam, params *AddPersonParams, body AddPersonJSONRequestBody, reqEditors ...RequestEditorFn) (*AddPersonResponse, error) {
+	rsp, err := c.AddPerson(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddPersonResponse(rsp)
+}
+
+// RemovePersonWithResponse Remove a person from the board
+//
+// Owners only, with a person's own token: anyone else on the board gets 403
+// `owner_required`, whose hint names the owners, and an agent 403
+// `human_token_required`. Writes `person.removed`. The person loses access to the
+// board at once, and their agents on it end for good (named in the event's
+// `agents`): their tokens never work on the board again, even if the person is
+// added back, when they join with new agents. The join codes they or their agents
+// made for it stop working (each writes `joincode.revoked`). Their messages stay in
+// the record.
+// Removing someone from an open board doesn't keep them out, since anyone on the
+// server may join it again; making the board private does.
+//
+// Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+// Someone not on the board is 404 `person_not_on_board`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/boards/{board}/people/{handle} (the `RemovePerson` operationId).
+func (c *ClientWithResponses) RemovePersonWithResponse(ctx context.Context, board BoardParam, handle Handle, params *RemovePersonParams, reqEditors ...RequestEditorFn) (*RemovePersonResponse, error) {
+	rsp, err := c.RemovePerson(ctx, board, handle, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemovePersonResponse(rsp)
+}
+
 // ListThreadsWithResponse List the board's threads
 //
 // The messages on the board that start a thread with replies, the thread with the
@@ -10721,6 +13328,60 @@ func (c *ClientWithResponses) ListThreadsWithResponse(ctx context.Context, board
 		return nil, err
 	}
 	return ParseListThreadsResponse(rsp)
+}
+
+// SetVisibilityWithBodyWithResponse Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *ClientWithResponses) SetVisibilityWithBodyWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error) {
+	rsp, err := c.SetVisibilityWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetVisibilityResponse(rsp)
+}
+
+// SetVisibilityWithResponse Turn a board open or private
+//
+// Owners only, with a person's own token (403 `owner_required` or
+// `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+// the change would do, so a client can ask for confirmation first.
+//
+//   - **To private:** the people on the board stay, with their agents; everyone else
+//     loses sight of it at once, and every join code for it that still works is
+//     canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+//   - **To open:** every person on the server can see the board and join it, and
+//     after joining read its whole history. `reveals` says how much: the board's
+//     messages and files.
+//
+// Writes `board.visibility_changed`, unless the board already has that visibility
+// (`changed: false`).
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/visibility (the `SetVisibility` operationId).
+func (c *ClientWithResponses) SetVisibilityWithResponse(ctx context.Context, board BoardParam, params *SetVisibilityParams, body SetVisibilityJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVisibilityResponse, error) {
+	rsp, err := c.SetVisibility(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetVisibilityResponse(rsp)
 }
 
 // EndBrowserTokensWithResponse Log every browser out
@@ -11596,6 +14257,55 @@ func (c *ClientWithResponses) ListRepliesWithResponse(ctx context.Context, messa
 	return ParseListRepliesResponse(rsp)
 }
 
+// GetSettingsWithResponse Read the server's settings
+//
+// People only; an agent gets 403 `human_token_required`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/settings (the `GetSettings` operationId).
+func (c *ClientWithResponses) GetSettingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSettingsResponse, error) {
+	rsp, err := c.GetSettings(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSettingsResponse(rsp)
+}
+
+// UpdateSettingsWithBodyWithResponse Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *ClientWithResponses) UpdateSettingsWithBodyWithResponse(ctx context.Context, params *UpdateSettingsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error) {
+	rsp, err := c.UpdateSettingsWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSettingsResponse(rsp)
+}
+
+// UpdateSettingsWithResponse Change the server's settings
+//
+// Server admins only, with their own access key: an agent token or a browser token
+// gets 403 `human_token_required`, and a person who isn't a server admin 403
+// `server_admin_required`. Settings are not part of any board's record.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/settings (the `UpdateSettings` operationId).
+func (c *ClientWithResponses) UpdateSettingsWithResponse(ctx context.Context, params *UpdateSettingsParams, body UpdateSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSettingsResponse, error) {
+	rsp, err := c.UpdateSettings(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSettingsResponse(rsp)
+}
+
 // StreamWithResponse Follow the heads of your boards
 //
 // Human tokens only. A server-sent event stream (`text/event-stream`). It first sends
@@ -11654,6 +14364,9 @@ func ParseListBoardsResponse(rsp *http.Response) (*ListBoardsResponse, error) {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
 			Boards []Board `json:"boards"`
+
+			// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+			HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -11761,6 +14474,13 @@ func ParseGetBoardResponse(rsp *http.Response) (*GetBoardResponse, error) {
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -11861,6 +14581,13 @@ func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -11975,6 +14702,60 @@ func ParseRevokeJoinCodeResponse(rsp *http.Response) (*RevokeJoinCodeResponse, e
 	return response, nil
 }
 
+// ParseLeaveBoardResponse parses an HTTP response from a LeaveBoardWithResponse call
+func ParseLeaveBoardResponse(rsp *http.Response) (*LeaveBoardResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LeaveBoardResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListMembersResponse parses an HTTP response from a ListMembersWithResponse call
 func ParseListMembersResponse(rsp *http.Response) (*ListMembersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12004,6 +14785,13 @@ func ParseListMembersResponse(rsp *http.Response) (*ListMembersResponse, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -12044,6 +14832,13 @@ func ParseListMessagesResponse(rsp *http.Response) (*ListMessagesResponse, error
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -12118,6 +14913,222 @@ func ParsePostMessageResponse(rsp *http.Response) (*PostMessageResponse, error) 
 	return response, nil
 }
 
+// ParseAddOwnerResponse parses an HTTP response from a AddOwnerWithResponse call
+func ParseAddOwnerResponse(rsp *http.Response) (*AddOwnerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddOwnerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPeopleResponse parses an HTTP response from a ListPeopleWithResponse call
+func ParseListPeopleResponse(rsp *http.Response) (*ListPeopleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPeopleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPeople
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddPersonResponse parses an HTTP response from a AddPersonWithResponse call
+func ParseAddPersonResponse(rsp *http.Response) (*AddPersonResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddPersonResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemovePersonResponse parses an HTTP response from a RemovePersonWithResponse call
+func ParseRemovePersonResponse(rsp *http.Response) (*RemovePersonResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemovePersonResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardPerson
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListThreadsResponse parses an HTTP response from a ListThreadsWithResponse call
 func ParseListThreadsResponse(rsp *http.Response) (*ListThreadsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -12145,6 +15156,67 @@ func ParseListThreadsResponse(rsp *http.Response) (*ListThreadsResponse, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetVisibilityResponse parses an HTTP response from a SetVisibilityWithResponse call
+func ParseSetVisibilityResponse(rsp *http.Response) (*SetVisibilityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetVisibilityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VisibilityChange
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest Error
@@ -13417,6 +16489,93 @@ func ParseListRepliesResponse(rsp *http.Response) (*ListRepliesResponse, error) 
 	return response, nil
 }
 
+// ParseGetSettingsResponse parses an HTTP response from a GetSettingsWithResponse call
+func ParseGetSettingsResponse(rsp *http.Response) (*GetSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSettingsResponse parses an HTTP response from a UpdateSettingsWithResponse call
+func ParseUpdateSettingsResponse(rsp *http.Response) (*UpdateSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSettingsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerSettings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStreamResponse parses an HTTP response from a StreamWithResponse call
 func ParseStreamResponse(rsp *http.Response) (*StreamResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -13452,9 +16611,9 @@ func ParseStreamResponse(rsp *http.Response) (*StreamResponse, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// ListBoards List boards the caller is a member of
+	// ListBoards List boards the caller is on, or every board it can see
 	// (GET /v1/boards)
-	ListBoards(w http.ResponseWriter, r *http.Request)
+	ListBoards(w http.ResponseWriter, r *http.Request, params ListBoardsParams)
 	// CreateBoard Create a board, optionally from a template
 	// (POST /v1/boards)
 	CreateBoard(w http.ResponseWriter, r *http.Request, params CreateBoardParams)
@@ -13473,6 +16632,9 @@ type ServerInterface interface {
 	// RevokeJoinCode Revoke a join code
 	// (DELETE /v1/boards/{board}/join-codes/{join_code})
 	RevokeJoinCode(w http.ResponseWriter, r *http.Request, board BoardParam, joinCode string, params RevokeJoinCodeParams)
+	// LeaveBoard Leave a board
+	// (POST /v1/boards/{board}/leave)
+	LeaveBoard(w http.ResponseWriter, r *http.Request, board BoardParam, params LeaveBoardParams)
 	// ListMembers List members of a board
 	// (GET /v1/boards/{board}/members)
 	ListMembers(w http.ResponseWriter, r *http.Request, board BoardParam)
@@ -13482,9 +16644,24 @@ type ServerInterface interface {
 	// PostMessage Post a message
 	// (POST /v1/boards/{board}/messages)
 	PostMessage(w http.ResponseWriter, r *http.Request, board BoardParam, params PostMessageParams)
+	// AddOwner Make a person on the board an owner
+	// (POST /v1/boards/{board}/owners)
+	AddOwner(w http.ResponseWriter, r *http.Request, board BoardParam, params AddOwnerParams)
+	// ListPeople List the people on a board, with their board role
+	// (GET /v1/boards/{board}/people)
+	ListPeople(w http.ResponseWriter, r *http.Request, board BoardParam)
+	// AddPerson Add a person on the server to the board
+	// (POST /v1/boards/{board}/people)
+	AddPerson(w http.ResponseWriter, r *http.Request, board BoardParam, params AddPersonParams)
+	// RemovePerson Remove a person from the board
+	// (DELETE /v1/boards/{board}/people/{handle})
+	RemovePerson(w http.ResponseWriter, r *http.Request, board BoardParam, handle Handle, params RemovePersonParams)
 	// ListThreads List the board's threads
 	// (GET /v1/boards/{board}/threads)
 	ListThreads(w http.ResponseWriter, r *http.Request, board BoardParam, params ListThreadsParams)
+	// SetVisibility Turn a board open or private
+	// (POST /v1/boards/{board}/visibility)
+	SetVisibility(w http.ResponseWriter, r *http.Request, board BoardParam, params SetVisibilityParams)
 	// EndBrowserTokens Log every browser out
 	// (DELETE /v1/browser-tokens)
 	EndBrowserTokens(w http.ResponseWriter, r *http.Request, params EndBrowserTokensParams)
@@ -13554,6 +16731,12 @@ type ServerInterface interface {
 	// ListReplies Read or wait for a message's thread
 	// (GET /v1/messages/{message}/replies)
 	ListReplies(w http.ResponseWriter, r *http.Request, message MessageParam, params ListRepliesParams)
+	// GetSettings Read the server's settings
+	// (GET /v1/settings)
+	GetSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateSettings Change the server's settings
+	// (PATCH /v1/settings)
+	UpdateSettings(w http.ResponseWriter, r *http.Request, params UpdateSettingsParams)
 	// Stream Follow the heads of your boards
 	// (GET /v1/stream)
 	Stream(w http.ResponseWriter, r *http.Request)
@@ -13571,8 +16754,27 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // ListBoards operation middleware
 func (siw *ServerInterfaceWrapper) ListBoards(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBoardsParams
+
+	// ------------- Optional query parameter "all" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all", r.URL.Query(), &params.All, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "all"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "all", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListBoards(w, r)
+		siw.Handler.ListBoards(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13863,6 +17065,56 @@ func (siw *ServerInterfaceWrapper) RevokeJoinCode(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// LeaveBoard operation middleware
+func (siw *ServerInterfaceWrapper) LeaveBoard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LeaveBoardParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LeaveBoard(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListMembers operation middleware
 func (siw *ServerInterfaceWrapper) ListMembers(w http.ResponseWriter, r *http.Request) {
 
@@ -14059,6 +17311,191 @@ func (siw *ServerInterfaceWrapper) PostMessage(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// AddOwner operation middleware
+func (siw *ServerInterfaceWrapper) AddOwner(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AddOwnerParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddOwner(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPeople operation middleware
+func (siw *ServerInterfaceWrapper) ListPeople(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPeople(w, r, board)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddPerson operation middleware
+func (siw *ServerInterfaceWrapper) AddPerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AddPersonParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddPerson(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemovePerson operation middleware
+func (siw *ServerInterfaceWrapper) RemovePerson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "handle" -------------
+	var handle Handle
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", r.PathValue("handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemovePersonParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemovePerson(w, r, board, handle, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListThreads operation middleware
 func (siw *ServerInterfaceWrapper) ListThreads(w http.ResponseWriter, r *http.Request) {
 
@@ -14092,6 +17529,56 @@ func (siw *ServerInterfaceWrapper) ListThreads(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListThreads(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetVisibility operation middleware
+func (siw *ServerInterfaceWrapper) SetVisibility(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetVisibilityParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetVisibility(w, r, board, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15030,6 +18517,61 @@ func (siw *ServerInterfaceWrapper) ListReplies(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateSettingsParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSettings(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Stream operation middleware
 func (siw *ServerInterfaceWrapper) Stream(w http.ResponseWriter, r *http.Request) {
 
@@ -15186,8 +18728,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/join-codes/{join_code}", wrapper.RevokeJoinCode)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/join", wrapper.Join)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/members", wrapper.ListMembers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/people", wrapper.ListPeople)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/people", wrapper.AddPerson)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/people/{handle}", wrapper.RemovePerson)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/leave", wrapper.LeaveBoard)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/owners", wrapper.AddOwner)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/visibility", wrapper.SetVisibility)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/messages", wrapper.ListMessages)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/messages", wrapper.PostMessage)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/settings", wrapper.GetSettings)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/settings", wrapper.UpdateSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/inbox", wrapper.GetInbox)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/inbox/ack", wrapper.AckInbox)
@@ -15206,6 +18756,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 type ErrorJSONResponse Error
 
 type ListBoardsRequestObject struct {
+	Params ListBoardsParams
 }
 
 type ListBoardsResponseObject interface {
@@ -15214,6 +18765,9 @@ type ListBoardsResponseObject interface {
 
 type ListBoards200JSONResponse struct {
 	Boards []Board `json:"boards"`
+
+	// HiddenBoards Only with `all=true`; empty for anyone but a server admin.
+	HiddenBoards *[]HiddenBoard `json:"hidden_boards,omitempty"`
 }
 
 func (response ListBoards200JSONResponse) VisitListBoardsResponse(w http.ResponseWriter) error {
@@ -15371,6 +18925,20 @@ func (response GetBoard401JSONResponse) VisitGetBoardResponse(w http.ResponseWri
 	return err
 }
 
+type GetBoard403JSONResponse Error
+
+func (response GetBoard403JSONResponse) VisitGetBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetBoard404JSONResponse Error
 
 func (response GetBoard404JSONResponse) VisitGetBoardResponse(w http.ResponseWriter) error {
@@ -15512,6 +19080,20 @@ func (response ListEvents401JSONResponse) VisitListEventsResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents403JSONResponse Error
+
+func (response ListEvents403JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15676,6 +19258,85 @@ func (response RevokeJoinCode404JSONResponse) VisitRevokeJoinCodeResponse(w http
 	return err
 }
 
+type LeaveBoardRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params LeaveBoardParams
+}
+
+type LeaveBoardResponseObject interface {
+	VisitLeaveBoardResponse(w http.ResponseWriter) error
+}
+
+type LeaveBoard200JSONResponse BoardPerson
+
+func (response LeaveBoard200JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard401JSONResponse struct{ ErrorJSONResponse }
+
+func (response LeaveBoard401JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard403JSONResponse Error
+
+func (response LeaveBoard403JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard404JSONResponse Error
+
+func (response LeaveBoard404JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LeaveBoard409JSONResponse Error
+
+func (response LeaveBoard409JSONResponse) VisitLeaveBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListMembersRequestObject struct {
 	Board BoardParam `json:"board"`
 }
@@ -15710,6 +19371,20 @@ func (response ListMembers401JSONResponse) VisitListMembersResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMembers403JSONResponse Error
+
+func (response ListMembers403JSONResponse) VisitListMembersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15761,6 +19436,20 @@ func (response ListMessages401JSONResponse) VisitListMessagesResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMessages403JSONResponse Error
+
+func (response ListMessages403JSONResponse) VisitListMessagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15873,6 +19562,324 @@ func (response PostMessage429JSONResponse) VisitPostMessageResponse(w http.Respo
 	return err
 }
 
+type AddOwnerRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params AddOwnerParams
+	Body   *AddOwnerJSONRequestBody
+}
+
+type AddOwnerResponseObject interface {
+	VisitAddOwnerResponse(w http.ResponseWriter) error
+}
+
+type AddOwner200JSONResponse BoardPerson
+
+func (response AddOwner200JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner400JSONResponse struct{ ErrorJSONResponse }
+
+func (response AddOwner400JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner401JSONResponse Error
+
+func (response AddOwner401JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner403JSONResponse Error
+
+func (response AddOwner403JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddOwner404JSONResponse Error
+
+func (response AddOwner404JSONResponse) VisitAddOwnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeopleRequestObject struct {
+	Board BoardParam `json:"board"`
+}
+
+type ListPeopleResponseObject interface {
+	VisitListPeopleResponse(w http.ResponseWriter) error
+}
+
+type ListPeople200JSONResponse BoardPeople
+
+func (response ListPeople200JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeople401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListPeople401JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeople403JSONResponse Error
+
+func (response ListPeople403JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPeople404JSONResponse Error
+
+func (response ListPeople404JSONResponse) VisitListPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPersonRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params AddPersonParams
+	Body   *AddPersonJSONRequestBody
+}
+
+type AddPersonResponseObject interface {
+	VisitAddPersonResponse(w http.ResponseWriter) error
+}
+
+type AddPerson201JSONResponse BoardPerson
+
+func (response AddPerson201JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson400JSONResponse struct{ ErrorJSONResponse }
+
+func (response AddPerson400JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson401JSONResponse Error
+
+func (response AddPerson401JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson403JSONResponse Error
+
+func (response AddPerson403JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson404JSONResponse Error
+
+func (response AddPerson404JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddPerson409JSONResponse Error
+
+func (response AddPerson409JSONResponse) VisitAddPersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePersonRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Handle Handle     `json:"handle"`
+	Params RemovePersonParams
+}
+
+type RemovePersonResponseObject interface {
+	VisitRemovePersonResponse(w http.ResponseWriter) error
+}
+
+type RemovePerson200JSONResponse BoardPerson
+
+func (response RemovePerson200JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson401JSONResponse struct{ ErrorJSONResponse }
+
+func (response RemovePerson401JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson403JSONResponse Error
+
+func (response RemovePerson403JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson404JSONResponse Error
+
+func (response RemovePerson404JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemovePerson409JSONResponse Error
+
+func (response RemovePerson409JSONResponse) VisitRemovePersonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListThreadsRequestObject struct {
 	Board  BoardParam `json:"board"`
 	Params ListThreadsParams
@@ -15910,9 +19917,103 @@ func (response ListThreads401JSONResponse) VisitListThreadsResponse(w http.Respo
 	return err
 }
 
+type ListThreads403JSONResponse Error
+
+func (response ListThreads403JSONResponse) VisitListThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListThreads404JSONResponse Error
 
 func (response ListThreads404JSONResponse) VisitListThreadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibilityRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params SetVisibilityParams
+	Body   *SetVisibilityJSONRequestBody
+}
+
+type SetVisibilityResponseObject interface {
+	VisitSetVisibilityResponse(w http.ResponseWriter) error
+}
+
+type SetVisibility200JSONResponse VisibilityChange
+
+func (response SetVisibility200JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetVisibility400JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility401JSONResponse Error
+
+func (response SetVisibility401JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility403JSONResponse Error
+
+func (response SetVisibility403JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetVisibility404JSONResponse Error
+
+func (response SetVisibility404JSONResponse) VisitSetVisibilityResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -17638,6 +21739,120 @@ func (response ListReplies501JSONResponse) VisitListRepliesResponse(w http.Respo
 	return err
 }
 
+type GetSettingsRequestObject struct {
+}
+
+type GetSettingsResponseObject interface {
+	VisitGetSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSettings200JSONResponse ServerSettings
+
+func (response GetSettings200JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettings401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetSettings401JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettings403JSONResponse Error
+
+func (response GetSettings403JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettingsRequestObject struct {
+	Params UpdateSettingsParams
+	Body   *UpdateSettingsJSONRequestBody
+}
+
+type UpdateSettingsResponseObject interface {
+	VisitUpdateSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateSettings200JSONResponse ServerSettings
+
+func (response UpdateSettings200JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings400JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateSettings400JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings401JSONResponse Error
+
+func (response UpdateSettings401JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings403JSONResponse Error
+
+func (response UpdateSettings403JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StreamRequestObject struct {
 }
 
@@ -17718,7 +21933,7 @@ func (response Stream403JSONResponse) VisitStreamResponse(w http.ResponseWriter)
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// ListBoards List boards the caller is a member of
+	// ListBoards List boards the caller is on, or every board it can see
 	// (GET /v1/boards)
 	ListBoards(ctx context.Context, request ListBoardsRequestObject) (ListBoardsResponseObject, error)
 	// CreateBoard Create a board, optionally from a template
@@ -17739,6 +21954,9 @@ type StrictServerInterface interface {
 	// RevokeJoinCode Revoke a join code
 	// (DELETE /v1/boards/{board}/join-codes/{join_code})
 	RevokeJoinCode(ctx context.Context, request RevokeJoinCodeRequestObject) (RevokeJoinCodeResponseObject, error)
+	// LeaveBoard Leave a board
+	// (POST /v1/boards/{board}/leave)
+	LeaveBoard(ctx context.Context, request LeaveBoardRequestObject) (LeaveBoardResponseObject, error)
 	// ListMembers List members of a board
 	// (GET /v1/boards/{board}/members)
 	ListMembers(ctx context.Context, request ListMembersRequestObject) (ListMembersResponseObject, error)
@@ -17748,9 +21966,24 @@ type StrictServerInterface interface {
 	// PostMessage Post a message
 	// (POST /v1/boards/{board}/messages)
 	PostMessage(ctx context.Context, request PostMessageRequestObject) (PostMessageResponseObject, error)
+	// AddOwner Make a person on the board an owner
+	// (POST /v1/boards/{board}/owners)
+	AddOwner(ctx context.Context, request AddOwnerRequestObject) (AddOwnerResponseObject, error)
+	// ListPeople List the people on a board, with their board role
+	// (GET /v1/boards/{board}/people)
+	ListPeople(ctx context.Context, request ListPeopleRequestObject) (ListPeopleResponseObject, error)
+	// AddPerson Add a person on the server to the board
+	// (POST /v1/boards/{board}/people)
+	AddPerson(ctx context.Context, request AddPersonRequestObject) (AddPersonResponseObject, error)
+	// RemovePerson Remove a person from the board
+	// (DELETE /v1/boards/{board}/people/{handle})
+	RemovePerson(ctx context.Context, request RemovePersonRequestObject) (RemovePersonResponseObject, error)
 	// ListThreads List the board's threads
 	// (GET /v1/boards/{board}/threads)
 	ListThreads(ctx context.Context, request ListThreadsRequestObject) (ListThreadsResponseObject, error)
+	// SetVisibility Turn a board open or private
+	// (POST /v1/boards/{board}/visibility)
+	SetVisibility(ctx context.Context, request SetVisibilityRequestObject) (SetVisibilityResponseObject, error)
 	// EndBrowserTokens Log every browser out
 	// (DELETE /v1/browser-tokens)
 	EndBrowserTokens(ctx context.Context, request EndBrowserTokensRequestObject) (EndBrowserTokensResponseObject, error)
@@ -17820,6 +22053,12 @@ type StrictServerInterface interface {
 	// ListReplies Read or wait for a message's thread
 	// (GET /v1/messages/{message}/replies)
 	ListReplies(ctx context.Context, request ListRepliesRequestObject) (ListRepliesResponseObject, error)
+	// GetSettings Read the server's settings
+	// (GET /v1/settings)
+	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
+	// UpdateSettings Change the server's settings
+	// (PATCH /v1/settings)
+	UpdateSettings(ctx context.Context, request UpdateSettingsRequestObject) (UpdateSettingsResponseObject, error)
 	// Stream Follow the heads of your boards
 	// (GET /v1/stream)
 	Stream(ctx context.Context, request StreamRequestObject) (StreamResponseObject, error)
@@ -17865,8 +22104,10 @@ type strictHandler struct {
 }
 
 // ListBoards operation middleware
-func (sh *strictHandler) ListBoards(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListBoards(w http.ResponseWriter, r *http.Request, params ListBoardsParams) {
 	var request ListBoardsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListBoards(ctx, request.(ListBoardsRequestObject))
@@ -18070,6 +22311,33 @@ func (sh *strictHandler) RevokeJoinCode(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// LeaveBoard operation middleware
+func (sh *strictHandler) LeaveBoard(w http.ResponseWriter, r *http.Request, board BoardParam, params LeaveBoardParams) {
+	var request LeaveBoardRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LeaveBoard(ctx, request.(LeaveBoardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LeaveBoard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LeaveBoardResponseObject); ok {
+		if err := validResponse.VisitLeaveBoardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListMembers operation middleware
 func (sh *strictHandler) ListMembers(w http.ResponseWriter, r *http.Request, board BoardParam) {
 	var request ListMembersRequestObject
@@ -18157,6 +22425,128 @@ func (sh *strictHandler) PostMessage(w http.ResponseWriter, r *http.Request, boa
 	}
 }
 
+// AddOwner operation middleware
+func (sh *strictHandler) AddOwner(w http.ResponseWriter, r *http.Request, board BoardParam, params AddOwnerParams) {
+	var request AddOwnerRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body AddOwnerJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddOwner(ctx, request.(AddOwnerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddOwner")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddOwnerResponseObject); ok {
+		if err := validResponse.VisitAddOwnerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPeople operation middleware
+func (sh *strictHandler) ListPeople(w http.ResponseWriter, r *http.Request, board BoardParam) {
+	var request ListPeopleRequestObject
+
+	request.Board = board
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPeople(ctx, request.(ListPeopleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPeople")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPeopleResponseObject); ok {
+		if err := validResponse.VisitListPeopleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddPerson operation middleware
+func (sh *strictHandler) AddPerson(w http.ResponseWriter, r *http.Request, board BoardParam, params AddPersonParams) {
+	var request AddPersonRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body AddPersonJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddPerson(ctx, request.(AddPersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddPerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddPersonResponseObject); ok {
+		if err := validResponse.VisitAddPersonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemovePerson operation middleware
+func (sh *strictHandler) RemovePerson(w http.ResponseWriter, r *http.Request, board BoardParam, handle Handle, params RemovePersonParams) {
+	var request RemovePersonRequestObject
+
+	request.Board = board
+	request.Handle = handle
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemovePerson(ctx, request.(RemovePersonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemovePerson")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemovePersonResponseObject); ok {
+		if err := validResponse.VisitRemovePersonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListThreads operation middleware
 func (sh *strictHandler) ListThreads(w http.ResponseWriter, r *http.Request, board BoardParam, params ListThreadsParams) {
 	var request ListThreadsRequestObject
@@ -18177,6 +22567,40 @@ func (sh *strictHandler) ListThreads(w http.ResponseWriter, r *http.Request, boa
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListThreadsResponseObject); ok {
 		if err := validResponse.VisitListThreadsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetVisibility operation middleware
+func (sh *strictHandler) SetVisibility(w http.ResponseWriter, r *http.Request, board BoardParam, params SetVisibilityParams) {
+	var request SetVisibilityRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body SetVisibilityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetVisibility(ctx, request.(SetVisibilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetVisibility")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetVisibilityResponseObject); ok {
+		if err := validResponse.VisitSetVisibilityResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -18869,6 +23293,63 @@ func (sh *strictHandler) ListReplies(w http.ResponseWriter, r *http.Request, mes
 	}
 }
 
+// GetSettings operation middleware
+func (sh *strictHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSettings(ctx, request.(GetSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSettingsResponseObject); ok {
+		if err := validResponse.VisitGetSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateSettings operation middleware
+func (sh *strictHandler) UpdateSettings(w http.ResponseWriter, r *http.Request, params UpdateSettingsParams) {
+	var request UpdateSettingsRequestObject
+
+	request.Params = params
+
+	var body UpdateSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateSettings(ctx, request.(UpdateSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Stream operation middleware
 func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	var request StreamRequestObject
@@ -18898,351 +23379,409 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

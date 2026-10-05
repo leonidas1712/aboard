@@ -42,6 +42,17 @@ info:
     `GET /v1/me/inbox` or `GET /v1/messages/{message}/replies` made with any of them ends
     within a second of the revocation, or at the moment of expiry.
 
+    **Boards.** A board is `open` (every person on the server sees it, its people and its
+    size, and may join it) or `private` (only the people on it know it exists). Reading a
+    board's messages, members and events, and every write to it, needs being on it: a
+    person who isn't on an open board gets 403 `not_on_board`, whose hint says how to join
+    it, and a message on it is 404 `message_not_found`. A board the caller can't see
+    answers 404 `board_not_found` on every path, exactly as a board that doesn't exist;
+    no error reveals that a hidden board exists. Each person on a board is an `owner` or a
+    `member`: the creator is the first owner, owners make others owners, remove people and
+    turn the board open or private, and a board always keeps at least one owner. Anyone
+    on a board may add people to it.
+
     **Host.** A local server answers only requests whose `Host` header is its own address
     (`127.0.0.1:PORT` or `localhost:PORT`). Any other host gets 421 `host_not_allowed`, so
     a web page that points a domain name at 127.0.0.1 can't reach the server through the
@@ -593,9 +604,14 @@ paths:
       summary: Create a board, optionally from a template
       description: |
         Humans only. Writes `board.created` and a `member.joined` for the calling human,
-        who becomes the board's first admin.
+        who becomes the board's first admin and owner.
         If `name` is omitted the server uses the template name, then `-2`, `-3`, and so on.
         `title` is optional free text people read; the name stays the board's address.
+        `visibility` is `open` unless `private` is given.
+
+        Whether every person or only the server's admins may create boards is a server
+        setting (`GET /v1/settings`); when it says `admins`, anyone else gets 403
+        `board_creation_restricted`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -617,7 +633,19 @@ paths:
     get:
       tags: [boards]
       operationId: listBoards
-      summary: List boards the caller is a member of
+      summary: List boards the caller is on, or every board it can see
+      description: |
+        Without `all`, the boards the caller is on: a person's boards, or an agent's own
+        board. With `all=true`, a person also gets the open boards they aren't on
+        (`on_board: false`), and a server admin also gets `hidden_boards`: the private
+        boards they aren't on, each with only its id, when and by whom it was created and
+        how many people are on it, never its name, title, people or content. An agent
+        gets its own board either way.
+      parameters:
+        - name: all
+          in: query
+          description: Also list open boards the caller isn't on, and for a server admin, private boards they aren't on.
+          schema: { type: boolean, default: false }
       responses:
         "200":
           description: Boards
@@ -630,15 +658,23 @@ paths:
                   boards:
                     type: array
                     items: { $ref: "#/components/schemas/Board" }
+                  hidden_boards:
+                    type: array
+                    description: Only with `all=true`; empty for anyone but a server admin.
+                    items: { $ref: "#/components/schemas/HiddenBoard" }
         "401": { $ref: "#/components/responses/Error" }
 
   /v1/boards/{board}:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [boards]
       operationId: getBoard
       summary: Get one board
+      description: |
+        Any board the caller can see: one it is on, or for a person, an open board
+        (`on_board` says which). Anything else is 404 `board_not_found`.
       responses:
         "200":
           description: Board
@@ -646,7 +682,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Board" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+
     patch:
       tags: [boards]
       operationId: updateBoard
@@ -685,6 +723,7 @@ paths:
   /v1/boards/{board}/join-codes:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     post:
       tags: [joining]
       operationId: createJoinCode
@@ -718,6 +757,7 @@ paths:
         required: true
         description: The join code's id (`jc_…`), not the code itself.
         schema: { type: string, pattern: "^jc_[0-9A-HJKMNP-TV-Z]{26}$" }
+
     delete:
       tags: [joining]
       operationId: revokeJoinCode
@@ -783,6 +823,7 @@ paths:
   /v1/boards/{board}/members:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [boards]
       operationId: listMembers
@@ -800,11 +841,208 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/Member" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/people:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    get:
+      tags: [boards]
+      operationId: listPeople
+      summary: List the people on a board, with their board role
+      description: |
+        The people on the board, in the order they came onto it, each an `owner` or a
+        `member`. Agents are listed by `GET /boards/{board}/members`. Anyone who can see
+        the board may list its people: the people on it, their agents, and on an open
+        board every person on the server.
+      responses:
+        "200":
+          description: People
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPeople" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+    post:
+      tags: [boards]
+      operationId: addPerson
+      summary: Add a person on the server to the board
+      description: |
+        A person on the board adds another person on the server, by handle, as a
+        `member`; on an open board, a person may also add themselves, which is how they
+        join it. Writes `person.added`. A person who left or was removed comes back as a
+        member under their old name on the board.
+
+        Only people's own tokens (an access key or a browser) add people; an agent gets
+        403 `human_token_required`. A person not on an open board who adds someone else
+        gets 403 `not_on_board`. A handle no one on the server has is 404
+        `person_not_found`; someone already on the board is 409 `already_on_board`. A
+        board the caller can't see is 404 `board_not_found`, before the handle is looked
+        at.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddPersonRequest" }
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/people/{handle}:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+      - name: handle
+        in: path
+        required: true
+        description: The person's handle.
+        schema: { $ref: "#/components/schemas/Handle" }
+
+    delete:
+      tags: [boards]
+      operationId: removePerson
+      summary: Remove a person from the board
+      description: |
+        Owners only, with a person's own token: anyone else on the board gets 403
+        `owner_required`, whose hint names the owners, and an agent 403
+        `human_token_required`. Writes `person.removed`. The person loses access to the
+        board at once, and their agents on it end for good (named in the event's
+        `agents`): their tokens never work on the board again, even if the person is
+        added back, when they join with new agents. The join codes they or their agents
+        made for it stop working (each writes `joincode.revoked`). Their messages stay in
+        the record.
+        Removing someone from an open board doesn't keep them out, since anyone on the
+        server may join it again; making the board private does.
+
+        Removing yourself is leaving, with the same rules as `POST /boards/{board}/leave`.
+        Someone not on the board is 404 `person_not_on_board`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/leave:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    post:
+      tags: [boards]
+      operationId: leaveBoard
+      summary: Leave a board
+      description: |
+        The caller, a person, leaves the board: writes `person.left`; they lose access to
+        it at once, their agents on it end for good as on removal, and the join codes they
+        or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+        hint says to make someone else an owner first. An agent gets 403
+        `human_token_required`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Left
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/owners:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    post:
+      tags: [boards]
+      operationId: addOwner
+      summary: Make a person on the board an owner
+      description: |
+        Owners only, with a person's own token (403 `owner_required` or
+        `human_token_required` otherwise). Writes `person.made_owner`, unless the person
+        already is one. Someone not on the board is 404 `person_not_on_board`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddPersonRequest" }
+      responses:
+        "200":
+          description: The person, now an owner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardPerson" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/boards/{board}/visibility:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+
+    post:
+      tags: [boards]
+      operationId: setVisibility
+      summary: Turn a board open or private
+      description: |
+        Owners only, with a person's own token (403 `owner_required` or
+        `human_token_required` otherwise). With `dry_run`, changes nothing and says what
+        the change would do, so a client can ask for confirmation first.
+
+        - **To private:** the people on the board stay, with their agents; everyone else
+          loses sight of it at once, and every join code for it that still works is
+          canceled (`join_codes_canceled`, each writing `joincode.revoked`).
+        - **To open:** every person on the server can see the board and join it, and
+          after joining read its whole history. `reveals` says how much: the board's
+          messages and files.
+
+        Writes `board.visibility_changed`, unless the board already has that visibility
+        (`changed: false`).
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetVisibilityRequest" }
+      responses:
+        "200":
+          description: The change, made or previewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityChange" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
   /v1/boards/{board}/messages:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     post:
       tags: [messages]
       operationId: postMessage
@@ -846,6 +1084,7 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+
     get:
       tags: [messages]
       operationId: listMessages
@@ -878,7 +1117,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MessagePage" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+
+  /v1/settings:
+    get:
+      tags: [server]
+      operationId: getSettings
+      summary: Read the server's settings
+      description: People only; an agent gets 403 `human_token_required`.
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerSettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [server]
+      operationId: updateSettings
+      summary: Change the server's settings
+      description: |
+        Server admins only, with their own access key: an agent token or a browser token
+        gets 403 `human_token_required`, and a person who isn't a server admin 403
+        `server_admin_required`. Settings are not part of any board's record.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServerSettingsChange" }
+      responses:
+        "200":
+          description: Settings, as changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
 
   /v1/me:
     get:
@@ -1150,6 +1429,7 @@ paths:
   /v1/boards/{board}/threads:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [messages]
       operationId: listThreads
@@ -1172,6 +1452,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ThreadList" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
   /v1/stream:
@@ -1229,6 +1510,7 @@ paths:
   /v1/boards/{board}/events:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
+
     get:
       tags: [events]
       operationId: listEvents
@@ -1246,6 +1528,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/EventPage" }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
 components:
@@ -1421,6 +1704,12 @@ components:
                 - person_not_found
                 - machine_request_invalid
                 - machine_request_refused
+                - not_on_board
+                - owner_required
+                - person_not_on_board
+                - already_on_board
+                - last_owner
+                - board_creation_restricted
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -1838,12 +2127,26 @@ components:
         show_harness: { type: boolean }
 
     # ---------- boards ----------
+    BoardVisibility:
+      type: string
+      enum: [open, private]
+      description: |
+        Who can see the board. `open`: every person on the server sees it and may join
+        it. `private`: only the people on it. Not to be confused with the policy's
+        `visibility`, which decides who reads which messages inside a board.
     Board:
       type: object
-      required: [id, name, title, template, charter, roles, policy, head_seq, message_count, last_message_at, created_at, created_by]
+      required: [id, name, title, template, charter, roles, policy, head_seq, message_count, last_message_at, created_at, created_by, visibility, on_board]
       properties:
         id: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
         name: { $ref: "#/components/schemas/BoardName" }
+        visibility: { $ref: "#/components/schemas/BoardVisibility" }
+        on_board:
+          type: boolean
+          description: |
+            Whether the caller is on the board: a person on it, or an agent on its own
+            board. False for an open board a person can see but hasn't joined; they read
+            its messages after adding themselves (`POST /boards/{board}/people`).
         title:
           allOf: [{ $ref: "#/components/schemas/BoardTitle" }]
           nullable: true
@@ -1888,6 +2191,117 @@ components:
           description: Overrides the template's charter.
         preset:
           $ref: "#/components/schemas/PolicyPreset"
+        visibility:
+          allOf: [{ $ref: "#/components/schemas/BoardVisibility" }]
+          description: "`open` unless given."
+    HiddenBoard:
+      type: object
+      description: |
+        A private board a server admin isn't on, as they see it: that it exists, and
+        nothing of its name, title, people or content.
+      required: [id, visibility, created_at, created_by, people]
+      properties:
+        id: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+        visibility: { type: string, enum: [private] }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        created_by: { $ref: "#/components/schemas/PersonRef" }
+        people:
+          type: integer
+          minimum: 0
+          description: How many people are on it.
+    PersonRef:
+      type: object
+      required: [id, handle]
+      properties:
+        id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+        handle: { $ref: "#/components/schemas/Handle" }
+    BoardRole:
+      type: string
+      enum: [owner, member]
+      description: |
+        A person's role on a board. `owner`: the creator, and anyone an owner made one;
+        owners remove people, make others owners, turn the board open or private, and
+        change its charter, roles and policy (the `admin` access of `Member`). `member`:
+        everyone else. Agents have no board role.
+    BoardPerson:
+      type: object
+      required: [id, handle, display_name, board, name, member_id, board_role, joined_at]
+      properties:
+        id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+        handle: { $ref: "#/components/schemas/Handle" }
+        display_name: { type: string, nullable: true, maxLength: 80 }
+        board: { $ref: "#/components/schemas/BoardName" }
+        name:
+          allOf: [{ $ref: "#/components/schemas/MemberName" }]
+          description: The person's member name on the board, usually their handle.
+        member_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        board_role: { $ref: "#/components/schemas/BoardRole" }
+        joined_at: { $ref: "#/components/schemas/Timestamp" }
+    BoardPeople:
+      type: object
+      required: [board, visibility, people]
+      properties:
+        board: { $ref: "#/components/schemas/BoardName" }
+        visibility: { $ref: "#/components/schemas/BoardVisibility" }
+        people:
+          type: array
+          items: { $ref: "#/components/schemas/BoardPerson" }
+    AddPersonRequest:
+      type: object
+      additionalProperties: false
+      required: [handle]
+      properties:
+        handle: { $ref: "#/components/schemas/Handle" }
+    SetVisibilityRequest:
+      type: object
+      additionalProperties: false
+      required: [visibility]
+      properties:
+        visibility: { $ref: "#/components/schemas/BoardVisibility" }
+        dry_run:
+          type: boolean
+          default: false
+          description: Say what the change would do without making it.
+    VisibilityChange:
+      type: object
+      required: [board, before, after, changed, dry_run, reveals, join_codes_canceled]
+      properties:
+        board: { $ref: "#/components/schemas/BoardName" }
+        before: { $ref: "#/components/schemas/BoardVisibility" }
+        after: { $ref: "#/components/schemas/BoardVisibility" }
+        changed:
+          type: boolean
+          description: False when the board already had that visibility; nothing was recorded.
+        dry_run: { type: boolean }
+        reveals:
+          allOf: [{ $ref: "#/components/schemas/Reveals" }]
+          nullable: true
+          description: For a private board turning open, the history every person on the server can then read. Null otherwise.
+        join_codes_canceled:
+          type: integer
+          minimum: 0
+          description: For an open board turning private, how many working join codes were (or, with `dry_run`, would be) canceled.
+    Reveals:
+      type: object
+      required: [messages, files]
+      properties:
+        messages: { type: integer, minimum: 0 }
+        files: { type: integer, minimum: 0 }
+    ServerSettings:
+      type: object
+      required: [board_creation]
+      properties:
+        board_creation: { $ref: "#/components/schemas/BoardCreation" }
+    BoardCreation:
+      type: string
+      enum: [members, admins]
+      description: Who may create boards. `members` (the default) is every person on the server; `admins` is the server's admins only.
+    ServerSettingsChange:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        board_creation: { $ref: "#/components/schemas/BoardCreation" }
     UpdateBoardRequest:
       type: object
       additionalProperties: false
@@ -2342,6 +2756,11 @@ components:
         - $ref: "#/components/schemas/BoardTitledEvent"
         - $ref: "#/components/schemas/ReactionAddedEvent"
         - $ref: "#/components/schemas/ReactionRemovedEvent"
+        - $ref: "#/components/schemas/PersonAddedEvent"
+        - $ref: "#/components/schemas/PersonRemovedEvent"
+        - $ref: "#/components/schemas/PersonLeftEvent"
+        - $ref: "#/components/schemas/PersonMadeOwnerEvent"
+        - $ref: "#/components/schemas/BoardVisibilityChangedEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -2354,6 +2773,11 @@ components:
           board.titled: "#/components/schemas/BoardTitledEvent"
           reaction.added: "#/components/schemas/ReactionAddedEvent"
           reaction.removed: "#/components/schemas/ReactionRemovedEvent"
+          person.added: "#/components/schemas/PersonAddedEvent"
+          person.removed: "#/components/schemas/PersonRemovedEvent"
+          person.left: "#/components/schemas/PersonLeftEvent"
+          person.made_owner: "#/components/schemas/PersonMadeOwnerEvent"
+          board.visibility_changed: "#/components/schemas/BoardVisibilityChangedEvent"
     BoardCreatedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -2375,6 +2799,10 @@ components:
                   type: object
                   additionalProperties: { $ref: "#/components/schemas/Role" }
                 policy: { $ref: "#/components/schemas/Policy" }
+                visibility:
+                  type: string
+                  enum: [private]
+                  description: Present only for a board created private; a board without it was created open.
     MemberJoinedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -2489,6 +2917,73 @@ components:
           properties:
             type: { type: string, enum: [reaction.removed] }
             data: { $ref: "#/components/schemas/ReactionEventData" }
+    PersonEventData:
+      type: object
+      description: The person the event is about. Who did it is the event's actor.
+      required: [member_id, person_id, name]
+      properties:
+        member_id: { type: string }
+        person_id: { type: string }
+        name: { $ref: "#/components/schemas/MemberName" }
+        access:
+          type: string
+          enum: [member]
+          description: In `person.added` only, the access the person comes back or comes in with.
+        rejoined:
+          type: boolean
+          description: In `person.added` only. True for a person who was on the board before, back under their old member id and name.
+        agents:
+          type: array
+          items: { type: string }
+          description: |
+            In `person.removed` and `person.left`: the member ids of the person's agents on
+            the board, which end with them for good. Their tokens never work on the board
+            again, even if the person is added back. Absent from events written before
+            agents ended this way.
+    PersonAddedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.added] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonRemovedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.removed] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonLeftEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.left] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonMadeOwnerEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.made_owner] }
+            data: { $ref: "#/components/schemas/PersonEventData" }
+    BoardVisibilityChangedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [board.visibility_changed] }
+            data:
+              type: object
+              required: [before, after, reveals]
+              properties:
+                before: { $ref: "#/components/schemas/BoardVisibility" }
+                after: { $ref: "#/components/schemas/BoardVisibility" }
+                reveals:
+                  allOf: [{ $ref: "#/components/schemas/Reveals" }]
+                  nullable: true
+                  description: For a private board turning open, how many messages and files it held then. Null otherwise.
     ReactionEventData:
       type: object
       description: Who reacted is the event's actor. Withheld, like the message's own event, from a reader who may not see the message.

@@ -145,6 +145,7 @@ func TestHarnessConformance(t *testing.T) {
 			run("Delivery/CombinesWakes", "idle_delivery", kitCombinesWakes)
 			run("Delivery/Digest", "idle_delivery", kitDigest)
 			run("Delivery/AllMode", "idle_delivery", kitAllMode)
+			run("Delivery/ModeChanged", "idle_delivery", kitModeChanged)
 			run("Delivery/KilledSession", "idle_delivery", kitKilledSession)
 			run("Delivery/Resume", "reconnect", kitResume)
 		})
@@ -1289,11 +1290,17 @@ func kitResume(t *testing.T, p support.Profile) {
 	back.seen = s.seen
 	switch {
 	case back.ext != nil:
-		if w := back.welcome; !w.Reopened || len(w.Agents) != 1 || w.Agents[0].Name != "reviewer" {
+		if w := back.welcome; !w.Reopened || len(w.Agents) != 1 || w.Agents[0].Name != "reviewer" || w.Mode != "focused" {
 			t.Fatalf("the daemon's welcome doesn't say the session is reviewer again: %+v", w)
+		}
+		if note := back.welcome.Note; !strings.Contains(note, "this session is reviewer on writer-reviewer again") ||
+			!strings.HasSuffix(note, " Delivery mode: focused. "+focusedRule) {
+			t.Fatalf("the welcome's note doesn't say the session is reviewer again in focused mode: %q", note)
 		}
 	case !strings.Contains(back.started.stdout, "this session is reviewer on writer-reviewer again"):
 		t.Fatalf("the session-start hook didn't say the session is reviewer again\n%s", back.started)
+	case !strings.Contains(back.started.stdout, " Delivery mode: focused. "+focusedRule+"\n"):
+		t.Fatalf("the session-start hook didn't name the session's delivery mode and its rule\n%s", back.started)
 	}
 	if got := field(t, back.run("status", "--json").json(t), "agent"); got != "reviewer" {
 		t.Fatalf("the resumed session acts as %v, want reviewer", got)

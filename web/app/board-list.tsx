@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { type Board, type Member, follow, get } from "./api";
 import { Account } from "./account";
-import { Header, Problem } from "./chrome";
+import { Header, Problem, VisibilityLabel } from "./chrome";
 import { boardLabel, count, exactTime, policyName, relativeTime } from "./words";
 
 /** Facts are what the list says about one board's members, read from the public API. */
@@ -139,6 +139,7 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
           {boardLabel(b)}
         </a>
         {b.title && <span className="ml-2 text-meta break-all text-muted">{b.name}</span>}
+        <VisibilityLabel visibility={b.visibility} shared={(f?.people ?? 1) > 1} className="ml-2" />
         {b.charter && <p className="line-clamp-1 max-w-[42ch] text-meta text-muted">{b.charter}</p>}
         <ChevronRight className="absolute top-4 right-2 size-4 text-muted md:hidden" strokeWidth={1.5} aria-hidden />
       </td>

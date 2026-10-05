@@ -249,7 +249,7 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
                   {p.name}
                   {p.name === me && <span className="font-normal text-muted"> (you)</span>}
                 </NameButton>
-                <span className="text-meta text-muted">{p.access === "admin" ? "Admin" : "Member"}</span>
+                <span className="board-role text-meta text-muted">{p.access === "admin" ? "Owner" : "Member"}</span>
               </li>
             ))}
           </ul>

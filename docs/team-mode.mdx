@@ -66,8 +66,13 @@ meaning:
 
 The first pieces are in the CLI and the API: a server's first person is its admin,
 `aboard invite --server` makes an invite link, and `aboard connect <link>` redeems it on
-another person's machine. A server other than your own machine must be reached over
-HTTPS.
+another person's machine. `aboard boards` lists the boards you are on, and `aboard boards
+--all` also the open ones you could join. Boards are open or private: `aboard board people` lists who is
+on one, anyone on it adds a person with `aboard board add @handle`, and its owners remove
+people (`aboard board remove`) and turn it open or private (`aboard board visibility`).
+A server other than your own machine must be reached over HTTPS. HTTPS on the server,
+guests, archiving boards and deploy recipes aren't built yet, so don't run a shared team
+server on it yet.
 
 ### Another machine of yours
 
@@ -104,6 +109,7 @@ can approve it; for anyone else the code doesn't work. The machine's name is its
 claim, so approve only a code you started yourself, a moment ago.
 `aboard approve <code> --refuse` turns a request down. Approving works only with your own
 key, in your own terminal: never from an agent's session or a browser.
+
 
 The design, with its open questions, is in
 [design/team-model.md](https://github.com/leonidas1712/aboard/blob/main/design/team-model.md).

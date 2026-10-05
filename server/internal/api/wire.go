@@ -52,6 +52,8 @@ type wireBoard struct {
 	LastMessageAt *string       `json:"last_message_at"`
 	CreatedAt     string        `json:"created_at"`
 	CreatedBy     wireMemberRef `json:"created_by"`
+	Visibility    string        `json:"visibility"`
+	OnBoard       bool          `json:"on_board"`
 }
 
 type wireMessage struct {
@@ -138,7 +140,7 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 	b := v.Board
 	w := wireBoard{
 		ID: b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
-		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator),
+		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator), Visibility: b.Visibility, OnBoard: v.OnBoard,
 	}
 	if v.ShowsCounts(p) {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
