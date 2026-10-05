@@ -8,12 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -207,8 +207,9 @@ type swarmAgent struct {
 	Seated    bool    `json:"seated"`
 	Presence  *string `json:"presence"`
 	Delivery  *string `json:"delivery"`
-	// SeatCredential is works or ended, as swarm ps and show check the seat's token
-	// with the server; nil when unchecked.
+	// SeatCredential says whether the seat's token still works ("works") or ended with
+	// the access key it came from ("ended"), as swarm ps and show check it with the
+	// server; nil when unchecked.
 	SeatCredential *string `json:"seat_credential"`
 }
 
@@ -218,33 +219,76 @@ const (
 	seatEnded = "ended"
 )
 
-// checkSeats asks the server, with each agent's own token, whether its seat still works:
-// a seat whose access key was revoked or expired has ended, though its session may still
-// run. Agents this machine holds no token for, and answers other than yes or no, stay
-// unchecked.
-func (a *app) checkSeats(ctx context.Context, srv serverRef, board string, rows []swarmAgent) {
+// seatStates asks the server, with each named agent's own token and all at once,
+// whether its seat still works: a seat whose token the server refuses as unauthorized
+// ended with the access key it came from, though its session may still run. Agents this
+// machine holds no token for, and any other answer (none, or a refusal with another
+// code), are left out. Each check counts as a use of the key behind the seat.
+func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names []string) map[string]string {
 	creds, err := a.readCredentials()
 	if err != nil {
-		return
+		return nil
 	}
-	for i := range rows {
-		cred, ok := creds.find(srv.URL, board, rows[i].Name)
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	out := map[string]string{}
+	for _, name := range names {
+		cred, ok := creds.find(srv.URL, board, name)
 		if !ok {
 			continue
 		}
-		c, err := a.newClient(srv, cred.Token, requestTimeout)
-		if err != nil {
-			continue
-		}
-		r, err := c.api.GetMeWithResponse(ctx)
-		switch {
-		case err != nil:
-		case r.StatusCode() == http.StatusOK:
-			rows[i].SeatCredential = optional(seatWorks)
-		case r.StatusCode() == http.StatusUnauthorized:
-			rows[i].SeatCredential = optional(seatEnded)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c, err := a.newClient(srv, cred.Token, requestTimeout)
+			if err != nil {
+				return
+			}
+			r, err := c.api.GetMeWithResponse(ctx)
+			state := ""
+			switch {
+			case err != nil:
+			case r.JSON200 != nil:
+				state = seatWorks
+			case apiError(r.StatusCode(), r.Body).Code == "unauthorized":
+				state = seatEnded
+			}
+			if state != "" {
+				mu.Lock()
+				out[name] = state
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	return out
+}
+
+// checkSeats fills each row's SeatCredential from seatStates.
+func (a *app) checkSeats(ctx context.Context, srv serverRef, board string, rows []swarmAgent) {
+	names := make([]string, len(rows))
+	for i, r := range rows {
+		names[i] = r.Name
+	}
+	states := a.seatStates(ctx, srv, board, names)
+	for i := range rows {
+		if s, ok := states[rows[i].Name]; ok {
+			rows[i].SeatCredential = optional(s)
 		}
 	}
+}
+
+// seatEndedError refuses to start agents whose seats ended with their access key: their
+// sessions could never act on the board.
+func seatEndedError(board string, names []string) *Error {
+	e := newError("seat_ended",
+		fmt.Sprintf("%s can't act on %s any more: the access key %s came from was revoked or has expired.",
+			strings.Join(names, ", "), board, plural(len(names), "its seat", "their seats")),
+		"Give "+plural(len(names), "it a new name", "each a new name")+" in the board file and run aboard swarm up again.")
+	e.Details = map[string]any{"agents": names, "board": board}
+	return e
 }
 
 // endedSeatsText warns about agents whose seats ended, or is "" when none has.
@@ -352,6 +396,23 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	creds, err := a.readCredentials()
 	if err != nil {
 		return err
+	}
+	// A seat that ended with its access key can't be taken again: refuse before starting
+	// anything, rather than start a session that waits for it in vain.
+	names := make([]string, 0, len(f.Agents))
+	for _, spec := range f.Agents {
+		names = append(names, spec.Name)
+	}
+	var ended []string
+	for name, state := range a.seatStates(ctx, srv, board.Name, names) {
+		if state == seatEnded {
+			ended = append(ended, name)
+		}
+	}
+	if len(ended) > 0 {
+		slices.Sort(ended)
+		prog.finish()
+		return seatEndedError(board.Name, ended)
 	}
 	tickets := launchtickets.Dir(p.launches())
 	var out []swarmUpAgent

@@ -143,7 +143,11 @@ $defs:
       details.boards their boards) · key_invalid (aboard login was given something that
       isn't an access key, or a key the server refuses: wrong, revoked or expired) ·
       key_not_selected (aboard keys revoke names a key that the person's list doesn't
-      have, or a name two of their keys share; details.choices lists the names and ids).
+      have, or a name two of their keys share; details.choices lists the names and ids) ·
+      seat_ended (swarm up found agents whose seats ended with the access key they came
+      from, which the server refuses as unauthorized; it starts nothing, details.agents
+      names them, details.board their board, and the hint says to give each a new name
+      in the board file).
   ServerRef:
     type: object
     required: [name, url]
@@ -636,8 +640,10 @@ $defs:
       the key this machine had for it; for this machine's own local server, as the local
       owner key. The key is read from standard input (typed without echo at a terminal),
       never from the command line. The server is the argument, else the one this
-      directory's .aboard names, else the local server; one other than this machine must
-      use https (insecure_server). The key is checked with the server before it is saved
+      directory's .aboard names, else the local server. Wherever it came from, it is
+      checked before the key is read or sent: one other than this machine must use https
+      (insecure_server), and an address with a user, path, query or fragment, or another
+      scheme, fails with invalid_request. The key is checked with the server before it is saved
       (GET /v1/keys): one that isn't an access key, or that the server refuses, fails
       with key_invalid and nothing is saved. It always warns that one key used on two
       machines ties both to one revocation, and says when the key was last used, if ever,
@@ -1615,10 +1621,13 @@ $defs:
         enum: [works, ended, null]
         description: |
           Whether the token of the agent's seat still works, as swarm ps and show check it
-          with the server: ended when the access key the seat came from was revoked or
-          has expired, so its session can no longer act on the board, and text output
-          says so; null when this machine holds no token for the agent, the server
-          couldn't be asked, or the command doesn't check (swarm up).
+          with the server (all agents at once, each with its own token, which counts as a
+          use of the key behind it): ended when the server refuses the token as
+          unauthorized, because the access key the seat came from was revoked or has
+          expired, so its session can no longer act on the board, and text output says
+          so; null when this machine holds no token for the agent, the server couldn't be
+          asked or refused for another reason, or the command doesn't fill it in (swarm
+          up, which instead refuses ended seats with seat_ended before starting anything).
 
   SwarmUpOutput:
     description: |
