@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -142,6 +143,29 @@ func TestOnlyAnAgentsPersonSetsItsDeliveryMode(t *testing.T) {
 	}
 	if st, body := s.raw("PUT", "/v1/boards/"+b+"/members/"+agent+"/delivery", maya, map[string]any{"mode": "auto"}); st < 400 || st >= 500 || !strings.Contains(body, "invalid_request") {
 		t.Errorf("a mode that isn't one: %d %s", st, body)
+	}
+}
+
+// The board view sets a mode with the person's browser session, whose writes need the
+// session's CSRF token, as every write with a cookie does.
+func TestABrowserSessionSetsTheModeWithItsCSRFToken(t *testing.T) {
+	s := newTestServer(t)
+	maya, sam := s.addHuman("maya"), s.addHuman("sam")
+	b, agent, _ := s.boardWithMayasAgent(maya, sam)
+	page := s.cookieBrowser(maya)
+	path := "/v1/boards/" + b + "/members/" + agent + "/delivery"
+	forged := s.send(http.MethodPut, path, map[string]any{"mode": "off"}, func(r *http.Request) {
+		r.AddCookie(page.cookie)
+		s.fromPage(r)
+	})
+	if forged.status != http.StatusForbidden || forged.code() != "csrf_token_invalid" {
+		t.Fatalf("a write without the CSRF token: %d %s", forged.status, forged.raw)
+	}
+	if got := page.do(http.MethodPut, path, map[string]any{"mode": "off"}); got.status != http.StatusOK || got.body["mode"] != "off" {
+		t.Fatalf("the page sets off: %d %s", got.status, got.raw)
+	}
+	if got := s.cookieBrowser(sam).do(http.MethodPut, path, map[string]any{"mode": "all"}); got.code() != "agent_owner_required" {
+		t.Fatalf("sam's page sets maya's agent's mode: %d %s", got.status, got.raw)
 	}
 }
 
