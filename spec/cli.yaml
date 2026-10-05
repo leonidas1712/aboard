@@ -32,7 +32,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board add, remove, leave, owner and visibility, invite, connect, approve, login, keys, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, board add, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -526,9 +526,26 @@ $defs:
         Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.
       Outside a harness session the second line is "Act as this agent with --as
       reviewer, or set ABOARD_AGENT=reviewer.".
+      A pairing code (a join line that names a role) is redeemed with this machine's
+      access key for the server the line names, and only its maker's own sessions may
+      use it: anyone else gets join_code_not_yours. A guest code's line says "as guest"
+      ("Join Aboard board docs on team.example.com as guest with code 9TR-4MW"); on a
+      machine with no key for that server it is redeemed with no key at all
+      (POST /v1/guest-join), over https unless the server is this machine, and guest is
+      true: the server makes the guest a person with the role guest, and the key it gives
+      this machine for them is saved in servers.json, as aboard connect saves one, so
+      their delivery daemon follows the board. The output then adds the line "You're a
+      guest on <server>: you and your agents reach only the boards you're invited to.
+      This machine's key, "<name>", is saved." On a machine with a key for that server, a
+      guest code works only for the guest identity it was issued for (a guest invited to a
+      second board); an anonymous redemption never issues a key for an existing person.
+      For anyone else it fails with guest_code_not_for_members.
     type: object
     required: [server, board, agent, use, charter, role_charter, policy_notice]
     properties:
+      guest:
+        type: boolean
+        description: True when the agent joined through a guest code, as a guest's agent.
       server: { $ref: "#/$defs/ServerRef" }
       board: { $ref: openapi.yaml#/components/schemas/Board }
       agent: { $ref: openapi.yaml#/components/schemas/Member }
@@ -550,7 +567,8 @@ $defs:
       board and prints a prompt to paste into an agent's session. The role defaults to
       the one the board's template invites when pairing (`reviewer` on writer-reviewer),
       else `member`. --ttl is how long the code works (Go duration, 1m to 168h; default
-      24h); any number of agents can join with it until then. Text output ends with the
+      24h); any number of the person's own agents can join with it until then, and
+      nobody else's (it is a pairing code). Text output ends with the
       prompt alone, after a blank line, so it can be copied whole. Inside a harness
       session it refuses with human_command_in_session, whose hint is the command to run.
     type: object
@@ -567,6 +585,35 @@ $defs:
         examples: ["Join Aboard board general on localhost as member with code 7Q4-K2M\nYou have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board."]
       expires_at: { type: string, format: date-time }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
+
+  # ---------- aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] ----------
+  GuestInviteOutput:
+    description: |
+      A person command with their own login: it makes a guest code for the board
+      (POST /boards/{board}/join-codes with guest) and prints the prompt to give the
+      guest, a person from outside the server, for their agent's session. The code lets
+      that one person onto this board only, once, as the guest HANDLE, before it
+      expires (--ttl, Go duration, 1m to 168h; default 24h). HANDLE must be free on the
+      server or a guest's; a member's is handle_taken. Agents can't make guest codes:
+      inside a harness session, or with ABOARD_AGENT set, it refuses with
+      human_command_in_session before it sends anything. Text output:
+        Created a guest code for board payments-design: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
+
+        Give this to sam, to paste into their agent's session:
+
+        Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW
+        You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board.
+    type: object
+    required: [board, role, guest, join_line, prompt, expires_at]
+    properties:
+      board: { type: string, examples: [payments-design] }
+      role: { type: string, examples: [member] }
+      guest: { $ref: openapi.yaml#/components/schemas/Handle }
+      join_line:
+        type: string
+        examples: ["Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW"]
+      prompt: { type: string }
+      expires_at: { type: string, format: date-time }
 
   # ---------- aboard invite --server [--ttl DURATION] ----------
   ServerInviteOutput:
@@ -1853,7 +1900,8 @@ $defs:
       (theirs, or an open one); with --as or ABOARD_AGENT, or inside a harness session, it acts as the
       agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
       <n> people", then one line per person: their name on the board, "(owner)" for an
-      owner, and their display name when they have one.
+      owner, "(guest)" for a guest of the server, and their display name when they have
+      one. Each person's server_role is in the JSON.
     type: object
     required: [board, visibility, people]
     properties:
@@ -1939,6 +1987,62 @@ $defs:
           - { $ref: openapi.yaml#/components/schemas/Reveals }
           - { type: "null" }
       join_codes_canceled: { type: integer, minimum: 0 }
+
+  # ---------- aboard people [--server URL] ----------
+  PeopleOutput:
+    description: |
+      The people on the server (GET /v1/people), oldest first, each with their server
+      role: admin, member or guest. The server is --server (one this machine holds a key
+      for), else the one this directory's .aboard names, else the local server, which it
+      starts if needed. A person command: inside a harness session, or with ABOARD_AGENT
+      set, it refuses with human_command_in_session before it sends anything. Text
+      output:
+        People on https://team.example.com:
+          alex  admin
+          maya  member  Maya Chen
+          sam   guest
+    type: object
+    required: [server, people]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      people:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/Person }
+
+  # ---------- aboard people role @handle admin|member [--server URL] ----------
+  PeopleRoleOutput:
+    description: |
+      Makes a person an admin of the server, or a member again (PATCH /v1/people/{handle});
+      admins only, with their own key (server_admin_required otherwise). The last admin
+      can't be made a member (last_admin), and a guest's role can't change
+      (person_is_guest). Refuses inside a harness session or with ABOARD_AGENT set, as
+      every people command does. Text: "maya is now an admin of <server>." or "maya is
+      already a member of <server>." (changed false).
+    type: object
+    required: [server, person, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: openapi.yaml#/components/schemas/Person }
+      changed: { type: boolean }
+
+  # ---------- aboard people remove @handle [--yes] [--server URL] ----------
+  PeopleRemoveOutput:
+    description: |
+      Removes a person from the server (DELETE /v1/people/{handle}); admins only, with
+      their own key. It first asks the server what the removal does (dry_run) and says
+      it: the keys, browser sessions and agents that stop, how many boards they leave,
+      where ownership passes, and any private board no one could read again. It asks
+      "Remove <handle> from <server>? [y/N]" in a terminal; elsewhere, or with --json,
+      it needs --yes and otherwise fails with confirmation_required, whose message says
+      the same. The last admin can't be removed (last_admin). Text after removing:
+        Removed maya from https://team.example.com: 2 keys, 1 browser session and 3 agents stopped, and maya left 4 boards.
+      then, when they apply, "Ownership of 1 board passes to the person on it longest."
+      and "1 private board has no one left on it, so no one can read it again (brd_…)."
+    type: object
+    required: [server, removal]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      removal: { $ref: openapi.yaml#/components/schemas/PersonRemoval }
 
   # ---------- aboard audit verify ----------
   AuditVerifyOutput:

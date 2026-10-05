@@ -172,12 +172,17 @@ func (h *handlers) CreateJoinCode(ctx context.Context, req CreateJoinCodeRequest
 	if req.Body.TtlSeconds != nil {
 		ttl = time.Duration(*req.Body.TtlSeconds) * time.Second
 	}
-	jc, err := h.svc.CreateJoinCode(ctx, principal(ctx), req.Board, req.Body.Role, ttl)
+	in := board.JoinCodeInput{Role: req.Body.Role, TTL: ttl}
+	if req.Body.Guest != nil {
+		in.Guest = *req.Body.Guest
+	}
+	jc, err := h.svc.CreateJoinCode(ctx, principal(ctx), req.Board, in)
 	if err != nil {
 		return nil, err
 	}
 	return convert[CreateJoinCode201JSONResponse](wireJoinCode{
-		ID: jc.JoinCode.ID, Code: jc.Code, JoinLine: jc.Line, Board: jc.Board, Role: jc.JoinCode.Role,
+		ID: jc.JoinCode.ID, Kind: jc.JoinCode.Kind, Guest: jc.JoinCode.Guest,
+		Code: jc.Code, JoinLine: jc.Line, Board: jc.Board, Role: jc.JoinCode.Role,
 		ExpiresAt: jc.JoinCode.ExpiresAt, CreatedAt: jc.JoinCode.CreatedAt, CreatedBy: refOf(jc.Creator),
 	})
 }
@@ -188,7 +193,7 @@ func (h *handlers) RevokeJoinCode(ctx context.Context, req RevokeJoinCodeRequest
 		return nil, err
 	}
 	return convert[RevokeJoinCode200JSONResponse](wireJoinCode{
-		ID: jc.ID, Board: req.Board, Role: jc.Role, ExpiresAt: jc.ExpiresAt, CreatedAt: jc.CreatedAt,
+		ID: jc.ID, Kind: jc.Kind, Guest: jc.Guest, Board: req.Board, Role: jc.Role, ExpiresAt: jc.ExpiresAt, CreatedAt: jc.CreatedAt,
 		CreatedBy: refOf(creator), RevokedAt: jc.RevokedAt,
 	})
 }
@@ -208,11 +213,41 @@ func (h *handlers) Join(ctx context.Context, req JoinRequestObject) (JoinRespons
 	if err != nil {
 		return nil, err
 	}
-	return convert[Join201JSONResponse](struct {
+	return convert[Join201JSONResponse](joinedOf(j, principal(ctx)))
+}
+
+// joinedOf is a new agent with its token and board, as the agent sees the board.
+func joinedOf(j board.Joined, p board.Principal) any {
+	return struct {
 		Agent wireMember `json:"agent"`
 		Token string     `json:"token"`
 		Board wireBoard  `json:"board"`
-	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, principal(ctx))})
+	}{memberOf(j.Agent, j.View.Board.Name), j.Token, boardOf(j.View, p)}
+}
+
+// GuestJoin redeems a guest code. It needs no token: the code is the proof.
+func (h *handlers) GuestJoin(ctx context.Context, req GuestJoinRequestObject) (GuestJoinResponseObject, error) {
+	in := board.GuestJoinInput{Code: req.Body.Code, KeyName: req.Body.KeyName}
+	if req.Body.Name != nil {
+		in.Name = *req.Body.Name
+	}
+	if req.Body.Harness != nil {
+		in.Harness = *req.Body.Harness
+	}
+	g, err := h.svc.GuestJoin(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	k := g.Key
+	return convert[GuestJoin201JSONResponse](map[string]any{
+		"server_id": h.svc.Config().ServerID, "person": personOf(g.Person),
+		"key": map[string]any{
+			"id": k.ID, "name": k.Name, "created_at": k.CreatedAt, "expires_at": k.ExpiresAt,
+			"idle_expiry_seconds": k.IdleSeconds, "token": g.KeyToken,
+		},
+		"agent": memberOf(g.Agent, g.View.Board.Name), "token": g.Token,
+		"board": boardOf(g.View, board.Principal{Agent: &g.Agent}),
+	})
 }
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {

@@ -53,8 +53,11 @@ func TestAgentWhosePersonWasRemovedSaysItCantReachTheBoard(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	maya := tm.person("maya")
-	line := field(t, tm.admin.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	tm.admin.run("pair", "--name", "writer", "--json")
 	board := field(t, tm.admin.run("status", "--json").json(t), "board").(string)
+	tm.admin.run("board", "add", "@maya")
+	tm.link(maya, board)
+	line := field(t, maya.run("invite", "--json").json(t), "join_line").(string)
 	s := maya.claudeSession("s-maya")
 	agent := field(t, s.run("join", line, "--json").json(t), "agent.name").(string)
 	if c := doctorCheck(t, maya, "board_gone"); c != nil {
@@ -87,6 +90,7 @@ func TestAgentWhosePersonWasRemovedSaysItCantReachTheBoard(t *testing.T) {
 	// Added back, maya's old agent stays gone: a new daemon, which reads every inbox
 	// again, finds the board gone for it too.
 	tm.admin.run("board", "add", "@maya")
+	line = field(t, maya.run("invite", "--json").json(t), "join_line").(string)
 	killDaemon(t, maya)
 	s.hook("prompt", `"prompt":"more work"`)
 	again := s.startHook("stop")

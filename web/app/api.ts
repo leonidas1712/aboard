@@ -53,6 +53,8 @@ export type Member = MemberRef & {
   id: string;
   harness: string | null;
   access: "admin" | "member" | null;
+  /** server_role is a person's role on the server: a guest came in through a guest code. Null for agents. */
+  server_role?: "admin" | "member" | "guest" | null;
   joined_at: string;
   presence: Presence | null;
   presence_since: string | null;

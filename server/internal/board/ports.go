@@ -28,12 +28,17 @@ type ReadTx interface {
 	// each with the browser logins it started that haven't expired at now and the agents
 	// whose tokens came from it.
 	KeysOf(humanID, now string) ([]KeyUsage, error)
-	// HumanByID finds a human by id.
+	// HumanByID finds a human by id, whether or not they were removed from the server.
 	HumanByID(id string) (Human, error)
-	// HumanByName finds a human by handle.
+	// HumanByName finds a human still on the server by handle; a removed person's
+	// handle finds no one.
 	HumanByName(name string) (Human, error)
-	// HumanCount returns how many people this server has.
+	// HumanCount returns how many people this server has ever had, removed ones included.
 	HumanCount() (int, error)
+	// PeopleOnServer lists the people still on the server, oldest first.
+	PeopleOnServer() ([]Human, error)
+	// AdminCount returns how many admins the server has, not counting removed people.
+	AdminCount() (int, error)
 	// ServerInviteByDigest finds a server invite by the digest of its secret.
 	ServerInviteByDigest(digest string) (ServerInvite, error)
 	// MachineRequestByCode finds a machine request by the digest of its short code,
@@ -135,8 +140,12 @@ type TimelineQuery struct {
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
 	ReadTx
-	// InsertHuman adds a human, whose handle no other human has.
+	// InsertHuman adds a human, whose handle no other human still on the server has.
 	InsertHuman(h Human) error
+	// SetHumanRole sets a person's server role.
+	SetHumanRole(id, role string) error
+	// RemoveHuman marks a person removed from the server at a time, by an admin.
+	RemoveHuman(id, at, by string) error
 	// InsertAccessKey adds an access key.
 	InsertAccessKey(k AccessKey) error
 	// NameUnnamedKeys gives every access key with an empty name this name.
@@ -204,6 +213,9 @@ type Tx interface {
 	InsertJoinCode(j JoinCode) error
 	// RevokeJoinCode marks a join code revoked at a time; a revoked code keeps its first time.
 	RevokeJoinCode(id, at string) error
+	// UseJoinCode marks an unused join code used at a time, for the member it made. It
+	// reports false, changing nothing, when the code was already used.
+	UseJoinCode(id, at, memberID string) (bool, error)
 	// AppendEvent adds the next event to its board's log and moves the board's head. It
 	// fails, storing nothing, unless the event's seq is exactly one past the head.
 	AppendEvent(e events.Event) error

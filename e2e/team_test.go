@@ -353,10 +353,14 @@ func TestTwoPeoplesAgentsTalk(t *testing.T) {
 	maya := tm.person("maya")
 	adminSums := treeSums(t, tm.admin.configDir())
 
-	line := field(t, tm.admin.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	tm.admin.run("pair", "--name", "writer")
 	board := field(t, tm.admin.run("status", "--json").json(t), "board").(string)
+	tm.admin.run("board", "add", "@maya")
 	adminSums = treeSums(t, tm.admin.configDir())
 
+	// maya, on the board now, brings her agent with a join line of her own.
+	tm.link(maya, board)
+	line := field(t, maya.run("invite", "--json").json(t), "join_line").(string)
 	s := maya.claudeSession("s-maya")
 	joined := s.run("join", line, "--json").json(t)
 	if field(t, joined, "server.url") != tm.url() || field(t, joined, "agent.owner") != "maya" {

@@ -38,8 +38,11 @@ func TestAPersonChangesTheModeFromAnotherMachine(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	laptop := tm.person("maya")
-	line := field(t, tm.admin.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	tm.admin.run("pair", "--name", "writer", "--json")
 	board := field(t, tm.admin.run("status", "--json").json(t), "board").(string)
+	tm.admin.run("board", "add", "@maya")
+	tm.link(laptop, board)
+	line := field(t, laptop.run("invite", "--json").json(t), "join_line").(string)
 	s := laptop.claudeSession("s-laptop")
 	agent := field(t, s.run("join", line, "--json").json(t), "agent.name").(string)
 

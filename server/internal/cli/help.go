@@ -273,7 +273,34 @@ func helpText(templates string) []commandHelp {
 				{"aboard keys sessions phone", "The browsers signed in with your phone's key"},
 				{"aboard keys sessions end ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8", "Sign one browser out"},
 			},
-			SeeAlso: []string{"login", "connect", "logout", "open"},
+			SeeAlso: []string{"login", "connect", "logout", "open", "people"},
+		},
+		{
+			Name: "people", Group: groupStart,
+			Summary: "List the people on a server; admins change roles and remove people",
+			Usage: []string{
+				"aboard people [--server URL] [--json]",
+				"aboard people role @handle admin|member [--server URL] [--json]",
+				"aboard people remove @handle [--yes] [--server URL] [--json]",
+			},
+			Description: "aboard people lists everyone on the server with their role: admin, member or guest. " +
+				"An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite --guest) and reaches only the boards guest codes brought them onto. " +
+				"The server is --server, else the one this directory's .aboard names, else the local server.\n\n" +
+				"people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. " +
+				"It says first what will stop and asks; without a terminal it needs --yes. Their messages stay in the record. Their handle is free again, so they can be invited back as a new person. " +
+				"Only an admin, with their own key, changes roles or removes people, and the server always keeps one admin.\n\n" +
+				"These are a person's commands: they refuse inside an agent's session.",
+			Flags: []helpFlag{
+				{"--yes", "", "Remove the person without asking."},
+				{"--server", "URL", "The server, when it isn't this directory's or the local one."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard people", "Everyone on the server, with their roles"},
+				{"aboard people role @maya admin", "Make maya an admin"},
+				{"aboard people remove @sam", "Remove sam from the server, after saying what stops"},
+			},
+			SeeAlso: []string{"invite", "keys", "board"},
 		},
 		{
 			Name: "logout", Group: groupStart,
@@ -438,22 +465,26 @@ func helpText(templates string) []commandHelp {
 			Summary: "Make a join code that brings another agent onto a board",
 			Usage: []string{
 				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
+				"aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --server [--ttl DURATION] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
-				"The code works for any number of agents until it expires.\n\n" +
+				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
+				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
 				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
 				"Inviting is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
 				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the local server."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard invite", "Add another agent to this directory's board"},
 				{"aboard invite --role reviewer --ttl 2h", "A reviewer, with a code that works for two hours"},
+				{"aboard invite --guest sam", "Let sam, from outside the server, onto this directory's board as a guest"},
 				{"aboard invite --server", "Invite a person to the server"},
 			},
 			SeeAlso: []string{"join", "pair", "board", "connect"},

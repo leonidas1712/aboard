@@ -202,6 +202,9 @@ func (s *Service) ListKeys(ctx context.Context, p Principal, handle string) (Key
 		if err != nil {
 			return err
 		}
+		if me.Role == ServerGuest {
+			return guestNotAllowed("manage access keys")
+		}
 		person := me
 		if handle != "" && handle != me.Name {
 			if me.Role != ServerAdmin {
@@ -253,6 +256,12 @@ func (s *Service) CreateKey(ctx context.Context, p Principal, name string, ttl t
 	var out NewKey
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		now := s.clk.Now()
+		if me, err := tx.HumanByID(p.Human.ID); err != nil || me.Role == ServerGuest {
+			if err != nil {
+				return err
+			}
+			return guestNotAllowed("make access keys")
+		}
 		keys, err := tx.KeysOf(p.Human.ID, stamp(now))
 		if err != nil {
 			return err
@@ -297,16 +306,17 @@ func (s *Service) RevokeKey(ctx context.Context, p Principal, keyID string) (Key
 		if err != nil {
 			return err
 		}
-		if k.HumanID != p.Human.ID {
-			// The role is read here, in the write, so an admin demoted since they
-			// authenticated can't.
-			me, err := tx.HumanByID(p.Human.ID)
-			if err != nil {
-				return err
-			}
-			if me.Role != ServerAdmin {
-				return keyNotFound()
-			}
+		// The role is read here, in the write, so an admin demoted since they
+		// authenticated can't revoke another's key.
+		me, err := tx.HumanByID(p.Human.ID)
+		if err != nil {
+			return err
+		}
+		if me.Role == ServerGuest {
+			return guestNotAllowed("manage access keys")
+		}
+		if k.HumanID != p.Human.ID && me.Role != ServerAdmin {
+			return keyNotFound()
 		}
 		now := stamp(s.clk.Now())
 		if err := tx.RevokeAccessKey(k.ID, now); err != nil {

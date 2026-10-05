@@ -38,11 +38,8 @@ func TestStreamSendsReadPositionsToTheOwnerOnly(t *testing.T) {
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
-	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
-	mustStatus(t, code, err, 201)
 	priya := s.addHuman("priya")
-	j, err := s.client(priya).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
-	mustStatus(t, j, err, 201)
+	j := s.joinBoard(priya, boardName, "reviewer", nil)
 	priyasAgent := j.JSON201.Token
 
 	post, err := s.client(reviewer).PostMessageWithResponse(ctx, boardName, nil, api.PostMessageRequest{Body: "for everyone"})

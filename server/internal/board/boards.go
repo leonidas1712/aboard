@@ -239,7 +239,7 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listin
 			return err
 		}
 		var boards []Board
-		if all {
+		if all && me.Role != ServerGuest {
 			boards, err = tx.BoardsSeenBy(me.ID)
 		} else {
 			boards, err = tx.BoardsOfHuman(me.ID)
@@ -298,21 +298,21 @@ func hiddenOf(tx ReadTx, b Board) (HiddenBoard, error) {
 	return h, nil
 }
 
-// mayCreateBoards refuses when the server lets only its admins create boards and p's
-// person isn't one, reading both inside the transaction that creates the board.
+// mayCreateBoards refuses a guest, and anyone but an admin when the server lets only its
+// admins create boards, reading both inside the transaction that creates the board.
 func mayCreateBoards(tx ReadTx, p Principal) error {
-	who, err := tx.BoardCreation()
-	if err != nil {
-		return err
-	}
-	if who != CreationAdmins {
-		return nil
-	}
 	me, err := tx.HumanByID(p.Human.ID)
 	if err != nil {
 		return err
 	}
-	if me.Role == ServerAdmin {
+	if me.Role == ServerGuest {
+		return guestNotAllowed("create boards")
+	}
+	who, err := tx.BoardCreation()
+	if err != nil {
+		return err
+	}
+	if who != CreationAdmins || me.Role == ServerAdmin {
 		return nil
 	}
 	return apierr.New(http.StatusForbidden, "board_creation_restricted",
@@ -427,6 +427,9 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		what := "change its policy"
 		if change.Policy == nil {
 			what = "change its title"
+		}
+		if me.PersonRole == ServerGuest {
+			return guestNotAllowed(strings.Replace(what, "its", "the board's", 1))
 		}
 		// An agent acts within its owner's access to the board.
 		forWhom, err := ownerOnBoard(tx, b, me)

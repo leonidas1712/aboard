@@ -33,6 +33,8 @@ type wireMember struct {
 	Access   *string `json:"access"`
 	Status   string  `json:"status"`
 	JoinedAt string  `json:"joined_at"`
+	// ServerRole is a person's role on the server; null for agents.
+	ServerRole *string `json:"server_role"`
 	// Presence and PresenceSince are null for people.
 	Presence      *string `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
@@ -98,6 +100,8 @@ type wireReaction struct {
 
 type wireJoinCode struct {
 	ID        string        `json:"id"`
+	Kind      string        `json:"kind"`
+	Guest     *string       `json:"guest"`
 	Code      string        `json:"code,omitempty"`
 	JoinLine  string        `json:"join_line,omitempty"`
 	Board     string        `json:"board"`
@@ -132,6 +136,9 @@ func memberOf(m board.Member, boardName string) wireMember {
 	}
 	if m.Access != "" {
 		w.Access = &m.Access
+	}
+	if m.Kind == "human" && m.PersonRole != "" {
+		w.ServerRole = &m.PersonRole
 	}
 	if m.Kind == "agent" {
 		state := m.Presence.State

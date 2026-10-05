@@ -9,20 +9,27 @@ import (
 // ErrNotFound is returned by a Store when a looked-up record doesn't exist.
 var ErrNotFound = errors.New("not found")
 
-// Human is a person on this server. ID is permanent; Name is their handle, unique on the
-// server and their member name on boards.
+// Human is a person on this server. ID is permanent; Name is their handle, unique among
+// the people still on the server and their member name on boards.
 type Human struct {
 	ID          string
 	Name        string
 	DisplayName *string
-	Role        string // ServerAdmin or ServerMember
+	Role        string // ServerAdmin, ServerMember or ServerGuest
 	CreatedAt   string
+	// RemovedAt is when an admin removed the person from the server, and RemovedBy that
+	// admin's id; nil while they are on it. A removed person's handle is free again.
+	RemovedAt *string
+	RemovedBy *string
 }
 
-// A person's role on the server.
+// A person's role on the server. An admin manages the server's people; a member sees its
+// open boards and the private ones they are on; a guest came in through a guest code and
+// reaches only the boards guest codes brought them onto, through the agent each made.
 const (
 	ServerAdmin  = "admin"
 	ServerMember = "member"
+	ServerGuest  = "guest"
 )
 
 // AccessKey is a person's credential: a named secret kept by its keyed digest. Agent
@@ -168,7 +175,7 @@ type Member struct {
 	Harness     *string
 	TokenDigest *string
 	// KeyID is the access key the agent's token came from, which it never outlives; nil
-	// for a person.
+	// for a person, and for a guest's agent, which has no key behind it.
 	KeyID    *string
 	Access   string // rules.AccessAdmin or rules.AccessMember for a person, empty for an agent
 	Status   string
@@ -176,6 +183,9 @@ type Member struct {
 	JoinedAt string
 	// Presence is what was last reported for an agent; read it with CurrentPresence.
 	Presence Presence
+	// PersonRole is the server role of the member's person, or an agent's owner, as the
+	// store read it with the member.
+	PersonRole string
 	// Delivery is an agent's delivery mode as its person set it.
 	Delivery DeliverySetting
 }
@@ -189,7 +199,9 @@ func (m Member) Rules() rules.Member {
 	return r
 }
 
-// JoinCode is a code that lets sessions join a board in one role.
+// JoinCode is a code that lets sessions join a board in one role: a pairing code, which
+// its maker's own sessions redeem until it expires, or a guest code, which lets the one
+// guest it names onto the board, once.
 type JoinCode struct {
 	ID         string
 	BoardID    string
@@ -199,7 +211,18 @@ type JoinCode struct {
 	CreatedAt  string
 	CreatedBy  string
 	RevokedAt  *string
+	Kind       string  // CodePairing or CodeGuest
+	Guest      *string // the guest's handle, for a guest code
+	GuestID    *string // an existing guest's permanent person id at issuance
+	UsedAt     *string // when a guest code was used
+	UsedBy     *string // the member id of the agent a guest code made
 }
+
+// Kinds of join code.
+const (
+	CodePairing = "pairing"
+	CodeGuest   = "guest"
+)
 
 // Redaction records how many secrets of one kind were replaced in a message. Its JSON
 // form is part of the message.posted event payload, which is hashed into the chain, so

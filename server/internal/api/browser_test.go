@@ -123,11 +123,8 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 	policy, err := b.UpdateBoardWithResponse(ctx, boardName, nil, change)
 	mustStatus(t, policy, err, 200)
 
-	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
-	mustStatus(t, code, err, 201)
 	priya := s.addHuman("priya")
-	j, err := s.client(priya).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
-	mustStatus(t, j, err, 201)
+	s.joinBoard(priya, boardName, "reviewer", nil)
 	refused, err := s.client(s.browserToken(priya)).UpdateBoardWithResponse(ctx, boardName, nil, change)
 	if c := errorCode(t, refused, err, 403); c != "admin_required" {
 		t.Fatalf("policy change from a member's browser: %s", c)
