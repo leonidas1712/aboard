@@ -104,30 +104,54 @@ says what.
 
 Needs approval: yes, small. It is a read view over existing data.
 
-## 3. A brief that says how fresh it is
+## 3. Artifacts, and a brief that says how fresh it is
 
-Each board can have a brief: a pinned file (`brief.md`) saying the goal, the approach,
-who does what, results, blockers and next steps. One agent keeps it current; on a
-larger board that is a role (a steward, like a lead who keeps the tracker and the
-stakeholders up to date). A small board needs no setup: whoever the person asks keeps
-it.
+Agents explain work best with something a person can scroll and click: a
+self-contained HTML page with diagrams and animation, a Markdown write-up, an image.
+Asking an agent "explain what happened with this feature" or "show me where the project
+stands" should produce one, and the board should make it easy to find, open and keep.
 
-The server can't know whether a brief is true, but it can say what has happened since
-it was written: "Updated 2 hours ago by @claude; since then 41 messages, 3 tasks done,
-1 decision". That is objective and visible to everyone. When the count passes a
-threshold the board sets, the steward gets a quiet note with its next delivery: a
-nudge, never a block.
+**The Artifacts panel.** The board view lists the board's files as cards, split as a
+chat assistant's artifacts panel is: **Artifacts** (what agents made) and **Content**
+(what people attached as inputs). Each card shows the name, type, author, version and
+when it was last updated, with Download. Clicking opens a preview: HTML rendered,
+Markdown formatted, images shown. Downloading gives the same file to open locally,
+where it has no access to Aboard at all. An artifact posted with a message also shows
+under that message.
 
-Briefs can be HTML as well as Markdown, with diagrams. An agent-written page is shown
-in a sandboxed frame from a separate origin with no cookies or session, so it can't
-act as the person. The frame shows its author, version and freshness around it.
+**One-off and maintained.** A one-off artifact explains one thing ("what changed in
+#97"). A maintained artifact is pinned and kept current: the project status page, the
+architecture overview, the brief. A board skill or the board's charter names who keeps
+each one current. At project scale, the project board's status page links to each
+workstream board's.
 
-The brief is also what a new agent reads first when it joins (VISION's join brief),
-so keeping it current pays off twice.
+**Self-contained by rule.** An artifact is one file with its assets inline, so the
+preview and the download behave the same. The skill says so; the server doesn't check.
 
-Needs approval: the brief is a convention on files and pins (planned). Freshness and
-the nudge are small server features and need approval. HTML preview needs approval
-and a security review.
+**Safe preview.** An agent-written page must never act as the person viewing it. The
+preview is an iframe sandboxed without `allow-same-origin`, which gives it an opaque
+origin: it can't read Aboard's cookies or call the API, even when the server has one
+origin, as a local server does. A strict content security policy on the frame blocks
+outbound requests, so a page can't send what it contains anywhere; a short allowlist of
+script CDNs covers chart and diagram libraries. The frame shows the author, version and
+freshness around the page, outside the page's control.
+
+**The brief.** Each board can have one maintained artifact as its brief (`brief.md` or
+`brief.html`): the goal, the approach, who does what, results, blockers and next steps.
+One agent keeps it current; on a larger board that is a role (a steward, like a lead who
+keeps the tracker and the stakeholders up to date). A small board needs no setup:
+whoever the person asks keeps it. The brief is also what a new agent reads first when
+it joins (VISION's join brief), so keeping it current pays off twice.
+
+**Freshness.** The server can't know whether a maintained artifact is true, but it can
+say what has happened since its last version: "Updated 2 hours ago by @claude; since
+then 41 messages, 3 tasks done, 1 decision". That is objective and visible to everyone.
+When the count passes a threshold the board sets, the artifact's keeper gets a quiet
+note with its next delivery: a nudge, never a block.
+
+Needs approval: the panel and maintained artifacts are a view and conventions on
+planned files and pins. Freshness, the nudge and the HTML preview are new and need
+approval; the preview also needs a security review.
 
 ## 4. The board's files: one primitive for memory, skills and shared work
 
@@ -210,6 +234,35 @@ existing tokens; attention and unread must read without colour too.
 
 Needs approval: the glyph is planned; extra themes need approval.
 
+## Where Aboard stops: bridges to the tools teams already use
+
+Work-level primitives belong in Aboard because the hard parts only exist between
+agents and people: one owner per task, a decision one person makes for many agents, a
+file two agents edit without losing each other's work, and a record of who did what. A
+harness's own todo list is private to one session and can't provide them. Without
+them, a room of agents is a chat nobody can follow, which is also what separates a
+collaboration layer from mail between agents.
+
+The line: Aboard holds the live working state of agents and people working together
+now (claims, open decisions, artifacts, briefs). Linear, Jira and GitHub stay a team's
+system of record, and Slack or a phone stays where people get notified. Bridges between
+them are extensions on the public API (D75), and some can ship in this repository:
+
+| Bridge | Does |
+| --- | --- |
+| Issues in | A GitHub, Linear or Jira issue becomes a board task linked to it |
+| Results out | Finished work and its artifacts post back to the linked issue |
+| Attention out | "Needs you" items reach Slack, email or a phone |
+| Chat in | A Slack thread can post to a board as its person |
+
+Each linked item has one source of truth: a task linked to an issue takes its status
+from the issue, so there is no two-way sync to fight over. The server gains no
+integration code; if a bridge needs something the API lacks, that becomes a primitive
+in the contract (D54).
+
+Needs approval: yes, per bridge. The API needs an external link on a task (a URL and
+an id), which is small and additive.
+
 ## What needs the server, and what doesn't
 
 The primitives test (D54): the server holds only what needs atomicity, permissions,
@@ -219,8 +272,10 @@ ordering or trust.
 | --- | --- |
 | Ask fields, answer rights, derived ask state | When to block (the skill) |
 | The version check on file updates | Folder layout: `brief.md`, `memory/`, `skills/` |
-| Freshness counts; the nudge to a steward | What a brief says; who keeps it |
+| Freshness counts; the nudge to an artifact's keeper | What a brief says; who keeps it |
 | "Since you last looked" from read positions | Agent-written summaries and HTML pages |
+| The sandboxed preview and its security policy | Keeping artifacts self-contained |
+| An external link on a task | Bridges to GitHub, Linear, Jira and Slack |
 | Atomic task claims | Who claims what, and when |
 | Presence signals | Recovery decisions; durable execution |
 | Child boards and their access | Project playbooks |
@@ -231,8 +286,10 @@ ordering or trust.
 2. "Since you last looked" (small, after D).
 3. Try the brief by convention on a real board, as the existing exploration proposes,
    before building freshness: if the person still asks for status, find out why.
-4. Files with paths and the version check, then the brief's freshness and nudge.
-5. Tasks, then the stalled-after-delivery signal.
+4. Files with paths and the version check, then the Artifacts panel with the safe
+   preview, then freshness and the nudge.
+5. Tasks with external links, then the first bridge (GitHub issues), then the
+   stalled-after-delivery signal.
 6. A projects design note.
 
 ## Open questions
@@ -242,5 +299,6 @@ ordering or trust.
 - Should a person be able to delegate answers of a kind ("copy changes") to an agent,
   and how does the record show it?
 - What freshness threshold is useful by default, and is it per board or per brief?
-- Where do HTML pages render on a local server with one origin?
+- Which script CDNs may a previewed artifact load, and who can change the list?
+- Which bridge comes first, and does it ship in this repository or as an example?
 - How do project members see child boards they aren't on: briefs only, or more?
