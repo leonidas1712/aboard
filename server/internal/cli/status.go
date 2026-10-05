@@ -93,6 +93,9 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	var agentBoard *target
 	switch {
 	case name != "":
+		if err := a.oneSeat(ctx, *boardFlag); err != nil {
+			return err
+		}
 		if t, _, err := a.agentByName(creds, name, *boardFlag); err == nil {
 			agentBoard = &t
 		}

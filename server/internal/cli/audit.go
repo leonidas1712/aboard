@@ -74,6 +74,11 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 	if pos[0] != "verify" {
 		return usageError(fmt.Sprintf("%q is not an audit command.", pos[0]), use)
 	}
+	if *as != "" {
+		if err := a.oneSeat(ctx, *boardFlag); err != nil {
+			return err
+		}
+	}
 	t, err := a.selectBoard(*boardFlag)
 	if err != nil {
 		return err
