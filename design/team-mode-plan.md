@@ -122,8 +122,12 @@ in a session it gives the session a seat.
 board gets a second seat, and keeps the first. Messages from both arrive, each naming
 its board, and each delivered message's hint includes `--board`. A write with one seat
 needs no flag; with several, an unqualified write is refused with `board_ambiguous`,
-listing the boards and the flag. `aboard status` lists every seat the session holds.
-There is no hidden "current board".
+listing the boards and the flag, even when `--as` or `ABOARD_AGENT` names the agent.
+`aboard status` lists every seat the session holds. There is no hidden "current board".
+Message numbers are per board, so every delivered message, reply hint, hook and queued
+wake carries its board and seat; history, read positions and frozen recipients stay
+separate per seat; the skill's examples use `--board` for replies. A board list cached
+from `aboard boards` never authorizes a join: the join is checked again.
 
 **Refusals and their next step.**
 
@@ -146,7 +150,8 @@ There is no hidden "current board".
    transaction: the delegation, the key behind it, the person's standing, the board's
    visibility and membership, and the board's policy. Tests: hidden boards, a guest's
    agent, the wrong owner, a revoked or expired key, access lost during the join, two
-   people's agents joining the same board. The smallest slice that removes codes for a
+   people's agents joining the same board, and the same message number on two boards, so
+   no reply or acknowledgement reaches the wrong one. The smallest slice that removes codes for a
    team's own sessions.
 2. **5b. Agents start work for their person.** `aboard pair --new` through the
    delegation (the person is creator and owner); agents adding teammates on open boards,
