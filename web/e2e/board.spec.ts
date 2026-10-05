@@ -1026,6 +1026,8 @@ test("a collapsed reply is not read by showing its thread summary", async ({ pag
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--json"));
   const board = pair.board.name;
   const root = JSON.parse(aboard("say", "--as", "writer", "--board", board, "Read this root", "--json")).message;
+  // A reaction consumes a sequence without becoming an unread message.
+  aboard("react", "--as", "writer", "--board", board, String(root.seq), "👍");
   aboard("say", "--as", "writer", "--board", board, "--reply", root.id, "--to", "all", "This reply is still hidden");
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   await openLink(page, open.url);
