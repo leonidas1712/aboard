@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -248,6 +249,11 @@ func claudeBusy(screen string) bool { return strings.Contains(screen, "esc to in
 // submit types a prompt into the harness and waits until the prompt box has taken it.
 func (p *pane) submit(text string) {
 	p.l.t.Helper()
+	if p.harness == "codex" && p.codexHooksLogged() {
+		// The turn counts as open from now: Codex runs the prompt hook a moment later.
+		_, p.codexStopsAtSubmit = p.l.codexHookCounts(p.dir)
+		p.codexSubmitted = true
+	}
 	p.typeInto(text)
 	prefix := text
 	if len(prefix) > 30 {
@@ -574,7 +580,8 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 	// "<bin> hook codex <event>" becomes
 	// env <vars> sh -c 'echo "$1 <parent> <grandparent>" >> <log>; exec "$0" hook codex "$1"' <bin> <event>
 	// The two processes above the hook show which Codex process ran it (codexHookRunners).
-	script := fmt.Sprintf(`echo "$1 $PPID $(ps -o ppid= -p $PPID)" >> %s; exec "$0" hook codex "$1"`, l.codexHookLog())
+	// at=<tag> says which project's session ran the hook (codexHookTag).
+	script := fmt.Sprintf(`echo "$1 $PPID $(ps -o ppid= -p $PPID) at=%s" >> %s; exec "$0" hook codex "$1"`, codexHookTag(dir), l.codexHookLog())
 	words = append(words, "sh", "-c", "'"+script+"'", l.bin)
 	quoted, err := json.Marshal(strings.Join(words, " ") + " ")
 	if err != nil {
@@ -616,22 +623,50 @@ func (l *lab) codexHookRunners(event string) []int {
 	return pids
 }
 
-// codexTurnOpen reports whether a Codex turn in the lab has started and not yet ended:
-// the hooks log has more prompt events than stop events. The log is the lab's, so a turn
-// in any of its Codex sessions counts.
-func (l *lab) codexTurnOpen() bool {
+// codexHookTag names a project's Codex hooks in the hooks log, so each session's events
+// can be told apart from the others' in the same lab.
+func codexHookTag(dir string) string { return fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(dir))) }
+
+// codexHookCounts counts the prompt and stop events the hooks of the project in dir
+// logged.
+func (l *lab) codexHookCounts(dir string) (prompts, stops int) {
 	raw, _ := os.ReadFile(l.codexHookLog())
-	open := 0
+	at := "at=" + codexHookTag(dir)
 	for _, line := range strings.Split(string(raw), "\n") {
-		switch f := strings.Fields(line); {
-		case len(f) == 0:
-		case f[0] == "prompt":
-			open++
-		case f[0] == "stop" && open > 0:
-			open--
+		f := strings.Fields(line)
+		if len(f) == 0 || !slices.Contains(f, at) {
+			continue
+		}
+		switch f[0] {
+		case "prompt":
+			prompts++
+		case "stop":
+			stops++
 		}
 	}
-	return open > 0
+	return prompts, stops
+}
+
+// codexHooksLogged reports whether the pane's project has hooks that log their events
+// with its tag (scopeCodexHooks); a session started without them logs nothing, so its
+// stop events can't be waited for.
+func (p *pane) codexHooksLogged() bool {
+	raw, err := os.ReadFile(filepath.Join(p.dir, ".codex", "hooks.json"))
+	return err == nil && strings.Contains(string(raw), "at="+codexHookTag(p.dir))
+}
+
+// codexTurnOpen reports whether the pane's Codex session has a turn that started and
+// hasn't ended: a prompt the driver submitted with no stop event since, which covers the
+// moment before Codex runs the prompt hook, or more prompt events than stop events.
+func (p *pane) codexTurnOpen() bool {
+	prompts, stops := p.l.codexHookCounts(p.dir)
+	if p.codexSubmitted {
+		if stops <= p.codexStopsAtSubmit {
+			return true
+		}
+		p.codexSubmitted = false
+	}
+	return prompts > stops
 }
 
 // codexHooksRan reports whether each event's hook has run at least once.
