@@ -42,6 +42,8 @@ func TestPersonCommandsRefuseUnderABOARDAGENT(t *testing.T) {
 		{"keys", "create", "phone"},
 		{"logout", "--browsers"},
 		{"watch"},
+		{"delivery", "humans"},
+		{"delivery", "off", "--as", "scout"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			r := e.exec([]string{"ABOARD_AGENT=scout"}, "", append(args, "--json")...)
@@ -52,5 +54,21 @@ func TestPersonCommandsRefuseUnderABOARDAGENT(t *testing.T) {
 	}
 	if n := hits.Load(); n != 0 {
 		t.Fatalf("%d requests reached the server", n)
+	}
+}
+
+// With only ABOARD_AGENT set, changing that agent's delivery mode is refused and leaves
+// the mode as it was.
+func TestDeliveryModeUnderABOARDAGENTIsRefused(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.run("pair", "writer-reviewer", "--name", "writer")
+	r := e.exec([]string{"ABOARD_AGENT=writer"}, "", "delivery", "humans", "--json")
+	if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" ||
+		!strings.Contains(field(t, r.json(t), "error.hint").(string), "aboard delivery humans --as writer") {
+		t.Fatalf("delivery humans with ABOARD_AGENT set:\n%s", r)
+	}
+	if got := field(t, e.run("delivery", "--as", "writer", "--json").json(t), "mode"); got != "focused" {
+		t.Fatalf("mode after the refused change = %v, want focused", got)
 	}
 }

@@ -213,7 +213,7 @@ func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 	e := newEnv(t)
 	e.run("pair", "writer-reviewer")
 	browser, saved := e.recordingBrowser()
-	for _, session := range []string{"CLAUDECODE=1", "ABOARD_SESSION=claude-code:5f1c"} {
+	for _, session := range []string{"CLAUDECODE=1", "ABOARD_SESSION=claude-code:5f1c", "ABOARD_AGENT=writer"} {
 		r := e.exec([]string{session, "BROWSER=" + browser}, "", "open", "--json")
 		if r.code != 0 {
 			t.Fatalf("with %s:\n%s", session, r)
