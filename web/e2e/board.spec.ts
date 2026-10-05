@@ -949,7 +949,7 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   const kimAgent = ((await api(kimKey, "POST", "/v1/join", { board, role: "reviewer" })).agent as { name: string }).name;
 
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
-  await page.goto(open.url);
+  await openLink(page, open.url);
   const panel = page.getByRole("complementary", { name: "Delivery check" });
   const writer = panel.locator('[data-agent="writer"]');
 
