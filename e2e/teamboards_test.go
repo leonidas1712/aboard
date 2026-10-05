@@ -34,7 +34,7 @@ func (tm *team) newBoard(e *env, visibility string) string {
 // token.
 func (tm *team) agentToken(e *env, board string) string {
 	tm.t.Helper()
-	status, v := tm.call("POST", "/v1/join", tm.key(e), map[string]any{"board": board, "role": "member", "name": "helper"})
+	status, v := tm.call("POST", "/v1/join", tm.key(e), map[string]any{"board": board, "role": "member"})
 	if status != http.StatusCreated {
 		tm.t.Fatalf("join an agent: %d %v", status, v)
 	}
@@ -100,6 +100,13 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 		t.Fatalf("making someone not on the board an owner:\n%s", owner)
 	}
 	maya.run("board", "add", "@sam")
+	// Added back, sam returns, but his old agent stays removed; a new one works.
+	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", samAgent, map[string]any{"body": "back again"}); status != http.StatusNotFound || errorCode(t, v) != "board_not_found" {
+		t.Fatalf("sam's old agent after sam was added back: %d %v", status, v)
+	}
+	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", tm.agentToken(sam, board), map[string]any{"body": "a new agent"}); status != http.StatusCreated {
+		t.Fatalf("sam's new agent: %d %v", status, v)
+	}
 	out := maya.run("board", "owner", "@sam", "--json").json(t)
 	matchesCLISpec(t, "BoardOwnerOutput", out)
 	if out["changed"] != true || field(t, out, "person.board_role") != "owner" {

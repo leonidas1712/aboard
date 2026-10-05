@@ -28,15 +28,24 @@ func (a *app) personClient(ctx context.Context, boardFlag, what, command string)
 	return t, c, err
 }
 
-// runBoardPeople lists the people on a board with their board role. In a harness
-// session, or with --as, it reads as the agent, on the agent's board.
+// agentSelected reports whether a command that can act as a person or as an agent acts
+// as an agent: when one is named by --as or ABOARD_AGENT, or the command runs inside a
+// harness session. Then it must use the agent's token, never the person's login.
+func (a *app) agentSelected(asFlag string) bool {
+	_, inSession := a.inSession()
+	return asFlag != "" || strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) != "" || inSession
+}
+
+// runBoardPeople lists the people on a board with their board role. When an agent is
+// selected (--as, ABOARD_AGENT or a harness session) it reads as the agent, on the
+// agent's board.
 func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error {
 	var (
 		t   target
 		c   *client
 		err error
 	)
-	if _, inSession := a.inSession(); inSession || asFlag != "" {
+	if a.agentSelected(asFlag) {
 		var cred agentCredential
 		if t, cred, err = a.agentTarget(ctx, boardFlag, asFlag); err != nil {
 			return err

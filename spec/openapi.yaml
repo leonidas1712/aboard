@@ -691,9 +691,12 @@ paths:
       description: |
         Owners only, with a person's own token: anyone else on the board gets 403
         `owner_required`, whose hint names the owners, and an agent 403
-        `human_token_required`. Writes `person.removed`. The person and their agents lose
-        access to the board at once, and the join codes they or their agents made for it
-        stop working (each writes `joincode.revoked`). Their messages stay in the record.
+        `human_token_required`. Writes `person.removed`. The person loses access to the
+        board at once, and their agents on it end for good (named in the event's
+        `agents`): their tokens never work on the board again, even if the person is
+        added back, when they join with new agents. The join codes they or their agents
+        made for it stop working (each writes `joincode.revoked`). Their messages stay in
+        the record.
         Removing someone from an open board doesn't keep them out, since anyone on the
         server may join it again; making the board private does.
 
@@ -721,9 +724,9 @@ paths:
       operationId: leaveBoard
       summary: Leave a board
       description: |
-        The caller, a person, leaves the board: writes `person.left`; they and their
-        agents lose access to it at once, and the join codes they or their agents made
-        for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
+        The caller, a person, leaves the board: writes `person.left`; they lose access to
+        it at once, their agents on it end for good as on removal, and the join codes they
+        or their agents made for it stop working. The board's last owner can't leave: 409 `last_owner`, whose
         hint says to make someone else an owner first. An agent gets 403
         `human_token_required`.
       parameters:
@@ -2623,6 +2626,14 @@ components:
         rejoined:
           type: boolean
           description: In `person.added` only. True for a person who was on the board before, back under their old member id and name.
+        agents:
+          type: array
+          items: { type: string }
+          description: |
+            In `person.removed` and `person.left`: the member ids of the person's agents on
+            the board, which end with them for good. Their tokens never work on the board
+            again, even if the person is added back. Absent from events written before
+            agents ended this way.
     PersonAddedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"

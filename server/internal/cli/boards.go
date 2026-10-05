@@ -21,7 +21,7 @@ type boardsRow struct {
 }
 
 // runBoards lists the boards the person is on, or with --all every board they can see.
-// Inside a harness session, or with --as, it lists only the agent's own board, with the
+// When an agent is selected (--as, ABOARD_AGENT or a harness session), it lists only the agent's own board, with the
 // agent's token: it never reads with the person's login there.
 func runBoards(ctx context.Context, a *app, args []string) error {
 	use := usageOf("boards")
@@ -42,9 +42,9 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	if _, inSession := a.inSession(); inSession || *as != "" {
+	if a.agentSelected(*as) {
 		if *all {
-			return usageError("An agent sees only its own board, so --all works only in your own terminal.", use)
+			return usageError("An agent sees only its own board, so --all works only for a person: without --as or ABOARD_AGENT, outside an agent's session.", use)
 		}
 		t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
 		if err != nil {

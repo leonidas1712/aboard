@@ -59,6 +59,7 @@ func (g *accessGate) Read(ctx context.Context, fn func(board.ReadTx) error) erro
 // private board of maya's that sam is on with an agent.
 type teamWorld struct {
 	svc             *board.Service
+	clk             *clock.Fake
 	gate            *accessGate
 	alex, maya, sam board.Principal
 	samAgent        board.Principal
@@ -74,7 +75,7 @@ func newTeamWorld(t *testing.T) *teamWorld {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
-	w := &teamWorld{gate: &accessGate{Store: st, reads: make(chan struct{}, 1)}}
+	w := &teamWorld{clk: clk, gate: &accessGate{Store: st, reads: make(chan struct{}, 1)}}
 	w.svc = board.New(w.gate, notify.NewInProcess(), clk, ids.New(rand.Reader), digestKey,
 		board.Config{ServerID: "srv_TEST", Mode: "local", JoinHost: "localhost"}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	owner, err := w.svc.BootstrapOwner(ctx, "alex", "laptop")

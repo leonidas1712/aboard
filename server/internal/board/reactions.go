@@ -50,7 +50,7 @@ func (s *Service) React(ctx context.Context, p Principal, messageID, name string
 	var r Reading
 	changed := false
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		m, b, me, err := visibleMessage(tx, p, messageID)
+		m, b, me, err := s.visibleMessage(tx, p, messageID)
 		if err != nil {
 			return err
 		}
@@ -100,7 +100,7 @@ func (s *Service) React(ctx context.Context, p Principal, messageID, name string
 
 // visibleMessage finds a message the caller may see, with its board and the caller's
 // membership. Any message the caller may not see, on its board or another, is not found.
-func visibleMessage(tx ReadTx, p Principal, messageID string) (Message, Board, Member, error) {
+func (s *Service) visibleMessage(tx ReadTx, p Principal, messageID string) (Message, Board, Member, error) {
 	m, err := tx.MessageByID(messageID)
 	if errors.Is(err, ErrNotFound) {
 		return Message{}, Board{}, Member{}, messageNotFound()
@@ -112,7 +112,7 @@ func visibleMessage(tx ReadTx, p Principal, messageID string) (Message, Board, M
 	if err != nil {
 		return Message{}, Board{}, Member{}, err
 	}
-	b, me, err := access(tx, p, b.Name)
+	b, me, err := s.access(tx, p, b.Name)
 	// A message on a board the caller can't read is not found, whether or not they can
 	// see the board, so a message id never names its board.
 	var e *apierr.Error

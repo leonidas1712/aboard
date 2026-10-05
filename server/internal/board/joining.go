@@ -43,7 +43,7 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 	}
 	var out NewJoinCode
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func (s *Service) RevokeJoinCode(ctx context.Context, p Principal, boardName, id
 	var jc JoinCode
 	var creator Member
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -182,7 +182,7 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 			role, codeID = jc.Role, ptr(jc.ID)
 		case in.Board != "" && in.Role != "":
 			var err error
-			if b, _, err = access(tx, p, in.Board); err != nil {
+			if b, _, err = s.access(tx, p, in.Board); err != nil {
 				return err
 			}
 			if _, ok := b.Roles[in.Role]; !ok {

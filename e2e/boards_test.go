@@ -90,6 +90,39 @@ func TestBoardsInAnAgentsSessionListsItsOwnBoard(t *testing.T) {
 	}
 }
 
+// ABOARD_AGENT alone, with no session and no --as, selects the agent: boards and board
+// people read with its token, on its board only, and --all is refused.
+func TestABoardAgentFromTheEnvironmentNeverUsesThePersonsLogin(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	maya := tm.person("maya")
+	first := tm.newBoard(maya, "private")
+	second := tm.newBoard(maya, "private")
+	tm.link(maya, first)
+	maya.run("join", field(t, maya.run("invite", "--json").json(t), "join_line").(string), "--name", "scout")
+	env := []string{"ABOARD_AGENT=scout"}
+
+	r := maya.exec(env, "", "boards", "--json")
+	if r.code != 0 {
+		t.Fatalf("boards as ABOARD_AGENT:\n%s", r)
+	}
+	out := r.json(t)
+	matchesCLISpec(t, "BoardsOutput", out)
+	if out["as"] != "scout" || len(out["boards"].([]any)) != 1 || field(t, out, "boards.0.name") != first || strings.Contains(r.stdout, second) {
+		t.Fatalf("boards as ABOARD_AGENT: %v", out)
+	}
+	if r := maya.exec(env, "", "boards", "--all", "--json"); r.code != 2 || errorCode(t, r.json(t)) != "invalid_request" {
+		t.Fatalf("--all as ABOARD_AGENT:\n%s", r)
+	}
+	if r := maya.exec(env, "", "board", "people", "--board", second, "--json"); r.code != 1 || errorCode(t, r.json(t)) == "" {
+		t.Fatalf("board people for another board as ABOARD_AGENT:\n%s", r)
+	}
+	people := maya.exec(env, "", "board", "people", "--json")
+	if people.code != 0 || field(t, people.json(t), "board") != first {
+		t.Fatalf("board people as ABOARD_AGENT:\n%s", people)
+	}
+}
+
 // Alone on the local server, a person never sees the word open.
 func TestBoardsForASoloUserShowNoVisibility(t *testing.T) {
 	t.Parallel()

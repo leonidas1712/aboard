@@ -31,7 +31,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 	}
 	var msg Message
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ type TimelineFilter struct {
 func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f TimelineFilter) (Reading, error) {
 	var r Reading
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -338,7 +338,7 @@ type Log struct {
 func (s *Service) Events(ctx context.Context, p Principal, boardName string, after int64, limit int) (Log, error) {
 	var out Log
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, me, err := access(tx, p, boardName)
+		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}

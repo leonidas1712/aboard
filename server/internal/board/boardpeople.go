@@ -58,7 +58,7 @@ func peopleOn(tx ReadTx, b Board) ([]Person, error) {
 func (s *Service) People(ctx context.Context, p Principal, boardName string) (People, error) {
 	var out People
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, _, err := see(tx, p, boardName)
+		b, _, _, err := s.see(tx, p, boardName)
 		if err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		var err error
 		// The board comes first, so a board the caller can't see is not found whatever
 		// the handle.
-		if b, me, on, err = see(tx, p, boardName); err != nil {
+		if b, me, on, err = s.see(tx, p, boardName); err != nil {
 			return err
 		}
 		target, err := tx.HumanByName(handle)
@@ -243,7 +243,7 @@ func (s *Service) RemovePerson(ctx context.Context, p Principal, boardName, hand
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var me Member
 		var err error
-		if b, me, err = access(tx, p, boardName); err != nil {
+		if b, me, err = s.access(tx, p, boardName); err != nil {
 			return err
 		}
 		if out, err = onBoardByHandle(tx, b, handle); err != nil {
@@ -276,7 +276,7 @@ func (s *Service) Leave(ctx context.Context, p Principal, boardName string) (Per
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var me Member
 		var err error
-		if b, me, err = access(tx, p, boardName); err != nil {
+		if b, me, err = s.access(tx, p, boardName); err != nil {
 			return err
 		}
 		h, err := tx.HumanByID(p.Human.ID)
@@ -311,15 +311,13 @@ func (s *Service) leave(tx Tx, b *Board, me Member) error {
 	return s.takeOff(tx, b, me, StatusLeft, events.PersonLeft, actorOf(me))
 }
 
-// takeOff ends a person's membership of b, records why, and stops the join codes they
-// and their agents made for it. Their agents need their person on the board, so they
-// lose access with them.
+// takeOff ends a person's membership of b, and records why. Their agents on b end with
+// them, for good: each is marked removed, so its token never works on b again, even if
+// the person comes back, and the event names them. The join codes the person and their
+// agents made for b stop working too.
 func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor events.Actor) error {
 	now := s.clk.Now()
 	if err := tx.SetMemberStatus(m.ID, status); err != nil {
-		return err
-	}
-	if _, err := s.append(tx, b, typ, actor, now, map[string]any{"member_id": m.ID, "person_id": m.HumanID, "name": m.Name}); err != nil {
 		return err
 	}
 	members, err := tx.Members(b.ID)
@@ -327,10 +325,23 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 		return err
 	}
 	theirs := map[string]bool{}
+	agents := []string{}
 	for _, x := range members {
-		if x.HumanID == m.HumanID {
-			theirs[x.ID] = true
+		if x.HumanID != m.HumanID {
+			continue
 		}
+		theirs[x.ID] = true
+		if x.Kind == "agent" && x.Status == StatusActive {
+			if err := tx.SetMemberStatus(x.ID, StatusRemoved); err != nil {
+				return err
+			}
+			agents = append(agents, x.ID)
+		}
+	}
+	if _, err := s.append(tx, b, typ, actor, now, map[string]any{
+		"member_id": m.ID, "person_id": m.HumanID, "name": m.Name, "agents": agents,
+	}); err != nil {
+		return err
 	}
 	codes, err := tx.WorkingJoinCodes(b.ID, stamp(now))
 	if err != nil {
@@ -370,7 +381,7 @@ func (s *Service) MakeOwner(ctx context.Context, p Principal, boardName, handle 
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var me Member
 		var err error
-		if b, me, err = access(tx, p, boardName); err != nil {
+		if b, me, err = s.access(tx, p, boardName); err != nil {
 			return err
 		}
 		if err := requireOwner(tx, b, me, "make someone an owner"); err != nil {
@@ -436,7 +447,7 @@ func (s *Service) SetVisibility(ctx context.Context, p Principal, boardName, vis
 	// write ends a preview with errPreview, before anything is written, so its
 	// transaction rolls back.
 	write := func(tx Tx) error {
-		b2, me, err := access(tx, p, boardName)
+		b2, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
 		}

@@ -66,13 +66,14 @@ server later serves a different hash at that `seq`.
 | `reaction.added` | `PUT /messages/{message}/reactions/{reaction}`, when the member hadn't already reacted with that emoji. The actor is who reacted. | `message_id`, `name` (`thumbsup`, `check`, `eyes`, `heart`, `tada` or `question`), `emoji` (👍 ✅ 👀 ❤️ 🎉 ❓) |
 | `reaction.removed` | `DELETE /messages/{message}/reactions/{reaction}`, when the member had reacted with that emoji. The actor is who took it back. | `message_id`, `name`, `emoji` |
 | `person.added` | `POST /boards/{board}/people`. The actor is the person on the board who added them, or the person themselves joining an open board. | `member_id`, `person_id`, `name`, `access` (always `member`), `rejoined` (true for someone who was on the board before and comes back under their old member id) |
-| `person.removed` | `DELETE /boards/{board}/people/{handle}` by an owner. The actor is the owner. | `member_id`, `person_id`, `name` |
-| `person.left` | `POST /boards/{board}/leave`, or an owner removing themselves. The actor is the person who left. | `member_id`, `person_id`, `name` |
+| `person.removed` | `DELETE /boards/{board}/people/{handle}` by an owner. The actor is the owner. | `member_id`, `person_id`, `name`, `agents` (the member ids of their agents on the board, which end with them) |
+| `person.left` | `POST /boards/{board}/leave`, or an owner removing themselves. The actor is the person who left. | `member_id`, `person_id`, `name`, `agents` (as for `person.removed`) |
 | `person.made_owner` | `POST /boards/{board}/owners`, for someone not already an owner. The actor is the owner who did it. | `member_id`, `person_id`, `name` |
 | `board.visibility_changed` | `POST /boards/{board}/visibility` without `dry_run`, to a visibility the board didn't have. Owners only. | `before`, `after` (`open` or `private`), `reveals` (for private to open: `messages` and `files` the board held; null otherwise) |
 
-A person who leaves or is removed takes their agents with them: from then on their
-agents' tokens get 404 on the board, and the `joincode.revoked` events that follow name
+A person who leaves or is removed takes their agents with them, for good: from then on their
+agents' tokens get 404 on the board, even if the person is added back (they join again
+with new agents), and the `joincode.revoked` events that follow name
 each join code they or their agents made that stopped working. Turning a board private
 is followed the same way by a `joincode.revoked` for each join code that still worked.
 `board.created` has `visibility: "private"` for a board created private and no

@@ -1532,7 +1532,7 @@ $defs:
       agents null; the text adds "join with aboard board add @me --board NAME"), and for a
       server admin the private boards they aren't on, as the API gives them
       (hidden_boards). Inside a harness session, or with --as, it lists only the agent's
-      own board, with the agent's token, and says so (as names the agent; role is null).
+      own board, with the agent's token, and says so (as names the agent; role is null). An agent is selected by --as, then ABOARD_AGENT, then the session; --all with an agent selected is a usage error.
       Text output is one line per board: its name, its title, its visibility (Private
       always; Open only when more than one person is on it), the role, the counts, and
       "default" for this directory's board.
@@ -1608,7 +1608,7 @@ $defs:
   BoardRemoveOutput:
     description: |
       Removes a person from the board; owners only (owner_required otherwise, whose hint
-      names the owners). The person and their agents lose access at once. Inside a
+      names the owners). The person loses access at once and their agents end for good. Inside a
       harness session it refuses with human_command_in_session. Text: "Removed <handle>
       from <board>.", and on an open board a second line saying they can join again
       until the board is private.
@@ -1621,7 +1621,7 @@ $defs:
   # ---------- aboard board leave ----------
   BoardLeaveOutput:
     description: |
-      The person leaves the board, and their agents lose access to it. The last owner
+      The person leaves the board, and their agents on it end for good. The last owner
       gets last_owner, whose hint names aboard board owner. Inside a harness session it
       refuses with human_command_in_session. Text: "You left <board>."
     type: object

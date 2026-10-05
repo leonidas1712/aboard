@@ -87,9 +87,13 @@ func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at tim
 // is on it. A person sees the boards they are on and every open board; an agent sees
 // only its own board, while it and its person are on it. Any other board, whether or
 // not it exists, is board_not_found with the same message, so a name never tells
-// whether a board the caller can't see exists. Callers run it inside the transaction
+// whether a board the caller can't see exists. It first checks, with the time read here,
+// that p's credential still works. Callers run it inside the transaction
 // that reads or writes the board, so a change of access can't let one more read in.
-func see(tx ReadTx, p Principal, name string) (Board, Member, bool, error) {
+func (s *Service) see(tx ReadTx, p Principal, name string) (Board, Member, bool, error) {
+	if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+		return Board{}, Member{}, false, err
+	}
 	if p.Agent != nil {
 		b, me, err := seatOf(tx, *p.Agent)
 		if isBoardNotFound(err) || (err == nil && b.Name != name) {
@@ -120,8 +124,8 @@ func see(tx ReadTx, p Principal, name string) (Board, Member, bool, error) {
 // that needs being on the board: reading its messages, members and events, and every
 // write. A board the caller can't see is board_not_found; an open board a person isn't
 // on is not_on_board.
-func access(tx ReadTx, p Principal, name string) (Board, Member, error) {
-	b, me, on, err := see(tx, p, name)
+func (s *Service) access(tx ReadTx, p Principal, name string) (Board, Member, error) {
+	b, me, on, err := s.see(tx, p, name)
 	if err != nil {
 		return Board{}, Member{}, err
 	}

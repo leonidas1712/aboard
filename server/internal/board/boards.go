@@ -218,6 +218,9 @@ type Listing struct {
 func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listing, error) {
 	var out Listing
 	err := s.st.Read(ctx, func(tx ReadTx) error {
+		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
 		if p.Agent != nil {
 			b, _, err := seatOf(tx, *p.Agent)
 			if isBoardNotFound(err) {
@@ -334,7 +337,7 @@ func viewOf(tx ReadTx, b Board) (View, error) {
 func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View, error) {
 	var v View
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, on, err := see(tx, p, name)
+		b, _, on, err := s.see(tx, p, name)
 		if err != nil {
 			return err
 		}
@@ -349,7 +352,7 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Member, error) {
 	var out []Member
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, err := access(tx, p, name)
+		b, _, err := s.access(tx, p, name)
 		if err != nil {
 			return err
 		}
@@ -417,7 +420,7 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 	}
 	var v View
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, me, err := access(tx, p, name)
+		b, me, err := s.access(tx, p, name)
 		if err != nil {
 			return err
 		}
