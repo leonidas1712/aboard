@@ -69,7 +69,7 @@ the board.
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
-| An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers; one session on several boards | building: contracts (slice 5a) | D172, D196, D197 |
+| An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers; one session on several boards | building: contracts (slice 5a); seat-ID state in review (#111), with multi-seat binding still gated | D172, D196, D197 |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | later | D172 |
 | A person's inbox across boards | later | D102 |
@@ -162,6 +162,7 @@ the board.
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
 | Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | done (#77) | D178 |
+| Swarm records follow a renamed seat by immutable ID, preserving its launcher handle and resume state | later, with seat renaming. Slice 5a refuses an unsupported renamed record until its original process is explicitly stopped; it does not promise transparent renamed-swarm resume | D178, D197 |
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
