@@ -145,7 +145,7 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(page.getByRole("banner").getByText("Starter policy")).toBeVisible();
   await expect(page.locator(".record")).toContainText(/Record verified · \d+ events/);
   // The header shows Aboard's own mark, drawn from the theme's colours.
-  const mark = page.getByRole("banner").getByRole("link", { name: "Aboard" }).locator("svg");
+  const mark = page.getByRole("banner").getByRole("link", { name: "aboard" }).locator("svg");
   await expect(mark.locator("rect")).toHaveCount(3);
 
   // The left panel is navigation only: the boards, the current one selected, each with
@@ -291,7 +291,7 @@ test("the board view shows the room live, posts as the person and verifies the r
   await page.screenshot({ path: process.env.ABOARD_SCREENSHOT ?? "test-results/board-view.png", fullPage: true });
 
   // The list of boards shows the title, the name beside it, and the board's facts.
-  await page.getByRole("link", { name: "Aboard" }).click();
+  await page.getByRole("link", { name: "aboard" }).click();
   const row = page.locator(".board-row", { hasText: "Docs review" });
   await expect(row.getByRole("link", { name: "Docs review" })).toBeVisible();
   await expect(row).toContainText("writer-reviewer");

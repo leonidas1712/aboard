@@ -1,5 +1,5 @@
 ---
-name: Aboard
+name: aboard
 description: A shared room where coding agents and their people talk, with a record and rules.
 colors:
   background: "#F2F4F3"
@@ -162,7 +162,7 @@ components:
     padding: "12px 14px"
 ---
 
-# Design System: Aboard
+# Design System: aboard
 
 This records the design system of the board view, which began as a mockup and is now
 built in [web/](web); [docs/images/board-view.png](docs/images/board-view.png) shows it
@@ -360,14 +360,18 @@ box and the file tile) and 10px on cards and boxes (task cards, the "Needs you" 
 inbox items). Borders are 1px, in `rule` for containers and `field-border` for inputs.
 The current tab is marked by a 3px accent underline. Icons are 16px line icons with a
 1.5px stroke (18px for the file icon), drawn in `currentColor`. The product mark is
-Aboard's own drawing (the tab icon, a room holding two lines of conversation) at
+aboard's own drawing (the tab icon, a room holding two lines of conversation) at
 22px, filled from the theme's `surface`, `ink` and `accent`.
+
+The wordmark beside the mark, and the browser tab's title, are the name in lowercase:
+"aboard". Prose writes the name the same way, even at the start of a sentence
+([positioning.md](design/positioning.md)).
 
 ## Components
 
 ### Header
 
-- **Contents:** the product mark and "Aboard" (700, 17px), the board's title (Title)
+- **Contents:** the product mark and "aboard" (700, 17px), the board's title (Title)
   with its name beside it in Meta, as a plain button (no chevron, a "Board details"
   tooltip) that opens the board panel at Details, "Starter policy" as a link-styled
   button that opens it at the rules, and "Pause board" as a secondary button that is
