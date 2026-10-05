@@ -1067,7 +1067,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | Second daemon starts | It exits at once | Nothing |
 | Server offline | Its connection retries with backoff; other servers continue | `server_unreachable` |
 | Agent token rejected (revoked) | That agent's deliveries stop; others continue | `delivery_attention` with `unauthorized` |
-| Agent's board gone (the board was deleted or is hidden from its person, or the agent was removed from it) | That agent's deliveries stop for good: the daemon stops reading its inbox, acknowledging and reporting its presence until a session binds it again; others continue | `board_gone` in `aboard doctor`; a line under the Daemon line of `aboard status` |
+| Agent's board gone (the board was deleted or is hidden from its person, or the agent was removed from it) | Found by any of the agent's requests: an inbox read, an acknowledgement or a presence report. That agent's deliveries stop for good: the daemon stops reading its inbox, acknowledging and reporting its presence until a session binds it again; others continue | `board_gone` in `aboard doctor`; a line under the Daemon line of `aboard status` |
 | Session busy | Delivery waits; no attempt counted | Nothing |
 | Session ends before confirming | Bundle delivered again to the next session for that agent | Nothing |
 | Harness killed without its end hook | Session closed within 5 seconds; messages held for the next session | Nothing |

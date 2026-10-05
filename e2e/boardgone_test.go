@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -97,8 +98,13 @@ func TestAgentWhosePersonWasRemovedSaysItCantReachTheBoard(t *testing.T) {
 		t.Fatalf("the old agent's session was handed something after maya came back\n%s", again.wait(time.Second))
 	}
 
-	// A new agent of maya's, in a new session, takes a seat and gets messages.
+	// The daemon keeps the stopped agent by name, which stays safe because the server
+	// never gives a removed agent's name to a new seat.
 	fresh := maya.claudeSession("s-maya-2")
+	if r := fresh.runExit("join", line, "--name", agent, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "name_taken" {
+		t.Fatalf("a new agent taking the removed agent's name:\n%s", r)
+	}
+	// A new agent of maya's, in a new session, takes a seat and gets messages.
 	newAgent := field(t, fresh.run("join", line, "--json").json(t), "agent.name").(string)
 	if newAgent == agent {
 		t.Fatalf("the new agent took the old agent's name %s", agent)
@@ -160,5 +166,26 @@ func TestSwarmSaysWhenItsBoardIsGone(t *testing.T) {
 	s.run("swarm", "up", "--json")
 	if ag := agentsByName(t, s.run("swarm", "ps", "--json").json(t))["worker-2"]; ag["seat_credential"] != "works" {
 		t.Fatalf("the new seat: %v", ag)
+	}
+}
+
+// swarm up for a board the person can't see, whose name a private board holds, says the
+// board may be hidden from them and how to get on it.
+func TestSwarmUpSaysAHiddenBoardMayHoldItsName(t *testing.T) {
+	t.Parallel()
+	s := newSwarmEnv(t)
+	tm := &team{t: t, admin: s.env}
+	kim := tm.person("kim")
+	status, v := tm.call("POST", "/v1/boards", tm.key(kim), map[string]any{"name": "secret", "template": "general", "visibility": "private"})
+	if status != http.StatusCreated {
+		t.Fatalf("kim creates a private board: %d %v", status, v)
+	}
+	s.writeBoardFile("board: secret\nagents:\n  - {name: worker, harness: claude-code, launcher: headless}\n")
+	r := s.runExit("swarm", "up", "--json")
+	out := r.json(t)
+	if r.code != 1 || errorCode(t, out) != "board_name_taken" || field(t, out, "error.details.board") != "secret" ||
+		!strings.Contains(field(t, out, "error.message").(string), "may exist but be hidden from you") ||
+		!strings.Contains(field(t, out, "error.hint").(string), "Ask one of its owners to add you") {
+		t.Fatalf("swarm up for a hidden board's name:\n%s", r)
 	}
 }

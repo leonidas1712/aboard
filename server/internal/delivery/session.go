@@ -26,6 +26,8 @@ type sessionMsg struct {
 	inbox *inboxResult
 	// ack is the result of acknowledging an agent's messages.
 	ack *ackResult
+	// refused is a presence report the server refused for a reason that stops the agent.
+	refused *refusal
 	// release asks the session to give up an agent, which adopter now owns.
 	release *AgentRef
 	adopter *session
@@ -227,6 +229,10 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onInbox(ctx, *m.inbox)
 	case m.ack != nil:
 		s.onAck(ctx, *m.ack)
+	case m.refused != nil:
+		if a, ok := s.agents[m.refused.agent]; ok {
+			s.setProblem(a, problemOf(m.refused.err))
+		}
 	case m.release != nil:
 		s.onRelease(ctx, *m.release, m.adopter)
 	case m.adopt != nil:
@@ -763,6 +769,17 @@ func (s *session) setProblem(a *agentState, reason string) {
 		a.problem = reason
 		s.d.setProblem(a.ref, reason)
 	}
+	if a.gone() {
+		// Nothing is reported for the agent from now on, not even no_session when it
+		// leaves the session.
+		delete(s.reported, a.ref)
+	}
+}
+
+// refusal is a server's refusal of a request for an agent.
+type refusal struct {
+	agent AgentRef
+	err   error
 }
 
 // movedTo records that the agent's read position is at cursor: deliveries entirely

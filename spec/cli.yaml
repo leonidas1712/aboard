@@ -155,7 +155,11 @@ $defs:
       person, or the agents were removed from it, as they are for good when their person
       is removed from or leaves the board; it starts nothing, details.agents names them,
       details.board their board, and the hint says to give each a new name in the board
-      file once the person can see the board again, or to remove it from the file).
+      file once the person can see the board again, or to remove it from the file) ·
+      board_name_taken from swarm up (the board file's board isn't one the person can see,
+      but its name is taken, so it may be a private board they aren't on; details.board
+      names it, and the hint says to ask one of its owners to add them, or to name
+      another board).
   ServerRef:
     type: object
     required: [name, url]

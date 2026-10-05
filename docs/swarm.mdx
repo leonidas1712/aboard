@@ -295,6 +295,7 @@ comes once: the next start doesn't ask.
 | `swarm_not_ready`, "session ended before it took its seat" | The harness quit as it started, for example on an option it doesn't know | Its tmux window stays open, dead, with its last output: run the attach line to read it, fix the board file, then `aboard swarm up` |
 | `human_command_in_session` | `swarm up` ran inside an agent's session | Run it in your own terminal: it starts processes with your login |
 | `seat_ended`; `swarm ps` says "can't act on … any more" | The access key the agents' seats came from was revoked or expired | Give each a new name in the board file and run `aboard swarm up` |
+| `board_name_taken` from `swarm up` | The board file names a board you can't see whose name is taken: it may be a private board you aren't on | Ask one of its owners to add you, then run `aboard swarm up` again; or name another board in the file |
 | `seat_board_gone`; `swarm ps` says "can't reach … any more" | The board answers `board_not_found` to the agents: it was deleted or is hidden from you, or the agents were removed from it, as they are for good when you are removed from or leave the board | Once you can see the board again, give each a new name in the board file and run `aboard swarm up`, or remove them from the file |
 
 `aboard swarm ps` shows where each agent is. The swarm's record is in Aboard's state folder

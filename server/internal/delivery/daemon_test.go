@@ -737,6 +737,35 @@ func TestAgentWhoseBoardIsGoneStopsForGood(t *testing.T) {
 	}
 }
 
+// A presence report the board refuses stops the agent as an inbox read would, and
+// nothing more is sent for it, even when the session moves on or closes.
+func TestPresenceRefusedForAGoneBoardStopsTheAgent(t *testing.T) {
+	r := newRig(t)
+	r.register("s1", "b1")
+	r.bind("claude-code", "s1", reviewer)
+	r.presence(reviewer, delivery.PresenceIdle)
+	r.server.TakeOff(reviewer)
+	r.hookCall(delivery.OpPrompt)
+	r.eventually("the presence refusal to stop the agent", 0, func() bool {
+		st := r.status()
+		return len(st.Agents) == 1 && st.Agents[0].Agent == reviewer && st.Agents[0].Reason == delivery.ReasonBoardGone
+	})
+	before := r.server.Requests(reviewer)
+	r.post(reviewer, "after the refusal", false)
+	r.wait("s1", "b1", false)
+	r.hookCall(delivery.OpPrompt)
+	r.clock.Advance(delivery.PresenceRenew)
+	// Another session takes a different agent's place in s1, so reviewer leaves it.
+	r.bind("claude-code", "s1", planner)
+	r.post(planner, "for the planner", false)
+	if b := r.wait("s1", "b1", false).bundle(); !strings.Contains(b, "for the planner") {
+		t.Fatalf("planner's bundle:\n%s", b)
+	}
+	if after := r.server.Requests(reviewer); after != before {
+		t.Fatalf("%d more requests for the reviewer after its board was gone", after-before)
+	}
+}
+
 func TestAgentsListsWhatIsBoundToTheSession(t *testing.T) {
 	r := newRig(t)
 	r.register("s1", "b1")

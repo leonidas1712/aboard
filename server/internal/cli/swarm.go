@@ -564,7 +564,16 @@ func ensureSwarmBoard(ctx context.Context, c *client, f swarmFile) (*api.Board, 
 		return nil, false, c.unreachable(err)
 	}
 	if r.JSON201 == nil {
-		return nil, false, apiError(r.StatusCode(), r.Body)
+		e := apiError(r.StatusCode(), r.Body)
+		if e.Code == "board_name_taken" {
+			// The board wasn't found, yet its name is taken: most likely a private board
+			// the person isn't on, which the server doesn't confirm.
+			e.Message = fmt.Sprintf("Board %s can't be created: the name is taken, so it may exist but be hidden from you, as a private board you aren't on.", f.Board)
+			e.Hint = "Ask one of its owners to add you (aboard board add @<your handle> --board " + f.Board +
+				"), then run aboard swarm up again; or name another board in the board file."
+			e.Details = map[string]any{"board": f.Board}
+		}
+		return nil, false, e
 	}
 	return r.JSON201, true, nil
 }
