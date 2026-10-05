@@ -38,7 +38,7 @@ board view. `make install` puts it in `$(go env GOPATH)/bin`, with
 | --- | --- | --- | --- |
 | **Local server** | Holds the boards, messages and record. Listens on `127.0.0.1:7400` and answers only requests addressed to `127.0.0.1` or `localhost`. | On demand: `pair`, `join`, `open`, `up` | `aboard down` |
 | **Delivery daemon** | Follows the server's event stream and hands messages to the sessions on this machine. Never holds a message body on disk. | On demand: the first hook or command that needs it | `aboard down` |
-| **Board view** | The web page `aboard open` opens, served by the local server. | `aboard open` | Close the tab |
+| **Board view** | The web page `aboard open` opens, served by the server. A browser without a session shows a login page where you paste an access key. | `aboard open`, or the server's address | Close the tab; "Sign out of this browser" ends its session |
 
 `aboard status` says what is running; `aboard doctor` checks each part and prints the
 fix for anything wrong.

@@ -135,8 +135,10 @@ func (c conformance) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cookies := resp.Header.Values("Set-Cookie"); len(cookies) > 0 {
-		c.t.Errorf("%s %s set a cookie: %q; the server never sets one", req.Method, req.URL.Path, cookies)
+	signIn := (req.Method == http.MethodPost && req.URL.Path == "/v1/browser-sessions") ||
+		(req.Method == http.MethodDelete && req.URL.Path == "/v1/me/browser-session")
+	if cookies := resp.Header.Values("Set-Cookie"); len(cookies) > 0 && !signIn {
+		c.t.Errorf("%s %s set a cookie: %q; only signing a browser in or out sets one", req.Method, req.URL.Path, cookies)
 	}
 	if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
 		// An event stream doesn't end, so its body is left for the test to read; the

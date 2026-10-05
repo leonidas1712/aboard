@@ -29,6 +29,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"KeysListRevokeAndRecordUse", keysListRevokeAndRecordUse},
 		{"ServerInvitesAreUsedOnce", serverInvitesAreUsedOnce},
 		{"BrowserLoginsRoundTripAndEnd", browserLoginsRoundTripAndEnd},
+		{"BrowserLoginsListAndEndOneByID", browserLoginsListAndEndOneByID},
 		{"MachineRequestsAreDecidedAndCollectedOnce", machineRequestsAreDecidedAndCollectedOnce},
 		{"BoardRoundTripsEveryField", boardRoundTripsEveryField},
 		{"BoardNameTaken", boardNameTaken},
@@ -183,6 +184,7 @@ func missingRecordsAreNotFound(t *testing.T, st board.Store) {
 		"HumanByName":          func(tx board.ReadTx) error { _, err := tx.HumanByName("nope"); return err },
 		"ServerInviteByDigest": func(tx board.ReadTx) error { _, err := tx.ServerInviteByDigest("nope"); return err },
 		"BrowserLoginByDigest": func(tx board.ReadTx) error { _, err := tx.BrowserLoginByDigest("nope"); return err },
+		"BrowserLoginByID":     func(tx board.ReadTx) error { _, err := tx.BrowserLoginByID("ses_nope"); return err },
 		"MachineRequestByCode": func(tx board.ReadTx) error { _, err := tx.MachineRequestByCode("nope"); return err },
 		"MachineRequestBySecret": func(tx board.ReadTx) error {
 			_, err := tx.MachineRequestBySecret("nope")
@@ -302,9 +304,9 @@ func keysListRevokeAndRecordUse(t *testing.T, st board.Store) {
 			}
 		}
 		for _, l := range []board.BrowserLogin{
-			{TokenDigest: "b-1", HumanID: creatorID, KeyID: laptop.ID, CreatedAt: at, ExpiresAt: later},
-			{TokenDigest: "b-2", HumanID: creatorID, KeyID: laptop.ID, CreatedAt: at, ExpiresAt: at},
-			{TokenDigest: "b-3", HumanID: creatorID, KeyID: phone.ID, CreatedAt: at, ExpiresAt: later},
+			{ID: "ses_b1", TokenDigest: "b-1", HumanID: creatorID, KeyID: laptop.ID, CreatedAt: at, ExpiresAt: later},
+			{ID: "ses_b2", TokenDigest: "b-2", HumanID: creatorID, KeyID: laptop.ID, CreatedAt: at, ExpiresAt: at},
+			{ID: "ses_b3", TokenDigest: "b-3", HumanID: creatorID, KeyID: phone.ID, CreatedAt: at, ExpiresAt: later},
 		} {
 			if err := tx.InsertBrowserLogin(l); err != nil {
 				return err
@@ -469,7 +471,10 @@ func machineRequestsAreDecidedAndCollectedOnce(t *testing.T, st board.Store) {
 func browserLoginsRoundTripAndEnd(t *testing.T, st board.Store) {
 	const before, now, later = "2026-10-01T15:00:00.000Z", "2026-10-01T16:00:00.000Z", "2026-10-31T16:00:00.000Z"
 	login := func(digest, humanID, expires string) board.BrowserLogin {
-		return board.BrowserLogin{TokenDigest: digest, HumanID: humanID, CreatedAt: before, ExpiresAt: expires}
+		return board.BrowserLogin{
+			ID: "ses_" + digest, TokenDigest: digest, HumanID: humanID, StartedWith: board.SessionFromLoginCode,
+			CreatedAt: before, ExpiresAt: expires,
+		}
 	}
 	alexA, alexB, alexOld := login("b-alex-a", "hum_alex", later), login("b-alex-b", "hum_alex", later), login("b-alex-old", "hum_alex", now)
 	blair := login("b-blair", "hum_blair", later)
@@ -538,6 +543,64 @@ func browserLoginsRoundTripAndEnd(t *testing.T, st board.Store) {
 	if !found(blair.TokenDigest) {
 		t.Error("DeleteBrowserLogins removed another human's login")
 	}
+}
+
+func browserLoginsListAndEndOneByID(t *testing.T, st board.Store) {
+	const now = "2026-10-01T16:00:00.000Z"
+	login := func(id, humanID, created, expires, startedWith string) board.BrowserLogin {
+		return board.BrowserLogin{
+			ID: id, TokenDigest: "d-" + id, HumanID: humanID, StartedWith: startedWith, CreatedAt: created, ExpiresAt: expires,
+		}
+	}
+	older := login("ses_older", "hum_alex", "2026-10-01T10:00:00.000Z", "2026-10-31T10:00:00.000Z", board.SessionFromLoginCode)
+	newer := login("ses_newer", "hum_alex", "2026-10-01T12:00:00.000Z", "2026-10-31T12:00:00.000Z", board.SessionFromKey)
+	ended := login("ses_ended", "hum_alex", "2026-09-01T12:00:00.000Z", now, board.SessionFromLoginCode)
+	blair := login("ses_blair", "hum_blair", "2026-10-01T11:00:00.000Z", "2026-10-31T11:00:00.000Z", board.SessionFromKey)
+	write(t, st, func(tx board.Tx) error {
+		for _, h := range []string{"hum_alex", "hum_blair"} {
+			if err := tx.InsertHuman(human(h)); err != nil {
+				return err
+			}
+		}
+		for _, l := range []board.BrowserLogin{older, newer, ended, blair} {
+			if err := tx.InsertBrowserLogin(l); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	list := func() []board.BrowserLogin {
+		var got []board.BrowserLogin
+		read(t, st, func(tx board.ReadTx) error {
+			var err error
+			got, err = tx.BrowserLoginsOf("hum_alex", now)
+			return err
+		})
+		return got
+	}
+	if got := list(); !reflect.DeepEqual(got, []board.BrowserLogin{newer, older}) {
+		t.Errorf("BrowserLoginsOf = %+v, want the two that haven't ended, newest first", got)
+	}
+	read(t, st, func(tx board.ReadTx) error {
+		got, err := tx.BrowserLoginByID(newer.ID)
+		if err != nil {
+			return err
+		}
+		if got != newer {
+			t.Errorf("BrowserLoginByID = %+v, want %+v", got, newer)
+		}
+		return nil
+	})
+	write(t, st, func(tx board.Tx) error { return tx.DeleteBrowserLogin(newer.ID) })
+	if got := list(); !reflect.DeepEqual(got, []board.BrowserLogin{older}) {
+		t.Errorf("after DeleteBrowserLogin, BrowserLoginsOf = %+v, want only %s", got, older.ID)
+	}
+	read(t, st, func(tx board.ReadTx) error {
+		if _, err := tx.BrowserLoginByID(blair.ID); err != nil {
+			t.Errorf("DeleteBrowserLogin removed another login: %v", err)
+		}
+		return nil
+	})
 }
 
 func boardRoundTripsEveryField(t *testing.T, st board.Store) {
