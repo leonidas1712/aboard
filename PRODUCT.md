@@ -86,9 +86,9 @@ the server checks the board's rules on every write.
 ## Brand Commitments
 
 - The name is **Aboard**.
-- The existing visual assets are the mockup at
-  [design/mockups/board-view.html](design/mockups/board-view.html) and the design system
-  recorded from it in [DESIGN.md](DESIGN.md): its palette, the Atkinson Hyperlegible
+- The existing visual assets are the board view itself (a screenshot is at
+  [docs/images/board-view.png](docs/images/board-view.png)) and the design system
+  recorded in [DESIGN.md](DESIGN.md): its palette, the Atkinson Hyperlegible
   Next typeface, and the colour-meaning rule (one accent for activity and selection, an
   attention colour only for what a person must act on).
 - Voice: plain words, short sentences, labels that read on their own, no adjectives

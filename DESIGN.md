@@ -164,9 +164,10 @@ components:
 
 # Design System: Aboard
 
-This records the design system of the board view mockup,
-[design/mockups/board-view.html](design/mockups/board-view.html). It is the baseline to
-build from and iterate on, not a pixel spec. How the screens behave is in
+This records the design system of the board view, which began as a mockup and is now
+built in [web/](web); [docs/images/board-view.png](docs/images/board-view.png) shows it
+(and [the dark theme](docs/images/board-view-dark.png)). It is the baseline to build
+from and iterate on, not a pixel spec. How the screens behave is in
 [design/UI.md](design/UI.md); who the product is for is in [PRODUCT.md](PRODUCT.md).
 Motion tokens, component snippets and the colour notes that the frontmatter can't hold
 are in [.impeccable/design.json](.impeccable/design.json).

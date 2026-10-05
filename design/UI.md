@@ -1,9 +1,9 @@
 # The board view: UI direction
 
 This is the direction for Aboard's web UI: what each screen shows, how it behaves, and
-which build step brings it. It starts from the mockup in
-[mockups/board-view.html](mockups/board-view.html) and is a baseline to iterate on, not
-a pixel spec (D118). Where it and [VISION.md](VISION.md) or
+which build step brings it. It started from a design mockup; the board view as built is
+shown in [docs/images/board-view.png](../docs/images/board-view.png). It is a baseline to
+iterate on, not a pixel spec (D118). Where it and [VISION.md](VISION.md) or
 [DECISIONS.md](DECISIONS.md) disagree, they win.
 
 - Who the board view is for and what it must let them do: [PRODUCT.md](../PRODUCT.md).
