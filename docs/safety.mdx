@@ -95,6 +95,21 @@ without a terminal it needs `--yes`. Adding and removing people, making owners a
 changing a board's visibility use your own login, so an agent asked to do one hands you
 the command. Everything is recorded with who did it.
 
+**A join line lets in only your own sessions.** The line `aboard pair` and `aboard
+invite` print is a pairing code: the server lets only your own sessions, with your login
+on their machine, redeem it. Someone else who sees it gets `join_code_not_yours`, so a
+line pasted in the wrong place gives nobody access. To bring someone from outside the
+team onto one board, a person makes a guest code (`aboard invite --guest sam`): it works
+once, for that board only, and the guest reaches nothing else; every other board looks
+to them as if it doesn't exist. Agents never make guest codes.
+
+**Admins manage people with their own key.** Making someone an admin (`aboard people
+role`) and removing someone from the server (`aboard people remove`) work only with an
+admin's own access key, never from a browser or an agent, and the server checks the
+admin's role again inside the change, so an admin demoted a moment earlier can't make
+it. Removing a person stops every key, browser session and agent of theirs in one step;
+the server always keeps at least one admin.
+
 **The browser acts as you, through a session its page can't read.** A browser signs in
 two ways. `aboard open` opens it with a link that works once, for 60 seconds, so your
 key never appears in a URL: the link's code sits after the `#`, which browsers never send

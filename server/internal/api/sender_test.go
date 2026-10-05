@@ -66,7 +66,6 @@ func TestAgentsAreNamedAfterTheirHarness(t *testing.T) {
 
 func TestSenderLabelSaysWhoseSideTheSenderIsOn(t *testing.T) {
 	s := newTestServer(t)
-	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
 
 	// One owner: owners aren't worth showing yet.
@@ -75,11 +74,8 @@ func TestSenderLabelSaysWhoseSideTheSenderIsOn(t *testing.T) {
 	}
 
 	priya := s.addHuman("priya")
-	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
-	mustStatus(t, code, err, 201)
 	harness := "codex"
-	j, err := s.client(priya).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code, Harness: &harness})
-	mustStatus(t, j, err, 201)
+	j := s.joinBoard(priya, boardName, "reviewer", &harness)
 	codex := j.JSON201.Token
 
 	s.say(s.owner, boardName, "from alex")

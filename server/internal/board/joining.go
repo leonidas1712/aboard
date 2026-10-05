@@ -14,8 +14,18 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
+// Join codes come in two kinds. A pairing code lets in only its maker's own sessions: the
+// person who made it, or whose agent made it, redeeming it with their own access key. A
+// guest code lets one person from outside the server onto its board, once, as the guest
+// it names; only a person on the board makes one, and it is redeemed with no credential
+// at all (or, by a guest who has a key already, with that key), so it is the only code
+// that brings anyone new onto a board.
+
 // DefaultJoinCodeTTL is how long a join code works when no lifetime is given.
 const DefaultJoinCodeTTL = 24 * time.Hour
+
+// guestLineRole is what a guest code's join line says in place of a role.
+const guestLineRole = "guest"
 
 // NewJoinCode is a created join code. Code and Line are only available at creation.
 type NewJoinCode struct {
@@ -24,6 +34,14 @@ type NewJoinCode struct {
 	Creator  Member
 	Code     string
 	Line     string
+}
+
+// JoinCodeInput is a request for a join code: the role its agents join in, how long it
+// works (DefaultJoinCodeTTL when zero), and for a guest code the guest's handle.
+type JoinCodeInput struct {
+	Role  string
+	TTL   time.Duration
+	Guest string
 }
 
 func roleNotFound(role string) *apierr.Error {
@@ -36,8 +54,19 @@ func joinCodeInvalid() *apierr.Error {
 		"That join code doesn't work: it is wrong, expired or revoked.", "Ask for a new join line from someone on the board.")
 }
 
-// CreateJoinCode makes a multi-use code that lets sessions join the board in role.
-func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, role string, ttl time.Duration) (NewJoinCode, error) {
+// CreateJoinCode makes a pairing code, or with in.Guest a guest code, for the board.
+func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName string, in JoinCodeInput) (NewJoinCode, error) {
+	if in.Guest != "" {
+		if err := humanOnly(p, "make a guest code", "aboard invite --guest "+in.Guest+" --board "+boardName); err != nil {
+			return NewJoinCode{}, err
+		}
+		if !validName(in.Guest) {
+			return NewJoinCode{}, apierr.New(http.StatusUnprocessableEntity, "handle_invalid",
+				fmt.Sprintf("%q can't be a handle: use lowercase letters, digits and single dashes, at most 40 characters.", in.Guest),
+				"Pick a handle such as "+rules.NormalizeName(in.Guest)+".")
+		}
+	}
+	ttl := in.TTL
 	if ttl == 0 {
 		ttl = DefaultJoinCodeTTL
 	}
@@ -47,12 +76,20 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 		if err != nil {
 			return err
 		}
+		if me.PersonRole == ServerGuest {
+			return guestNotAllowed("make join codes")
+		}
 		if p.Agent != nil && !b.Roles[*me.Role].Has(rules.Invite) {
 			return apierr.New(http.StatusForbidden, "forbidden", "Your role can't invite new agents to this board.",
 				"Ask a human on the board to create the join code.")
 		}
-		if _, ok := b.Roles[role]; !ok {
-			return roleNotFound(role)
+		if _, ok := b.Roles[in.Role]; !ok {
+			return roleNotFound(in.Role)
+		}
+		if in.Guest != "" {
+			if err := guestMayCome(tx, b, in.Guest); err != nil {
+				return err
+			}
 		}
 		now := s.clk.Now()
 		id, err := s.gen.ID("jc", now)
@@ -64,24 +101,56 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName, ro
 			return err
 		}
 		jc := JoinCode{
-			ID: id, BoardID: b.ID, CodeDigest: ids.Digest(s.key, code), Role: role,
-			ExpiresAt: stamp(now.Add(ttl)), CreatedAt: stamp(now), CreatedBy: me.ID,
+			ID: id, BoardID: b.ID, CodeDigest: ids.Digest(s.key, code), Role: in.Role,
+			ExpiresAt: stamp(now.Add(ttl)), CreatedAt: stamp(now), CreatedBy: me.ID, Kind: CodePairing,
+		}
+		data := map[string]any{"join_code_id": jc.ID, "role": jc.Role, "expires_at": jc.ExpiresAt}
+		lineRole := in.Role
+		if in.Guest != "" {
+			jc.Kind, jc.Guest = CodeGuest, ptr(in.Guest)
+			data["kind"], data["guest"] = CodeGuest, in.Guest
+			lineRole = guestLineRole
 		}
 		if err := tx.InsertJoinCode(jc); err != nil {
 			return fmt.Errorf("insert join code: %w", err)
 		}
-		if _, err := s.append(tx, &b, events.JoinCodeCreated, actorOf(me), now, map[string]any{
-			"join_code_id": jc.ID, "role": jc.Role, "expires_at": jc.ExpiresAt,
-		}); err != nil {
+		if _, err := s.append(tx, &b, events.JoinCodeCreated, actorOf(me), now, data); err != nil {
 			return err
 		}
 		out = NewJoinCode{
 			JoinCode: jc, Board: b.Name, Creator: me, Code: code,
-			Line: joinline.Line{Board: b.Name, Server: s.cfg.JoinHost, Role: role, Code: code}.String(),
+			Line: joinline.Line{Board: b.Name, Server: s.cfg.JoinHost, Role: lineRole, Code: code}.String(),
 		}
 		return nil
 	})
 	return out, err
+}
+
+// guestMayCome refuses a guest code for handle on b when the handle is a member's or an
+// admin's of the server, or a guest's who is already on b.
+func guestMayCome(tx ReadTx, b Board, handle string) error {
+	h, err := tx.HumanByName(handle)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if h.Role != ServerGuest {
+		return apierr.New(http.StatusConflict, "handle_taken",
+			fmt.Sprintf("%s is already on this server, so they don't need a guest code.", handle),
+			fmt.Sprintf("Add them to the board instead: aboard board add @%s --board %s.", handle, b.Name))
+	}
+	m, err := tx.HumanMember(b.ID, h.ID)
+	if err == nil && m.Status == StatusActive {
+		return apierr.New(http.StatusConflict, "already_on_board",
+			fmt.Sprintf("%s is already on board %s.", handle, b.Name),
+			"Run aboard board people --board "+b.Name+" to see who is.")
+	}
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	return nil
 }
 
 // RevokeJoinCode stops a join code from working. Agents that already joined stay.
@@ -92,6 +161,9 @@ func (s *Service) RevokeJoinCode(ctx context.Context, p Principal, boardName, id
 		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
+		}
+		if me.PersonRole == ServerGuest {
+			return guestNotAllowed("cancel join codes")
 		}
 		jc, err = tx.JoinCodeByID(id)
 		if errors.Is(err, ErrNotFound) || (err == nil && jc.BoardID != b.ID) {
@@ -115,18 +187,24 @@ func (s *Service) RevokeJoinCode(ctx context.Context, p Principal, boardName, id
 			}
 			jc.RevokedAt = ptr(stamp(now))
 		}
-		members, err := tx.Members(b.ID)
-		if err != nil {
-			return err
-		}
-		for _, m := range members {
-			if m.ID == jc.CreatedBy {
-				creator = m
-			}
-		}
-		return nil
+		creator, err = memberByID(tx, b.ID, jc.CreatedBy)
+		return err
 	})
 	return jc, creator, err
+}
+
+// memberByID finds a member of board boardID by id.
+func memberByID(tx ReadTx, boardID, id string) (Member, error) {
+	members, err := tx.Members(boardID)
+	if err != nil {
+		return Member{}, err
+	}
+	for _, m := range members {
+		if m.ID == id {
+			return m, nil
+		}
+	}
+	return Member{}, ErrNotFound
 }
 
 // JoinInput is a request for a new agent identity: either Code, or Board and Role from
@@ -146,42 +224,100 @@ type Joined struct {
 	View  View
 }
 
-// Join creates a new agent owned by the calling human. If the human isn't a member of the
-// board yet, they become one first, so every agent has a human on its board.
+// workingCode finds the join code code names, and fails with join_code_invalid unless it
+// still works at now: not revoked, not expired and, for a guest code, not used.
+func (s *Service) workingCode(tx ReadTx, code, now string) (JoinCode, error) {
+	normal, ok := ids.NormalizeJoinCode(code)
+	if !ok {
+		return JoinCode{}, joinCodeInvalid()
+	}
+	jc, err := tx.JoinCodeByDigest(ids.Digest(s.key, normal))
+	if errors.Is(err, ErrNotFound) {
+		return JoinCode{}, joinCodeInvalid()
+	}
+	if err != nil {
+		return JoinCode{}, err
+	}
+	if jc.RevokedAt != nil || jc.UsedAt != nil || jc.ExpiresAt <= now {
+		return JoinCode{}, joinCodeInvalid()
+	}
+	return jc, nil
+}
+
+// codeMaker returns the person who made jc, or whose agent made it, as long as that
+// member and their person are still on jc's board; otherwise the code has stopped
+// working, and it fails with join_code_invalid.
+func codeMaker(tx ReadTx, jc JoinCode) (Member, error) {
+	maker, err := memberByID(tx, jc.BoardID, jc.CreatedBy)
+	if errors.Is(err, ErrNotFound) {
+		return Member{}, joinCodeInvalid()
+	}
+	if err != nil {
+		return Member{}, err
+	}
+	person, err := tx.HumanMember(jc.BoardID, maker.HumanID)
+	if errors.Is(err, ErrNotFound) || (err == nil && (person.Status != StatusActive || maker.Status != StatusActive)) {
+		return Member{}, joinCodeInvalid()
+	}
+	if err != nil {
+		return Member{}, err
+	}
+	return person, nil
+}
+
+// Join creates a new agent owned by the calling person, who must be on the board: with
+// a pairing code they or their agent made, or directly with a board and a role. A guest
+// joins only with a guest code for them, which puts them on its board.
 func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, error) {
 	if err := requireHuman(p); err != nil {
 		return Joined{}, err
 	}
 	var out Joined
-	var ownerJoined bool
 	err := s.writeAs(ctx, p, func(tx Tx) error {
-		ownerJoined = false
 		now := s.clk.Now()
+		person, err := caller(tx, p, stamp(now))
+		if err != nil {
+			return err
+		}
 		var b Board
 		var role string
 		var codeID *string
 		switch {
 		case in.Code != "":
-			code, ok := ids.NormalizeJoinCode(in.Code)
-			if !ok {
-				return joinCodeInvalid()
-			}
-			jc, err := tx.JoinCodeByDigest(ids.Digest(s.key, code))
-			if errors.Is(err, ErrNotFound) {
-				return joinCodeInvalid()
-			}
+			jc, err := s.workingCode(tx, in.Code, stamp(now))
 			if err != nil {
 				return err
-			}
-			if jc.RevokedAt != nil || jc.ExpiresAt <= stamp(now) {
-				return joinCodeInvalid()
 			}
 			if b, err = tx.BoardByID(jc.BoardID); err != nil {
 				return err
 			}
+			if jc.Kind == CodeGuest {
+				if person.Role != ServerGuest || deref(jc.Guest) != person.Name {
+					return apierr.New(http.StatusForbidden, "guest_code_not_for_members",
+						fmt.Sprintf("That is a guest code for %s: it brings them onto board %s from outside this server, and you are on this server already.", deref(jc.Guest), b.Name),
+						fmt.Sprintf("Ask someone on %s to add you: aboard board add @%s --board %s.", b.Name, person.Name, b.Name))
+				}
+				out, err = s.redeemGuestCode(tx, jc, person, ptr(p.KeyID), JoinInput{Name: in.Name, Harness: in.Harness}, now)
+				return err
+			}
+			if person.Role == ServerGuest {
+				return guestNotAllowed("join with a pairing code")
+			}
+			maker, err := codeMaker(tx, jc)
+			if err != nil {
+				return err
+			}
+			if maker.HumanID != p.Human.ID {
+				return apierr.New(http.StatusForbidden, "join_code_not_yours",
+					fmt.Sprintf("That join code is for %s's own sessions on board %s.", maker.Name, b.Name),
+					fmt.Sprintf("Ask someone on %s to add you (aboard board add @%s --board %s), then make your own join line with aboard invite --board %s.",
+						b.Name, p.Human.Name, b.Name, b.Name))
+			}
 			role, codeID = jc.Role, ptr(jc.ID)
 		case in.Board != "" && in.Role != "":
-			var err error
+			if person.Role == ServerGuest {
+				return guestNotAllowed("add agents to a board")
+			}
 			if b, _, err = s.access(tx, p, in.Board); err != nil {
 				return err
 			}
@@ -192,81 +328,215 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 		default:
 			return invalid("A join needs a code, or a board and a role.", "Paste the whole join line into aboard join.")
 		}
-
-		taken := func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }
 		owner, err := tx.HumanMember(b.ID, p.Human.ID)
-		switch {
-		case errors.Is(err, ErrNotFound):
-			owner = Member{
-				BoardID: b.ID, Name: rules.AllocateName(p.Human.Name, taken), Kind: "human", HumanID: p.Human.ID,
-				Access: rules.AccessMember, Status: "active", JoinedAt: stamp(now),
-			}
-			if owner.ID, err = s.gen.ID("mem", now); err != nil {
-				return err
-			}
-			if err := s.addMember(tx, &b, owner, actorOf(owner), nil, now); err != nil {
-				return err
-			}
-			ownerJoined = true
-		case err != nil:
-			return err
-		case owner.Status != StatusActive:
-			// A person who left or was removed comes back through the code under their
-			// old name, as a member.
-			if err := s.restorePerson(tx, &b, &owner, actorOf(owner), now); err != nil {
-				return err
-			}
-			ownerJoined = true
+		if errors.Is(err, ErrNotFound) || (err == nil && owner.Status != StatusActive) {
+			return joinCodeInvalid()
 		}
-
-		name := in.Name
-		switch {
-		case name != "" && taken(name):
-			return apierr.New(http.StatusConflict, "name_taken", fmt.Sprintf("Someone on this board is already called %q.", name),
-				"Choose another name, or leave the name out to get a free one.")
-		case name != "":
-		case !b.Policy.ShowHarness:
-			name = rules.AllocateNumberedName("agent", taken)
-		default:
-			name = rules.AllocateName(rules.AgentNameBase(in.Harness, role), taken)
-		}
-		token, err := s.gen.Token("aba")
 		if err != nil {
 			return err
-		}
-		agent := Member{
-			BoardID: b.ID, Name: name, Kind: "agent", Role: ptr(role), HumanID: p.Human.ID, Owner: ptr(p.Human.Name),
-			TokenDigest: ptr(ids.Digest(s.key, token)), Status: "active", JoinedAt: stamp(now),
-			// A new agent starts reading at the board's head: earlier messages are in the
-			// timeline, not its inbox.
-			Cursor: b.HeadSeq + 1,
-		}
-		if in.Harness != "" {
-			agent.Harness = ptr(in.Harness)
 		}
 		// The agent's token stops working when the access key that made it does.
+		var keyID *string
 		if p.KeyID != "" {
-			agent.KeyID = ptr(p.KeyID)
+			keyID = ptr(p.KeyID)
 		}
-		if agent.ID, err = s.gen.ID("mem", now); err != nil {
-			return err
-		}
-		if err := s.addMember(tx, &b, agent, actorOf(owner), codeID, now); err != nil {
-			return err
-		}
-		view, err := viewOf(tx, b)
-		if err != nil {
-			return err
-		}
-		out = Joined{Agent: agent, Token: token, View: view}
-		return nil
+		out, err = s.seat(tx, &b, owner, p.Human.Name, in, role, keyID, codeID, now)
+		return err
 	})
 	if err != nil {
 		return Joined{}, err
 	}
 	s.notify.Changed(out.View.Board.ID)
-	if ownerJoined {
-		s.notify.Changed(boardsOfKey(p.Human.ID))
+	s.notify.Changed(boardsOfKey(p.Human.ID))
+	return out, nil
+}
+
+// seat makes a new agent of owner's person on b, in role, and records it.
+func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinInput, role string, keyID, codeID *string, now time.Time) (Joined, error) {
+	taken := func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }
+	name := in.Name
+	switch {
+	case name != "" && taken(name):
+		return Joined{}, apierr.New(http.StatusConflict, "name_taken", fmt.Sprintf("Someone on this board is already called %q.", name),
+			"Choose another name, or leave the name out to get a free one.")
+	case name != "":
+	case !b.Policy.ShowHarness:
+		name = rules.AllocateNumberedName("agent", taken)
+	default:
+		name = rules.AllocateName(rules.AgentNameBase(in.Harness, role), taken)
+	}
+	token, err := s.gen.Token("aba")
+	if err != nil {
+		return Joined{}, err
+	}
+	agent := Member{
+		BoardID: b.ID, Name: name, Kind: "agent", Role: ptr(role), HumanID: owner.HumanID, Owner: ptr(ownerName),
+		TokenDigest: ptr(ids.Digest(s.key, token)), Status: StatusActive, JoinedAt: stamp(now), KeyID: keyID,
+		// A new agent starts reading at the board's head: earlier messages are in the
+		// timeline, not its inbox.
+		Cursor: b.HeadSeq + 1, PersonRole: owner.PersonRole,
+	}
+	if in.Harness != "" {
+		agent.Harness = ptr(in.Harness)
+	}
+	if agent.ID, err = s.gen.ID("mem", now); err != nil {
+		return Joined{}, err
+	}
+	if err := s.addMember(tx, b, agent, actorOf(owner), codeID, now); err != nil {
+		return Joined{}, err
+	}
+	view, err := viewOf(tx, *b)
+	if err != nil {
+		return Joined{}, err
+	}
+	return Joined{Agent: agent, Token: token, View: view}, nil
+}
+
+// GuestJoinInput redeems a guest code: the code, the name of the key it gives the
+// guest's machine, and the new agent's name and harness.
+type GuestJoinInput struct {
+	Code    string
+	KeyName string
+	Name    string
+	Harness string
+}
+
+// GuestJoined is a guest on a board, with their machine's new access key and their new
+// agent. The key's and the agent's secrets are only available here.
+type GuestJoined struct {
+	Joined
+	Person   Human
+	Key      AccessKey
+	KeyToken string
+}
+
+// GuestJoin uses up a guest code and, in the same transaction, puts the guest it names
+// onto its board, as a person with the server role guest (created the first time), with
+// an access key for their machine and a new agent, whose secrets are returned. A code
+// that is wrong, used, expired, revoked, a pairing code, or whose maker has left the
+// board or the server fails the same way.
+func (s *Service) GuestJoin(ctx context.Context, in GuestJoinInput) (GuestJoined, error) {
+	if !validName(in.KeyName) {
+		return GuestJoined{}, invalid("A key's name uses lowercase letters, digits and single dashes, at most 40 characters.",
+			"Name the key after the machine that keeps it, such as sam-laptop.")
+	}
+	var out GuestJoined
+	err := s.st.Write(ctx, func(tx Tx) error {
+		now := s.clk.Now()
+		jc, err := s.workingCode(tx, in.Code, stamp(now))
+		if err != nil {
+			return err
+		}
+		if jc.Kind != CodeGuest || jc.Guest == nil {
+			return joinCodeInvalid()
+		}
+		guest, err := s.guestPerson(tx, *jc.Guest, now)
+		if err != nil {
+			return err
+		}
+		token, key, err := s.newKey(tx, guest.ID, in.KeyName, now, nil, ptr(MachineKeyIdle))
+		if err != nil {
+			return err
+		}
+		joined, err := s.redeemGuestCode(tx, jc, guest, ptr(key.ID), JoinInput{Name: in.Name, Harness: in.Harness}, now)
+		out = GuestJoined{Joined: joined, Person: guest, Key: key, KeyToken: token}
+		return err
+	})
+	if err != nil {
+		return GuestJoined{}, err
+	}
+	s.notify.Changed(out.View.Board.ID)
+	s.notify.Changed(boardsOfKey(out.Person.ID))
+	return out, nil
+}
+
+// redeemGuestCode uses up guest code jc for guest, putting them on its board with a new
+// agent whose token stops with keyID. It checks again, as the code is used, that its
+// maker is still on the board and on the server.
+func (s *Service) redeemGuestCode(tx Tx, jc JoinCode, guest Human, keyID *string, in JoinInput, now time.Time) (Joined, error) {
+	maker, err := codeMaker(tx, jc)
+	if err != nil {
+		return Joined{}, err
+	}
+	if h, err := tx.HumanByID(maker.HumanID); err != nil || h.RemovedAt != nil || h.Role == ServerGuest {
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return Joined{}, err
+		}
+		return Joined{}, joinCodeInvalid()
+	}
+	b, err := tx.BoardByID(jc.BoardID)
+	if err != nil {
+		return Joined{}, err
+	}
+	me, err := s.guestOnBoard(tx, &b, guest, ptr(jc.ID), now)
+	if err != nil {
+		return Joined{}, err
+	}
+	out, err := s.seat(tx, &b, me, guest.Name, in, jc.Role, keyID, ptr(jc.ID), now)
+	if err != nil {
+		return Joined{}, err
+	}
+	if used, err := tx.UseJoinCode(jc.ID, stamp(now), out.Agent.ID); err != nil || !used {
+		if err != nil {
+			return Joined{}, err
+		}
+		return Joined{}, joinCodeInvalid()
 	}
 	return out, nil
+}
+
+// guestPerson returns the guest called handle, making them a person with the server role
+// guest when no one on the server has the handle. A handle that has become a member's
+// since the code was made is refused.
+func (s *Service) guestPerson(tx Tx, handle string, now time.Time) (Human, error) {
+	h, err := tx.HumanByName(handle)
+	switch {
+	case err == nil && h.Role == ServerGuest:
+		return h, nil
+	case err == nil:
+		return Human{}, apierr.New(http.StatusConflict, "handle_taken",
+			fmt.Sprintf("Someone on this server is called %s now, so this guest code can't bring a guest of that name.", handle),
+			"Ask whoever gave you the code for a new one, with another name.")
+	case !errors.Is(err, ErrNotFound):
+		return Human{}, err
+	}
+	h = Human{Name: handle, Role: ServerGuest, CreatedAt: stamp(now)}
+	if h.ID, err = s.gen.ID("hum", now); err != nil {
+		return Human{}, err
+	}
+	if err := tx.InsertHuman(h); err != nil {
+		return Human{}, fmt.Errorf("insert guest: %w", err)
+	}
+	return h, nil
+}
+
+// guestOnBoard puts a guest on b, as a member, unless they are on it already, and
+// returns their membership.
+func (s *Service) guestOnBoard(tx Tx, b *Board, guest Human, codeID *string, now time.Time) (Member, error) {
+	m, err := tx.HumanMember(b.ID, guest.ID)
+	switch {
+	case err == nil && m.Status == StatusActive:
+		return m, nil
+	case err == nil:
+		err := s.restorePerson(tx, b, &m, actorOf(m), now)
+		return m, err
+	case !errors.Is(err, ErrNotFound):
+		return Member{}, err
+	}
+	m = Member{
+		BoardID: b.ID, Kind: "human", HumanID: guest.ID, Access: rules.AccessMember, Status: StatusActive, JoinedAt: stamp(now),
+		Name:       rules.AllocateName(guest.Name, func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }),
+		PersonRole: ServerGuest,
+	}
+	if m.ID, err = s.gen.ID("mem", now); err != nil {
+		return Member{}, err
+	}
+	if err := tx.InsertMember(m); err != nil {
+		return Member{}, fmt.Errorf("insert member: %w", err)
+	}
+	_, err = s.append(tx, b, events.MemberJoined, actorOf(m), now, map[string]any{
+		"member_id": m.ID, "name": m.Name, "kind": m.Kind, "role": nil, "owner": nil,
+		"harness": nil, "access": m.Access, "join_code_id": codeID, "guest": true,
+	})
+	return m, err
 }

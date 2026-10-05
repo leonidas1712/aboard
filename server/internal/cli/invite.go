@@ -25,20 +25,27 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
 	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h (168h with --server)")
 	serverFlag := fs.Bool("server", false, "invite a person to the server instead of an agent to a board")
+	guestFlag := fs.String("guest", "", "make a guest code that lets this person, from outside the server, onto the board once")
 	if _, err := a.parse(fs, args, inviteUsage, 0, 0); err != nil {
 		return err
 	}
+	guest := handleArg(*guestFlag)
 	if *serverFlag {
-		if *roleFlag != "" || *boardFlag != "" {
-			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role or --board.", inviteUsage)
+		if *roleFlag != "" || *boardFlag != "" || guest != "" {
+			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role, --board or --guest.", inviteUsage)
 		}
 		return runServerInvite(ctx, a, *ttl)
 	}
 	command := "aboard invite"
+	what := "Adding an agent to a board"
+	if guest != "" {
+		command += " --guest " + shellWord(guest)
+		what = "Letting a guest onto a board"
+	}
 	if *roleFlag != "" {
 		command += " --role " + shellWord(*roleFlag)
 	}
-	if err := a.refuseInSession("Adding an agent to a board", command+boardArg(a.namedBoard(*boardFlag))); err != nil {
+	if err := a.refuseInSession(what, command+boardArg(a.namedBoard(*boardFlag))); err != nil {
 		return err
 	}
 	t, err := a.selectBoard(*boardFlag)
@@ -64,6 +71,9 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 		secs := int(ttl.Seconds())
 		req.TtlSeconds = &secs
 	}
+	if guest != "" {
+		req.Guest = &guest
+	}
 	r, err := c.api.CreateJoinCodeWithResponse(ctx, board.Name, &api.CreateJoinCodeParams{}, req)
 	if err != nil {
 		return c.unreachable(err)
@@ -74,9 +84,23 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	jc := r.JSON201
 	line := deref(jc.JoinLine)
 	prompt := line + "\n" + invitePrompt
+	if guest != "" {
+		text := fmt.Sprintf("Created a guest code for board %s: %s joins it as a guest from outside the server, once, within %s. "+
+			"Anyone with the code can use it, so give it only to %s.\n\nGive this to %s, to paste into their agent's session:\n\n%s\n",
+			board.Name, guest, durationText(time.Until(jc.ExpiresAt)), guest, guest, prompt)
+		a.emit(struct {
+			Board     string    `json:"board"`
+			Role      string    `json:"role"`
+			Guest     string    `json:"guest"`
+			JoinLine  string    `json:"join_line"`
+			Prompt    string    `json:"prompt"`
+			ExpiresAt time.Time `json:"expires_at"`
+		}{board.Name, jc.Role, guest, line, prompt, jc.ExpiresAt}, text)
+		return nil
+	}
 	notice := noticeFor(board.Policy)
 
-	text := fmt.Sprintf("Created a join code for board %s: an agent joins as %s. It works for %s, for any number of agents.\n",
+	text := fmt.Sprintf("Created a join code for board %s: an agent joins as %s. It works for %s, for any number of your own agents.\n",
 		board.Name, jc.Role, durationText(time.Until(jc.ExpiresAt)))
 	if notice != nil {
 		text += notice.Message + "\n"

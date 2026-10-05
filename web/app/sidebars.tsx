@@ -249,7 +249,7 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
                   {p.name}
                   {p.name === me && <span className="font-normal text-muted"> (you)</span>}
                 </NameButton>
-                <span className="board-role text-meta text-muted">{p.access === "admin" ? "Owner" : "Member"}</span>
+                <span className="board-role text-meta text-muted">{boardRole(p)}</span>
               </li>
             ))}
           </ul>
@@ -257,6 +257,12 @@ function WhosHere({ board, members, me, from, onPick }: WhosHereProps) {
       )}
     </div>
   );
+}
+
+/** boardRole names a person's place on the board: a guest of the server, an owner or a member. */
+function boardRole(p: Member): string {
+  if (p.server_role === "guest") return "Guest";
+  return p.access === "admin" ? "Owner" : "Member";
 }
 
 /** NameButton is a member's name that filters the timeline to them. */

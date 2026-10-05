@@ -15,11 +15,8 @@ func TestOnlyAdminsChangePolicy(t *testing.T) {
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
-	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
-	mustStatus(t, code, err, 201)
 	priya := s.addHuman("priya")
-	j, err := s.client(priya).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
-	mustStatus(t, j, err, 201)
+	s.joinBoard(priya, boardName, "reviewer", nil)
 
 	ms, err := s.client(priya).ListMembersWithResponse(ctx, boardName)
 	mustStatus(t, ms, err, 200)

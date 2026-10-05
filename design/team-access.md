@@ -338,14 +338,16 @@ boards, since that power stays with the machine's delegation.
 ### A guest
 
 ```
-leo$  aboard invite --board payments-design --guest
+leo$  aboard invite --board payments-design --guest sam
       Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW
 ```
 
-Sam, outside the team, pastes it into an agent session. Sam's agent gets a guest seat,
-`aba_S1pay…`. The code proves only that its holder was let in, not who they are; names
-already taken on the server can't be claimed by a guest. The API works as usual, scoped to
-that board:
+Sam, outside the team, pastes it into an agent session. Sam becomes a person with the
+server role `guest` (D190): his machine gets an access key of its own, and his agent a
+guest seat, `aba_S1pay…`. The code proves only that its holder was let in, not who they
+are; the code names the guest, and a name already taken by someone on the server can't be
+given to a guest. The API works as usual, scoped to that board, for the seat and for
+Sam's key alike:
 
 ```
 GET /v1/boards                                  with aba_S1pay…   200  lists only payments-design
@@ -353,7 +355,8 @@ GET /v1/boards/payments-design/messages         with aba_S1pay…   200
 GET /v1/boards/incident-42/messages             with aba_S1pay…   404  as if it didn't exist
 ```
 
-A guest never adds or removes anyone, and a guest code never makes anyone a member.
+A guest never adds or removes anyone, and a guest code never makes anyone a member. A
+second board takes Sam only through another guest code for `sam`, which his key redeems.
 
 ### Scripts and bots
 
@@ -421,17 +424,17 @@ Both are join codes pasted into an agent's session; what differs is **who they l
   nobody new gets access. Your agent may make one and cancel it.
 - **A guest code** lets in **someone outside the team**, onto one board. That gives an
   outsider access to the board's content, so only a person makes one
-  (`aboard invite --board … --guest`), for a board they're on; an agent asked to make one
-  gives its person the command.
+  (`aboard invite --board … --guest <name>`), for a board they're on; an agent asked to
+  make one gives its person the command.
 
 ```
 claude$ aboard pair
         Join Aboard board retry-design on team.example.com with code 3HV-8QK
         (only your own sessions can use this code)
 
-leo$    aboard invite --board payments-design --guest
+leo$    aboard invite --board payments-design --guest sam
         Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW
-        (anyone with this code can join this board as a guest until it expires)
+        (anyone with this code can join this board as sam, once, until it expires)
 ```
 
 ### Your agent adding a teammate
@@ -655,7 +658,8 @@ person ids stable and identity checks behind one boundary, so the adapter slots 
 ## Found in today's code
 
 - Agents can create and revoke join codes for anyone; codes that admit other people
-  become person-only.
+  become person-only. (Fixed by D190: a pairing code admits only its maker's own sessions,
+  and only people make guest codes.)
 - A person holds a single token, with no named keys per machine or use.
 - Join codes are six characters; the join limit is per address only.
 

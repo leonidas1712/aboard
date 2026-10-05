@@ -143,8 +143,15 @@ func TestRevokingALostLaptopsKeyEndsWhatItStarted(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	laptop := tm.person("maya")
-	line := field(t, tm.admin.run("pair", "--name", "writer", "--json").json(t), "join.line").(string)
+	tm.admin.run("pair", "--name", "writer")
 	board := field(t, tm.admin.run("status", "--json").json(t), "board").(string)
+	tm.admin.run("board", "add", "@maya")
+	// maya's own join line, which her laptop and desktop sessions both may use.
+	status, code := tm.call("POST", "/v1/boards/"+board+"/join-codes", tm.key(laptop), map[string]any{"role": "member"})
+	if status != http.StatusCreated {
+		t.Fatalf("maya's join code: %d %v", status, code)
+	}
+	line := code["join_line"].(string)
 	joined := laptop.claudeSession("s-laptop").run("join", line, "--json").json(t)
 	laptopAgent := agentToken(t, laptop, field(t, joined, "agent.name").(string))
 	laptopBrowser := tm.teamBrowser(tm.key(laptop))

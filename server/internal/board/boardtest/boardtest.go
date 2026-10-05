@@ -62,6 +62,10 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"PeopleWhoLeftAreNotOnTheBoard", peopleWhoLeftAreNotOnTheBoard},
 		{"WorkingJoinCodesSkipRevokedAndExpired", workingJoinCodesSkipRevokedAndExpired},
 		{"BoardCreationDefaultsToMembers", boardCreationDefaultsToMembers},
+		{"RemovedPeopleFreeTheirHandles", removedPeopleFreeTheirHandles},
+		{"ServerRolesAndAdminsCounted", serverRolesAndAdminsCounted},
+		{"GuestCodesAreUsedOnce", guestCodesAreUsedOnce},
+		{"MembersCarryTheirPersonsRole", membersCarryTheirPersonsRole},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -116,7 +120,7 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	}
 	m := board.Member{
 		ID: "mem_" + name, BoardID: b.ID, Name: humanID, Kind: "human", HumanID: humanID,
-		Access: rules.AccessAdmin, Status: "active", JoinedAt: at,
+		Access: rules.AccessAdmin, Status: "active", JoinedAt: at, PersonRole: board.ServerMember,
 	}
 	if err := tx.InsertMember(m); err != nil {
 		return board.Board{}, board.Member{}, err
@@ -124,11 +128,12 @@ func newBoard(tx board.Tx, name string) (board.Board, board.Member, error) {
 	return b, m, nil
 }
 
-// agent returns an agent owned by humanID on board b.
+// agent returns an agent owned by humanID, a member of the server, on board b.
 func agent(b board.Board, humanID, name, role string) board.Member {
 	return board.Member{
 		ID: "mem_" + b.Name + "_" + name, BoardID: b.ID, Name: name, Kind: "agent", Role: ptr(role), HumanID: humanID,
 		Owner: ptr(humanID), Harness: ptr("claude-code"), TokenDigest: ptr("digest-" + b.Name + "-" + name), Status: "active", JoinedAt: at,
+		PersonRole: board.ServerMember,
 	}
 }
 
@@ -977,7 +982,7 @@ func membersInJoinOrder(t *testing.T, st board.Store) {
 		}
 		blair := board.Member{
 			ID: "mem_docs_blair", BoardID: b.ID, Name: "blair", Kind: "human", HumanID: "hum_blair",
-			Access: rules.AccessMember, Status: "active", JoinedAt: at,
+			Access: rules.AccessMember, Status: "active", JoinedAt: at, PersonRole: board.ServerMember,
 		}
 		if err := tx.InsertMember(blair); err != nil {
 			return err
@@ -1096,7 +1101,7 @@ func setPresenceReplacesIt(t *testing.T, st board.Store) {
 func joinCode(b board.Board, creator board.Member) board.JoinCode {
 	return board.JoinCode{
 		ID: "jc_1", BoardID: b.ID, CodeDigest: "digest-code", Role: "reviewer",
-		ExpiresAt: "2026-10-02T16:00:00.000Z", CreatedAt: at, CreatedBy: creator.ID,
+		ExpiresAt: "2026-10-02T16:00:00.000Z", CreatedAt: at, CreatedBy: creator.ID, Kind: board.CodePairing,
 	}
 }
 

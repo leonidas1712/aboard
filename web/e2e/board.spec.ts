@@ -913,6 +913,12 @@ test("the header, the board list and the people on a board show open, private an
   await expect(people.locator('[data-person="alex"] .board-role')).toHaveText("Owner");
   await expect(people.locator('[data-person="maya"] .board-role')).toHaveText("Member");
 
+  // lee, from outside the server, comes on through a guest code and shows as a guest.
+  const code = await api(owner, "POST", "/v1/boards/secret-plans/join-codes", { role: "member", guest: "lee" });
+  await api("", "POST", "/v1/guest-join", { code: code.code, key_name: "lees-laptop", harness: "codex" });
+  await page.reload();
+  await expect(people.locator('[data-person="lee"] .board-role')).toHaveText("Guest");
+
   for (const theme of ["Dark", "Light"]) {
     await page.getByRole("button", { name: /^You are alex/ }).click();
     await page.getByRole("menuitemradio", { name: theme }).click();

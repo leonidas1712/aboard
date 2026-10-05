@@ -92,6 +92,23 @@ func (s *testServer) addHuman(name string) string {
 	return c.JSON201.Key.Token
 }
 
+// joinBoard has the board's owner add the person whose key is token to the board, then
+// joins an agent of theirs in role with a pairing code they make themselves, as a
+// teammate's own sessions join.
+func (s *testServer) joinBoard(token, board, role string, harness *string) *api.JoinResponse {
+	s.t.Helper()
+	ctx := context.Background()
+	me, err := s.client(token).GetMeWithResponse(ctx)
+	mustStatus(s.t, me, err, 200)
+	added, err := s.client(s.owner).AddPersonWithResponse(ctx, board, nil, api.AddPersonRequest{Handle: me.JSON200.Name})
+	mustStatus(s.t, added, err, 201)
+	code, err := s.client(token).CreateJoinCodeWithResponse(ctx, board, nil, api.CreateJoinCodeRequest{Role: role})
+	mustStatus(s.t, code, err, 201)
+	j, err := s.client(token).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code, Harness: harness})
+	mustStatus(s.t, j, err, 201)
+	return j
+}
+
 // client returns an API client for token whose every response is checked against the
 // spec, so each test is also a conformance test.
 func (s *testServer) client(token string) *api.ClientWithResponses {
@@ -492,29 +509,45 @@ func TestJoinCodesExpireAndCanBeRevoked(t *testing.T) {
 	}
 }
 
-func TestJoiningMakesTheOwnerAHumanMember(t *testing.T) {
+// A pairing code lets in only its maker's own sessions: another person on the server
+// can't redeem it, whether or not they are on the board, and nothing is written; once
+// on the board, they join with a code of their own.
+func TestAPairingCodeAdmitsOnlyItsMakersSessions(t *testing.T) {
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
 	code, err := s.client(s.owner).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
 	mustStatus(t, code, err, 201)
+	if code.JSON201.Kind != api.JoinCodeKindPairing || code.JSON201.Guest != nil {
+		t.Fatalf("a code without guest: %+v", code.JSON201)
+	}
 
 	sam := s.addHuman("sam")
+	head := s.boardHead(s.owner, boardName).Seq
 	j, err := s.client(sam).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
+	if got := errorCode(t, j, err, 403); got != "join_code_not_yours" || !strings.Contains(j.JSON403.Error.Hint, "aboard board add @sam --board "+boardName) {
+		t.Fatalf("sam redeeming alex's code: %s", bodyOf(j))
+	}
+	added, err := s.client(s.owner).AddPersonWithResponse(ctx, boardName, nil, api.AddPersonRequest{Handle: "sam"})
+	mustStatus(t, added, err, 201)
+	j, err = s.client(sam).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
+	if got := errorCode(t, j, err, 403); got != "join_code_not_yours" {
+		t.Fatalf("sam, on the board, redeeming alex's code: %s", got)
+	}
+	if after := s.boardHead(s.owner, boardName).Seq; after != head+1 {
+		t.Fatalf("refused joins wrote to the record: head %d, then %d with only person.added between", head, after)
+	}
+
+	// The code still works for alex's own sessions. (A minute passes, past the join limit.)
+	s.clock.Advance(time.Minute)
+	mine, err := s.client(s.owner).JoinWithResponse(ctx, nil, api.JoinRequest{Code: code.JSON201.Code})
+	mustStatus(t, mine, err, 201)
+	own, err := s.client(sam).CreateJoinCodeWithResponse(ctx, boardName, nil, api.CreateJoinCodeRequest{Role: "reviewer"})
+	mustStatus(t, own, err, 201)
+	j, err = s.client(sam).JoinWithResponse(ctx, nil, api.JoinRequest{Code: own.JSON201.Code})
 	mustStatus(t, j, err, 201)
-	if j.JSON201.Agent.Name != "reviewer-2" || j.JSON201.Agent.Owner == nil || *j.JSON201.Agent.Owner != "sam" {
-		t.Fatalf("agent %+v", j.JSON201.Agent)
-	}
-	ms, err := s.client(sam).ListMembersWithResponse(ctx, boardName)
-	mustStatus(t, ms, err, 200)
-	var humans []string
-	for _, m := range ms.JSON200.Members {
-		if m.Kind == "human" {
-			humans = append(humans, m.Name)
-		}
-	}
-	if strings.Join(humans, ",") != "alex,sam" {
-		t.Fatalf("humans on the board: %v", humans)
+	if j.JSON201.Agent.Owner == nil || *j.JSON201.Agent.Owner != "sam" {
+		t.Fatalf("sam's agent %+v", j.JSON201.Agent)
 	}
 }
 
