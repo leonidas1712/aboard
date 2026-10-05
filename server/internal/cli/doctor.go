@@ -332,6 +332,12 @@ func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 		}
 	}
 	for _, ag := range st.Agents {
+		if ag.Reason == delivery.ReasonBoardGone {
+			checks = append(checks, problem("delivery", levelError, delivery.ReasonBoardGone,
+				boardGoneText(ag.Agent.Name, ag.Agent.Board),
+				"join again with a new agent (aboard join) if the person still belongs on the board"))
+			continue
+		}
 		checks = append(checks, problem("delivery", levelError, "delivery_attention",
 			fmt.Sprintf("deliveries for %s on %s stopped (%s)", ag.Agent.Name, ag.Agent.Board, ag.Reason),
 			a.fixFor(ag.Reason)))
@@ -364,6 +370,13 @@ func seqList(seqs []int) string {
 		parts = append(parts, fmt.Sprint(s))
 	}
 	return strings.Join(parts, ", #")
+}
+
+// boardGoneText says that an agent can't reach its board. The server answers the same
+// for a deleted board, one hidden from the agent's person and an agent removed from it,
+// so the text names them all.
+func boardGoneText(agent, board string) string {
+	return agent + " can't reach " + board + " any more: the board is gone or hidden from its person, or the agent was removed from it"
 }
 
 // fixFor says how to fix a delivery that stopped for reason: in the words of the

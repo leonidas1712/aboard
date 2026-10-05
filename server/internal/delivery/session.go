@@ -26,6 +26,8 @@ type sessionMsg struct {
 	inbox *inboxResult
 	// ack is the result of acknowledging an agent's messages.
 	ack *ackResult
+	// refused is a presence report the server refused for a reason that stops the agent.
+	refused *refusal
 	// release asks the session to give up an agent, which adopter now owns.
 	release *AgentRef
 	adopter *session
@@ -227,6 +229,10 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onInbox(ctx, *m.inbox)
 	case m.ack != nil:
 		s.onAck(ctx, *m.ack)
+	case m.refused != nil:
+		if a, ok := s.agents[m.refused.agent]; ok {
+			s.setProblem(a, problemOf(m.refused.err))
+		}
 	case m.release != nil:
 		s.onRelease(ctx, *m.release, m.adopter)
 	case m.adopt != nil:
@@ -420,7 +426,7 @@ type reportedPresence struct {
 func (s *session) reportPresence(renew bool) {
 	p := s.presence()
 	for ref, a := range s.agents {
-		if a.adopting {
+		if a.adopting || a.gone() {
 			continue
 		}
 		now := reportedPresence{state: p, mode: s.d.mode(ref)}
@@ -698,6 +704,9 @@ func (s *session) refreshAll(gate bool) {
 }
 
 func (s *session) refresh(a *agentState, gate bool) {
+	if a.gone() {
+		return
+	}
 	s.nextRefresh++
 	id := s.nextRefresh
 	if gate {
@@ -713,8 +722,8 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 		return
 	}
 	if r.err != nil {
-		if errors.Is(r.err, ErrUnauthorized) {
-			s.setProblem(a, ReasonUnauthorized)
+		if reason := problemOf(r.err); reason != "" {
+			s.setProblem(a, reason)
 		}
 		s.d.log.Warn("read inbox", "agent", a.ref.Name, "board", a.ref.Board, "error", r.err)
 		return
@@ -739,11 +748,38 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	s.maybeAck(a)
 }
 
+// problemOf returns the problem a failed inbox read or acknowledgement gives the agent,
+// or "" for a failure that may pass.
+func problemOf(err error) string {
+	switch {
+	case errors.Is(err, ErrBoardGone):
+		return ReasonBoardGone
+	case errors.Is(err, ErrUnauthorized):
+		return ReasonUnauthorized
+	}
+	return ""
+}
+
+// gone reports whether the agent can't reach its board any more. That is final for the
+// agent, so nothing more is read, acknowledged or reported for it.
+func (a *agentState) gone() bool { return a.problem == ReasonBoardGone }
+
 func (s *session) setProblem(a *agentState, reason string) {
 	if a.problem != reason {
 		a.problem = reason
 		s.d.setProblem(a.ref, reason)
 	}
+	if a.gone() {
+		// Nothing is reported for the agent from now on, not even no_session when it
+		// leaves the session.
+		delete(s.reported, a.ref)
+	}
+}
+
+// refusal is a server's refusal of a request for an agent.
+type refusal struct {
+	agent AgentRef
+	err   error
 }
 
 // movedTo records that the agent's read position is at cursor: deliveries entirely
@@ -977,8 +1013,8 @@ func (s *session) onAck(ctx context.Context, r ackResult) {
 	}
 	a.acking = false
 	if r.err != nil {
-		if errors.Is(r.err, ErrUnauthorized) {
-			s.setProblem(a, ReasonUnauthorized)
+		if reason := problemOf(r.err); reason != "" {
+			s.setProblem(a, reason)
 		}
 		s.d.log.Warn("acknowledge", "agent", a.ref.Name, "board", a.ref.Board, "up_to", r.upTo, "error", r.err)
 		return
@@ -1643,13 +1679,13 @@ const recheckTimeout = 5 * time.Second
 // one request per agent, made only when there is something to hand or announce.
 func (s *session) recheck(ctx context.Context) {
 	for _, ref := range s.agentRefs() {
-		if a := s.agents[ref]; a.adopting {
+		if a := s.agents[ref]; a.adopting || a.gone() {
 			continue
 		}
 		rctx, cancel := context.WithTimeout(ctx, recheckTimeout)
 		msgs, cursor, err := s.d.server(ref.Server).srv.Inbox(rctx, ref)
 		cancel()
-		if err != nil && !errors.Is(err, ErrUnauthorized) {
+		if err != nil && problemOf(err) == "" {
 			s.d.log.Warn("recheck inbox", "agent", ref.Name, "board", ref.Board, "error", err)
 			continue
 		}

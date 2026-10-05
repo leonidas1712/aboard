@@ -2,6 +2,7 @@ package deliverytest
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,6 +15,9 @@ type ServerFixture struct {
 	// New returns the server and an agent that receives messages from a peer, and a
 	// function that posts a message from the peer to it and returns its sequence number.
 	New func(t *testing.T) (srv delivery.Server, to delivery.AgentRef, post func(body string, urgent bool) int)
+	// Gone returns the server and an agent whose token still works but whose board no
+	// longer answers to it, because its person was removed from the board.
+	Gone func(t *testing.T) (srv delivery.Server, agent delivery.AgentRef)
 }
 
 // streamWait bounds how long the suite waits for a head on the stream.
@@ -58,6 +62,19 @@ func RunServer(t *testing.T, f ServerFixture) {
 		srv, to, _ := f.New(t)
 		for _, p := range []delivery.Presence{delivery.PresenceIdle, delivery.PresenceWorking, delivery.PresenceWorking, delivery.PresenceNoSession} {
 			must(t, srv.SetPresence(ctx, to, p, delivery.ModeAuto))
+		}
+	})
+
+	t.Run("AnAgentWhoseBoardIsGoneGetsErrBoardGone", func(t *testing.T) {
+		srv, agent := f.Gone(t)
+		if _, _, err := srv.Inbox(ctx, agent); !errors.Is(err, delivery.ErrBoardGone) || errors.Is(err, delivery.ErrUnauthorized) {
+			t.Fatalf("Inbox = %v, want ErrBoardGone", err)
+		}
+		if err := srv.Ack(ctx, agent, 1); !errors.Is(err, delivery.ErrBoardGone) {
+			t.Fatalf("Ack = %v, want ErrBoardGone", err)
+		}
+		if err := srv.SetPresence(ctx, agent, delivery.PresenceIdle, delivery.ModeFocused); !errors.Is(err, delivery.ErrBoardGone) {
+			t.Fatalf("SetPresence = %v, want ErrBoardGone", err)
 		}
 	})
 

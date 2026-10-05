@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -39,6 +40,10 @@ type serverConn struct {
 	mail *mailbox[srvMsg]
 
 	watched map[AgentRef]bool
+	// gone holds watched agents whose board answered board_not_found, whose inboxes a
+	// head change no longer reads. Watching an agent again, when a session binds it,
+	// clears it.
+	gone map[AgentRef]bool
 
 	mu        sync.Mutex
 	connected bool
@@ -76,6 +81,7 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		switch {
 		case m.watch != nil:
 			c.watched[*m.watch] = true
+			delete(c.gone, *m.watch)
 		case m.head != nil && m.head.Read != nil:
 			// The server says an agent read up to a point, whoever acknowledged: its session
 			// drops what is at or below it from what it would hand over or announce.
@@ -90,7 +96,7 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		}
 	}
 	for agent := range c.watched {
-		if all || boards[agent.Board] {
+		if (all || boards[agent.Board]) && !c.gone[agent] {
 			if s := c.d.owner(agent); s != nil {
 				s.mail.put(sessionMsg{inbox: c.fetch(ctx, agent, 0)})
 			}
@@ -101,18 +107,36 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		case m.refresh != nil:
 			m.replyTo.mail.put(sessionMsg{inbox: c.fetch(ctx, *m.refresh, m.id)})
 		case m.ack != nil:
-			actx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
-			err := c.srv.Ack(actx, *m.ack, m.upTo)
-			cancel()
+			err := c.ack(ctx, *m.ack, m.upTo)
 			m.replyTo.mail.put(sessionMsg{ack: &ackResult{agent: *m.ack, upTo: m.upTo, err: err}})
 		}
 	}
 	c.reportPresence(ctx, batch)
 }
 
-// reportPresence sends the latest presence in batch for each agent. A report that
-// fails is only logged: the session reports again within PresenceRenew, and until then
-// the server keeps the last presence it had.
+// errStillGone is what a request queued for an agent whose board is gone gets in place
+// of a request to the server, which would answer the same.
+var errStillGone = fmt.Errorf("%w: not asked again", ErrBoardGone)
+
+// ack acknowledges an agent's messages, unless its board is gone.
+func (c *serverConn) ack(ctx context.Context, agent AgentRef, upTo int) error {
+	if c.gone[agent] {
+		return errStillGone
+	}
+	actx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
+	defer cancel()
+	err := c.srv.Ack(actx, agent, upTo)
+	if errors.Is(err, ErrBoardGone) {
+		c.gone[agent] = true
+	}
+	return err
+}
+
+// reportPresence sends the latest presence in batch for each agent whose board isn't
+// gone. A report that fails for a reason that may pass is only logged: the session
+// reports again within PresenceRenew, and until then the server keeps the last presence
+// it had. A refusal that stops the agent (its board is gone, or its token is rejected)
+// goes to the session that holds the agent, as a failed inbox read would.
 func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 	latest := map[AgentRef]srvMsg{}
 	var order []AgentRef
@@ -126,20 +150,38 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 		latest[*m.presence] = m
 	}
 	for _, agent := range order {
+		if c.gone[agent] {
+			continue
+		}
 		m := latest[agent]
 		pctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 		err := c.srv.SetPresence(pctx, agent, m.state, m.mode)
 		cancel()
-		if err != nil {
-			c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", m.state, "error", err)
+		if err == nil {
+			continue
+		}
+		c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", m.state, "error", err)
+		if errors.Is(err, ErrBoardGone) {
+			c.gone[agent] = true
+		}
+		if problemOf(err) != "" {
+			if s := c.d.owner(agent); s != nil {
+				s.mail.put(sessionMsg{refused: &refusal{agent: agent, err: err}})
+			}
 		}
 	}
 }
 
 func (c *serverConn) fetch(ctx context.Context, agent AgentRef, refresh int64) *inboxResult {
+	if c.gone[agent] {
+		return &inboxResult{agent: agent, err: errStillGone, refresh: refresh}
+	}
 	fctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
 	msgs, cursor, err := c.srv.Inbox(fctx, agent)
+	if errors.Is(err, ErrBoardGone) {
+		c.gone[agent] = true
+	}
 	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, err: err, refresh: refresh}
 }
 

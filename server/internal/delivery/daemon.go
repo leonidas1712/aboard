@@ -288,7 +288,7 @@ func (d *Daemon) serverLocked(url string) *serverConn {
 	if c, ok := d.servers[url]; ok {
 		return c
 	}
-	c := &serverConn{d: d, url: url, srv: d.cfg.Connect(url), mail: newMailbox[srvMsg](), watched: map[AgentRef]bool{}}
+	c := &serverConn{d: d, url: url, srv: d.cfg.Connect(url), mail: newMailbox[srvMsg](), watched: map[AgentRef]bool{}, gone: map[AgentRef]bool{}}
 	d.servers[url] = c
 	d.g.Go(func() error { return c.run(d.ctx) })
 	return c

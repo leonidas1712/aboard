@@ -183,6 +183,10 @@ const (
 	ReasonTargetAbsent = "codex_target_absent"
 	ReasonSubAgent     = "codex_subagent_target"
 	ReasonUnauthorized = "unauthorized"
+	// ReasonBoardGone is an agent whose board answers board_not_found to it: the board
+	// was deleted or is hidden from its person, or the agent was removed from it. It is
+	// final for that agent, so the daemon reads nothing more for it.
+	ReasonBoardGone    = "board_gone"
 	ReasonHarnessError = "harness_error"
 	ReasonTooLarge     = "too_large"
 )
@@ -197,6 +201,9 @@ var (
 	ErrSubAgent = errors.New("session is a sub-agent thread")
 	// ErrUnauthorized means the server rejected the agent's token or the human login.
 	ErrUnauthorized = errors.New("token rejected")
+	// ErrBoardGone means the agent's token works but its board answers board_not_found
+	// to it, which no later request changes.
+	ErrBoardGone = errors.New("the agent's board is gone")
 	// ErrLoginMissing means there is no human login for the server.
 	ErrLoginMissing = errors.New("no human login for this server")
 )

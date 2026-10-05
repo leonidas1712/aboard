@@ -152,7 +152,16 @@ $defs:
       seat_ended (swarm up found agents whose seats ended with the access key they came
       from, which the server refuses as unauthorized; it starts nothing, details.agents
       names them, details.board their board, and the hint says to give each a new name
-      in the board file).
+      in the board file) · seat_board_gone (swarm up found agents whose token works but
+      whose board answers board_not_found: the board was deleted or is hidden from the
+      person, or the agents were removed from it, as they are for good when their person
+      is removed from or leaves the board; it starts nothing, details.agents names them,
+      details.board their board, and the hint says to give each a new name in the board
+      file once the person can see the board again, or to remove it from the file) ·
+      board_name_taken from swarm up (the board file's board isn't one the person can see,
+      but its name is taken, so it may be a private board they aren't on; details.board
+      names it, and the hint says to ask one of its owners to add them, or to name
+      another board).
   ServerRef:
     type: object
     required: [name, url]
@@ -1609,6 +1618,28 @@ $defs:
               Deliveries handed to an idle session that started no turn within 10 seconds,
               until a turn starts or the session closes. aboard doctor names each
               (delivery_stalled). They are never handed again because of it.
+          stopped_agents:
+            type: array
+            description: |
+              Agents on this machine whose deliveries the daemon stopped, with why:
+              board_gone when the agent's board answers board_not_found to it (the board
+              was deleted or is hidden from its person, or the agent was removed from it,
+              as it is for good when its person is removed from or leaves the board), and
+              the daemon reads nothing more for it; unauthorized when the server rejects its
+              token. Text output adds an indented line under the Daemon line for each: for
+              board_gone, "writer can't reach docs any more: the board is gone or hidden
+              from its person, or the agent was removed from it. Join again with a new agent
+              (aboard join) if the person still belongs on it."; otherwise "deliveries for
+              writer on docs stopped (unauthorized); see aboard doctor". Left out when the
+              daemon isn't running.
+            items:
+              type: object
+              required: [server, board, name, reason]
+              properties:
+                server: { type: string }
+                board: { type: string }
+                name: { type: string }
+                reason: { type: string, examples: [board_gone, unauthorized] }
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]
@@ -1950,16 +1981,20 @@ $defs:
         type: [string, "null"]
         description: The agent's delivery mode as the board shows it.
       seat_credential:
-        enum: [works, ended, null]
+        enum: [works, ended, board_gone, null]
         description: |
-          Whether the token of the agent's seat still works, as swarm ps and show check it
-          with the server (all agents at once, each with its own token, which counts as a
-          use of the key behind it): ended when the server refuses the token as
-          unauthorized, because the access key the seat came from was revoked or has
-          expired, so its session can no longer act on the board, and text output says
-          so; null when this machine holds no token for the agent, the server couldn't be
-          asked or refused for another reason, or the command doesn't fill it in (swarm
-          up, which instead refuses ended seats with seat_ended before starting anything).
+          Whether the token of the agent's seat still works on its board, as swarm ps and
+          show check it with the server by reading the board with the agent's own token
+          (all agents at once, which counts as a use of the key behind each): ended when
+          the server refuses the token as unauthorized, because the access key the seat
+          came from was revoked or has expired; board_gone when the token works but the
+          board answers board_not_found, because the board was deleted or is hidden from
+          the person, or the agent was removed from it (as an agent is for good when its
+          person is removed from or leaves the board, even if they come back). Either way
+          its session can no longer act on the board, and text output says so. null when
+          this machine holds no token for the agent, the server couldn't be asked or
+          answered otherwise, or the command doesn't fill it in (swarm up, which instead
+          refuses such seats with seat_ended or seat_board_gone before starting anything).
 
   SwarmUpOutput:
     description: |

@@ -211,8 +211,12 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e := &env{t: t, bin: binary, home: home, dir: dir, addr: freeAddr(t)}
+	// Each race-instrumented CLI otherwise waits a fixed second before exiting. Keep
+	// race reporting and the caller's options, but omit that delay across the suite.
+	raceOptions := strings.TrimSpace(os.Getenv("GORACE") + " atexit_sleep_ms=0")
 	e.vars = []string{
 		"HOME=" + home,
+		"GORACE=" + raceOptions,
 		"USER=alex",
 		"PATH=" + fakeBin + string(os.PathListSeparator) + systemPath,
 		"FAKE_CODEX_LOG=" + filepath.Join(home, "fake-codex-queue.jsonl"),
