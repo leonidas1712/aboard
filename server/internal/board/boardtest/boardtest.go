@@ -384,7 +384,7 @@ func serverInvitesAreUsedOnce(t *testing.T, st board.Store) {
 // once, and deleted once it has ended.
 func machineRequestsAreDecidedAndCollectedOnce(t *testing.T, st board.Store) {
 	req := board.MachineRequest{
-		ID: "mrq_a", CodeDigest: "c-a", SecretDigest: "s-a", Label: "maya-desktop", RequestedFrom: "203.0.113.7",
+		ID: "mrq_a", CodeDigest: "c-a", SecretDigest: "s-a", Label: "maya-desktop", Handle: "maya", RequestedFrom: "203.0.113.7",
 		CreatedAt: at, ExpiresAt: "2026-10-01T16:05:00.000Z", State: board.MachinePending,
 	}
 	later := req

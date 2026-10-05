@@ -542,7 +542,7 @@ $defs:
       expires_at: { type: string, format: date-time }
 
   # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] ----------
-  # ---------- aboard connect <server URL> [--name MACHINE] ----------
+  # ---------- aboard connect <server URL> [--handle NAME] [--name MACHINE] ----------
   ConnectOutput:
     description: |
       With an invite link, redeems a server invite (POST /v1/connect) and saves the new
@@ -556,18 +556,21 @@ $defs:
       unused.
 
       With a server's address alone (no /join path, no fragment), asks the server for a
-      key for this machine (POST /v1/machine-requests) and prints the short code a person
-      approves from a machine where they are signed in, before it waits:
-        Approve this machine ("maya-desktop") from one where you're signed in to https://team.example.com:
-          aboard approve 4KQ-7ZX     (expires in 5 minutes)
-        Or paste a key with: aboard login https://team.example.com
+      key for this machine, for the person --handle names (POST /v1/machine-requests). At
+      a terminal without --handle it asks "Your handle on <host>"; without a terminal or
+      with --json, a missing --handle is a usage error. It prints the short code that
+      person approves from a machine where they are signed in, before it waits:
+        Connecting this machine ("maya-desktop") to https://team.example.com as maya.
+        On a machine where @maya is signed in, run: aboard approve 4KQ-7ZX --server https://team.example.com
+        The code expires in 5 minutes. Or paste a key with: aboard login https://team.example.com
       With --json those lines go to standard error, and standard output holds only the
       result. It then asks for its key with the request's secret
       (POST /v1/machine-requests/collect) as often as the server says, between 1 and 10
       seconds apart, until the request is approved and the key saved as above, refused
       (machine_request_refused) or expired (machine_request_invalid); it never waits
-      longer than the request lasts. The machine is signed in as whoever approved.
-      --handle and --display-name are usage errors here.
+      longer than the request lasts. Only the named person's approval counts; a
+      handle nobody has gives a request nobody can approve, which then expires.
+      --display-name is a usage error here.
 
       Either way, a server other than this machine's must use https (insecure_server),
       and a machine already connected to the server, or this machine's own local server,
@@ -592,13 +595,13 @@ $defs:
       (POST /v1/machine-requests/approve), or with --refuse turns it down
       (POST /v1/machine-requests/refuse). The server is --server, else the one this
       directory's .aboard names, else the one server in servers.json (several fail with
-      server_not_selected), else the local server. Before approving it looks the request
-      up (POST /v1/machine-requests/lookup) and, at a terminal, shows it and asks:
+      server_not_selected), else the local server. A code works only for the person the
+      new machine named. Before approving it looks the request up (POST /v1/machine-requests/lookup) and, at a terminal, shows it and asks:
         A machine calling itself "maya-desktop" asked from 203.0.113.7 just now. That name is only its own claim.
         Approve "maya-desktop" connecting to team.example.com as maya? [y/N]
       Without a terminal or with --json it needs --yes (confirmation_required), and a
-      "no" changes nothing. A wrong, expired or already decided code fails with
-      machine_request_invalid. The approving person's own key is never copied: the
+      "no" changes nothing. A wrong, expired or already decided code, or one for another
+      person, fails with machine_request_invalid. The approving person's own key is never copied: the
       machine collects a new key of theirs. Inside a harness session it refuses with
       human_command_in_session; the server refuses agent and browser tokens with
       human_token_required. Text output:

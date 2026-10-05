@@ -72,14 +72,27 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 		name = machineName()
 	}
 	if !isInviteLink(pos[0]) {
-		if *handleFlag != "" || *display != "" {
-			return usageError("--handle and --display-name go with an invite link: approving a machine signs it in as the person who approves.", connectUsage)
+		if *display != "" {
+			return usageError("--display-name goes with an invite link: a machine you approve joins as the person you already are.", connectUsage)
 		}
 		srv, err := parseServerURL(pos[0])
 		if err != nil {
 			return err
 		}
-		return connectByApproval(ctx, a, srv, name)
+		if err := a.checkNotConnected(srv); err != nil {
+			return err
+		}
+		handle := strings.TrimSpace(*handleFlag)
+		if handle == "" {
+			if !a.interactive() {
+				return usageError("Name the person this machine is for with --handle, such as --handle "+rules.NormalizeName(a.env.Getenv("USER"))+
+					": only their approval counts.", connectUsage)
+			}
+			if handle, err = a.asker().text("Your handle on "+hostOf(srv), "Only you can approve this machine, from one where you're signed in.", rules.NormalizeName(a.env.Getenv("USER"))); err != nil {
+				return err
+			}
+		}
+		return connectByApproval(ctx, a, srv, strings.TrimSpace(handle), name)
 	}
 	srv, invite, err := parseInviteLink(pos[0])
 	if err != nil {
@@ -112,6 +125,14 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 		return apiError(r.StatusCode(), r.Body)
 	}
 	return a.saveConnection(srv, r.JSON201)
+}
+
+// hostOf is a server's host and port, as people name it.
+func hostOf(srv serverRef) string {
+	if u, err := url.Parse(srv.URL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return srv.URL
 }
 
 // isInviteLink reports whether s is meant as an invite link rather than a server's
@@ -184,15 +205,12 @@ const (
 // approves from a machine where they are signed in, and waits, polling with the secret
 // only this machine holds, until the request is approved (and the key collected),
 // refused or expired.
-func connectByApproval(ctx context.Context, a *app, srv serverRef, name string) error {
-	if err := a.checkNotConnected(srv); err != nil {
-		return err
-	}
+func connectByApproval(ctx context.Context, a *app, srv serverRef, handle, name string) error {
 	c, err := a.newClient(srv, "", requestTimeout)
 	if err != nil {
 		return err
 	}
-	r, err := c.api.StartMachineRequestWithResponse(ctx, nil, api.StartMachineRequest{Label: name})
+	r, err := c.api.StartMachineRequestWithResponse(ctx, nil, api.StartMachineRequest{Handle: handle, Label: name})
 	if err != nil {
 		return c.unreachable(err)
 	}
@@ -210,8 +228,8 @@ func connectByApproval(ctx context.Context, a *app, srv serverRef, name string) 
 	if a.json {
 		out = a.env.Stderr
 	}
-	_, _ = fmt.Fprintf(out, "Approve this machine (%q) from one where you're signed in to %s:\n  aboard approve %s     (expires in %s)\nOr paste a key with: aboard login %s\n",
-		name, srv.URL, started.Code, durationText(waitFor), srv.URL)
+	_, _ = fmt.Fprintf(out, "Connecting this machine (%q) to %s as %s.\nOn a machine where @%s is signed in, run: aboard approve %s --server %s\nThe code expires in %s. Or paste a key with: aboard login %s\n",
+		name, srv.URL, handle, handle, started.Code, srv.URL, durationText(waitFor), srv.URL)
 
 	deadline := time.Now().Add(waitFor)
 	every := pollEvery(started.PollIntervalSeconds)

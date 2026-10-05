@@ -30,17 +30,31 @@ func withArticle(name string) string {
 }
 
 // refuseInSession refuses a command that is up to a person (it acts or reads with the
-// human login, or changes a delivery mode) when it runs inside a harness session, where
-// an allow rule for aboard would let an agent run it without asking. what says what the
-// command does; command is the command to run in a terminal instead.
+// human login, or changes a delivery mode) when it runs for an agent: inside a harness
+// session, where an allow rule for aboard would let an agent run it without asking, or
+// with ABOARD_AGENT set, which says the process acts as an agent whatever runs it (a
+// harness Aboard can't detect, a launched session, a script driving an agent). It
+// refuses before the command reads a key or makes a request. what says what the command
+// does; command is the command to run in a terminal instead.
 func (a *app) refuseInSession(what, command string) error {
-	harness, in := a.inSession()
-	if !in {
-		return nil
+	if harness, in := a.inSession(); in {
+		return newError("human_command_in_session",
+			what+" is up to a person, and this command runs inside "+withArticle(harness)+" session.",
+			"Give your human this command to run in their own terminal, outside any agent session: "+command)
 	}
-	return newError("human_command_in_session",
-		what+" is up to a person, and this command runs inside "+withArticle(harness)+" session.",
-		"Give your human this command to run in their own terminal, outside any agent session: "+command)
+	if agent := strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")); agent != "" {
+		return newError("human_command_in_session",
+			what+" is up to a person, and this command runs for the agent "+agent+": ABOARD_AGENT is set.",
+			"Give your human this command to run in their own terminal, without ABOARD_AGENT set: "+command)
+	}
+	return nil
+}
+
+// actsForAgent reports whether this command runs for an agent, as refuseInSession
+// decides it.
+func (a *app) actsForAgent() bool {
+	_, in := a.inSession()
+	return in || strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) != ""
 }
 
 // modeText explains what each delivery mode does, for text output.
@@ -69,7 +83,7 @@ func runDelivery(ctx context.Context, a *app, args []string) error {
 			return usageError(fmt.Sprintf("%q is not a delivery mode; use focused, all, humans or off.", pos[0]), use)
 		}
 		want = m
-		if _, in := a.inSession(); in {
+		if a.actsForAgent() {
 			agent := "AGENT"
 			if _, cred, err := a.agentTarget(ctx, *boardFlag, *as); err == nil {
 				agent = cred.Name

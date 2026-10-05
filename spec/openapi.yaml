@@ -28,11 +28,11 @@ info:
     it acts as the person who asked for the code, with exactly that person's permissions.
     The server never sets or reads a cookie.
 
-    **New machines.** A machine with no key asks for one with
+    **New machines.** A machine with no key asks for one, for a named person, with
     `POST /v1/machine-requests`, shows its short code, and collects its key with its long
-    secret once a person approves the code from a machine where they are signed in
-    (`POST /v1/machine-requests/approve`). The new key belongs to the person who
-    approved, and is independent of their own key.
+    secret once that person approves the code from a machine where they are signed in
+    (`POST /v1/machine-requests/approve`). The new key is theirs, and independent of the
+    key that approved it.
 
     **Access keys.** A person lists, creates and revokes their keys with `/v1/keys`, only
     with a key of their own: an agent token or a browser token gets 403
@@ -372,20 +372,23 @@ paths:
       operationId: startMachineRequest
       summary: Ask to connect a new machine, for a person to approve
       description: |
-        No token needed. A machine with no key for this server asks for one. The response
-        has two secrets: a short `code` (`4KQ-7ZX`) that a person types on a machine where
-        they are signed in, to approve the request with
-        `POST /v1/machine-requests/approve`, and a long `secret` that only the requesting
-        machine keeps and sends to `POST /v1/machine-requests/collect` to collect its key
-        once the request is approved. The code alone can't collect anything.
+        No token needed. A machine with no key for this server asks for one, for the
+        person `handle` names. The response has two secrets: a short `code` (`4KQ-7ZX`)
+        that this person types on a machine where they are signed in, to approve the
+        request with `POST /v1/machine-requests/approve`, and a long `secret` that only the
+        requesting machine keeps and sends to `POST /v1/machine-requests/collect` to
+        collect its key once the request is approved. The code alone can't collect
+        anything, and only the named person can approve it.
 
-        `label` is the name the requesting machine gives itself, which names its key. It is
-        shown to the approving person as the machine's own claim, not as proof of
-        anything. The request ends at `expires_at`, 5 minutes after it is made. The server
-        keeps only digests of the code and the secret, and doesn't keep the response for
-        `Idempotency-Key` repeats: each call makes a new request. Requests are limited per
-        client address and across the server; over the limit returns 429 with
-        `Retry-After`.
+        A handle nobody on the server has is accepted the same way, and its request can
+        never be approved, so the answer doesn't say which handles exist. `label` is the
+        name the requesting machine gives itself, which names its key. It is shown to the
+        approving person as the machine's own claim, not as proof of anything. The request
+        ends at `expires_at`, 5 minutes after it is made. The server keeps only digests of
+        the code and the secret, sends the response with `Cache-Control: no-store`, and
+        doesn't keep it for `Idempotency-Key` repeats: each call makes a new request.
+        Requests are limited per client address and across the server; over the limit
+        returns 429 with `Retry-After`.
       security: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -417,11 +420,11 @@ paths:
       operationId: lookupMachineRequest
       summary: See a pending machine request before approving it
       description: |
-        With a person's own access key. Shows the pending request the short `code` names:
-        the label the machine gave itself, the address it asked from, when it asked, and
-        `person`, the caller, as whom approving it would sign the machine in. A code that
-        is wrong, expired, already approved or refused gets 404
-        `machine_request_invalid`, which doesn't say which. An agent token or a browser
+        With a person's own access key. Shows the pending request the short `code` names,
+        when it names the caller: the label the machine gave itself, the address it asked
+        from, when it asked, and `person`, the caller, as whom approving it would sign the
+        machine in. A code that is wrong, expired, already approved or refused, or that
+        names another person, gets 404 `machine_request_invalid`, which doesn't say which. An agent token or a browser
         token gets 403 `human_token_required`.
 
         Every attempt with a code (here, approving and refusing) counts against limits per
@@ -459,16 +462,16 @@ paths:
       operationId: approveMachineRequest
       summary: Approve a machine request, giving that machine a key of yours
       description: |
-        With a person's own access key. Approves the pending request the short `code`
-        names, for the caller: the requesting machine may then collect a new access key of
-        the caller's, independent of the caller's own key, named after the request's label
+        With a person's own access key, and only for a request that names the caller.
+        Approves the pending request the short `code` names: the requesting machine may
+        then collect a new access key of the caller's, independent of the caller's own key, named after the request's label
         and expiring after 90 days without use. Approving signs that machine in as you, so
         approve only a request you started yourself, a moment ago. The key is made when
         the machine collects it, and only if the approving key still works then.
 
-        A code that is wrong, expired, already approved or refused gets 404
-        `machine_request_invalid`. An agent token or a browser token gets 403
-        `human_token_required`. Attempts are limited as for
+        A code that is wrong, expired, already approved or refused, or that names another
+        person, gets 404 `machine_request_invalid`. An agent token or a browser token gets
+        403 `human_token_required`. Attempts are limited as for
         `POST /v1/machine-requests/lookup`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -542,7 +545,7 @@ paths:
         for a person, returns 202 with `poll_interval_seconds`, how long to wait before
         asking again. Once approved, returns 201 with a new access key, once and never
         again: in one step the server makes the key, for the person who approved, and uses
-        up the request. The key expires after 90 days without use, like the key
+        up the request. Both answers are sent with `Cache-Control: no-store`. The key expires after 90 days without use, like the key
         `POST /v1/connect` gives.
 
         A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
@@ -1690,9 +1693,14 @@ components:
         key: { $ref: "#/components/schemas/NewAccessKey" }
     StartMachineRequest:
       type: object
-      required: [label]
+      required: [label, handle]
       additionalProperties: false
       properties:
+        handle:
+          type: string
+          maxLength: 80
+          description: The person the machine is for. Only their own key can approve the request.
+          example: maya
         label:
           type: string
           pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"

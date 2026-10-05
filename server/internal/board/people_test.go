@@ -135,7 +135,7 @@ var writes = map[string]func(ctx context.Context, w *keyWorld, person, agent boa
 		return err
 	},
 	"approve a machine": func(ctx context.Context, w *keyWorld, person, _ board.Principal) error {
-		r, err := w.svc.StartMachineRequest(ctx, "desktop", "127.0.0.1")
+		r, err := w.svc.StartMachineRequest(ctx, "alex", "desktop", "127.0.0.1")
 		if err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ var writes = map[string]func(ctx context.Context, w *keyWorld, person, agent boa
 		return err
 	},
 	"refuse a machine": func(ctx context.Context, w *keyWorld, person, _ board.Principal) error {
-		r, err := w.svc.StartMachineRequest(ctx, "desktop", "127.0.0.1")
+		r, err := w.svc.StartMachineRequest(ctx, "alex", "desktop", "127.0.0.1")
 		if err != nil {
 			return err
 		}

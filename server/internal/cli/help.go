@@ -173,19 +173,19 @@ func helpText(templates string) []commandHelp {
 			Summary: "Join a server with an invite link, or connect another machine of yours",
 			Usage: []string{
 				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--json]",
-				"aboard connect <server URL> [--name MACHINE] [--json]",
+				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--json]",
 			},
 			Description: "With an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
 				"An invite works once.\n\n" +
-				"With the server's address alone, on a machine of yours that isn't connected yet: it shows a short code, such as 4KQ-7ZX, which you approve within 5 minutes from a machine where you're signed in, with aboard approve. " +
-				"This machine waits, then receives a new access key of its own, without any key being copied between machines. " +
-				"It is signed in as whoever approves the code.\n\n" +
+				"With the server's address alone, on a machine of yours that isn't connected yet: it asks for your handle and shows a short code, such as 4KQ-7ZX, which you approve within 5 minutes from a machine where you're signed in, with aboard approve. " +
+				"Only your own approval counts. " +
+				"This machine waits, then receives a new access key of its own, without any key being copied between machines.\n\n" +
 				"Either way, the key is saved in servers.json, readable only by you, and sent only to that server. " +
 				"From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. " +
 				"A machine keeps one key per server. A server other than this machine must be reached over https. " +
 				"Connecting is up to a person, so it refuses inside an agent's session.",
 			Flags: []helpFlag{
-				{"--handle", "NAME", "With an invite: your name on the server, lowercase letters, digits and dashes. Default: asked, starting from your system user name; without a terminal, your system user name."},
+				{"--handle", "NAME", "Your name on the server, lowercase letters, digits and dashes. With an invite, the name you take (default: asked, starting from your system user name; without a terminal, your system user name). With the server's address, who you are there: asked at a terminal, and needed without one."},
 				{"--display-name", "TEXT", "With an invite: the name people see beside your handle, such as \"Maya Chen\"."},
 				{"--name", "MACHINE", "This machine's name, which names its key. Default: its host name."},
 				flagJSON,
@@ -193,7 +193,7 @@ func helpText(templates string) []commandHelp {
 			Examples: []helpExample{
 				{"aboard connect https://team.example.com/join#abi_…", "Join a team's server"},
 				{"aboard connect https://team.example.com/join#abi_… --handle maya", "With your handle chosen"},
-				{"aboard connect https://team.example.com", "Connect another machine of yours, approved from one that is signed in"},
+				{"aboard connect https://team.example.com --handle maya", "Connect another machine of yours, approved from one that is signed in"},
 			},
 			SeeAlso: []string{"approve", "invite", "login", "status"},
 		},
@@ -201,7 +201,8 @@ func helpText(templates string) []commandHelp {
 			Name: "approve", Group: groupStart,
 			Summary: "Approve a new machine connecting as you",
 			Usage:   []string{approveUsage},
-			Description: "Approves the code a new machine shows after aboard connect <server URL>: that machine receives an access key of its own, as you, named after the machine and expiring after 90 days without use. " +
+			Description: "Approves the code a new machine of yours shows after aboard connect <server URL>: that machine receives an access key of its own, as you, named after the machine and expiring after 90 days without use. " +
+				"A code works only for the person the machine named; for anyone else it is refused like a wrong code. " +
 				"Your own key isn't copied, and revoking it later leaves the new machine's key working.\n\n" +
 				"It first shows the request: the name the machine gave itself, which is only its own claim, and where and when it asked; then it asks whether to approve it connecting as you. " +
 				"Approve only a request you started yourself, a moment ago: whoever runs that machine is signed in as you. " +

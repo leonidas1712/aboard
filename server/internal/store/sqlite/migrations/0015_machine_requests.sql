@@ -1,5 +1,5 @@
--- New machines asking for an access key. A request is approved or refused with its short
--- code by a person signed in elsewhere, and the machine collects its key with a long
+-- New machines asking for an access key, each for the person its handle names. A request
+-- is approved or refused with its short code by that person, signed in elsewhere, and the machine collects its key with a long
 -- secret only it holds. Only keyed digests of the code and the secret are kept. Requests
 -- last minutes, and ended ones are deleted when the next request is made, so the short
 -- code is unique among the requests kept.
@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS machine_requests (
     code_digest    TEXT NOT NULL UNIQUE,
     secret_digest  TEXT NOT NULL UNIQUE,
     label          TEXT NOT NULL,
+    handle         TEXT NOT NULL,
     requested_from TEXT NOT NULL,
     created_at     TEXT NOT NULL,
     expires_at     TEXT NOT NULL,

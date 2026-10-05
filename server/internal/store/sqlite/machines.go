@@ -6,19 +6,19 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
 
-const machineRequestColumns = "id, code_digest, secret_digest, label, requested_from, created_at, expires_at, state, decided_by, decided_key, decided_at, key_id, polls"
+const machineRequestColumns = "id, code_digest, secret_digest, label, handle, requested_from, created_at, expires_at, state, decided_by, decided_key, decided_at, key_id, polls"
 
 func scanMachineRequest(row *sql.Row) (board.MachineRequest, error) {
 	var r board.MachineRequest
-	err := row.Scan(&r.ID, &r.CodeDigest, &r.SecretDigest, &r.Label, &r.RequestedFrom, &r.CreatedAt, &r.ExpiresAt, &r.State,
+	err := row.Scan(&r.ID, &r.CodeDigest, &r.SecretDigest, &r.Label, &r.Handle, &r.RequestedFrom, &r.CreatedAt, &r.ExpiresAt, &r.State,
 		&r.DecidedBy, &r.DecidedKey, &r.DecidedAt, &r.KeyID, &r.Polls)
 	return r, notFound(err)
 }
 
 // InsertMachineRequest adds a machine request.
 func (t *tx) InsertMachineRequest(r board.MachineRequest) error {
-	return t.exec("INSERT INTO machine_requests ("+machineRequestColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		r.ID, r.CodeDigest, r.SecretDigest, r.Label, r.RequestedFrom, r.CreatedAt, r.ExpiresAt, r.State,
+	return t.exec("INSERT INTO machine_requests ("+machineRequestColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		r.ID, r.CodeDigest, r.SecretDigest, r.Label, r.Handle, r.RequestedFrom, r.CreatedAt, r.ExpiresAt, r.State,
 		r.DecidedBy, r.DecidedKey, r.DecidedAt, r.KeyID, r.Polls)
 }
 

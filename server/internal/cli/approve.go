@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -62,11 +61,7 @@ func runApprove(ctx context.Context, a *app, args []string) error {
 		return keyRejected(srv, look.StatusCode(), look.Body)
 	}
 	req := look.JSON200
-	host := srv.URL
-	if u, err := url.Parse(srv.URL); err == nil && u.Host != "" {
-		host = u.Host
-	}
-	question := fmt.Sprintf("Approve %q connecting to %s as %s?", req.Label, host, req.Person.Handle)
+	question := fmt.Sprintf("Approve %q connecting to %s as %s?", req.Label, hostOf(srv), req.Person.Handle)
 	about := fmt.Sprintf("A machine calling itself %q asked from %s %s. That name is only its own claim.\n",
 		req.Label, req.RequestedFrom, agoText(req.CreatedAt, time.Now()))
 	if !*yes {

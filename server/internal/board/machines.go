@@ -40,10 +40,17 @@ type StartedMachineRequest struct {
 	PollEvery time.Duration
 }
 
-// StartMachineRequest records a machine's request for a key: label is the name the
-// machine gives itself, and from the client address it asked from. Anyone may ask; only
-// a person signed in elsewhere can approve it.
-func (s *Service) StartMachineRequest(ctx context.Context, label, from string) (StartedMachineRequest, error) {
+// StartMachineRequest records a machine's request for a key for the person handle
+// names: label is the name the machine gives itself, and from the client address it
+// asked from. Anyone may ask; only that person, signed in elsewhere, can approve it. A
+// handle nobody has is recorded the same way, without looking it up, so the answer
+// never says which handles exist; such a request can never be approved.
+func (s *Service) StartMachineRequest(ctx context.Context, handle, label, from string) (StartedMachineRequest, error) {
+	if !validName(handle) {
+		return StartedMachineRequest{}, apierr.New(http.StatusUnprocessableEntity, "handle_invalid",
+			fmt.Sprintf("%q can't be a handle: use lowercase letters, digits and single dashes, at most 40 characters.", handle),
+			"Give your handle on the server, such as maya.")
+	}
 	if !validName(label) {
 		return StartedMachineRequest{}, invalid("A machine's name uses lowercase letters, digits and single dashes, at most 40 characters.",
 			"Name the machine after its host name, such as maya-desktop.")
@@ -76,7 +83,7 @@ func (s *Service) StartMachineRequest(ctx context.Context, label, from string) (
 			return err
 		}
 		r := MachineRequest{
-			CodeDigest: ids.Digest(s.key, code), SecretDigest: ids.Digest(s.key, secret), Label: label, RequestedFrom: from,
+			CodeDigest: ids.Digest(s.key, code), SecretDigest: ids.Digest(s.key, secret), Label: label, Handle: handle, RequestedFrom: from,
 			CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(MachineRequestTTL)), State: MachinePending,
 		}
 		if r.ID, err = s.gen.ID("mrq", now); err != nil {
@@ -98,12 +105,12 @@ type MachineRequestView struct {
 	Person  Human
 }
 
-// machineCodeInvalid is the error for a short code that is wrong, expired or already
-// decided; it doesn't say which.
+// machineCodeInvalid is the error for a short code that is wrong, expired, already
+// decided or for another person; it doesn't say which.
 func machineCodeInvalid() *apierr.Error {
 	return apierr.New(http.StatusNotFound, "machine_request_invalid",
-		"That code doesn't work: it is wrong, expired, or already approved or refused.",
-		"Check the code the new machine shows; if it has expired, run aboard connect <server URL> there again for a new one.")
+		"That code doesn't work for you: it is wrong, expired, already approved or refused, or the machine asked for someone else.",
+		"Check the code the new machine shows and the person it names; if it has expired, run aboard connect <server URL> there again for a new one.")
 }
 
 // requireOwnKeyToDecide refuses everything but a person's own access key: approving a
@@ -125,8 +132,9 @@ func requireOwnKeyToDecide(p Principal) error {
 	return nil
 }
 
-// pendingRequest finds the pending, unexpired request a typed short code names.
-func (s *Service) pendingRequest(tx ReadTx, code, now string) (MachineRequest, error) {
+// pendingRequest finds the pending, unexpired request a typed short code names for the
+// person me. A request for anyone else fails exactly as a wrong code does.
+func (s *Service) pendingRequest(tx ReadTx, me Human, code, now string) (MachineRequest, error) {
 	c, ok := ids.NormalizeJoinCode(code)
 	if !ok {
 		return MachineRequest{}, machineCodeInvalid()
@@ -138,7 +146,7 @@ func (s *Service) pendingRequest(tx ReadTx, code, now string) (MachineRequest, e
 	if err != nil {
 		return MachineRequest{}, err
 	}
-	if r.State != MachinePending || r.ExpiresAt <= now || r.Polls >= MachineRequestMaxPolls {
+	if r.State != MachinePending || r.ExpiresAt <= now || r.Polls >= MachineRequestMaxPolls || r.Handle != me.Name {
 		return MachineRequest{}, machineCodeInvalid()
 	}
 	return r, nil
@@ -156,11 +164,11 @@ func (s *Service) LookupMachineRequest(ctx context.Context, p Principal, code st
 		if err := stillValid(tx, p, now); err != nil {
 			return err
 		}
-		r, err := s.pendingRequest(tx, code, now)
+		h, err := tx.HumanByID(p.Human.ID)
 		if err != nil {
 			return err
 		}
-		h, err := tx.HumanByID(p.Human.ID)
+		r, err := s.pendingRequest(tx, h, code, now)
 		if err != nil {
 			return err
 		}
@@ -170,8 +178,8 @@ func (s *Service) LookupMachineRequest(ctx context.Context, p Principal, code st
 	return out, err
 }
 
-// ApproveMachineRequest approves the pending request a short code names, for the
-// caller: the machine may then collect a new key of the caller's. Only a person's own
+// ApproveMachineRequest approves the pending request a short code names, when it names
+// the caller: the machine may then collect a new key of the caller's. Only a person's own
 // key can, and the key is made only if that key still works when the machine collects.
 func (s *Service) ApproveMachineRequest(ctx context.Context, p Principal, code string) (MachineRequestView, error) {
 	return s.decideMachineRequest(ctx, p, code, MachineApproved)
@@ -190,11 +198,11 @@ func (s *Service) decideMachineRequest(ctx context.Context, p Principal, code, s
 	var out MachineRequestView
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		now := stamp(s.clk.Now())
-		r, err := s.pendingRequest(tx, code, now)
+		h, err := tx.HumanByID(p.Human.ID)
 		if err != nil {
 			return err
 		}
-		h, err := tx.HumanByID(p.Human.ID)
+		r, err := s.pendingRequest(tx, h, code, now)
 		if err != nil {
 			return err
 		}

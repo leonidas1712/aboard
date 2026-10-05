@@ -163,6 +163,8 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 					tooMany(w, o.Log, "Too many requests to connect a machine.")
 					return
 				}
+				// Both answer with secrets that no cache may keep.
+				w.Header().Set("Cache-Control", "no-store")
 				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), clientAddrKey{}, host)))
 				return
 			case "/v1/machine-requests/lookup", "/v1/machine-requests/approve", "/v1/machine-requests/refuse":

@@ -16,7 +16,7 @@ func clientAddr(ctx context.Context) string {
 
 // StartMachineRequest records a new machine's request for a key. It needs no token.
 func (h *handlers) StartMachineRequest(ctx context.Context, req StartMachineRequestRequestObject) (StartMachineRequestResponseObject, error) {
-	r, err := h.svc.StartMachineRequest(ctx, req.Body.Label, clientAddr(ctx))
+	r, err := h.svc.StartMachineRequest(ctx, req.Body.Handle, req.Body.Label, clientAddr(ctx))
 	if err != nil {
 		return nil, err
 	}

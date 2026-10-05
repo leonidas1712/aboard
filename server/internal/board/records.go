@@ -67,10 +67,13 @@ type ServerInvite struct {
 // with its short code. It is kept by the keyed digests of the short code and of the long
 // secret the machine collects its key with, never by either secret.
 type MachineRequest struct {
-	ID            string
-	CodeDigest    string
-	SecretDigest  string
-	Label         string // the name the machine gave itself; it names the key
+	ID           string
+	CodeDigest   string
+	SecretDigest string
+	Label        string // the name the machine gave itself; it names the key
+	// Handle names the person the request is for: only their own key may decide it. It
+	// may name nobody, and then nobody can.
+	Handle        string
 	RequestedFrom string // the client address the request came from
 	CreatedAt     string
 	ExpiresAt     string

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,23 +109,32 @@ func (w *waiting) result() result {
 // host is the server's host and port, as aboard approve names it.
 func (tm *team) host() string { return strings.TrimPrefix(tm.url(), "http://") }
 
-// The second machine: Maya's desktop asks to connect with the server's address alone and
-// shows a code; on her laptop, signed in, she sees the request and approves it; the
-// desktop collects a key of its own. Revoking the laptop's key leaves the desktop's
-// working.
+// The second machine: Maya's desktop asks to connect with the server's address alone,
+// asks whose machine it is and shows a code for her; on her laptop, signed in, she sees
+// the request and approves it; the desktop collects a key of its own. Revoking the
+// laptop's key leaves the desktop's working.
 func TestApprovingASecondMachine(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	laptop := tm.person("maya")
 	desktop := newPersonHome(t, "maya")
 
-	connecting := desktop.start("connect", tm.url(), "--name", "maya-desktop")
-	code := connecting.shownCode()
-	if got := connecting.out.String(); !strings.HasPrefix(got,
-		`Approve this machine ("maya-desktop") from one where you're signed in to `+tm.url()+":\n"+
-			"  aboard approve "+code+"     (expires in 5 minutes)\n"+
-			"Or paste a key with: aboard login "+tm.url()+"\n") {
-		t.Fatalf("connect while waiting:\n%s", got)
+	connecting := desktop.startTerminal(nil, "connect", tm.url(), "--name", "maya-desktop")
+	connecting.answer("Your handle on "+tm.host(), enter)
+	connecting.waitFor("The code expires in 5 minutes.")
+	m := approveCode.FindStringSubmatch(connecting.text())
+	if m == nil {
+		t.Fatalf("connect showed no code:\n%s", connecting.text())
+	}
+	code := m[1]
+	for _, want := range []string{
+		`Connecting this machine ("maya-desktop") to ` + tm.url() + " as maya.",
+		"On a machine where @maya is signed in, run: aboard approve " + code + " --server " + tm.url(),
+		"The code expires in 5 minutes. Or paste a key with: aboard login " + tm.url(),
+	} {
+		if !strings.Contains(connecting.text(), want) {
+			t.Fatalf("connect while waiting doesn't say %q:\n%s", want, connecting.text())
+		}
 	}
 
 	term := laptop.startTerminal(nil, "approve", code)
@@ -135,9 +145,9 @@ func TestApprovingASecondMachine(t *testing.T) {
 		t.Fatalf("approve exited %d:\n%s", code, term.text())
 	}
 
-	done := connecting.wait()
-	if done.code != 0 || !strings.HasSuffix(done.stdout, "Connected to "+tm.url()+` as maya (member). This machine's key, "maya-desktop", is saved.`+"\n") {
-		t.Fatalf("connect:\n%s", done)
+	connecting.waitFor("Connected to " + tm.url() + ` as maya (member). This machine's key, "maya-desktop", is saved.`)
+	if code := connecting.exit(); code != 0 {
+		t.Fatalf("connect exited %d:\n%s", code, connecting.text())
 	}
 	desktopKey, laptopKey := tm.key(desktop), tm.key(laptop)
 	if desktopKey == laptopKey || tm.me(desktopKey)["id"] != tm.me(laptopKey)["id"] {
@@ -162,24 +172,31 @@ func TestApprovingASecondMachine(t *testing.T) {
 	tm.works(desktopKey, true)
 }
 
-// Whoever approves is who the new machine becomes: a stranger approving another
-// person's code is asked plainly whether to sign the machine in as themselves, and the
-// machine is signed in as them. Connect with --json keeps standard output to its result.
-func TestApprovalNamesWhoTheMachineBecomes(t *testing.T) {
+// A machine request names its person, and only their approval counts: a stranger with
+// the right code is refused as a wrong code is, and the request waits on for its person.
+// A request for a handle nobody has can't be approved by anyone. Connect with --json
+// keeps standard output to its result, and needs --handle, since it can't ask.
+func TestOnlyTheNamedPersonApprovesTheirMachine(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	sam := tm.person("sam")
+	maya, sam := tm.person("maya"), tm.person("sam")
 	desktop := newPersonHome(t, "maya")
+	if r := desktop.runExit("connect", tm.url(), "--json"); r.code != 2 || !strings.Contains(r.stderr, "--handle") {
+		t.Fatalf("connect --json without --handle:\n%s", r)
+	}
 
-	connecting := desktop.start("connect", tm.url(), "--name", "maya-desktop", "--json")
+	connecting := desktop.start("connect", tm.url(), "--handle", "maya", "--name", "maya-desktop", "--json")
 	code := connecting.shownCode()
 	if connecting.out.String() != "" {
 		t.Fatalf("connect --json wrote to standard output while waiting:\n%s", connecting.out.String())
 	}
-	term := sam.startTerminal(nil, "approve", code)
-	term.answer(`Approve "maya-desktop" connecting to `+tm.host()+` as sam?`, "y")
-	term.waitFor("Approved.")
-	term.exit()
+	for _, args := range [][]string{{"approve", code, "--yes"}, {"approve", code, "--refuse"}} {
+		r := sam.runExit(append(args, "--json")...)
+		if r.code != 1 || errorCode(t, r.json(t)) != "machine_request_invalid" {
+			t.Fatalf("sam running %v on maya's code:\n%s", args, r)
+		}
+	}
+	maya.run("approve", code, "--yes")
 
 	done := connecting.wait()
 	if done.code != 0 {
@@ -187,8 +204,19 @@ func TestApprovalNamesWhoTheMachineBecomes(t *testing.T) {
 	}
 	out := done.json(t)
 	matchesCLISpec(t, "ConnectOutput", out)
-	if field(t, out, "person.handle") != "sam" || field(t, out, "key.name") != "maya-desktop" {
+	if field(t, out, "person.handle") != "maya" || field(t, out, "key.name") != "maya-desktop" {
 		t.Fatalf("connect --json: %v", out)
+	}
+
+	// Nobody can approve a machine for a handle nobody has; it waits until it expires.
+	ghost := newPersonHome(t, "nobody")
+	waiting := ghost.start("connect", tm.url(), "--handle", "nobody", "--name", "ghost", "--json")
+	ghostCode := waiting.shownCode()
+	for _, who := range []*env{tm.admin, maya, sam} {
+		r := who.runExit("approve", ghostCode, "--yes", "--json")
+		if r.code != 1 || errorCode(t, r.json(t)) != "machine_request_invalid" {
+			t.Fatalf("approving a request for nobody:\n%s", r)
+		}
 	}
 	if _, ok := out["key"].(map[string]any)["token"]; ok {
 		t.Fatalf("connect printed the key: %v", out)
@@ -203,7 +231,7 @@ func TestARefusedMachineSavesNothing(t *testing.T) {
 	maya := tm.person("maya")
 	desktop := newPersonHome(t, "maya")
 
-	connecting := desktop.start("connect", tm.url(), "--name", "maya-desktop", "--json")
+	connecting := desktop.start("connect", tm.url(), "--handle", "maya", "--name", "maya-desktop", "--json")
 	code := connecting.shownCode()
 	out := maya.run("approve", code, "--refuse", "--json").json(t)
 	matchesCLISpec(t, "ApproveOutput", out)
@@ -229,8 +257,8 @@ func TestARefusedMachineSavesNothing(t *testing.T) {
 func TestOnlyAPersonApprovesAMachine(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	desktop := newPersonHome(t, "maya")
-	connecting := desktop.start("connect", tm.url(), "--name", "maya-desktop")
+	desktop := newPersonHome(t, "alex")
+	connecting := desktop.start("connect", tm.url(), "--handle", "alex", "--name", "alex-desktop")
 	code := connecting.shownCode()
 
 	s := tm.admin.claudeSession("s-approve")
@@ -273,7 +301,8 @@ func TestConnectByApprovalRefusesWhatItCantDo(t *testing.T) {
 		code string
 	}{
 		{[]string{"connect", "http://example.com", "--json"}, 1, "insecure_server"},
-		{[]string{"connect", tm.url(), "--handle", "maya", "--json"}, 2, "usage"},
+		{[]string{"connect", tm.url(), "--handle", "maya", "--display-name", "Maya", "--json"}, 2, "usage"},
+		{[]string{"connect", tm.url(), "--json"}, 2, "usage"},
 		{[]string{"connect", "http://" + home.addr, "--json"}, 1, "already_connected"},
 	} {
 		r := home.runExit(tt.args...)
@@ -295,5 +324,105 @@ func TestConnectByApprovalRefusesWhatItCantDo(t *testing.T) {
 	r = maya.runExit("approve", "AAA-AAA", "--yes", "--server", tm.url(), "--json")
 	if r.code != 1 || errorCode(t, r.json(t)) != "machine_request_invalid" {
 		t.Fatalf("approve a wrong code:\n%s", r)
+	}
+}
+
+// requestCounter is a server that only counts the requests it gets, to show a command
+// refused before it made any.
+func requestCounter(t *testing.T) (url string, count func() int) {
+	t.Helper()
+	var mu sync.Mutex
+	n := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		n++
+		mu.Unlock()
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL, func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return n
+	}
+}
+
+// A process with ABOARD_AGENT set acts for an agent, whatever runs it: every command
+// that is up to a person refuses there before it reads a key or makes a request, even
+// with no harness session to detect. Approving a machine, refusing one and connecting
+// one are the sharpest cases, since each would hand out or take a key.
+func TestPersonCommandsRefuseWhenActingForAnAgent(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	maya := tm.person("maya")
+	counter, requests := requestCounter(t)
+	agent := []string{"ABOARD_AGENT=helper"}
+	for _, args := range [][]string{
+		{"approve", "AAA-AAA", "--yes", "--server", counter},
+		{"approve", "AAA-AAA", "--refuse", "--server", counter},
+		{"connect", counter},
+		{"connect", counter + "/join#abi_x"},
+		{"login", counter},
+		{"keys", "--server", counter},
+		{"keys", "create", "x", "--server", counter},
+		{"keys", "revoke", "x", "--server", counter},
+	} {
+		before := treeSums(t, maya.configDir())
+		r := maya.exec(agent, "abh_"+strings.Repeat("A", 43)+"\n", append(args, "--json")...)
+		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" || !strings.Contains(r.stdout, "ABOARD_AGENT") {
+			t.Fatalf("%v with ABOARD_AGENT set:\n%s", args, r)
+		}
+		after := treeSums(t, maya.configDir())
+		for path, sum := range after {
+			if before[path] != sum {
+				t.Fatalf("%v with ABOARD_AGENT set changed %s", args, path)
+			}
+		}
+	}
+	if n := requests(); n != 0 {
+		t.Fatalf("commands refused for an agent made %d requests", n)
+	}
+
+	// Against the real server, a refused approve or refuse leaves the request pending:
+	// it reached nothing, and the person's own approve still works.
+	desktop := newPersonHome(t, "maya")
+	connecting := desktop.start("connect", tm.url(), "--handle", "maya", "--name", "maya-desktop")
+	code := connecting.shownCode()
+	for _, extra := range []string{"--yes", "--refuse"} {
+		r := maya.exec(agent, "", "approve", code, extra, "--server", tm.url(), "--json")
+		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
+			t.Fatalf("approve %s with ABOARD_AGENT set:\n%s", extra, r)
+		}
+	}
+	maya.run("approve", code, "--yes", "--server", tm.url())
+	if done := connecting.wait(); done.code != 0 {
+		t.Fatalf("connect after the person approved:\n%s", done)
+	}
+
+	// Every other command that is up to a person refuses the same way, in a fresh home
+	// where it would otherwise start the local server.
+	fresh := newPersonHome(t, "sam")
+	for _, args := range [][]string{
+		{"invite"},
+		{"invite", "--server"},
+		{"board", "policy", "recommended"},
+		{"watch"},
+		{"logout", "--browsers"},
+		{"delivery", "humans"},
+		{"init", "--delivery", "humans", "--yes"},
+		{"swarm", "up"},
+		{"swarm", "ps"},
+		{"swarm", "down"},
+		{"swarm", "list"},
+		{"swarm", "show"},
+		{"uninstall", "--data", "--yes"},
+	} {
+		r := fresh.exec(agent, "", append(args, "--json")...)
+		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
+			t.Fatalf("%v with ABOARD_AGENT set:\n%s", args, r)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(fresh.dataDir(), "server.pid")); err == nil {
+		t.Fatal("a refused command started the local server")
 	}
 }
