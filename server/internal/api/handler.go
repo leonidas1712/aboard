@@ -43,6 +43,10 @@ type Options struct {
 	// ConnectsPerMinuteServer across every address. Zero means no limit.
 	ConnectsPerMinute       int
 	ConnectsPerMinuteServer int
+	// MachineRequests limits POST /v1/machine-requests; MachineCodes limits the attempts
+	// with a machine's short code (looking a request up, approving and refusing it); and
+	// MachineCollects limits POST /v1/machine-requests/collect.
+	MachineRequests, MachineCodes, MachineCollects Limits
 	// Shutdown is done when the server starts shutting down. Open event streams on
 	// GET /v1/stream end then; without it they end only when their clients disconnect.
 	Shutdown context.Context
@@ -91,7 +95,10 @@ func NewHandler(o Options) (http.Handler, error) {
 	})
 	limiter := newRateLimiter(o.Clock, o.JoinsPerMinute)
 	connects := connectLimits{perAddr: newRateLimiter(o.Clock, o.ConnectsPerMinute), all: newRateLimiter(o.Clock, o.ConnectsPerMinuteServer)}
-	apiChain := validate(authenticate(o, limiter, connects, idempotent(o, routes)))
+	machines := machineLimits{
+		requests: newLimiters(o.Clock, o.MachineRequests), codes: newLimiters(o.Clock, o.MachineCodes), collects: newLimiters(o.Clock, o.MachineCollects),
+	}
+	apiChain := validate(authenticate(o, limiter, connects, machines, idempotent(o, routes)))
 	outer := http.NewServeMux()
 	outer.Handle("/v1/", apiChain)
 	outer.Handle("/", serveUI(o.UI))
@@ -137,12 +144,36 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 }
 
 // authenticate resolves the bearer token for every route except GET /v1/info,
-// POST /v1/browser-tokens and POST /v1/connect, and rate limits join attempts by client
-// address, and invite redemptions by client address and across the server.
-func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next http.Handler) http.Handler {
+// POST /v1/browser-tokens, POST /v1/connect and the two a new machine calls before it
+// has a key. It rate limits join attempts by client address; invite redemptions and what
+// a new machine does by client address and across the server; and attempts with a
+// machine's short code by client address, by person and across the server.
+func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machines machineLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, _ := net.SplitHostPort(r.RemoteAddr)
+		codes := false
+		if r.Method == http.MethodPost {
+			switch r.URL.Path {
+			case "/v1/machine-requests", "/v1/machine-requests/collect":
+				l := machines.requests
+				if r.URL.Path == "/v1/machine-requests/collect" {
+					l = machines.collects
+				}
+				if !l.allow(host) {
+					tooMany(w, o.Log, "Too many requests to connect a machine.")
+					return
+				}
+				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), clientAddrKey{}, host)))
+				return
+			case "/v1/machine-requests/lookup", "/v1/machine-requests/approve", "/v1/machine-requests/refuse":
+				if !machines.codes.allow(host) {
+					tooMany(w, o.Log, "Too many attempts with a machine's code.")
+					return
+				}
+				codes = true
+			}
+		}
 		if r.URL.Path == "/v1/connect" && r.Method == http.MethodPost {
-			host, _, _ := net.SplitHostPort(r.RemoteAddr)
 			// Both limits count every attempt, so a guess spread over many addresses
 			// still meets the server-wide one.
 			perAddr, all := connects.perAddr.allow(host), connects.all.allow("")
@@ -160,7 +191,6 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next 
 			return
 		}
 		if r.URL.Path == "/v1/join" {
-			host, _, _ := net.SplitHostPort(r.RemoteAddr)
 			if !limiter.allow(host) {
 				w.Header().Set("Retry-After", "60")
 				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many join attempts from this address.",
@@ -178,10 +208,51 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, next 
 			writeError(w, o.Log, err)
 			return
 		}
+		if codes && !machines.codes.perPerson.allow(callerPerson(p)) {
+			tooMany(w, o.Log, "Too many attempts with a machine's code.")
+			return
+		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
 		ctx = context.WithValue(ctx, scopeKey{}, scopeOf(token))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// Limits are how many requests a minute one kind of request may make: per client
+// address, per person, and across the server. Zero doesn't limit.
+type Limits struct{ PerAddr, PerPerson, Server int }
+
+// limiters count requests against Limits.
+type limiters struct{ perAddr, perPerson, all *rateLimiter }
+
+func newLimiters(clk clock.Clock, l Limits) limiters {
+	return limiters{perAddr: newRateLimiter(clk, l.PerAddr), perPerson: newRateLimiter(clk, l.PerPerson), all: newRateLimiter(clk, l.Server)}
+}
+
+// allow counts a request from addr against both the address's limit and the server's,
+// so a guess spread over many addresses still meets the server-wide one.
+func (l limiters) allow(addr string) bool {
+	perAddr, all := l.perAddr.allow(addr), l.all.allow("")
+	return perAddr && all
+}
+
+// machineLimits are the limits on what a new machine, and the person approving it, do.
+type machineLimits struct{ requests, codes, collects limiters }
+
+// callerPerson is the person a caller is or acts for, which per-person limits count.
+func callerPerson(p board.Principal) string {
+	if p.Human != nil {
+		return p.Human.ID
+	}
+	if p.Agent != nil {
+		return p.Agent.HumanID
+	}
+	return ""
+}
+
+func tooMany(w http.ResponseWriter, log *slog.Logger, message string) {
+	w.Header().Set("Retry-After", "60")
+	writeError(w, log, apierr.New(http.StatusTooManyRequests, "rate_limited", message, "Wait a minute, then try again."))
 }
 
 // connectLimits are the two limits on redeeming invites: per client address, and across

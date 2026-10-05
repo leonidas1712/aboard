@@ -36,6 +36,12 @@ type ReadTx interface {
 	HumanCount() (int, error)
 	// ServerInviteByDigest finds a server invite by the digest of its secret.
 	ServerInviteByDigest(digest string) (ServerInvite, error)
+	// MachineRequestByCode finds a machine request by the digest of its short code,
+	// whatever its state.
+	MachineRequestByCode(digest string) (MachineRequest, error)
+	// MachineRequestBySecret finds a machine request by the digest of its collection
+	// secret, whatever its state.
+	MachineRequestBySecret(digest string) (MachineRequest, error)
 	// BrowserLoginByDigest finds a browser login by the digest of its token, whether or
 	// not it has expired.
 	BrowserLoginByDigest(digest string) (BrowserLogin, error)
@@ -130,6 +136,21 @@ type Tx interface {
 	// UseServerInvite marks an unused invite used at a time by a person. It reports
 	// false, changing nothing, when the invite was already used.
 	UseServerInvite(id, at, humanID string) (bool, error)
+	// InsertMachineRequest adds a machine request.
+	InsertMachineRequest(r MachineRequest) error
+	// DeleteEndedMachineRequests removes the machine requests whose ExpiresAt is at or
+	// before now.
+	DeleteEndedMachineRequests(now string) error
+	// DecideMachineRequest moves a pending machine request to state (approved or
+	// refused), by a person with one of their keys, at a time. It reports false,
+	// changing nothing, when the request wasn't pending.
+	DecideMachineRequest(id, state, humanID, keyID, at string) (bool, error)
+	// CountMachineRequestPoll counts one more collection attempt on a machine request.
+	CountMachineRequestPoll(id string) error
+	// CollectMachineRequest marks an approved machine request collected with the key
+	// made for it. It reports false, changing nothing, when the request wasn't approved
+	// or was already collected.
+	CollectMachineRequest(id, keyID string) (bool, error)
 	// InsertBrowserLogin adds a browser login.
 	InsertBrowserLogin(l BrowserLogin) error
 	// DeleteBrowserLogins removes every browser login of a human and returns how many

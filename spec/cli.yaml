@@ -31,7 +31,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, invite, connect, login, keys, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, invite, connect, approve, login, keys, watch, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -144,6 +144,8 @@ $defs:
       isn't an access key, or a key the server refuses: wrong, revoked or expired) ·
       key_not_selected (aboard keys revoke names a key that the person's list doesn't
       have, or a name two of their keys share; details.choices lists the names and ids) ·
+      server_not_selected (aboard approve without --server or a project's .aboard, on a
+      machine connected to several servers; details.choices lists their URLs) ·
       seat_ended (swarm up found agents whose seats ended with the access key they came
       from, which the server refuses as unauthorized; it starts nothing, details.agents
       names them, details.board their board, and the hint says to give each a new name
@@ -539,20 +541,38 @@ $defs:
         examples: ["http://127.0.0.1:7400/join#abi_K8s2Lq9Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj"]
       expires_at: { type: string, format: date-time }
 
-  # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] ----------
+  # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] ----------
+  # ---------- aboard connect <server URL> [--name MACHINE] ----------
   ConnectOutput:
     description: |
-      Redeems a server invite (POST /v1/connect) and saves the new person's first access
-      key in servers.json, readable only by its owner, under the server's URL. From then
-      on the CLI sends that key only to that server: join lines that name it and
-      projects whose .aboard names it use it, and no request follows a redirect. The
-      handle comes from --handle, else a question when there is a terminal (default: the
-      system user name), else the system user name. The key is named after this machine.
-      A server other than this machine's must use https (insecure_server). A machine
-      already connected to the server fails with already_connected; a used, expired or
-      wrong invite with invite_invalid; a taken handle with handle_taken, leaving the
-      invite unused. Inside a harness session it refuses with human_command_in_session.
-      Text output:
+      With an invite link, redeems a server invite (POST /v1/connect) and saves the new
+      person's first access key in servers.json, readable only by its owner, under the
+      server's URL. From then on the CLI sends that key only to that server: join lines
+      that name it and projects whose .aboard names it use it, and no request follows a
+      redirect. The handle comes from --handle, else a question when there is a terminal
+      (default: the system user name), else the system user name. The key is named
+      after this machine: --name, else its host name. A used, expired or wrong invite
+      fails with invite_invalid; a taken handle with handle_taken, leaving the invite
+      unused.
+
+      With a server's address alone (no /join path, no fragment), asks the server for a
+      key for this machine (POST /v1/machine-requests) and prints the short code a person
+      approves from a machine where they are signed in, before it waits:
+        Approve this machine ("maya-desktop") from one where you're signed in to https://team.example.com:
+          aboard approve 4KQ-7ZX     (expires in 5 minutes)
+        Or paste a key with: aboard login https://team.example.com
+      With --json those lines go to standard error, and standard output holds only the
+      result. It then asks for its key with the request's secret
+      (POST /v1/machine-requests/collect) as often as the server says, between 1 and 10
+      seconds apart, until the request is approved and the key saved as above, refused
+      (machine_request_refused) or expired (machine_request_invalid); it never waits
+      longer than the request lasts. The machine is signed in as whoever approved.
+      --handle and --display-name are usage errors here.
+
+      Either way, a server other than this machine's must use https (insecure_server),
+      and a machine already connected to the server, or this machine's own local server,
+      fails with already_connected. Inside a harness session it refuses with
+      human_command_in_session. Text output:
         Connected to http://127.0.0.1:7400 as maya (member). This machine's key, "maya-laptop", is saved.
     type: object
     required: [server, server_id, person, key]
@@ -563,6 +583,36 @@ $defs:
       key:
         $ref: "openapi.yaml#/components/schemas/AccessKey"
         description: The saved key, without its secret.
+
+  # ---------- aboard approve <code> [--refuse] [--yes] [--server URL] ----------
+  ApproveOutput:
+    description: |
+      A person command with their own access key: approves the request a new machine made
+      with aboard connect <server URL>, by the short code it shows
+      (POST /v1/machine-requests/approve), or with --refuse turns it down
+      (POST /v1/machine-requests/refuse). The server is --server, else the one this
+      directory's .aboard names, else the one server in servers.json (several fail with
+      server_not_selected), else the local server. Before approving it looks the request
+      up (POST /v1/machine-requests/lookup) and, at a terminal, shows it and asks:
+        A machine calling itself "maya-desktop" asked from 203.0.113.7 just now. That name is only its own claim.
+        Approve "maya-desktop" connecting to team.example.com as maya? [y/N]
+      Without a terminal or with --json it needs --yes (confirmation_required), and a
+      "no" changes nothing. A wrong, expired or already decided code fails with
+      machine_request_invalid. The approving person's own key is never copied: the
+      machine collects a new key of theirs. Inside a harness session it refuses with
+      human_command_in_session; the server refuses agent and browser tokens with
+      human_token_required. Text output:
+        Approved. "maya-desktop" receives a key of its own, as maya, and aboard keys lists it once it has.
+      or, with --refuse:
+        Refused. "maya-desktop" is told so and gets no key.
+    type: object
+    required: [server, request, approved]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      request: { $ref: "openapi.yaml#/components/schemas/MachineRequest" }
+      approved:
+        type: boolean
+        description: True when the request was approved, false when --refuse refused it.
 
   # ---------- aboard keys [--person HANDLE] [--server URL] ----------
   KeysOutput:

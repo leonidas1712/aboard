@@ -63,6 +63,38 @@ type ServerInvite struct {
 	UsedBy    *string
 }
 
+// MachineRequest is a new machine asking for an access key, for a person to approve
+// with its short code. It is kept by the keyed digests of the short code and of the long
+// secret the machine collects its key with, never by either secret.
+type MachineRequest struct {
+	ID            string
+	CodeDigest    string
+	SecretDigest  string
+	Label         string // the name the machine gave itself; it names the key
+	RequestedFrom string // the client address the request came from
+	CreatedAt     string
+	ExpiresAt     string
+	State         string // a MachineRequest state
+	// DecidedBy is the person who approved or refused it, and DecidedKey the key they
+	// did it with, which must still work when the machine collects its key.
+	DecidedBy  *string
+	DecidedKey *string
+	DecidedAt  *string
+	// KeyID is the key the machine collected, once it has.
+	KeyID *string
+	// Polls counts the machine's collection attempts while it waited.
+	Polls int
+}
+
+// MachineRequest states. A request is pending until a person approves or refuses it; an
+// approved one is collected once.
+const (
+	MachinePending   = "pending"
+	MachineApproved  = "approved"
+	MachineRefused   = "refused"
+	MachineCollected = "collected"
+)
+
 // BrowserLogin is a browser token, kept by the digest of the token and never the token
 // itself. Like a read cursor it is bookkeeping, not part of any board's record.
 type BrowserLogin struct {

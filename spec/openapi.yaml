@@ -10,8 +10,9 @@ info:
     policy, join codes, joining, members, messages, threads, reactions, the inbox with
     acknowledgement, and the event log.
 
-    **Auth.** Every request except `GET /v1/info`, `POST /v1/browser-tokens` and
-    `POST /v1/connect` needs `Authorization: Bearer <token>`. A person signs in with an
+    **Auth.** Every request except `GET /v1/info`, `POST /v1/browser-tokens`,
+    `POST /v1/connect`, `POST /v1/machine-requests` and
+    `POST /v1/machine-requests/collect` needs `Authorization: Bearer <token>`. A person signs in with an
     access key, which starts with `abh_` (the API also calls it a human token); agent
     tokens start with `aba_`. Agent tokens are scoped to one board.
 
@@ -26,6 +27,12 @@ info:
     by exchanging a one-time code (`POST /v1/login-codes`, then `POST /v1/browser-tokens`);
     it acts as the person who asked for the code, with exactly that person's permissions.
     The server never sets or reads a cookie.
+
+    **New machines.** A machine with no key asks for one with
+    `POST /v1/machine-requests`, shows its short code, and collects its key with its long
+    secret once a person approves the code from a machine where they are signed in
+    (`POST /v1/machine-requests/approve`). The new key belongs to the person who
+    approved, and is independent of their own key.
 
     **Access keys.** A person lists, creates and revokes their keys with `/v1/keys`, only
     with a key of their own: an agent token or a browser token gets 403
@@ -350,6 +357,223 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests:
+    post:
+      tags: [people]
+      operationId: startMachineRequest
+      summary: Ask to connect a new machine, for a person to approve
+      description: |
+        No token needed. A machine with no key for this server asks for one. The response
+        has two secrets: a short `code` (`4KQ-7ZX`) that a person types on a machine where
+        they are signed in, to approve the request with
+        `POST /v1/machine-requests/approve`, and a long `secret` that only the requesting
+        machine keeps and sends to `POST /v1/machine-requests/collect` to collect its key
+        once the request is approved. The code alone can't collect anything.
+
+        `label` is the name the requesting machine gives itself, which names its key. It is
+        shown to the approving person as the machine's own claim, not as proof of
+        anything. The request ends at `expires_at`, 5 minutes after it is made. The server
+        keeps only digests of the code and the secret, and doesn't keep the response for
+        `Idempotency-Key` repeats: each call makes a new request. Requests are limited per
+        client address and across the server; over the limit returns 429 with
+        `Retry-After`.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartMachineRequest" }
+      responses:
+        "201":
+          description: Started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequestStarted" }
+        "400": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/lookup:
+    post:
+      tags: [people]
+      operationId: lookupMachineRequest
+      summary: See a pending machine request before approving it
+      description: |
+        With a person's own access key. Shows the pending request the short `code` names:
+        the label the machine gave itself, the address it asked from, when it asked, and
+        `person`, the caller, as whom approving it would sign the machine in. A code that
+        is wrong, expired, already approved or refused gets 404
+        `machine_request_invalid`, which doesn't say which. An agent token or a browser
+        token gets 403 `human_token_required`.
+
+        Every attempt with a code (here, approving and refusing) counts against limits per
+        client address, per person and across the server; over a limit returns 429 with
+        `Retry-After`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineRequestCode" }
+      responses:
+        "200":
+          description: The request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/approve:
+    post:
+      tags: [people]
+      operationId: approveMachineRequest
+      summary: Approve a machine request, giving that machine a key of yours
+      description: |
+        With a person's own access key. Approves the pending request the short `code`
+        names, for the caller: the requesting machine may then collect a new access key of
+        the caller's, independent of the caller's own key, named after the request's label
+        and expiring after 90 days without use. Approving signs that machine in as you, so
+        approve only a request you started yourself, a moment ago. The key is made when
+        the machine collects it, and only if the approving key still works then.
+
+        A code that is wrong, expired, already approved or refused gets 404
+        `machine_request_invalid`. An agent token or a browser token gets 403
+        `human_token_required`. Attempts are limited as for
+        `POST /v1/machine-requests/lookup`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineRequestCode" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/refuse:
+    post:
+      tags: [people]
+      operationId: refuseMachineRequest
+      summary: Refuse a machine request
+      description: |
+        With a person's own access key. Refuses the pending request the short `code`
+        names: the requesting machine's next collection gets 403
+        `machine_request_refused`, and the code stops working. Errors and limits are as for
+        `POST /v1/machine-requests/approve`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MachineRequestCode" }
+      responses:
+        "200":
+          description: Refused
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/machine-requests/collect:
+    post:
+      tags: [people]
+      operationId: collectMachineRequest
+      summary: Collect the key of an approved machine request
+      description: |
+        No token needed: the request's long `secret` is the proof. While the request waits
+        for a person, returns 202 with `poll_interval_seconds`, how long to wait before
+        asking again. Once approved, returns 201 with a new access key, once and never
+        again: in one step the server makes the key, for the person who approved, and uses
+        up the request. The key expires after 90 days without use, like the key
+        `POST /v1/connect` gives.
+
+        A refused request gets 403 `machine_request_refused`. A secret that is wrong, a
+        request that expired or was already collected, one asked about more than 200
+        times, and one whose approving key stopped working all get 404
+        `machine_request_invalid`, which doesn't say which. Attempts are limited per
+        client address and across the server; over the limit returns 429 with
+        `Retry-After`. The response isn't kept for `Idempotency-Key` repeats, since it
+        holds a key.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CollectMachineRequest" }
+      responses:
+        "201":
+          description: Approved; the key, once
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Connected" }
+        "202":
+          description: Still waiting for a person
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MachineRequestPending" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
         "429":
           description: Too many attempts
           headers:
@@ -1192,6 +1416,8 @@ components:
                 - key_name_taken
                 - key_not_found
                 - person_not_found
+                - machine_request_invalid
+                - machine_request_refused
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -1462,6 +1688,78 @@ components:
         server_id: { type: string, pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$" }
         person: { $ref: "#/components/schemas/Person" }
         key: { $ref: "#/components/schemas/NewAccessKey" }
+    StartMachineRequest:
+      type: object
+      required: [label]
+      additionalProperties: false
+      properties:
+        label:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: The name the machine gives itself, usually its host name. It names the key it collects.
+          example: maya-desktop
+    MachineRequestStarted:
+      type: object
+      required: [code, secret, expires_at, poll_interval_seconds]
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{3}$"
+          description: The short code a person types to approve the request. It can't collect the key.
+          example: 4KQ-7ZX
+        secret:
+          type: string
+          pattern: "^abc_[A-Za-z0-9_-]{32,}$"
+          description: Kept only by the requesting machine, which collects its key with it. Shown once.
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        poll_interval_seconds:
+          type: integer
+          minimum: 1
+          description: How long to wait between collection attempts.
+    MachineRequestCode:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          maxLength: 20
+          description: The short code the requesting machine shows, in any case, with or without its dash.
+          example: 4KQ-7ZX
+    MachineRequest:
+      type: object
+      required: [label, state, requested_from, created_at, expires_at, person]
+      properties:
+        label:
+          type: string
+          description: The name the requesting machine gave itself. It is the machine's own claim, not proof of anything.
+          example: maya-desktop
+        state:
+          type: string
+          enum: [pending, approved, refused]
+        requested_from:
+          type: string
+          description: The client address the request came from, as the server saw it.
+          example: 203.0.113.7
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        person:
+          $ref: "#/components/schemas/Person"
+          description: The caller, as whom approving the request signs the machine in.
+    CollectMachineRequest:
+      type: object
+      required: [secret]
+      additionalProperties: false
+      properties:
+        secret: { type: string, maxLength: 200, description: "The `secret` from `POST /v1/machine-requests`." }
+    MachineRequestPending:
+      type: object
+      required: [state, expires_at, poll_interval_seconds]
+      properties:
+        state: { type: string, enum: [pending] }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        poll_interval_seconds: { type: integer, minimum: 1 }
 
     # ---------- board config ----------
     Permission:
