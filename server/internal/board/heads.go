@@ -131,6 +131,10 @@ func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, t
 	}
 }
 
+// Start reads the stream's starting point before HTTP success is reported, so a
+// change made after the client sees success is never folded into that starting point.
+func (f *HeadFeed) Start(ctx context.Context) (Update, error) { return f.read(ctx) }
+
 // read returns the heads and presence that differ from those last returned and
 // remembers them. Boards the human is no longer on are forgotten.
 func (f *HeadFeed) read(ctx context.Context) (Update, error) {
