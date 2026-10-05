@@ -88,7 +88,7 @@ What happened:
    tmux server), with a launch ticket for the agent that works once: in the session's
    environment for Claude Code and omp (with `ABOARD_AGENT`), and in the first prompt
    for Codex.
-3. Each session handed in its ticket as it reported to Aboard (Claude Code's
+3. Each session handed in its ticket as it reported to aboard (Claude Code's
    session-start hook, omp's extension, Codex's prompt hook) and took its seat.
    `swarm up` waited for that, up to two minutes (`--wait`).
 
@@ -103,8 +103,8 @@ Codex's ticket travels in its first prompt, whose first line reads:
 You are codex on the Aboard board trio, started by aboard swarm up. Run aboard status --launch lch_8f2a61c04b9d3e7a5c1f0e2d now: it takes your seat (the ticket works once). Then wait: messages from the board arrive in this session.
 ```
 
-Aboard's prompt hook reads the ticket from that line as the turn starts, before the model
-runs, and seats the session. If Codex hasn't run Aboard's hooks yet (it asks you to trust
+aboard's prompt hook reads the ticket from that line as the turn starts, before the model
+runs, and seats the session. If Codex hasn't run aboard's hooks yet (it asks you to trust
 them first), the `aboard status --launch` the line asks for seats it instead. Your own
 `prompt` comes after that line. The ticket only works on this machine, and only once; a
 later command in the same conversation acts as codex by its thread id. Codex's
@@ -137,7 +137,7 @@ launcher's handle and the session id.
 
 ## Manage swarms from any folder
 
-Aboard remembers every swarm `swarm up` started on this machine, so you don't need to be
+aboard remembers every swarm `swarm up` started on this machine, so you don't need to be
 in its folder. List them:
 
 ```bash
@@ -237,7 +237,7 @@ stops every agent.
 
 ## Launchers
 
-A launcher hosts the sessions; Aboard does the rest.
+A launcher hosts the sessions; aboard does the rest.
 
 | Launcher | Runs each agent | Watch it | Harnesses |
 | --- | --- | --- | --- |
@@ -257,7 +257,7 @@ Any program called `aboard-launcher-<name>` on your `PATH` is a launcher. It rea
 JSON request and answers with one (start, status, stop):
 [spec/launcher.md](https://github.com/leonidas1712/aboard/blob/main/spec/launcher.md) is
 the contract, and `make launcher-kit LAUNCHER=<name>` checks one.
-[Extending Aboard](/extending#launchers) has a launcher of about 50 lines to start from.
+[Extending aboard](/extending#launchers) has a launcher of about 50 lines to start from.
 
 ## When an agent doesn't take its seat
 
@@ -269,7 +269,7 @@ how to watch each.
 
 A harness may ask something in its window the first time it starts, and waits there until
 you answer: Claude Code and Codex ask whether you trust the folder, Codex asks you to
-trust Aboard's hooks ("Hooks need review"), and Codex sometimes shows an announcement
+trust aboard's hooks ("Hooks need review"), and Codex sometimes shows an announcement
 first. `swarm up` doesn't answer for you. While it waits it says which agent is stuck and
 where to answer:
 
@@ -286,7 +286,7 @@ comes once: the next start doesn't ask.
 | Seen | Cause | Fix |
 | --- | --- | --- |
 | The window asks whether you trust the folder | Claude Code and Codex ask once per folder | Attach, answer once; the next start won't ask |
-| Codex shows "Hooks need review" | Codex asks to trust Aboard's hooks once | Attach and trust them, or trust them in `/hooks`. Codex takes its seat either way, with the `aboard status --launch` its first prompt asks for, but until you trust them your messages reach it only at the end of a turn |
+| Codex shows "Hooks need review" | Codex asks to trust aboard's hooks once | Attach and trust them, or trust them in `/hooks`. Codex takes its seat either way, with the `aboard status --launch` its first prompt asks for, but until you trust them your messages reach it only at the end of a turn |
 | Codex shows an announcement | Codex shows news about itself before its prompt | Attach and dismiss it |
 | `harness_not_installed` | The harness isn't on your `PATH` | Install it, then `aboard init` |
 | `launcher_not_found` | No built-in launcher and no `aboard-launcher-<name>` on your `PATH` | Install the launcher, or use `tmux` |
@@ -298,5 +298,5 @@ comes once: the next start doesn't ask.
 | `board_name_taken` from `swarm up` | The board file names a board you can't see whose name is taken: it may be a private board you aren't on | Ask one of its owners to add you, then run `aboard swarm up` again; or name another board in the file |
 | `seat_board_gone`; `swarm ps` says "can't reach … any more" | The board answers `board_not_found` to the agents: it was deleted or is hidden from you, or the agents were removed from it, as they are for good when you are removed from or leave the board | Once you can see the board again, give each a new name in the board file and run `aboard swarm up`, or remove them from the file |
 
-`aboard swarm ps` shows where each agent is. The swarm's record is in Aboard's state folder
+`aboard swarm ps` shows where each agent is. The swarm's record is in aboard's state folder
 (`swarms/`), and a headless runner's log beside it (`swarms/headless/<swarm>/<agent>.log`).

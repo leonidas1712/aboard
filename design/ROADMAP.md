@@ -13,10 +13,10 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
-- **In review:** the fixes from the QA round (#51), under
-  [Delivery that respects attention](#1-delivery-that-respects-attention).
-- **Next:** focused delivery, replies to the asker, reactions and the backlog digest, in
-  the same milestone (D173–D175); then [team mode](#2-team-mode).
+- **Merged:** focused delivery, replies to the asker, reactions, the backlog digest,
+  mentions, delivery modes held by the server, receipts, and team mode's people, keys,
+  machine approval, guests and open and private boards (#51–#98).
+- **Next:** the rest of [team mode](#2-team-mode).
 
 ## Before launch (v0.1)
 
@@ -32,22 +32,22 @@ acknowledgement. Agents should be woken for what concerns them and see the rest 
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Focused delivery: the `focused` mode as default (wakes for people, messages to the agent, replies to its messages, questions to it, urgent), quiet messages at the next turn's start, `all` for tightly coupled work; `aboard status`, the board view and `say`'s footer name the mode and when each recipient sees a message | review | D173 |
+| Focused delivery: the `focused` mode as default (wakes for people, messages to the agent, replies to its messages, questions to it, urgent), quiet messages at the next turn's start, `all` for tightly coupled work; `aboard status`, the board view and `say`'s footer name the mode and when each recipient sees a message | done (#57) | D173 |
 | Reactions from a small fixed set of emoji: an event in the record, shown in the board view and `aboard read`, never waking anyone; the skill teaches reacting instead of replying when nothing else is needed | done (#56; the skill part #57) | D175 |
 
 **Enhancements**
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Fixes from the QA round: delivery, `inbox` and the waiting notice agree on what an agent has read (no repeats, no stale notices); a subagent's `aboard status` says the same in every harness; plain-text errors show their code; the skill says `--to` takes several names; agents may set a board's title | review (#51) | D142, D165, D176, D177 |
-| Replies go to the asker and the thread's participants by default; any explicit `--to` overrides it | review | D174 |
-| Messages for one agent that arrive within about two seconds of each other wake it once, for every harness | review | D173 |
-| Agents are told their delivery mode and what it means for addressing: `pair`, `join`, `resume`, `status` and a resumed session's start name the mode and its rule; a changed mode arrives at the next turn or delivery; the skill keys addressing to the mode; `say` warns when a message to everyone wakes no agent | review | D186 |
+| Fixes from the QA round: delivery, `inbox` and the waiting notice agree on what an agent has read (no repeats, no stale notices); a subagent's `aboard status` says the same in every harness; plain-text errors show their code; the skill says `--to` takes several names; agents may set a board's title | done (#51) | D142, D165, D176, D177 |
+| Replies go to the asker and the thread's participants by default; any explicit `--to` overrides it | done (#57) | D174 |
+| Messages for one agent that arrive within about two seconds of each other wake it once, for every harness | done (#57) | D173 |
+| Agents are told their delivery mode and what it means for addressing: `pair`, `join`, `resume`, `status` and a resumed session's start name the mode and its rule; a changed mode arrives at the next turn or delivery; the skill keys addressing to the mode; `say` warns when a message to everyone wakes no agent | done (#90) | D186 |
 | Mentions wake: the server records who a message's `@name` and `@role:R` mention (by id, frozen at posting, outside code and links), and a mention wakes the agent as if addressed, within its mode, without changing `to` or who may read it; at most 8 agents per message; `say` gives each mentioned agent's outcome; the board view marks the recorded mentions | done | D191 |
 
 | The delivery mode held by the server: only the agent's person changes it, from the board view (a menu with each mode's rule) or `aboard delivery` on any of their machines; the change is in the record (`agent.delivery_changed`); the daemon follows it through the inbox it already reads and drops wakes the new mode wouldn't make; `aboard doctor` names modes kept on a machine that the server doesn't have | done | D192 |
-| A digest for a big backlog: above a threshold (about 10 messages or 8 KB), a bundle gives in full the messages that concern the agent (from people, addressed to it, replies to its messages, questions to it, urgent) and one deterministic line for each other message (sender, recipients, reply or question, reactions, first line cut short), grouping by sender if still long, with the commands to read any in full; summarised messages count as received. A model-written summary stays outside the server (D79), as a later plugin | review | D173 |
-| A list of a board's threads: `aboard read --threads` shows only the messages that start threads, each with its reply count, last activity, who took part and its first line, newest activity first, so an agent can skim a board's conversations and then read one with `--thread N`; the backlog digest points to it | review | D158 |
+| A digest for a big backlog: above a threshold (about 10 messages or 8 KB), a bundle gives in full the messages that concern the agent (from people, addressed to it, replies to its messages, questions to it, urgent) and one deterministic line for each other message (sender, recipients, reply or question, reactions, first line cut short), grouping by sender if still long, with the commands to read any in full; summarised messages count as received. A model-written summary stays outside the server (D79), as a later plugin | done (#57) | D173 |
+| A list of a board's threads: `aboard read --threads` shows only the messages that start threads, each with its reply count, last activity, who took part and its first line, newest activity first, so an agent can skim a board's conversations and then read one with `--thread N`; the backlog digest points to it | done (#56) | D158 |
 
 ### 2. Team mode
 
@@ -63,11 +63,11 @@ the board.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | in review | D113, D184 |
-| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | in review: open and private boards, owners, people and the board-creation setting; archive and delete next | D153, D180, D187 |
+| Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | done (#82, #86, #88, #91, #92, #96) | D113, D184 |
+| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | done: open and private boards, owners, people and the board-creation setting (#88); archive and delete next | D153, D180, D187 |
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done. To do with agent removal (team slice 5), or before boards can be deleted: key the daemon's stopped agents by seat id, carried in bind, instead of by name | D187, D190 |
-| Person identities: a name per server, display name, logins per machine, each revocable | in review: ids, handles, display names, a first key per machine, key management (`aboard keys`, `aboard login`), approving a new machine (`aboard connect <server URL>`, `aboard approve`) | D154, D179, D184, D185, D188 |
-| Invites and `aboard connect`; server admins | in review | D104, D111, D184 |
+| Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
+| Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
 | An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers | later | D172 |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
@@ -88,7 +88,7 @@ the board.
 | The install script and Homebrew | later | D86, D127 |
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | later | D149 |
 | The two-machine test: two machines on one hosted server, by hand as a release-checklist step (automating it across machines is an idea for later) | later | |
-| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | review: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot; issue templates and CI later | |
+| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | done: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot (#84); issue templates and CI later | |
 
 **Enhancements**
 
@@ -97,13 +97,13 @@ the board.
 | `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | People post from the CLI: `aboard say --me` | later | |
-| The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone"); a reply starts from the asker and the thread's people as removable chips, and a mention adds anyone on the board; mentions show as names in the timeline | review | D174 |
+| The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone"); a reply starts from the asker and the thread's people as removable chips, and a mention adds anyone on the board; mentions show as names in the timeline | done (#62) | D174 |
 | Receipts on messages, per recipient fixed at posting: pending, received (an agent's read position passed it) or read (a person's did), with a pending agent's presence now; `aboard read --receipts` and a quiet mark in the board view. A separate "delivered into the session" stage needs its own witness and stays later | done | D37, D169, D194 |
 | Harness marks on avatars: a small harness glyph on each agent's mark, which keeps its own colour and initials, so several agents of one harness stay distinct | later | D133 |
 | Board list badges: unanswered questions as a marigold count, unread messages as a quiet count, a "Needs you" group and automatic recent conversation order | building | D102, D123, D195 |
 | Board list working pulse, pins and a person's own order; attention for proposals, reviews and finished tasks | later | D102, D123 |
 | Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines: acknowledged only for a contiguous stretch of presented message rows (the board view, `aboard read --mark-read`), unread in `GET /v1/boards`, `aboard boards` and the stream | done | D102, D194 |
-| Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | in review | D179, D183, D189 |
+| Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | done (#92) | D179, D183, D189 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | later | D89, D121 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | later | D148 |
 | A backup of the database before every migration, keeping the last three | later | D148 |
@@ -151,7 +151,7 @@ the board.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| The docs site (Mintlify): quickstart, how it works, concepts, one page per harness, guides, a CLI reference generated from `aboard help --json` and an API reference from the OpenAPI spec; `make docs-check` in `make check` and `make docs-links` in CI | review | |
+| The docs site (Mintlify): quickstart, how it works, concepts, one page per harness, guides, a CLI reference generated from `aboard help --json` and an API reference from the OpenAPI spec; `make docs-check` in `make check` and `make docs-links` in CI | done (#87, #89) | |
 | Comparison pages in the docs for products that look similar (full agent workspaces such as Buzz, agent supervisors such as Orca and herdr, harnesses' own multi-agent features), built from [positioning.md](positioning.md) | later | |
 | A launch demo: a multi-turn game (Twenty Questions to start) played by Claude Code, Codex and omp, run by a small game-master program on the public API, in `examples/` with an e2e test using fake players, plus a short recording. Later, a sealed-round sequel showing anchoring | later | D75 |
 | Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | later | D130 |
@@ -161,13 +161,13 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | review | D178 |
+| Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | done (#77) | D178 |
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
 | The skill maps everyday phrases to commands ("send alice…", "check my messages", "who's here") | next | |
 | `llms.txt`, and the public API and stream presented as a platform for outside tools (viewers, boards, bridges) | next | D54 |
-| Docs: "Extending Aboard" (`docs/extending.mdx`), one page on every extension point (launchers, harnesses, monitors, bots and bridges, the API), each with its contract, its check and a minimal example | review | D54, D75, D79, D105, D155 |
+| Docs: "Extending Aboard" (`docs/extending.mdx`), one page on every extension point (launchers, harnesses, monitors, bots and bridges, the API), each with its contract, its check and a minimal example | done (#67) | D54, D75, D79, D105, D155 |
 | A security page that cites, for each claim, where the code enforces it | next | |
 | Name suggestions from the board's roster when joining and in `swarm up` | next | D98 |
 | `CHANGELOG.md` with a "Contract changes" section | later | D149 |
@@ -181,8 +181,8 @@ the board.
 | --- | --- | --- |
 | MCP server: `aboard mcp` over stdio, and the remote endpoint on team servers | later | D67, D109 |
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
-| `aboard swarm up`, `ps`, `down` from the board file's `agents` section | review | D61, D105, D178 |
-| Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | review | D105, D131, D178 |
+| `aboard swarm up`, `ps`, `down` from the board file's `agents` section | done (#61) | D61, D105, D178 |
+| Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | done (#61, #64, #70) | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |
 
