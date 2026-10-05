@@ -143,6 +143,41 @@ func agentOutcome(presence, mode *string, concerns bool) string {
 	}
 }
 
+// sayWarning is a problem with a message that was posted, such as one that wakes no
+// agent, and how to avoid it next time.
+type sayWarning struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Hint    string `json:"hint"`
+}
+
+// wakeWarning warns about a message to everyone that wakes no agent: at least one
+// recipient sees it only at its next turn (focused mode), and none gets it now or when
+// its turn ends. An agent that posts to everyone when it means one agent otherwise
+// leaves that agent asleep. Nil otherwise.
+func wakeWarning(m *api.Message, rs []recipientNote) *sayWarning {
+	if len(m.To) > 0 && !slices.Contains(m.To, "all") {
+		return nil
+	}
+	quiet := false
+	for _, r := range rs {
+		switch r.Outcome {
+		case outcomeNow, outcomeTurnEnd:
+			return nil
+		case outcomeNextTurn:
+			quiet = true
+		}
+	}
+	if !quiet {
+		return nil
+	}
+	return &sayWarning{
+		Code:    "wakes_no_agent",
+		Message: "No agent wakes for this message to everyone; agents in focused mode see it at their next turn.",
+		Hint:    "To make one act soon, send it with --to @name or --to role:R, or ask with --expect-reply.",
+	}
+}
+
 // unreadText is the line about the sender's unread messages, or "" when there are none.
 func unreadText(board string, n *unreadNote) string {
 	if n == nil || n.Count == 0 {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
@@ -202,19 +203,18 @@ func (h hookCall) sessionStartWithEnvFile(ctx context.Context, envVar string, in
 }
 
 // startNote tells a session that starts again with the same session id (the harness
-// resumed it) which agent it is, or that another session resumed its agent meanwhile.
-// The harnesses add a session-start hook's output to the session's context. A new
-// session gets nothing.
+// resumed it) which agent it is, with its delivery mode, or that another session
+// resumed its agent meanwhile: the daemon's note. The harnesses add a session-start
+// hook's output to the session's context. A new session gets nothing. A daemon from an
+// earlier build sends no note, and the hook writes it without the mode.
 func (h hookCall) startNote(resp delivery.Response) {
-	var note string
+	note := resp.Note
 	switch {
+	case note != "":
 	case resp.Reopened && len(resp.Agents) == 1:
-		a := resp.Agents[0]
-		note = fmt.Sprintf("Aboard: this session is %s on %s again, as it was before it closed; messages that waited for %s arrive when this turn ends.", a.Name, a.Board, a.Name)
+		note = deliverytext.Reopened(resp.Agents[0].Name, resp.Agents[0].Board, "", true)
 	case resp.Lost != nil:
-		a := resp.Lost
-		note = fmt.Sprintf("Aboard: this session was %s on %s until another session resumed %s; it has no agent now. "+
-			"To act as %s here again, run aboard resume %s, which leaves the other session without it.", a.Name, a.Board, a.Name, a.Name, a.Name)
+		note = deliverytext.Lost(resp.Lost.Name, resp.Lost.Board)
 	default:
 		return
 	}

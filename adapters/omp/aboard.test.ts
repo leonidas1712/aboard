@@ -296,6 +296,15 @@ describe("delivery", () => {
 		expect(omp.sent[0].message.content).toContain("this session is reviewer on docs again");
 		expect(omp.sent[0].options).toBeUndefined();
 	});
+
+	test("the daemon's note, which names the delivery mode, is what a session that comes back is told", async () => {
+		const note = "Aboard: this session is reviewer on docs again, as it was before it closed. Delivery mode: focused. A message to everyone …";
+		daemon.onHello = c =>
+			c.send({ v: 1, event: "welcome", boot: "b", reopened: true, mode: "focused", note, agents: [{ server: "s", board: "docs", name: "reviewer" }] });
+		const { omp } = await started([{ type: "message" }]);
+		await until("the note", () => omp.sent.length === 1);
+		expect(omp.sent[0].message.content).toBe(note);
+	});
 });
 
 describe("the connection", () => {

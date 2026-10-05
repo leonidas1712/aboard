@@ -7,6 +7,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/sqlitejournal"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // inSession reports the harness whose session this command runs in, if any, from the
@@ -136,3 +137,24 @@ func (a *app) deliveryMode(ctx context.Context, agent delivery.AgentRef) (delive
 	}
 	return delivery.ModeFocused, nil
 }
+
+// seatDelivery is an agent's delivery mode and its rule, as the commands that seat an
+// agent show them (DeliveryRule in spec/cli.yaml).
+type seatDelivery struct {
+	Mode delivery.Mode `json:"delivery"`
+	Rule string        `json:"delivery_rule"`
+}
+
+// deliveryFor reads the agent's delivery mode for a command that seats it. A journal
+// that can't be read gives focused, the default: the command has seated the agent by
+// then, and the line is advice.
+func (a *app) deliveryFor(ctx context.Context, agent delivery.AgentRef) seatDelivery {
+	mode, err := a.deliveryMode(ctx, agent)
+	if err != nil {
+		mode = delivery.ModeFocused
+	}
+	return seatDelivery{Mode: mode, Rule: deliverytext.ModeRule(string(mode))}
+}
+
+// line is the text line naming the mode and its rule.
+func (d seatDelivery) line() string { return deliverytext.ModeLine(string(d.Mode)) + "\n" }

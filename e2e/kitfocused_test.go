@@ -277,3 +277,25 @@ func kitAllMode(t *testing.T, p support.Profile) {
 		t.Fatalf("in all mode a message to everyone should wake the session, in full:\n%s", bundle)
 	}
 }
+
+// kitModeChanged checks a changed delivery mode reaches the session at its next turn's
+// start, through the harness's turn-start mechanism, as one line naming the new mode and
+// its rule, once, and in every mode, humans included, where the start is given no
+// messages.
+func kitModeChanged(t *testing.T, p support.Profile) {
+	kitTurnStarts(t, p)
+	e := kitEnv(t, p)
+	s := e.kitStart(p, kitID(), "startup", nil)
+	kitPair(t, e, s)
+	w := s.idle()
+	e.run("delivery", "humans", "--as", "reviewer")
+	s.asleep(t, w, "a changed delivery mode")
+
+	want := "Aboard: your delivery mode on writer-reviewer changed from focused to humans. " + humansRule
+	if text := s.turnStart(t); text != want {
+		t.Fatalf("the turn's start should be the changed mode alone\nwant: %s\ngot:  %s", want, text)
+	}
+	if again := s.turnStart(t); again != "" {
+		t.Fatalf("the next turn's start told the changed mode again:\n%s", again)
+	}
+}

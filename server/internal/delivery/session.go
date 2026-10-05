@@ -175,6 +175,11 @@ type agentState struct {
 	// previewed are the owner's messages too long for a tool boundary that were shown cut
 	// short once; they stay unread until the end of the turn or the agent's inbox.
 	previewed map[int]bool
+	// told is the delivery mode the session was last told the agent has: the mode when
+	// it was bound, since the command that bound it says so, or the one a note or a
+	// changed-mode line named since. When the agent's mode differs, the session's next
+	// turn start or bundle says so.
+	told Mode
 }
 
 func (s *session) now() time.Time { return s.d.cfg.Clock.Now() }
@@ -296,6 +301,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if len(ok.Agents) == 0 {
 			ok.Lost = s.lost
 		}
+		// The session-start hook prints the note before the session's first turn, which
+		// is when the messages that waited arrive.
+		ok.Mode, ok.Note = s.startNote(reopened, true)
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt, OpTurnStart:
@@ -344,6 +352,11 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.setOpen(ctx, false)
 	case OpBind:
 		ok.Previous = s.bind(ctx, *req.Agent)
+		// The command that binds an agent (join, pair, resume, status for a launched
+		// session) shows its delivery mode.
+		if a := s.agents[*req.Agent]; a != nil {
+			a.told = s.d.mode(*req.Agent)
+		}
 		if !s.open {
 			s.setOpen(ctx, true)
 		}
@@ -1132,12 +1145,18 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.recheck(ctx)
 		offers = s.offers(s.queueFilter())
 	}
-	c := compose(offers, BundleLimit)
+	notes, told := s.modeNotes()
+	limit := BundleLimit
+	if notes != "" {
+		limit -= len(notes) + 1
+	}
+	c := compose(offers, limit)
 	s.skip(ctx, c.tooLarge)
 	if len(c.parts) == 0 {
 		s.scheduleRetry()
 		return
 	}
+	c.text = withNotes(notes, c.text)
 	handed := s.record(ctx, c.parts, StateHanded)
 	var first int64
 	if len(handed) > 0 {
@@ -1148,6 +1167,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, Bundle: c.text, Waiter: s.waiter})
 	if err == nil {
 		s.accepted(ctx, handed, idle)
+		s.markTold(told)
 	}
 	if s.adapter.WaitsForIdle() {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
@@ -1465,14 +1485,23 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 // that is starting, so the session's next event confirms them, as it does a bundle. A
 // message too large for here waits for the next bundle.
 func (s *session) atTurnStart(ctx context.Context) string {
-	if !s.open || len(s.offers(turnStart)) == 0 {
+	if !s.open {
 		return ""
+	}
+	notes, told := s.modeNotes()
+	s.markTold(told)
+	if len(s.offers(turnStart)) == 0 {
+		return notes
 	}
 	// The server is the authority on what the agent has read.
 	s.recheck(ctx)
-	c := compose(s.offers(turnStart), MidTurnLimit)
+	limit := MidTurnLimit
+	if notes != "" {
+		limit -= len(notes) + 1
+	}
+	c := compose(s.offers(turnStart), limit)
 	if len(c.parts) == 0 {
-		return ""
+		return notes
 	}
 	now := s.now()
 	for _, dl := range s.record(ctx, c.parts, StateHanded) {
@@ -1480,7 +1509,69 @@ func (s *session) atTurnStart(ctx context.Context) string {
 		s.saveDelivery(ctx, dl)
 	}
 	s.d.log.Info("turn start", "session", s.key.String(), "board", partBoard(c.parts), "seqs", partSeqs(c.parts), "bytes", len(c.text))
-	return c.text
+	return withNotes(notes, c.text)
+}
+
+// modeNotes writes a line for each of the session's agents whose delivery mode changed
+// since the session was last told it, saying the new mode and what it means, and
+// returns the modes they tell, for markTold once the text is handed over.
+func (s *session) modeNotes() (notes string, told map[AgentRef]Mode) {
+	var lines []string
+	told = map[AgentRef]Mode{}
+	for _, ref := range s.agentRefs() {
+		a := s.agents[ref]
+		if a.adopting {
+			continue
+		}
+		if m := s.d.mode(ref); a.told != m {
+			if a.told != "" {
+				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m)))
+			}
+			told[ref] = m
+		}
+	}
+	return strings.Join(lines, "\n"), told
+}
+
+// markTold records the modes a turn start or a bundle told the session.
+func (s *session) markTold(told map[AgentRef]Mode) {
+	for ref, m := range told {
+		if a := s.agents[ref]; a != nil {
+			a.told = m
+		}
+	}
+}
+
+// withNotes puts the changed-mode lines before a bundle's text.
+func withNotes(notes, text string) string {
+	if notes == "" {
+		return text
+	}
+	if text == "" {
+		return notes
+	}
+	return notes + "\n" + text
+}
+
+// startNote is what a session that comes back is told as it starts, and the mode of the
+// agent it holds: which agent it is again, with its delivery mode and rule, or which
+// agent it lost. turnEnd says the messages that waited arrive when the first turn ends.
+// The note tells the session its agent's mode.
+func (s *session) startNote(reopened, turnEnd bool) (mode Mode, note string) {
+	refs := s.agentRefs()
+	if len(refs) != 1 {
+		if len(refs) == 0 && s.lost != nil {
+			return "", deliverytext.Lost(s.lost.Name, s.lost.Board)
+		}
+		return "", ""
+	}
+	ref := refs[0]
+	mode = s.d.mode(ref)
+	if !reopened {
+		return mode, ""
+	}
+	s.markTold(map[AgentRef]Mode{ref: mode})
+	return mode, deliverytext.Reopened(ref.Name, ref.Board, string(mode), turnEnd)
 }
 
 // partSeqs lists the sequence numbers in a bundle's parts, for the log.

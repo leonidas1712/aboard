@@ -251,12 +251,14 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	if resp.Previous != nil {
 		prev = &previousAgent{Name: resp.Previous.Name, Board: resp.Previous.Board}
 	}
+	mode := a.deliveryFor(ctx, ref)
 	a.emit(struct {
 		Agent         string         `json:"agent"`
 		Board         string         `json:"board"`
 		Session       string         `json:"session"`
 		PreviousAgent *previousAgent `json:"previous_agent"`
-	}{cred.Name, cred.Board, key.String(), prev},
-		fmt.Sprintf("Resumed %s on %s in this session.\n", cred.Name, cred.Board)+movedText(prev, cred.Name, cred.Board))
+		seatDelivery
+	}{cred.Name, cred.Board, key.String(), prev, mode},
+		fmt.Sprintf("Resumed %s on %s in this session.\n", cred.Name, cred.Board)+movedText(prev, cred.Name, cred.Board)+mode.line())
 	return nil
 }
