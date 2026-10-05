@@ -83,6 +83,7 @@
               "cli/join",
               "cli/open",
               "cli/connect",
+              "cli/approve",
               "cli/login",
               "cli/keys",
               "cli/logout",

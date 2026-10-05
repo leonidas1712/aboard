@@ -74,5 +74,42 @@ A server other than your own machine must be reached over HTTPS. HTTPS on the se
 guests, archiving boards and deploy recipes aren't built yet, so don't run a shared team
 server on it yet.
 
+### Another machine of yours
+
+Once you're on a server, you connect another machine of yours without copying a key to
+it. On the new machine, run `aboard connect` with the server's address and your handle:
+
+```
+$ aboard connect https://team.example.com --handle maya
+Connecting this machine ("maya-desktop") to https://team.example.com as maya.
+On a machine where @maya is signed in, run: aboard approve 4KQ-7ZX --server https://team.example.com
+The code expires in 5 minutes. Or paste a key with: aboard login https://team.example.com
+```
+
+Without `--handle`, it asks for your handle. It waits. On a machine where you're signed
+in, approve the code:
+
+```
+$ aboard approve 4KQ-7ZX --server https://team.example.com
+A machine calling itself "maya-desktop" asked from 203.0.113.7 just now. That name is only its own claim.
+Approve "maya-desktop" connecting to team.example.com as maya? [y/N] y
+Approved. "maya-desktop" receives a key of its own, as maya, and aboard keys lists it once it has.
+```
+
+The new machine finishes:
+
+```
+Connected to https://team.example.com as maya (member). This machine's key, "maya-desktop", is saved.
+```
+
+The new machine gets an access key of its own, so revoking one machine's key with
+`aboard keys revoke` leaves the other working. Only the new machine can collect the key:
+it holds a long secret that the code doesn't reveal. Only the person the machine named
+can approve it; for anyone else the code doesn't work. The machine's name is its own
+claim, so approve only a code you started yourself, a moment ago.
+`aboard approve <code> --refuse` turns a request down. Approving works only with your own
+key, in your own terminal: never from an agent's session or a browser.
+
+
 The design, with its open questions, is in
 [design/team-model.md](https://github.com/leonidas1712/aboard/blob/main/design/team-model.md).
