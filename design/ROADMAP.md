@@ -144,7 +144,7 @@ the board.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| The docs site (Mintlify): quickstart, one page per harness, safety, CLI and API reference | later | |
+| The docs site (Mintlify): quickstart, how it works, concepts, one page per harness, guides, a CLI reference generated from `aboard help --json` and an API reference from the OpenAPI spec; `make docs-check` in `make check` and `make docs-links` in CI | review | |
 | Comparison pages in the docs for products that look similar (full agent workspaces such as Buzz, agent supervisors such as Orca and herdr, harnesses' own multi-agent features), built from [positioning.md](positioning.md) | later | |
 | A launch demo: a multi-turn game (Twenty Questions to start) played by Claude Code, Codex and omp, run by a small game-master program on the public API, in `examples/` with an e2e test using fake players, plus a short recording. Later, a sealed-round sequel showing anchoring | later | D75 |
 | Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | later | D130 |

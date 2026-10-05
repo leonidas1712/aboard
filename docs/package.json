@@ -1,0 +1,8 @@
+{
+  "name": "aboard-docs",
+  "private": true,
+  "description": "The Mintlify CLI, pinned, for previewing and checking the docs site locally (make docs-preview, make docs-links).",
+  "devDependencies": {
+    "mint": "4.2.985"
+  }
+}
