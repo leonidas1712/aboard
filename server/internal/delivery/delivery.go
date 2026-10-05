@@ -35,9 +35,26 @@ func ParseSessionKey(s string) (SessionKey, bool) {
 // AgentRef names one agent: its server, its board and its name there. An agent belongs
 // to exactly one board.
 type AgentRef struct {
-	Server string `json:"server"`
-	Board  string `json:"board"`
-	Name   string `json:"name"`
+	Server   string `json:"server"`
+	Board    string `json:"board"`
+	Name     string `json:"name"`
+	MemberID string `json:"member_id,omitempty"`
+}
+
+// AgentKey identifies a seat independently of its display name. Board and Name
+// distinguish unresolved journal entries, which cannot yet name a verified seat.
+type AgentKey struct {
+	Server   string
+	MemberID string
+	Board    string
+	Name     string
+}
+
+func (a AgentRef) Key() AgentKey {
+	if a.MemberID != "" {
+		return AgentKey{Server: a.Server, MemberID: a.MemberID}
+	}
+	return AgentKey{Server: a.Server, Board: a.Board, Name: a.Name}
 }
 
 // Message is one board message as the delivery text shows it.
@@ -54,8 +71,9 @@ type Head struct {
 // ReadPosition is an agent's read position as the server reports it: the server is the
 // authority on what an agent has read, whichever client acknowledged.
 type ReadPosition struct {
-	Agent string
-	UpTo  int
+	Agent    string
+	MemberID string
+	UpTo     int
 }
 
 // State is where a delivery is in its life.

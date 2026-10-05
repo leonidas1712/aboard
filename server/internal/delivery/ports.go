@@ -70,6 +70,9 @@ type Journal interface {
 	Sessions(ctx context.Context) ([]SessionRecord, error)
 	Bind(ctx context.Context, b Binding) error
 	Bindings(ctx context.Context) ([]Binding, error)
+	// ResolveIdentity attaches legacy state to the seat proved by its own token.
+	// It never changes rows that already name a different seat.
+	ResolveIdentity(ctx context.Context, old, resolved AgentRef) error
 	// SetMode records an agent's delivery mode: one set on this machine, or the last one
 	// read from a server that holds it.
 	SetMode(ctx context.Context, agent AgentRef, mode Mode) error

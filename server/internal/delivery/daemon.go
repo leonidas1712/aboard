@@ -20,8 +20,11 @@ import (
 
 // Config is everything the daemon needs from outside.
 type Config struct {
-	Journal  Journal
-	Adapters []Adapter
+	Journal Journal
+	// ResolveAgent verifies a seat using its saved credential. Nil is used by
+	// adapters whose agent references are already trusted, such as contract fixtures.
+	ResolveAgent func(context.Context, AgentRef) (AgentRef, error)
+	Adapters     []Adapter
 	// Connect returns the connection to one server. It is called once per server URL,
 	// when the first agent on that server is bound.
 	Connect func(serverURL string) Server
