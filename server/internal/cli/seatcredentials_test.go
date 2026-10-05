@@ -219,3 +219,62 @@ func TestLegacySaveCannotReplaceAnUnverifiedIdentity(t *testing.T) {
 		t.Fatal("ambiguous legacy credentials selected by name")
 	}
 }
+
+func TestAnUnresolvedLegacyReferenceNeverUsesAFreshSameNameSeat(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(api.Me{Id: "mem_new", Kind: api.MeKindAgent, Name: "writer", Board: ptr("docs")})
+	}))
+	defer srv.Close()
+	a := seatApp(t)
+	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: "docs", Name: "writer", MemberID: "mem_new", Token: "aba_new"}); err != nil {
+		t.Fatal(err)
+	}
+	old := delivery.AgentRef{Server: srv.URL, Board: "docs", Name: "writer"}
+	if _, err := (daemonTokens{a}).ResolveAgent(t.Context(), old); err == nil {
+		t.Fatal("unresolved old reference adopted fresh same-name seat")
+	}
+	if requests.Load() != 0 {
+		t.Fatal("fresh replacement token sent for unresolved old reference")
+	}
+}
+
+func TestLegacyBackfillSurvivesRestartAndSameNameReplacement(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := "mem_old"
+		if r.Header.Get("Authorization") == "Bearer aba_new" {
+			id = "mem_new"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(api.Me{Id: id, Kind: api.MeKindAgent, Name: "writer", Board: ptr("docs")})
+	}))
+	defer srv.Close()
+	a := seatApp(t)
+	cred := agentCredential{Server: srv.URL, Board: "docs", Name: "writer", Token: "aba_old"}
+	if err := a.saveCredential(cred); err != nil {
+		t.Fatal(err)
+	}
+	old := delivery.AgentRef{Server: srv.URL, Board: "docs", Name: "writer"}
+	if ref, err := (daemonTokens{a}).ResolveAgent(t.Context(), old); err != nil || ref.MemberID != "mem_old" {
+		t.Fatalf("first backfill: %+v %v", ref, err)
+	}
+	// Restart before the caller can commit the resolved id to its journal.
+	restarted := &app{env: a.env}
+	if err := restarted.saveCredential(agentCredential{Server: srv.URL, Board: "docs", Name: "writer", MemberID: "mem_new", Token: "aba_new"}); err != nil {
+		t.Fatal(err)
+	}
+	ref, err := (daemonTokens{restarted}).ResolveAgent(t.Context(), old)
+	if err != nil || ref.MemberID != "mem_old" {
+		t.Fatalf("legacy proof lost across restart/replacement: %+v %v", ref, err)
+	}
+	cred.MemberID, cred.Token = "mem_old", "aba_rotated"
+	if err := restarted.saveCredential(cred); err != nil {
+		t.Fatal(err)
+	}
+	ref, err = (daemonTokens{restarted}).ResolveAgent(t.Context(), old)
+	if err != nil || ref.MemberID != "mem_old" {
+		t.Fatalf("legacy proof lost across own-id rotation: %+v %v", ref, err)
+	}
+}

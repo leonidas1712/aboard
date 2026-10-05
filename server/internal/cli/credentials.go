@@ -11,11 +11,19 @@ import (
 
 // agentCredential is one agent's token on one board of one server.
 type agentCredential struct {
-	Server   string `json:"server"`
-	MemberID string `json:"member_id,omitempty"`
-	Board    string `json:"board"`
-	Name     string `json:"name"`
-	Token    string `json:"token"`
+	Server   string                    `json:"server"`
+	MemberID string                    `json:"member_id,omitempty"`
+	Board    string                    `json:"board"`
+	Name     string                    `json:"name"`
+	Token    string                    `json:"token"`
+	Legacy   *legacyCredentialIdentity `json:"legacy_identity,omitempty"`
+}
+
+// legacyCredentialIdentity records which name-based entry this token resolved. It
+// survives a restart between saving credentials and promoting the delivery journal.
+type legacyCredentialIdentity struct {
+	Board string `json:"board"`
+	Name  string `json:"name"`
 }
 
 // credentials is the content of credentials.json.
@@ -55,6 +63,9 @@ func (c *credentials) put(cred agentCredential) {
 		sameLegacy := a.MemberID == "" && a.Board == cred.Board && a.Name == cred.Name &&
 			a.Token == cred.Token
 		if sameSeat || sameLegacy {
+			if sameSeat && cred.Legacy == nil {
+				cred.Legacy = a.Legacy
+			}
 			c.Agents[i] = cred
 			return
 		}
@@ -73,7 +84,8 @@ func (c credentials) forSeat(agent delivery.AgentRef) (agentCredential, bool) {
 			if cred.MemberID == agent.MemberID {
 				return cred, true
 			}
-		} else if cred.Board == agent.Board && cred.Name == agent.Name {
+		} else if (cred.MemberID == "" && cred.Board == agent.Board && cred.Name == agent.Name) ||
+			(cred.Legacy != nil && cred.Legacy.Board == agent.Board && cred.Legacy.Name == agent.Name) {
 			found = cred
 			count++
 		}

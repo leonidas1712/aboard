@@ -226,6 +226,7 @@ func (t daemonTokens) ResolveAgent(ctx context.Context, agent delivery.AgentRef)
 	me := r.JSON200
 	if me.Kind != api.MeKindAgent || !strings.HasPrefix(me.Id, "mem_") || me.Board == nil ||
 		*me.Board != cred.Board || (cred.MemberID != "" && cred.MemberID != me.Id) ||
+		(agent.MemberID != "" && agent.MemberID != me.Id) ||
 		(cred.MemberID == "" && me.Name != cred.Name) {
 		return denied()
 	}
@@ -239,6 +240,9 @@ func (t daemonTokens) ResolveAgent(ctx context.Context, agent delivery.AgentRef)
 		now, exists := current.forSeat(agent)
 		if !exists || now.Token != cred.Token {
 			return delivery.ErrUnauthorized
+		}
+		if now.MemberID == "" {
+			now.Legacy = &legacyCredentialIdentity{Board: now.Board, Name: now.Name}
 		}
 		now.MemberID, now.Board, now.Name = me.Id, *me.Board, me.Name
 		current.put(now)
