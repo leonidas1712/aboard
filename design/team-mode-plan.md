@@ -57,7 +57,7 @@ Status on 2026-10-06, checked against merged work.
 | 1. Several people on one machine | All (#82) | |
 | 2. Access keys and identity | All: keys, `login`, `connect`, `approve`, browser sessions (#82, #86, #91, #92) | |
 | 3. Members, roles and guests | All: roles, removing a person, guest codes, pairing and guest codes split (#96) | |
-| 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88) | Archive, restore, delete (4b) |
+| 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88); archive, restore and delete in the API, CLI and board view (#117) | |
 | 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c), bots, project labels |
 | 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the person's CLI inbox across boards |
 | 7. A server for a team | | Load test, version-skew check, backup before each migration |
@@ -82,7 +82,8 @@ comes after.
 3. **Agents can start work for their person.** An agent creates a board for its person,
    and adds teammates to open boards. (Slice 5b.)
 4. **You can clean up.** Remove your agents, an agent leaves when asked, prune the ones
-   disconnected for days; archive and delete boards. (Slices 5c and 4b.)
+   disconnected for days; archive and delete boards. (Board lifecycle built in #117;
+   agent cleanup remains slice 5c.)
 5. **You know what needs you.** "Needs you" and unread across boards in the board view
    (built), and the same list in the CLI.
 6. **A shared server is safe to run.** Secret redaction in messages, a backup before each
@@ -261,7 +262,11 @@ from `aboard boards` never authorizes a join: the join is checked again.
    child seats in one step, ends streams, queued deliveries and launch tickets, and keeps
    messages under the seat's id; re-adding a person never revives an old seat. Tests:
    removal racing reads and writes, and re-adding followed by the old token's refusal.
-4. **4b. Archive, restore, delete.** In review (#117), using the seat ids delivered by 5a.
+4. **4b. Archive, restore, delete.** Done (#117), using the seat ids delivered by 5a.
+   Deletion ends access and preserves the record; it does not erase stored bytes. The
+   general 24-hour idempotency lifetime remains a separate required follow-up before
+   team-ready: expired answers must be ignored and their rows purged. Row removal
+   does not securely erase copies in the WAL, free pages or migration backups.
 5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
    stays small (not required for team-ready): deterministic patterns for known
    credential formats, as D79's rules checks already intend, replaced before the
