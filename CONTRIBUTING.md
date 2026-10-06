@@ -35,6 +35,12 @@ tests, the harness conformance kit, the extension tests (which need
 [tmux](https://github.com/tmux/tmux), for the swarm and launcher tests. Tools are pinned and installed into `.bin/` on
 first use. A change to the web UI also runs `make web-check`.
 
+`make quick` runs the static checks alone (formatting, lint, vet, the generated-code
+check and the core's size) in about a minute; run it before asking for review.
+`scripts/install-hooks` adds a git pre-push hook that runs it on every push, if you
+want one. CI runs the full checks on every pull request, and a pull request merges once
+they pass.
+
 A change to delivery, setup or upgrades also passes `make live`, which drives real Claude
 Code, Codex and omp sessions in tmux. It needs tmux and logged-in harnesses, spends model
 turns, and gives each run its own home folder, so it never touches your real harness
