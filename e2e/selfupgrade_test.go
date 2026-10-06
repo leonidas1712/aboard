@@ -222,13 +222,13 @@ func TestUpgradeRefusesBeforeChangingAnything(t *testing.T) {
 		{
 			name: "a wrong checksum", code: "checksum_mismatch", downloads: true,
 			setup: func(u *upgradeEnv) []string {
-				u.r.files[u.r.archivePath()] = tarGz(u.t, append(u.releaseEntries("x"), archiveEntry{name: "extra", body: "x"}))
+				u.r.setFile(u.r.archivePath(), tarGz(u.t, append(u.releaseEntries("x"), archiveEntry{name: "extra", body: "x"})))
 				return nil
 			},
 		},
 		{
 			name: "an interrupted download", code: "download_failed", downloads: true,
-			setup: func(u *upgradeEnv) []string { u.r.cut[u.r.archivePath()] = true; return nil },
+			setup: func(u *upgradeEnv) []string { u.r.cutFile(u.r.archivePath()); return nil },
 		},
 		{
 			name: "a signature from another workflow", code: "signature_invalid", downloads: true,

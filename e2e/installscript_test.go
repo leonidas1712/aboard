@@ -107,12 +107,14 @@ func tarGz(t *testing.T, entries []archiveEntry) []byte {
 // installRelease is a fake GitHub release server and an isolated machine to run the
 // install script on.
 type installRelease struct {
-	t        *testing.T
+	t       *testing.T
+	version string // the version publish serves
+	// mu guards what the server serves and records, which the test changes while the
+	// server's goroutines read it.
+	mu       sync.Mutex
 	files    map[string][]byte // by path on the server
 	cut      map[string]bool   // paths whose download stops halfway
-	version  string            // the version publish serves
-	mu       sync.Mutex
-	asked    []string // the paths requested, in order
+	asked    []string          // the paths requested, in order
 	url      string
 	home     string
 	bin      string // the PATH's only folder of commands
@@ -154,14 +156,15 @@ func newInstallRelease(t *testing.T) *installRelease {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		r.mu.Lock()
 		r.asked = append(r.asked, req.URL.Path)
-		r.mu.Unlock()
 		body, ok := r.files[req.URL.Path]
+		cut := r.cut[req.URL.Path]
+		r.mu.Unlock()
 		if !ok {
 			http.NotFound(w, req)
 			return
 		}
 		w.Header().Set("Content-Length", fmt.Sprint(len(body)))
-		if r.cut[req.URL.Path] {
+		if cut {
 			_, _ = w.Write(body[:len(body)/2]) // the connection then closes early
 			return
 		}
@@ -196,11 +199,34 @@ func (r *installRelease) requests() []string {
 	return slices.Clone(r.asked)
 }
 
+// setFile serves body at path.
+func (r *installRelease) setFile(path string, body []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.files[path] = body
+}
+
+// removeFile stops serving path.
+func (r *installRelease) removeFile(path string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.files, path)
+}
+
+// cutFile makes the download of path stop halfway.
+func (r *installRelease) cutFile(path string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cut[path] = true
+}
+
 // publish serves a release whose archive for this machine holds entries, with
 // checksums.txt matching it, at both the version's and the latest release's paths.
 func (r *installRelease) publish(entries []archiveEntry) {
 	archive := tarGz(r.t, entries)
 	sum := sha256.Sum256(archive)
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	clear(r.files)
 	other := fmt.Sprintf("aboard_%s_plan9_mips.tar.gz", r.version)
 	checksums := fmt.Sprintf("%s  %s\n%s  %s\n", strings.Repeat("0", 64), other, hex.EncodeToString(sum[:]), r.archiveName())
@@ -310,7 +336,7 @@ func TestInstallScriptInstallsTheLatestRelease(t *testing.T) {
 func TestInstallScriptInstallsAVersionIntoAFolder(t *testing.T) {
 	t.Parallel()
 	r := newInstallRelease(t)
-	delete(r.files, "/releases/latest/download/checksums.txt") // the version is given
+	r.removeFile("/releases/latest/download/checksums.txt") // the version is given
 	dir := filepath.Join(r.home, "tools")
 	out, code := r.run("ABOARD_VERSION=v"+installVersion, "ABOARD_INSTALL_DIR="+dir, "PATH="+r.bin+":"+dir)
 	if code != 0 {
@@ -359,11 +385,11 @@ func TestInstallScriptRefuses(t *testing.T) {
 			return []string{"FAKE_COSIGN_ISSUER=https://accounts.example.test"}
 		}, notSigned},
 		{"a wrong checksum", func(r *installRelease) []string {
-			r.files[r.archivePath()] = tarGz(r.t, append(goodEntries(), archiveEntry{name: "extra", body: "x"}))
+			r.setFile(r.archivePath(), tarGz(r.t, append(goodEntries(), archiveEntry{name: "extra", body: "x"})))
 			return nil
 		}, "doesn't match its checksum"},
 		{"an interrupted download", func(r *installRelease) []string {
-			r.cut[r.archivePath()] = true
+			r.cutFile(r.archivePath())
 			return nil
 		}, "couldn't download"},
 		{"a path out of the folder", func(r *installRelease) []string {
