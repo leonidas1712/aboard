@@ -1917,3 +1917,37 @@ test("an agent's reply to the person opens its thread, so the person reads it an
   await expect.poll(() => unreadOn(board)).toBe(0);
   expect(aboard("read", "--receipts", String(reply.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
 });
+
+test("a board owner removes another person's agent from the panel, and Show removed lists it", async ({ page }) => {
+  const b = await newBoard("Removal check");
+  const rowan = await person("rowan");
+  await api(ownerKey(), "POST", `/v1/boards/${b.name}/people`, { handle: "rowan" });
+  const joined = await api(rowan, "POST", "/v1/join", { board: b.name, role: "member" });
+  const agent = (joined.agent as { name: string }).name;
+  const token = joined.token as string;
+
+  const open = JSON.parse(aboard("open", "--board", b.name, "--json"));
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Removal check" });
+  const item = panel.locator(`[data-agent="${agent}"]`);
+  await expect(item).toBeVisible();
+
+  // Cancel changes nothing; Remove asks first, then removes the agent for good.
+  await item.getByRole("button", { name: `Remove ${agent}` }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText(`Remove ${agent}?`);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(item).toBeVisible();
+  await item.getByRole("button", { name: `Remove ${agent}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(item).toHaveCount(0);
+
+  // The record says who removed whose agent, and the agent's token is refused.
+  await expect(page.locator(".board-event", { hasText: `alex removed rowan's agent ${agent}` })).toBeVisible();
+  const refused = await fetch(`${base()}/v1/me/inbox`, { headers: { Authorization: `Bearer ${token}` } });
+  expect(refused.status).toBe(403);
+  expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_removed");
+
+  await panel.getByRole("button", { name: "Show removed" }).click();
+  await expect(panel.locator(`[data-removed-agent="${agent}"]`)).toContainText("removed by an owner");
+});

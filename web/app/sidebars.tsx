@@ -18,6 +18,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type Member, isArchived, setDelivery } from "./api";
+import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
@@ -163,7 +164,8 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
       <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
         <div className="flex flex-col gap-4 pt-1">
           {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
+          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} />
+          {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
         </div>
       </Section>
 
@@ -300,9 +302,11 @@ type WhosHereProps = {
   meId: string | null;
   from: string | undefined;
   onPick: (name: string) => void;
+  /** onRemoved reloads the board after the person removes an agent. */
+  onRemoved: () => void;
 };
 
-function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
+function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -325,6 +329,7 @@ function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
               showOwner={showOwner}
               picked={from === a.name}
               onPick={() => onPick(a.name)}
+              onRemoved={onRemoved}
             />
           ))}
         </ul>
@@ -383,8 +388,10 @@ function AgentItem({
   showOwner,
   picked,
   onPick,
+  onRemoved,
 }: {
   agent: Member;
+  onRemoved: () => void;
   /** board is the board's name, once it is loaded. */
   board?: string;
   /** mine is true for the person's own agent, whose delivery mode they may change. */
@@ -473,6 +480,7 @@ function AgentItem({
           </>
         )}
       </dl>
+      {agent.can_remove === true && board && <RemoveAgent board={board} agent={agent} onRemoved={onRemoved} />}
     </li>
   );
 }

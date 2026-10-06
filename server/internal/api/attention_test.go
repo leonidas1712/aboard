@@ -223,7 +223,7 @@ func TestReceiptsFollowTheRecipientsFixedAtPosting(t *testing.T) {
 	}
 
 	// The record keeps whom it was addressed to.
-	ms, err := s.client(s.owner).ListMembersWithResponse(ctx, boardName)
+	ms, err := s.client(s.owner).ListMembersWithResponse(ctx, boardName, nil)
 	mustStatus(t, ms, err, 200)
 	reviewerID := ""
 	for _, m := range ms.JSON200.Members {

@@ -83,7 +83,7 @@ func (a *app) unreadAfterSay(ctx context.Context, c *client, ref delivery.AgentR
 // see it, from the presence and delivery mode the members list shows. Nil if the members
 // couldn't be read.
 func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNote {
-	r, err := c.api.ListMembersWithResponse(ctx, m.Board)
+	r, err := c.api.ListMembersWithResponse(ctx, m.Board, nil)
 	if err != nil || r.JSON200 == nil {
 		return nil
 	}

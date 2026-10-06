@@ -141,7 +141,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 			}
 		}
 		if b.OnBoard {
-			m, err := c.api.ListMembersWithResponse(ctx, b.Name)
+			m, err := c.api.ListMembersWithResponse(ctx, b.Name, nil)
 			if err != nil {
 				return c.unreachable(err)
 			}
