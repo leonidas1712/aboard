@@ -64,7 +64,7 @@ the board.
 | Feature | Status | Decisions |
 | --- | --- | --- |
 | Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | done (#82, #86, #88, #91, #92, #96) | D113, D184 |
-| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | done: open and private boards, owners, people and the board-creation setting (#88); archive and delete next | D153, D180, D187 |
+| Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | done: open and private boards, owners, people and the board-creation setting (#88). In review: archive, restore and delete, in the API, CLI (`aboard board archive`, `restore` and `delete`, `aboard boards --archived`) and board view (#117 and the claude/board-lifecycle-ui branch) | D153, D180, D187, D198 |
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done. To do with agent removal (team slice 5), or before boards can be deleted: key the daemon's stopped agents by seat id, carried in bind, instead of by name | D187, D190 |
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
