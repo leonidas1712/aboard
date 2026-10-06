@@ -23,14 +23,17 @@ curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/insta
 
 The script downloads the latest release's archive for your system, checks it against the
 release's signed checksums, and installs `aboard` and the launchers shipped with it to
-`~/.local/bin`. It never uses `sudo`, and if a check fails it stops before installing
-anything. It says when `~/.local/bin` isn't on your `PATH`, with the line to add. Two
-variables change what it does:
+`~/.local/bin`. It never uses `sudo`, and if anything fails, an install you already have
+stays as it was. It says when `~/.local/bin` isn't on your `PATH`, with the line to add.
+Two variables change what it does:
 
 | Variable | What it does |
 | --- | --- |
 | `ABOARD_VERSION` | Install this version, such as `0.1.0`, instead of the latest. |
 | `ABOARD_INSTALL_DIR` | Install into this folder instead of `~/.local/bin`. |
+
+Set them for `sh`, such as
+`curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | ABOARD_INSTALL_DIR=~/bin sh`.
 
 Check:
 
@@ -70,7 +73,12 @@ It prints `Verified OK` only for checksums the release job signed for that tag.
 Apple doesn't notarize aboard's macOS binaries. Installed with the script, they run
 without a prompt. An archive downloaded with a browser is blocked the first time it
 runs: allow it in System Settings, under Privacy & Security, or install with the script
-instead.
+instead. Either way, the signed checksums are what show the download is aboard's.
+
+### Team servers
+
+A team server runs the image `ghcr.io/leonidas1712/aboard:<version>`, which holds the
+same binary. [Run a team server](/team-server) sets one up.
 
 ### From source
 
@@ -146,9 +154,13 @@ aboard upgrade
 
 It downloads the release and checks it as the install script does, replaces `aboard`
 and the launchers next to it, then runs the new build's `aboard init --yes` for the
-harnesses `aboard init` set up for every project, so the skill and hooks match it. Every check comes
-before anything is replaced. `aboard upgrade --version 0.2.0` installs a given release.
-It is a person's command, so it is refused inside an agent's session.
+harnesses `aboard init` set up for every project, so the skill and hooks match it.
+Every check comes before anything is replaced: if one fails, your install stays as it
+was. If the binary was replaced but the skill and hooks weren't updated, it says so and
+exits with the error `upgrade_setup_failed`; then run `aboard init --yes`, and check
+with `aboard doctor`. `aboard upgrade --version 0.2.0` installs a given release, and
+`--json` gives the result as data, with `from`, `to` and `setup`. It is a person's
+command, so it is refused inside an agent's session.
 
 From source, pull and install again:
 
@@ -158,7 +170,7 @@ make install
 aboard init --yes
 ```
 
-`aboard upgrade` on a source build changes nothing and says to do this.
+`aboard upgrade` on a source build or a Homebrew install changes nothing and prints the command to use instead.
 `aboard init --yes` updates the skill and hooks only where the new build writes
 something different, and says "Nothing to change." otherwise. `aboard version --json`
 shows the new version.
@@ -265,7 +277,7 @@ kept.
 
 | What | Where |
 | --- | --- |
-| The binary | `$(go env GOPATH)/bin/aboard` from source; `~/.local/bin/aboard` from the install script |
+| The binary | `~/.local/bin/aboard` (or `ABOARD_INSTALL_DIR`) from the install script, with the launchers beside it; `$(go env GOPATH)/bin/aboard` from source |
 | Claude Code, everywhere | `~/.claude/skills/aboard/SKILL.md`, and hooks (and the allow rule) in `~/.claude/settings.json`; under `$CLAUDE_CONFIG_DIR` when it is set |
 | Claude Code, one project | `.claude/skills/aboard/SKILL.md` and `.claude/settings.local.json` in the project |
 | Codex, everywhere | `~/.agents/skills/aboard/SKILL.md`, hooks in `~/.codex/hooks.json`, the allow rule in `~/.codex/rules/aboard.rules`; the last two under `$CODEX_HOME` when it is set |
