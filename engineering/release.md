@@ -34,7 +34,7 @@ tracks the work.
 | --- | --- | --- |
 | `curl -fsSL <install URL> \| sh` | Anyone on macOS or Linux | To build. The script picks the platform's archive, verifies it against the signed checksums, installs `aboard` to `~/.local/bin` (or a directory given with `ABOARD_INSTALL_DIR`) and says if that directory isn't on the `PATH`. |
 | `brew install <tap>/aboard` | macOS and Linux with Homebrew | To build. A tap the release job updates. |
-| A container image | Team servers | Built from the root `Dockerfile` by hand (`docker build --build-arg VERSION=…`); publishing it from the release job is to build. Runs `aboard serve --team` as a non-root user with its data on a volume at `/data`. |
+| A container image | Team servers | Built from the root `Dockerfile` by hand (`docker build --build-arg VERSION=…`); publishing it from the release job is to build. Runs `aboard serve --team` as a non-root user with its data in `/data/aboard` on a volume at `/data`. |
 | `make install` | Building from source | Yes. Needs Go and Node. |
 
 All of them install the same binary. The skill published for `npx skills` is generated

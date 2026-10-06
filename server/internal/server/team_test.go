@@ -198,7 +198,7 @@ func errorCode(v map[string]any) string {
 // A team server answers only its public host, port included, whatever forwarded
 // headers claim; says it is a team server; and names its public host in join lines.
 func TestATeamServerAnswersOnlyItsPublicHost(t *testing.T) {
-	s := startTeam(t, t.TempDir())
+	s := startTeam(t, dataDir(t))
 	const host = "team.example.com:8443"
 	resp, info := s.do("GET", "/v1/info", host, nil, nil)
 	if resp.StatusCode != http.StatusOK || info["mode"] != "team" {
@@ -240,7 +240,7 @@ func TestATeamServerAnswersOnlyItsPublicHost(t *testing.T) {
 // the server over plain HTTP from its proxy; and a sign-in or a write needs Origin to be
 // exactly the public URL, port included, whatever forwarded headers say.
 func TestATeamServersBrowserCookieAndOriginComeFromItsPublicURL(t *testing.T) {
-	s := startTeam(t, t.TempDir())
+	s := startTeam(t, dataDir(t))
 	const host = "team.example.com:8443"
 	signIn := map[string]any{"key": s.adminKey()}
 	for _, origin := range []string{"https://team.example.com", "http://team.example.com:8443", "https://team.example.com:443", "https://attacker.example", ""} {
@@ -286,7 +286,7 @@ func TestATeamServersBrowserCookieAndOriginComeFromItsPublicURL(t *testing.T) {
 // admin key file, readable only by its owner, logging the file and never the key. A
 // later start makes no other admin or key, even with the file gone.
 func TestATeamServersFirstStartMakesOneAdmin(t *testing.T) {
-	data := t.TempDir()
+	data := dataDir(t)
 	s := startTeam(t, data)
 	path := filepath.Join(data, AdminKeyFile)
 	info, err := os.Stat(path)
@@ -322,7 +322,7 @@ func TestATeamServersFirstStartMakesOneAdmin(t *testing.T) {
 // itself, all start; exactly one makes the admin and writes the key once; and after they
 // stop, a restart accepts that key, because every start kept the same digest key.
 func TestConcurrentFirstStartsShareOneIdentityAndAdmin(t *testing.T) {
-	data := t.TempDir()
+	data := dataDir(t)
 	const starts = 6
 	servers := make([]*teamServer, starts)
 	errs := make([]error, starts)

@@ -131,10 +131,10 @@ checked by hand, on a disposable cluster with an ingress that ends HTTPS:
 - [ ] `docker build --build-arg VERSION=<version> -t aboard:<version> .` builds; `docker run --rm aboard:<version> --help` shows `aboard serve` help; `docker run --rm --entrypoint aboard aboard:<version> version` prints `<version>`; the image runs as uid 10001.
 - [ ] `docker run -v aboard-data:/data -p 7400:7400 -e ABOARD_PUBLIC_URL=https://<host> aboard:<version>` starts, logs `first admin created` with the key file and not the key, and `curl -H 'Host: <host>' localhost:7400/v1/info` says `"mode":"team"`; with any other Host it answers 421.
 - [ ] `kubectl create namespace aboard` and `kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml` (host, image and storage class replaced) bring the pod to ready, the probes passing with the public Host.
-- [ ] `kubectl exec -n aboard deploy/aboard -- cat /data/admin-key | aboard login https://<host>` signs in; `kubectl exec -n aboard deploy/aboard -- rm /data/admin-key` removes the file; `aboard people --server https://<host>` lists the admin.
+- [ ] `kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://<host>` signs in; `kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key` removes the file; `aboard people --server https://<host>` lists the admin.
 - [ ] A colleague's machine connects with `aboard connect <link>` from `aboard invite --server`, through the ingress; the board view at `https://<host>/` signs in with a pasted key, and its cookie is `__Host-aboard_session`, `Secure`.
 - [ ] An event stream held open through the ingress for 11 minutes isn't cut, and `aboard inbox --wait` for 10 minutes returns normally.
-- [ ] `kubectl set image -n aboard deploy/aboard aboard=<newer image>` replaces the pod (never two at once), and a newer schema leaves a copy in `/data/backups`; the restore steps on the page bring the older image back with the copy's data.
+- [ ] `kubectl set image -n aboard deploy/aboard aboard=<newer image>` replaces the pod (never two at once), and a newer schema leaves a copy in `/data/aboard/backups`; the restore steps on the page bring the older image back with the copy's data.
 
 ## The docs site ([docs/README-site.md](../docs/README-site.md))
 

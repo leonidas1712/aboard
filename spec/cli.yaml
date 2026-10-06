@@ -93,8 +93,14 @@
 #   invalid_request (exit 2), as does a missing --public-url or --data. It writes JSON log
 #   lines to stderr; on the first start of an empty database it creates the first admin
 #   and writes their access key to DIR/admin-key (mode 0600, never replaced) and logs
-#   {"msg":"first admin created","handle":…,"key_file":…}, never the key. Plain
-#   `aboard serve` is unchanged and ignores those variables.
+#   {"msg":"first admin created","handle":…,"key_file":…}, never the key; a start that
+#   finishes an earlier one's delivery logs {"msg":"first admin's key delivered",…}.
+#   Before opening anything it makes DIR (mode 0700) if absent and exits 1 with
+#   server_not_running, naming the path and the chmod or chown that fixes it, when DIR
+#   is a link or a file, another user's, or open to others, or when aboard.db (with its
+#   -wal and -shm), server.pid, admin-key, admin-key.pending or bootstrap.lock in it is
+#   a link, another user's or readable by others. Plain `aboard serve` is unchanged and
+#   ignores those variables.
 # - Certificates: every command that talks to a server trusts, besides the system's
 #   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
 # - Board for agent commands (say, inbox, read, react): the board of the agent they act as.

@@ -764,12 +764,12 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--team", "", "Run a team server instead of the local one."},
 				{"--public-url", "URL", "With --team: the https address people use, such as https://aboard.example.com. Only requests for its host are answered."},
-				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own. Never a network file system."},
+				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own, never a network file system. It must be this user's alone (mode 700, no links); the server makes it so when it is new."},
 				{"--listen", "ADDR", "With --team: the address to listen on. Default: 0.0.0.0:7400."},
 				{"--admin", "HANDLE", "With --team: the first admin's handle, used on the first start only. Default: admin."},
 			},
 			Examples: []helpExample{
-				{"aboard serve --team --public-url https://aboard.example.com --data /data", "Run a team server for aboard.example.com"},
+				{"aboard serve --team --public-url https://aboard.example.com --data /srv/aboard", "Run a team server for aboard.example.com"},
 			},
 			SeeAlso: []string{"up", "down", "login"},
 		},

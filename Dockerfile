@@ -1,5 +1,5 @@
 # The aboard team server: the binary with the board view, run as a non-root user with its
-# data on a volume at /data. Build it from the repository root:
+# data in /data/aboard on a volume at /data. Build it from the repository root:
 #
 #   docker build --build-arg VERSION=0.1.0 -t aboard:0.1.0 .
 #
@@ -43,7 +43,7 @@ RUN addgroup -S -g 10001 aboard && adduser -S -D -H -u 10001 -G aboard -h /data 
  && mkdir -p /data && chown aboard:aboard /data && chmod 700 /data
 COPY --from=build /out/aboard /usr/local/bin/aboard
 USER 10001:10001
-ENV ABOARD_DATA=/data ABOARD_LISTEN=0.0.0.0:7400 ABOARD_NO_UPDATE_CHECK=1
+ENV ABOARD_DATA=/data/aboard ABOARD_LISTEN=0.0.0.0:7400 ABOARD_NO_UPDATE_CHECK=1
 VOLUME /data
 EXPOSE 7400
 ENTRYPOINT ["aboard", "serve", "--team"]

@@ -126,7 +126,11 @@ func Run(ctx context.Context, o Options) error {
 	if o.Rand == nil {
 		o.Rand = rand.Reader
 	}
-	if err := os.MkdirAll(o.DataDir, 0o700); err != nil {
+	if o.Team != nil {
+		if err := prepareTeamData(o.DataDir); err != nil {
+			return err
+		}
+	} else if err := os.MkdirAll(o.DataDir, 0o700); err != nil {
 		return fmt.Errorf("create data directory: %w", err)
 	}
 	st, err := sqlite.Open(ctx, filepath.Join(o.DataDir, "aboard.db"), o.Clock)

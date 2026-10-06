@@ -49,7 +49,7 @@ func onlyTheKeyFile(t *testing.T, data string) {
 func TestABootstrapStoppedBeforeTheAdminStartsOver(t *testing.T) {
 	for _, step := range []string{"write key", "key written"} {
 		t.Run(step, func(t *testing.T) {
-			data := t.TempDir()
+			data := dataDir(t)
 			undo := stopAt(t, step)
 			if _, err := launchTeam(t, data); err == nil || !strings.Contains(err.Error(), "stopped at "+step) {
 				t.Fatalf("the start went on: %v", err)
@@ -71,7 +71,7 @@ func TestABootstrapStoppedBeforeTheAdminStartsOver(t *testing.T) {
 // A start that stops after making the admin but before delivering the key leaves the
 // key waiting; the next start delivers that same key and makes no other admin.
 func TestABootstrapStoppedAfterTheAdminDeliversItsKeyOnRestart(t *testing.T) {
-	data := t.TempDir()
+	data := dataDir(t)
 	undo := stopAt(t, "admin created")
 	if _, err := launchTeam(t, data); err == nil {
 		t.Fatal("the start went on")
@@ -99,8 +99,9 @@ func TestABootstrapStoppedAfterTheAdminDeliversItsKeyOnRestart(t *testing.T) {
 // An admin key file in a data folder whose database has no one is from somewhere else:
 // the start refuses, makes no admin and leaves the file alone.
 func TestAStrayAdminKeyFileStopsTheFirstStart(t *testing.T) {
-	data := t.TempDir()
+	data := dataDir(t)
 	stray := filepath.Join(data, AdminKeyFile)
+	mkdir(t, data, 0o700)
 	if err := os.WriteFile(stray, []byte("abh_not_this_servers\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

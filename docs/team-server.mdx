@@ -19,7 +19,7 @@ You give it three things, as flags or as environment variables:
 | Variable | Flag | What it is |
 | --- | --- | --- |
 | `ABOARD_PUBLIC_URL` | `--public-url` | The `https://` address people use, such as `https://aboard.example.com`. Required. |
-| `ABOARD_DATA` | `--data` | The folder for the database, files and backups. The image sets `/data`. |
+| `ABOARD_DATA` | `--data` | The folder for the database, files and backups. The image sets `/data/aboard`, on its volume at `/data`. |
 | `ABOARD_LISTEN` | `--listen` | The address to listen on. Default: `0.0.0.0:7400`. |
 | `ABOARD_ADMIN` | `--admin` | The first admin's handle, used on the first start only. Default: `admin`. |
 
@@ -27,10 +27,16 @@ The server answers only requests for the public URL's host. Requests that name a
 host get `host_not_allowed`, so health checks must send that host too. The board view's
 sign-in cookie is always the secure kind, for that address only.
 
+The data folder holds everything the server knows, so the server makes it readable only
+by its own user, and refuses to start when the folder or a file in it is a link,
+belongs to another user, or can be read by others. The error names the path and the
+`chmod` that fixes it. That is why the image keeps its data in a folder of its own on
+the volume rather than at the volume's top, which the cluster may share with a group.
+
 ## Build the image
 
 The image is the repository's `Dockerfile`: aboard with the board view, running as a
-non-root user, with `/data` as its volume. From a checkout of the repository:
+non-root user, with `/data` as its volume and its data in `/data/aboard`. From a checkout of the repository:
 
 ```bash
 docker build --build-arg VERSION=0.1.0 -t aboard:0.1.0 .
@@ -71,8 +77,8 @@ data folder, readable only by the server's user. The log names the file, never t
 On your own machine, pipe the key into `aboard login`, then delete the file:
 
 ```bash
-kubectl exec -n aboard deploy/aboard -- cat /data/admin-key | aboard login https://aboard.example.com
-kubectl exec -n aboard deploy/aboard -- rm /data/admin-key
+kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://aboard.example.com
+kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key
 ```
 
 Check that you are the admin:
@@ -117,7 +123,7 @@ kubectl set image -n aboard deploy/aboard aboard=ghcr.io/OWNER/aboard:0.2.0
 ```
 
 On start, before it changes the database, the server copies it to
-`/data/backups/aboard-<time>-schema-<n>.db` and keeps the newest three. It then runs every
+`/data/aboard/backups/aboard-<time>-schema-<n>.db` and keeps the newest three. It then runs every
 change in one transaction. If the upgrade fails, the database is as it was, and the log
 names the copy. A server older than its data refuses to start (`data_newer`).
 
@@ -129,8 +135,8 @@ kubectl scale -n aboard deploy/aboard --replicas=0
 kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/OWNER/aboard:0.1.0 \
   --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/OWNER/aboard:0.1.0","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
 # in that shell:
-ls /data/backups
-cp /data/backups/aboard-<time>-schema-<n>.db /data/aboard.db && rm -f /data/aboard.db-wal /data/aboard.db-shm
+ls /data/aboard/backups
+cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm
 exit
 kubectl set image -n aboard deploy/aboard aboard=ghcr.io/OWNER/aboard:0.1.0
 kubectl scale -n aboard deploy/aboard --replicas=1
