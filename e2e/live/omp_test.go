@@ -195,7 +195,7 @@ func ompExtensionModules(screen string) []string {
 
 // title is the terminal title the harness in the pane set.
 func (p *pane) title() string {
-	return strings.TrimSpace(p.tmuxRun("display-message", "-p", "-t", p.target(), "#{pane_title}"))
+	return strings.TrimSpace(p.tmuxRun("-u", "display-message", "-p", "-t", p.target(), "#{pane_title}"))
 }
 
 // ompIdle reports whether omp shows its prompt with no turn running. omp's terminal
@@ -275,4 +275,51 @@ func atoi(s string) int {
 		n = n*10 + int(c-'0')
 	}
 	return n
+}
+
+func TestOmpIdleReadsUTF8TitleWithCLocale(t *testing.T) {
+	t.Setenv("LC_ALL", "C")
+	t.Setenv("HOME", t.TempDir())
+	dir, err := os.MkdirTemp("/tmp", "aboard-title-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "tmux.sock")
+	t.Setenv("ABOARD_TEST_TMUX_SOCKET", socket)
+	script := filepath.Join(dir, "prompt.sh")
+	if err := os.WriteFile(script, []byte("printf '\033]0;π > smoke\007╰─ ready\n'\ntmux -S \"$ABOARD_TEST_TMUX_SOCKET\" wait-for -S visible\nexec cat\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	run := func(args ...string) {
+		t.Helper()
+		out, err := command(ctx, "tmux", append([]string{"-f", "/dev/null", "-S", socket}, args...)...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("scratch tmux: %v: %s", err, out)
+		}
+	}
+	run("new-session", "-d", "-s", "live", "-n", "prompt", "/bin/sh", script)
+	t.Cleanup(func() { _ = command(context.Background(), "tmux", "-S", socket, "kill-server").Run() })
+	run("wait-for", "visible")
+	p := &pane{l: &lab{t: t, tmux: socket}, name: "prompt"}
+	if title := p.title(); title != "π > smoke" {
+		t.Fatalf("C-locale title=%q, want UTF8 idle title", title)
+	}
+	if !ompIdle(p) {
+		t.Fatal("idle title and prompt were not recognized")
+	}
+	for _, title := range []string{"π ⠋ smoke", "π ! smoke", "_ > smoke"} {
+		run("select-pane", "-t", p.target(), "-T", title)
+		if ompIdle(p) {
+			t.Fatalf("non-idle title %q was accepted", title)
+		}
+	}
+	run("new-window", "-t", "live:", "-n", "blank", "/bin/cat")
+	blank := &pane{l: p.l, name: "blank"}
+	run("select-pane", "-t", blank.target(), "-T", "π > smoke")
+	if ompIdle(blank) {
+		t.Fatal("idle title without an input prompt was accepted")
+	}
 }
