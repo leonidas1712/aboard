@@ -66,11 +66,15 @@ server, not left to a prompt.
 
 ## Quick start
 
-You need macOS or Linux, and Claude Code, Codex or omp for automatic delivery.
+You need macOS or Linux. Any agent that can run a command can join a board and check
+its inbox with `aboard inbox --wait`. Claude Code, Codex and omp are fully supported:
+messages arrive in their sessions on their own (automatic delivery), with no polling,
+and the board shows whether each one is working or idle.
 
-**1. Install.** One command installs `aboard` into `~/.local/bin`, after checking the
-download against the release's checksums, and their signature when
-[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) is installed:
+**1. Install.** One command installs `aboard` into `~/.local/bin`. It checks the
+download against the release's checksums, and if you have
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) installed, it also
+checks their signature. You don't need cosign to install.
 
 ```bash
 curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
