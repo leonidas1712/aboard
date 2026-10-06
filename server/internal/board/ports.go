@@ -210,6 +210,8 @@ type Tx interface {
 	SetBoardTitle(boardID string, title *string) error
 	// SetBoardVisibility makes a board BoardOpen or BoardPrivate.
 	SetBoardVisibility(boardID, visibility string) error
+	// SetBoardLifecycle preserves the board and its retained record.
+	SetBoardLifecycle(boardID, lifecycle string) error
 	// SetBoardCreation sets who may create boards.
 	SetBoardCreation(v string) error
 	// InsertMember adds a member to its board.

@@ -63,6 +63,10 @@ type wireBoard struct {
 	CreatedBy     wireMemberRef `json:"created_by"`
 	Visibility    string        `json:"visibility"`
 	OnBoard       bool          `json:"on_board"`
+	Lifecycle     string        `json:"lifecycle"`
+	CanArchive    bool          `json:"can_archive"`
+	CanRestore    bool          `json:"can_restore"`
+	CanDelete     bool          `json:"can_delete"`
 	// ReadUpTo and Unread are the caller's read position, left out when they aren't on
 	// the board.
 	ReadUpTo   *int64 `json:"read_up_to,omitempty"`
@@ -166,6 +170,7 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 	w := wireBoard{
 		ID: b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
 		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator), Visibility: b.Visibility, OnBoard: v.OnBoard,
+		Lifecycle: b.Lifecycle, CanArchive: v.CanArchive, CanRestore: v.CanRestore, CanDelete: v.CanDelete,
 	}
 	if v.ShowsCounts(p) {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
