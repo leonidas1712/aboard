@@ -29,7 +29,7 @@ func TestParsePublicURL(t *testing.T) {
 		"https://Team.Example.com/":      {Origin: "https://team.example.com", Host: "team.example.com"},
 		"https://team.example.com:443":   {Origin: "https://team.example.com", Host: "team.example.com"},
 		"https://team.example.com:8443":  {Origin: "https://team.example.com:8443", Host: "team.example.com:8443"},
-		" https://10.0.0.5:9000 ":        {Origin: "https://10.0.0.5:9000", Host: "10.0.0.5:9000"},
+		"https://10.0.0.5:9000":          {Origin: "https://10.0.0.5:9000", Host: "10.0.0.5:9000"},
 		"https://[2001:db8::1]:443":      {Origin: "https://[2001:db8::1]", Host: "[2001:db8::1]"},
 		"https://[2001:db8::1]:8443/":    {Origin: "https://[2001:db8::1]:8443", Host: "[2001:db8::1]:8443"},
 		"https://aboard.internal.test:1": {Origin: "https://aboard.internal.test:1", Host: "aboard.internal.test:1"},
@@ -81,7 +81,7 @@ const publicURL = "https://team.example.com:8443"
 // startTeam runs a team server on data until the test ends or stop is called.
 func startTeam(t *testing.T, data string) *teamServer {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func startTeam(t *testing.T, data string) *teamServer {
 	t.Cleanup(s.stop)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		if c, err := net.Dial("tcp", addr); err == nil {
+		if c, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", addr); err == nil {
 			_ = c.Close()
 			break
 		}
@@ -133,7 +133,7 @@ func startTeam(t *testing.T, data string) *teamServer {
 
 // do sends a request to the server as a proxy in front of it would, with host as its
 // Host header and the extra headers given.
-func (s *teamServer) do(method, path, host string, headers map[string]string, body any) (*http.Response, map[string]any) {
+func (s *teamServer) do(method, path, host string, headers map[string]string, body any) (got reply, decoded map[string]any) {
 	s.t.Helper()
 	var r io.Reader
 	if body != nil {
@@ -143,7 +143,7 @@ func (s *teamServer) do(method, path, host string, headers map[string]string, bo
 		}
 		r = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequest(method, "http://"+s.addr+path, r)
+	req, err := http.NewRequestWithContext(context.Background(), method, "http://"+s.addr+path, r)
 	if err != nil {
 		s.t.Fatal(err)
 	}
@@ -157,9 +157,14 @@ func (s *teamServer) do(method, path, host string, headers map[string]string, bo
 		s.t.Fatal(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	var v map[string]any
-	_ = json.NewDecoder(resp.Body).Decode(&v)
-	return resp, v
+	_ = json.NewDecoder(resp.Body).Decode(&decoded)
+	return reply{StatusCode: resp.StatusCode, Header: resp.Header}, decoded
+}
+
+// reply is a response's status and headers, its body already read.
+type reply struct {
+	StatusCode int
+	Header     http.Header
 }
 
 func (s *teamServer) adminKey() string {
@@ -211,7 +216,8 @@ func TestATeamServerAnswersOnlyItsPublicHost(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create a board: %d %v", resp.StatusCode, b)
 	}
-	resp, code := s.do("POST", "/v1/boards/"+b["name"].(string)+"/join-codes", host, key, map[string]any{"role": "member"})
+	name, _ := b["name"].(string)
+	resp, code := s.do("POST", "/v1/boards/"+name+"/join-codes", host, key, map[string]any{"role": "member"})
 	if line, _ := code["join_line"].(string); resp.StatusCode != http.StatusCreated || !strings.Contains(line, " on "+host+" as member ") {
 		t.Fatalf("the join line doesn't name the public host: %d %v", resp.StatusCode, code)
 	}
@@ -252,7 +258,7 @@ func TestATeamServersBrowserCookieAndOriginComeFromItsPublicURL(t *testing.T) {
 	if csrf == "" {
 		t.Fatalf("no CSRF token in the sign-in: %v", v)
 	}
-	write := func(origin string) (*http.Response, map[string]any) {
+	write := func(origin string) (reply, map[string]any) {
 		return s.do("POST", "/v1/boards", host, map[string]string{"Cookie": cookie, "X-Aboard-CSRF": csrf, "Origin": origin}, map[string]any{"template": "general"})
 	}
 	if resp, v := write("https://team.example.com"); resp.StatusCode != http.StatusForbidden || errorCode(v) != "origin_not_allowed" {

@@ -228,7 +228,7 @@ func (a *app) serveTeam(ctx context.Context, f teamFlags) error {
 	if _, _, err := net.SplitHostPort(listen); err != nil {
 		return usageError("The listen address "+listen+" is not a host and port, such as 0.0.0.0:7400.", use)
 	}
-	if h := rules.NormalizeName(admin); h == "" || h != strings.ToLower(admin) {
+	if h := rules.NormalizeName(admin); h == "" || !strings.EqualFold(h, admin) {
 		return usageError("The first admin's handle "+admin+" can't be a handle: use lowercase letters, digits and dashes.", use)
 	}
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

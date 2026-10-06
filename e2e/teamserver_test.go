@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"encoding/pem"
 	"io"
@@ -83,7 +84,11 @@ func startTeamServer(t *testing.T) *teamServer {
 			t.Fatalf("aboard serve --team exited:\n%s", s.log)
 		default:
 		}
-		resp, err := s.client.Get(s.url + "/v1/info")
+		req, err := http.NewRequestWithContext(context.Background(), "GET", s.url+"/v1/info", http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := s.client.Do(req)
 		if err != nil {
 			return false
 		}
@@ -104,7 +109,7 @@ func (s *teamServer) call(method, path, token string, body any) (int, map[string
 		}
 		payload = bytes.NewReader(raw)
 	}
-	req, err := http.NewRequest(method, s.url+path, payload)
+	req, err := http.NewRequestWithContext(context.Background(), method, s.url+path, payload)
 	if err != nil {
 		s.t.Fatal(err)
 	}
