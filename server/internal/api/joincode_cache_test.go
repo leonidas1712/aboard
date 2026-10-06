@@ -20,7 +20,9 @@ func TestJoinCodeCreationNeverStoresOrReplaysItsSecret(t *testing.T) {
 			body := map[string]any{"role": "member", "ttl_seconds": 60}
 			created := s.lifecycleCall(s.owner, "POST", path, "creation-code", body)
 			requireLifecycleCall(t, created, 201, "")
-			if created.body["code"] == "" || created.body["line"] == "" {
+			code, hasCode := created.body["code"].(string)
+			line, hasLine := created.body["join_line"].(string)
+			if !hasCode || code == "" || !hasLine || line == "" {
 				t.Fatal("initial creation did not return its one-time secret response")
 			}
 			sum := sha256.Sum256([]byte(s.owner))
@@ -46,7 +48,7 @@ func TestJoinCodeCreationNeverStoresOrReplaysItsSecret(t *testing.T) {
 			repeated := s.lifecycleCall(s.owner, "POST", path, "creation-code", body)
 			if state == "archived" {
 				requireLifecycleCall(t, repeated, 409, "board_archived")
-				if repeated.body["code"] != nil || repeated.body["line"] != nil {
+				if repeated.body["code"] != nil || repeated.body["join_line"] != nil {
 					t.Error("archived retry disclosed a code")
 				}
 			} else {
