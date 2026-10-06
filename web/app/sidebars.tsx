@@ -143,7 +143,7 @@ type BoardPanelProps = {
   me: string | null;
   /** meId is the person's permanent id, which their agents name as owner_id. */
   meId: string | null;
-  /** canInvite shows "Add an agent": the browser acts as a person. */
+  /** canInvite shows "Add an agent": the browser acts as a person who isn't a guest, since a guest's agents come only from guest codes. */
   canInvite: boolean;
   /** from is the member the timeline is filtered to, if any. */
   from: string | undefined;
