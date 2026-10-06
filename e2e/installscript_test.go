@@ -429,3 +429,25 @@ func TestReleaseBuildsEveryLauncher(t *testing.T) {
 		}
 	}
 }
+
+// scripts/release-notes prints a version's section of the changelog, the Unreleased
+// section for a prerelease without one, and refuses a release without a section.
+func TestReleaseNotes(t *testing.T) {
+	t.Parallel()
+	changelog := filepath.Join(t.TempDir(), "CHANGELOG.md")
+	if err := os.WriteFile(changelog, []byte("# Changelog\n\n## Unreleased\n\n- Next\n\n## 0.2.0\n\n- Two\n\n## [0.1.0]\n\n- One\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ tag, want string }{
+		{"v0.2.0", "\n- Two\n"},
+		{"v0.1.0", "\n- One\n"},
+		{"v0.3.0-rc.1", "\n- Next\n"},
+		{"v0.2.0-rc.1", "\n- Next\n"},
+		{"v0.3.0", ""},
+	} {
+		out, err := exec.Command(filepath.Join("..", "scripts", "release-notes"), tc.tag, changelog).Output()
+		if got := string(out); got != tc.want || (err != nil) != (tc.want == "") {
+			t.Errorf("%s: got %q (%v), want %q", tc.tag, got, err, tc.want)
+		}
+	}
+}

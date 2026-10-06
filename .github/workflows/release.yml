@@ -98,18 +98,7 @@ jobs:
       - name: Release notes from CHANGELOG.md
         env:
           TAG: ${{ github.ref_name }}
-        run: |
-          version="${TAG#v}"
-          awk -v v="$version" '
-            /^## / { on = ($2 == v || $2 == "[" v "]") ; next }
-            on { print }
-          ' CHANGELOG.md >"$RUNNER_TEMP/notes.md"
-          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
-            case "$version" in
-            *-*) echo "Prerelease $TAG of aboard." >"$RUNNER_TEMP/notes.md" ;;
-            *) echo "CHANGELOG.md has no section for $version"; exit 1 ;;
-            esac
-          fi
+        run: scripts/release-notes "$TAG" >"$RUNNER_TEMP/notes.md"
       - name: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
