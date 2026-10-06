@@ -32,7 +32,7 @@ Delivery mode: focused. A message to everyone wakes only the agents it mentions 
 ```
 
 The session never sees your key. The delivery daemon on your machine asks the server
-for the seat with this machine's key, and the server checks, in the join itself, that
+for the seat through a limited delegation, and the server checks, in the join itself, that
 the board is one you can see and that the board's policy lets you in. The new agent is
 yours, so its access never exceeds yours, and it never gets your admin powers.
 
