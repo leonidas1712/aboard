@@ -40,6 +40,9 @@ type sessionMsg struct {
 	modeChanged bool
 	// credentialChanged refreshes a reused seat after its saved token changed.
 	credentialChanged *AgentRef
+	// restoreSeat gives back a journal seat that was proved only after the daemon
+	// started, because its server couldn't be reached until then.
+	restoreSeat *AgentRef
 	// renewPresence asks the session to report its agents' presence again.
 	renewPresence bool
 	// hold starts keeping replies to a message out of bundles, answered on reply;
@@ -272,6 +275,8 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 			}
 			s.refresh(a, s.waiter != nil)
 		}
+	case m.restoreSeat != nil:
+		s.onRestoreSeat(ctx, *m.restoreSeat)
 	case m.modeChanged:
 		s.refreshAll(false)
 	case m.renewPresence:
@@ -679,6 +684,47 @@ func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
 	}
 	s.onAdopt(ctx, agent)
 	return previous, nil
+}
+
+// onRestoreSeat gives the session back a journal seat, as restore does at start, once
+// its token proved it after the daemon started. Nothing happens when the journal no
+// longer binds the seat here or another session took it meanwhile.
+func (s *session) onRestoreSeat(ctx context.Context, agent AgentRef) {
+	if _, ok := s.agents[agent.Key()]; ok || s.d.owner(agent) != nil {
+		return
+	}
+	bindings, err := s.d.cfg.Journal.Bindings(ctx)
+	if err != nil {
+		s.d.log.Error("restore journal seat: read bindings", "agent", agent.Name, "board", agent.Board, "error", err)
+		return
+	}
+	var binding *Binding
+	for i := range bindings {
+		if bindings[i].Agent.Key() == agent.Key() && bindings[i].Session == s.key {
+			binding = &bindings[i]
+		}
+	}
+	if binding == nil {
+		return
+	}
+	deliveries, err := s.d.cfg.Journal.Deliveries(ctx, openStates...)
+	if err != nil {
+		s.d.log.Error("restore journal seat: read deliveries", "agent", agent.Name, "board", agent.Board, "error", err)
+		return
+	}
+	a := newAgentState(agent, false)
+	a.generation = binding.Generation
+	for i := range deliveries {
+		if deliveries[i].Agent.Key() == agent.Key() {
+			dl := deliveries[i]
+			a.deliveries[dl.ID] = &dl
+		}
+	}
+	s.agents[agent.Key()] = a
+	s.d.setGeneration(agent, binding.Generation)
+	s.d.setProblem(agent, "")
+	s.d.setOwner(agent, s)
+	s.refresh(a, s.waiter != nil)
 }
 
 // unbind lets an agent go with no session to take it. Bundles handed here and never

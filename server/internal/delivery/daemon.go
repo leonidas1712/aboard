@@ -131,7 +131,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 // restore loads the sessions, bindings and deliveries the journal holds.
 func (d *Daemon) restore(ctx context.Context) error {
-	blocked, err := d.resolveJournal(ctx)
+	blocked, retry, err := d.resolveJournal(ctx)
 	if err != nil {
 		return err
 	}
@@ -207,17 +207,62 @@ func (d *Daemon) restore(ctx context.Context) error {
 		s.restored = true
 		d.startSession(s)
 	}
+	for _, b := range retry {
+		d.g.Go(func() error {
+			d.retryJournalSeat(d.ctx, b)
+			return nil
+		})
+	}
 	return nil
 }
 
-func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, error) {
+// retryJournalSeat keeps trying, with backoff, to prove a journal seat whose server
+// couldn't be reached as the daemon started, and gives it back to its session once the
+// server answers. A refusal (unauthorized, board gone) is final, as it is at start.
+func (d *Daemon) retryJournalSeat(ctx context.Context, b Binding) {
+	for failures := 1; ; failures++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.cfg.Clock.After(backoff(failures)):
+		}
+		resolved, err := d.resolveAgent(ctx, b.Agent)
+		if err == nil {
+			d.log.Info("journal seat verified after its server came back", "server", resolved.Server, "board", resolved.Board, "agent", resolved.Name)
+			d.mu.Lock()
+			s := d.sessions[b.Session]
+			d.mu.Unlock()
+			if s != nil {
+				s.mail.put(sessionMsg{restoreSeat: &resolved})
+			}
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if reason := problemOf(err); reason != "" {
+			d.setProblem(b.Agent, reason)
+			d.log.Warn("resolve journal seat", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name, "error", err)
+			return
+		}
+		d.log.Info("journal seat's server still unreachable", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name,
+			"retry_in", backoff(failures+1), "error", err)
+	}
+}
+
+// resolveJournal proves each journal seat with its saved credential before the daemon
+// restores it. It returns the seats that stay stopped, with why, and the unverified
+// seats whose server couldn't be reached: those wait, marked server_unreachable, until
+// retryJournalSeat proves them.
+func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, []Binding, error) {
 	blocked := map[AgentKey]string{}
+	var retry []Binding
 	if d.cfg.ResolveAgent == nil {
-		return blocked, nil
+		return blocked, nil, nil
 	}
 	bindings, err := d.cfg.Journal.Bindings(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("read bindings for identity resolution: %w", err)
+		return nil, nil, fmt.Errorf("read bindings for identity resolution: %w", err)
 	}
 	seen := map[AgentKey]bool{}
 	for _, b := range bindings {
@@ -233,18 +278,21 @@ func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, error
 			}
 			reason := problemOf(err)
 			if reason == "" {
-				reason = "identity_unresolved"
+				// The server couldn't be reached or failed. That passes, so the seat
+				// waits for it rather than stopping for good.
+				reason = ReasonServerUnreachable
+				retry = append(retry, b)
 			}
 			blocked[b.Agent.Key()] = reason
 			d.log.Warn("resolve journal seat", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name, "error", err)
 		} else if b.Agent.MemberID != "" && resolved != b.Agent {
 			b.Agent = resolved
 			if err := d.cfg.Journal.Bind(ctx, b); err != nil {
-				return nil, fmt.Errorf("refresh restored seat metadata: %w", err)
+				return nil, nil, fmt.Errorf("refresh restored seat metadata: %w", err)
 			}
 		}
 	}
-	return blocked, nil
+	return blocked, retry, nil
 }
 
 func (d *Daemon) resolveAgent(ctx context.Context, agent AgentRef) (AgentRef, error) {
