@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -192,9 +194,10 @@ const (
 )
 
 // await returns the next value from ch, moving c on as time would pass meanwhile. The
-// clock moves while a timer is due within QueueGather, as the daemon's gathering is, so
-// the daemon's gathering ends however late it starts (a slow inbox read after a
-// rebind), and timers further off, such as stalls, never fire from waiting alone.
+// clock moves only while some timer is due within QueueGather of now, whatever the timer
+// is for, so the daemon's gathering ends however late it starts (a slow inbox read after
+// a rebind). Other short timers, such as retries, move it too, and as it moves, timers
+// that were further off can come within QueueGather and fire.
 func await[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string) (T, bool) {
 	t.Helper()
 	deadline := time.After(within)
@@ -647,6 +650,70 @@ func TestUnconfirmedBundleGoesToTheNextSessionForTheAgent(t *testing.T) {
 	r.register("s2", "c1")
 	r.bind("claude-code", "s2", reviewer)
 	if b := r.wait("s2", "c1", false).bundle(); !strings.Contains(b, "please review") {
+		t.Fatalf("next session got:\n%s", b)
+	}
+}
+
+// gatedInbox holds every inbox read, once armed, until release is closed.
+type gatedInbox struct {
+	delivery.Server
+	armed   atomic.Bool
+	release chan struct{}
+}
+
+func (g *gatedInbox) Inbox(ctx context.Context, agent delivery.AgentRef) ([]delivery.Message, int, *delivery.HeldMode, error) {
+	if g.armed.Load() {
+		select {
+		case <-g.release:
+		case <-ctx.Done():
+			return nil, 0, nil, ctx.Err()
+		}
+	}
+	return g.Server.Inbox(ctx, agent)
+}
+
+// The next session's inbox read may answer only after a waiting hook has seen the
+// fake clock move past QueueGather and more; the daemon starts gathering from that late
+// answer, and the bundle still goes. This is how the test above failed on slow runners.
+func TestUnconfirmedBundleGoesToTheNextSessionAfterALateInboxRead(t *testing.T) {
+	g := &gatedInbox{release: make(chan struct{})}
+	r := newRigWithServer(t, func(base delivery.Server) delivery.Server {
+		g.Server = base
+		return g
+	})
+	var release sync.Once
+	open := func() { release.Do(func() { close(g.release) }) }
+	t.Cleanup(open)
+	r.register("s1", "b1")
+	r.bind("claude-code", "s1", reviewer)
+	r.post(reviewer, "please review", false)
+	r.wait("s1", "b1", false).bundle()
+	r.ok(delivery.Request{Op: delivery.OpEnd, Harness: "claude-code", Session: "s1"})
+
+	g.armed.Store(true)
+	r.register("s2", "c1")
+	r.bind("claude-code", "s2", reviewer)
+	h := r.wait("s2", "c1", false)
+	// Answer the inbox read once the hook's wait has moved the clock past passLimit, or
+	// has stopped moving it: either way, after the time the daemon would have gathered.
+	start := r.clock.Now()
+	go func() {
+		last, still := start, 0
+		for still < 20 {
+			<-time.After(5 * time.Millisecond) // a poll interval, not a wait for the daemon
+			now := r.clock.Now()
+			if now.Sub(start) >= passLimit {
+				break
+			}
+			if now.Equal(last) {
+				still++
+			} else {
+				last, still = now, 0
+			}
+		}
+		open()
+	}()
+	if b := h.bundle(); !strings.Contains(b, "please review") {
 		t.Fatalf("next session got:\n%s", b)
 	}
 }
