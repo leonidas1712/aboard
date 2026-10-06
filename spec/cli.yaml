@@ -2099,12 +2099,16 @@ $defs:
               was deleted or is hidden from its person, or the agent was removed from it,
               as it is for good when its person is removed from or leaves the board), and
               the daemon reads nothing more for it; unauthorized when the server rejects its
-              token. Text output adds an indented line under the Daemon line for each: for
+              token; handoff_failed when the daemon couldn't prepare a handoff for the
+              agent's session and is trying again with backoff. Text output adds an
+              indented line under the Daemon line for each: for
               board_gone, "writer can't reach docs any more: the board is gone or hidden
-              from its person, or the agent was removed from it. Join again with a new agent
-              (aboard join) if the person still belongs on it."; otherwise "deliveries for
-              writer on docs stopped (unauthorized); see aboard doctor". Left out when the
-              daemon isn't running.
+              from its person, or the agent was removed from it. Join again with a new
+              agent (aboard join) if the person still belongs on it."; for
+              handoff_failed, "deliveries for writer on docs can't be prepared for its
+              session; run aboard resume in that session (see aboard doctor)"; otherwise
+              "deliveries for writer on docs stopped (unauthorized); see aboard doctor".
+              Left out when the daemon isn't running.
             items:
               type: object
               required: [server, board, name, reason]
@@ -2112,7 +2116,7 @@ $defs:
                 server: { type: string }
                 board: { type: string }
                 name: { type: string }
-                reason: { type: string, examples: [board_gone, unauthorized] }
+                reason: { type: string, examples: [board_gone, unauthorized, handoff_failed] }
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]
