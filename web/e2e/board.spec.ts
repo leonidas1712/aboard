@@ -1923,6 +1923,84 @@ test("an agent's reply to the person opens its thread, so the person reads it an
   expect(aboard("read", "--receipts", String(reply.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
 });
 
+test("Mark all as read moves the person's read position to the newest message, and what arrives after stays unread", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Catch up", "--json"));
+  const board: string = pair.board.name;
+  const say = (...args: string[]) => JSON.parse(aboard("say", "--as", "writer", "--board", board, ...args, "--json")).message as { seq: number };
+  say("Before you left.");
+  aboard("read", "--mark-read", "--board", board);
+  const first = say("--to", "@alex", "First new one, for you.");
+  for (let i = 1; i <= 30; i++) say(`Catch-up step ${i}, written out so the timeline scrolls.`);
+  const last = say("--to", "@alex", "Last new one, also for you.");
+  expect(unreadOn(board)).toBe(32);
+
+  // Opening at the newest message reads nothing above it, so the board stays unread, with
+  // the divider above the first new message and the control in the header.
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const newest = page.locator(".message", { hasText: "Last new one, also for you." });
+  await expect(newest).toBeVisible();
+  await expect(page.locator(".new-divider + .message")).toContainText("First new one, for you.");
+  await expect(newest.locator(".receipt-mark")).toHaveText("Pending");
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const link = nav.locator(`a[href="/?board=${board}"]`);
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText(/\d+/);
+  expect(unreadOn(board)).toBeGreaterThan(0);
+
+  // Mark all as read clears the count, the divider and the control, and the person's
+  // receipts read "read", here and from the CLI.
+  await page.getByRole("button", { name: "Mark all as read", exact: true }).click();
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+  await expect(page.locator(".new-divider")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Mark all as read", exact: true })).toHaveCount(0);
+  await expect(newest.locator(".receipt-mark")).toHaveText("Read");
+  expect(unreadOn(board)).toBe(0);
+  for (const m of [first, last]) {
+    expect(aboard("read", "--receipts", String(m.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
+  }
+
+  // Reading further back, a message that arrives afterwards stays unread.
+  await page.locator(".timeline").evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.getByRole("button", { name: /Jump to newest/ })).toBeVisible();
+  say("Arrived after you caught up.");
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await expect(page.getByRole("button", { name: "Mark all as read", exact: true })).toBeVisible();
+  expect(unreadOn(board)).toBe(1);
+
+  // Another board offers it in the board list, on hover. A message posted while the
+  // request is on its way is newer than the click, and stays unread.
+  const other = await newBoard("Other catch up");
+  const pat = await person("pat");
+  await api(ownerKey(), "POST", `/v1/boards/${other.name}/people`, { handle: "pat" });
+  const otherLink = nav.locator(`a[href="/?board=${other.name}"]`);
+  await expect(otherLink).toBeVisible();
+  for (const body of ["One on the other board.", "Two on the other board."]) {
+    await api(pat, "POST", `/v1/boards/${other.name}/messages`, { body, to: ["all"] });
+  }
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("2");
+
+  let release: () => void = () => {};
+  const held = new Promise<void>((done) => (release = done));
+  let sent: () => void = () => {};
+  const asked = new Promise<void>((done) => (sent = done));
+  await page.route(`**/v1/boards/${other.name}/ack`, async (route: Route) => {
+    sent();
+    await held;
+    await route.continue();
+  });
+  await otherLink.hover();
+  await nav.getByRole("button", { name: "Mark all as read on Other catch up" }).click();
+  await asked;
+  await api(pat, "POST", `/v1/boards/${other.name}/messages`, { body: "Three, after the click.", to: ["all"] });
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("3");
+  release();
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await expect.poll(() => unreadOn(other.name)).toBe(1);
+});
+
 test("a board owner removes another person's agent from the panel, and Show removed lists it", async ({ page }) => {
   const b = await newBoard("Removal check");
   const rowan = await person("rowan");

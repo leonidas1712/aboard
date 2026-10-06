@@ -70,6 +70,11 @@ export type BoardState = {
   replace: (m: Message) => void;
   /** ack marks the board read up to seq for the person: call it only for what they saw. */
   ack: (seq: number) => void;
+  /**
+   * markAllRead moves the person's read position on b to its newest message as the page
+   * knows it now, so whatever arrives after the click stays unread.
+   */
+  markAllRead: (b: Board) => Promise<void>;
   /** activity changes when the board moves or one of the person's agents reads it, so receipts can be read again. */
   activity: number;
   /** readFrom is the person's read position when the page opened, read before it could acknowledge anything. */
@@ -395,6 +400,27 @@ export function useBoard(name: string, filter: Filter): BoardState {
     [name, board?.read_up_to],
   );
 
+  const markAllRead = useCallback(async (b: Board) => {
+    const here = b.id === boardId.current;
+    // The board on screen may show a message its last read of the board didn't count yet.
+    const upTo = here ? Math.max(b.head_seq, newest.current) : b.head_seq;
+    if (upTo <= (b.read_up_to ?? 0)) return;
+    const gen = progress.current.next();
+    const r = await ackBoard(b.name, upTo);
+    if (!live.current) return;
+    progress.current.note(b.id, gen, r.read_up_to, r.unread);
+    const set = (x: Board) => (x.id === b.id ? progress.current.apply(x) : x);
+    setBoards((bs) => bs?.map(set) ?? bs);
+    setBoard((x) => (x ? set(x) : x));
+    if (!here) return;
+    // The page reads on from the new position: no divider above what was marked, and
+    // every message after it loads live, so none is held back as unloaded.
+    acked.current = Math.max(acked.current, r.read_up_to);
+    setReadFrom((f) => Math.max(f ?? 0, r.read_up_to));
+    setFirstUnread(0);
+    setActivity((n) => n + 1);
+  }, []);
+
   const known = useMemo(() => {
     const out = new Map<string, Message>();
     for (const m of [...extra, ...(base?.messages ?? []), ...(filtered?.messages ?? [])]) out.set(m.id, m);
@@ -454,6 +480,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     refresh,
     replace: replaceMessage,
     ack,
+    markAllRead,
     activity,
     readFrom,
     firstUnread,
