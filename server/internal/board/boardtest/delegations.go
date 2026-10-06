@@ -50,7 +50,8 @@ func delegationsEndByKeyAndName(t *testing.T, st board.Store) {
 
 // seatsAreFoundBySessionAndPerson checks that a seat is found by its board, person and
 // session together, newest first, never another person's with the same session; that
-// its token can be replaced; and that a removed agent keeps when and by whom.
+// its token can be replaced; and that a removed agent, or one that left, keeps when and
+// by whom.
 func seatsAreFoundBySessionAndPerson(t *testing.T, st board.Store) {
 	write(t, st, func(tx board.Tx) error {
 		b, _, err := newBoard(tx, "seats")
@@ -77,6 +78,9 @@ func seatsAreFoundBySessionAndPerson(t *testing.T, st board.Store) {
 		if err := tx.RemoveAgent(old.ID, "2026-10-01T16:30:00.000Z", board.RemovedByOwner); err != nil {
 			return err
 		}
+		if err := tx.RemoveAgent(sams.ID, "2026-10-01T16:40:00.000Z", board.RemovedBySelf); err != nil {
+			return err
+		}
 		return tx.SetAgentToken(newer.ID, "rotated", "key_x")
 	})
 	read(t, st, func(tx board.ReadTx) error {
@@ -93,6 +97,10 @@ func seatsAreFoundBySessionAndPerson(t *testing.T, st board.Store) {
 		m, err = tx.SeatForSession("brd_seats", "hum_sam", "claude-code:1")
 		if err != nil || m.Name != "claude-3" {
 			t.Errorf("sam's seat: %+v %v", m, err)
+		}
+		// An agent that left by itself reads back as left, by itself.
+		if m.Status != board.StatusLeft || m.RemovedAt == nil || *m.RemovedAt != "2026-10-01T16:40:00.000Z" || m.RemovedBy == nil || *m.RemovedBy != board.RemovedBySelf {
+			t.Errorf("the agent that left: %+v", m)
 		}
 		if _, err := tx.SeatForSession("brd_seats", "hum_sam", "claude-code:2"); !errors.Is(err, board.ErrNotFound) {
 			t.Errorf("another session: %v", err)

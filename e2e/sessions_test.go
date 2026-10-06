@@ -295,8 +295,15 @@ func (e *env) fakeCodexCalls() []map[string]string {
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	// The fake creates the file before it writes, and a test may read while it
+	// writes: only lines that end in a newline are complete.
 	var calls []map[string]string
-	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+	complete := string(raw[:bytes.LastIndexByte(raw, '\n')+1])
+	for line := range strings.Lines(complete) {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
 		var c map[string]string
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
 			e.t.Fatalf("fake codex log line %q: %v", line, err)

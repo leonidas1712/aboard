@@ -58,7 +58,7 @@ Status on 2026-10-06, checked against merged work.
 | 2. Access keys and identity | All: keys, `login`, `connect`, `approve`, browser sessions (#82, #86, #91, #92) | |
 | 3. Members, roles and guests | All: roles, removing a person, guest codes, pairing and guest codes split (#96) | |
 | 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88); archive, restore and delete in the API, CLI and board view (#117) | |
-| 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c), bots, project labels |
+| 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c: API, CLI and record in review in #131; the board view's Remove next), bots, project labels |
 | 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the person's CLI inbox across boards |
 | 7. A server for a team | Team server, secure bootstrap and backup before the atomic migration batch (#118) | Load test, version-skew check |
 | After: deploying | Public HTTPS configuration, container and deployment recipes (#118); release pipeline and install script (#120) | Deployment proof and the two-machine test |
@@ -264,8 +264,8 @@ from `aboard boards` never authorizes a join: the join is checked again.
    removal racing reads and writes, and re-adding followed by the old token's refusal.
 4. **4b. Archive, restore, delete.** Done (#117), using the seat ids delivered by 5a.
    Deletion ends access and preserves the record; it does not erase stored bytes. The
-   general 24-hour idempotency lifetime remains a separate required follow-up before
-   team-ready: expired answers must be ignored and their rows purged. Row removal
+   general 24-hour idempotency lifetime is done (#128): expired answers are ignored,
+   and expired rows are purged at server startup and hourly. Row removal
    does not securely erase copies in the WAL, free pages or migration backups.
 5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
    stays small (not required for team-ready): deterministic patterns for known

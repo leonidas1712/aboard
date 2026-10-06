@@ -36,48 +36,6 @@ func runKeys(ctx context.Context, a *app, args []string) error {
 	return usageError("aboard keys has no command "+strconv.Quote(sub)+".", keysUsage)
 }
 
-// keysServer is the server keys commands act on: --server, else the one this
-// directory's .aboard names, else the local server, which it starts if needed. It
-// reports whether it started it.
-func (a *app) keysServer(ctx context.Context, flag string) (serverRef, bool, error) {
-	srv := a.localServer()
-	if flag != "" {
-		srv = a.serverRefFor(strings.TrimSuffix(strings.TrimSpace(flag), "/"))
-	} else if p, ok, err := a.readProject(); err != nil {
-		return serverRef{}, false, err
-	} else if ok && p.Server.URL != "" {
-		srv = p.Server
-	}
-	if srv.URL != a.localServer().URL {
-		return srv, false, nil
-	}
-	started, err := a.ensureLocal(ctx)
-	return srv, started, err
-}
-
-// personServer is the server a person command acts on when it may be a team server:
-// --server, else the one this directory's .aboard names, else the one server this
-// machine is connected to when there is exactly one, else the local server, which it
-// starts if needed. It reports whether it started the local server.
-func (a *app) personServer(ctx context.Context, flag string) (serverRef, bool, error) {
-	if flag == "" {
-		p, ok, err := a.readProject()
-		if err != nil {
-			return serverRef{}, false, err
-		}
-		if !ok || p.Server.URL == "" {
-			logins, err := a.readServerLogins()
-			if err != nil {
-				return serverRef{}, false, err
-			}
-			if len(logins.Servers) == 1 {
-				flag = logins.Servers[0].URL
-			}
-		}
-	}
-	return a.keysServer(ctx, flag)
-}
-
 // keysClient returns a client for srv that sends the key this machine keeps for it.
 func (a *app) keysClient(ctx context.Context, srv serverRef) (*client, error) {
 	token, err := a.readOwnerToken(srv)
@@ -102,14 +60,14 @@ func keyRejected(srv serverRef, status int, body []byte) *Error {
 func runKeysList(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("keys")
 	person := fs.String("person", "", "another person whose keys to list; admins only")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	if _, err := a.parse(fs, args, keysUsage, 0, 0); err != nil {
 		return err
 	}
 	if err := a.refuseInSession("Managing access keys", "aboard keys"); err != nil {
 		return err
 	}
-	srv, started, err := a.keysServer(ctx, *serverFlag)
+	srv, started, err := a.personServer(ctx, *serverFlag)
 	if err != nil {
 		return err
 	}
@@ -231,7 +189,7 @@ func parseExpiry(s string) (time.Duration, error) {
 func runKeysCreate(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("keys")
 	expires := fs.String("expires", "", "how long the key works, such as 90d, 12h or 1y; default 90d")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	pos, err := a.parse(fs, args, keysUsage, 1, 1)
 	if err != nil {
 		return err
@@ -248,7 +206,7 @@ func runKeysCreate(ctx context.Context, a *app, args []string) error {
 		secs := int(d.Seconds())
 		req.TtlSeconds = &secs
 	}
-	srv, started, err := a.keysServer(ctx, *serverFlag)
+	srv, started, err := a.personServer(ctx, *serverFlag)
 	if err != nil {
 		return err
 	}
@@ -268,7 +226,7 @@ func runKeysCreate(ctx context.Context, a *app, args []string) error {
 	if started {
 		text = "Started local Aboard at " + srv.URL + "\n"
 	}
-	text += fmt.Sprintf("Key %q (shown once, then never again): %s\n", k.Name, k.Token)
+	text += fmt.Sprintf("Key %q for %s (shown once, then never again): %s\n", k.Name, srv.URL, k.Token)
 	text += "Save it in your password manager. Anyone with it can sign in as you until you revoke it.\n"
 	if k.ExpiresAt != nil {
 		text += fmt.Sprintf("It expires on %s (in %s). ", k.ExpiresAt.Format("2006-01-02"), daysText(time.Until(*k.ExpiresAt)))
@@ -282,7 +240,7 @@ func runKeysRevoke(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("keys")
 	person := fs.String("person", "", "another person whose key to revoke; admins only")
 	yes := fs.Bool("yes", false, "revoke this machine's own key without asking")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	pos, err := a.parse(fs, args, keysUsage, 1, 1)
 	if err != nil {
 		return err
@@ -294,7 +252,7 @@ func runKeysRevoke(ctx context.Context, a *app, args []string) error {
 	if err := a.refuseInSession("Revoking an access key", again); err != nil {
 		return err
 	}
-	srv, started, err := a.keysServer(ctx, *serverFlag)
+	srv, started, err := a.personServer(ctx, *serverFlag)
 	if err != nil {
 		return err
 	}
@@ -339,7 +297,7 @@ func runKeysRevoke(ctx context.Context, a *app, args []string) error {
 	if started {
 		text = "Started local Aboard at " + srv.URL + "\n"
 	}
-	text += "Revoked " + got.Name + "."
+	text += "Revoked " + got.Name + " on " + srv.URL + "."
 	var ended []string
 	if n := count(got.BrowserSessions); n > 0 {
 		ended = append(ended, counted(n, "browser session"))
@@ -373,7 +331,7 @@ func runKeysSessions(ctx context.Context, a *app, args []string) error {
 		return runKeysSessionsEnd(ctx, a, args[1:])
 	}
 	fs := a.flags("keys")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	pos, err := a.parse(fs, args, keysUsage, 0, 1)
 	if err != nil {
 		return err
@@ -385,7 +343,7 @@ func runKeysSessions(ctx context.Context, a *app, args []string) error {
 	if err := a.refuseInSession("Listing browser sessions", again); err != nil {
 		return err
 	}
-	srv, started, err := a.keysServer(ctx, *serverFlag)
+	srv, started, err := a.personServer(ctx, *serverFlag)
 	if err != nil {
 		return err
 	}
@@ -445,7 +403,7 @@ func runKeysSessions(ctx context.Context, a *app, args []string) error {
 // runKeysSessionsEnd signs one browser out by its session's id.
 func runKeysSessionsEnd(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("keys")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	pos, err := a.parse(fs, args, keysUsage, 1, 1)
 	if err != nil {
 		return err
@@ -456,7 +414,7 @@ func runKeysSessionsEnd(ctx context.Context, a *app, args []string) error {
 	if !strings.HasPrefix(pos[0], "ses_") {
 		return usageError("aboard keys sessions end takes a session's id, starting with ses_, as aboard keys sessions lists it.", keysUsage)
 	}
-	srv, started, err := a.keysServer(ctx, *serverFlag)
+	srv, started, err := a.personServer(ctx, *serverFlag)
 	if err != nil {
 		return err
 	}
@@ -475,7 +433,7 @@ func runKeysSessionsEnd(ctx context.Context, a *app, args []string) error {
 	if started {
 		text = "Started local Aboard at " + srv.URL + "\n"
 	}
-	text += "Signed out browser session " + r.JSON200.Id + " (key " + r.JSON200.Key.Name + "). The key and its other sessions keep working.\n"
+	text += "Signed out browser session " + r.JSON200.Id + " (key " + r.JSON200.Key.Name + ") on " + srv.URL + ". The key and its other sessions keep working.\n"
 	a.emit(map[string]any{"server": srv, "session": r.JSON200}, text)
 	return nil
 }

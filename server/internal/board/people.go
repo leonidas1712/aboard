@@ -139,6 +139,12 @@ func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error)
 	if err != nil {
 		return Human{}, nil, err
 	}
+	if p.Agent != nil {
+		// A removed seat's token is refused on every path, saying so.
+		if err := endedSeat(tx, *p.Agent); err != nil {
+			return Human{}, nil, err
+		}
+	}
 	end, err := keyState(tx, p, now)
 	return person, end, err
 }

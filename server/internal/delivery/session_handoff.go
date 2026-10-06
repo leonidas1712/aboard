@@ -102,6 +102,10 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 			return h, deliveries, nil
 		}
 	}
+	// A session a daemon from before combined handoffs kept open has no boot.
+	if err := s.ensureBoot(ctx); err != nil {
+		return nil, nil, err
+	}
 	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: s.now()}
 	hash := sha256.Sum256([]byte(text))
 	manifest.PayloadHash = hex.EncodeToString(hash[:])
@@ -310,7 +314,9 @@ func (s *session) textContext(agent AgentRef) deliverytext.Context {
 }
 
 // ensureBoot keeps validated queue sessions usable when their harness hooks were not
-// trusted. A later real hook boot fences this local process marker normally.
+// trusted, and sessions an older daemon kept without a boot. A later real hook boot
+// fences this local process marker normally. Bundles handed under the empty boot went
+// to the same process, so they take the new boot and its next event still confirms them.
 func (s *session) ensureBoot(ctx context.Context) error {
 	if s.boot != "" {
 		return nil
@@ -325,5 +331,42 @@ func (s *session) ensureBoot(ctx context.Context) error {
 		return err
 	}
 	s.boot = boot
+	for _, a := range s.agents {
+		for _, dl := range a.deliveries {
+			if dl.State == StateHanded && dl.Session == s.key && dl.Boot == "" {
+				dl.Boot = boot
+				s.saveDelivery(ctx, dl)
+			}
+		}
+	}
 	return nil
+}
+
+// prepareBackoffMax is the longest a session waits before trying again to prepare a
+// handoff that keeps failing.
+const prepareBackoffMax = 5 * time.Minute
+
+// prepareFailed reports a handoff that failed to prepare, logging only the first of a
+// run of failures and showing it in status, and returns how long to wait before the
+// next try: QueueGather, doubling to prepareBackoffMax.
+func (s *session) prepareFailed(what string, err error) time.Duration {
+	s.prepareFailures++
+	if s.prepareFailures == 1 {
+		s.d.log.Error(what, "session", s.key.String(), "error", err,
+			"hint", "the daemon tries again with backoff; run aboard resume in that session")
+		s.d.setHandoffProblem(s.key, true)
+	} else {
+		s.d.log.Debug("handoff still fails", "session", s.key.String(), "failures", s.prepareFailures, "error", err)
+	}
+	return min(QueueGather<<min(s.prepareFailures-1, 16), prepareBackoffMax)
+}
+
+// prepared clears a run of failed preparations once a handoff is prepared.
+func (s *session) prepared() {
+	if s.prepareFailures == 0 {
+		return
+	}
+	s.d.log.Info("handoff ready again", "session", s.key.String(), "failures", s.prepareFailures)
+	s.prepareFailures = 0
+	s.d.setHandoffProblem(s.key, false)
 }
