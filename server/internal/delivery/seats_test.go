@@ -40,7 +40,7 @@ func newFakeSeats() *fakeSeats {
 	return &fakeSeats{seats: map[string]delivery.SeatRef{}, saved: map[string]string{}}
 }
 
-func (f *fakeSeats) Boards(_ context.Context, _ string, lifecycle string) (delivery.SeatBoards, error) {
+func (f *fakeSeats) Boards(_ context.Context, _, lifecycle string) (delivery.SeatBoards, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.lifecycles = append(f.lifecycles, lifecycle)
