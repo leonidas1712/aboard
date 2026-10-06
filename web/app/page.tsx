@@ -73,7 +73,9 @@ export default function Page() {
     setNotice(null);
     setStarted({ ...started, session: null });
   };
-  const view = started.board ? (
+  const view = lab?.Place && lab.place?.() ? (
+    <lab.Place onSignOut={onSignOut} />
+  ) : started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />

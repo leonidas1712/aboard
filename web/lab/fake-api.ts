@@ -165,7 +165,7 @@ for (const [i, o] of (scenario.otherBoards ?? []).entries()) {
   if (o.messages) {
     w.board.message_count = o.messages;
     w.board.last_message_at = iso(at(scenario.steps.at(-1)!.at - (o.lastAgo ?? 30)));
-    w.counts = { unread: o.unread ?? 0, needs: o.needs ?? 0 };
+    w.counts = { unread: o.unread ?? 0, needs: (scenario.inbox ?? []).filter((a) => a.board === o.name).length };
   }
   worlds.set(o.name, w);
 }
@@ -219,9 +219,10 @@ function sync(s: Snapshot): string[] {
         atMs: at(m.t),
         from: m.from,
         to: m.to ?? ["all"],
-        body: m.body,
+        // An ask's text is its question; its detail and buttons are the lab's (message-footer.tsx).
+        body: m.question ?? m.body,
         replyTo: m.replyTo ?? null,
-        asks: m.asks ?? false,
+        asks: m.asks ?? (!!m.options && !m.ahead),
         urgent: m.urgent ?? false,
       });
     }

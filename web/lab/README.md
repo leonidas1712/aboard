@@ -6,7 +6,7 @@ experimental views. You use it to look at proposed features, and change them, be
 the API has them. It needs no aboard server.
 
 ```sh
-make lab          # http://localhost:3100/?lab=team&board=checkout-v2 (LAB_PORT to change)
+make lab          # http://localhost:3100/?lab=team (LAB_PORT to change)
 make lab-export   # web/lab-out/ (static files) and web/lab-out/aboard-ui-lab.html (one page)
 make lab-shots    # every scenario at desktop and phone widths, in web/lab/screenshots/
 ```
@@ -16,8 +16,11 @@ make lab-shots    # every scenario at desktop and phone widths, in web/lab/scree
 A floating panel at the bottom left picks the scenario and its time step. **Play** moves
 through the steps. A later step happens live: new messages arrive on the stream and
 presence changes. An earlier step reloads the page. The address keeps the moment:
-`?lab=<scenario>&step=<n>&board=<name>`, plus `view=tasks` to open the Tasks tab and
-`panel=closed` to fold the panel.
+`?lab=<scenario>&step=<n>`, then `inbox=1` for the Inbox, `board=<name>` for a board,
+or `list=1` for the list of boards. On a board, `view=tasks` opens Tasks, `task=<id>`
+opens a task in the side panel, and `artifact=<id>` opens a file there. Add
+`panel=closed` to fold the lab panel. With no place named, the lab opens on the Inbox
+when there is an ask, and on the scenario's board when there isn't.
 
 ## How it stays out of the real UI
 
@@ -60,24 +63,20 @@ real component replaces the experimental one, and its slot goes away.
 
 ## The mocked features now
 
-[DIRECTION.md](DIRECTION.md) explains why these features exist and how they fit together.
+[DIRECTION.md](DIRECTION.md) explains why these features exist and what they need from
+the server.
 
-- **Facts and the brief** (`experiments/centre.tsx`, `brief.tsx`): two rows under the
-  "Now:" line. The Facts row is counted from the record. The Brief is Markdown that
-  the steward agent maintains. It opens in place, and its freshness is stated as facts.
-- **Now** (`experiments/now-view.tsx`): the home view of a board with a team. It shows
-  what needs you, what changed since you last looked, and what is stuck, stale or
-  idle. Each item links to its evidence and has an ask.
-- **Tasks** (`experiments/tasks.tsx`): a kanban. A message can name tasks with
-  `about`, so each card has its threads, and thread headers show task chips
-  (`message-footer.tsx`).
-- **Files** (`experiments/artifacts.tsx`): artifacts and content as cards. A preview
-  shows HTML in a frame with `sandbox=""`. A file posted with a message shows under
-  that message.
-- **Agents** (`experiments/agent-groups.tsx`): one compact row per agent: presence,
-  name, and now line. A click on the name shows the agent's details. The rows are
-  grouped by task.
-- **Asks** (`experiments/ask.tsx`): a message to the right agent, written in for you.
-  The fake answers it.
-- **Across your boards** (`experiments/workspace.tsx`): the overview above the board
-  list in the `workspace` scenario.
+- **Inbox** (`experiments/inbox.tsx`, `asks.ts`): every ask from every board, and what is
+  worth a look. Number keys answer the selected ask.
+- **Sidebar** (`experiments/nav.tsx`): the Inbox count, each board's red dot and unread
+  count, and a stub of ⌘K.
+- **Brief** (`experiments/brief.tsx`): the steward's writing, with a byline. Open, it
+  shows Goal, Approach, Who's doing what, Blocked on, Next and Sources.
+- **Conversation | Tasks** (`experiments/centre.tsx`, `tasks.tsx`). The columns are
+  Needs you, In progress, Waiting and Not picked up. Free agents are listed beside
+  them. Done folds away.
+- **Side panel** (`experiments/work.tsx`, `artifacts.tsx`): the board's Work, a task
+  (its note, open question, files, people, Tell the team and mentions), or a file on
+  a light page.
+- **In the conversation** (`experiments/message-footer.tsx`, `text.tsx`): an ask has
+  buttons, a file shows as a card, and task ids are links.

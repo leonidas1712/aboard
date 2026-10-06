@@ -19,40 +19,39 @@ const agents = [
 ];
 
 const tasks: ScenarioTask[] = [
-  { id: "t1", title: "Split the monolith's auth module into a package", state: "working", owner: "claude", with: ["claude-2", "codex"], label: "auth", t: 560 },
-  { id: "t2", title: "Migrate session storage to Redis", state: "working", owner: "codex-2", with: ["codex-3"], label: "auth", t: 571 },
-  { id: "t3", title: "Add rate limits to the public API", state: "working", owner: "claude-3", label: "api", t: 590 },
-  { id: "t4", title: "Port the admin dashboard to the new design", state: "working", owner: "claude-4", with: ["omp", "sam"], label: "web", t: 585 },
-  { id: "t5", title: "Write load tests for search", state: "working", owner: "codex-4", label: "search", t: 520 },
-  { id: "t6", title: "Rebuild the search index nightly", state: "working", owner: "omp-2", label: "search", t: 575 },
-  { id: "t7", title: "Review the auth package split", state: "working", owner: "reviewer", with: ["claude"], label: "review", t: 595 },
-  { id: "t8", title: "Fix timezone bugs in the billing report", state: "working", owner: "omp-3", label: "billing", t: 480 },
-  { id: "t9", title: "Remove the legacy v1 webhooks", state: "claimed", owner: "codex", label: "api", t: 540 },
-  { id: "t10", title: "Document the new rate limits", state: "claimed", owner: "claude-2", label: "docs", t: 565 },
-  { id: "t11", title: "Upgrade the ORM to 6.x", state: "claimed", owner: "codex-3", label: "deps", t: 550 },
+  { id: "PLT-1", title: "Split the monolith's auth module into a package", state: "working", owner: "claude", with: ["claude-2", "codex"], t: 560 },
+  { id: "PLT-2", title: "Migrate session storage to Redis", state: "working", owner: "codex-2", with: ["codex-3"], t: 571 },
+  { id: "PLT-3", title: "Add rate limits to the public API", state: "working", owner: "claude-3", t: 590 },
+  { id: "PLT-4", title: "Port the admin dashboard to the new design", state: "working", owner: "claude-4", with: ["omp", "sam"], t: 585 },
+  { id: "PLT-5", title: "Write load tests for search", state: "working", owner: "codex-4", t: 520 },
+  { id: "PLT-6", title: "Rebuild the search index nightly", state: "working", owner: "omp-2", t: 575 },
+  { id: "PLT-7", title: "Review the auth package split", state: "working", owner: "reviewer", with: ["claude"], t: 595 },
+  { id: "PLT-8", title: "Fix timezone bugs in the billing report", state: "working", owner: "omp-3", t: 480 },
+  { id: "PLT-9", title: "Remove the legacy v1 webhooks", state: "claimed", owner: "codex", t: 540 },
+  { id: "PLT-10", title: "Document the new rate limits", state: "claimed", owner: "claude-2", t: 565 },
+  { id: "PLT-11", title: "Upgrade the ORM to 6.x", state: "claimed", owner: "codex-3", t: 550 },
   {
-    id: "t12",
+    id: "PLT-12",
     title: "Decide the retention period for audit logs",
     state: "waiting",
     owner: "claude-3",
     waitingOn: "leo",
     reason: "90 days, or a year for enterprise plans?",
-    label: "compliance",
     t: 580,
   },
-  { id: "t13", title: "Rotate the production database password", state: "waiting", owner: "omp", waitingOn: "priya", reason: "needs her vault approval", label: "infra", t: 500 },
-  { id: "t14", title: "Ship the CSV export", state: "waiting", owner: "codex-4", waitingOn: "codex-2", reason: "needs the new session API first", label: "billing", t: 545 },
-  { id: "t15", title: "Add SSO for enterprise accounts", state: "open", label: "auth", t: 400 },
-  { id: "t16", title: "Dark mode for the settings pages", state: "open", label: "web", t: 380 },
-  { id: "t17", title: "Cache avatars at the edge", state: "open", label: "infra", t: 360 },
-  { id: "t18", title: "Flaky test: search paginates past the end", state: "open", label: "ci", t: 590 },
-  { id: "t19", title: "Translate the onboarding emails", state: "open", label: "docs", t: 300 },
-  { id: "t20", title: "Audit third-party scripts on the marketing site", state: "open", label: "security", t: 280 },
-  { id: "t21", title: "Bump Node to 22 in CI", state: "done", owner: "omp-2", t: 420 },
-  { id: "t22", title: "Fix the broken invoice PDF footer", state: "done", owner: "omp-3", t: 450 },
-  { id: "t23", title: "Add health checks to the worker pool", state: "done", owner: "codex", with: ["codex-2"], t: 470 },
-  { id: "t24", title: "Retire the old status page", state: "done", owner: "claude-4", t: 300 },
-  { id: "t25", title: "Pin the base Docker images", state: "done", owner: "omp", t: 250 },
+  { id: "PLT-13", title: "Rotate the production database password", state: "waiting", owner: "omp", waitingOn: "priya", reason: "needs her vault approval", t: 500 },
+  { id: "PLT-14", title: "Ship the CSV export", state: "waiting", owner: "codex-4", waitingOn: "codex-2", reason: "needs the new session API first", t: 545 },
+  { id: "PLT-15", title: "Add SSO for enterprise accounts", state: "open", t: 400 },
+  { id: "PLT-16", title: "Dark mode for the settings pages", state: "open", t: 380 },
+  { id: "PLT-17", title: "Cache avatars at the edge", state: "open", t: 360 },
+  { id: "PLT-18", title: "Flaky test: search paginates past the end", state: "open", t: 590 },
+  { id: "PLT-19", title: "Translate the onboarding emails", state: "open", t: 300 },
+  { id: "PLT-20", title: "Audit third-party scripts on the marketing site", state: "open", t: 280 },
+  { id: "PLT-21", title: "Bump Node to 22 in CI", state: "done", owner: "omp-2", t: 420 },
+  { id: "PLT-22", title: "Fix the broken invoice PDF footer", state: "done", owner: "omp-3", t: 450 },
+  { id: "PLT-23", title: "Add health checks to the worker pool", state: "done", owner: "codex", with: ["codex-2"], t: 470 },
+  { id: "PLT-24", title: "Retire the old status page", state: "done", owner: "claude-4", t: 300 },
+  { id: "PLT-25", title: "Pin the base Docker images", state: "done", owner: "omp", t: 250 },
 ];
 
 const now: Record<string, NowLine | null> = {
@@ -91,12 +90,9 @@ const messages: ScenarioMessage[] = lines.map(([t, from, body, to], i) => ({
   from,
   body,
   ...(to ? { to: [to], asks: to === "@leo" } : {}),
-  // claude-3's question is about T12, the audit log retention.
-  ...(body.startsWith("Audit logs") ? { about: ["t12"] } : {}),
-  ...(body.startsWith("Rate limits") ? { about: ["t3"] } : {}),
-  ...(body.startsWith("Starting the auth") ? { about: ["t1", "t7"] } : {}),
-  ...(body.startsWith("Picking up the auth") ? { about: ["t7", "t1"] } : {}),
-  ...(body.startsWith("Sessions now") ? { about: ["t2"], ahead: true } : {}),
+  // claude-3's question is an ask about PLT-12, the audit log retention.
+  ...(body.startsWith("Audit logs") ? { task: "PLT-12", question: "Keep audit logs 90 days, or a year for enterprise plans?", options: ["90 days for everyone", "A year for enterprise plans"] } : {}),
+        ...(body.startsWith("Sessions now") ? { task: "PLT-2", ahead: true, question: "Cutting sessions over to Redis at 18:00", options: ["Hold it", "Let it go ahead"] } : {}),
 }));
 
 export const busy: Scenario = {
@@ -106,6 +102,7 @@ export const busy: Scenario = {
   me: "leo",
   people: [{ name: "leo", admin: true }, { name: "priya" }, { name: "sam" }],
   agents,
+  steward: "reviewer",
   board: {
     name: "platform",
     title: "Platform team",
@@ -123,18 +120,15 @@ export const busy: Scenario = {
       now,
       tasks,
       brief: {
-        summary: "Finish the auth split and the Redis move, then freeze for the audit.",
-        by: "sam",
+        summary: "Finish the auth split (PLT-1) and the Redis session move (PLT-2), then freeze for the audit.",
+        by: "reviewer",
         t: 60,
-        body: `# Platform team
-
-## This week
-- Finish the auth package split (T1) and the Redis session move (T2).
-- Then freeze for the audit: no schema changes after Thursday.
-
-## Rules
-- Anything touching billing goes through priya.
-- Keep PRs under 400 lines; one reviewer each.`,
+        goal: "The auth package split and Redis sessions done before Thursday's audit freeze.",
+        approach: "Small PRs, under 400 lines, one reviewer each. Anything touching billing goes through priya.",
+        who: "claude, claude-2 and codex on the auth split (PLT-1). codex-2 and codex-3 on Redis (PLT-2). claude-3 on rate limits (PLT-3).",
+        blocked: "Your call on audit log retention (PLT-12). priya's vault approval (PLT-13).",
+        next: "Freeze on Thursday; the CSV export (PLT-14) after the session API lands.",
+        sources: "Cites 31 messages.",
       },
       messages,
     },

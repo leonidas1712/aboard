@@ -1,7 +1,7 @@
 // EXPERIMENTAL, lab only: a small Markdown renderer for the brief and Markdown
 // artifacts. Headings (#, ##, ###), lists (- and 1.), paragraphs, **bold** and `code`,
 // drawn as React elements, so nothing in the text is ever run as HTML. A task the text
-// cites (T5) links to the task, so a claim leads to its evidence.
+// cites (CHK-16) links to the task, so a claim leads to its evidence.
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -11,8 +11,8 @@ type Cite = (ref: string) => (() => void) | null;
 let cite: Cite | undefined;
 
 function inline(text: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\bT\d+\b)/g).map((part, i) => {
-    const go = /^T\d+$/.test(part) ? cite?.(part) : null;
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`|\b[A-Z]{2,5}-\d+\b)/g).map((part, i) => {
+    const go = /^[A-Z]{2,5}-\d+$/.test(part) ? cite?.(part) : null;
     if (go) {
       return (
         <button key={i} type="button" onClick={go} className="font-bold text-link underline decoration-1 underline-offset-[3px] hover:no-underline" title={`Open ${part}`}>

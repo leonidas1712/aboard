@@ -4,7 +4,6 @@
 // on. The right one is about the board on screen: its agents and people, its charter,
 // the rules Aboard enforces on it, and its details.
 
-import { lab } from "aboard-lab";
 import { ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -153,20 +152,24 @@ type BoardPanelProps = {
   reveal: Reveal;
   /** onLifecycle reloads the board after it is archived or restored. */
   onLifecycle: () => void;
+  /** agents is false to leave out the agents and people, which the UI lab shows its own way. */
+  agents?: boolean;
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, agents: showAgents = true }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
     <div className="flex flex-col gap-4">
-      <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
-        <div className="flex flex-col gap-4 pt-1">
-          {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
-        </div>
-      </Section>
+      {showAgents && (
+        <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
+          <div className="flex flex-col gap-4 pt-1">
+            {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
+            <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
+          </div>
+        </Section>
+      )}
 
       {board?.charter && (
         <Section
@@ -320,24 +323,12 @@ function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
       onPick={() => onPick(a.name)}
     />
   );
-  const details = (a: Member) => (
-    <AgentDetails
-      agent={a}
-      board={board?.name}
-      mine={meId !== null && a.owner_id === meId}
-      roleCharter={board?.roles[a.role ?? ""]?.charter}
-      showOwner={showOwner}
-    />
-  );
   return (
     <div className="flex flex-col gap-6">
       {members === null ? (
         <div className="h-16 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />
       ) : agents.length === 0 ? (
         <p>No agents yet.</p>
-      ) : lab?.Agents && board ? (
-        // Only the UI lab lays the agents out differently (lab-seam.ts).
-        <lab.Agents board={board.name} agents={agents} item={item} details={details} pick={onPick} />
       ) : (
         <ul className="flex flex-col gap-5" aria-label="Agents">
           {agents.map(item)}
@@ -434,7 +425,7 @@ function AgentItem({
 }
 
 /** AgentDetails is an agent's fields: its owner (with a second person), role, harness and delivery mode. */
-function AgentDetails({
+export function AgentDetails({
   agent,
   board,
   mine,

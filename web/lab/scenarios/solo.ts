@@ -24,8 +24,8 @@ export const solo: Scenario = {
         codex: { text: "Writing tests for the feed builder first", t: 9 },
       },
       tasks: [
-        { id: "t1", title: "Rewrite the RSS feed", state: "working", owner: "claude", with: ["codex"], t: 3 },
-        { id: "t2", title: "Fix the broken permalinks", state: "open", t: 2 },
+        { id: "BLG-1", title: "Rewrite the RSS feed", state: "working", owner: "claude", with: ["codex"], t: 3 },
+        { id: "BLG-2", title: "Fix the broken permalinks", state: "open", t: 2 },
       ],
       messages: [
         { id: "s1", t: 1, from: "leo", body: "claude, rewrite the RSS feed; codex, write its tests first." },
@@ -41,12 +41,22 @@ export const solo: Scenario = {
         codex: null,
       },
       tasks: [
-        { id: "t1", title: "Rewrite the RSS feed", state: "done", owner: "claude", with: ["codex"], t: 37 },
-        { id: "t2", title: "Fix the broken permalinks", state: "working", owner: "claude", t: 39 },
+        { id: "BLG-1", title: "Rewrite the RSS feed", state: "done", owner: "claude", with: ["codex"], t: 37 },
+        { id: "BLG-2", title: "Fix the broken permalinks", state: "working", owner: "claude", t: 39 },
       ],
       messages: [
         { id: "s3", t: 37, from: "codex", body: "Tests pass: 14 of 14." },
         { id: "s4", t: 38, from: "claude", body: "The RSS rewrite is done. Taking the permalinks next." },
+        {
+          id: "s5",
+          t: 39,
+          from: "claude",
+          to: ["@leo"],
+          task: "BLG-2",
+          question: "Redirect the old permalinks, or let them 404?",
+          options: ["Redirect them", "Let them 404"],
+          body: "About 40 old posts use the date-based links. Redirects keep search traffic; 404s keep the router simple.",
+        },
       ],
     },
   ],

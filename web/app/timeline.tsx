@@ -749,6 +749,8 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
       >
         {s.text}
       </button>
+    ) : lab?.Text ? (
+      <lab.Text key={i} text={s.text} />
     ) : (
       <Fragment key={i}>{s.text}</Fragment>
     ),

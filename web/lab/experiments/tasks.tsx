@@ -1,199 +1,161 @@
 "use client";
 
-// EXPERIMENTAL, lab only: the board's tasks as a kanban inside the board view. Five
-// states fold into four columns (Open, In progress, Waiting, Done): claimed and working
-// share In progress and the card says which. Each card names its owner and the people
-// and agents working with it, so a card is also who works with whom. Tasks and threads
-// are many to many: a card says how many threads name it and opens them in the
-// timeline. A card is also a place to ask: the owner, to reassign, to split. A task
-// waiting on you takes the attention colour, the only colour here; a done card drops
-// its fill. Columns stack on a narrow screen. Fed by the scenario's tasks, not the API.
+// EXPERIMENTAL, lab only: the Tasks view, the board's work laid out by what the person
+// would act on: Needs you, In progress, Waiting, Not picked up. Done folds away. Each
+// card lists everyone on it, owner first, with what they are doing right now, so a card
+// is also who works with whom. Free agents (idle or disconnected, on no task) sit beside
+// the work nobody has taken. A card opens its task in the side panel. Red only marks
+// what waits on your answer; amber only what is late or idle.
 
-import { MessagesSquare } from "lucide-react";
-import { useEffect, useState } from "react";
-import type { MemberRef } from "@/app/api";
+import { useState } from "react";
+import type { Member } from "@/app/api";
 import { count } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { type ScenarioMessage, type ScenarioTask, type TaskState, taskRef, threadsOf } from "../scenario";
-import { openThread, scenario, useLab, useUi } from "../store";
+import { type ScenarioTask, threadsOf } from "../scenario";
+import { openTask, scenario, useLab, useUi } from "../store";
 import { Ask } from "./ask";
-import { Who, ago, useNow } from "./common";
+import { type Ask as AskItem, asksOf, statusOf, toneClass } from "./asks";
+import { Mark, active, ago, useNow } from "./common";
 
-const columns: { key: string; title: string; states: TaskState[] }[] = [
-  { key: "open", title: "Open", states: ["open"] },
-  { key: "doing", title: "In progress", states: ["claimed", "working"] },
-  { key: "waiting", title: "Waiting", states: ["waiting"] },
-  { key: "done", title: "Done", states: ["done"] },
-];
+/** needsYou is true for a task that waits on the person, or that an unanswered ask blocks. */
+export function needsYou(t: ScenarioTask, asks: AskItem[]): boolean {
+  return (t.state === "waiting" && t.waitingOn === scenario.me) || asks.some((a) => a.task === t.id && !a.ahead && a.board === scenario.board.name);
+}
 
-const doneShown = 4;
-
-export function TaskBoard({ identity }: { identity: (m: MemberRef) => number }) {
+export function TaskBoard({ agents }: { agents: Member[] }) {
   const { snap } = useLab();
-  const { task: focus, n } = useUi();
+  const { answered } = useUi();
   const now = useNow();
-  const [allDone, setAllDone] = useState(false);
-  // Newest change first in every column.
+  const [done, setDone] = useState(false);
+  const asks = asksOf(snap, answered);
   const tasks = [...snap.tasks].sort((a, b) => b.t - a.t);
-  const shown = columns.filter((c) => tasks.some((t) => c.states.includes(t.state)));
-  // A task asked for from a chip comes into view and is marked for a moment.
-  useEffect(() => {
-    if (!focus) return;
-    if (snap.tasks.find((t) => t.id === focus)?.state === "done") setAllDone(true);
-    const frame = requestAnimationFrame(() => {
-      const el = document.getElementById(`task-${focus}`);
-      if (!el) return;
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
-      el.classList.remove("flash");
-      void el.offsetWidth;
-      el.classList.add("flash");
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [focus, n, snap.tasks]);
+  const live = tasks.filter((t) => t.state !== "done");
+  const columns = [
+    { key: "needs", title: "Needs you", list: live.filter((t) => needsYou(t, asks)) },
+    { key: "doing", title: "In progress", list: live.filter((t) => !needsYou(t, asks) && (t.state === "working" || t.state === "claimed")) },
+    { key: "waiting", title: "Waiting", list: live.filter((t) => !needsYou(t, asks) && t.state === "waiting") },
+    { key: "open", title: "Not picked up", list: live.filter((t) => !needsYou(t, asks) && t.state === "open") },
+  ];
+  const busy = new Set(snap.tasks.filter(active).flatMap((t) => [t.owner, ...(t.with ?? [])]));
+  const free = agents.filter((a) => !busy.has(a.name) && (a.presence === "idle" || a.presence === "no_session"));
+  const finished = tasks.filter((t) => t.state === "done");
   return (
     <div className="task-view quiet-scroll min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-6">
-        <div
-          className="task-board grid gap-x-4 gap-y-6 border-t border-rule pt-4 pb-8 sm:grid-cols-2 xl:grid-cols-[repeat(var(--n),minmax(0,1fr))]"
-          style={{ "--n": shown.length } as React.CSSProperties}
-        >
-          {shown.map((c) => {
-            const list = tasks.filter((t) => c.states.includes(t.state));
-            const done = c.key === "done";
-            const visible = done && !allDone ? list.slice(0, doneShown) : list;
-            return (
-              <section key={c.key} aria-labelledby={`tasks-${c.key}`} className="task-column flex min-w-0 flex-col gap-2">
-                <h3 id={`tasks-${c.key}`} className="flex items-baseline gap-2 pb-1 text-meta font-bold text-muted">
-                  {c.title}
-                  <span className="font-normal tabular-nums">{list.length}</span>
-                </h3>
-                <ul className="flex flex-col gap-2">
-                  {visible.map((t) => (
-                    <li key={t.id}>
-                      <TaskCard task={t} identity={identity} now={now} threads={threadsOf(snap.messages, t.id)} />
-                    </li>
-                  ))}
-                </ul>
-                {done && list.length > doneShown && (
-                  <button
-                    type="button"
-                    className="min-h-11 self-start text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
-                    onClick={() => setAllDone(!allDone)}
-                  >
-                    {allDone ? "Show fewer" : `Show ${count(list.length - doneShown, "more done task", "more done tasks")}`}
-                  </button>
-                )}
-              </section>
-            );
-          })}
+      <div className="mx-auto w-full max-w-[1280px] px-4 pt-2 pb-10 sm:px-6">
+        <div className="task-board grid gap-x-4 gap-y-6 sm:grid-cols-2 xl:grid-cols-4">
+          {columns.map((c) => (
+            <section key={c.key} aria-labelledby={`tasks-${c.key}`} className="task-column flex min-w-0 flex-col gap-2">
+              <h3 id={`tasks-${c.key}`} className="flex items-center gap-2 pb-1 text-meta font-bold text-ink">
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2 rounded-full",
+                    c.key === "needs" ? (c.list.length > 0 ? "bg-[var(--needs)]" : "border border-muted") : c.key === "doing" ? "border-2 border-accent" : "border border-dashed border-muted",
+                  )}
+                />
+                {c.title}
+                <span className="font-normal text-muted tabular-nums">{c.list.length}</span>
+              </h3>
+              <ul className="flex flex-col gap-2">
+                {c.list.map((t) => (
+                  <li key={t.id}>
+                    <TaskCard task={t} asks={asks} now={now} needs={c.key === "needs"} />
+                  </li>
+                ))}
+              </ul>
+              {c.key === "open" && free.length > 0 && (
+                <div className="mt-2 flex flex-col gap-2 border-t border-rule pt-3">
+                  <h4 className="text-meta font-bold text-muted">Free agents</h4>
+                  <ul className="flex flex-col gap-2">
+                    {free.map((a) => {
+                      const s = statusOf(snap, a.name, asks, now);
+                      return (
+                        <li key={a.id} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-2">
+                          <Mark name={a.name} />
+                          <span className="flex flex-col">
+                            <span>{a.name}</span>
+                            <span className={cn("text-meta", toneClass[s.tone])}>{s.text}</span>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </section>
+          ))}
         </div>
+        {finished.length > 0 && (
+          <section aria-label="Done" className="mt-6 flex flex-col gap-2">
+            <button type="button" aria-expanded={done} onClick={() => setDone(!done)} className="min-h-9 self-start text-meta text-muted hover:text-ink hover:underline">
+              {count(finished.length, "task", "tasks")} done · {done ? "hide" : "show"}
+            </button>
+            {done && (
+              <ul className="grid animate-fade-in gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {finished.map((t) => (
+                  <li key={t.id}>
+                    <TaskCard task={t} asks={asks} now={now} needs={false} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
 }
 
-function stateLine(t: ScenarioTask): string {
-  switch (t.state) {
-    case "open":
-      return "Open, not picked up";
-    case "claimed":
-      return "Claimed, not started";
-    case "working":
-      return "Working";
-    case "waiting":
-      return "Waiting";
-    case "done":
-      return "Done";
-  }
-}
-
-function TaskCard({ task: t, identity, now, threads }: { task: ScenarioTask; identity: (m: MemberRef) => number; now: number; threads: ScenarioMessage[] }) {
-  const [showThreads, setShowThreads] = useState(false);
-  const mine = t.state === "waiting" && t.waitingOn === scenario.me;
+function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: AskItem[]; now: number; needs: boolean }) {
+  const { snap } = useLab();
+  const ask = asks.find((a) => a.task === t.id && !a.ahead);
+  const people = [t.owner, ...(t.with ?? [])].filter((n): n is string => !!n);
+  const threads = threadsOf(snap.messages, t.id).length;
+  const files = snap.artifacts.filter((a) => a.task === t.id).length;
   const done = t.state === "done";
-  // Text on the attention fill is always ink, labels included.
-  const label = cn("text-meta", mine ? "text-ink" : "text-muted");
-  const ref = taskRef(t.id);
-  const owner = t.owner && t.owner !== scenario.me ? t.owner : null;
+  let line: string | null = null;
+  if (needs) line = ask ? `Waiting on you: ${ask.question}` : `Waiting on you: ${t.reason ?? ""}`;
+  else if (t.state === "waiting") line = `Waiting on ${t.waitingOn}${t.reason ? `: ${t.reason}` : ""}`;
+  else if (t.state === "open") line = `No owner · opened ${ago(t.t, now)}`;
+  else if (t.state === "claimed") line = "Claimed, not started";
+  const steward = scenario.steward;
   return (
     <article
-      id={`task-${t.id}`}
-      className={cn(
-        "task-card group flex scroll-mt-4 flex-col gap-2 rounded-box border px-3.5 py-3 transition-colors duration-200 ease-out",
-        mine ? "border-transparent bg-attention" : done ? "border-rule bg-transparent" : "border-rule bg-surface",
-      )}
-      data-state={t.state}
-      data-needs-you={mine || undefined}
+      className={cn("task-card flex flex-col gap-2.5 rounded-box border border-rule px-3.5 py-3 transition-colors duration-[140ms] ease-out hover:border-field-border", done ? "bg-transparent" : "bg-surface")}
+      data-task={t.id}
+      data-needs-you={needs || undefined}
     >
-      <h4 className={cn("leading-snug font-bold", done && "font-normal")}>
-        <span className={cn("mr-1.5 font-bold tabular-nums", label)}>{ref}</span>
-        {t.title}
-      </h4>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2 gap-y-1">
-        <dt className={label}>{done ? "Done by" : "Owner"}</dt>
-        <dd className="min-w-0">{t.owner ? <Who name={t.owner} identity={identity} /> : <span className={label}>none yet</span>}</dd>
-        {(t.with?.length ?? 0) > 0 && (
-          <>
-            <dt className={label}>With</dt>
-            <dd className="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
-              {t.with!.map((n) => (
-                <Who key={n} name={n} identity={identity} />
-              ))}
-            </dd>
-          </>
-        )}
-        {t.label && (
-          <>
-            <dt className={label}>Label</dt>
-            <dd>{t.label}</dd>
-          </>
-        )}
-      </dl>
-      {t.state === "waiting" && (
-        <p className="task-waiting">
-          <span className="font-bold">Waiting on {t.waitingOn === scenario.me ? "you" : (t.waitingOn ?? "someone")}</span>
-          {t.reason && <>: {t.reason}</>}
-        </p>
+      <button type="button" onClick={() => openTask(t.id)} className="flex flex-col gap-0.5 text-left" title={`Open ${t.id}`}>
+        <span className="text-meta text-muted tabular-nums">{t.id}</span>
+        <span className={cn("leading-snug", done ? "font-normal" : "font-bold")}>{t.title}</span>
+      </button>
+      {line && <p className={cn("text-meta", needs ? "text-ink" : "text-muted")}>{line}</p>}
+      {people.length > 0 && (
+        <ul className="flex flex-col gap-2 border-t border-rule pt-2.5">
+          {people.map((n, i) => {
+            const human = scenario.people.some((p) => p.name === n);
+            const s = human ? { text: n === scenario.me ? "that's you" : "on it", tone: "quiet" as const } : statusOf(snap, n, asks, now);
+            return (
+              <li key={n} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-2">
+                <Mark name={n} />
+                <span className="flex min-w-0 flex-col">
+                  <span>
+                    {n}
+                    {i === 0 && t.owner === n && <span className="text-meta text-muted"> owner</span>}
+                  </span>
+                  {!done && <span className={cn("line-clamp-2 text-meta", toneClass[s.tone])}>{s.text}</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       )}
-      <p className={label}>
-        {stateLine(t)} · {ago(t.t, now)}
+      {t.state === "open" && steward && (
+        <Ask label={`Ask ${steward} to assign it`} to={steward} text={`${t.id} (${t.title}) has no owner. Please assign it, and say who and why.`} />
+      )}
+      <p className="border-t border-rule pt-2 text-meta text-muted">
+        {[threads > 0 && count(threads, "thread", "threads"), files > 0 && count(files, "artifact", "artifacts"), ago(t.t, now)].filter(Boolean).join(" · ")}
       </p>
-      {threads.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <button
-            type="button"
-            aria-expanded={showThreads}
-            onClick={() => setShowThreads(!showThreads)}
-            className={cn("task-threads inline-flex min-h-8 items-center gap-1.5 self-start text-meta underline decoration-1 underline-offset-[3px] hover:no-underline", mine ? "text-ink" : "text-link")}
-          >
-            <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />
-            {count(threads.length, "thread", "threads")}
-          </button>
-          {showThreads && (
-            <ul className="flex animate-fade-in flex-col gap-1 border-l border-rule pl-2.5">
-              {threads.map((m) => (
-                <li key={m.id}>
-                  <button type="button" onClick={() => openThread(m.id)} className="w-full text-left text-meta hover:underline" title="Open this thread in the timeline">
-                    <span className="font-bold">{m.from === scenario.me ? "You" : m.from}:</span> <span className="line-clamp-2 inline">{m.body}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-      {!done && (
-        <div className="task-asks flex flex-wrap gap-x-3 opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
-          {owner && <Ask label="Ask the owner" to={owner} about={[t.id]} text={`About ${ref} (${t.title}): where does this stand, and what's next?`} />}
-          <Ask
-            label={owner ? "Reassign" : "Find an owner"}
-            to={owner}
-            about={[t.id]}
-            text={owner ? `About ${ref}: please hand this to … and tell them where it stands.` : `${ref} (${t.title}) has no owner yet. Who can take it?`}
-          />
-          {owner && <Ask label="Split this" to={owner} about={[t.id]} text={`About ${ref}: please split this into smaller tasks on the board, each with an owner.`} />}
-        </div>
-      )}
     </article>
   );
 }

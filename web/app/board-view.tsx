@@ -347,6 +347,21 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // An archived board takes nothing new: no message box, no replies, no reactions.
   const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
+  const panel = (agents: boolean) => (
+    <BoardPanel
+      board={s.board}
+      members={s.members}
+      record={s.record}
+      me={me}
+      meId={s.me?.kind === "human" ? s.me.id : null}
+      canInvite={s.me?.kind === "human"}
+      from={filter.from}
+      onPick={pick}
+      reveal={reveal}
+      onLifecycle={s.refresh}
+      agents={agents}
+    />
+  );
   // The conversation, which only the UI lab ever wraps (lab-seam.ts).
   const centre = (conversation: ReactNode) =>
     lab?.Centre ? (
@@ -384,7 +399,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             className="order-3 lg:order-none"
           >
             <nav aria-label="Boards">
-              <BoardNav current={name} boards={s.boards} />
+              {lab?.Nav ? <lab.Nav current={name} boards={s.boards} /> : <BoardNav current={name} boards={s.boards} />}
             </nav>
           </SidePanel>
 
@@ -470,25 +485,19 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
 
           <SidePanel
             side="right"
-            title={s.board ? boardLabel(s.board) : name}
+            title={lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : s.board ? boardLabel(s.board) : name}
             label="board panel"
             size={right}
             setSize={setRight}
             limits={rightPanel}
             className="order-2 lg:order-none"
           >
-            <BoardPanel
-              board={s.board}
-              members={s.members}
-              record={s.record}
-              me={me}
-              meId={s.me?.kind === "human" ? s.me.id : null}
-              canInvite={s.me?.kind === "human"}
-              from={filter.from}
-              onPick={pick}
-              reveal={reveal}
-              onLifecycle={s.refresh}
-            />
+            {/* Only the UI lab draws the board panel its own way (lab-seam.ts). */}
+            {lab?.RightPanel ? (
+              <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
+            ) : (
+              panel(true)
+            )}
           </SidePanel>
         </div>
       </div>

@@ -51,9 +51,9 @@ export function status(version: number, points: [string, number][], note: string
 <h2>Load test, p95 latency</h2>${chart(points)}
 <h2>Where things stand</h2><p>${note}</p>
 <table><tr><th>Area</th><th>State</th></tr>
-<tr><td>Payments on v2 (T1)</td><td class="ok">${version >= 3 ? "In review" : "In progress"}</td></tr>
-<tr><td>Refund keys (T5)</td><td class="${version >= 3 ? "warn" : "ok"}">${version >= 3 ? "Waiting on leo" : "In progress"}</td></tr>
-<tr><td>Ramp to 10% (T9)</td><td>${version >= 3 ? "16:00 if p95 &lt; 500 ms" : "Not started"}</td></tr></table>`,
+<tr><td>Payments on v2 (CHK-12)</td><td class="ok">${version >= 3 ? "In review" : "In progress"}</td></tr>
+<tr><td>Refund keys (CHK-16)</td><td class="${version >= 3 ? "warn" : "ok"}">${version >= 3 ? "Waiting on leo" : "In progress"}</td></tr>
+<tr><td>Ramp to 10% (CHK-19)</td><td>${version >= 3 ? "16:00 if p95 &lt; 500 ms" : "Not started"}</td></tr></table>`,
     ),
   };
 }
@@ -75,7 +75,7 @@ export const explainer: Artifact = {
 <tr><td><code>payments/intent.ts</code></td><td>The v2 calls and the new error mapping</td></tr>
 <tr><td><code>payments/3ds.ts</code></td><td>3-D Secure now runs on v2's redirect flow</td></tr>
 <tr><td><code>payments/errors.ts</code></td><td>Declined cards map to five reasons, not one</td></tr></table>
-<h2>Not in this PR</h2><p>Refunds (T5) and the ramp (T9).</p>`,
+<h2>Not in this PR</h2><p>Refunds (CHK-16) and the ramp (CHK-19).</p>`,
   ),
 };
 
@@ -90,11 +90,11 @@ export const refundKeys: Artifact = {
   summary: "Two ways to key refunds, and what each costs. Waits on leo.",
   body: `# Refund idempotency keys
 
-Refunds need an idempotency key so a retried request never refunds twice (T5).
+Refunds need an idempotency key so a retried request never refunds twice (CHK-16).
 
 ## Option 1: reuse the payments format
 - Keys look like \`pay_<uuid>\`, the same as payments.
-- The payments parser needs no change (T1).
+- The payments parser needs no change (CHK-12).
 - In the logs a refund and a payment look alike.
 
 ## Option 2: a new \`ref_\` prefix

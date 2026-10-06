@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import type { MemberRef } from "@/app/api";
 import { SenderMark } from "@/app/timeline";
 import { cn } from "@/lib/utils";
-import { relativeTime } from "@/app/words";
+import { identitiesOf, identityOf, personIdentity, relativeTime } from "@/app/words";
 import type { ScenarioTask } from "../scenario";
 import { at, scenario, useLab } from "../store";
 
@@ -47,6 +47,32 @@ export const active = (t: ScenarioTask) => t.state === "claimed" || t.state === 
 /** kindOf says whether a scenario name is a person or an agent. */
 export function kindOf(name: string): "agent" | "human" {
   return scenario.people.some((p) => p.name === name) ? "human" : "agent";
+}
+
+/**
+ * labIdentity is a member's identity colour on the scenario's board, worked out as the
+ * board view does (people by id, agents in join order), so marks match the timeline's
+ * on every lab screen. Names on other boards fall back to their own colour.
+ */
+export function labIdentity(m: Pick<MemberRef, "name" | "kind">): number {
+  const me = { id: `per_${scenario.me}`, name: scenario.me };
+  if (m.kind === "human") return personIdentity(m.name, me);
+  const taken = new Set(scenario.people.map((p) => personIdentity(p.name, me)));
+  const ids = scenario.agents.map((a) => `mem_${scenario.board.name}_${a.name}`);
+  return identitiesOf(ids, taken).get(`mem_${scenario.board.name}_${m.name}`) ?? identityOf(`agent:${m.name}`);
+}
+
+/** Mark is a member's sender mark at a given size, in its identity colour. */
+export function Mark({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
+  const kind = kindOf(name);
+  return (
+    <SenderMark
+      name={name}
+      kind={kind}
+      identity={labIdentity({ name, kind })}
+      className={size === "sm" ? "size-5 rounded-[5px] text-[10px]" : "size-7 rounded-[7px] text-[12px]"}
+    />
+  );
 }
 
 /** Who is a member's name with a small sender mark, the timeline's one exception to "no avatars". */

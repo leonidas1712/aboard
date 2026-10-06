@@ -99,19 +99,31 @@ export function goTo(k: number) {
   for (const l of stepListeners) l(snap);
 }
 
-// Which view of the board is on screen, and what the experiments asked to bring into
-// view: a task, an artifact or a thread. ?view= and ?artifact= open the page there.
+// What is on screen beside the record: the board's view (Conversation or Tasks), what
+// the side panel shows (the board's Work, a task or a file), a thread to bring into
+// view, and the asks the person answered here. ?view=tasks, ?task=ID and ?artifact=ID
+// open the page there.
 
-export type View = "now" | "timeline" | "tasks" | "artifacts";
-/** explicit is true when the address named the view, so the board's default doesn't apply. */
-type Ui = { view: View; artifact: string | null; task: string | null; thread: string | null; n: number; explicit: boolean };
+export type View = "conversation" | "tasks";
+export type Panel = { kind: "work" } | { kind: "task"; id: string } | { kind: "artifact"; id: string; from: string | null };
+type Ui = { view: View; panel: Panel; thread: string | null; full: boolean; answered: Record<string, string>; n: number };
 
-function firstView(): View {
-  const v = params().get("view");
-  return v === "now" || v === "tasks" || v === "artifacts" ? v : params().get("artifact") ? "artifacts" : "timeline";
+function firstPanel(): Panel {
+  const task = params().get("task");
+  const artifact = params().get("artifact");
+  if (artifact) return { kind: "artifact", id: artifact, from: task };
+  if (task) return { kind: "task", id: task };
+  return { kind: "work" };
 }
 
-let ui: Ui = { view: firstView(), artifact: params().get("artifact"), task: null, thread: null, n: 0, explicit: !!(params().get("view") || params().get("artifact")) };
+let ui: Ui = {
+  view: params().get("view") === "tasks" ? "tasks" : "conversation",
+  panel: firstPanel(),
+  thread: null,
+  full: false,
+  answered: {},
+  n: 0,
+};
 const uiListeners = new Set<() => void>();
 
 function setUi(next: Partial<Ui>) {
@@ -119,7 +131,7 @@ function setUi(next: Partial<Ui>) {
   for (const l of uiListeners) l();
 }
 
-/** useUi is which view is on screen and what to bring into view. */
+/** useUi is what is on screen beside the record. */
 export function useUi(): Ui {
   return useSyncExternalStore(
     (l) => {
@@ -131,13 +143,19 @@ export function useUi(): Ui {
   );
 }
 
-export const showView = (view: View) => setUi({ view, artifact: view === "artifacts" ? ui.artifact : null });
-/** openTask shows a task's card on the Tasks tab. */
-export const openTask = (id: string) => setUi({ view: "tasks", task: id });
-/** openArtifact shows an artifact's preview, or the list with null. */
-export const openArtifact = (id: string | null) => setUi({ view: "artifacts", artifact: id });
-/** openThread shows a thread in the timeline, by its first message. */
-export const openThread = (root: string) => setUi({ view: "timeline", thread: root });
+export const showView = (view: View) => setUi({ view });
+/** openTask opens a task in the side panel. */
+export const openTask = (id: string) => setUi({ panel: { kind: "task", id } });
+/** openArtifact opens a file in the side panel; from is the task to go back to. */
+export const openArtifact = (id: string, from: string | null = null) => setUi({ panel: { kind: "artifact", id, from }, full: false });
+/** showWork brings the side panel back to the board's work. */
+export const showWork = () => setUi({ panel: { kind: "work" } });
+/** fullScreen shows the open file over the whole page, or stops. */
+export const fullScreen = (on: boolean) => setUi({ full: on });
+/** openThread shows a thread in the conversation, by its first message. */
+export const openThread = (root: string) => setUi({ view: "conversation", thread: root });
+/** answered records the person's answer to an ask, so it leaves the Inbox. */
+export const markAnswered = (ask: string, answer: string) => setUi({ answered: { ...ui.answered, [ask]: answer } });
 
 let timer: ReturnType<typeof setInterval> | null = null;
 

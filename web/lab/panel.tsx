@@ -54,7 +54,7 @@ export function Panel() {
           value={scenario.id}
           onChange={(e) => {
             const s = scenarios.find((x) => x.id === e.target.value)!;
-            window.location.href = labHref({ lab: s.id, step: null, board: s.workspace ? null : s.board.name, view: null, artifact: null, play: null });
+            window.location.href = labHref({ lab: s.id, step: null, board: null, inbox: null, list: null, view: null, artifact: null, play: null });
           }}
         >
           {scenarios.map((s) => (
@@ -102,9 +102,10 @@ export function Panel() {
         </div>
       )}
       <p className="flex flex-wrap gap-x-3 text-meta">
-        <a href={labHref({ board: null, view: null })}>Board list</a>
-        <a href={labHref({ board: scenario.board.name, view: null })}>Board</a>
-        <a href={labHref({ board: scenario.board.name, view: "tasks" })}>Tasks</a>
+        <a href={labHref({ inbox: "1", board: null, list: null, view: null, task: null, artifact: null })}>Inbox</a>
+        <a href={labHref({ board: scenario.board.name, inbox: null, list: null, view: null, task: null, artifact: null })}>Board</a>
+        <a href={labHref({ board: scenario.board.name, inbox: null, list: null, view: "tasks", task: null, artifact: null })}>Tasks</a>
+        <a href={labHref({ list: "1", board: null, inbox: null, view: null, task: null, artifact: null })}>Board list</a>
       </p>
     </section>
   );

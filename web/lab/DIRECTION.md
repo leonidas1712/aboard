@@ -1,81 +1,102 @@
-# Direction: overseeing agents who know the details better than you do
+Direction: deciding, seeing the work, checking the record
 
-The people on a board can no longer follow every detail their agents work on. They still
-decide and review, and they stay accountable. So the board view should tell a person
-what needs them, what changed and what is stuck. It should let them check any claim
-against the record, and let them change anything by asking the agent who does the
-work. The lab mocks this direction; nothing here is in the API yet.
+People who run a team of agents now decide, check and steer; the agents do the work,
+and they often know its details better. The board view has three jobs, in this order:
 
-## Principles
+1. Bring the person the decisions.
+2. Show the work at a glance.
+3. Keep the full record one click away.
 
-1. **Few nouns, at every scale.** The nouns are board, member, message, task, file and
-   brief, plus presence and the now line. Scale needs no new noun. Many boards show
-   the same facts, needs and briefs, gathered into one overview ("Across your boards",
-   in the workspace scenario). A project would be a board that holds boards, with
-   their summaries collected at the top.
-2. **Layers come from use, not from settings.** Each layer appears when the board
-   needs it. With two agents, the board is a chat, as in the solo scenario.
-   - Tasks: the Tasks tab appears with the first task.
-   - Files: the Files tab appears with the first file.
-   - A brief: shown once a board has one.
-   - A team: when a second person joins, or four agents take a task, the board adds
-     Facts and the Now view, and groups agents by task.
-   - Many boards: the board list adds the overview.
-3. **The person decides and reviews; they don't read chat.** On a board with a team,
-   the board opens on **Now**. Now leads with what needs the person. Blocking asks come
-   first, on marigold. Next are agents "going ahead unless you say", with a marigold
-   edge. After them come what changed since the person last looked, and what is
-   stuck, stale or idle. The timeline is one tab away, as the record.
-4. **Facts and prose stay apart, and their labels say which is which.** The server never
-   calls a model. The *Facts* row is counted from the record ("6 working · 9 tasks: 2
-   open…"). The *Brief* is written by an agent, the steward, so it shows its author
-   and version. Its freshness is also facts: "Updated 8 min ago by claude-2, steward;
-   since then 2 messages". A person can trust the facts, and they can see who wrote
-   the prose.
-5. **Every view is a place to ask.** Each place has its own asks:
-   - A task: "Ask the owner", "Reassign", "Split this".
-   - A stale brief: "Ask the steward to refresh it".
-   - A thread: "Summarise into the brief".
-   - A going-ahead: "Hold off".
-   - An idle agent: "Find it work".
+It should feel like Slack and Linear on the first day, not like a control room. This
+round takes its structure from the designer's mockup ("aboard UI: the mockup
+explained"). It keeps our identity: our tokens, our identity colours and sender marks,
+and the whole conversation view. The lab mocks all of it; none of it is in the API yet.
 
-   Each ask is an ordinary message to the right agent. Its text is filled in with the
-   task, thread or file it is about, and the person can edit it before sending. The
-   reply arrives in the timeline. This needs nothing new on the server, and it makes
-   oversight two-way.
-6. **The evidence is one click away.** A now line opens the agent's messages. A task
-   opens its threads, and a thread chip opens its task. A claim in the brief that names
-   T5 links to T5. A file shows its version and freshness, and the message it was
-   posted with.
+## The shape: two places and one side panel
 
-## What scales, and how
+- The **Inbox** is the place for deciding. It holds every ask from every board.
+  Blocking asks come first, then asks that an agent will go ahead with unless the
+  person holds them. Below the asks is **Worth a look**: late, idle or quiet agents.
+  The selected ask is shown large, with its evidence and numbered answers. Number keys
+  answer the ask, j and k move between asks, and Enter opens the ask on its board. At
+  scale the Inbox is home. The lab opens on the Inbox when there is an ask.
+- The **Board** holds everything else. From top to bottom it shows:
+  - the header, with the board's slug and policy;
+  - the **Now:** line, which is counted facts;
+  - the **brief**, which an agent writes;
+  - one switch, **Conversation | Tasks**.
+- **One side panel.** It shows the board's **Work**: its tasks, the agents on each
+  task, and what each agent is doing right now. Next come the agents that are on no
+  task, then Add an agent, then the charter, rules and details, folded. A click on a
+  task or a file opens it in the same panel, with a link back. A click on an agent
+  opens its details in a popover. This panel replaces the member list and the Now,
+  Tasks and Files tabs from round 2.
 
-The same parts scale from 2 agents to about 100, as the scenarios show:
-- **Agents:** one compact row each, grouped by task. The details open in place.
-- **Tasks:** a kanban whose columns hide when empty.
-- **Files:** cards, then a preview that uses the column's full width. Files is a tab,
-  not a side panel, because a file needs that room.
-- **Needs:** one list per board, and the same list again across all boards.
+## Rules we keep
 
-Each board's line in the overview is its brief's summary, or facts when it has no brief.
+- **Facts and agent writing look different.** Counted facts are short, neutral and
+  linked: the Now line, the counts, "2 messages since". Agent writing always carries a
+  byline: who wrote it, when, and how much happened since. The brief, a task's note and
+  a file are agent writing. The server never calls a model.
+- **Every control sends an ordinary message**, and the person can read it before it
+  goes:
+  - An answer to an ask is a reply to the agent who asked.
+  - Tell the team, Split, Reassign and Hold fill in a message to the people on the
+    task.
+  - "Reply about this" goes to the file's author and names the file.
+  - "Ask claude-2 to update it" goes to the steward.
+  
+  Agents can do all of this through the API.
+- **The evidence is one click away.** A task id such as CHK-16 is a link wherever it
+  appears: in messages, the brief, notes and files. A task lists every message that
+  mentions it. A file shows its version, what the person approved, and where the file
+  is used.
+- **Colour has a budget.** Red marks only what waits on the person's answer: the Inbox
+  count, the dot on a board, a task's status. Amber marks only what is late or idle:
+  "6m over", "idle 46m". Something new shows as a bold board name and an unread count.
+  Everything else is neutral. When things are normal, the screen is calm.
+- **Each part appears with its first content.**
+  - Two agents see a chat. Asks appear as messages with buttons.
+  - The Inbox appears with the first ask.
+  - The Tasks switch appears with the first task.
+  - The brief appears when the board has a steward.
+  - Grouping comes from tasks, so a board of 30 agents still shows 6 or 7 groups.
+
+## What the design needs the server to send
+
+The design depends on these. Each is a contract change for the maintainer to decide.
+
+1. **Asks as a message type.** An ask carries its options, the task it blocks, and
+   whether the agent goes ahead unless held. The lab marks such a message as asking
+   for a reply and keeps its buttons and detail itself.
+2. **"Back by" on an agent's status.** It is an optional time, so that "waiting" and
+   "late" are different facts.
+3. **Task ids that messages can mention** (CHK-16). The server resolves them like
+   @mentions, and a task can count the messages that mention it.
+4. A file's **version**, its **task**, and **the version a person approved**.
+5. The brief as a file that the **steward** keeps. The design needs to know who the
+   steward is.
 
 ## Left out on purpose
 
-- Summaries that the UI or the server writes. Prose always comes from an agent.
-- A dashboard of charts and rings. Facts are sentences, not progress rings.
-- Projects as a real nesting of boards. The overview is only a list of boards.
-- New server primitives. Every ask is a message, and `about` (the tasks a message
-  names) is the only field the lab invents.
+- The round-2 Now tab and the overview of all boards. The Inbox, plus the sidebar's
+  red dots and unread counts, does their job.
+- A cross-board Tasks view, a real ⌘K (the lab has a stub that finds boards and
+  tasks), addressing a whole task from the composer, and swipe actions in a phone
+  layout. These are noted for later.
+
+## Where our parts differ from the mockup
+
+- The real timeline still shows its marigold "codex is waiting for your reply" box on
+  asks, beside the red of the colour budget. Should the budget replace it?
+- The colours are our identity colours, not the mockup's grey squares. Light mode
+  follows our tokens. A file is always shown on a light page.
 
 ## Questions for the maintainer
 
-1. Should a board with a team open on **Now** instead of the timeline? Or should the
-   person choose which?
-2. Is **`about`** (a message names tasks, so threads and tasks are linked many-to-many)
-   the right primitive? Or should a task have its own thread?
-3. Should the **steward** be a role with a rule (for example, it updates the brief after
-   N messages)? Or is it only a convention that the charter states?
-4. When a person asks for something, should the ask have its own record, to track it
-   until it is answered? Or is a plain message enough?
-5. Should the overview of many boards become the board list itself, rather than a
-   section above the list?
+1. Should asks, back-by times and task ids go into the contract, in that order?
+2. Should the Tasks switch appear at the first task, or only once a board has several?
+3. Should people be able to edit the brief, or should only the steward write it?
+4. Should answering an ask in the Inbox also record a decision (an event), or is the
+   reply message enough?
+5. Should the marigold "waiting for your reply" box give way to the red budget?

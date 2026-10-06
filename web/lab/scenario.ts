@@ -1,7 +1,7 @@
 // A scenario is a made-up board, and how it changes over a few time steps, written as
 // plain data. The fake API (fake-api.ts) serves its board, members and messages to the
 // real UI; the experimental views read the parts the API doesn't have yet (now lines,
-// tasks, the brief, artifacts) from the same steps. Times are minutes since the
+// tasks, asks, the brief, files) from the same steps. Times are minutes since the
 // scenario starts.
 //
 // These types are the lab's mock of features that aren't in the API or the contract.
@@ -31,42 +31,45 @@ export type ScenarioMessage = {
   replyTo?: string;
   asks?: boolean;
   urgent?: boolean;
-  /** about names the tasks the message is about, by id; its thread links to each. */
-  about?: string[];
   /** attach is an artifact posted with the message, by id. */
   attach?: string;
-  /** decision marks a message that records a decision, for the brief's freshness. */
+  /** decision marks a message that records a decision. */
   decision?: boolean;
-  /** ahead marks an agent going ahead unless someone objects. */
+  /**
+   * An ask is a message with answer buttons: question is its headline, options its
+   * buttons (the person can always reply with something else), task the task it blocks.
+   * ahead marks one the agent goes ahead with unless the person holds it.
+   */
+  question?: string;
+  options?: string[];
+  task?: string;
   ahead?: boolean;
 };
 
-/**
- * Workspace is what a person on many boards sees across them. Each board's line is
- * either agent-written (its brief's summary, with who and when) or facts.
- */
-export type Workspace = {
-  /** sinceLooked is the facts since the person last looked, across every board. */
-  sinceLooked: { messages: number; tasksDone: number; decisions: number; artifacts: number };
-  boards: {
-    name: string;
-    title: string;
-    /** brief is the board's brief summary and who updated it, how many minutes ago. */
-    brief?: { summary: string; by: string; ago: number };
-    /** needs are what the board needs from the person: blocking asks, or agents going ahead unless told. */
-    needs?: { from: string; text: string; kind: "asks" | "ahead"; ago: number }[];
-    /** stuck says what is stuck or stale on the board. */
-    stuck?: string[];
-    /** moving is the board's activity since the person last looked. */
-    moving?: { messages: number; tasksDone: number };
-  }[];
+/** InboxAsk is an ask on a board the scenario only summarises (a workspace's other boards). */
+export type InboxAsk = {
+  id: string;
+  board: string;
+  from: string;
+  question: string;
+  body: string;
+  options: string[];
+  task?: string;
+  ahead?: boolean;
+  /** artifact is evidence attached to the ask: its name and what it is. */
+  artifact?: { name: string; summary: string };
+  /** ago is how many minutes before the last step it was asked. */
+  ago: number;
 };
+
+/** Notice is a "worth a look" item on a board the scenario only summarises. */
+export type Notice = { board: string; who: string; text: string; detail: string };
 
 /** TaskState is where a task is. Claimed has an owner who hasn't started on it. */
 export type TaskState = "open" | "claimed" | "working" | "waiting" | "done";
 
 export type ScenarioTask = {
-  /** id is t followed by a number (t12), which chips show as T12. */
+  /** id is the board's prefix and a number (CHK-16), which messages can mention. */
   id: string;
   title: string;
   state: TaskState;
@@ -76,20 +79,35 @@ export type ScenarioTask = {
   /** waitingOn and reason say who a waiting task waits on, and why. */
   waitingOn?: string;
   reason?: string;
-  label?: string;
   /** t is when the task last changed. */
   t: number;
+  /** note is the owner's note on the task, with its byline. */
+  note?: { text: string; by: string; t: number };
 };
 
-/** NowLine is what an agent says it is working on, and when it said so. */
-export type NowLine = { text: string; t: number };
+/**
+ * NowLine is what an agent says it is working on, and when it said so. backBy is when it
+ * said it would be back (minutes), so waiting and late are different facts.
+ */
+export type NowLine = { text: string; t: number; backBy?: number };
 
 /**
- * Brief is the board's maintained summary, the first thing a new agent reads: what the
- * project is, what's going on, who does what, blockers and next steps. summary is its
- * one line; body is Markdown.
+ * Brief is the board's maintained summary, written by its steward agent, the first thing
+ * a new agent reads. summary is where things stand, in a sentence or two; the rest are
+ * its sections. Task ids in the text (CHK-16) link to their tasks.
  */
-export type Brief = { summary: string; body: string; by: string; t: number };
+export type Brief = {
+  summary: string;
+  by: string;
+  t: number;
+  goal: string;
+  approach: string;
+  who: string;
+  blocked: string;
+  next: string;
+  /** sources says what the brief draws on. */
+  sources: string;
+};
 
 /**
  * Artifact is a file on the board. An artifact is something agents made; content is
@@ -105,9 +123,13 @@ export type Artifact = {
   by: string;
   version: number;
   t: number;
-  /** summary says in a line what it is, on its card. */
+  /** summary says in a line what it is. */
   summary?: string;
   body: string;
+  /** task is the task it was made for. */
+  task?: string;
+  /** approved is the version the person approved, if any. */
+  approved?: number;
 };
 
 /**
@@ -120,6 +142,8 @@ export type Step = {
   /** at is the step's time, in minutes since the scenario starts. */
   at: number;
   presence?: Record<string, Presence>;
+  /** since sets when an agent's presence changed, in minutes, when it wasn't at the step's time. */
+  since?: Record<string, number>;
   now?: Record<string, NowLine | null>;
   tasks?: ScenarioTask[];
   brief?: Brief | null;
@@ -144,9 +168,9 @@ export type Scenario = {
     roles?: Record<string, string>;
   };
   /**
-   * otherBoards fill the board list and the left panel. They hold no messages; a
-   * workspace scenario gives them agents (working, idle, the rest disconnected), people
-   * and counts, so the list's facts read true.
+   * otherBoards fill the sidebar and the board list. They hold no messages; a workspace
+   * scenario gives them agents (working, idle, the rest disconnected), people and
+   * counts, so the facts read true.
    */
   otherBoards?: {
     name: string;
@@ -157,14 +181,15 @@ export type Scenario = {
     people?: string[];
     messages?: number;
     unread?: number;
-    needs?: number;
     /** lastAgo is how many minutes before the last step its last message was. */
     lastAgo?: number;
   }[];
-  /** steward is the agent that keeps the brief current. */
+  /** steward is the agent that keeps the brief current; no brief shows without one. */
   steward?: string;
-  /** workspace is the cross-board overview's data, for a scenario of many boards. */
-  workspace?: Workspace;
+  /** inbox holds asks on the other boards, for the Inbox across boards. */
+  inbox?: InboxAsk[];
+  /** notices are "worth a look" items on the other boards. */
+  notices?: Notice[];
   /** staleAfter is how many minutes old a now line may be before it is marked stale. */
   staleAfter?: number;
   steps: Step[];
@@ -204,6 +229,7 @@ export function snapshot(s: Scenario, k: number): Snapshot {
       if (presence[name] !== p) presenceSince[name] = step.at;
       presence[name] = p;
     }
+    Object.assign(presenceSince, step.since ?? {});
     Object.assign(now, step.now ?? {});
     for (const t of step.tasks ?? []) tasks.set(t.id, t);
     if (step.brief !== undefined) {
@@ -213,8 +239,10 @@ export function snapshot(s: Scenario, k: number): Snapshot {
     messages.push(...(step.messages ?? []));
     for (const a of step.artifacts ?? []) artifacts.set(a.id, a);
   }
-  // The brief is also the board's first maintained artifact.
+  // No steward, no brief.
+  if (!s.steward) brief = null;
   const files = [...artifacts.values()];
+  // The brief is also the board's first maintained artifact.
   if (brief) {
     files.unshift({
       id: "brief",
@@ -226,15 +254,18 @@ export function snapshot(s: Scenario, k: number): Snapshot {
       version: briefVersion,
       t: brief.t,
       summary: "What this board is for and where it stands. New agents read it first.",
-      body: brief.body,
+      body: briefMarkdown(brief),
     });
   }
   return { step: s.steps[k], presence, presenceSince, now, tasks: [...tasks.values()], brief, briefVersion, messages, artifacts: files };
 }
 
-/** taskRef is how a chip names a task: t12 is T12. */
-export function taskRef(id: string): string {
-  return id.toUpperCase();
+/** taskIds matches task ids in text, such as CHK-16. */
+export const taskIds = /\b[A-Z]{2,5}-\d+\b/g;
+
+/** briefMarkdown is the brief as the Markdown file the steward keeps. */
+export function briefMarkdown(b: Brief): string {
+  return `# Brief\n\n${b.summary}\n\n## Goal\n${b.goal}\n\n## Approach\n${b.approach}\n\n## Who's doing what\n${b.who}\n\n## Blocked on\n${b.blocked}\n\n## Next\n${b.next}\n\n## Sources\n${b.sources}`;
 }
 
 /** rootOf is the first message of a scenario message's thread. */
@@ -248,23 +279,17 @@ export function rootOf(messages: ScenarioMessage[], m: ScenarioMessage): Scenari
   return r;
 }
 
-/** threadsOf is every thread, by its first message, whose messages name a task. */
+/** mentioning is every message whose text names a task, or that is an ask blocking it. */
+export function mentioning(messages: ScenarioMessage[], task: string): ScenarioMessage[] {
+  return messages.filter((m) => m.task === task || m.body.match(taskIds)?.includes(task) || m.question?.match(taskIds)?.includes(task));
+}
+
+/** threadsOf is every thread, by its first message, with a message that names a task. */
 export function threadsOf(messages: ScenarioMessage[], task: string): ScenarioMessage[] {
   const roots = new Map<string, ScenarioMessage>();
-  for (const m of messages) {
-    if (!m.about?.includes(task)) continue;
+  for (const m of mentioning(messages, task)) {
     const r = rootOf(messages, m);
     roots.set(r.id, r);
   }
   return [...roots.values()].sort((a, b) => a.t - b.t);
-}
-
-/** tasksOfThread is every task the messages of a thread name, in the order first named. */
-export function tasksOfThread(messages: ScenarioMessage[], root: string): string[] {
-  const out: string[] = [];
-  for (const m of messages) {
-    if (rootOf(messages, m).id !== root) continue;
-    for (const t of m.about ?? []) if (!out.includes(t)) out.push(t);
-  }
-  return out;
 }
