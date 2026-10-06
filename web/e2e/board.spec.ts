@@ -1200,13 +1200,27 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
 });
 
+// ownerKey is alex's key on the local server, started if it isn't running.
+function ownerKey(): string {
+  aboard("up");
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  return readFileSync(found, "utf8").trim();
+}
+
+// newBoard makes a board as alex through the public API, with no agent seats. The
+// server limits joins per client, and the whole spec shares one client, so tests that
+// need no agent make their boards this way rather than with aboard pair.
+async function newBoard(title: string): Promise<{ name: string; id: string }> {
+  const b = await api(ownerKey(), "POST", "/v1/boards", { template: "general", title });
+  return { name: b.name as string, id: b.id as string };
+}
+
 function archivedNames(): string[] {
   return (JSON.parse(aboard("boards", "--archived", "--json")) as { boards: { name: string }[] }).boards.map((b) => b.name);
 }
 
 test("an archived board is read-only, groups under Archived, restores and deletes behind its typed name", async ({ page, browser }) => {
-  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Lifecycle check", "--json"));
-  const board: string = pair.board.name;
+  const { name: board } = await newBoard("Lifecycle check");
   const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
   const owner = readFileSync(found, "utf8").trim();
   // rae, another person on the server and not an admin, is on alex's board.
@@ -1305,8 +1319,8 @@ test("an archived board is read-only, groups under Archived, restores and delete
 });
 
 test("archiving the board on screen opens a collapsed Archived group, and a later collapse stays", async ({ page }) => {
-  const done = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Already done", "--json")).board.name as string;
-  const board = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Still going", "--json")).board.name as string;
+  const { name: done } = await newBoard("Already done");
+  const { name: board } = await newBoard("Still going");
   aboard("board", "archive", done);
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   await openLink(page, open.url);
@@ -1329,10 +1343,11 @@ test("archiving the board on screen opens a collapsed Archived group, and a late
 });
 
 test("an archived board offers no replies or reactions, but shows its reactions and threads", async ({ page }) => {
-  const board = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Read only", "--json")).board.name as string;
-  const root = JSON.parse(aboard("say", "--as", "writer", "--board", board, "Finished the draft", "--json")).message;
-  aboard("react", "--as", "writer", "--board", board, String(root.seq), "👍");
-  aboard("say", "--as", "writer", "--board", board, "--reply", root.id, "--to", "all", "Looks right to me");
+  const { name: board } = await newBoard("Read only");
+  const owner = ownerKey();
+  const root = await api(owner, "POST", `/v1/boards/${board}/messages`, { body: "Finished the draft", to: ["all"] });
+  await api(owner, "PUT", `/v1/messages/${root.id as string}/reactions/thumbsup`);
+  await api(owner, "POST", `/v1/boards/${board}/messages`, { body: "Looks right to me", to: ["all"], reply_to: root.id });
   aboard("board", "archive", board);
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   await openLink(page, open.url);
@@ -1360,7 +1375,7 @@ test("a board another person deletes while it is open says it is no longer avail
   const made = await api(solKey, "POST", "/v1/boards", { template: "general", title: "Sol's board" });
   const board = made.name as string;
   await api(solKey, "POST", `/v1/boards/${board}/people`, { handle: "alex" });
-  const other = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Untouched", "--json")).board.name as string;
+  const { name: other } = await newBoard("Untouched");
 
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   await openLink(page, open.url);
@@ -1400,9 +1415,8 @@ async function holdStream(page: Page): Promise<{ hint: (id: string) => Promise<v
 }
 
 test("a board_unavailable hint for a board never seen, or for another board still open, changes nothing", async ({ page }) => {
-  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Hint check", "--json"));
-  const board: string = pair.board.name;
-  const other = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Hint neighbour", "--json")).board;
+  const { name: board } = await newBoard("Hint check");
+  const other = await newBoard("Hint neighbour");
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   const stream = await holdStream(page);
   await openLink(page, open.url);
@@ -1418,7 +1432,7 @@ test("a board_unavailable hint for a board never seen, or for another board stil
   });
   for (const [id, seen] of [
     ["brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7Z", false],
-    [other.id as string, true],
+    [other.id, true],
   ] as const) {
     const before = listed;
     await stream.hint(id);
@@ -1432,9 +1446,9 @@ test("a board_unavailable hint for a board never seen, or for another board stil
 });
 
 test("a board_unavailable hint whose fresh read fails for a while keeps the board shown", async ({ page }) => {
-  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Flaky read", "--json"));
-  const board: string = pair.board.name;
-  aboard("say", "--as", "writer", "--board", board, "Finished the plan");
+  const flaky = await newBoard("Flaky read");
+  const board = flaky.name;
+  await api(ownerKey(), "POST", `/v1/boards/${board}/messages`, { body: "Finished the plan", to: ["all"] });
   const open = JSON.parse(aboard("open", "--board", board, "--json"));
   const stream = await holdStream(page);
   await openLink(page, open.url);
@@ -1452,7 +1466,7 @@ test("a board_unavailable hint whose fresh read fails for a while keeps the boar
         ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "Try again.", hint: "" } }) })
         : route.abort("connectionreset");
     });
-    await stream.hint(pair.board.id);
+    await stream.hint(flaky.id);
     await expect.poll(() => failed).toBeGreaterThan(0);
     await page.unroute(`**/v1/boards/${board}`);
     await expect(page.getByRole("region", { name: "Board unavailable" })).toHaveCount(0);
