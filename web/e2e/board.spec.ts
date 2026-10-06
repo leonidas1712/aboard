@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Page, type Response, expect, test } from "@playwright/test";
+import { type Page, type Response, type Route, expect, test } from "@playwright/test";
 import { modeRules, settableModes } from "../app/delivery-modes.gen";
 
 // One isolated machine: its own home directory, local server port and aboard binary
@@ -1377,4 +1377,87 @@ test("a board another person deletes while it is open says it is no longer avail
   await gone.getByRole("link", { name: "your boards" }).click();
   await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
   await expect(page.locator(`a[href="/?board=${other}"]`)).toBeVisible();
+});
+
+// holdStream keeps the page's event stream connections waiting, so a test decides what
+// arrives: hint(id) answers the waiting connection with one board_unavailable for id,
+// and the page connects again, to wait for the next. Nothing else reaches the stream.
+async function holdStream(page: Page): Promise<{ hint: (id: string) => Promise<void> }> {
+  const waiting: Route[] = [];
+  await page.route("**/v1/stream", (route) => {
+    waiting.push(route);
+  });
+  return {
+    hint: async (id: string) => {
+      await expect.poll(() => waiting.length).toBeGreaterThan(0);
+      await waiting.shift()!.fulfill({
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+        body: `event: board_unavailable\ndata: ${JSON.stringify({ board_id: id })}\n\n`,
+      });
+    },
+  };
+}
+
+test("a board_unavailable hint for a board never seen, or for another board still open, changes nothing", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Hint check", "--json"));
+  const board: string = pair.board.name;
+  const other = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Hint neighbour", "--json")).board;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  const stream = await holdStream(page);
+  await openLink(page, open.url);
+  const composer = page.getByRole("form", { name: "Post a message" });
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  await expect(composer).toBeVisible();
+  await expect(nav.locator(`a[href="/?board=${other.name}"]`)).toBeVisible();
+
+  // The list is read again only for a board the page has seen, and then shows it still.
+  let listed = 0;
+  page.on("request", (r) => {
+    if (new URL(r.url()).pathname === "/v1/boards") listed++;
+  });
+  for (const [id, seen] of [
+    ["brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7Z", false],
+    [other.id as string, true],
+  ] as const) {
+    const before = listed;
+    await stream.hint(id);
+    if (seen) await expect.poll(() => listed).toBeGreaterThan(before);
+    await expect(nav.locator(`a[href="/?board=${other.name}"]`)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Hint check");
+    await expect(composer).toBeVisible();
+    await expect(page.getByRole("region", { name: "Board unavailable" })).toHaveCount(0);
+    if (!seen) expect(listed).toBe(before);
+  }
+});
+
+test("a board_unavailable hint whose fresh read fails for a while keeps the board shown", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Flaky read", "--json"));
+  const board: string = pair.board.name;
+  aboard("say", "--as", "writer", "--board", board, "Finished the plan");
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  const stream = await holdStream(page);
+  await openLink(page, open.url);
+  const composer = page.getByRole("form", { name: "Post a message" });
+  await expect(composer).toBeVisible();
+  // The board has loaded (the message box shows before it does) before any read fails.
+  await expect(page.getByText("Finished the plan", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Flaky read");
+
+  for (const fail of ["5xx", "network"] as const) {
+    let failed = 0;
+    await page.route(`**/v1/boards/${board}`, (route) => {
+      failed++;
+      return fail === "5xx"
+        ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "Try again.", hint: "" } }) })
+        : route.abort("connectionreset");
+    });
+    await stream.hint(pair.board.id);
+    await expect.poll(() => failed).toBeGreaterThan(0);
+    await page.unroute(`**/v1/boards/${board}`);
+    await expect(page.getByRole("region", { name: "Board unavailable" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Flaky read");
+    await expect(composer).toBeVisible();
+    await expect(page.getByText("Finished the plan", { exact: true })).toBeVisible();
+  }
 });
