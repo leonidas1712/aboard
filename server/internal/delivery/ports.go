@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"time"
 )
 
 // Adapter is how the daemon reaches one harness. A new harness is a new Adapter; it

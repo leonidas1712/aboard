@@ -103,8 +103,9 @@ const (
 // Delivery is one agent's part of a bundle handed to a harness. A bundle carries one
 // delivery for each agent bound to the session that has messages in it.
 type Delivery struct {
-	ID    int64
-	Agent AgentRef
+	HandoffID string
+	ID        int64
+	Agent     AgentRef
 	// Session and Boot are the session the delivery was last handed to.
 	Session  SessionKey
 	Boot     string
