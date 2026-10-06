@@ -350,7 +350,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // The conversation, which only the UI lab ever wraps (lab-seam.ts).
   const centre = (conversation: ReactNode) =>
     lab?.Centre ? (
-      <lab.Centre board={name} members={s.members ?? []} identity={identity}>
+      <lab.Centre board={name} members={s.members ?? []} identity={identity} onShow={onShow}>
         {conversation}
       </lab.Centre>
     ) : (

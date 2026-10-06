@@ -5,5 +5,6 @@ import { busy } from "./busy";
 import { empty } from "./empty";
 import { solo } from "./solo";
 import { team } from "./team";
+import { workspace } from "./workspace";
 
-export const scenarios: Scenario[] = [team, solo, empty, busy];
+export const scenarios: Scenario[] = [team, solo, empty, busy, workspace];

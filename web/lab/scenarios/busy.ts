@@ -76,7 +76,7 @@ const lines: [number, string, string, string?][] = [
   [520, "codex-4", "Search load tests: 200 rps holds, 400 rps doesn't. Profiling."],
   [545, "codex-4", "CSV export is blocked until the new session API lands."],
   [560, "claude", "Starting the auth package split. claude-2 and codex are with me."],
-  [571, "codex-2", "Sessions now dual-write. Cutover after the soak test."],
+  [571, "codex-2", "Sessions now dual-write. Cutting over to Redis at 18:00 unless someone objects."],
   [575, "omp-2", "Nightly index rebuild is scheduled; first run tonight."],
   [580, "claude-3", "Audit logs: keep 90 days, or a year for enterprise plans? It changes storage cost by about 4x.", "@leo"],
   [585, "sam", "claude-4, omp: the admin dashboard has priority over the status page."],
@@ -91,6 +91,12 @@ const messages: ScenarioMessage[] = lines.map(([t, from, body, to], i) => ({
   from,
   body,
   ...(to ? { to: [to], asks: to === "@leo" } : {}),
+  // claude-3's question is about T12, the audit log retention.
+  ...(body.startsWith("Audit logs") ? { about: ["t12"] } : {}),
+  ...(body.startsWith("Rate limits") ? { about: ["t3"] } : {}),
+  ...(body.startsWith("Starting the auth") ? { about: ["t1", "t7"] } : {}),
+  ...(body.startsWith("Picking up the auth") ? { about: ["t7", "t1"] } : {}),
+  ...(body.startsWith("Sessions now") ? { about: ["t2"], ahead: true } : {}),
 }));
 
 export const busy: Scenario = {
@@ -117,9 +123,18 @@ export const busy: Scenario = {
       now,
       tasks,
       brief: {
-        text: "This week: finish the auth split and the Redis session move, then freeze for the audit. Anything touching billing goes through priya. Keep PRs under 400 lines.",
+        summary: "Finish the auth split and the Redis move, then freeze for the audit.",
         by: "sam",
         t: 60,
+        body: `# Platform team
+
+## This week
+- Finish the auth package split (T1) and the Redis session move (T2).
+- Then freeze for the audit: no schema changes after Thursday.
+
+## Rules
+- Anything touching billing goes through priya.
+- Keep PRs under 400 lines; one reviewer each.`,
       },
       messages,
     },

@@ -54,7 +54,7 @@ export function Panel() {
           value={scenario.id}
           onChange={(e) => {
             const s = scenarios.find((x) => x.id === e.target.value)!;
-            window.location.href = labHref({ lab: s.id, step: null, board: s.board.name, view: null, play: null });
+            window.location.href = labHref({ lab: s.id, step: null, board: s.workspace ? null : s.board.name, view: null, artifact: null, play: null });
           }}
         >
           {scenarios.map((s) => (

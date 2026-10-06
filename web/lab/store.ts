@@ -99,6 +99,46 @@ export function goTo(k: number) {
   for (const l of stepListeners) l(snap);
 }
 
+// Which view of the board is on screen, and what the experiments asked to bring into
+// view: a task, an artifact or a thread. ?view= and ?artifact= open the page there.
+
+export type View = "now" | "timeline" | "tasks" | "artifacts";
+/** explicit is true when the address named the view, so the board's default doesn't apply. */
+type Ui = { view: View; artifact: string | null; task: string | null; thread: string | null; n: number; explicit: boolean };
+
+function firstView(): View {
+  const v = params().get("view");
+  return v === "now" || v === "tasks" || v === "artifacts" ? v : params().get("artifact") ? "artifacts" : "timeline";
+}
+
+let ui: Ui = { view: firstView(), artifact: params().get("artifact"), task: null, thread: null, n: 0, explicit: !!(params().get("view") || params().get("artifact")) };
+const uiListeners = new Set<() => void>();
+
+function setUi(next: Partial<Ui>) {
+  ui = { ...ui, ...next, n: ui.n + 1 };
+  for (const l of uiListeners) l();
+}
+
+/** useUi is which view is on screen and what to bring into view. */
+export function useUi(): Ui {
+  return useSyncExternalStore(
+    (l) => {
+      uiListeners.add(l);
+      return () => uiListeners.delete(l);
+    },
+    () => ui,
+    () => ui,
+  );
+}
+
+export const showView = (view: View) => setUi({ view, artifact: view === "artifacts" ? ui.artifact : null });
+/** openTask shows a task's card on the Tasks tab. */
+export const openTask = (id: string) => setUi({ view: "tasks", task: id });
+/** openArtifact shows an artifact's preview, or the list with null. */
+export const openArtifact = (id: string | null) => setUi({ view: "artifacts", artifact: id });
+/** openThread shows a thread in the timeline, by its first message. */
+export const openThread = (root: string) => setUi({ view: "timeline", thread: root });
+
 let timer: ReturnType<typeof setInterval> | null = null;
 
 /** play moves through the remaining steps, one every few seconds; from the last step it starts over. */

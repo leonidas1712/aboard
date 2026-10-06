@@ -32,6 +32,8 @@ type Msg = {
   replyTo: string | null;
   asks: boolean;
   urgent: boolean;
+  /** about is the tasks a message the lab posted names (scenario messages carry their own). */
+  about?: string[];
   reactions: Map<ReactionName, string[]>;
 };
 
@@ -43,6 +45,8 @@ type World = {
   messages: Msg[];
   events: RawEvent[];
   readUpTo: number;
+  /** counts stand in for a summary-only board's messages, which the lab doesn't make. */
+  counts?: { unread: number; needs: number };
   /** hashed is the events with their hashes, as far as they have been computed. */
   hashed: BoardEvent[];
 };
@@ -136,6 +140,33 @@ for (const [i, o] of (scenario.otherBoards ?? []).entries()) {
   const w: World = { board: newBoard(o.name, o.title ?? null, "", at(-60 * 24 * (i + 2))), members: [], messages: [], events: [], readUpTo: 0, hashed: [] };
   addEvent(w, "board.created", at(-60 * 24 * (i + 2)), me, { name: o.name, title: w.board.title });
   person(w, me, true, at(-60 * 24 * (i + 2)));
+  // A summary-only board of a workspace scenario: agents with presence, and counts.
+  const harnesses = ["claude-code", "codex", "omp"];
+  for (let j = 0; j < (o.agents ?? 0); j++) {
+    const harness = harnesses[j % 3];
+    const name = `${harness === "claude-code" ? "claude" : harness}-${j + 1}`;
+    const presence: Presence = j < (o.working ?? 0) ? "working" : j < (o.working ?? 0) + (o.idle ?? 0) ? "idle" : "no_session";
+    w.members.push({
+      id: memberId(o.name, name),
+      name,
+      kind: "agent",
+      role: "member",
+      owner: me,
+      harness,
+      access: null,
+      server_role: null,
+      joined_at: w.board.created_at,
+      presence,
+      presence_since: w.board.created_at,
+      owner_id: personId(me),
+    });
+  }
+  for (const p of o.people ?? []) person(w, p, false, at(-60 * 24 * (i + 2)));
+  if (o.messages) {
+    w.board.message_count = o.messages;
+    w.board.last_message_at = iso(at(scenario.steps.at(-1)!.at - (o.lastAgo ?? 30)));
+    w.counts = { unread: o.unread ?? 0, needs: o.needs ?? 0 };
+  }
   worlds.set(o.name, w);
 }
 
@@ -270,6 +301,7 @@ function toMe(m: Msg): boolean {
 }
 
 function boardView(w: World): Board {
+  if (w.counts) return { ...w.board, read_up_to: 0, unread: w.counts.unread, needs_reply: w.counts.needs };
   const unread = w.messages.filter((m) => m.seq > w.readUpTo && m.from !== me).length;
   const needs = w.messages.filter(
     (m) => m.asks && m.to.includes(`@${me}`) && !w.messages.some((r) => r.replyTo === m.id && r.from === me),
@@ -304,6 +336,16 @@ async function hashed(w: World): Promise<BoardEvent[]> {
     w.hashed.push({ ...header, data: e.data, hash: await sha256(canonical(header)) });
   }
   return w.hashed;
+}
+
+/** postedAbout is the tasks a message posted in the lab names. */
+export function postedAbout(id: string): string[] {
+  return main.messages.find((m) => m.id === id)?.about ?? [];
+}
+
+/** answeredByMe says whether the person has replied to a message. */
+export function answeredByMe(id: string): boolean {
+  return main.messages.some((m) => m.replyTo === id && m.from === me);
 }
 
 // --- the event stream ---
@@ -432,10 +474,29 @@ async function route(method: string, path: string, q: URLSearchParams, body: Rec
         replyTo: (body.reply_to as string) ?? null,
         asks: false,
         urgent: false,
+        about: Array.isArray(body.about) ? (body.about as string[]) : undefined,
       });
       w.readUpTo = w.board.head_seq;
       setTimeout(() => emit("head", { board: b, seq: w.board.head_seq }));
-      return json(message(w, w.messages.at(-1)!));
+      const posted = w.messages.at(-1)!;
+      // An agent asked by name answers in a moment, the way a woken session would.
+      const to = posted.to.length === 1 ? w.members.find((m) => m.kind === "agent" && `@${m.name}` === posted.to[0]) : undefined;
+      if (to) {
+        setTimeout(() => {
+          addMessage(w, {
+            id: `msg_lab_${crypto.randomUUID().slice(0, 8)}`,
+            atMs: Date.now(),
+            from: to.name,
+            to: [`@${me}`],
+            body: "On it. I'll answer in this thread when it's done.",
+            replyTo: posted.id,
+            asks: false,
+            urgent: false,
+          });
+          emit("head", { board: b, seq: w.board.head_seq });
+        }, 2500);
+      }
+      return json(message(w, posted));
     }
     if (c === "messages" && e === "receipts") {
       const m = w.messages.find((x) => x.seq === Number(d));

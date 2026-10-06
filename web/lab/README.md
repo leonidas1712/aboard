@@ -60,11 +60,24 @@ real component replaces the experimental one, and its slot goes away.
 
 ## The mocked features now
 
-- **Now line** (`experiments/now-line.tsx`): what an agent is working on, and when it
-  set the line. The line shows under the agent's name in the board panel. A stale line
-  is muted, with a clock mark. An agent with no line shows "No now line".
-- **Tasks** (`experiments/tasks.tsx`, `agent-groups.tsx`): a Tasks tab with a kanban.
-  The tab appears when the board has a task. The board panel groups agents by the task
-  they share.
-- **The brief** (`experiments/brief.tsx`): a pinned note under the "Now:" line. It shows
-  who set it, when, and how many messages came after it.
+[DIRECTION.md](DIRECTION.md) explains why these features exist and how they fit together.
+
+- **Facts and the brief** (`experiments/centre.tsx`, `brief.tsx`): two rows under the
+  "Now:" line. The Facts row is counted from the record. The Brief is Markdown that
+  the steward agent maintains. It opens in place, and its freshness is stated as facts.
+- **Now** (`experiments/now-view.tsx`): the home view of a board with a team. It shows
+  what needs you, what changed since you last looked, and what is stuck, stale or
+  idle. Each item links to its evidence and has an ask.
+- **Tasks** (`experiments/tasks.tsx`): a kanban. A message can name tasks with
+  `about`, so each card has its threads, and thread headers show task chips
+  (`message-footer.tsx`).
+- **Files** (`experiments/artifacts.tsx`): artifacts and content as cards. A preview
+  shows HTML in a frame with `sandbox=""`. A file posted with a message shows under
+  that message.
+- **Agents** (`experiments/agent-groups.tsx`): one compact row per agent: presence,
+  name, and now line. A click on the name shows the agent's details. The rows are
+  grouped by task.
+- **Asks** (`experiments/ask.tsx`): a message to the right agent, written in for you.
+  The fake answers it.
+- **Across your boards** (`experiments/workspace.tsx`): the overview above the board
+  list in the `workspace` scenario.

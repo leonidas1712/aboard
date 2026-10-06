@@ -4,6 +4,7 @@
 // apart: who is on each, how much has been said and when, and its policy. A board made
 // in a terminal appears here without a reload.
 
+import { lab } from "aboard-lab";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,7 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
     <div className="flex min-h-dvh flex-col">
       <Header account={<Account onSignOut={onSignOut} />} />
       <main className="mx-auto w-full max-w-[960px] px-4 py-8 sm:px-6">
+        {lab?.BoardListTop && <lab.BoardListTop />}
         <h1 className="mb-4 text-headline font-bold">Your boards</h1>
         {error !== null && <Problem error={error} />}
         {boards === null && error === null && (

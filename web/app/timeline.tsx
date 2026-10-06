@@ -4,6 +4,7 @@
 // the newest entry, holds still while you read further up, and offers a way back down.
 // Messages from one sender in a row are grouped under one header, the way chats do.
 
+import { lab } from "aboard-lab";
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -578,6 +579,7 @@ function MessageEntry({
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
           <Body m={m} mentions={mentions} />
         </p>
+        {lab?.MessageFooter && receipts && <lab.MessageFooter board={receipts.board} message={m} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
         {grouped && actions && <div className="absolute top-0 right-2.5">{actions}</div>}

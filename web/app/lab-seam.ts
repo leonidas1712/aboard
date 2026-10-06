@@ -5,7 +5,7 @@
 // only by its own data. Nothing here is part of the API or the product yet.
 
 import type { ComponentType, ReactNode } from "react";
-import type { Member, MemberRef } from "./api";
+import type { Member, MemberRef, Message } from "./api";
 
 export type Lab = {
   /** Overlay is the lab's own floating controls, drawn over every screen. */
@@ -14,9 +14,28 @@ export type Lab = {
    * Centre wraps the board view's conversation (the timeline and the message box)
    * under the "Now:" line, so an experiment can add a view beside it.
    */
-  Centre?: ComponentType<{ board: string; members: Member[]; identity: (m: MemberRef) => number; children: ReactNode }>;
-  /** Agents lays out the agents in the board panel, given how the panel draws one. */
-  Agents?: ComponentType<{ board: string; agents: Member[]; item: (a: Member) => ReactNode }>;
-  /** AgentLine adds a line under an agent's name in the board panel. */
-  AgentLine?: ComponentType<{ board: string; agent: Member }>;
+  Centre?: ComponentType<{
+    board: string;
+    members: Member[];
+    identity: (m: MemberRef) => number;
+    /** onShow opens a message's thread in the timeline and scrolls to it. */
+    onShow: (id: string) => void;
+    children: ReactNode;
+  }>;
+  /**
+   * Agents lays out the agents in the board panel, given how the panel draws one (item)
+   * and an agent's fields alone (details: owner, role, harness, delivery).
+   */
+  Agents?: ComponentType<{
+    board: string;
+    agents: Member[];
+    item: (a: Member) => ReactNode;
+    details: (a: Member) => ReactNode;
+    /** pick filters the timeline to one member's messages, as their name does. */
+    pick: (name: string) => void;
+  }>;
+  /** BoardListTop sits above the list of boards. */
+  BoardListTop?: ComponentType;
+  /** MessageFooter adds to a message in the timeline, under its text. */
+  MessageFooter?: ComponentType<{ board: string; message: Message }>;
 };
