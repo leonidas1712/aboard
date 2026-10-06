@@ -16,8 +16,9 @@ import (
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
 	// A control request, answered on reply.
-	req   Request
-	reply chan<- Response
+	req       Request
+	reply     chan<- Response
+	preflight *AgentRef
 	// waiter is set with an OpWait request.
 	waiter *waiter
 	// gone reports that a waiting hook's connection closed.
@@ -84,9 +85,10 @@ type readMove struct {
 }
 
 type inboxResult struct {
-	agent  AgentRef
-	msgs   []Message
-	cursor int
+	generation uint64
+	agent      AgentRef
+	msgs       []Message
+	cursor     int
 	// mode is the agent's delivery mode as its server holds it, read with the messages;
 	// nil from a server that doesn't hold modes.
 	mode *HeldMode
@@ -96,18 +98,21 @@ type inboxResult struct {
 }
 
 type ackResult struct {
-	agent AgentRef
-	upTo  int
-	err   error
+	generation uint64
+	agent      AgentRef
+	upTo       int
+	err        error
 }
 
 // session is one open conversation in one harness. Everything below mail is changed
 // only by the session's own goroutine, in run.
 type session struct {
-	d       *Daemon
-	key     SessionKey
-	adapter Adapter
-	mail    *mailbox[sessionMsg]
+	handoffs  map[string]*sessionHandoff
+	firstSeat int
+	d         *Daemon
+	key       SessionKey
+	adapter   Adapter
+	mail      *mailbox[sessionMsg]
 
 	boot string
 	open bool
@@ -165,7 +170,8 @@ type session struct {
 
 // agentState is what a session knows about one of its agents.
 type agentState struct {
-	ref AgentRef
+	generation uint64
+	ref        AgentRef
 	// adopting is true until the previous session has given the agent up.
 	adopting bool
 	// fetched is true once the inbox has been read at least once.
@@ -226,6 +232,8 @@ func (s *session) run(ctx context.Context) error {
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.preflight != nil:
+		m.reply <- s.preflightBinding(*m.preflight)
 	case m.waiter != nil:
 		s.onWait(ctx, m.req, m.waiter)
 	case m.gone != nil:
@@ -237,7 +245,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 	case m.ack != nil:
 		s.onAck(ctx, *m.ack)
 	case m.refused != nil:
-		if a, ok := s.agents[m.refused.agent.Key()]; ok {
+		if a, ok := s.agents[m.refused.agent.Key()]; ok && (m.refused.generation == 0 || m.refused.generation == a.generation) {
 			s.setProblem(a, problemOf(m.refused.err))
 		}
 	case m.release != nil:
@@ -248,6 +256,20 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.checkAlive(ctx)
 	case m.credentialChanged != nil:
 		if a := s.agents[m.credentialChanged.Key()]; a != nil && !a.adopting {
+			b, err := s.d.cfg.Journal.BindGeneration(ctx, Binding{Agent: a.ref, Session: s.key, BoundAt: s.now(), RetainSiblings: multiSeatEnabled}, true)
+			if err != nil {
+				s.d.log.Error("advance binding generation", "error", err)
+				s.setProblem(a, ReasonUnauthorized)
+				break
+			}
+			a.generation = b.Generation
+			a.acking = false
+			s.d.setGeneration(a.ref, a.generation)
+			for _, dl := range a.deliveries {
+				if dl.State == StateHanded {
+					s.setState(ctx, dl, StatePending)
+				}
+			}
 			s.refresh(a, s.waiter != nil)
 		}
 	case m.modeChanged:
@@ -368,6 +390,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		s.setOpen(ctx, false)
 	case OpBind:
+		if preflight := s.preflightBinding(*req.Agent); preflight.Error != nil {
+			return preflight
+		}
 		var err error
 		ok.Previous, err = s.bind(ctx, *req.Agent)
 		if err != nil {
@@ -451,7 +476,7 @@ func (s *session) reportPresence(renew bool) {
 			continue
 		}
 		s.reported[ref.Key()] = now
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: now.state, mode: now.mode})
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, generation: a.generation, state: now.state, mode: now.mode})
 	}
 }
 
@@ -460,7 +485,7 @@ func (s *session) reportPresence(renew bool) {
 // after this, through the same server connection, so its report wins.
 func (s *session) leavePresence(ref AgentRef) {
 	if last, ok := s.reported[ref.Key()]; ok && last.state != PresenceNoSession {
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, state: PresenceNoSession, mode: last.mode})
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, generation: s.d.generation(ref), state: PresenceNoSession, mode: last.mode})
 	}
 	delete(s.reported, ref.Key())
 }
@@ -552,12 +577,15 @@ func (s *session) confirm(ctx context.Context) { s.confirmBefore(ctx, time.Time{
 // hook running at the same moment (parallel tool calls) doesn't show that the session
 // received it.
 func (s *session) confirmBefore(ctx context.Context, t time.Time) {
+	covered := s.confirmManifests(ctx, t)
 	var confirmed []*Delivery
 	for _, a := range s.agents {
 		for _, dl := range a.deliveries {
-			if dl.State == StateHanded && dl.Session == s.key && (t.IsZero() || dl.UpdatedAt.Before(t)) {
+			if !covered[dl.ID] && dl.State == StateHanded && dl.Session == s.key && dl.Boot == s.boot && (t.IsZero() || dl.UpdatedAt.Before(t)) {
 				s.setState(ctx, dl, StateConfirmed)
-				confirmed = append(confirmed, dl)
+				if dl.State == StateConfirmed {
+					confirmed = append(confirmed, dl)
+				}
 			}
 		}
 		s.maybeAck(a)
@@ -566,11 +594,14 @@ func (s *session) confirmBefore(ctx context.Context, t time.Time) {
 }
 
 func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
-	dl.State = st
-	dl.UpdatedAt = s.now()
-	if err := s.d.cfg.Journal.UpdateDelivery(ctx, *dl); err != nil {
+	next := *dl
+	next.State = st
+	next.UpdatedAt = s.now()
+	if err := s.d.cfg.Journal.UpdateDelivery(ctx, next); err != nil {
 		s.d.log.Error("update delivery", "delivery", dl.ID, "state", st, "error", err)
+		return
 	}
+	*dl = next
 }
 
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
@@ -605,13 +636,16 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	s.refreshAll(true)
 }
 
-// bind makes the session the one the agent's messages go to. A session fills one seat
-// at a time, so an agent it held before is let go; bind returns that agent.
+// bind persists a seat before replacing another seat on the same board.
 func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
+	if err := s.ensureBoot(ctx); err != nil {
+		return nil, err
+	}
 	if a, ok := s.agents[agent.Key()]; ok && !a.adopting && a.ref == agent {
 		return nil, nil
 	}
-	if err := s.d.cfg.Journal.Bind(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now()}); err != nil {
+	binding, err := s.d.cfg.Journal.BindGeneration(ctx, Binding{Agent: agent, Session: s.key, BoundAt: s.now(), RetainSiblings: multiSeatEnabled}, false)
+	if err != nil {
 		s.d.log.Error("bind agent", "agent", agent.Name, "board", agent.Board, "error", err)
 		return nil, err
 	}
@@ -621,19 +655,23 @@ func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
 	}
 	var previous *AgentRef
 	for _, ref := range s.agentRefs() {
-		if ref.Key() != agent.Key() {
+		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Board == agent.Board) {
 			s.unbind(ctx, ref)
 			previous = &ref
 		}
 	}
 	if a, ok := s.agents[agent.Key()]; ok && !a.adopting {
 		a.ref = agent
+		a.generation = binding.Generation
+		s.d.setGeneration(a.ref, a.generation)
 		s.d.mu.Lock()
 		s.d.rememberLocked(agent)
 		s.d.mu.Unlock()
 		return previous, nil
 	}
 	s.agents[agent.Key()] = newAgentState(agent, true)
+	s.agents[agent.Key()].generation = binding.Generation
+	s.d.setGeneration(agent, binding.Generation)
 	if prev := s.d.setOwner(agent, s); prev != nil {
 		prev.mail.put(sessionMsg{release: &agent, adopter: s})
 		return previous, nil
@@ -740,13 +778,13 @@ func (s *session) refresh(a *agentState, gate bool) {
 	if gate {
 		s.refreshing[id] = true
 	}
-	s.d.server(a.ref.Server).mail.put(srvMsg{refresh: &a.ref, id: id, replyTo: s})
+	s.d.server(a.ref.Server).mail.put(srvMsg{refresh: &a.ref, generation: a.generation, id: id, replyTo: s})
 }
 
 func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	delete(s.refreshing, r.refresh)
 	a, ok := s.agents[r.agent.Key()]
-	if !ok || a.gone() {
+	if !ok || a.gone() || (r.generation != 0 && r.generation != a.generation) {
 		return
 	}
 	if r.err != nil {
@@ -816,8 +854,9 @@ func (s *session) setProblem(a *agentState, reason string) {
 
 // refusal is a server's refusal of a request for an agent.
 type refusal struct {
-	agent AgentRef
-	err   error
+	generation uint64
+	agent      AgentRef
+	err        error
 }
 
 // movedTo records that the agent's read position is at cursor: deliveries entirely
@@ -1040,13 +1079,13 @@ func (s *session) maybeAck(a *agentState) {
 	}
 	if point > a.ackedUpTo {
 		a.acking = true
-		s.d.server(a.ref.Server).mail.put(srvMsg{ack: &a.ref, upTo: point, replyTo: s})
+		s.d.server(a.ref.Server).mail.put(srvMsg{ack: &a.ref, generation: a.generation, upTo: point, replyTo: s})
 	}
 }
 
 func (s *session) onAck(ctx context.Context, r ackResult) {
 	a, ok := s.agents[r.agent.Key()]
-	if !ok || a.gone() {
+	if !ok || a.gone() || (r.generation != 0 && r.generation != a.generation) {
 		return
 	}
 	a.acking = false
@@ -1226,21 +1265,32 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if notes != "" {
 		limit -= len(notes) + 1
 	}
-	c := compose(offers, limit)
+	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), notes)
 	s.skip(ctx, c.tooLarge)
 	if len(c.parts) == 0 {
 		s.scheduleRetry()
 		return
 	}
 	c.text = withNotes(notes, c.text)
-	handed := s.record(ctx, c.parts, StateHanded)
+	handoff, handed, prepareErr := s.prepare(ctx, c, notes, c.text)
+	if prepareErr != nil {
+		s.d.log.Error("prepare handoff", "error", prepareErr)
+		s.gatherUntil = s.now().Add(QueueGather)
+		s.scheduleRetry()
+		return
+	}
 	var first int64
 	if len(handed) > 0 {
 		first = handed[0].ID
 	}
 	began := s.now()
 	idle := s.adapter.WaitsForIdle() || !s.inTurn
-	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, Bundle: c.text, Waiter: s.waiter})
+	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, HandoffID: func() string {
+		if len(s.agents) > 1 {
+			return handoff.manifest.ID
+		}
+		return ""
+	}(), Class: handoff.manifest.Class, Bundle: c.text, Waiter: s.waiter})
 	if err == nil {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
@@ -1253,10 +1303,12 @@ func (s *session) tryDeliver(ctx context.Context) {
 	}
 	switch {
 	case err == nil && confirmed:
-		for _, dl := range handed {
-			s.setState(ctx, dl, StateConfirmed)
+		confirmedParts, confirmErr := s.confirmHandoff(ctx, handoff)
+		if confirmErr != nil {
+			s.d.log.Error("confirm handoff", "error", confirmErr)
+		} else {
+			s.logConfirmed(confirmedParts)
 		}
-		s.logConfirmed(handed)
 	case err == nil:
 	case errors.Is(err, ErrBusy):
 		for _, dl := range handed {
@@ -1515,39 +1567,67 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce() {
 		s.recheck(ctx)
 	}
-	c := compose(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame))
+	c := s.composePending(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame), s.compositionOptions(MidTurnLimit), midTurnFrame)
 	text := c.text
-	if len(c.parts) > 0 {
-		// Confirmed like a bundle: by the session's next event of this turn. The hook
-		// takes it into a turn that is running.
-		now := s.now()
-		for _, dl := range s.record(ctx, c.parts, StateHanded) {
-			dl.AcceptedAt, dl.TurnStartedAt = now, now
-			s.saveDelivery(ctx, dl)
-		}
-	}
+	previews := map[AgentKey][]int{}
 	for _, o := range c.tooLarge {
 		a := s.agents[o.agent.Key()]
 		m := o.msgs[0]
 		if a.previewed[m.Seq] {
 			continue
 		}
-		preview := previewText(m)
-		if len(text)+len(preview)+len(midTurnFrame) > MidTurnLimit {
+		preview := previewTextFor(m, s.textContext(a.ref))
+		if len(text)+len(preview)+len(midTurnFrame)+2 > MidTurnLimit {
 			break
 		}
-		a.previewed[m.Seq] = true
+		previews[a.ref.Key()] = append(previews[a.ref.Key()], m.Seq)
 		text = strings.TrimSpace(text + "\n\n" + preview)
 	}
 	if text != "" {
 		bundle = midTurnFrame + text
 	}
+	announcements := map[AgentKey][]int{}
 	var announced []int
 	for _, ref := range s.agentRefs() {
 		a := s.agents[ref.Key()]
-		if n, seqs := s.noticeFor(a); n != "" && len(bundle)+len(notice)+len(n) < MidTurnLimit {
-			notice += n
+		if n, seqs := s.noticeFor(a); n != "" {
+			candidate := notice + n
+			total := len(bundle) + len(candidate)
+			if bundle != "" {
+				total += 2
+			}
+			if total > MidTurnLimit {
+				continue
+			}
+			notice = candidate
+			announcements[a.ref.Key()] = seqs
 			announced = append(announced, seqs...)
+		}
+	}
+	if len(c.parts) > 0 {
+		payload := bundle
+		if notice != "" {
+			payload = bundle + "\n\n" + notice
+		}
+		_, deliveries, err := s.prepare(ctx, c, midTurnFrame, payload)
+		if err != nil {
+			s.d.log.Error("prepare boundary handoff", "error", err)
+			return "", ""
+		}
+		now := s.now()
+		for _, dl := range deliveries {
+			dl.AcceptedAt, dl.TurnStartedAt = now, now
+			s.saveDelivery(ctx, dl)
+		}
+	}
+	for key, seqs := range previews {
+		for _, seq := range seqs {
+			s.agents[key].previewed[seq] = true
+		}
+	}
+	for key, seqs := range announcements {
+		for _, seq := range seqs {
+			s.agents[key].announced[seq] = true
 		}
 	}
 	if bundle != "" || notice != "" {
@@ -1575,12 +1655,17 @@ func (s *session) atTurnStart(ctx context.Context) string {
 	if notes != "" {
 		limit -= len(notes) + 1
 	}
-	c := compose(s.offers(turnStart), limit)
+	c := s.composePending(s.offers(turnStart), limit, s.compositionOptions(MidTurnLimit), notes)
 	if len(c.parts) == 0 {
 		return notes
 	}
+	_, deliveries, err := s.prepare(ctx, c, notes, withNotes(notes, c.text))
+	if err != nil {
+		s.d.log.Error("prepare turn-start handoff", "error", err)
+		return notes
+	}
 	now := s.now()
-	for _, dl := range s.record(ctx, c.parts, StateHanded) {
+	for _, dl := range deliveries {
 		dl.AcceptedAt, dl.TurnStartedAt = now, now
 		s.saveDelivery(ctx, dl)
 	}
@@ -1661,11 +1746,15 @@ func partSeqs(parts []offer) []int {
 
 // previewText shows the start of a message too long for a tool boundary, and where the
 // rest is.
-func previewText(m Message) string {
+func previewTextFor(m Message, context deliverytext.Context) string {
 	cut := m
 	cut.Body, cut.Truncated, cut.ExpectsReply = strings.ToValidUTF8(m.Body[:min(previewLimit, len(m.Body))], ""), true, false
-	return deliverytext.Bundle(m.Board, []Message{cut}) +
-		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run aboard inbox to read it now.", m.Seq)
+	command := "aboard inbox"
+	if context.BoardQualified {
+		command += " --board " + m.Board
+	}
+	return deliverytext.Bundle(m.Board, []Message{cut}, context) +
+		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run %s to read it now.", m.Seq, command)
 }
 
 // noticeFor names the agent's waiting messages, other than its owner's, that no notice
@@ -1675,10 +1764,7 @@ func (s *session) noticeFor(a *agentState) (notice string, seqs []int) {
 	if len(fresh) == 0 {
 		return "", nil
 	}
-	for _, m := range fresh {
-		a.announced[m.Seq] = true
-	}
-	return deliverytext.Notice(a.ref.Board, fresh), seqsOf(fresh)
+	return deliverytext.Notice(a.ref.Board, fresh, s.textContext(a.ref)), seqsOf(fresh)
 }
 
 // toAnnounce returns the agent's waiting messages, other than its owner's, that no

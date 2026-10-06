@@ -409,6 +409,13 @@ state, and a new seat with an old seat's name never inherits it.
   event's board and name match a seat. The same holds for a `presence` event without
   `member_id`.
 
+A validated direct binding to a queue-capable session can precede trusted harness
+hooks. When that session has no boot yet, the daemon saves a random local `boot_`
+marker before binding or exposing a payload. Failure to save it binds and hands
+nothing. A later hook that supplies the harness process's boot replaces this marker
+and fences the earlier handoffs as any boot change does. This fallback does not
+replace exact harness-target validation or give an unresolved seat combined delivery.
+
 ## Several seats
 
 What we want: one session can work on several boards at once, each as its own seat,

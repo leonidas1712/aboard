@@ -153,6 +153,9 @@ func Bundle(board string, ms []Message, contexts ...Context) string {
 		b.WriteString(Format(m, contexts...) + "\n")
 	}
 	b.WriteString(bundleClose)
+	if contextOf(contexts).BoardQualified {
+		fmt.Fprintf(&b, "\nUse %s to reply, or %s to read this board.", boardCommand("aboard say", board, contexts), boardCommand("aboard read", board, contexts))
+	}
 	return b.String()
 }
 
@@ -321,6 +324,9 @@ func BundleSize(groups []Group) int {
 		}
 		nonEmpty++
 		n += len(bundleOpen(g.Board, len(g.Messages), g.Context)) + len(bundleClose)
+		if g.Context.BoardQualified {
+			n += len(fmt.Sprintf("\nUse %s to reply, or %s to read this board.", boardCommand("aboard say", g.Board, []Context{g.Context}), boardCommand("aboard read", g.Board, []Context{g.Context})))
+		}
 		for _, m := range g.Messages {
 			n += len(Format(m, g.Context)) + 1
 		}
