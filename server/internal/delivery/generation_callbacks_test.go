@@ -10,7 +10,7 @@ import (
 )
 
 func TestOldGenerationResultsCannotChangeCurrentSeat(t *testing.T) {
-	for _, kind := range []string{"inbox", "ack", "presence"} {
+	for _, kind := range []string{"inbox", "inbox refusal", "ack", "presence"} {
 		t.Run(kind, func(t *testing.T) {
 			ref := AgentRef{Server: "local", Board: "docs", Name: "reader", MemberID: "mem_reader"}
 			a := newAgentState(ref, false)
@@ -21,6 +21,8 @@ func TestOldGenerationResultsCannotChangeCurrentSeat(t *testing.T) {
 			switch kind {
 			case "inbox":
 				s.onInbox(ctx, inboxResult{agent: ref, cursor: 10, msgs: []Message{{Seq: 11}}, generation: 1})
+			case "inbox refusal":
+				s.onInbox(ctx, inboxResult{agent: ref, err: ErrBoardGone, generation: 1})
 			case "ack":
 				s.onAck(ctx, ackResult{agent: ref, upTo: 10, generation: 1})
 			case "presence":
