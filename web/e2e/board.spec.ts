@@ -371,6 +371,59 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   await expect(panel.locator('[data-agent="invited"]')).toBeVisible();
 });
 
+// This machine's server is a local one, so the page is told it is on a team server
+// (GET /v1/info) to show what a team server's people see; the rest is the real server.
+test("on a team server, Add an agent gives the join command for the person's own agents, with no code", async ({ page, context }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Team invite", "--json"));
+  const board: string = pair.board.name;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(open.url).origin });
+  await page.route("**/v1/info", async (route) => {
+    const resp = await route.fetch();
+    await route.fulfill({ response: resp, json: { ...(await resp.json()), mode: "team" } });
+  });
+  const codes: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/join-codes")) codes.push(r.url());
+  });
+  await openLink(page, open.url);
+
+  await page.getByRole("button", { name: /Team invite.*board details/ }).click();
+  const panel = page.getByRole("complementary", { name: "Team invite" });
+  await panel.getByRole("button", { name: "Add an agent" }).click();
+  const add = panel.locator(".add-agent");
+  const server = new URL(open.url).origin;
+  await expect(add.locator(".invite-prompt")).toContainText(`aboard join --board ${board} --server ${server}`);
+  await expect(add).toContainText("no code needed");
+  await add.getByLabel("Joins as").selectOption("reviewer");
+  await expect(add.locator(".invite-prompt")).toContainText(`aboard join --board ${board} --role reviewer --server ${server}`);
+  await add.getByRole("button", { name: "Copy prompt" }).click();
+  const prompt = await page.evaluate(() => navigator.clipboard.readText());
+  expect(prompt.split("\n")).toEqual([
+    `aboard join --board ${board} --role reviewer --server ${server}`,
+    "You have the Aboard skill. Run this command to join, read the charter in the join output, then say hello on the board.",
+  ]);
+  expect(codes).toEqual([]);
+});
+
+// A guest's agents come only from guest codes, so the board view offers a guest no
+// Add an agent.
+test("a guest of a team server sees no Add an agent", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Guest view", "--json"));
+  const board: string = pair.board.name;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await page.route("**/v1/me", async (route) => {
+    const resp = await route.fetch();
+    await route.fulfill({ response: resp, json: { ...(await resp.json()), server_role: "guest" } });
+  });
+  await openLink(page, open.url);
+  await page.getByRole("button", { name: /Guest view.*board details/ }).click();
+  const panel = page.getByRole("complementary", { name: "Guest view" });
+  await expect(panel.locator(".board-facts")).toBeVisible();
+  await expect(panel.locator('[data-agent="writer"]')).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Add an agent" })).toHaveCount(0);
+});
+
 test("replies form threads that open in place, remember how they were left and surface what is new", async ({ page }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Threads", "--json"));
   const board: string = pair.board.name;

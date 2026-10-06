@@ -11,7 +11,7 @@ aboard people role @handle admin|member [--server URL] [--json]
 aboard people remove @handle [--yes] [--server URL] [--json]
 ```
 
-aboard people lists everyone on the server with their role: admin, member or guest. An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite `--guest`) and reaches only the boards guest codes brought them onto. The server is `--server`, else the one this directory's .aboard names, else the local server.
+aboard people lists everyone on the server with their role: admin, member or guest. An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite `--guest`) and reaches only the boards guest codes brought them onto. The server is `--server`, else the one this directory's .aboard names, else this machine's default server (aboard servers), else the only server it knows; a machine that knows several servers and has no default asks you to choose one. 
 
 people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. It says first what will stop and asks; without a terminal it needs `--yes`. Their messages stay in the record. Their handle is free again, so they can be invited back as a new person. Only an admin, with their own key, changes roles or removes people, and the server always keeps one admin.
 
@@ -22,7 +22,7 @@ These are a person's commands: they refuse inside an agent's session.
 | Flag | What it does |
 | --- | --- |
 | `--yes` | Remove the person without asking. |
-| `--server URL` | The server, when it isn't this directory's or the local one. |
+| `--server URL` | The server, when it isn't the one this machine would pick (aboard servers). |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples

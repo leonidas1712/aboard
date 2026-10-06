@@ -57,10 +57,10 @@ func (a *app) serverArg() string {
 }
 
 // personBoard is the board a person's board command acts on: with --server, the board
-// --board names on that server; otherwise as selectBoard picks it.
+// --board names on that server; otherwise as humanBoard picks it.
 func (a *app) personBoard(boardFlag string) (target, error) {
 	if a.boardServerFlag == "" {
-		return a.selectBoard(boardFlag)
+		return a.humanBoard(boardFlag)
 	}
 	if boardFlag == "" {
 		return target{}, usageError("--server needs --board, naming a board on that server.", boardUsage)
@@ -96,7 +96,7 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.selectBoard(boardFlag); err != nil {
+		if t, err = a.humanBoard(boardFlag); err != nil {
 			return err
 		}
 		c, err = a.humanClient(ctx, t)

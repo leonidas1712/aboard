@@ -80,7 +80,16 @@ export type ReadEvent = { board: string; agent: string; read_up_to: number };
 export type Visibility = "open" | "private";
 
 /** Me is who the browser's token acts as: always a person for a browser. */
-export type Me = { id: string; kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };
+export type Me = {
+  id: string;
+  kind: "human" | "agent";
+  name: string;
+  board: string | null;
+  owner: string | null;
+  browser: boolean;
+  /** server_role is the person's role on the server; null for an agent. */
+  server_role?: "admin" | "member" | "guest" | null;
+};
 
 export type Presence = "working" | "idle" | "waiting" | "no_session";
 

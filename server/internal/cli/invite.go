@@ -24,17 +24,30 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	boardFlag := fs.String("board", "", "the board to add an agent to")
 	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
 	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h (168h with --server)")
-	serverFlag := fs.Bool("server", false, "invite a person to the server instead of an agent to a board")
+	var serverFlag optionalValue
+	fs.Var(&serverFlag, "server", "invite a person to the server instead of an agent to a board; --server URL names the server")
 	guestFlag := fs.String("guest", "", "make a guest code that lets this person, from outside the server, onto the board once")
-	if _, err := a.parse(fs, args, inviteUsage, 0, 0); err != nil {
+	pos, err := a.parse(fs, args, inviteUsage, 0, 1)
+	if err != nil {
 		return err
 	}
 	guest := handleArg(*guestFlag)
-	if *serverFlag {
+	if serverFlag.set {
 		if *roleFlag != "" || *boardFlag != "" || guest != "" {
 			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role, --board or --guest.", inviteUsage)
 		}
-		return runServerInvite(ctx, a, *ttl)
+		// --server is a switch, so "--server URL" leaves the URL as an argument.
+		srv := serverFlag.value
+		if len(pos) == 1 {
+			if srv != "" {
+				return usageError(fmt.Sprintf("Unexpected argument %q.", pos[0]), inviteUsage)
+			}
+			srv = pos[0]
+		}
+		return runServerInvite(ctx, a, srv, *ttl)
+	}
+	if len(pos) > 0 {
+		return usageError(fmt.Sprintf("Unexpected argument %q.", pos[0]), inviteUsage)
 	}
 	command := "aboard invite"
 	what := "Adding an agent to a board"
@@ -48,7 +61,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	if err := a.refuseInSession(what, command+boardArg(a.namedBoard(*boardFlag))); err != nil {
 		return err
 	}
-	t, err := a.selectBoard(*boardFlag)
+	t, err := a.humanBoard(*boardFlag)
 	if err != nil {
 		return err
 	}
@@ -85,35 +98,37 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	line := deref(jc.JoinLine)
 	prompt := line + "\n" + invitePrompt
 	if guest != "" {
-		text := fmt.Sprintf("Created a guest code for board %s: %s joins it as a guest from outside the server, once, within %s. "+
+		text := fmt.Sprintf("Created a guest code for board %s on %s: %s joins it as a guest from outside the server, once, within %s. "+
 			"Anyone with the code can use it, so give it only to %s.\n\nGive this to %s, to paste into their agent's session:\n\n%s\n",
-			board.Name, guest, durationText(time.Until(jc.ExpiresAt)), guest, guest, prompt)
+			board.Name, t.server.URL, guest, durationText(time.Until(jc.ExpiresAt)), guest, guest, prompt)
 		a.emit(struct {
+			Server    serverRef `json:"server"`
 			Board     string    `json:"board"`
 			Role      string    `json:"role"`
 			Guest     string    `json:"guest"`
 			JoinLine  string    `json:"join_line"`
 			Prompt    string    `json:"prompt"`
 			ExpiresAt time.Time `json:"expires_at"`
-		}{board.Name, jc.Role, guest, line, prompt, jc.ExpiresAt}, text)
+		}{t.server, board.Name, jc.Role, guest, line, prompt, jc.ExpiresAt}, text)
 		return nil
 	}
 	notice := noticeFor(board.Policy)
 
-	text := fmt.Sprintf("Created a join code for board %s: an agent joins as %s. It works for %s, for any number of your own agents.\n",
-		board.Name, jc.Role, durationText(time.Until(jc.ExpiresAt)))
+	text := fmt.Sprintf("Created a join code for board %s on %s: an agent joins as %s. It works for %s, for any number of your own agents.\n",
+		board.Name, t.server.URL, jc.Role, durationText(time.Until(jc.ExpiresAt)))
 	if notice != nil {
 		text += notice.Message + "\n"
 	}
 	text += "\nPaste this into the agent's session:\n\n" + prompt + "\n"
 	a.emit(struct {
+		Server       serverRef     `json:"server"`
 		Board        string        `json:"board"`
 		Role         string        `json:"role"`
 		JoinLine     string        `json:"join_line"`
 		Prompt       string        `json:"prompt"`
 		ExpiresAt    time.Time     `json:"expires_at"`
 		PolicyNotice *policyNotice `json:"policy_notice"`
-	}{board.Name, jc.Role, line, prompt, jc.ExpiresAt, notice}, text)
+	}{t.server, board.Name, jc.Role, line, prompt, jc.ExpiresAt, notice}, text)
 	return nil
 }
 
@@ -144,16 +159,27 @@ func durationText(d time.Duration) string {
 }
 
 // runServerInvite makes a server invite with the person's access key and prints the
-// link a newcomer passes to aboard connect. The server is the one this directory's
-// .aboard names, else the local server. The link holds a secret that makes a person on
+// link a newcomer passes to aboard connect. The server is serverFlag, else as
+// personServer picks it. The link holds a secret that makes a person on
 // the server, so it refuses inside a harness session, where an agent would see it.
-func runServerInvite(ctx context.Context, a *app, ttl time.Duration) error {
-	if err := a.refuseInSession("Inviting a person to the server", "aboard invite --server"); err != nil {
+func runServerInvite(ctx context.Context, a *app, serverFlag string, ttl time.Duration) error {
+	command := "aboard invite --server"
+	if serverFlag != "" {
+		command += " " + commandWord(serverFlag)
+	}
+	if err := a.refuseInSession("Inviting a person to the server", command); err != nil {
 		return err
+	}
+	if serverFlag != "" {
+		srv, err := parseServerURL(serverFlag)
+		if err != nil {
+			return err
+		}
+		serverFlag = srv.URL
 	}
 	// A machine signed in to one server and nothing else, such as a team server's first
 	// admin right after aboard login, invites to that server.
-	srv, started, err := a.personServer(ctx, "")
+	srv, started, err := a.personServer(ctx, serverFlag)
 	if err != nil {
 		return err
 	}

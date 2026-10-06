@@ -87,3 +87,23 @@ func (l *listFlag) Set(v string) error {
 	}
 	return nil
 }
+
+// optionalValue is a flag that works as a switch (--server) and may also carry a value
+// after = (--server=URL).
+type optionalValue struct {
+	set   bool
+	value string
+}
+
+func (o *optionalValue) String() string { return o.value }
+
+func (o *optionalValue) Set(v string) error {
+	o.set = true
+	if v != "true" {
+		o.value = v
+	}
+	return nil
+}
+
+// IsBoolFlag lets the flag stand alone, as a switch.
+func (o *optionalValue) IsBoolFlag() bool { return true }

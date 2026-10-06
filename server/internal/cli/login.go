@@ -93,9 +93,14 @@ func runLogin(ctx context.Context, a *app, args []string) error {
 		text += a.out().warn("The key was last used "+agoText(*prev, time.Now())+", perhaps on another machine or browser.") + "\n"
 	}
 	text += "A key used in two places is revoked in both at once. To give this machine its own, run aboard keys create <name> and log in with that key.\n"
+	isDefault, extra, err := a.offerDefault(srv)
+	if err != nil {
+		return err
+	}
+	text += extra
 	a.emit(map[string]any{
 		"server": srv, "server_id": info.ServerId, "person": list.Person, "key": k,
-		"previous_use": list.CurrentKeyPreviousUse, "replaced": replaced,
+		"previous_use": list.CurrentKeyPreviousUse, "replaced": replaced, "default": isDefault,
 	}, text)
 	return nil
 }

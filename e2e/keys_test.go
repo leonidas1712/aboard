@@ -77,12 +77,12 @@ func TestKeysCreateListAndRevoke(t *testing.T) {
 
 	text := maya.run("keys", "create", "phone", "--expires", "90d", "--server", tm.url())
 	lines := text.lines()
-	if len(lines) < 3 || !strings.HasPrefix(lines[0], `Key "phone" (shown once, then never again): abh_`) ||
+	if len(lines) < 3 || !strings.HasPrefix(lines[0], `Key "phone" for `+tm.url()+` (shown once, then never again): abh_`) ||
 		lines[1] != "Save it in your password manager. Anyone with it can sign in as you until you revoke it." ||
 		!strings.Contains(lines[2], "(in 90 days). Revoke it with: aboard keys revoke phone") {
 		t.Fatalf("keys create:\n%s", text)
 	}
-	phone := strings.TrimPrefix(lines[0], `Key "phone" (shown once, then never again): `)
+	phone := strings.TrimPrefix(lines[0], `Key "phone" for `+tm.url()+` (shown once, then never again): `)
 	tm.works(phone, true)
 
 	created := maya.run("keys", "create", "script", "--expires", "12h", "--server", tm.url(), "--json").json(t)
@@ -174,7 +174,7 @@ func TestRevokingALostLaptopsKeyEndsWhatItStarted(t *testing.T) {
 		}
 	}
 	out := desktop.run("keys", "revoke", laptopKey, "--server", tm.url())
-	expectLines(t, out, "Revoked "+laptopKey+". Its 1 browser session and 1 agent stopped working with it.")
+	expectLines(t, out, "Revoked "+laptopKey+" on "+tm.url()+". Its 1 browser session and 1 agent stopped working with it.")
 
 	for name, token := range map[string]string{"key": tm.key(laptop), "browser": laptopBrowser, "agent": laptopAgent} {
 		status, v := tm.call("GET", "/v1/me", token, nil)
@@ -338,7 +338,7 @@ func TestLoginOnASecondHomeUsesTheKeyOnlyForItsServer(t *testing.T) {
 	}
 
 	teamMaya := field(t, second.run("keys", "--server", tm.url(), "--json").json(t), "person.id")
-	localMaya := field(t, second.run("keys", "--json").json(t), "person.id")
+	localMaya := field(t, second.run("keys", "--server", "http://"+second.addr, "--json").json(t), "person.id")
 	if teamMaya != tm.me(key)["id"] || localMaya == teamMaya {
 		t.Fatalf("the second home's people: on the team server %v, on its own %v", teamMaya, localMaya)
 	}

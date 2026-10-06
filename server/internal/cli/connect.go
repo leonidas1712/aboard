@@ -28,6 +28,9 @@ type serverLogin struct {
 // serverLogins is the content of servers.json: one login per server.
 type serverLogins struct {
 	Servers []serverLogin `json:"servers"`
+	// Default is this machine's default server (aboard servers use): a server's URL, or
+	// "local" for the local server. Empty when none is set.
+	Default string `json:"default,omitempty"`
 }
 
 func (l serverLogins) find(serverURL string) (serverLogin, bool) {
@@ -185,10 +188,15 @@ func (a *app) saveConnection(srv serverRef, got *api.Connected) error {
 		return err
 	}
 	key := got.Key
+	isDefault, extra, err := a.offerDefault(srv)
+	if err != nil {
+		return err
+	}
 	a.emit(map[string]any{
 		"server": srv, "server_id": got.ServerId, "person": got.Person,
-		"key": map[string]any{"id": key.Id, "name": key.Name, "created_at": key.CreatedAt, "expires_at": key.ExpiresAt},
-	}, fmt.Sprintf("Connected to %s as %s (%s). This machine's key, %q, is saved.\n", srv.URL, got.Person.Handle, got.Person.ServerRole, key.Name))
+		"key":     map[string]any{"id": key.Id, "name": key.Name, "created_at": key.CreatedAt, "expires_at": key.ExpiresAt},
+		"default": isDefault,
+	}, fmt.Sprintf("Connected to %s as %s (%s). This machine's key, %q, is saved.\n", srv.URL, got.Person.Handle, got.Person.ServerRole, key.Name)+extra)
 	return nil
 }
 
