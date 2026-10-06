@@ -35,6 +35,10 @@ const oldVersion = "0.0.1"
 // playing a build from before servers reported their commit.
 var unstampedBinary string
 
+// plainBinary is aboard built without the race detector, as people run it: some races
+// between its processes only show at that speed.
+var plainBinary string
+
 // fakeBin holds the fake codex and claude binaries, first on every test's PATH.
 var fakeBin string
 
@@ -85,6 +89,7 @@ func TestMain(m *testing.M) {
 	// Named aboard too, as an installed binary is: aboard only stops processes by that name.
 	oldBinary = filepath.Join(dir, "old", "aboard")
 	unstampedBinary = filepath.Join(dir, "unstamped", "aboard")
+	plainBinary = filepath.Join(dir, "plain", "aboard")
 	// A test's machine has no omp unless the test puts one there (the conformance kit
 	// does, with a stand-in that only reports its version), so no test runs the person's
 	// own omp or finds it installed.
@@ -140,6 +145,13 @@ func buildPrograms(dir string) {
 	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
 	if err := unstamped.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
+		os.Exit(1)
+	}
+	plain := exec.Command("go", "build", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
+	plain.Dir = ".."
+	plain.Stdout, plain.Stderr = os.Stderr, os.Stderr
+	if err := plain.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build aboard without the race detector:", err)
 		os.Exit(1)
 	}
 	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")
