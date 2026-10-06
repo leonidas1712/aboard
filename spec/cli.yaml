@@ -111,7 +111,7 @@
 #   Board for human commands (board policy, board title in a terminal, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
 # - Server for person commands (keys, people, board new, invite and invite --server, the
-#   person forms of board people, title, policy, add, remove, leave, owner and
+#   status, watch, audit verify, and person forms of board people, title, policy, add, remove, leave, owner and
 #   visibility) (D203): --server, then the server this directory's .aboard names, then
 #   this machine's default server (aboard servers use), then the only server it knows.
 #   The servers it knows are the local server, once it has an owner login, and every
@@ -2389,7 +2389,18 @@ $defs:
       admin's hidden archived-board metadata without names or titles. Deleted boards
       are never listed. An absent lifecycle field means active.
 
-      The boards on the server this directory's .aboard names, else the local server.
+      In a terminal, lists every server this machine knows, grouped by server. With
+      --server URL (or local), lists only that server. Join and archive-list hints
+      name --server for an explicit selection or a multi-server list, so following
+      them keeps the same server even in a folder linked elsewhere. Each server is read using only
+      its own stored person credential. Agent forms reject --server: a selected
+      agent or session always stays on its own server.
+      When several servers are listed, servers contains one group per known server.
+      The existing server, boards, hidden_boards and archived_count fields describe
+      the primary group: the folder's known server, else the default, else the first
+      known server. A failed group has empty arrays and an error; successful groups
+      remain visible. Exit 1 only when no server could be read. With no known servers,
+      starts the local server as before. With one server, output stays unchanged.
       In a terminal, with the person's login: the boards they are on, each with their
       role, how many people and agents it has, and whether it is this directory's board
       (default). With --all, also the open boards they aren't on (on_board false, role,
@@ -2417,6 +2428,18 @@ $defs:
     required: [server, as, all, boards, hidden_boards]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      servers:
+        type: array
+        description: Present only for a terminal listing several servers without --server.
+        items:
+          type: object
+          required: [server, boards, hidden_boards]
+          properties:
+            server: { $ref: "#/$defs/ServerRef" }
+            boards: { $ref: "#/$defs/BoardsOutput/properties/boards" }
+            hidden_boards: { $ref: "#/$defs/BoardsOutput/properties/hidden_boards" }
+            archived_count: { type: integer, minimum: 0 }
+            error: { $ref: openapi.yaml#/components/schemas/Error/properties/error }
       as:
         type: [string, "null"]
         description: The agent whose board is listed; null for a person.

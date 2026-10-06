@@ -46,7 +46,7 @@ func runWatch(ctx context.Context, a *app, args []string) error {
 	if err := a.refuseInSession("Watching a board as yourself", "aboard watch"+boardArg(a.namedBoard(*boardFlag))); err != nil {
 		return err
 	}
-	t, err := a.selectBoard(*boardFlag)
+	t, err := a.humanBoard(*boardFlag)
 	if err != nil {
 		return err
 	}
