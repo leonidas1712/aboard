@@ -106,7 +106,7 @@ on a connection that stays open.
 | `id` | integer | The delivery a legacy one-seat `deliver` event carries; kept for compatibility |
 | `handoff_id` | string | On a negotiated combined `deliver`: its immutable handoff id, independent of delivery ids |
 | `delivery_class` | string | On a negotiated combined `deliver`: `owner_only` or `mixed`, computed by the daemon from all messages in the payload |
-| `capabilities` | array of strings | On `welcome`: the extension capabilities this connection negotiated |
+| `capabilities` | array of strings | On `welcome`: the extension capabilities this connection negotiated. On `agents`: capabilities of the session's current live extension; absent means none are established |
 | `notice` | string | The waiting notice: names waiting messages without their content |
 | `boot` | string | The session's boot id |
 | `agents` | array of agents | The agents bound to the session |
@@ -689,6 +689,19 @@ back for `prompt`, `turn_end`, `received` or `goodbye`.
 The additive `handoff-v1` capability applies when a session holds several seats.
 The daemon and extension negotiate it through `hello.capabilities` and
 `welcome.capabilities`; neither a version string nor a message body proves support.
+
+Before `pair` creates a board or a code join redeems either kind of code, the CLI
+asks `agents` for current seats and live capabilities. A bound session on another
+server refuses before creating a board, person, key or seat. A bound omp session
+without live `handoff-v1` refuses code redemption or pairing with
+`extension_outdated`, including a same-board replacement by code. Pasted board names
+are not verified code metadata and cannot exempt a full join line. First-seat joins,
+and Claude Code and Codex hooks, keep their existing behavior. An affected omp user
+runs `aboard init` and restarts, or uses a fresh session. This is a compatibility
+restriction for an old or disconnected extension, rather than a server permission.
+The CLI checks again before saving a newly granted seat's credential. A connection
+lost while a request is in flight can leave the server's committed resource, but
+never causes a known-incapable session to save or bind the grant.
 An extension must not assume negotiation because it sent the capability.
 
 ```json
