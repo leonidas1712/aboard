@@ -122,7 +122,7 @@ Run with a binary from `make install` (or a release).
 
 The server's side is covered by e2e: `aboard serve --team` behind an HTTPS proxy, the
 admin key file piped into `aboard login`, `aboard people --server`, `aboard invite
---server`, `aboard connect` with a link and by approval, and agents on a board
+--server`, `aboard connect` with a link and by approval, `aboard board new` (and `TestBoardNewOnTheLocalServerAndInASession`), `aboard board policy recommended` and `aboard board add` in the linked folder, and agents on a board
 exchanging a message (`TestATeamServerBehindAnHTTPSProxy`); a bad configuration
 (`TestServeTeamRefusesABadConfiguration`); one transaction for every migration, and the
 backup (`server/internal/store/sqlite/backup_test.go`). The image and the cluster are

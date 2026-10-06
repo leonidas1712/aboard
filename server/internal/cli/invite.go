@@ -151,28 +151,11 @@ func runServerInvite(ctx context.Context, a *app, ttl time.Duration) error {
 	if err := a.refuseInSession("Inviting a person to the server", "aboard invite --server"); err != nil {
 		return err
 	}
-	srv := a.localServer()
-	if p, ok, err := a.readProject(); err != nil {
+	// A machine signed in to one server and nothing else, such as a team server's first
+	// admin right after aboard login, invites to that server.
+	srv, started, err := a.personServer(ctx, "")
+	if err != nil {
 		return err
-	} else if ok && p.Server.URL != "" {
-		srv = p.Server
-	} else {
-		// A machine signed in to one server and nothing else, such as a team server's
-		// first admin right after aboard login, invites to that server.
-		logins, err := a.readServerLogins()
-		if err != nil {
-			return err
-		}
-		if len(logins.Servers) == 1 {
-			srv = a.serverRefFor(logins.Servers[0].URL)
-		}
-	}
-	var started bool
-	if srv.URL == a.localServer().URL {
-		var err error
-		if started, err = a.ensureLocal(ctx); err != nil {
-			return err
-		}
 	}
 	token, err := a.readOwnerToken(srv)
 	if err != nil {

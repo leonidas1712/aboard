@@ -187,6 +187,34 @@ func TestServeTeamRefusesABadConfiguration(t *testing.T) {
 	}
 }
 
+// starterNoticeLine is the starter policy notice, as a command prints it.
+const starterNoticeLine = "Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended\n"
+
+// board new makes a board on the local server too, when the machine is connected to no
+// other; a taken name is refused; and inside an agent's session it refuses, handing the
+// command to the person.
+func TestBoardNewOnTheLocalServerAndInASession(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	out := e.run("board", "new", "notes", "--title", "Loose ends", "--json").json(t)
+	matchesCLISpec(t, "BoardNewOutput", out)
+	if field(t, out, "server.name") != "local" || field(t, out, "board.name") != "notes" || field(t, out, "board.title") != "Loose ends" ||
+		field(t, out, "board.visibility") != "open" {
+		t.Fatalf("board new on the local server: %v", out)
+	}
+	if r := e.runExit("board", "new", "notes", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_name_taken" {
+		t.Fatalf("board new with a taken name:\n%s", r)
+	}
+	if r := e.runExit("board", "new", "--json"); r.code != 2 {
+		t.Fatalf("board new without a name:\n%s", r)
+	}
+	s := e.claudeSession("s-board-new")
+	r := s.runExit("board", "new", "agent-made", "--json")
+	if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" || !strings.Contains(r.stdout, "aboard board new agent-made") {
+		t.Fatalf("board new in a session:\n%s", r)
+	}
+}
+
 // A team server in its own process behind a proxy that ends HTTPS: its first start makes
 // the admin and writes their key to a file, which the admin pipes into aboard login on
 // their machine; the admin invites a colleague, who connects a second machine by
@@ -244,11 +272,29 @@ func TestATeamServerBehindAnHTTPSProxy(t *testing.T) {
 		t.Fatal("the desktop has the laptop's key")
 	}
 
-	status, b := s.call("POST", "/v1/boards", s.savedKey(alex), map[string]any{"template": "general", "visibility": "open"})
-	if status != http.StatusCreated {
-		t.Fatalf("create a board: %d %v", status, b)
+	created := alex.run("board", "new", "payments", "--title", "Payments retry design")
+	if want := "Created board payments on " + s.url + ", open to everyone on the server.\n" +
+		"Linked this directory to payments, so board commands run here act on it.\n" + starterNoticeLine +
+		"Next: from an agent's session, run aboard join --board payments; to bring a person onto it, aboard board add @handle\n"; created.stdout != want {
+		t.Fatalf("board new:\n%s\nwant:\n%s", created, want)
 	}
-	board := b["name"].(string)
+	board := "payments"
+	alex.run("board", "policy", "recommended")
+	if status, v := s.call("GET", "/v1/boards/"+board, s.savedKey(alex), nil); status != http.StatusOK || field(t, v, "policy.preset") != "recommended" {
+		t.Fatalf("the board's policy: %d %v", status, v)
+	}
+	private := desktop.run("board", "new", "maya-notes", "--private", "--server", s.url, "--json").json(t)
+	matchesCLISpec(t, "BoardNewOutput", private)
+	if field(t, private, "board.visibility") != "private" || field(t, private, "server.url") != s.url ||
+		private["join_command"] != "aboard join --board maya-notes" || field(t, private, "policy_notice.preset") != "starter" || private["linked"] != true {
+		t.Fatalf("board new --private --json: %v", private)
+	}
+	// A linked directory keeps its board, and the next step names the new one.
+	other := desktop.run("board", "new", "maya-drafts")
+	if !strings.HasSuffix(other.stdout, "aboard board add @handle --board maya-drafts\n") || strings.Contains(other.stdout, "Linked") {
+		t.Fatalf("board new in a linked directory:\n%s", other)
+	}
+	desktop.run("board", "add", "@alex", "--board", "maya-notes")
 	status, jc := s.call("POST", "/v1/boards/"+board+"/join-codes", s.savedKey(alex), map[string]any{"role": "member"})
 	if line, _ := jc["join_line"].(string); status != http.StatusCreated || !strings.Contains(line, " on "+host+" as member ") {
 		t.Fatalf("the join line doesn't name the public host: %d %v", status, jc)

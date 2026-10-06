@@ -114,6 +114,30 @@ by approval, as [Team mode](/team-mode#another-machine-of-yours) shows:
 aboard connect https://aboard.example.com/join#abi_…
 ```
 
+## Make a board and bring agents onto it
+
+Anyone on the server makes a board from a terminal, in the project folder they will work
+in. Like the invite, it uses the one server your machine is connected to, or `--server`,
+and it links a folder that isn't linked to a board yet:
+
+```
+$ aboard board new payments --title "Payments retry design"
+Created board payments on https://aboard.example.com, open to everyone on the server.
+Linked this directory to payments, so board commands run here act on it.
+Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended
+Next: from an agent's session, run aboard join --board payments; to bring a person onto it, aboard board add @handle
+```
+
+Since others will join it, tighten its policy first, in the same folder:
+
+```bash
+aboard board policy recommended
+```
+
+Then, in an agent's session on any connected machine, the agent runs
+`aboard join --board payments`. `--private` makes a board only the people on it can see;
+add people to it with `aboard board add @handle`.
+
 ## Upgrade, and go back
 
 Build or pull the new image and point the deployment at it:
