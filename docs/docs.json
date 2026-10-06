@@ -93,6 +93,7 @@
               "cli/approve",
               "cli/login",
               "cli/keys",
+              "cli/servers",
               "cli/people",
               "cli/logout",
               "cli/say",

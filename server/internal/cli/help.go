@@ -193,6 +193,7 @@ func helpText(templates string) []commandHelp {
 				"This machine waits, then receives a new access key of its own, without any key being copied between machines.\n\n" +
 				"Either way, the key is saved in servers.json, readable only by you, and sent only to that server. " +
 				"From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. " +
+				"When this machine knows other servers too, it offers to make this one the default (aboard servers), or says how. " +
 				"A machine keeps one key per server. A server other than this machine must be reached over https. " +
 				"Connecting is up to a person, so it refuses inside an agent's session.",
 			Flags: []helpFlag{
@@ -218,7 +219,7 @@ func helpText(templates string) []commandHelp {
 				"It first shows the request: the name the machine gave itself, which is only its own claim, and where and when it asked; then it asks whether to approve it connecting as you. " +
 				"Approve only a request you started yourself, a moment ago: whoever runs that machine is signed in as you. " +
 				"--refuse turns the request down instead, and the machine is told so.\n\n" +
-				"The server is --server, else the one this directory's .aboard names, else the one server this machine is connected to, else the local server. " +
+				"The server is --server, else the one this directory's .aboard names, else this machine's default server, else the one server this machine is connected to, else the local server. " +
 				"Approving is up to a person, so it refuses inside an agent's session, and the server refuses agent and browser tokens.",
 			Flags: []helpFlag{
 				{"--refuse", "", "Refuse the request instead of approving it."},
@@ -239,6 +240,7 @@ func helpText(templates string) []commandHelp {
 			Description: "Saves an access key you paste for one server: the address given, else the server this directory's .aboard names, else the local server. " +
 				"It reads the key from standard input, asking for it without showing it at a terminal, never from the command line, and checks it with the server before saving it. " +
 				"The key is saved in servers.json (for the local server, as its owner key), readable only by you and sent only to that server; it replaces the key this machine had for it.\n\n" +
+				"When this machine knows other servers too, it offers to make this one the default (aboard servers), or says how.\n\n" +
 				"One key used on two machines ties them to one revocation, so login always says so, and says when the key was last used. " +
 				"To give a machine a key of its own, run aboard keys create <name> on a machine that is signed in, then aboard login here with the new key. " +
 				"Signing in is up to a person, so it refuses inside an agent's session.",
@@ -261,7 +263,7 @@ func helpText(templates string) []commandHelp {
 			},
 			Description: "An access key signs you in as yourself: this machine keeps one, and you can make others for a phone, another browser or a script. " +
 				"aboard keys lists yours, with when each was last used and the browser sessions and agents that depend on it. " +
-				"The server is --server, else the one this directory's .aboard names, else the local server.\n\n" +
+				"The server is --server, else the one this directory's .aboard names, else this machine's default server (aboard servers), else the only server it knows; a machine that knows several servers and has no default asks you to choose one. Every form names the server it acted on.\n\n" +
 				"keys create makes a key and shows it once: save it in a password manager. Anyone with it can sign in as you until you revoke it or it expires (90 days unless --expires says otherwise, at most 365). " +
 				"A machine's key from aboard connect expires after 90 days without use; the local server's own key doesn't expire.\n\n" +
 				"keys revoke ends a key at once, with every browser session and agent seat it started. Your other keys keep working. " +
@@ -273,7 +275,7 @@ func helpText(templates string) []commandHelp {
 				{"--person", "HANDLE", "Another person's keys. Admins only."},
 				{"--expires", "DURATION", "How long a new key works, such as 90d, 12h or 1y. Default: 90d."},
 				{"--yes", "", "Revoke this machine's own key without asking."},
-				{"--server", "URL", "The server, when it isn't this directory's or the local one."},
+				{"--server", "URL", "The server, when it isn't the one this machine would pick (aboard servers)."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -287,6 +289,27 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"login", "connect", "logout", "open", "people"},
 		},
 		{
+			Name: "servers", Group: groupStart,
+			Summary: "List the servers this machine knows, and choose its default",
+			Usage: []string{
+				"aboard servers [--json]",
+				"aboard servers use <url|local> [--json]",
+			},
+			Description: "Lists the servers this machine knows: its local server, once it has run, and every server it connected or logged in to, with the person it signs in as there. " +
+				"A * marks the default server.\n\n" +
+				"Person commands (keys, people, board new, invite and the board commands a person runs) act on --server when it is given, else on the server this directory's .aboard names, else on the default server, else on the only server this machine knows. " +
+				"A machine that knows several servers and has no default refuses rather than guess, and names them.\n\n" +
+				"servers use makes one the default; local names the local server. " +
+				"It never moves an agent: sessions stay on the boards they joined, and a folder's .aboard still chooses for that folder.",
+			Flags: []helpFlag{flagJSON},
+			Examples: []helpExample{
+				{"aboard servers", "The servers this machine knows, and its default"},
+				{"aboard servers use https://team.example.com", "Make a team's server the default"},
+				{"aboard servers use local", "Make the local server the default again"},
+			},
+			SeeAlso: []string{"connect", "login", "keys", "board"},
+		},
+		{
 			Name: "people", Group: groupStart,
 			Summary: "List the people on a server; admins change roles and remove people",
 			Usage: []string{
@@ -296,14 +319,14 @@ func helpText(templates string) []commandHelp {
 			},
 			Description: "aboard people lists everyone on the server with their role: admin, member or guest. " +
 				"An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite --guest) and reaches only the boards guest codes brought them onto. " +
-				"The server is --server, else the one this directory's .aboard names, else the local server.\n\n" +
+				"The server is --server, else the one this directory's .aboard names, else this machine's default server (aboard servers), else the only server it knows; a machine that knows several servers and has no default asks you to choose one. \n\n" +
 				"people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. " +
 				"It says first what will stop and asks; without a terminal it needs --yes. Their messages stay in the record. Their handle is free again, so they can be invited back as a new person. " +
 				"Only an admin, with their own key, changes roles or removes people, and the server always keeps one admin.\n\n" +
 				"These are a person's commands: they refuse inside an agent's session.",
 			Flags: []helpFlag{
 				{"--yes", "", "Remove the person without asking."},
-				{"--server", "URL", "The server, when it isn't this directory's or the local one."},
+				{"--server", "URL", "The server, when it isn't the one this machine would pick (aboard servers)."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -489,7 +512,7 @@ func helpText(templates string) []commandHelp {
 			Usage: []string{
 				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --server [--ttl DURATION] [--json]",
+				"aboard invite --server [<server URL>] [--ttl DURATION] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
@@ -501,7 +524,7 @@ func helpText(templates string) []commandHelp {
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
-				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the one server this machine is connected to, else the local server."},
+				{"--server", "[URL]", "Invite a person to a server: the one named after the flag, else the one this directory's .aboard names, else this machine's default server, else the only one it knows."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -509,6 +532,7 @@ func helpText(templates string) []commandHelp {
 				{"aboard invite --role reviewer --ttl 2h", "A reviewer, with a code that works for two hours"},
 				{"aboard invite --guest sam", "Let sam, from outside the server, onto this directory's board as a guest"},
 				{"aboard invite --server", "Invite a person to the server"},
+				{"aboard invite --server https://team.example.com", "Invite a person to a server you name"},
 			},
 			SeeAlso: []string{"join", "pair", "board", "connect"},
 		},

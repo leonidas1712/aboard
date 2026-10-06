@@ -35,12 +35,12 @@ func runPeople(ctx context.Context, a *app, args []string) error {
 }
 
 // peopleClient refuses where an agent runs the command, then returns the server people
-// commands act on (as keys commands pick it) and a client with this machine's key for it.
+// commands act on (as personServer picks it) and a client with this machine's key for it.
 func (a *app) peopleClient(ctx context.Context, serverFlag, what, command string) (serverRef, bool, *client, error) {
 	if err := a.refuseInSession(what, command); err != nil {
 		return serverRef{}, false, nil, err
 	}
-	srv, started, err := a.keysServer(ctx, serverFlag)
+	srv, started, err := a.personServer(ctx, serverFlag)
 	if err != nil {
 		return serverRef{}, false, nil, err
 	}
@@ -50,7 +50,7 @@ func (a *app) peopleClient(ctx context.Context, serverFlag, what, command string
 
 func runPeopleList(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("people")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	if _, err := a.parse(fs, args, peopleUsage, 0, 0); err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 
 func runPeopleRole(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("people")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	pos, err := a.parse(fs, args, peopleUsage, 2, 2)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func runPeopleRole(ctx context.Context, a *app, args []string) error {
 
 func runPeopleRemove(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("people")
-	serverFlag := fs.String("server", "", "the server, when it isn't this directory's or the local one")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	yes := fs.Bool("yes", false, "remove the person without asking")
 	pos, err := a.parse(fs, args, peopleUsage, 1, 1)
 	if err != nil {

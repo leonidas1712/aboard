@@ -11,6 +11,8 @@ aboard login [<server URL>] [--json]   (the key on standard input)
 
 Saves an access key you paste for one server: the address given, else the server this directory's .aboard names, else the local server. It reads the key from standard input, asking for it without showing it at a terminal, never from the command line, and checks it with the server before saving it. The key is saved in servers.json (for the local server, as its owner key), readable only by you and sent only to that server; it replaces the key this machine had for it.
 
+When this machine knows other servers too, it offers to make this one the default (aboard servers), or says how.
+
 One key used on two machines ties them to one revocation, so login always says so, and says when the key was last used. To give a machine a key of its own, run aboard keys create \<name\> on a machine that is signed in, then aboard login here with the new key. Signing in is up to a person, so it refuses inside an agent's session.
 
 ## Flags

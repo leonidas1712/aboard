@@ -126,6 +126,7 @@ func commands() []command {
 		{"login", runLogin},
 		{"keys", runKeys},
 		{"people", runPeople},
+		{"servers", runServers},
 		{"say", runSay},
 		{"inbox", runInbox},
 		{"read", runRead},
