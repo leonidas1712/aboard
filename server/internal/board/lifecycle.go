@@ -85,6 +85,9 @@ func (s *Service) lifecycleTarget(tx ReadTx, p Principal, selector string, allow
 		return Board{}, Member{}, Human{}, apierr.BoardNotFound(selector)
 	}
 	if person.Role == ServerGuest {
+		if !on {
+			return Board{}, Member{}, Human{}, apierr.BoardNotFound(selector)
+		}
 		return Board{}, Member{}, Human{}, guestNotAllowed("manage a board's lifecycle")
 	}
 	if (!on || me.ID != b.CreatedBy) && (p.Agent != nil || person.Role != ServerAdmin) {
