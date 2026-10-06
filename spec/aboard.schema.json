@@ -163,6 +163,7 @@
                   "write_notes",
                   "upload_files",
                   "invite",
+                  "add_people",
                   "edit_charter"
                 ]
               },

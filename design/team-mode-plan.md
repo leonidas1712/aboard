@@ -253,7 +253,7 @@ from `aboard boards` never authorizes a join: the join is checked again.
    older ones, and an omp batch mixing owner and other agents' messages never delivering
    the others as an owner aside. The smallest slice that removes codes for a
    team's own sessions.
-2. **5b. Agents start work for their person.** `aboard pair --new` through the
+2. **5b. Agents start work for their person.** Building (D203). `aboard pair --new` through the
    delegation (the person is creator and owner); agents adding teammates on open boards,
    and on private ones only where the owner allowed it.
 3. **5c. Removing agents.** Seat ids in swarm records (the daemon's moved to 5a), then

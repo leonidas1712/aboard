@@ -71,6 +71,7 @@ the board.
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
 | An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers; one session on several boards | done (#108, #112, #115): separate seats, combined delivery, independent acknowledgements, board-qualified replies, aggregate inbox and status, and `board_ambiguous`; code, e2e and the full affected native suite pass | D172, D196, D197 |
+| Agents start work for their person: delegated atomic board creation and gated teammate addition by their seats | building | D203 |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | later | D172 |
 | A person's inbox across boards | later | D102 |
