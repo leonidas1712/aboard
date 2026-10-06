@@ -6,12 +6,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"github.com/leonidas1712/aboard/server/internal/delivery"
-	"github.com/leonidas1712/aboard/server/internal/delivery/control"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/delivery/control"
 )
 
 func TestAgentCreationWithoutASessionNeverReadsAPersonKey(t *testing.T) {
