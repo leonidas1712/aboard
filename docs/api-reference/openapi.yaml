@@ -1017,6 +1017,8 @@ paths:
         The same credential, key and body replay the original answer for 24 hours,
         with `Idempotent-Replayed: true`, preventing another board after a lost answer.
         A changed body is 422 `idempotency_conflict`. At 24 hours it is a new operation.
+        The creation receipt is saved in the same transaction as the board and seat,
+        so losing the answer cannot leave a board without its retry record.
         This token-bearing answer is kept only for that replay. Before returning it,
         one read transaction rechecks the delegation, parent key and person, the
         person's creator membership and board access, the board's active lifecycle,
