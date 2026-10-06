@@ -133,7 +133,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
   }, []);
 
   const loadBoards = useCallback(async () => {
-    const r = await get<{ boards: Board[] }>("/v1/boards");
+    const r = await get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" });
     if (!live.current) return;
     setBoards(r.boards);
   }, []);

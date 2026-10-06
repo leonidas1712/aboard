@@ -1199,3 +1199,95 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   expect(refused.status).toBe(403);
   expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
 });
+
+function archivedNames(): string[] {
+  return (JSON.parse(aboard("boards", "--archived", "--json")) as { boards: { name: string }[] }).boards.map((b) => b.name);
+}
+
+test("an archived board is read-only, groups under Archived, restores and deletes behind its typed name", async ({ page, browser }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Lifecycle check", "--json"));
+  const board: string = pair.board.name;
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // rae, another person on the server and not an admin, is on alex's board.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  const rae = await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "rae", key_name: "laptop" });
+  const raeKey = (rae.key as { token: string }).token;
+  await api(owner, "POST", `/v1/boards/${board}/people`, { handle: "rae" });
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Lifecycle check" });
+  const composer = page.getByRole("form", { name: "Post a message" });
+  await expect(composer).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Delete board" })).toHaveCount(0);
+
+  // alex made the board, so Details offers Archive; archiving swaps the message box for
+  // a calm notice, and the record says who archived it.
+  await panel.getByRole("button", { name: "Archive board" }).click();
+  const notice = page.getByRole("region", { name: "Archived board", exact: true });
+  await expect(notice).toContainText("This board is archived. It's read-only.");
+  await expect(composer).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Archive board" })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Add an agent" })).toHaveCount(0);
+  await expect(page.locator(".board-event", { hasText: "alex archived the board" })).toBeVisible();
+  expect(archivedNames()).toContain(board);
+
+  // The board list keeps it in an Archived group at the bottom, open here since it is
+  // the board on screen.
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  await expect(nav.getByRole("region", { name: "Archived boards" }).locator(`a[href="/?board=${board}"]`)).toBeVisible();
+  for (const theme of ["Dark", "Light"]) {
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    await page.getByRole("menuitemradio", { name: theme }).click();
+    await page.keyboard.press("Escape");
+    await expect(notice).toBeVisible();
+  }
+
+  // rae is on the board but neither made it nor runs the server: her board list keeps
+  // the group closed, and she reads the notice with no Restore, Archive or Delete.
+  const raeContext = await browser.newContext();
+  const raePage = await raeContext.newPage();
+  await raePage.goto(`${base()}/`);
+  await raePage.getByLabel("Access key").fill(raeKey);
+  await raePage.getByRole("button", { name: "Sign in" }).click();
+  await expect(raePage.getByRole("button", { name: /^You are rae/ })).toBeVisible();
+  const raeGroup = raePage.getByRole("region", { name: "Archived boards" });
+  await expect(raeGroup.locator(`a[href="/?board=${board}"]`)).toBeHidden();
+  await raeGroup.getByRole("button", { name: /Archived/ }).click();
+  await raeGroup.locator(`a[href="/?board=${board}"]`).click();
+  const raeNotice = raePage.getByRole("region", { name: "Archived board", exact: true });
+  await expect(raeNotice).toContainText("This board is archived. It's read-only.");
+  await expect(raeNotice.getByRole("button", { name: "Restore" })).toHaveCount(0);
+  const raePanel = raePage.getByRole("complementary", { name: "Lifecycle check" });
+  await expect(raePanel.locator(".board-facts")).toBeVisible();
+  await expect(raePanel.getByRole("button", { name: /Archive board|Delete board/ })).toHaveCount(0);
+  await raeContext.close();
+
+  // Restore brings the message box back.
+  await notice.getByRole("button", { name: "Restore" }).click();
+  await expect(composer).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".board-event", { hasText: "alex restored the board" })).toBeVisible();
+
+  // Delete shows only on an archived board, and needs the board's name typed exactly.
+  await panel.getByRole("button", { name: "Archive board" }).click();
+  await expect(notice).toBeVisible();
+  await panel.getByRole("button", { name: "Delete board" }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete Lifecycle check?" });
+  await expect(dialog).toBeVisible();
+  const confirm = dialog.getByRole("button", { name: "Delete board" });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(/to confirm/).fill(board.slice(0, -1));
+  await expect(confirm).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  expect(archivedNames()).toContain(board);
+
+  await panel.getByRole("button", { name: "Delete board" }).click();
+  await dialog.getByLabel(/to confirm/).fill(board);
+  await dialog.getByRole("button", { name: "Delete board" }).click();
+  await expect(page).toHaveURL(`${base()}/`);
+  await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
+  expect(archivedNames()).not.toContain(board);
+});
