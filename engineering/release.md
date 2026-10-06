@@ -18,23 +18,48 @@ tracks the work.
   *Today:* `make install` builds and installs from source with the UI, and `make dev`
   builds `./.bin/aboard` as a dev build (`0.1.0+dev.<commit>`) that never replaces an
   installed one.
-- **Built by one automated job.** Pushing a version tag runs GoReleaser in CI, which
-  builds every platform, writes a `checksums.txt`, signs it, generates a software bill
-  of materials (SBOM) per archive, and publishes them with the release. Nothing is
-  built or uploaded by hand. *To build.*
-- **Signed.** The checksums file is signed with Sigstore's cosign using the release
-  job's identity, so anyone can check a download came from this repository's release
-  job. macOS binaries are also signed and notarized, so Gatekeeper accepts them.
-  People run Aboard with agents acting on their machines; what they install must be
-  checkable. *To build.*
+- **Built by one automated job.** Pushing a version tag runs GoReleaser in CI
+  (`.github/workflows/release.yml` with `.goreleaser.yaml`), which builds every
+  platform, writes a `checksums.txt`, signs it, generates a software bill of materials
+  (SBOM) per archive, and publishes them with the release. Each archive,
+  `aboard_<version>_<os>_<arch>.tar.gz`, holds `aboard`, the shipped launchers
+  (`aboard-launcher-<name>`), `LICENSE` and `README.md`, as plain files with no folder.
+  Nothing is built or uploaded by hand. *Today:* the job and `make release-snapshot`,
+  which builds every archive into `dist/` and publishes nothing; no release is
+  published yet.
+- **Signed.** The checksums file is signed with Sigstore's cosign, keyless, under the
+  release job's GitHub identity: the bundle `checksums.txt.sigstore.json` holds a
+  certificate naming `https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v<version>`,
+  issued through `https://token.actions.githubusercontent.com`. Anyone can check a
+  download came from this repository's release job on that tag. The server image is
+  signed the same way. People run aboard with agents acting on their machines; what
+  they install must be checkable. *Today*, with the release job.
+- **macOS signing and notarization: not done, by decision.** aboard has no Apple
+  Developer account, so its macOS binaries are neither signed with a Developer ID nor
+  notarized. What that means:
+  - The install script and `aboard upgrade` download with curl, which doesn't mark
+    files with macOS's quarantine attribute, and Gatekeeper only assesses quarantined
+    files, so these installs run without a prompt. (This is how curl and Gatekeeper
+    behave today; the release checklist confirms it on a clean Mac each release.)
+  - An archive downloaded with a browser is quarantined, so macOS blocks `aboard` the
+    first time it runs. The person can allow it in System Settings → Privacy &
+    Security ("Open Anyway"), or install with the script instead.
+  - Integrity doesn't rest on Apple's signature: the cosign-signed checksums tie every
+    archive to this repository's release job.
+  - Once an account exists, the release job signs and notarizes with GoReleaser's
+    `notarize` section. It will need these repository secrets: `MACOS_SIGN_P12` (the
+    Developer ID Application certificate, base64), `MACOS_SIGN_PASSWORD`,
+    `MACOS_NOTARY_KEY` (an App Store Connect API key, base64), `MACOS_NOTARY_KEY_ID`
+    and `MACOS_NOTARY_ISSUER_ID`. A Homebrew cask then no longer needs to clear the
+    quarantine attribute.
 
 ## Install paths
 
 | Path | For | Today |
 | --- | --- | --- |
-| `curl -fsSL <install URL> \| sh` | Anyone on macOS or Linux | To build. The script picks the platform's archive, verifies it against the signed checksums, installs `aboard` to `~/.local/bin` (or a directory given with `ABOARD_INSTALL_DIR`) and says if that directory isn't on the `PATH`. |
-| `brew install <tap>/aboard` | macOS and Linux with Homebrew | To build. A tap the release job updates. |
-| A container image | Team servers | To build. Runs `aboard serve` with its data on a mounted volume. |
+| `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh \| sh` | Anyone on macOS or Linux | Yes, once a release is published (`scripts/install.sh`, attached to every release). The script picks the platform's archive, checks the checksums' signature when cosign is installed (and prints the command otherwise), verifies the archive against them, refuses an archive with anything but plain files, installs `aboard` and the launchers to `~/.local/bin` (or `ABOARD_INSTALL_DIR`) by renaming each into place, and says if that folder isn't on the `PATH`. `ABOARD_VERSION` picks a version. `e2e/installscript_test.go` runs it against a fake release server. |
+| `brew install leonidas1712/aboard/aboard` | macOS and Linux with Homebrew | Configured but off. To turn it on: create the public repository `leonidas1712/homebrew-aboard`; add a fine-grained token with contents write on that repository only as the secret `HOMEBREW_TAP_TOKEN`; pass it to the release step's environment; set `skip_upload: false` under `homebrew_casks` in `.goreleaser.yaml`; and, while the macOS binaries aren't notarized, add a post-install hook that clears the quarantine attribute Homebrew sets on casks. |
+| `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It needs the `Dockerfile` at the repository's root, which copies the binary from the build context's `$TARGETPLATFORM/aboard` and runs `aboard serve` with its data on a mounted volume. |
 | `make install` | Building from source | Yes. Needs Go and Node. |
 
 All of them install the same binary. The skill published for `npx skills` is generated
