@@ -47,7 +47,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board add, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board new, board policy, board add, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
 #   there: pair joins as an agent, board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
@@ -2328,6 +2328,38 @@ $defs:
           - { $ref: openapi.yaml#/components/schemas/Reveals }
           - { type: "null" }
       join_codes_canceled: { type: integer, minimum: 0 }
+
+  # ---------- aboard board new <name> [--title T] [--private] [--server URL] ----------
+  BoardNewOutput:
+    description: |
+      Creates a board as a person, with their own key (POST /v1/boards, template
+      general), open unless --private; the person is its owner and its only member, and
+      no agent joins. The server is --server (one this machine holds a key for), else the
+      one this directory's .aboard names, else the one server this machine is connected
+      to when there is exactly one, else the local server, which it starts if needed. A
+      directory with no .aboard is linked to the new board, as pair does, so board
+      commands run there act on it (linked: true); a linked directory keeps its board. A
+      person command: inside a harness session, or with ABOARD_AGENT set, it refuses with
+      human_command_in_session before it sends anything, and the hint gives the command
+      for the person to run. A taken name is the server's board_name_taken. Text output:
+        Created board payments on https://team.example.com, open to everyone on the server.
+        Linked this directory to payments, so board commands run here act on it.
+        Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended
+        Next: from an agent's session, run aboard join --board payments; to bring a person onto it, aboard board add @handle
+      For a private board the first line ends "private: only the people on it see it."
+      The second line is there only when linked; otherwise the last line's board add
+      ends with --board <name>. The notice line is there whenever policy_notice is.
+    type: object
+    required: [server, board, linked, policy_notice, join_command]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: openapi.yaml#/components/schemas/Board }
+      linked: { type: boolean, description: Whether this directory was linked to the new board. }
+      policy_notice: { $ref: "#/$defs/PolicyNotice" }
+      join_command:
+        type: string
+        description: The command an agent's session runs to join the board.
+        examples: ["aboard join --board payments"]
 
   # ---------- aboard people [--server URL] ----------
   PeopleOutput:
