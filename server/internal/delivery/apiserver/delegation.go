@@ -282,14 +282,23 @@ func (d *Delegated) Create(ctx context.Context, req delivery.SeatCreateRequest) 
 	if req.Name != "" {
 		body["agent_name"] = req.Name
 	}
-	status, answer, err := d.sendKey(ctx, http.MethodPost, "/v1/delegations/boards", token, body, req.IdempotencyKey)
-	if err != nil {
-		return delivery.SeatGrant{}, err
+	for attempt := 0; attempt < 2; attempt++ {
+		status, answer, err := d.sendKey(ctx, http.MethodPost, "/v1/delegations/boards", token, body, req.IdempotencyKey)
+		if err == nil && status != http.StatusCreated {
+			return delivery.SeatGrant{}, refusal(status, answer)
+		}
+		var grant delivery.SeatGrant
+		if err == nil {
+			grant, err = d.readGrant(answer)
+		}
+		if err == nil {
+			return grant, nil
+		}
+		if attempt == 1 || !errors.Is(err, delivery.ErrServerUnreachable) {
+			return delivery.SeatGrant{}, err
+		}
 	}
-	if status != http.StatusCreated {
-		return delivery.SeatGrant{}, refusal(status, answer)
-	}
-	return d.readGrant(answer)
+	return delivery.SeatGrant{}, delivery.ErrServerUnreachable
 }
 
 // A creation retry retains the credential as well as the key: a concurrent discovery

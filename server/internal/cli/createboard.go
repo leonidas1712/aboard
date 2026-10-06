@@ -18,17 +18,7 @@ func (a *app) createSessionBoard(ctx context.Context, key delivery.SessionKey, s
 		return nil, delivery.Response{}, err
 	}
 	req := delivery.Request{Op: delivery.OpCreateBoard, Harness: key.Harness, Session: key.ID, Server: srv.URL, Create: &options, Role: role, AgentName: name, IdempotencyKey: operation}
-	var resp delivery.Response
-	for attempt := 0; attempt < 2; attempt++ {
-		resp, err = a.callDaemon(ctx, req)
-		if err == nil {
-			break
-		}
-		var e *Error
-		if !errors.As(err, &e) || e.Code != "server_unreachable" {
-			break
-		}
-	}
+	resp, err := a.callDaemon(ctx, req)
 	if err != nil {
 		var e *Error
 		if errors.As(err, &e) && (e.Code == "server_unreachable" || e.Code == "internal" || e.Code == "daemon_not_running") {
@@ -36,7 +26,7 @@ func (a *app) createSessionBoard(ctx context.Context, key delivery.SessionKey, s
 				e.Details = map[string]any{}
 			}
 			e.Details["idempotency_key"] = operation
-			e.Hint += " Check aboard boards before starting another creation; retain this operation key for deliberate recovery."
+			e.Hint += " Check aboard boards and deliberately join the created board before starting another creation; a restarted daemon cannot recover this operation's original delegation scope."
 		}
 		return nil, resp, err
 	}

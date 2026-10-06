@@ -92,7 +92,7 @@ func TestPrivateAgentsAddPeopleRequiresConfirmationAndKeepsFlags(t *testing.T) {
 	}
 }
 
-func TestCreationTransportRetryKeepsOneOperationAndNeverReadsAHumanKey(t *testing.T) {
+func TestCreationUncertaintyDoesNotRetryTheControlOperation(t *testing.T) {
 	home := t.TempDir()
 	a := &app{env: Env{Dir: home, Rand: rand.Reader, Getenv: func(k string) string { return map[string]string{"HOME": home, "ABOARD_HOME": home}[k] }}, daemonChecked: true}
 	p, err := a.paths()
@@ -107,7 +107,7 @@ func TestCreationTransportRetryKeepsOneOperationAndNeverReadsAHumanKey(t *testin
 	var seen []delivery.Request
 	go func() {
 		defer close(done)
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 1; i++ {
 			conn, err := listener.Accept()
 			if err != nil {
 				return
@@ -119,25 +119,19 @@ func TestCreationTransportRetryKeepsOneOperationAndNeverReadsAHumanKey(t *testin
 			}
 			seen = append(seen, req)
 			resp := delivery.Response{V: delivery.ProtocolVersion}
-			if i == 0 {
-				resp.Error = &delivery.WireError{Code: "server_unreachable", Message: "lost answer", Hint: "retry"}
-			} else {
-				resp.Joined = &delivery.SeatRef{Server: "https://team.example", Board: "work", Name: "codex", MemberID: "mem_new"}
-				resp.Board = json.RawMessage(`{"name":"work"}`)
-				resp.Member = json.RawMessage(`{"id":"mem_new","name":"codex"}`)
-			}
+			resp.Error = &delivery.WireError{Code: "server_unreachable", Message: "lost answer", Hint: "discover"}
 			_ = delivery.WriteFrame(conn, resp)
 			_ = conn.Close()
 		}
 	}()
 	t.Cleanup(func() { _ = listener.Close(); <-done })
-	grant, _, err := a.createSessionBoard(context.Background(), delivery.SessionKey{Harness: "codex", ID: "s1"}, serverRef{URL: "https://team.example"}, delivery.BoardCreateOptions{Name: "work", Title: "Work"}, "member", "codex")
+	_, _, err = a.createSessionBoard(context.Background(), delivery.SessionKey{Harness: "codex", ID: "s1"}, serverRef{URL: "https://team.example"}, delivery.BoardCreateOptions{Name: "work", Title: "Work"}, "member", "codex")
 	<-done
-	if err != nil || grant.Agent.Id != "mem_new" {
-		t.Fatalf("retry: %+v %v", grant, err)
+	if asError(err).Code != "server_unreachable" {
+		t.Fatalf("uncertainty: %v", err)
 	}
-	if len(seen) != 2 || seen[0].IdempotencyKey == "" || seen[0].IdempotencyKey != seen[1].IdempotencyKey || *seen[0].Create != *seen[1].Create {
-		t.Fatalf("retry changed request: %v", seen)
+	if len(seen) != 1 || seen[0].IdempotencyKey == "" {
+		t.Fatalf("control creation retried: %v", seen)
 	}
 }
 

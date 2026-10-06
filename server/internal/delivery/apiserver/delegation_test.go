@@ -228,8 +228,8 @@ func TestCreationRetryKeepsItsCredentialAndBodyAfterDiscoveryRefresh(t *testing.
 	defer srv.Close()
 	d := NewDelegated(srv.URL, "test", tokens{human: map[string]string{srv.URL: "test-key"}})
 	req := delivery.SeatCreateRequest{BoardCreateOptions: delivery.BoardCreateOptions{Name: "work"}, Session: "codex:s1", Harness: "codex", IdempotencyKey: "same-operation"}
-	if _, err := d.Create(context.Background(), req); !errors.Is(err, delivery.ErrServerUnreachable) {
-		t.Fatalf("first answer: %v", err)
+	if grant, err := d.Create(context.Background(), req); err != nil || grant.Seat.MemberID != "mem_test" {
+		t.Fatalf("captured-scope transport recovery: %+v %v", grant, err)
 	}
 	if _, err := d.Boards(context.Background(), ""); err != nil {
 		t.Fatal(err)
