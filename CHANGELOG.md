@@ -23,6 +23,9 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- `spec/openapi.yaml`: clarify the existing 24-hour idempotency lifetime. An expired
+  key starts a new request, and expired rows are removed at startup and periodically.
+  Affects API clients; additive clarification, with no new fields or endpoints.
 - `spec/cli.yaml`: `UpgradeOutput` for `aboard upgrade --json`; the CLI-only error codes
   `not_installed_by_script`, `release_not_found`, `download_failed`,
   `signature_invalid`, `checksum_mismatch`, `archive_invalid`, `upgrade_failed` and
