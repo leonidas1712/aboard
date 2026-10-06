@@ -144,9 +144,49 @@ type boardPersonOutput struct {
 	Person api.BoardPerson `json:"person"`
 }
 
-// runBoardAdd adds a person on the server to a board, with the person's own login.
+// runBoardAdd adds a person as the current person or selected agent seat.
 func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
-	t, c, err := a.personClient(ctx, boardFlag, "Adding people to a board", "aboard board add "+commandWord("@"+handle))
+	return runBoardAddAs(ctx, a, boardFlag, handle, "")
+}
+
+func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) error {
+	var t target
+	var c *client
+	var err error
+	byAgent, byOwner := "", ""
+	if a.agentSelected(as) {
+		var cred agentCredential
+		t, cred, err = a.agentTarget(ctx, boardFlag, as)
+		if err == nil && a.boardServerFlag != "" {
+			selected, parseErr := parseServerURL(a.boardServerFlag)
+			if parseErr != nil {
+				return parseErr
+			}
+			if selected.URL != t.server.URL {
+				return newError("agent_not_selected", "The selected agent's board is on "+t.server.URL+", not "+selected.URL+".", "Use --server "+commandWord(t.server.URL)+" for this seat, or select a seat on the other server.")
+			}
+		}
+		if err == nil {
+			c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
+		}
+		if err == nil {
+			rctx, cancel := a.requestContext(ctx)
+			me, e := c.api.GetMeWithResponse(rctx)
+			cancel()
+			if e != nil {
+				return c.unreachable(e)
+			}
+			if me.JSON200 == nil {
+				return apiError(me.StatusCode(), me.Body)
+			}
+			byAgent, byOwner = cred.Name, deref(me.JSON200.Owner)
+			if handle == "me" {
+				handle = byOwner
+			}
+		}
+	} else {
+		t, c, err = a.personClient(ctx, boardFlag, "Adding people to a board", "aboard board add "+commandWord("@"+handle))
+	}
 	if err != nil {
 		return err
 	}
@@ -168,9 +208,28 @@ func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
 		return c.unreachable(err)
 	}
 	if r.JSON201 == nil {
-		return apiError(r.StatusCode(), r.Body)
+		refusal := apiError(r.StatusCode(), r.Body)
+		if byAgent != "" {
+			var e *Error
+			if errors.As(refusal, &e) {
+				switch e.Code {
+				case "add_people_not_allowed", "agent_session_required", "guest_not_allowed", "person_is_guest":
+					e.Hint = "Your person runs aboard board add " + commandWord("@"+handle) + " --board " + commandWord(t.board) + " --server " + commandWord(t.server.URL) + " in a terminal."
+				}
+			}
+		}
+		return refusal
 	}
-	a.emit(boardPersonOutput{t.board, *r.JSON201}, fmt.Sprintf("Added %s to %s.\n", handle, t.board))
+	text := fmt.Sprintf("Added %s to %s.\n", handle, t.board)
+	if byAgent != "" {
+		text = fmt.Sprintf("Added %s to %s (by %s, for %s).\n", handle, t.board, byAgent, byOwner)
+	}
+	a.emit(struct {
+		Board   string          `json:"board"`
+		Person  api.BoardPerson `json:"person"`
+		ByAgent *string         `json:"by_agent,omitempty"`
+		ByOwner *string         `json:"by_owner,omitempty"`
+	}{t.board, *r.JSON201, optional(byAgent), optional(byOwner)}, text)
 	return nil
 }
 

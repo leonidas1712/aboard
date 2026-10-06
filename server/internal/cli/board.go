@@ -38,12 +38,7 @@ func (a *app) namedBoard(boardFlag string) string {
 // boardUsage is the usage of "aboard board", which acts on a board's settings.
 var boardUsage = usageOf("board")
 
-// runBoard creates a board with "aboard board new", switches its policy preset with
-// "aboard board policy <preset>",
-// "aboard board title <text>", which changes its title, and the commands for a board's
-// people, visibility and lifecycle. Creation, changes to policy, people or visibility, and
-// delete, use the human login, so they refuse inside a harness session; an agent may set
-// the title for its owner, list a board's people, and archive or restore its own board.
+// runBoard dispatches board creation, settings, people and lifecycle commands.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("board")
 	boardFlag := fs.String("board", "", "the board to change")
@@ -57,6 +52,11 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	if pos[0] == "new" {
+		if *as != "" {
+			if _, ok := a.sessionKey(); !ok {
+				return creationNeedsSession()
+			}
+		}
 		if len(pos) != 2 || *as != "" || *boardFlag != "" || *yes {
 			return usageError("Name the new board, and only that: aboard board new payments [--title T] [--private] [--server URL].", boardUsage)
 		}
@@ -67,7 +67,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	}
 	if *serverFlag != "" {
 		switch pos[0] {
-		case "policy", "add", "remove", "leave", "owner", "visibility":
+		case "policy", "add", "remove", "leave", "owner", "visibility", "agents-add-people":
 			a.boardServerFlag = *serverFlag
 		default:
 			return usageError("--server works only with new, policy, add, remove, leave, owner and visibility.", boardUsage)
@@ -77,7 +77,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		if len(pos) != 2 || handleArg(pos[1]) == "" {
 			return "", usageError("Name one person, by handle: aboard board "+pos[0]+" @maya.", boardUsage)
 		}
-		if *as != "" {
+		if *as != "" && pos[0] != "add" {
 			return "", usageError("Only a person changes who is on a board, so --as works only with title, people, archive and restore.", boardUsage)
 		}
 		return handleArg(pos[1]), nil
@@ -95,7 +95,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		}
 		switch pos[0] {
 		case "add":
-			return runBoardAdd(ctx, a, *boardFlag, handle)
+			return runBoardAddAs(ctx, a, *boardFlag, handle, *as)
 		case "remove":
 			return runBoardRemove(ctx, a, *boardFlag, handle)
 		}
@@ -105,6 +105,14 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 			return usageError("aboard board leave takes no arguments and no --as: it is for a person.", boardUsage)
 		}
 		return runBoardLeave(ctx, a, *boardFlag)
+	case "agents-add-people":
+		if len(pos) != 2 {
+			return usageError("Say on or off: aboard board agents-add-people on.", boardUsage)
+		}
+		if *as != "" {
+			return newError("human_command_in_session", "Only a person who owns the board may allow agents to add people.", "Your person runs aboard board agents-add-people "+commandWord(pos[1])+a.boardFlags(*boardFlag)+" in a terminal.")
+		}
+		return runBoardAgentsAddPeople(ctx, a, *boardFlag, pos[1], *yes)
 	case "visibility":
 		if len(pos) != 2 {
 			return usageError("Say open or private: aboard board visibility private.", boardUsage)

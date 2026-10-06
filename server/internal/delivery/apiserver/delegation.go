@@ -27,8 +27,14 @@ type Delegated struct {
 	tokens Tokens
 	http   *http.Client
 
-	mu    sync.Mutex
+	mu        sync.Mutex
+	token     string
+	creations map[string]creationCredential
+}
+
+type creationCredential struct {
 	token string
+	until time.Time
 }
 
 // NewDelegated returns the server at url, reached through a delegation named name
@@ -54,6 +60,10 @@ type wireRefusal struct {
 // answered with a 5xx is delivery.ErrServerUnreachable, so a lost answer is never taken
 // for one.
 func (d *Delegated) send(ctx context.Context, method, path, token string, body any) (status int, answer []byte, err error) {
+	return d.sendKey(ctx, method, path, token, body, "")
+}
+
+func (d *Delegated) sendKey(ctx context.Context, method, path, token string, body any, key string) (status int, answer []byte, err error) {
 	var payload io.Reader = http.NoBody
 	if body != nil {
 		raw, err := json.Marshal(body)
@@ -67,6 +77,9 @@ func (d *Delegated) send(ctx context.Context, method, path, token string, body a
 		return 0, nil, fmt.Errorf("%s %s: %w", method, path, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -217,6 +230,10 @@ func (d *Delegated) Join(ctx context.Context, req delivery.SeatRequest) (deliver
 	if status != http.StatusOK && status != http.StatusCreated {
 		return delivery.SeatGrant{}, refusal(status, raw)
 	}
+	return d.readGrant(raw)
+}
+
+func (d *Delegated) readGrant(raw []byte) (delivery.SeatGrant, error) {
 	var joined struct {
 		Agent  json.RawMessage `json:"agent"`
 		Token  string          `json:"token"`
@@ -242,4 +259,71 @@ func (d *Delegated) Join(ctx context.Context, req delivery.SeatRequest) (deliver
 		Seat:  delivery.SeatRef{Server: d.url, Board: agent.Board, Name: agent.Name, MemberID: agent.ID},
 		Token: joined.Token, Reused: joined.Reused, Board: joined.Board, Member: joined.Agent, Mode: delivery.Mode(agent.DeliveryMode),
 	}, nil
+}
+
+// Create never replaces an ended delegation: doing so would change the replay scope.
+func (d *Delegated) Create(ctx context.Context, req delivery.SeatCreateRequest) (delivery.SeatGrant, error) {
+	token, err := d.creationToken(ctx, req.IdempotencyKey)
+	if err != nil {
+		return delivery.SeatGrant{}, err
+	}
+	raw, err := json.Marshal(req.BoardCreateOptions)
+	if err != nil {
+		return delivery.SeatGrant{}, err
+	}
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return delivery.SeatGrant{}, err
+	}
+	body["session"], body["harness"] = req.Session, req.Harness
+	if req.Role != "" {
+		body["role"] = req.Role
+	}
+	if req.Name != "" {
+		body["agent_name"] = req.Name
+	}
+	status, answer, err := d.sendKey(ctx, http.MethodPost, "/v1/delegations/boards", token, body, req.IdempotencyKey)
+	if err != nil {
+		return delivery.SeatGrant{}, err
+	}
+	if status != http.StatusCreated {
+		return delivery.SeatGrant{}, refusal(status, answer)
+	}
+	return d.readGrant(answer)
+}
+
+// A creation retry retains the credential as well as the key: a concurrent discovery
+// refresh must not turn an uncertain creation into a request in another replay scope.
+func (d *Delegated) creationToken(ctx context.Context, key string) (string, error) {
+	d.mu.Lock()
+	if got, ok := d.creations[key]; ok {
+		d.mu.Unlock()
+		if time.Now().After(got.until) {
+			return "", errors.New("the board creation recovery window ended; check boards before creating another")
+		}
+		return got.token, nil
+	}
+	d.mu.Unlock()
+	token, err := d.delegation(ctx)
+	if err != nil {
+		return "", err
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if got, ok := d.creations[key]; ok {
+		return got.token, nil
+	}
+	if d.creations == nil {
+		d.creations = map[string]creationCredential{}
+	}
+	for operation, got := range d.creations {
+		if time.Now().After(got.until) {
+			delete(d.creations, operation)
+		}
+	}
+	if len(d.creations) >= 256 {
+		return "", errors.New("too many board creation recoveries are held; check boards before restarting the daemon")
+	}
+	d.creations[key] = creationCredential{token: token, until: time.Now().Add(24 * time.Hour)}
+	return token, nil
 }

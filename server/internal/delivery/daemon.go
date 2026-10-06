@@ -781,6 +781,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveExtension(ctx, conn, r, req)
 	case OpBoards:
 		_ = WriteFrame(conn, d.serveBoards(ctx, req))
+	case OpCreateBoard:
+		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
 	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
