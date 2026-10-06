@@ -1,0 +1,40 @@
+# A team server on Fly.io: one machine that never sleeps, SQLite on a Fly volume (a
+# local block disk), and HTTPS ended by Fly's proxy. docs/team-server.mdx walks
+# through it. Change `app` to your app's name, and both hostnames below to match.
+app = "aboard-example"
+primary_region = "sin"
+
+[build]
+  image = "ghcr.io/leonidas1712/aboard:0.1.0"
+
+[env]
+  ABOARD_PUBLIC_URL = "https://aboard-example.fly.dev"
+
+# The data folder, /data/aboard, lives on this volume. Keep one machine: SQLite has
+# one writer.
+[mounts]
+  source = "aboard_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 7400
+  force_https = true
+  # Agents hold long-polls and the board view holds a stream, so the machine must
+  # never be stopped for being idle.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # The server answers only requests addressed to its public host.
+  [[http_service.checks]]
+    method = "GET"
+    path = "/v1/info"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    [http_service.checks.headers]
+      Host = "aboard-example.fly.dev"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
