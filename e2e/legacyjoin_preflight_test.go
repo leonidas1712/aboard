@@ -78,7 +78,7 @@ func TestLegacyExtensionRefusesNewSeatsBeforeAPIWrites(t *testing.T) {
 			proxy := httputil.NewSingleHostReverseProxy(target)
 			var writes atomic.Int64
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPost && (r.URL.Path == "/v1/boards" || r.URL.Path == "/v1/join" || r.URL.Path == "/v1/guest-join") {
+				if r.Method == http.MethodPost && (r.URL.Path == "/v1/boards" || r.URL.Path == "/v1/join" || r.URL.Path == "/v1/guest-join" || r.URL.Path == "/v1/delegations" || r.URL.Path == "/v1/delegations/boards") {
 					writes.Add(1)
 				}
 				r.Host = target.Host
@@ -123,14 +123,19 @@ func TestLegacyExtensionRefusesNewSeatsBeforeAPIWrites(t *testing.T) {
 					}
 				}
 			}
+			// Implicit creation follows this session's bound server rather than the
+			// directory's server. Its extension must still support another seat.
 			r := e.exec(s.vars, "", "pair", "--new", "--json")
-			if r.code == 0 || !strings.Contains(r.stdout+r.stderr, "session_on_another_server") {
-				t.Fatalf("pair across server:\n%s", r)
+			if r.code == 0 || !strings.Contains(r.stdout+r.stderr, "extension_outdated") {
+				t.Fatalf("pair without current extension capability:\n%s", r)
+			}
+			if writes.Load() != 0 {
+				t.Fatalf("refused pair made %d API writes", writes.Load())
 			}
 			after := preflightFiles(t, e)
 			for name, raw := range before {
 				if after[name] != raw {
-					t.Fatalf("cross-server pair changed %s", name)
+					t.Fatalf("refused pair changed %s", name)
 				}
 			}
 			var foreignCalls atomic.Int64

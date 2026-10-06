@@ -60,64 +60,85 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if !inSession && a.agentSelected("") {
+		return creationNeedsSession()
+	}
+	started := false
+	srv := a.localServer()
+	var c *client
+	var joined *api.JoinResult
+	var moved *previousAgent
+	useAs := agentUse{}
 	if inSession {
-		if err := a.preflightNewSeat(ctx, session, a.localServer().URL); err != nil {
+		agents, err := a.sessionAgents(ctx, session)
+		if err != nil {
 			return err
 		}
+		sessionServer := ""
+		if len(agents) > 0 {
+			sessionServer = agents[0].Server
+		}
+		srv, err = a.boardServer(ctx, "", sessionServer)
+		if err != nil {
+			return err
+		}
+		var resp delivery.Response
+		joined, resp, err = a.createSessionBoard(ctx, session, srv, delivery.BoardCreateOptions{Template: tmpl, Name: *boardName, Title: strings.TrimSpace(*title)}, f.Pair[0], *agentName)
+		if err != nil {
+			return err
+		}
+		if resp.Previous != nil {
+			moved = &previousAgent{Name: resp.Previous.Name, Board: resp.Previous.Board}
+		}
+		creds, err := a.readCredentials()
+		if err != nil {
+			return err
+		}
+		cred, ok := creds.forSeat(delivery.AgentRef{Server: srv.URL, MemberID: joined.Agent.Id})
+		if !ok {
+			return newError("internal", "The new seat's saved credential is missing.", "Run aboard status before creating another board.")
+		}
+		c, err = a.client(ctx, srv, cred.Token, requestTimeout)
+		if err != nil {
+			return err
+		}
+		useAs = useFor(joined.Agent.Name)
+		useAs.BoundSession = optional(session.String())
+	} else {
+		started, err = a.ensureLocal(ctx)
+		if err != nil {
+			return err
+		}
+		token, err := a.readOwnerToken(srv)
+		if err != nil {
+			return err
+		}
+		c, err = a.client(ctx, srv, token, requestTimeout)
+		if err != nil {
+			return err
+		}
+		rctx, cancel := context.WithTimeout(ctx, requestTimeout)
+		defer cancel()
+		created, err := c.api.CreateBoardWithResponse(rctx, &api.CreateBoardParams{}, api.CreateBoardRequest{Template: &tmpl, Name: optional(*boardName), Title: optional(strings.TrimSpace(*title))})
+		if err != nil {
+			return c.unreachable(err)
+		}
+		if created.JSON201 == nil {
+			return apiError(created.StatusCode(), created.Body)
+		}
+		board := created.JSON201.Name
+		joined, err = c.join(rctx, api.JoinRequest{Board: &board, Role: &f.Pair[0], Name: optional(*agentName)})
+		if err != nil {
+			return err
+		}
+		if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id, Token: joined.Token}); err != nil {
+			return err
+		}
+		useAs = useFor(joined.Agent.Name)
 	}
-	started, err := a.ensureLocal(ctx)
-	if err != nil {
-		return err
-	}
-	srv := a.localServer()
-	token, err := a.readOwnerToken(srv)
-	if err != nil {
-		return err
-	}
-	c, err := a.client(ctx, srv, token, requestTimeout)
-	if err != nil {
-		return err
-	}
+	board := joined.Board.Name
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-
-	created, err := c.api.CreateBoardWithResponse(ctx, &api.CreateBoardParams{},
-		api.CreateBoardRequest{Template: &tmpl, Name: optional(*boardName), Title: optional(strings.TrimSpace(*title))})
-	if err != nil {
-		return c.unreachable(err)
-	}
-	if created.JSON201 == nil {
-		return apiError(created.StatusCode(), created.Body)
-	}
-	board := created.JSON201.Name
-	if inSession {
-		if err := a.preflightNewSeat(ctx, session, srv.URL); err != nil {
-			return err
-		}
-	}
-
-	joined, err := c.join(ctx, api.JoinRequest{
-		Board: &board, Role: &f.Pair[0], Name: optional(*agentName), Harness: harnessOf(session, inSession, ""), Session: sessionParam(session, inSession),
-	})
-	if err != nil {
-		return err
-	}
-	if inSession {
-		if err := a.preflightNewSeat(ctx, session, srv.URL); err != nil {
-			return err
-		}
-	}
-	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id, Token: joined.Token}); err != nil {
-		return err
-	}
-	useAs := useFor(joined.Agent.Name)
-	var moved *previousAgent
-	if inSession {
-		if moved, err = a.bindSession(ctx, session, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id}); err != nil {
-			return err
-		}
-		useAs.BoundSession = optional(session.String())
-	}
 
 	code, err := c.api.CreateJoinCodeWithResponse(ctx, board, &api.CreateJoinCodeParams{}, api.CreateJoinCodeRequest{Role: f.Pair[1]})
 	if err != nil {
@@ -143,7 +164,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	if started {
 		text.WriteString("Started local Aboard at " + st.code(srv.URL) + "\n")
 	} else {
-		text.WriteString("Using local Aboard at " + st.code(srv.URL) + "\n")
+		text.WriteString("Using Aboard at " + st.code(srv.URL) + "\n")
 	}
 	if t := joined.Board.Title; t != nil {
 		fmt.Fprintf(&text, "Created board %s (%s) and joined as %s\n", st.name(board), *t, agentText(joined.Agent))

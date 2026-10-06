@@ -81,43 +81,49 @@ func responseCurrent(at string, now time.Time) (bool, error) {
 // WAL files and migration backups may still hold copies.
 func (s *Store) PurgeResponses(ctx context.Context) error {
 	err := s.write(ctx, func(t *tx) error {
-		now := s.clk.Now()
-		// SQL narrows the candidates to their whole second; Go checks the exact expiry,
-		// including subsecond timestamps and older rows without fractional seconds.
-		rows, err := t.tx.QueryContext(ctx, "SELECT scope, key, created_at FROM idempotency WHERE unixepoch(created_at) <= ?", now.Add(-responseLifetime).Unix())
-		if err != nil {
+		if err := purgeResponses(t, "SELECT scope, key, created_at FROM idempotency WHERE unixepoch(created_at) <= ?", "DELETE FROM idempotency WHERE scope = ? AND key = ?", s.clk.Now()); err != nil {
 			return err
 		}
-		defer func() { _ = rows.Close() }()
-		var expired [][2]string
-		for rows.Next() {
-			var scope, key, at string
-			if err := rows.Scan(&scope, &key, &at); err != nil {
-				return err
-			}
-			current, err := responseCurrent(at, now)
-			if err != nil {
-				return err
-			}
-			if !current {
-				expired = append(expired, [2]string{scope, key})
-			}
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		for _, key := range expired {
-			if err := t.exec("DELETE FROM idempotency WHERE scope = ? AND key = ?", key[0], key[1]); err != nil {
-				return err
-			}
-		}
-		return nil
+		return purgeResponses(t, "SELECT delegation_id, key, created_at FROM delegated_creations WHERE unixepoch(created_at) <= ?", "DELETE FROM delegated_creations WHERE delegation_id = ? AND key = ?", s.clk.Now())
 	})
 	if err != nil {
 		return fmt.Errorf("purge expired responses: %w", err)
+	}
+	return nil
+}
+
+func purgeResponses(t *tx, selectSQL, deleteSQL string, now time.Time) error {
+	// SQL narrows the candidates to their whole second; Go checks the exact expiry,
+	// including subsecond timestamps and older rows without fractional seconds.
+	rows, err := t.tx.QueryContext(t.ctx, selectSQL, now.Add(-responseLifetime).Unix())
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	var expired [][2]string
+	for rows.Next() {
+		var scope, key, at string
+		if err := rows.Scan(&scope, &key, &at); err != nil {
+			return err
+		}
+		current, err := responseCurrent(at, now)
+		if err != nil {
+			return err
+		}
+		if !current {
+			expired = append(expired, [2]string{scope, key})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	for _, key := range expired {
+		if err := t.exec(deleteSQL, key[0], key[1]); err != nil {
+			return err
+		}
 	}
 	return nil
 }

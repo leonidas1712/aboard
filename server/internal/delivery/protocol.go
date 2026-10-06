@@ -70,7 +70,8 @@ const (
 	OpBoards = "boards"
 	// OpJoin gives the session a seat on a board through the machine's delegation: the
 	// server decides whether it is a new seat or the session's earlier one.
-	OpJoin = "join"
+	OpJoin        = "join"
+	OpCreateBoard = "create_board"
 )
 
 // Events sent back on a waiting connection.
@@ -139,7 +140,10 @@ type Request struct {
 	// all. It never widens what the delegation may list.
 	Lifecycle string `json:"lifecycle,omitempty"`
 	// Role is the role an OpJoin joins as; empty means member.
-	Role string `json:"role,omitempty"`
+	Role           string              `json:"role,omitempty"`
+	Create         *BoardCreateOptions `json:"create,omitempty"`
+	AgentName      string              `json:"agent_name,omitempty"`
+	IdempotencyKey string              `json:"idempotency_key,omitempty"`
 }
 
 // Key returns the session the request is about.

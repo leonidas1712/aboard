@@ -72,6 +72,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"GuestCodesAreUsedOnce", guestCodesAreUsedOnce},
 		{"MembersCarryTheirPersonsRole", membersCarryTheirPersonsRole},
 		{"DelegationsEndByKeyAndName", delegationsEndByKeyAndName},
+		{"TeamworkGatesAndReceipts", teamworkGatesAndReceipts},
 		{"SeatsAreFoundBySessionAndPerson", seatsAreFoundBySessionAndPerson},
 	}
 	for _, tt := range tests {

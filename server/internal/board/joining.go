@@ -220,6 +220,7 @@ func memberByID(tx ReadTx, boardID, id string) (Member, error) {
 // a human who is already a member. Session is the harness session the agent is for
 // (`<harness>:<id>`), when the caller names one; it is kept with the seat.
 type JoinInput struct {
+	seatID  string
 	Code    string
 	Board   string
 	Role    string
@@ -414,8 +415,11 @@ func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinI
 	if in.Session != "" {
 		agent.Session = ptr(in.Session)
 	}
-	if agent.ID, err = s.gen.ID("mem", now); err != nil {
-		return Joined{}, err
+	agent.ID = in.seatID
+	if agent.ID == "" {
+		if agent.ID, err = s.gen.ID("mem", now); err != nil {
+			return Joined{}, err
+		}
 	}
 	if err := s.addMember(tx, b, agent, actorOf(owner), codeID, now, extra); err != nil {
 		return Joined{}, err

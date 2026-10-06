@@ -33,7 +33,8 @@ type Principal struct {
 	Human *Human
 	Agent *Member
 	// Delegation is a machine's delegation, which acts for its person only to list their
-	// boards (ListBoards) and to give a session a seat (JoinSession); everything else
+	// boards (ListBoards), give a session a seat (Join), and create a board with its
+	// session seat (CreateDelegatedBoard); everything else
 	// refuses it.
 	Delegation *Delegation
 	// Browser is set for a browser token, which acts as its human with the human's

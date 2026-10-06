@@ -568,16 +568,17 @@ func helpText(templates string) []commandHelp {
 				"aboard board policy <starter|recommended> [--board NAME [--server URL]] [--json]",
 				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
 				"aboard board people [--as AGENT] [--board NAME] [--json]",
-				"aboard board add @handle [--board NAME [--server URL]] [--json]",
+				"aboard board add @handle [--as AGENT] [--board NAME [--server URL]] [--json]",
 				"aboard board remove @handle [--board NAME [--server URL]] [--json]",
 				"aboard board leave [--board NAME [--server URL]] [--json]",
 				"aboard board owner @handle [--board NAME [--server URL]] [--json]",
 				"aboard board visibility <open|private> [--yes] [--board NAME [--server URL]] [--json]",
+				"aboard board agents-add-people <on|off> [--yes] [--board NAME [--server URL]] [--json]",
 				"aboard board archive [NAME] [--as AGENT] [--json]",
 				"aboard board restore [NAME] [--as AGENT] [--json]",
 				"aboard board delete [NAME] [--yes] [--json]",
 			},
-			Description: "new creates a board with you as its owner and no agents on it, open to every person on the server unless --private, and says how agents and people join it. " +
+			Description: "new creates a board with you as its owner. In an agent session it also gives that session a seat through the machine delegation; in a terminal it creates no agent. The board is open to every person on the server unless --private, and says how agents and people join it. " +
 				"Its server is --server, else this directory's .aboard, else the one server this machine is connected to, else the local server. A directory linked to no board is linked to the new one, as pair does.\n\n" +
 				"policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
@@ -587,12 +588,13 @@ func helpText(templates string) []commandHelp {
 				"title may be set by an agent for its owner, when the owner is an admin of the board: with --as or ABOARD_AGENT, or inside an agent's session, it acts as that agent, on its board, and the record names the agent. " +
 				"Elsewhere it uses your own login.\n\n" +
 				"people lists the people on the board, each an owner or a member. " +
-				"add puts a person on this server onto the board as a member, by handle; anyone on the board may, and on an open board you may add yourself, as @me, to join it. " +
+				"add puts a person on this server onto the board as a member, by handle. An agent may add a standing teammate when the server, board and its role allow it; it uses its own token. On an open board a person may add themselves, as @me, to join it. " +
+				"agents-add-people on or off changes the board gate, as a person who owns the board. Enabling it on a private board asks first, since people added by agents can read the whole history and files. " +
 				"remove takes a person and their agents off the board, and owner makes someone an owner; both are for the board's owners. " +
 				"leave takes you off the board; its last owner makes someone else an owner first. " +
 				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
 				"and before making a private board open it says how many messages and files every person on the server could then read, and asks; without a terminal it needs --yes.\n\n" +
-				"new, add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.\n\n" +
+				"remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.\n\n" +
 				"archive makes a board read-only: everything on it stays readable, but there are no new messages, nobody new joins and nobody gets more access until it is restored; people can still leave or be removed, and the board can be made private. " +
 				"restore makes it active again; people and agents removed before stay removed. " +
 				"Both are for the person who created the board, while still on it, or a server admin; an agent may archive or restore its own board for the person who created it. " +
@@ -601,7 +603,7 @@ func helpText(templates string) []commandHelp {
 				"A server admin names a private board they aren't on by the id aboard boards --all shows, and types that id to confirm.",
 			Flags: []helpFlag{
 				{"--as", "AGENT", "title, people, archive and restore only: act as this agent, for its owner. Default inside an agent's session: the session's agent."},
-				{"--yes", "", "visibility and delete only: go ahead without asking."},
+				{"--yes", "", "visibility, agents-add-people and delete only: go ahead without asking."},
 				{"--title", "TEXT", "new only: the new board's title."},
 				{"--private", "", "new only: make the new board private, seen only by the people on it."},
 				{"--server", "URL", "With new: the server to create it on, when it isn't the one this machine would pick. With policy, add, remove, leave, owner or visibility, and --board: the server of that board, when it isn't this directory's."},

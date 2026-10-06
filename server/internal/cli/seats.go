@@ -85,3 +85,8 @@ func seatCredential(creds credentials, server, memberID string) (agentCredential
 	}
 	return agentCredential{}, false
 }
+
+// Create asks for a board and seat through the same server-bound delegation.
+func (s *daemonSeats) Create(ctx context.Context, server string, req delivery.SeatCreateRequest) (delivery.SeatGrant, error) {
+	return s.server(server).Create(ctx, req)
+}

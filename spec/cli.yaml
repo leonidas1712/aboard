@@ -29,7 +29,7 @@
 #   have both landed), a session holds at most one seat per board, all on one server, and
 #   pair, join or resume for a board where it holds no seat adds one (previous_agent
 #   null). In a session with several seats, every command that acts on one board (say,
-#   say --reply, react, read in all its forms, board title, board people, delivery
+#   say --reply, react, read in all its forms, board title, board people, board add, delivery
 #   without a mode, and leave and invite where they act as the agent) needs --board, and
 #   without it fails with board_ambiguous, even when --as or ABOARD_AGENT names the
 #   agent, before it reads or sends anything; board_ambiguous is checked before
@@ -39,7 +39,7 @@
 #   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
-#   and logout always use it. board title, board people and boards act as an agent when
+#   and logout always use it. board title, board people, board add and boards act as an agent when
 #   one is selected by --as, ABOARD_AGENT or the session, for its owner, and never use the
 #   human login then. read --receipts does the same: as the selected agent when there is
 #   one, otherwise with the human login. read --mark-read always reads as the person, with
@@ -47,12 +47,16 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board new, board policy, board add, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
-#   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
-#   there: pair joins as an agent, board title sets the title as the session's agent for
+#   run them in a terminal: board policy, board agents-add-people, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   delivery MODE, init --delivery). pair, board new, board add, board title, board people, audit verify and open still run
+#   there: pair and board new create through the daemon's machine delegation and give
+#   the session a seat; board add uses only its selected seat token. Creation without
+#   a real harness session, when --as or ABOARD_AGENT selects an agent, refuses with
+#   agent_session_required. None of these agent paths reads or falls back to the
+#   person's key. board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
-#   link. The same commands refuse the same way when ABOARD_AGENT is set, which is how an
-#   agent's environment names it, before they read the person's key or send anything; and
+#   link. The person-only commands also refuse when --as or ABOARD_AGENT selects an
+#   agent, before they read the person's key or send anything; and
 #   open then never shows its login link, as in a session.
 # - Inside a subagent of a harness session (ABOARD_SUBAGENT is set, which Claude Code's
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
@@ -670,6 +674,22 @@ $defs:
   # unless --new is given; its hint names both ways on: aboard invite to add an agent to
   # that board, and aboard pair --new to start another. --title sets the board's title (Board.title).
   PairOutput:
+    description: |
+      In a real harness session, creates the board, its person as creator and owner,
+      and this session's seat atomically through the delivery daemon's create_board
+      operation (POST /v1/delegations/boards). The daemon checks the whole session's
+      server and delivery capabilities before writes, saves the seat credential before
+      binding, and retains sibling seats. Creation transport retries retain the same
+      idempotency key and body, recovering the same board, seat and working token;
+      an uncertain result never automatically starts another creation.
+      The CLI then makes the next session's pairing code with its new seat token,
+      through that seat's invite permission. It admits only the person's own sessions.
+      Built-in template roles grant invite and add_people explicitly; existing stored
+      roles are not changed. No human key or delegation reaches the agent's command.
+      Outside a session, the existing person creation and pairing behavior stays the
+      same. --as or ABOARD_AGENT selecting an agent without a real session gets
+      agent_session_required. All existing PairOutput fields and starter-policy notice
+      stay the same; a new board's seat does not replace siblings.
     type: object
     required: [server, server_started, board, agent, use, join, policy_notice]
     properties:
@@ -2526,15 +2546,30 @@ $defs:
   # ---------- aboard board add @handle ----------
   BoardAddOutput:
     description: |
-      Adds a person on the server to the board as a member, with the human login; a
-      person on the board adds anyone, and on an open board a person may add
-      themselves to join it. Inside a harness session it refuses with
-      human_command_in_session: adding people is for people. Text: "Added <handle> to
-      <board>." Errors: person_not_found, already_on_board, not_on_board,
-      board_not_found.
+      Adds an ordinary person on the server to the board as a member. With no agent
+      selected, a person uses their human login: a person on the board adds anyone,
+      and on an open board may add themselves to join it. With --as, ABOARD_AGENT or a
+      harness session, it uses only the selected agent's seat token on that seat's
+      board, never the human login. A session with several seats requires --board:
+      board_ambiguous precedes agent_ambiguous and is checked before any request.
+      The agent's owner must still be on the board, its role must grant add_people,
+      and the server and board agents_add_people gates must allow it. Private boards
+      default to off; bots and manually created seats without a session are refused.
+      A refusal names a command its person can run, without carrying --yes.
+      Person text stays "Added <handle> to <board>." Agent text says "Added <handle>
+      to <board> (by <agent>, for <owner>)." The optional provenance fields are absent
+      from person output. Errors: person_not_found, already_on_board, not_on_board,
+      board_not_found, guest_not_allowed, person_is_guest, add_people_not_allowed,
+      agent_session_required, board_archived.
     type: object
     required: [board, person]
     properties:
+      by_agent:
+        type: string
+        description: Name of the selected agent seat that added the person; absent for a person command.
+      by_owner:
+        type: string
+        description: Handle of the agent's person; absent for a person command.
       board: { type: string }
       person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
 
@@ -2668,6 +2703,8 @@ $defs:
       [y/N]" in a terminal; elsewhere, or with --json, it needs --yes and otherwise fails
       with confirmation_required, whose message carries the same counts. Turning a board
       private needs no confirmation and says how many join codes stopped working.
+      Turning private also resets agents_add_people to false atomically. Opening
+      preserves that gate; it never automatically enables agent teammate additions.
     type: object
     required: [board, before, after, changed, reveals, join_codes_canceled]
     properties:
@@ -2681,19 +2718,47 @@ $defs:
           - { type: "null" }
       join_codes_canceled: { type: integer, minimum: 0 }
 
+  # ---------- aboard board agents-add-people on|off [--board B] [--server URL] [--yes] ----------
+  BoardAgentsAddPeopleOutput:
+    description: |
+      Changes the board's agents_add_people gate through PATCH /v1/boards/{board}.
+      Only a person who owns the board may set it; an agent selection or harness
+      session refuses with human_command_in_session before reading a human key.
+      The handed-over command retains board and server flags, but never --yes.
+      Eligible agent seats still need the server's enabled gate and their role's
+      add_people permission. Turning it off removes no one already added.
+      Before enabling a private board, says "Allowing agents to add people to <board>
+      gives anyone they add its whole history and files. Continue? [y/N]" and asks
+      in a terminal. Elsewhere, or with --json, --yes is required; otherwise it fails
+      with confirmation_required and the same warning. Enabling an open board needs
+      no confirmation. Archived boards permit off only; on gets board_archived.
+      Text: "Agents may add people to <board>." for on, or "Agents may not add people
+      to <board>." for off. Output always names the board and effective boolean value.
+    type: object
+    required: [board, agents_add_people]
+    properties:
+      board: { type: string }
+      agents_add_people: { type: boolean }
+
   # ---------- aboard board new <name> [--title T] [--private] [--server URL] ----------
   BoardNewOutput:
     description: |
-      Creates a board as a person, with their own key (POST /v1/boards, template
+      In a terminal, creates a board as a person, with their own key (POST /v1/boards, template
       general), open unless --private; the person is its owner and its only member, and
-      no agent joins. The server is --server (one this machine holds a key for), else the
+      no agent joins in a terminal. The server is --server (one this machine holds a key for), else the
       one this directory's .aboard names, else the one server this machine is connected
       to when there is exactly one, else the local server, which it starts if needed. A
       directory with no .aboard is linked to the new board, as pair does, so board
       commands run there act on it (linked: true); a linked directory keeps its board. A
-      person command: inside a harness session, or with ABOARD_AGENT set, it refuses with
-      human_command_in_session before it sends anything, and the hint gives the command
-      for the person to run with every flag that was given (--title, --private, --server), quoted for a shell where needed; the person board commands with --server hand over --board and --server the same way. A confirmation flag (--yes) is never carried into a handed-over command, so the person sees and answers the confirmation themselves. A taken name is the server's board_name_taken. Text output:
+      terminal person command uses the existing output below. In a real harness
+      session it instead creates the person-owned board and session seat atomically
+      through the daemon's create_board operation, with a required idempotency key
+      retained across transport retries. The daemon checks the whole session's server
+      and delivery capabilities before resource writes, saves the token before binding
+      and preserves sibling seats. The command never reads the person's key. Agent
+      selection by --as or ABOARD_AGENT without a real session gets
+      agent_session_required. A taken name is the server's board_name_taken. Terminal
+      text output:
         Created board payments on https://team.example.com, open to everyone on the server.
         Linked this directory to payments, so board commands run here act on it.
         Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended
@@ -2706,12 +2771,28 @@ $defs:
       guidance names the new board's server:
         This directory stays linked to general on http://127.0.0.1:7400, so board commands for payments need --server https://team.example.com.
         Next: from an agent's session, run aboard join --board payments --server https://team.example.com; to bring a person onto it, aboard board add @handle --board payments --server https://team.example.com
+      In a session, the first line also names the joined agent and the person it acts
+      for; agent, use and delivery are added to JSON. The starter-policy notice remains.
+      A server other than the session's existing seats is refused with
+      session_on_another_server; capability preflight may return extension_outdated.
+      If a creation answer is uncertain, the caller retries the same key and body or
+      discovers the created board and deliberately joins it, never automatically
+      creates another board. Terminal JSON stays unchanged.
       board policy, add, remove, leave, owner and visibility take --server URL (one this
       machine holds a key for) with --board, acting on that board on that server instead
       of the one this directory's .aboard names.
     type: object
     required: [server, board, linked, stays_linked, policy_notice, join_command]
     properties:
+      agent:
+        $ref: openapi.yaml#/components/schemas/Member
+        description: The session seat created atomically for the person's new board; absent in a terminal.
+      use:
+        $ref: "#/$defs/AgentUse"
+        description: How the session acts as its new seat; absent in a terminal.
+      delivery:
+        enum: [focused, all, humans, off]
+        description: The new seat's delivery mode; absent in a terminal.
       server: { $ref: "#/$defs/ServerRef" }
       board: { $ref: openapi.yaml#/components/schemas/Board }
       linked: { type: boolean, description: Whether this directory was linked to the new board. }

@@ -125,13 +125,14 @@ func (h *handlers) GetBoard(ctx context.Context, req GetBoardRequestObject) (Get
 
 func (h *handlers) UpdateBoard(ctx context.Context, req UpdateBoardRequestObject) (UpdateBoardResponseObject, error) {
 	in, err := convert[struct {
-		Title  *string             `json:"title"`
-		Policy *rules.PolicyChange `json:"policy"`
+		AgentsAddPeople *bool               `json:"agents_add_people"`
+		Title           *string             `json:"title"`
+		Policy          *rules.PolicyChange `json:"policy"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.UpdateBoard(ctx, principal(ctx), req.Board, board.Change{Title: in.Title, Policy: in.Policy})
+	v, err := h.svc.UpdateBoard(ctx, principal(ctx), req.Board, board.Change{Title: in.Title, Policy: in.Policy, AgentsAddPeople: in.AgentsAddPeople})
 	if err != nil {
 		return nil, err
 	}

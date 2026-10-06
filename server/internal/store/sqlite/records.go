@@ -230,12 +230,12 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle"
+const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle, agents_add_people"
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle, &b.AgentsAddPeople); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -257,9 +257,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
-		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle))
+		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle), b.AgentsAddPeople)
 }
 
 // SetBoardPolicy replaces a board's policy.

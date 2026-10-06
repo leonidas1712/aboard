@@ -157,8 +157,9 @@ type Board struct {
 	CreatedAt     string
 	CreatedBy     string // member id of the creating human
 	// Visibility is BoardOpen or BoardPrivate: who can see the board at all.
-	Visibility string
-	Lifecycle  string
+	Visibility      string
+	Lifecycle       string
+	AgentsAddPeople bool
 }
 
 // Who can see a board. An open board is seen by every person on the server, who may

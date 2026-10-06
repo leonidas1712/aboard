@@ -210,13 +210,13 @@ func TestWhoMayChangeABoardsPeople(t *testing.T) {
 	}
 	call("POST", "/leave", maya, nil, 200, "")
 	call("GET", "/messages", maya, nil, 404, "board_not_found")
-	// An agent manages no one.
+	// A manually created seat cannot add people or manage access.
 	_, writer, _ := s.pair("starter")
 	_ = writer
 	j, err := s.client(sam).JoinWithResponse(context.Background(), nil, api.JoinRequest{Board: &name, Role: ptr("member")})
 	mustStatus(t, j, err, 201)
 	agent := j.JSON201.Token
-	call("POST", "/people", agent, map[string]any{"handle": "kim"}, 403, "human_token_required")
+	call("POST", "/people", agent, map[string]any{"handle": "kim"}, 403, "agent_session_required")
 	call("DELETE", "/people/sam", agent, nil, 403, "human_token_required")
 	call("POST", "/visibility", agent, map[string]any{"visibility": "open"}, 403, "human_token_required")
 	call("GET", "/people", agent, nil, 200, "")

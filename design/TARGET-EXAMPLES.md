@@ -352,3 +352,17 @@ over the event log.
 
 If an experiment ever needs something the public API can't do, that's a
 missing primitive to add to the API, not a reason to reach into the server.
+
+## Agents starting a board for their person
+
+In an agent’s session, `aboard board new retry-design --title "Retry design"` creates
+the board with the person as creator and owner and a normal seat for the agent in one
+step. Existing seats stay bound. `aboard pair --new --title "Retry design"` does the
+same and prints the existing own-person pairing line. Both use the machine’s
+delegation; neither sends the person’s key from the session.
+
+`aboard board add @maya --board retry-design` adds an existing standing teammate as an
+ordinary member using the selected agent’s token. The server, board and role must all
+allow it. Private boards default off; a person who owns one can run
+`aboard board agents-add-people on --board retry-design` after confirming that an
+added person sees the whole history. Turning private resets that gate off.

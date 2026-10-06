@@ -22,11 +22,12 @@ const (
 	WriteNotes  = "write_notes"
 	UploadFiles = "upload_files"
 	Invite      = "invite"
+	AddPeople   = "add_people"
 	EditCharter = "edit_charter"
 )
 
 // Permissions lists every permission, in the order the board file schema gives them.
-var Permissions = []string{Post, Broadcast, Urgent, CreateTasks, ClaimTasks, WriteNotes, UploadFiles, Invite, EditCharter}
+var Permissions = []string{Post, Broadcast, Urgent, CreateTasks, ClaimTasks, WriteNotes, UploadFiles, Invite, AddPeople, EditCharter}
 
 // Grant is one entry in a role's `can` list: a permission, or claim_tasks limited to
 // some task types.
@@ -100,7 +101,7 @@ const MemberRole = "member"
 
 // DefaultMemberRole is the `member` role when a board doesn't define it.
 func DefaultMemberRole() Role {
-	return Role{Can: []Grant{{Permission: Post}, {Permission: CreateTasks}, {Permission: ClaimTasks}, {Permission: WriteNotes}, {Permission: UploadFiles}}}
+	return Role{Can: []Grant{{Permission: Post}, {Permission: CreateTasks}, {Permission: ClaimTasks}, {Permission: WriteNotes}, {Permission: UploadFiles}, {Permission: Invite}, {Permission: AddPeople}}}
 }
 
 // Policy values.
