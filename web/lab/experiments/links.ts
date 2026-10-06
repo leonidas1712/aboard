@@ -68,6 +68,22 @@ export function filterIds(snap: Snapshot, task: string): string[] {
   return [...ts.map((t) => t.root.id), ...loose.map((m) => m.id)];
 }
 
+/** byAgent is what a conversation narrowed to an agent keeps: the threads it wrote in, and its own messages. */
+export function byAgent(snap: Snapshot, agent: string): { threads: number; loose: number; ids: string[] } {
+  const all = boardMessages();
+  const ts = threads(snap);
+  const roots = new Set(all.filter((m) => m.from === agent).map((m) => rootId(all, m)));
+  const inThreads = [...roots].filter((id) => ts.some((t) => t.root.id === id));
+  return { threads: inThreads.length, loose: roots.size - inThreads.length, ids: [...roots] };
+}
+
+/** latestFrom is an agent's most recent message on the board. */
+export function latestFrom(agent: string): BoardMessage | undefined {
+  return boardMessages()
+    .filter((m) => m.from === agent)
+    .at(-1);
+}
+
 export type FileContext = {
   /** posted are the messages the file was posted with, each with its thread if it is in one. */
   posted: { message: BoardMessage; thread: ThreadLink | undefined }[];

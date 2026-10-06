@@ -79,7 +79,7 @@ export const workspace: Scenario = {
     },
   ],
   notices: [
-    { board: "infra", who: "omp-1", text: "omp-1 said back by 11:00, now 32m over", detail: "INF-9 disk alerts" },
+    { board: "infra", who: "omp-1", text: "omp-1 is waiting on the disk check until 11:00, now 32m over", detail: "INF-9 disk alerts" },
     { board: "billing-v3", who: "claude-4", text: "claude-4 has been idle for 3h", detail: "no task" },
     { board: "growth", who: "claude-1", text: "No message for 5h; 2 tasks claimed, not started", detail: "GRO-3, GRO-4" },
   ],

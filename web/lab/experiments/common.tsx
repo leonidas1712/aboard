@@ -10,7 +10,7 @@ import { identitiesOf, identityOf, personIdentity, relativeTime } from "@/app/wo
 import type { ScenarioTask } from "../scenario";
 import { at, scenario, useLab } from "../store";
 
-/** staleAfter is how old a now line may be, in minutes, before it is marked stale. */
+/** staleAfter is how old a working line may be, in minutes, before it is marked stale. */
 export const staleAfter = scenario.staleAfter ?? 45;
 /** briefStaleAfter is how old the brief may be before it is marked as maybe out of date. */
 export const briefStaleAfter = staleAfter * 4;

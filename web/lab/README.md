@@ -41,7 +41,7 @@ a new endpoint, add it there to match `spec/openapi.yaml`.
 
 1. Copy `scenarios/solo.ts` to `scenarios/<id>.ts`, and change it. A scenario is plain
    data (the types are in `scenario.ts`): the people (`me` is the viewer), the agents,
-   the board, and `steps`. Each step changes only what it names: presence, now lines,
+   the board, and `steps`. Each step changes only what it names: presence, working and waiting lines,
    tasks (by id), the brief and new messages. Times are minutes from the start.
 2. Add it to the list in `scenarios/index.ts`.
 3. Add a line for it to `shots.spec.ts`, so `make lab-shots` takes its picture.

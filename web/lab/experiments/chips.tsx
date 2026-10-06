@@ -36,6 +36,23 @@ export function stateOf(t: ScenarioTask, needs: boolean): string {
   }
 }
 
+/** OwnerLabel is the word "owner" beside a task's owner, which says in a tooltip what it means. */
+export function OwnerLabel({ task }: { task: ScenarioTask }) {
+  const opener = task.by ?? scenario.steward ?? task.owner;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="owner-label cursor-help text-meta text-muted underline decoration-dotted decoration-1 underline-offset-[3px]">
+          owner
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start">
+        Responsible for the task{opener && opener !== task.owner ? `; opened by ${opener === scenario.me ? "you" : opener}` : ""}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** TaskChip is a task's id and title, quietly; a click opens it in the side panel. */
 export function TaskChip({ id, short, className }: { id: string; short?: boolean; className?: string }) {
   const { snap } = useLab();

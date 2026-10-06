@@ -15,23 +15,48 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Board, type Member, type Message, get, post } from "@/app/api";
 import { AddAgent } from "@/app/board-details";
 import { AgentDetails } from "@/app/sidebars";
-import { count } from "@/app/words";
+import { usePref } from "@/app/prefs";
+import { count, presenceWords, relativeTime } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { filterTo, openArtifact, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
+import { filterTo, groupWork, narrowTo, openArtifact, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
 import { ArtifactPanel, FileIcon, approval } from "./artifacts";
 import { answer, asksOf, statusOf, toneClass } from "./asks";
 import { Mark, active, ago, onBoard, useNow } from "./common";
-import { ThreadList, linkCount } from "./chips";
+import { OwnerLabel, TaskChip, ThreadList, linkCount } from "./chips";
+import { latestFrom } from "./links";
 import { needsYou } from "./tasks";
 import { Ids } from "./text";
 
 const back = "inline-flex min-h-9 items-center gap-1.5 rounded-control text-meta font-normal text-muted hover:text-ink";
 
-/** Title heads the side panel: Work, or the way back to it. */
+/** WorkBy is how the Work panel groups the board: by task, or one row per agent. */
+export type WorkBy = "task" | "agent";
+
+/** Title heads the side panel: Work and how it is grouped, or the way back to it. */
 export function Title({ board, fallback }: { board: string; fallback: string }) {
-  const { panel } = useUi();
+  const { panel, workBy: by } = useUi();
   if (!onBoard(board)) return <>{fallback}</>;
-  if (panel.kind === "work") return <span className="text-ink">Work</span>;
+  if (panel.kind === "work") {
+    return (
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-ink">Work</span>
+        <span className="font-normal text-muted">·</span>
+        <span role="group" aria-label="Group the work" className="inline-flex gap-0.5 font-normal">
+          {(["task", "agent"] as WorkBy[]).map((b) => (
+            <button
+              key={b}
+              type="button"
+              aria-pressed={by === b}
+              onClick={() => groupWork(b)}
+              className={cn("rounded-[5px] px-1.5", by === b ? "bg-selected font-bold text-ink" : "text-muted hover:text-ink")}
+            >
+              by {b}
+            </button>
+          ))}
+        </span>
+      </span>
+    );
+  }
   const from = panel.kind === "artifact" ? panel.from : null;
   return (
     <button type="button" className={back} onClick={() => (from ? openTask(from) : showWork())}>
@@ -50,23 +75,29 @@ export function WorkPanel({ board, members, pick, boardPanel }: { board: string;
   }, [panel, n]);
   if (!onBoard(board)) return <>{boardPanel}</>;
   return (
-    <div ref={top} className="flex scroll-mt-2 flex-col gap-6">
+    <div ref={top} className="lab-work flex scroll-mt-2 flex-col gap-6">
       {panel.kind === "task" ? (
         <TaskPanel id={panel.id} members={members} pick={pick} />
       ) : panel.kind === "artifact" ? (
         <ArtifactPanel id={panel.id} />
       ) : (
-        <Work members={members} pick={pick} />
+        <Work members={members} />
       )}
-      {panel.kind === "work" && boardPanel}
+      {panel.kind === "work" && (
+        <>
+          <People members={members} />
+          {boardPanel}
+        </>
+      )}
     </div>
   );
 }
 
-function Work({ members, pick }: { members: Member[]; pick: (name: string) => void }) {
+function Work({ members }: { members: Member[] }) {
   const { snap } = useLab();
   const { answered } = useUi();
   const now = useNow();
+  const { workBy: by } = useUi();
   const [board, setBoard] = useState<Board | null>(null);
   useEffect(() => {
     get<Board>(`/v1/boards/${encodeURIComponent(scenario.board.name)}`).then(setBoard, () => {});
@@ -76,44 +107,105 @@ function Work({ members, pick }: { members: Member[]; pick: (name: string) => vo
   const live = snap.tasks.filter(active).sort((a, b) => Number(needsYou(b, asks)) - Number(needsYou(a, asks)) || b.t - a.t);
   const busy = new Set(live.flatMap((t) => [t.owner, ...(t.with ?? [])]));
   const rest = agents.filter((a) => !busy.has(a.name));
-  const row = (a: Member) => {
+  const showOwner = new Set(agents.map((x) => x.owner)).size > 1;
+  const row = (a: Member, tasks?: string[]) => {
     const s = statusOf(snap, a.name, asks, now);
-    return <AgentRow key={a.id} agent={a} status={s.text} tone={toneClass[s.tone]} pick={pick} showOwner={new Set(agents.map((x) => x.owner)).size > 1} />;
+    return <AgentRow key={a.id} agent={a} status={s.text} tone={toneClass[s.tone]} showOwner={showOwner} tasks={tasks} />;
   };
   return (
     <div className="work flex flex-col gap-5">
-      {live.map((t) => {
-        const on = [t.owner, ...(t.with ?? [])].map((n) => agents.find((a) => a.name === n)).filter((a): a is Member => !!a);
-        const people = [t.owner, ...(t.with ?? [])].filter((n) => scenario.people.some((p) => p.name === n));
-        return (
-          <section key={t.id} aria-label={`${t.id} ${t.title}`} className="flex flex-col gap-1.5">
-            <h3>
-              <button type="button" onClick={() => openTask(t.id)} className="group flex w-full items-baseline gap-2 text-left">
-                <span className="shrink-0 text-meta text-muted tabular-nums">{t.id}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="font-bold group-hover:underline">{t.title}</span>
-                  {needsYou(t, asks) && <span className="ml-1.5 inline-block rounded-[4px] bg-attention px-1.5 text-meta text-ink">needs you</span>}
-                </span>
-              </button>
-            </h3>
-            <ul className="flex flex-col gap-0.5">{on.map(row)}</ul>
-            {people.length > 0 && <p className="pl-8 text-meta text-muted">with {people.map((p) => (p === scenario.me ? "you" : p)).join(", ")}</p>}
-          </section>
-        );
-      })}
-      {rest.length > 0 && (
-        <section aria-label="Not on a task" className="flex flex-col gap-1.5">
-          <h3 className="text-meta font-bold text-muted">{live.length > 0 ? "Not on a task" : "Agents"}</h3>
-          <ul className="flex flex-col gap-0.5">{rest.map(row)}</ul>
-        </section>
-      )}
+      {/* The way to bring an agent in, first: the panel lists who works here. */}
       {board && <AddAgent board={board} />}
+      {by === "agent" ? (
+        <ul className="flex flex-col gap-1" aria-label="Agents">
+          {[...agents]
+            .sort((a, b) => Number(busy.has(b.name)) - Number(busy.has(a.name)) || a.name.localeCompare(b.name))
+            .map((a) =>
+              row(
+                a,
+                live.filter((t) => t.owner === a.name || t.with?.includes(a.name)).map((t) => t.id),
+              ),
+            )}
+        </ul>
+      ) : (
+        <>
+          {live.map((t) => {
+            const on = [t.owner, ...(t.with ?? [])].map((n) => agents.find((a) => a.name === n)).filter((a): a is Member => !!a);
+            const people = [t.owner, ...(t.with ?? [])].filter((n) => scenario.people.some((p) => p.name === n));
+            return (
+              <section key={t.id} aria-label={`Task ${t.id}: ${t.title}`} className="flex flex-col gap-1.5">
+                <h3>
+                  <button type="button" onClick={() => openTask(t.id)} className="group flex w-full items-baseline gap-2 text-left" title={`Open task ${t.id}`}>
+                    <span className="shrink-0 text-meta text-muted tabular-nums">{t.id}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="font-bold group-hover:underline">{t.title}</span>
+                      {needsYou(t, asks) && <span className="ml-1.5 inline-block rounded-[4px] bg-attention px-1.5 text-meta text-ink">needs you</span>}
+                    </span>
+                  </button>
+                </h3>
+                <ul className="flex flex-col gap-0.5">{on.map((a) => row(a))}</ul>
+                {people.length > 0 && <p className="pl-8 text-meta text-muted">with {people.map((p) => (p === scenario.me ? "you" : p)).join(", ")}</p>}
+              </section>
+            );
+          })}
+          {rest.length > 0 && (
+            <section aria-label="Not on a task" className="flex flex-col gap-1.5">
+              <h3 className="text-meta font-bold text-muted">{live.length > 0 ? "Not on a task" : "Agents"}</h3>
+              <ul className="flex flex-col gap-0.5">{rest.map((a) => row(a))}</ul>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-/** AgentRow is one agent: mark, name and what it is doing now. Its name opens its details. */
-function AgentRow({ agent, status, tone, pick, showOwner }: { agent: Member; status: string; tone: string; pick: (name: string) => void; showOwner: boolean }) {
+/**
+ * People is who is on the board, for reference: mark, name and their place on it. It is
+ * folded away like the charter and rules, and says nothing about tasks or threads.
+ */
+function People({ members }: { members: Member[] }) {
+  const [open, setOpen] = usePref("aboard.open.lab-people", false);
+  const people = members.filter((m) => m.kind === "human");
+  if (people.length === 0) return null;
+  const place = (p: Member) => (p.server_role === "guest" ? "guest" : p.access === "admin" ? "owner" : "member");
+  return (
+    <section aria-labelledby="lab-people" className="flex flex-col">
+      <h3 id="lab-people" className="text-meta font-bold text-muted">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+        >
+          <ChevronRight className={cn("size-3.5 shrink-0 transition-transform duration-200 ease-out", open && "rotate-90")} strokeWidth={1.75} aria-hidden />
+          People <span className="font-normal tabular-nums">{people.length}</span>
+        </button>
+      </h3>
+      {open && (
+        <ul className="flex animate-fade-in flex-col gap-1.5 pt-1">
+          {people.map((p) => (
+            <li key={p.id} data-person={p.name} className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-x-2">
+              <Mark name={p.name} />
+              <span className="truncate">
+                {p.name}
+                {p.name === scenario.me && <span className="text-muted"> (you)</span>}
+              </span>
+              <span className="text-meta text-muted">{place(p)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * AgentRow is one agent: mark, name and what it is doing now, and by agent the tasks it
+ * is on. Its name opens a popover with its details, its latest message on the board and
+ * a way to narrow the conversation to it.
+ */
+function AgentRow({ agent, status, tone, showOwner, tasks }: { agent: Member; status: string; tone: string; showOwner: boolean; tasks?: string[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -130,6 +222,8 @@ function AgentRow({ agent, status, tone, pick, showOwner }: { agent: Member; sta
     };
   }, [open]);
   const presence = agent.presence ?? "no_session";
+  const latest = open ? latestFrom(agent.name) : undefined;
+  const now = useNow();
   return (
     <li ref={ref} data-agent={agent.name} className="relative">
       <button
@@ -153,28 +247,52 @@ function AgentRow({ agent, status, tone, pick, showOwner }: { agent: Member; sta
         <span className="flex min-w-0 flex-col">
           <span className="flex items-center gap-1">
             <span className="truncate">{agent.name}</span>
+            <span className="text-meta text-muted">{presenceWords[presence]}</span>
             <ChevronRight className={cn("size-3 shrink-0 text-muted transition-[transform,opacity] duration-200", open ? "rotate-90 opacity-100" : "opacity-0 group-hover:opacity-100")} strokeWidth={1.75} aria-hidden />
           </span>
-          <span className={cn("line-clamp-1 text-meta", tone)}>
+          <span className={cn("line-clamp-2 text-meta", tone)}>
             {tone.includes("late") && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late or idle" />}
             {status}
           </span>
         </span>
       </button>
+      {tasks && (
+        <p className="flex flex-wrap gap-1 pb-1 pl-8">
+          {tasks.length > 0 ? tasks.map((id) => <TaskChip key={id} id={id} short={tasks.length > 1} />) : <span className="text-meta text-muted">on no task</span>}
+        </p>
+      )}
       {open && (
         <div role="dialog" aria-label={`${agent.name}'s details`} className="agent-popover absolute top-full right-0 left-0 z-20 mt-1 flex animate-fade-in flex-col gap-2 rounded-box border border-field-border bg-surface px-3.5 py-3">
-          <p className="text-meta text-muted">{status}</p>
           <AgentDetails agent={agent} board={scenario.board.name} mine={agent.owner === scenario.me} roleCharter={scenario.board.roles?.[agent.role ?? ""]} showOwner={showOwner} />
-          <button
-            type="button"
-            className="min-h-8 self-start text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
-            onClick={() => {
-              setOpen(false);
-              pick(agent.name);
-            }}
-          >
-            Show only {agent.name}&apos;s messages
-          </button>
+          <div className="flex flex-col gap-1 border-t border-rule pt-2 text-meta">
+            {latest ? (
+              <button
+                type="button"
+                className="flex flex-col items-start text-left"
+                onClick={() => {
+                  setOpen(false);
+                  openThread(latest.id);
+                }}
+              >
+                <span className="text-link underline decoration-1 underline-offset-[3px]">Latest message on this board</span>
+                <span className="line-clamp-2 text-muted">
+                  {relativeTime(new Date(latest.at).toISOString(), now)}: {latest.body}
+                </span>
+              </button>
+            ) : (
+              <span className="text-muted">No messages on this board yet</span>
+            )}
+            <button
+              type="button"
+              className="min-h-8 self-start text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
+              onClick={() => {
+                setOpen(false);
+                narrowTo(agent.name);
+              }}
+            >
+              All its messages
+            </button>
+          </div>
         </div>
       )}
     </li>
@@ -208,6 +326,9 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
       <header className="flex flex-col gap-1">
         <p className="text-meta text-muted tabular-nums">{t.id}</p>
         <h3 className="text-title font-bold">{t.title}</h3>
+        <p className="text-meta text-muted">
+          Opened by {(t.by ?? scenario.steward) === scenario.me ? "you" : (t.by ?? scenario.steward ?? "someone")} · {ago(snap.opened[t.id] ?? t.t, now)}
+        </p>
         <p className="flex items-center gap-1.5 text-meta">
           {needs ? (
             <span className="rounded-[4px] bg-attention px-1.5 text-ink">{stateText}</span>
@@ -217,7 +338,11 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
               <span className="text-muted">{stateText}</span>
             </>
           )}
-          {t.owner && <span className="text-muted">· owner {t.owner === scenario.me ? "you" : t.owner}</span>}
+          {t.owner && (
+            <span className="text-muted">
+              · <OwnerLabel task={t} /> {t.owner === scenario.me ? "you" : t.owner}
+            </span>
+          )}
         </p>
       </header>
 
@@ -306,7 +431,12 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
                   <span className="flex min-w-0 flex-col">
                     <button type="button" className="self-start hover:underline" onClick={() => pick(n)} title={`Show only ${n}'s messages`}>
                       {n}
-                      {n === t.owner && <span className="text-meta text-muted"> owner</span>}
+                      {n === t.owner && (
+                        <>
+                          {" "}
+                          <OwnerLabel task={t} />
+                        </>
+                      )}
                     </button>
                     <span className={cn("text-meta", toneClass[s.tone])}>
                       {s.tone === "late" && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late or idle" />}

@@ -1,5 +1,5 @@
 // (d) A busy board: 12 agents, 3 people and 25 tasks, to check density. The brief is
-// most of a day old, and a few now lines have gone stale.
+// most of a day old, and a few working lines have gone stale.
 
 import type { NowLine, Scenario, ScenarioMessage, ScenarioTask } from "../scenario";
 

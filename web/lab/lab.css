@@ -12,6 +12,16 @@
   --page-ink: #1d2328;
 }
 
+/* Add an agent is the Work panel's first and main action. */
+.lab-work button.add-agent {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
+}
+.lab-work button.add-agent:hover {
+  background: color-mix(in oklab, var(--ink) 88%, var(--background));
+}
+
 /* An ask in the conversation shows its own answers in the attention colour; the real
    "waiting for your reply" box would say the same thing twice. */
 .message:has(.ask-answers) .rounded-box.bg-attention:not(.ask-answers) {

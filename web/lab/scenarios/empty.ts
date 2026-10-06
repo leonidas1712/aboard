@@ -1,12 +1,12 @@
 // (c) Empty states: a board made a minute ago, then its first agent. No tasks, no brief,
-// no now lines, no messages.
+// no working lines, no messages.
 
 import type { Scenario } from "../scenario";
 
 export const empty: Scenario = {
   id: "empty",
   title: "Empty: a new board",
-  summary: "Just made: no messages, no tasks, no brief. Then one agent joins with no now line.",
+  summary: "Just made: no messages, no tasks, no brief. Then one agent joins, working on nothing yet.",
   me: "leo",
   people: [{ name: "leo", admin: true }],
   agents: [{ name: "claude", harness: "claude-code", joined: 3 }],

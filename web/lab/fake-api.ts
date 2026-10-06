@@ -525,7 +525,13 @@ async function route(method: string, path: string, q: URLSearchParams, body: Rec
       return json({ board: b, read_up_to: v.read_up_to, unread: v.unread });
     }
     if (c === "join-codes") {
-      return json({ join_line: `aboard join abj_lab_${w.board.name}_example`, role: String(body.role ?? "member"), expires_at: iso(Date.now() + 3_600_000) });
+      // The same form as the server's join line (see `aboard join --help`).
+      const host = scenario.people.length > 1 ? "aboard.example.team" : "localhost";
+      return json({
+        join_line: `Join Aboard board ${w.board.name} on ${host} as ${String(body.role ?? "member")} with code 7Q4-K2M`,
+        role: String(body.role ?? "member"),
+        expires_at: iso(Date.now() + 3_600_000),
+      });
     }
     if (["archive", "restore", "delete"].includes(c)) {
       w.board.lifecycle = c === "restore" ? "active" : "archived";

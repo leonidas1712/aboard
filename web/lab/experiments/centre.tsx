@@ -13,12 +13,12 @@ import { type ReactNode, useEffect } from "react";
 import type { Member, MemberRef } from "@/app/api";
 import { count } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { type View, filterTo, showView, useLab, useUi } from "../store";
+import { type View, filterTo, narrowTo, showView, useLab, useUi } from "../store";
 import { Brief } from "./brief";
 import { TaskChip } from "./chips";
-import { onBoard } from "./common";
+import { Mark, onBoard } from "./common";
 import { FilesView } from "./files";
-import { aboutTask, filterIds } from "./links";
+import { aboutTask, byAgent, filterIds } from "./links";
 import { TaskBoard } from "./tasks";
 
 const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
@@ -51,8 +51,11 @@ export function Centre({
   const shown: View = views.includes(ui.view) ? ui.view : "conversation";
   const tasks = snap.tasks.filter((t) => t.state !== "done").length;
   const filter = ui.filter && snap.tasks.some((t) => t.id === ui.filter) ? ui.filter : null;
-  const kept = filter ? filterIds(snap, filter) : [];
+  const agent = !filter && ui.agent && members.some((m) => m.name === ui.agent) ? ui.agent : null;
+  const mine = agent ? byAgent(snap, agent) : null;
+  const kept = filter ? filterIds(snap, filter) : (mine?.ids ?? []);
   const about = filter ? aboutTask(snap, filter) : null;
+  const narrowed = filter ?? agent;
   const label: Record<View, ReactNode> = {
     conversation: "Conversation",
     tasks: (
@@ -91,6 +94,18 @@ export function Centre({
             ))}
           </div>
         )}
+        {agent && shown === "conversation" && mine && (
+          <p className="task-filter mb-2 flex flex-wrap items-center gap-2 rounded-control bg-selected px-3 py-1.5 text-meta" role="status" aria-live="polite">
+            Only <Mark name={agent} /> <strong>{agent}</strong>
+            <span className="text-muted">
+              {[mine.threads > 0 && count(mine.threads, "thread it wrote in", "threads it wrote in"), mine.loose > 0 && count(mine.loose, "message", "messages")].filter(Boolean).join(", ")}
+            </span>
+            <button type="button" className="ml-auto inline-flex min-h-8 items-center gap-1 font-bold text-ink hover:underline" onClick={() => narrowTo(null)}>
+              <X className="size-3.5" strokeWidth={2} aria-hidden />
+              Show everything
+            </button>
+          </p>
+        )}
         {filter && shown === "conversation" && about && (
           <p className="task-filter mb-2 flex flex-wrap items-center gap-2 rounded-control bg-selected px-3 py-1.5 text-meta" role="status" aria-live="polite">
             Only <TaskChip id={filter} />
@@ -104,8 +119,8 @@ export function Centre({
           </p>
         )}
       </div>
-      {filter && (
-        // The timeline is the real one; narrowing it hides what isn't about the task.
+      {narrowed && (
+        // The timeline is the real one; narrowing it hides what isn't about the task or agent.
         <style>{`[data-lab-filter] li.board-event, [data-lab-filter] .new-divider { display: none; }
 [data-lab-filter] li.message:not(.reply)${kept.map((id) => `:not([data-id="${CSS.escape(id)}"])`).join("")} { display: none; }
 [data-lab-filter] li.thread${kept.map((id) => `:not([data-thread="${CSS.escape(id)}"])`).join("")} { display: none; }`}</style>
@@ -113,7 +128,7 @@ export function Centre({
       <div
         id="view-conversation"
         role={views.length > 1 ? "tabpanel" : undefined}
-        data-lab-filter={filter ?? undefined}
+        data-lab-filter={narrowed ?? undefined}
         className={cn("flex min-h-0 flex-1 flex-col", shown !== "conversation" && "hidden")}
       >
         {children}

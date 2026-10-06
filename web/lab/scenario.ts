@@ -1,6 +1,7 @@
 // A scenario is a made-up board, and how it changes over a few time steps, written as
 // plain data. The fake API (fake-api.ts) serves its board, members and messages to the
-// real UI; the experimental views read the parts the API doesn't have yet (now lines,
+// real UI; the experimental views read the parts the API doesn't have yet (working
+// and waiting lines,
 // tasks, asks, the brief, files) from the same steps. Times are minutes since the
 // scenario starts.
 //
@@ -83,13 +84,24 @@ export type ScenarioTask = {
   t: number;
   /** note is the owner's note on the task, with its byline. */
   note?: { text: string; by: string; t: number };
+  /** by is who opened the task; the owner is who is responsible for it, which can differ. */
+  by?: string;
 };
 
 /**
- * NowLine is what an agent says it is working on, and when it said so. backBy is when it
- * said it would be back (minutes), so waiting and late are different facts.
+ * NowLine is what an agent is on, and when it said so: "Working on: …" (`aboard working`,
+ * mostly copied from its own task list by a hook), or "Waiting on: … · until 14:20"
+ * (`aboard waiting "…" --until 14:20`). until (minutes) makes waiting and late different
+ * facts. Idle and disconnected come from the server; an agent never sets them.
  */
-export type NowLine = { text: string; t: number; backBy?: number };
+export type NowLine = {
+  text: string;
+  t: number;
+  waiting?: boolean;
+  until?: number;
+  /** setBy is the person who set the line for their agent (`aboard working --as`), if not the agent. */
+  setBy?: string;
+};
 
 /**
  * Brief is the board's maintained summary, written by its steward agent, the first thing
@@ -134,7 +146,7 @@ export type Artifact = {
 
 /**
  * Step is one moment of a scenario. Each step changes only what it names: presence and
- * now lines by agent (null clears a line), tasks and artifacts by id, the brief, and new
+ * working and waiting lines by agent (null clears one), tasks and artifacts by id, the brief, and new
  * messages.
  */
 export type Step = {
@@ -190,7 +202,7 @@ export type Scenario = {
   inbox?: InboxAsk[];
   /** notices are "worth a look" items on the other boards. */
   notices?: Notice[];
-  /** staleAfter is how many minutes old a now line may be before it is marked stale. */
+  /** staleAfter is how many minutes old a working line may be before it is marked stale. */
   staleAfter?: number;
   steps: Step[];
 };
@@ -208,6 +220,8 @@ export type Snapshot = {
   messages: ScenarioMessage[];
   /** artifacts are the board's files, the brief first when there is one. */
   artifacts: Artifact[];
+  /** opened is when each task first appeared, in minutes. */
+  opened: Record<string, number>;
 };
 
 /** snapshot folds a scenario's steps up to and including step k. */
@@ -217,6 +231,7 @@ export function snapshot(s: Scenario, k: number): Snapshot {
   const now: Record<string, NowLine | null> = {};
   const tasks = new Map<string, ScenarioTask>();
   const artifacts = new Map<string, Artifact>();
+  const opened: Record<string, number> = {};
   let brief: Brief | null = null;
   let briefVersion = 0;
   const messages: ScenarioMessage[] = [];
@@ -231,7 +246,10 @@ export function snapshot(s: Scenario, k: number): Snapshot {
     }
     Object.assign(presenceSince, step.since ?? {});
     Object.assign(now, step.now ?? {});
-    for (const t of step.tasks ?? []) tasks.set(t.id, t);
+    for (const t of step.tasks ?? []) {
+      if (!tasks.has(t.id)) opened[t.id] = t.t;
+      tasks.set(t.id, t);
+    }
     if (step.brief !== undefined) {
       brief = step.brief;
       if (brief) briefVersion++;
@@ -257,7 +275,7 @@ export function snapshot(s: Scenario, k: number): Snapshot {
       body: briefMarkdown(brief),
     });
   }
-  return { step: s.steps[k], presence, presenceSince, now, tasks: [...tasks.values()], brief, briefVersion, messages, artifacts: files };
+  return { step: s.steps[k], presence, presenceSince, now, tasks: [...tasks.values()], brief, briefVersion, messages, artifacts: files, opened };
 }
 
 /** taskIds matches task ids in text, such as CHK-16. */

@@ -107,7 +107,27 @@ export function goTo(k: number) {
 export type View = "conversation" | "tasks" | "files";
 export type Panel = { kind: "work" } | { kind: "task"; id: string } | { kind: "artifact"; id: string; from: string | null };
 /** filter is a task the conversation is narrowed to, or null. */
-type Ui = { view: View; panel: Panel; thread: string | null; full: boolean; answered: Record<string, string>; filter: string | null; n: number };
+type Ui = {
+  view: View;
+  panel: Panel;
+  thread: string | null;
+  full: boolean;
+  answered: Record<string, string>;
+  filter: string | null;
+  /** agent is an agent the conversation is narrowed to, or null. */
+  agent: string | null;
+  /** workBy is how the Work panel groups the board, remembered per viewer. */
+  workBy: "task" | "agent";
+  n: number;
+};
+
+function storedWorkBy(): "task" | "agent" {
+  try {
+    return typeof window !== "undefined" && localStorage.getItem("aboard.lab.workBy") === "agent" ? "agent" : "task";
+  } catch {
+    return "task";
+  }
+}
 
 function firstPanel(): Panel {
   const task = params().get("task");
@@ -124,6 +144,8 @@ let ui: Ui = {
   full: false,
   answered: {},
   filter: params().get("filter"),
+  agent: params().get("agent"),
+  workBy: params().get("by") === "agent" ? "agent" : storedWorkBy(),
   n: 0,
 };
 const uiListeners = new Set<() => void>();
@@ -157,7 +179,18 @@ export const fullScreen = (on: boolean) => setUi({ full: on });
 /** openThread shows a thread in the conversation, by its first message. */
 export const openThread = (root: string) => setUi({ view: "conversation", thread: root });
 /** filterTo narrows the conversation to one task's threads and messages, or stops with null. */
-export const filterTo = (task: string | null) => setUi({ filter: task, view: "conversation" });
+export const filterTo = (task: string | null) => setUi({ filter: task, agent: null, view: "conversation" });
+/** groupWork groups the Work panel by task or by agent, and remembers it in this browser. */
+export const groupWork = (by: "task" | "agent") => {
+  try {
+    localStorage.setItem("aboard.lab.workBy", by);
+  } catch {
+    // Not kept; the panel still changes.
+  }
+  setUi({ workBy: by });
+};
+/** narrowTo narrows the conversation to one agent's messages and the threads it is in, or stops with null. */
+export const narrowTo = (agent: string | null) => setUi({ agent, filter: null, view: "conversation" });
 /** answered records the person's answer to an ask, so it leaves the Inbox. */
 export const markAnswered = (ask: string, answer: string) => setUi({ answered: { ...ui.answered, [ask]: answer } });
 

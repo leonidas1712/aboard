@@ -9,21 +9,22 @@ type Shot = { name: string; query: string; theme?: "dark" | "light"; click?: str
 const team = "lab=team&board=checkout-v2";
 const shots: Shot[] = [
   { name: "inbox", query: "lab=team&step=3&inbox=1" },
-  { name: "inbox-workspace", query: "lab=workspace&step=3&inbox=1" },
-  { name: "board", query: `${team}&step=3` },
-  { name: "board-light", query: `${team}&step=3`, theme: "light" },
+  { name: "board", query: `${team}&step=3&by=task` },
+  { name: "work-by-agent", query: `${team}&step=3&by=agent` },
+  { name: "work-by-agent-light", query: `${team}&step=3&by=agent`, theme: "light" },
+  { name: "people", query: `${team}&step=3&by=task`, click: "#lab-people button" },
+  { name: "agent-popover", query: `${team}&step=3&by=task`, click: '[data-agent="claude"] > button' },
+  { name: "agent-narrowed", query: `${team}&step=3&by=task&agent=tester` },
+  { name: "add-agent", query: `${team}&step=3&by=task`, click: "button.add-agent" },
   { name: "chip-hover", query: `${team}&step=3`, hover: '.thread-tasks [data-task-chip="CHK-16"]' },
   { name: "timeline-filter", query: `${team}&step=3&filter=CHK-12` },
-  { name: "tasks-threads", query: `${team}&step=3&view=tasks`, click: '[data-task="CHK-12"] .task-threads' },
-  { name: "task-open", query: `${team}&step=3&task=CHK-12` },
-  { name: "task-open-needs", query: `${team}&step=3&task=CHK-16` },
+  { name: "tasks", query: `${team}&step=3&view=tasks` },
+  { name: "task-owner-tooltip", query: `${team}&step=3&view=tasks`, hover: '[data-task="CHK-12"] .owner-label' },
+  { name: "task-panel-threads", query: `${team}&step=3&view=tasks`, click: '[data-task="CHK-12"] .task-threads' },
   { name: "files", query: `${team}&step=3&view=files` },
-  { name: "files-light", query: `${team}&step=3&view=files`, theme: "light" },
   { name: "file-open", query: `${team}&step=3&view=files&artifact=explainer` },
-  { name: "file-open-image", query: `${team}&step=3&view=files&artifact=wireframe` },
   { name: "solo", query: "lab=solo&step=2&board=blog-engine" },
   { name: "empty", query: "lab=empty&step=2&board=new-board" },
-  { name: "busy-tasks", query: "lab=busy&board=platform&view=tasks" },
 ];
 
 const widths = [
@@ -79,6 +80,21 @@ test("a task chip opens its task, and the task narrows the conversation to its t
   await expect(page.locator('li.message[data-id="m17"]')).toBeVisible();
   await page.getByRole("button", { name: "Show everything" }).click();
   await expect(page.locator('li.message[data-id="m13"]')).toBeVisible();
+});
+
+test("an agent's popover jumps to its latest message, and narrows the conversation to it", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?${team}&step=3&by=task&panel=closed`);
+  await settle(page);
+  await page.locator('[data-agent="tester"] > button').first().click();
+  await page.getByRole("button", { name: /Latest message on this board/ }).click();
+  await expect(page.locator('li.message[data-id="m18"]')).toBeInViewport();
+  await page.locator('[data-agent="tester"] > button').first().click();
+  await page.getByRole("button", { name: "All its messages" }).click();
+  await expect(page.locator(".task-filter")).toContainText("tester");
+  await expect(page.locator('li.message[data-id="m17"]')).toBeHidden();
+  await page.getByRole("button", { name: "Show everything" }).click();
+  await expect(page.locator('li.message[data-id="m17"]')).toBeVisible();
 });
 
 test("Tell the team fills in a real message and sends it", async ({ page }) => {

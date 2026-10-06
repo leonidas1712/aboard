@@ -2,8 +2,9 @@
 
 // EXPERIMENTAL, lab only: the Tasks view, the board's work laid out by what the person
 // would act on: Needs you, In progress, Waiting, Not picked up. Done folds away. Each
-// card lists everyone on it, owner first, with what they are doing right now, so a card
-// is also who works with whom. Free agents (idle or disconnected, on no task) sit beside
+// card lists everyone on it, owner first (the agent responsible for it, not whoever opened
+// it), with what they are doing right now, so a card is also who works with whom. Its
+// threads open in the task's side panel. Free agents (idle or disconnected, on no task) sit beside
 // the work nobody has taken. A card opens its task in the side panel. Red only marks
 // what waits on your answer; amber only what is late or idle.
 
@@ -16,7 +17,7 @@ import type { ScenarioTask } from "../scenario";
 import { openTask, scenario, useLab, useUi } from "../store";
 import { Ask } from "./ask";
 import { type Ask as AskItem, asksOf, statusOf, toneClass } from "./asks";
-import { ThreadList, linkCount } from "./chips";
+import { OwnerLabel, linkCount } from "./chips";
 import { Mark, active, ago, useNow } from "./common";
 
 /** needsYou is true for a task that waits on the person, or that an unanswered ask blocks. */
@@ -119,14 +120,13 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
   const { snap } = useLab();
   const ask = asks.find((a) => a.task === t.id && !a.ahead);
   const people = [t.owner, ...(t.with ?? [])].filter((n): n is string => !!n);
-  const [open, setOpen] = useState(false);
   const links = linkCount(snap, t.id);
   const files = snap.artifacts.filter((a) => a.task === t.id).length;
   const done = t.state === "done";
   let line: string | null = null;
   if (needs) line = ask ? ask.question : (t.reason ?? null);
   else if (t.state === "waiting") line = `Waiting on ${t.waitingOn}${t.reason ? `: ${t.reason}` : ""}`;
-  else if (t.state === "open") line = `No owner · opened ${ago(t.t, now)}`;
+  else if (t.state === "open") line = `No owner · opened by ${t.by ?? "someone"} ${ago(snap.opened[t.id] ?? t.t, now)}`;
   else if (t.state === "claimed") line = "Claimed, not started";
   const steward = scenario.steward;
   return (
@@ -152,7 +152,12 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
                 <span className="flex min-w-0 flex-col">
                   <span>
                     {n}
-                    {i === 0 && t.owner === n && <span className="text-meta text-muted"> owner</span>}
+                    {i === 0 && t.owner === n && (
+                      <>
+                        {" "}
+                        <OwnerLabel task={t} />
+                      </>
+                    )}
                   </span>
                   {!done && (
                     <span className={cn("line-clamp-2 text-meta", toneClass[s.tone])}>
@@ -171,7 +176,7 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
       )}
       <div className="flex flex-col gap-1 border-t border-rule pt-2 text-meta text-muted">
         {links && (
-          <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="task-threads inline-flex min-h-7 items-center gap-1 self-start underline decoration-1 underline-offset-[3px] hover:text-ink">
+          <button type="button" onClick={() => openTask(t.id)} title={`Open ${t.id}, with its threads`} className="task-threads inline-flex min-h-7 items-center gap-1 self-start underline decoration-1 underline-offset-[3px] hover:text-ink">
             <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />
             {links}
           </button>
@@ -180,7 +185,6 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
           {files > 0 && `${count(files, "file", "files")} · `}
           {ago(t.t, now)}
         </p>
-        {open && <ThreadList task={t.id} className="-mx-1.5 animate-fade-in" />}
       </div>
     </article>
   );
