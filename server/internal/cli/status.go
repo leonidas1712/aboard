@@ -166,7 +166,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 			fmt.Fprintf(&boardLines, "Policy: %s\n", line)
 		}
-		if r, err := c.api.ListMembersWithResponse(ctx, t.board); err == nil && r.JSON200 != nil {
+		if r, err := c.api.ListMembersWithResponse(ctx, t.board, nil); err == nil && r.JSON200 != nil {
 			members = r.JSON200.Members
 			if out.People = peopleOf(members); out.People != nil {
 				fmt.Fprintf(&boardLines, "People: %s\n", peopleText(out.People))

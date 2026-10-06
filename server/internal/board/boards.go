@@ -425,9 +425,28 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 
 // Members lists a board's members, each agent with its current presence.
 func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Member, error) {
-	var out []Member
+	l, err := s.ListMembers(ctx, p, name, false)
+	return l.Members, err
+}
+
+// MemberList is a board's members as one caller reads them: CanRemove says, by member
+// id, which agents the caller may remove now.
+type MemberList struct {
+	Members   []Member
+	CanRemove map[string]bool
+}
+
+// ListMembers returns the people and agents on the board now, each agent with its
+// current presence, and with removed also the agents whose seats ended. For a person,
+// it says which agents they may remove.
+func (s *Service) ListMembers(ctx context.Context, p Principal, name string, removed bool) (MemberList, error) {
+	out := MemberList{CanRemove: map[string]bool{}}
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, err := s.access(tx, p, name)
+		b, me, err := s.access(tx, p, name)
+		if err != nil {
+			return err
+		}
+		person, err := caller(tx, p, stamp(s.clk.Now()))
 		if err != nil {
 			return err
 		}
@@ -435,14 +454,26 @@ func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Memb
 		if err != nil {
 			return err
 		}
-		out = present(all)
+		out.Members = present(all)
 		now := s.clk.Now()
-		for i := range out {
-			out[i].Presence = out[i].CurrentPresence(now)
+		for i, m := range out.Members {
+			out.Members[i].Presence = m.CurrentPresence(now)
+			if m.Kind == "agent" && p.Human != nil {
+				_, err := removerOf(tx, b, me, person, m)
+				out.CanRemove[m.ID] = err == nil
+			}
+		}
+		if removed {
+			for _, m := range all {
+				if m.Kind == "agent" && m.Status != StatusActive {
+					m.Presence = Presence{}
+					out.Members = append(out.Members, m)
+				}
+			}
 		}
 		if p.Agent != nil && !b.Policy.ShowHarness {
-			for i := range out {
-				out[i].Harness = nil
+			for i := range out.Members {
+				out.Members[i].Harness = nil
 			}
 		}
 		return nil

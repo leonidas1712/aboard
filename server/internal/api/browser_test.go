@@ -111,7 +111,7 @@ func TestBrowserTokenActsAsItsPerson(t *testing.T) {
 	if len(msgs.JSON200.Messages) != 1 || msgs.JSON200.Messages[0].Body != "hello" {
 		t.Fatalf("messages: %s", bodyOf(msgs))
 	}
-	members, err := b.ListMembersWithResponse(ctx, boardName)
+	members, err := b.ListMembersWithResponse(ctx, boardName, nil)
 	mustStatus(t, members, err, 200)
 	if first := s.openStream(token).next(); !strings.HasPrefix(first, "event: head\n") {
 		t.Fatalf("stream with the browser token: %q", first)

@@ -217,7 +217,7 @@ func TestReportedPresenceShowsOnTheBoard(t *testing.T) {
 	if err := srv.SetPresence(ctx, to, delivery.PresenceWorking, delivery.ModeHumans); err != nil {
 		t.Fatal(err)
 	}
-	r, err := apiClient(t, url, owner).ListMembersWithResponse(ctx, board)
+	r, err := apiClient(t, url, owner).ListMembersWithResponse(ctx, board, nil)
 	if err != nil || r.JSON200 == nil {
 		t.Fatalf("members: %v %s", err, r.Body)
 	}

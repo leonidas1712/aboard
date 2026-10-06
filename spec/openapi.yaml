@@ -1700,6 +1700,19 @@ paths:
       tags: [boards]
       operationId: listMembers
       summary: List members of a board
+      description: |
+        The people and agents on the board now. With `removed=true`, also the agents
+        whose seats ended (removed, or left by themselves), with `status`, `removed_at`
+        and `removed_by`, so a reader can show them apart. For a person's own key or
+        browser, each agent on the board now carries `can_remove`: whether this caller
+        may remove it (`DELETE /v1/boards/{board}/members/{member}`), from their current
+        authority; the removal checks again.
+      parameters:
+        - name: removed
+          in: query
+          required: false
+          description: Also list the agents whose seats ended.
+          schema: { type: boolean }
       responses:
         "200":
           description: Members
@@ -4111,7 +4124,26 @@ components:
           allOf: [{ $ref: "#/components/schemas/ServerRole" }]
           nullable: true
           description: A person's role on the server, so a guest can be shown as one. Null for agents.
-        status: { type: string, enum: [active] }
+        status:
+          type: string
+          enum: [active, removed, left]
+          description: |
+            `active` for a member on the board now. Only `GET /v1/boards/{board}/members`
+            with `removed=true` lists an agent whose seat ended: `removed`, or `left` when
+            it removed its own seat.
+        removed_at:
+          allOf: [{ $ref: "#/components/schemas/Timestamp" }]
+          description: For an agent whose seat ended, when; absent otherwise, and for seats ended before this was kept.
+        removed_by:
+          allOf: [{ $ref: "#/components/schemas/RemovedBy" }]
+          description: For an agent whose seat ended, who ended it; absent otherwise.
+        can_remove:
+          type: boolean
+          description: |
+            In `GET /v1/boards/{board}/members` for a person's own key or browser, on an
+            agent on the board now: whether this caller may remove it (its person, one of
+            the board's owners, or a server admin). Absent otherwise; clients treat
+            absence as false. The removal checks again.
         joined_at: { $ref: "#/components/schemas/Timestamp" }
         presence:
           type: string

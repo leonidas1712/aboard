@@ -22,7 +22,7 @@ func (s *testServer) setPresence(token string, p api.Presence) *api.SetPresenceR
 // them, with "null" for a null.
 func (s *testServer) presenceOf(token, boardName, member string) (presence, since string) {
 	s.t.Helper()
-	r, err := s.client(token).ListMembersWithResponse(context.Background(), boardName)
+	r, err := s.client(token).ListMembersWithResponse(context.Background(), boardName, nil)
 	mustStatus(s.t, r, err, 200)
 	for _, m := range r.JSON200.Members {
 		if m.Name != member {
@@ -203,7 +203,7 @@ func TestDeliveryModeIsReportedWithPresence(t *testing.T) {
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
 	modeOf := func(member string) string {
-		r, err := s.client(reviewer).ListMembersWithResponse(ctx, boardName)
+		r, err := s.client(reviewer).ListMembersWithResponse(ctx, boardName, nil)
 		mustStatus(t, r, err, 200)
 		for _, m := range r.JSON200.Members {
 			if m.Name == member {

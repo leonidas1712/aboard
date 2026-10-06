@@ -601,7 +601,7 @@ func ensureSwarmBoard(ctx context.Context, c *client, f swarmFile) (*api.Board, 
 func boardMembers(ctx context.Context, c *client, board string) (map[string]api.Member, error) {
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	r, err := c.api.ListMembersWithResponse(ctx, board)
+	r, err := c.api.ListMembersWithResponse(ctx, board, nil)
 	if err != nil {
 		return nil, c.unreachable(err)
 	}
