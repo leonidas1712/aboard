@@ -4,7 +4,7 @@ import { type Page, expect, test } from "@playwright/test";
 // be looked at side by side, and a click-through of the main paths. Run with
 // `make lab-shots`.
 
-type Shot = { name: string; query: string; theme?: "dark" | "light"; click?: string; hover?: string };
+type Shot = { name: string; query: string; theme?: "dark" | "light"; click?: string | string[]; hover?: string };
 
 const team = "lab=team&board=checkout-v2";
 const shots: Shot[] = [
@@ -21,6 +21,9 @@ const shots: Shot[] = [
   { name: "tasks", query: `${team}&step=3&view=tasks` },
   { name: "task-owner-tooltip", query: `${team}&step=3&view=tasks`, hover: '[data-task="CHK-12"] .owner-label' },
   { name: "task-panel-threads", query: `${team}&step=3&view=tasks`, click: '[data-task="CHK-12"] .task-threads' },
+  { name: "task-panel-chk16", query: `${team}&step=3&task=CHK-16` },
+  { name: "task-panel-about-tooltip", query: `${team}&step=3&task=CHK-12`, hover: ".task-panel h4:has-text('Where it stands')" },
+  { name: "brief-edit", query: `${team}&step=3`, click: [".brief button[aria-expanded]", ".brief button:has-text('Edit')"] },
   { name: "files", query: `${team}&step=3&view=files` },
   { name: "file-open", query: `${team}&step=3&view=files&artifact=explainer` },
   { name: "solo", query: "lab=solo&step=2&board=blog-engine" },
@@ -75,7 +78,7 @@ test("a task chip opens its task, and the task narrows the conversation to its t
   await expect(page.locator(".task-panel h3")).toHaveText("Move payment intents to the v2 API");
   await expect(page.locator(".task-panel .thread-list > li")).toHaveCount(4);
   await page.getByRole("button", { name: "Show only CHK-12 in the conversation" }).click();
-  await expect(page.locator(".task-filter")).toContainText("3 threads");
+  await expect(page.locator(".task-filter")).toContainText("4 in conversation");
   await expect(page.locator('li.message[data-id="m13"]')).toBeHidden();
   await expect(page.locator('li.message[data-id="m17"]')).toBeVisible();
   await page.getByRole("button", { name: "Show everything" }).click();
@@ -122,8 +125,8 @@ for (const w of widths) {
         await page.locator(s.hover).first().hover();
         await page.waitForTimeout(500);
       }
-      if (s.click) {
-        await page.locator(s.click).first().click();
+      for (const c of typeof s.click === "string" ? [s.click] : (s.click ?? [])) {
+        await page.locator(c).first().click({ force: true });
         await page.waitForTimeout(300);
       }
       await page.screenshot({ path: `lab/screenshots/${s.name}-${w.label}.png`, fullPage: w.label === "mobile" });

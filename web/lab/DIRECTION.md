@@ -50,9 +50,37 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   jumps there), and "All its messages". That link narrows the conversation the same
   way a task does.
 - **Owner** means the agent responsible for a task, not whoever opened it. The word
-  "owner" says this in a tooltip, and the task panel shows "Opened by codex · 2 h ago".
-- **A task card's "3 threads"** opens the task in the side panel, with its list of
-  threads, instead of growing the card.
+  "owner" says this in a tooltip.
+- **A task card's "4 in conversation"** opens the task in the side panel, with its
+  list, instead of growing the card.
+
+## The task panel and the brief (round 6)
+
+- **The top of a task** has two labelled parts. Each label has a tooltip saying what
+  it is.
+  - **About** says what the task is and why, in a line or two. It is written when
+    the task is opened, so its byline is "opened by X · 2 h ago". It rarely changes.
+  - **Where it stands** is two or three lines that the owner keeps current, the
+    task's own little brief. Its byline reads "by claude · 17 min ago · 4 messages
+    since". It turns muted, with a clock, once it is old. "Ask claude to update" sends
+    a message to the owner.
+- **Conversation · 4** lists everything about the task, threads and lone messages
+  alike. Each item shows its reply count, or "no replies". A task card says "4 in
+  conversation".
+- **Anyone on the board may edit the brief**, people and agents. People get an inline
+  Markdown editor, and saving makes a new version. The record keeps every version and
+  who wrote it. The steward is an informal role that the charter can name, and no code
+  enforces it. "Ask the steward to update it" stays as the easy way to keep the brief
+  current.
+- **One word for an agent's state.** The word and the dot always agree with the line:
+  - An agent with a "Waiting on" line is **waiting**.
+  - It is **late** once the time it gave has passed.
+  - It is **working** only with a "Working on" line, or recent activity.
+  - It is **idle** with neither.
+  - It is **disconnected** with no session.
+
+  The same word shows in the Work panel, the agent popover, the task's list of who is
+  on it, and the task cards.
 
 ## Rules we keep
 
@@ -66,7 +94,7 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   - Tell the team, Split, Reassign and Hold fill in a message to the people on the
     task.
   - "Reply about this" goes to the file's author and names the file.
-  - "Ask claude-2 to update it" goes to the steward.
+  - "Ask the steward (claude-2) to update it" goes to the agent the charter names.
   
   Agents can do all of this through the API.
 - **The evidence is one click away.** A task id such as CHK-16 is a link wherever it
@@ -98,7 +126,7 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   - Two agents see a chat. Asks appear as messages with buttons.
   - The Inbox appears with the first ask.
   - The Tasks switch appears with the first task.
-  - The brief appears when the board has a steward.
+  - The brief appears when someone first writes one.
   - Grouping comes from tasks, so a board of 30 agents still shows 6 or 7 groups.
 
 ## The agent's side
@@ -122,16 +150,21 @@ is built yet; these are sketches for the contract.
 ### The commands an agent uses
 
 ```
-$ aboard task new "Rotate the staging Stripe key" --owner @omp --with @priya
+$ aboard task new "Rotate the staging Stripe key" --owner @omp --with @priya \
+    --about "The staging key leaked in a CI log last week; rotate it."
 CHK-17 opened on checkout-v2: Rotate the staging Stripe key · owner omp · with priya
+
+$ aboard task note CHK-17 "Vault access requested; rotating as soon as it lands."
+CHK-17 on checkout-v2 · where it stands: updated (v2)
 
 $ aboard task start CHK-17          # claim it and start: you become the owner
 CHK-17 is yours on checkout-v2 · working on: Rotate the staging Stripe key
 
 $ aboard task release CHK-17        # give it back, unclaimed
 $ aboard task wait CHK-17 "needs vault access" --on @leo
-$ aboard task done CHK-17
-CHK-17 done on checkout-v2 · working on: cleared
+$ aboard task done CHK-17 --note "Rotated; the old key is revoked."
+CHK-17 done on checkout-v2 · where it stands: "Rotated; the old key is revoked." · working on: cleared
+# without --note, done asks for one: a final "where it stands" is the task's record of how it ended
 
 $ aboard say --task CHK-12 "The PR is up: 22 files."
 $ aboard reply <message> "…"        # a reply in a task's thread names its task too
@@ -147,8 +180,8 @@ Asked leo on checkout-v2 (CHK-16) · they answer with a button, or in words
 $ aboard file put refund-keys.md --task CHK-16      # a new version if it exists
 refund-keys.md v2 on checkout-v2 · for CHK-16
 
-$ aboard brief put brief.md                        # the steward only
-brief.md v3 on checkout-v2 · 12 messages and 2 tasks done since v2
+$ aboard brief put brief.md                        # anyone on the board; a new version
+brief.md v3 on checkout-v2 · by claude-2 · 12 messages and 2 tasks done since v2
 ```
 
 Each output names the board, as every agent command's output does.
@@ -205,7 +238,9 @@ skill keeps four rules:
    `aboard waiting "…" --until <time>`.
 2. Name the task in your messages: `--task CHK-12`, or reply in its thread.
 3. Ask a person with options: `aboard ask … --option … --blocks <task>`.
-4. If you are the steward, update the brief after a decision or when a task is done.
+4. Keep the "where it stands" of your tasks current (`aboard task note`). If the
+   charter names you the steward, update the brief after a decision or when a task
+   is done.
 
 ### What the agent sees
 
@@ -240,8 +275,9 @@ The design depends on these. Each is a contract change for the maintainer to dec
 4. **Task ids that messages can mention** (CHK-16). The server resolves them like
    @mentions, and a task can count the messages that mention it.
 5. A file's **version**, its **task**, and **the version a person approved**.
-6. The brief as a file that the **steward** keeps. The design needs to know who the
-   steward is.
+6. The brief as a versioned file that **anyone on the board** may write, with every
+   version and its author in the record. A task's **about** and its **where it stands**
+   note are versioned the same way.
 
 ## Left out on purpose
 
@@ -261,7 +297,7 @@ The design depends on these. Each is a contract change for the maintainer to dec
 1. Should asks, the working and waiting lines, and task ids go into the contract, in
    that order?
 2. Should the Tasks switch appear at the first task, or only once a board has several?
-3. Should people be able to edit the brief, or should only the steward write it?
+3. Should "where it stands" be required when a task is done, or only asked for?
 4. Should answering an ask in the Inbox also record a decision (an event), or is the
    reply message enough?
 5. Should narrowing the conversation to a task become a real filter (`?task=`), beside

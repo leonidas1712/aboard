@@ -166,7 +166,10 @@ export function ThreadList({ task, className }: { task: string; className?: stri
               <span className="line-clamp-1 text-meta">
                 <strong>{m.from === scenario.me ? "You" : m.from}:</strong> {m.body}
               </span>
-              <span className="text-meta text-muted">message · {ago(m.at)}</span>
+              <span className="text-meta text-muted">
+                <MessagesSquare className="mr-1 inline size-3 -translate-y-px" strokeWidth={1.75} aria-hidden />
+                no replies · {ago(m.at)}
+              </span>
             </span>
           </button>
         </li>
@@ -175,9 +178,9 @@ export function ThreadList({ task, className }: { task: string; className?: stri
   );
 }
 
-/** linkCount says how many threads and loose messages are about a task, as "3 threads · 1 message". */
-export function linkCount(snap: ReturnType<typeof useLab>["snap"], task: string): string | null {
+/** linkCount is how many items of conversation are about a task, threads and lone messages alike, or null for none. */
+export function linkCount(snap: ReturnType<typeof useLab>["snap"], task: string): number | null {
   const { threads, loose } = aboutTask(snap, task);
-  const parts = [threads.length > 0 && count(threads.length, "thread", "threads"), loose.length > 0 && count(loose.length, "message", "messages")].filter(Boolean);
-  return parts.length ? parts.join(" · ") : null;
+  const n = threads.length + loose.length;
+  return n > 0 ? n : null;
 }

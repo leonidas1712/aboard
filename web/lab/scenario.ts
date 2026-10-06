@@ -82,7 +82,9 @@ export type ScenarioTask = {
   reason?: string;
   /** t is when the task last changed. */
   t: number;
-  /** note is the owner's note on the task, with its byline. */
+  /** about says what the task is and why, written when it is opened; it rarely changes. */
+  about?: string;
+  /** note is where the task stands: the owner keeps it current, as the task's own brief. */
   note?: { text: string; by: string; t: number };
   /** by is who opened the task; the owner is who is responsible for it, which can differ. */
   by?: string;
@@ -257,8 +259,6 @@ export function snapshot(s: Scenario, k: number): Snapshot {
     messages.push(...(step.messages ?? []));
     for (const a of step.artifacts ?? []) artifacts.set(a.id, a);
   }
-  // No steward, no brief.
-  if (!s.steward) brief = null;
   const files = [...artifacts.values()];
   // The brief is also the board's first maintained artifact.
   if (brief) {

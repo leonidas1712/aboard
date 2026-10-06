@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import type { ScenarioTask } from "../scenario";
 import { openTask, scenario, useLab, useUi } from "../store";
 import { Ask } from "./ask";
-import { type Ask as AskItem, asksOf, statusOf, toneClass } from "./asks";
+import { type Ask as AskItem, agentState, asksOf, statusOf, toneClass } from "./asks";
 import { OwnerLabel, linkCount } from "./chips";
 import { Mark, active, ago, useNow } from "./common";
 
@@ -158,6 +158,7 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
                         <OwnerLabel task={t} />
                       </>
                     )}
+                    {!human && !done && <span className="text-meta text-muted"> · {agentState(snap, n, now)}</span>}
                   </span>
                   {!done && (
                     <span className={cn("line-clamp-2 text-meta", toneClass[s.tone])}>
@@ -178,7 +179,7 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
         {links && (
           <button type="button" onClick={() => openTask(t.id)} title={`Open ${t.id}, with its threads`} className="task-threads inline-flex min-h-7 items-center gap-1 self-start underline decoration-1 underline-offset-[3px] hover:text-ink">
             <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />
-            {links}
+            {links} in conversation
           </button>
         )}
         <p>

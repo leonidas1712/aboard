@@ -110,7 +110,7 @@ export function Centre({
           <p className="task-filter mb-2 flex flex-wrap items-center gap-2 rounded-control bg-selected px-3 py-1.5 text-meta" role="status" aria-live="polite">
             Only <TaskChip id={filter} />
             <span className="text-muted">
-              {[about.threads.length > 0 && count(about.threads.length, "thread", "threads"), about.loose.length > 0 && count(about.loose.length, "message", "messages")].filter(Boolean).join(", ")}
+              {about.threads.length + about.loose.length} in conversation
             </span>
             <button type="button" className="ml-auto inline-flex min-h-8 items-center gap-1 font-bold text-ink hover:underline" onClick={() => filterTo(null)}>
               <X className="size-3.5" strokeWidth={2} aria-hidden />

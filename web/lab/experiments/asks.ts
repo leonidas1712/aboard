@@ -96,29 +96,60 @@ export function noticesOf(snap: Snapshot, now: number): Notice[] {
 export type Status = { text: string; tone: "late" | "quiet" | "plain" };
 
 /** statusOf is what an agent is doing right now, in a few words, and how loudly to say it. */
-export function statusOf(snap: Snapshot, name: string, asks: Ask[], now: number): Status {
+/**
+ * AgentState is the one word for what an agent is doing, which its dot and its line
+ * agree on: waiting when it said what it waits on (late once past its time), working
+ * when it said what it works on or was busy just now, idle with neither, disconnected
+ * with no session.
+ */
+export type AgentState = "working" | "waiting" | "late" | "idle" | "disconnected";
+
+export function agentState(snap: Snapshot, name: string, now: number): AgentState {
   const line = snap.now[name];
   const presence = snap.presence[name];
+  if (line?.waiting) return line.until !== undefined && now > at(line.until) ? "late" : "waiting";
+  if (presence === "waiting") return "waiting";
+  if (presence === "no_session") return "disconnected";
+  if (line || presence === "working") return "working";
+  return "idle";
+}
+
+/** stateDot is the dot beside an agent's mark for each state. */
+export const stateDot: Record<AgentState, string> = {
+  working: "bg-accent",
+  waiting: "bg-ink",
+  late: "bg-muted",
+  idle: "border border-muted bg-sidebar",
+  disconnected: "bg-sidebar border border-dashed border-muted",
+};
+
+export function statusOf(snap: Snapshot, name: string, _asks: Ask[], now: number): Status {
+  const line = snap.now[name];
+  const state = agentState(snap, name, now);
   const time = (m: number) => clockTime(new Date(at(m)).toISOString());
-  if (line?.waiting && line.until !== undefined && now > at(line.until)) {
-    return { text: `Waiting on: ${line.text} · ${Math.round((now - at(line.until)) / 60_000)}m over`, tone: "late" };
+  const by = line?.setBy ? ` · set by ${line.setBy === scenario.me ? "you" : line.setBy}` : "";
+  switch (state) {
+    case "late":
+      return { text: `Waiting on: ${line!.text} · ${Math.round((now - at(line!.until!)) / 60_000)}m over${by}`, tone: "late" };
+    case "waiting":
+      return line?.waiting
+        ? { text: `Waiting on: ${line.text}${line.until !== undefined ? ` · until ${time(line.until)}` : ""}${by}`, tone: "plain" }
+        : { text: "Waiting on: you, in its session", tone: "plain" };
+    case "disconnected":
+      return { text: "disconnected", tone: "quiet" };
+    case "idle": {
+      const busy = snap.tasks.some((t) => active(t) && (t.owner === name || t.with?.includes(name)));
+      const idle = Math.round(minutesSince(snap.presenceSince[name] ?? 0, now));
+      const span = idle < 60 ? `${idle}m` : `${Math.floor(idle / 60)}h`;
+      return busy ? { text: `idle ${span}`, tone: "quiet" } : { text: `idle ${span}, on no task`, tone: "late" };
+    }
+    default: {
+      if (line) return { text: `Working on: ${line.text}${by}`, tone: "plain" };
+      // Busy but nothing said: its last message, labelled as such, so the row never goes blank.
+      const last = latestFrom(name);
+      return last ? { text: `last said: ${last.body.split("\n")[0]}`, tone: "quiet" } : { text: "nothing said yet", tone: "quiet" };
+    }
   }
-  if (presence === "no_session") return { text: "disconnected", tone: "quiet" };
-  if (presence === "idle" && !line?.waiting) {
-    const busy = snap.tasks.some((t) => active(t) && (t.owner === name || t.with?.includes(name)));
-    const idle = Math.round(minutesSince(snap.presenceSince[name] ?? 0, now));
-    const span = idle < 60 ? `${idle}m` : `${Math.floor(idle / 60)}h`;
-    if (!busy) return { text: `idle ${span}`, tone: "late" };
-    return { text: "idle", tone: "quiet" };
-  }
-  // Nothing set: the agent's last message, labelled as such, so the row never goes blank.
-  if (!line) {
-    const last = latestFrom(name);
-    return last ? { text: `last said: ${last.body.split("\n")[0]}`, tone: "quiet" } : { text: "nothing said yet", tone: "quiet" };
-  }
-  const by = line.setBy ? ` · set by ${line.setBy === scenario.me ? "you" : line.setBy}` : "";
-  if (line.waiting) return { text: `Waiting on: ${line.text}${line.until !== undefined ? ` · until ${time(line.until)}` : ""}${by}`, tone: "plain" };
-  return { text: `Working on: ${line.text}${by}`, tone: "plain" };
 }
 
 export const toneClass: Record<Status["tone"], string> = {

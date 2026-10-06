@@ -4,26 +4,31 @@
 // tasks, each with the agents on it and what they are doing right now, then the agents
 // on no task, Add an agent, and the charter, rules and details folded away. Click an
 // agent for its details in a small popover; click a task or a file and it opens here,
-// with a way back, so the person never leaves the board. A task shows its owner's note,
+// with a way back, so the person never leaves the board. A task shows About (what it is,
+// written when opened) and Where it stands (its owner's current note),
 // the open question with answer buttons, its files with what you approved, who is on
 // it, a box to tell its people something (Split, Reassign and Hold fill in a message you
 // read before it goes), and its threads and messages, with a way to narrow the
 // conversation to them.
 
 import { ArrowLeft, ChevronRight, Clock } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { boardMessages } from "../fake-api";
+import type { ScenarioTask } from "../scenario";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Board, type Member, type Message, get, post } from "@/app/api";
 import { AddAgent } from "@/app/board-details";
 import { AgentDetails } from "@/app/sidebars";
 import { usePref } from "@/app/prefs";
-import { count, presenceWords, relativeTime } from "@/app/words";
+import { count, relativeTime } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { filterTo, groupWork, narrowTo, openArtifact, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
+import { at, filterTo, groupWork, narrowTo, openArtifact, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
 import { ArtifactPanel, FileIcon, approval } from "./artifacts";
-import { answer, asksOf, statusOf, toneClass } from "./asks";
-import { Mark, active, ago, onBoard, useNow } from "./common";
+import { agentState, answer, asksOf, stateDot, statusOf, toneClass } from "./asks";
+import { Mark, active, ago, minutesSince, onBoard, staleAfter, useNow } from "./common";
 import { OwnerLabel, TaskChip, ThreadList, linkCount } from "./chips";
-import { latestFrom } from "./links";
+import { latestFrom, tasksOf } from "./links";
+import { Ask } from "./ask";
 import { needsYou } from "./tasks";
 import { Ids } from "./text";
 
@@ -221,7 +226,8 @@ function AgentRow({ agent, status, tone, showOwner, tasks }: { agent: Member; st
       document.removeEventListener("keydown", esc);
     };
   }, [open]);
-  const presence = agent.presence ?? "no_session";
+  const { snap } = useLab();
+  const state = agentState(snap, agent.name, Date.now());
   const latest = open ? latestFrom(agent.name) : undefined;
   const now = useNow();
   return (
@@ -240,14 +246,14 @@ function AgentRow({ agent, status, tone, showOwner, tasks }: { agent: Member; st
             aria-hidden
             className={cn(
               "absolute -right-0.5 -bottom-0.5 size-2 rounded-full border-2 border-sidebar",
-              presence === "working" ? "bg-accent" : presence === "idle" ? "bg-muted" : presence === "waiting" ? "bg-ink" : "bg-sidebar",
+              stateDot[state],
             )}
           />
         </span>
         <span className="flex min-w-0 flex-col">
           <span className="flex items-center gap-1">
             <span className="truncate">{agent.name}</span>
-            <span className="text-meta text-muted">{presenceWords[presence]}</span>
+            <span className="agent-state text-meta text-muted">{state}</span>
             <ChevronRight className={cn("size-3 shrink-0 text-muted transition-[transform,opacity] duration-200", open ? "rotate-90 opacity-100" : "opacity-0 group-hover:opacity-100")} strokeWidth={1.75} aria-hidden />
           </span>
           <span className={cn("line-clamp-2 text-meta", tone)}>
@@ -299,6 +305,64 @@ function AgentRow({ agent, status, tone, showOwner, tasks }: { agent: Member; st
   );
 }
 
+/** Label is a task panel section's heading, with a short tooltip saying what it is. */
+function Label({ id, help, children }: { id: string; help: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <h4 id={id} tabIndex={0} className="cursor-help self-start text-meta font-bold text-muted">
+          {children}
+        </h4>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" className="max-w-[280px]">
+        {help}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * WhereItStands is the task's own little brief: two or three lines its owner keeps
+ * current, with a byline and how much happened since. Past staleAfter it turns muted
+ * with a clock; anyone can ask the owner to update it.
+ */
+function WhereItStands({ task: t }: { task: ScenarioTask }) {
+  const { snap } = useLab();
+  const now = useNow();
+  const owner = t.owner && !scenario.people.some((p) => p.name === t.owner) ? t.owner : null;
+  const messages = t.note ? boardMessages().filter((m) => m.at > at(t.note!.t) && tasksOf(m, snap).includes(t.id)).length : 0;
+  const stale = t.note ? minutesSince(t.note.t, now) > staleAfter : false;
+  return (
+    <section aria-labelledby={`stands-${t.id}`} className="flex flex-col gap-0.5">
+      <Label id={`stands-${t.id}`} help="Where the task is now, in two or three lines. Its owner keeps it current, as the task's own brief.">
+        Where it stands
+      </Label>
+      {t.note ? (
+        <>
+          <p className={cn(stale && "text-muted")}>
+            <Ids text={t.note.text} />
+          </p>
+          <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-muted">
+            {stale && <Clock className="size-3" strokeWidth={2} aria-label="Not updated in a while" />}
+            by {t.note.by === scenario.me ? "you" : t.note.by} · {ago(t.note.t, now)} · {count(messages, "message", "messages")} since
+            {owner && (
+              <>
+                {" · "}
+                <Ask label={`Ask ${owner} to update`} to={owner} text={`${t.id}: please update where it stands (aboard task note ${t.id} "…").`} className="min-h-0" />
+              </>
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="text-meta text-muted">
+          Nothing yet.{" "}
+          {owner && <Ask label={`Ask ${owner} to write it`} to={owner} text={`${t.id}: please say where it stands (aboard task note ${t.id} "…").`} className="min-h-0" />}
+        </p>
+      )}
+    </section>
+  );
+}
+
 type Suggestion = { label: string; to: string[]; text: string };
 
 function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick: (name: string) => void }) {
@@ -327,7 +391,7 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
         <p className="text-meta text-muted tabular-nums">{t.id}</p>
         <h3 className="text-title font-bold">{t.title}</h3>
         <p className="text-meta text-muted">
-          Opened by {(t.by ?? scenario.steward) === scenario.me ? "you" : (t.by ?? scenario.steward ?? "someone")} · {ago(snap.opened[t.id] ?? t.t, now)}
+          opened by {(t.by ?? scenario.steward) === scenario.me ? "you" : (t.by ?? scenario.steward ?? "someone")} · {ago(snap.opened[t.id] ?? t.t, now)}
         </p>
         <p className="flex items-center gap-1.5 text-meta">
           {needs ? (
@@ -346,15 +410,20 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
         </p>
       </header>
 
-      {t.note && (
-        <section aria-label="The owner's note" className="flex flex-col gap-1">
-          <p>
-            <Ids text={t.note.text} />
-          </p>
-          <p className="text-meta text-muted">
-            Written by {t.note.by} · {ago(t.note.t, now)}
-          </p>
-        </section>
+      {(t.about || t.note) && (
+        <div className="flex flex-col gap-4">
+          {t.about && (
+            <section aria-labelledby={`about-${t.id}`} className="flex flex-col gap-0.5">
+              <Label id={`about-${t.id}`} help="What the task is and why, written when it was opened. It rarely changes.">
+                About
+              </Label>
+              <p>
+                <Ids text={t.about} />
+              </p>
+            </section>
+          )}
+          <WhereItStands task={t} />
+        </div>
       )}
 
       {ask && (
@@ -378,9 +447,9 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
       )}
 
       {links && (
-        <section aria-label={`Threads and messages about ${t.id}`} className="flex flex-col gap-1">
+        <section aria-label={`Conversation about ${t.id}`} className="flex flex-col gap-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <h4 className="text-meta font-bold text-muted">{links}</h4>
+            <h4 className="text-meta font-bold text-muted">Conversation · {links}</h4>
             <button type="button" className="min-h-8 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => filterTo(t.id)}>
               Show only {t.id} in the conversation
             </button>
@@ -437,6 +506,7 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
                           <OwnerLabel task={t} />
                         </>
                       )}
+                      {!human && <span className="text-meta text-muted"> · {agentState(snap, n, now)}</span>}
                     </button>
                     <span className={cn("text-meta", toneClass[s.tone])}>
                       {s.tone === "late" && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late or idle" />}
