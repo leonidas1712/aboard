@@ -22,9 +22,10 @@ curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/insta
 ```
 
 The script downloads the latest release's archive for your system, checks it against the
-release's signed checksums, and installs `aboard` and the launchers shipped with it to
-`~/.local/bin`. It never uses `sudo`. The download, the signature, the checksum and the
-archive's contents are all checked before anything is written, so if one of those
+release's checksums, and their signature when cosign is installed
+([below](#check-the-signature)), and installs `aboard` and the launchers shipped with it
+to `~/.local/bin`. It never uses `sudo`. The download, the signature (with cosign), the
+checksum and the archive's contents are all checked before anything is written, so if one of those
 checks fails, an install you already have stays as it was. It then replaces `aboard`
 and each launcher one at a time, each written under a temporary name and renamed into
 place, so no program is ever half-written. A failure while writing can leave some
@@ -78,7 +79,7 @@ It prints `Verified OK` only for checksums the release job signed for that tag.
 Apple doesn't notarize aboard's macOS binaries. Installed with the script, they run
 without a prompt. An archive downloaded with a browser is blocked the first time it
 runs: allow it in System Settings, under Privacy & Security, or install with the script
-instead. Either way, the signed checksums are what show the download is aboard's.
+instead. Either way, the checksums' signature, checked with cosign, is what shows the download is aboard's.
 
 ### Team servers
 

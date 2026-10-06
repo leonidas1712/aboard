@@ -262,12 +262,17 @@ kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeo
 kubectl scale -n aboard deploy/aboard --replicas=1
 ```
 
-With Docker, `docker stop` returns once the container has exited. Copy the volume to
-a file in the current folder, then start the server again:
+With Docker, `docker stop` returns once the container has exited. The copy holds every
+key and message, so it goes in a new folder only you can read: `mkdir` refuses a name
+that already exists, a link included, and inside the container `umask 077` keeps the
+file private and `set -C` refuses to write over anything. Then start the server again:
 
 ```bash
+backup="aboard-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -m 700 "$backup"
 docker stop aboard
-docker run --rm -v aboard-data:/data -v "$PWD":/backup alpine tar czf /backup/aboard-data.tgz -C /data .
+docker run --rm -v aboard-data:/data:ro -v "$PWD/$backup":/backup -e OWNER="$(id -u):$(id -g)" alpine \
+  sh -c 'umask 077 && set -C && tar czf - -C /data . > /backup/aboard-data.tgz && chown "$OWNER" /backup/aboard-data.tgz'
 docker start aboard
 ```
 
