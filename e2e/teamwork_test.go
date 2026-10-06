@@ -71,7 +71,7 @@ func workRefusal(t *testing.T, tm *team, board, token, handle string, status int
 	}
 }
 
-func workAssertOwnership(t *testing.T, tm *team, person *env, out map[string]any) {
+func workAssertOwnership(t *testing.T, tm *team, person *env, out map[string]any) string {
 	t.Helper()
 	board := field(t, out, "board.name").(string)
 	status, members := tm.call("GET", "/v1/boards/"+board+"/members", tm.key(person), nil)
@@ -82,16 +82,18 @@ func workAssertOwnership(t *testing.T, tm *team, person *env, out map[string]any
 	}
 	personID := tm.me(tm.key(person))["id"]
 	var humanID any
+	var humanName any
 	for _, raw := range rows {
 		m := raw.(map[string]any)
 		if m["kind"] == "human" {
 			humanID = m["id"]
+			humanName = m["name"]
 		}
 		if m["kind"] == "agent" && (m["id"] != field(t, out, "agent.id") || m["owner_id"] != personID || m["role"] != "member") {
 			t.Fatal("creation did not give the person's ordinary agent its own seat")
 		}
 	}
-	if humanID == nil || field(t, out, "board.created_by.id") != humanID {
+	if humanID == nil || field(t, out, "board.created_by.kind") != "human" || field(t, out, "board.created_by.name") != humanName {
 		t.Fatal("the person is not the recorded creator")
 	}
 	status, people := tm.call("GET", "/v1/boards/"+board+"/people", tm.key(person), nil)
@@ -100,20 +102,21 @@ func workAssertOwnership(t *testing.T, tm *team, person *env, out map[string]any
 	if len(rows) != 1 || rows[0].(map[string]any)["board_role"] != "owner" {
 		t.Fatal("creation did not make the person the sole first owner")
 	}
+	return humanID.(string)
 }
 
 func TestTeamWorkDelegatedCreationIsAtomicAndReplaysOnlyTheCurrentSeat(t *testing.T) {
 	tm := newTeam(t)
 	d := delegationToken(t, tm, tm.key(tm.admin))
 	out := workCreate(t, tm, d, "work-created", "open")
-	workAssertOwnership(t, tm, tm.admin, out)
+	creatorID := workAssertOwnership(t, tm, tm.admin, out)
 	status, events := tm.call("GET", "/v1/boards/work-created/events", tm.key(tm.admin), nil)
 	workStatus(t, status, http.StatusOK, events)
 	rows := events["events"].([]any)
 	if len(rows) != 3 || rows[0].(map[string]any)["type"] != "board.created" || rows[1].(map[string]any)["type"] != "member.joined" || rows[2].(map[string]any)["type"] != "member.joined" {
 		t.Fatal("atomic creation did not record the board, person and agent in order")
 	}
-	if field(t, rows[0].(map[string]any), "actor.member_id") != field(t, out, "board.created_by.id") || field(t, rows[0].(map[string]any), "data.agent_id") != field(t, out, "agent.id") {
+	if field(t, rows[0].(map[string]any), "actor.member_id") != creatorID || field(t, rows[0].(map[string]any), "data.agent_id") != field(t, out, "agent.id") {
 		t.Fatal("creation record does not name the person and its agent seat")
 	}
 	raw, err := json.Marshal(events)
