@@ -35,7 +35,7 @@
         "groups": [
           {
             "group": "Try it",
-            "pages": ["introduction", "where-aboard-fits", "quickstart", "install"]
+            "pages": ["introduction", "where-aboard-fits", "quickstart", "install", "guides/upgrade-and-roll-back"]
           },
           {
             "group": "How it works",

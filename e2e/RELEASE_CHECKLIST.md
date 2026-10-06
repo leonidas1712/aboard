@@ -109,6 +109,7 @@ session paired and idle (their stop hooks waiting):
 - [ ] When the release doesn't change the hooks, `aboard init --yes` reports every file unchanged, and neither Claude Code nor Codex asks to trust the hooks again; new sessions in both still get deliveries. The unchanged files: **automated**, `TestUpgradeWithSessionOpen`; the rest by hand.
 - [ ] When the release does change the skill or hooks, `aboard doctor` reports `skill_outdated` or `hooks_outdated`, naming the release that wrote them, with the fix `aboard init --yes`; after running it, those checks are green, and nothing else in `~/.claude/settings.json` or `~/.codex/hooks.json` changed.
 - [ ] A message sent while the Claude Code session was busy during the upgrade is delivered when its turn ends.
+- [ ] `scripts/upgrade-rehearsal <previous release tag>` passes: the steps of [docs/guides/upgrade-and-roll-back.mdx](../docs/guides/upgrade-and-roll-back.mdx), from the install script through signing in to a team server to going back to the old build and its backup, on an isolated machine with eight agents in fake Claude Code and Codex sessions. **Automated**, `TestUpgradeFromAnOlderBuild`, which runs only through the script.
 
 ## Web UI ([README.md](../README.md#quick-start), [docs/safety.mdx](../docs/safety.mdx))
 

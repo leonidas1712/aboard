@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Rehearses upgrading aboard from an older commit on an isolated machine, the way a
+# person running that build would: eight agents in Claude Code and Codex sessions on
+# three local boards with delivery running, the new build put in place by the install
+# script, status, doctor and init, a team server signed in to, and a rollback to the
+# older build and its pre-migration backup.
+#
+#   scripts/upgrade-rehearsal <older-commit> [<newer-commit>]
+#
+# The newer commit defaults to HEAD. Both are built from fresh clones of this repository,
+# so each binary reports its own commit (a build inside a worktree nested in the main
+# checkout reports the main checkout's commit instead). The rehearsal is the e2e test
+# TestUpgradeFromAnOlderBuild (e2e/upgradefrom_test.go), run from this checkout.
+#
+# Nothing touches this machine's own aboard: every home is a temporary folder, and the
+# local server listens on a free port. On macOS the whole run is also sandboxed so it
+# can't reach 127.0.0.1:7400 (the default local server) or write to the real harness
+# and aboard folders.
+#
+# Exit codes: 0 the rehearsal passed, 1 it failed, 2 usage.
+
+set -euo pipefail
+
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+	echo "usage: scripts/upgrade-rehearsal <older-commit> [<newer-commit>]" >&2
+	exit 2
+fi
+root=$(git rev-parse --show-toplevel)
+older=$(git -C "$root" rev-parse --verify "$1^{commit}")
+newer=$(git -C "$root" rev-parse --verify "${2:-HEAD}^{commit}")
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/aboard-upgrade-rehearsal.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+
+build() { # build <commit> <folder>
+	git clone -q "$root" "$work/src-$1"
+	git -C "$work/src-$1" checkout -q --detach "$1"
+	(cd "$work/src-$1" && go build -o "$2/aboard" ./server/cmd/aboard)
+	"$2/aboard" version
+}
+echo "Building the older aboard at $older"
+build "$older" "$work/older"
+echo "Building the newer aboard at $newer"
+build "$newer" "$work/built"
+(cd "$work/src-$newer" && go build -o "$work/built/fakebin/codex" ./e2e/fakecodex)
+printf '#!/bin/sh\necho "${FAKE_CLAUDE_VERSION:-2.1.288} (Claude Code)"\n' >"$work/built/fakebin/claude"
+chmod 755 "$work/built/fakebin/claude"
+
+run=(env ABOARD_E2E_BUILT="$work/built" ABOARD_UPGRADE_FROM="$work/older/aboard"
+	go test -tags e2e -count=1 -v -run '^TestUpgradeFromAnOlderBuild$' ./e2e)
+if [ "$(uname -s)" = Darwin ] && command -v sandbox-exec >/dev/null; then
+	deny=""
+	for p in .claude .codex .omp .config/aboard .local/state/aboard .local/share/aboard .local/bin/aboard; do
+		deny="$deny(deny file-write* (subpath \"$HOME/$p\"))"
+	done
+	profile="(version 1)(allow default)(deny network-outbound (remote tcp \"localhost:7400\"))$deny"
+	run=(sandbox-exec -p "$profile" "${run[@]}")
+fi
+cd "$root"
+"${run[@]}" | tee "$work/test.log"
+status=${PIPESTATUS[0]}
+echo
+echo "Rehearsal steps:"
+grep 'REHEARSAL:' "$work/test.log" | sed 's/^.*REHEARSAL: /  /' || true
+exit "$status"
