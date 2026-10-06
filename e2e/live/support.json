@@ -1,7 +1,7 @@
 {
   "harnesses": {
     "claude-code": {
-      "version": "2.1.289 (Claude Code)",
+      "version": "2.1.290 (Claude Code)",
       "scenarios": {
         "JoinsAndTalks": {
           "result": "pass",
@@ -20,6 +20,12 @@
           "date": "2026-10-06",
           "version": "2.1.289 (Claude Code)",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/claude-code"
+        },
+        "MultiSeatEqualSequences": {
+          "result": "pass",
+          "date": "2026-10-06",
+          "version": "2.1.290 (Claude Code)",
+          "test": "TestMultiSeatEqualSequences/claude-code"
         },
         "OwnerReachesBusy": {
           "result": "pass",
@@ -151,6 +157,12 @@
           "version": "codex-cli 0.160.0",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/codex"
         },
+        "MultiSeatEqualSequences": {
+          "result": "pass",
+          "date": "2026-10-06",
+          "version": "codex-cli 0.160.0",
+          "test": "TestMultiSeatEqualSequences/codex"
+        },
         "OwnerReachesBusy": {
           "result": "pass",
           "date": "2026-10-06",
@@ -281,6 +293,12 @@
           "date": "2026-10-06",
           "version": "omp/18.5.1",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/omp"
+        },
+        "MultiSeatEqualSequences": {
+          "result": "pass",
+          "date": "2026-10-06",
+          "version": "omp/18.5.1",
+          "test": "TestMultiSeatEqualSequences/omp"
         },
         "OwnerReachesBusy": {
           "result": "pass",
