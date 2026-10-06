@@ -25,43 +25,69 @@ function wordOf(name: ReactionName): string {
   return reactionSet.find((r) => r.name === name)?.word ?? name;
 }
 
-/** Reactions shows a message's reactions under its body; nothing when it has none. */
-export function Reactions({ m, me, onReact }: { m: Message; me: string | null; onReact: OnReact }) {
+/**
+ * Reactions shows a message's reactions under its body; nothing when it has none.
+ * Without onReact, on a read-only board, they show as counts that can't be pressed.
+ */
+export function Reactions({ m, me, onReact }: { m: Message; me: string | null; onReact?: OnReact }) {
   if (m.reactions.length === 0) return null;
   return (
     <ul className="reactions mt-1.5 flex flex-wrap items-center gap-1.5" aria-label="Reactions">
       {m.reactions.map((r) => (
         <li key={r.name}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                data-reaction={r.name}
-                aria-pressed={r.mine}
-                aria-label={`${wordOf(r.name)} ${r.emoji}, ${r.count}: ${who(r, me)}. ${r.mine ? "Take yours back" : "Add yours"}`}
-                onClick={() => onReact(m, r.name, !r.mine)}
-                className={cn(
-                  "reaction inline-flex h-8 items-center gap-1.5 rounded-control border px-2 text-meta tabular-nums transition-colors duration-[140ms] ease-out",
-                  r.mine
-                    ? "mine border-accent bg-selected text-ink hover:bg-surface"
-                    : "border-rule bg-surface text-ink hover:border-field-border hover:bg-selected",
-                )}
-              >
-                <span aria-hidden className="text-[15px] leading-none">
-                  {r.emoji}
-                </span>
-                <span aria-hidden className="font-bold">
-                  {r.count}
-                </span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {who(r, me)} reacted with {r.emoji}
-            </TooltipContent>
-          </Tooltip>
+          {onReact ? (
+            <ReactionToggle m={m} r={r} me={me} onReact={onReact} />
+          ) : (
+            <span
+              data-reaction={r.name}
+              title={`${who(r, me)} reacted with ${r.emoji}`}
+              className="reaction inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface px-2 text-meta text-ink tabular-nums"
+            >
+              <span aria-hidden className="text-[15px] leading-none">
+                {r.emoji}
+              </span>
+              <span aria-hidden className="font-bold">
+                {r.count}
+              </span>
+              <span className="sr-only">
+                {wordOf(r.name)} {r.emoji}, {r.count}: {who(r, me)}
+              </span>
+            </span>
+          )}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** ReactionToggle is one reaction as a button that adds or takes back your own. */
+function ReactionToggle({ m, r, me, onReact }: { m: Message; r: Reaction; me: string | null; onReact: OnReact }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-reaction={r.name}
+          aria-pressed={r.mine}
+          aria-label={`${wordOf(r.name)} ${r.emoji}, ${r.count}: ${who(r, me)}. ${r.mine ? "Take yours back" : "Add yours"}`}
+          onClick={() => onReact(m, r.name, !r.mine)}
+          className={cn(
+            "reaction inline-flex h-8 items-center gap-1.5 rounded-control border px-2 text-meta tabular-nums transition-colors duration-[140ms] ease-out",
+            r.mine ? "mine border-accent bg-selected text-ink hover:bg-surface" : "border-rule bg-surface text-ink hover:border-field-border hover:bg-selected",
+          )}
+        >
+          <span aria-hidden className="text-[15px] leading-none">
+            {r.emoji}
+          </span>
+          <span aria-hidden className="font-bold">
+            {r.count}
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        {who(r, me)} reacted with {r.emoji}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

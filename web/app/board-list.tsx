@@ -64,6 +64,8 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         const b = listed.current.find((x) => x.name === p.board);
         if (b) void loadFacts(b);
       },
+      // A board may have gone: read the list again rather than trust the hint.
+      unavailable: () => void load(),
       unread: (u) => {
         if (!live) return;
         setBoards((bs) => bs?.map((b) => (b.name === u.board ? { ...b, read_up_to: u.read_up_to, unread: u.unread } : b)) ?? bs);
@@ -131,7 +133,7 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         )}
         {archived.length > 0 && (
           <div className="mt-6">
-            <ArchivedGroup count={archived.length} startOpen={false}>
+            <ArchivedGroup count={archived.length} holdsCurrent={false}>
               <table className="boards w-full border-collapse text-left max-md:block">
                 <tbody className="max-md:block">
                   {archived.map((b) => (

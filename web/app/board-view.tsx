@@ -310,6 +310,22 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     Date.now(),
   );
 
+  if (s.gone) {
+    return (
+      <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
+        <Header account={<Account onSignOut={onSignOut} />} />
+        <main className="mx-auto w-full max-w-[640px] px-4 py-8">
+          <section aria-label="Board unavailable" className="board-gone flex flex-col gap-2">
+            <h1 className="text-title font-bold">This board is no longer available.</h1>
+            <p>
+              It was deleted, or you are no longer on it. Pick another from <a href="/">your boards</a>.
+            </p>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   const notLoggedIn = error instanceof ApiError && error.status === 401;
   if (notLoggedIn || (error && !s.board)) {
     return (
@@ -323,6 +339,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   }
 
   const loading = s.board === null || s.shown === null;
+  // An archived board takes nothing new: no message box, no replies, no reactions.
+  const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
 
   return (
@@ -392,8 +410,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 identity={identity}
                 onMention={onMention}
                 waiting={waiting}
-                onReply={setReplyTo}
-                onReact={onReact}
+                onReply={readOnly ? undefined : setReplyTo}
+                onReact={readOnly ? undefined : onReact}
                 me={me}
                 onToggle={onToggle}
                 onShow={onShow}

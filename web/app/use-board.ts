@@ -60,6 +60,8 @@ export type BoardState = {
   rootless: Set<string>;
   /** toMe holds the ids of loaded messages addressed to the person. */
   toMe: Set<string>;
+  /** gone is true once the board, read again after a board_unavailable hint, is no longer open to the person. */
+  gone: boolean;
   error: unknown;
   loadEarlier: () => void;
   refresh: () => void;
@@ -94,6 +96,11 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const [record, setRecord] = useState<RecordCheck>({ state: "checking" });
   const [toMe, setToMe] = useState<Set<string>>(new Set());
   const [error, setError] = useState<unknown>(null);
+  const [gone, setGone] = useState(false);
+  // boardId is the id of the board on screen, as last read, to match board_unavailable hints.
+  const boardId = useRef<string | null>(null);
+  // seenIds are the ids of every board this page has listed or shown.
+  const seenIds = useRef<Set<string>>(new Set());
   // Threads read whole because a loaded reply's first message wasn't loaded.
   const [extra, setExtra] = useState<Message[]>([]);
   const [rootless, setRootless] = useState<Set<string>>(new Set());
@@ -135,6 +142,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const loadBoards = useCallback(async () => {
     const r = await get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" });
     if (!live.current) return;
+    for (const b of r.boards) seenIds.current.add(b.id);
     setBoards(r.boards);
   }, []);
 
@@ -181,6 +189,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
     ]);
     if (!live.current) return;
     setBoard(b);
+    boardId.current = b.id;
+    seenIds.current.add(b.id);
     setMembers(m.members);
     setToMe(new Set(mine.messages.map((x) => x.id)));
 
@@ -278,6 +288,31 @@ export function useBoard(name: string, filter: Filter): BoardState {
               : m,
           ) ?? ms,
         );
+      },
+      unavailable: (id) => {
+        // Only a hint: read the list and, for this board, the board itself again, and
+        // believe only what the server answers now.
+        if (!seenIds.current.has(id)) return;
+        reloadBoards();
+        if (id !== boardId.current) return;
+        run(async () => {
+          try {
+            await get<Board>(path);
+          } catch (e) {
+            if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
+              if (!live.current) return;
+              setGone(true);
+              setBoard(null);
+              setMembers(null);
+              setBase(null);
+              setFiltered(null);
+              setEvents([]);
+              setExtra([]);
+              return;
+            }
+            throw e;
+          }
+        });
       },
       error: (e) => {
         if (live.current) setError(e);
@@ -390,6 +425,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     rootless,
     toMe,
     error,
+    gone,
     loadEarlier,
     refresh,
     replace: replaceMessage,

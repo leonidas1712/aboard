@@ -486,6 +486,11 @@ export type StreamHandlers = {
   unread?: (u: UnreadEvent) => void;
   /** read runs when one of the person's own agents acknowledges its messages. */
   read?: (r: ReadEvent) => void;
+  /**
+   * unavailable runs when a board this stream showed may no longer be open to the person,
+   * with only its id. It is a hint to read the board again, never proof it is gone.
+   */
+  unavailable?: (boardId: string) => void;
   /** open runs each time the stream connects, so a reader can reread what it may have missed. */
   open?: () => void;
   /** error gets a refused session; following then ends. */
@@ -527,6 +532,9 @@ export function follow(on: StreamHandlers): () => void {
               on.unread?.(JSON.parse(data) as UnreadEvent);
             } else if (event === "read") {
               on.read?.(JSON.parse(data) as ReadEvent);
+            } else if (event === "board_unavailable") {
+              const hint = JSON.parse(data) as { board_id?: string };
+              if (hint.board_id) on.unavailable?.(hint.board_id);
             }
           });
         }

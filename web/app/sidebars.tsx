@@ -51,7 +51,7 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
         </section>
       )}
       {archived.length > 0 && (
-        <ArchivedGroup count={archived.length} startOpen={archived.some((b) => b.name === current)}>
+        <ArchivedGroup count={archived.length} holdsCurrent={archived.some((b) => b.name === current)}>
           <BoardLinks current={current} boards={archived} />
         </ArchivedGroup>
       )}
@@ -64,8 +64,15 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
  * ArchivedGroup holds archived boards at the bottom of a list, closed unless the board
  * on screen is one of them, so finished work stays out of the way.
  */
-export function ArchivedGroup({ count: n, startOpen, children }: { count: number; startOpen: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(startOpen);
+export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: number; holdsCurrent: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(holdsCurrent);
+  // When the board on screen moves into the group, the group opens so its link stays in
+  // view; a later collapse by hand is kept.
+  const [heldCurrent, setHeldCurrent] = useState(holdsCurrent);
+  if (holdsCurrent !== heldCurrent) {
+    setHeldCurrent(holdsCurrent);
+    if (holdsCurrent) setOpen(true);
+  }
   return (
     <Collapsible asChild open={open} onOpenChange={setOpen}>
       <section aria-label="Archived boards" className="archived-boards flex flex-col">

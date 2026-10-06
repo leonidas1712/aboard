@@ -1303,3 +1303,78 @@ test("an archived board is read-only, groups under Archived, restores and delete
   await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
   expect(archivedNames()).not.toContain(board);
 });
+
+test("archiving the board on screen opens a collapsed Archived group, and a later collapse stays", async ({ page }) => {
+  const done = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Already done", "--json")).board.name as string;
+  const board = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Still going", "--json")).board.name as string;
+  aboard("board", "archive", done);
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const group = nav.getByRole("region", { name: "Archived boards" });
+  const toggle = group.getByRole("button", { name: /Archived/ });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+  // The board on screen moves into the collapsed group, which opens so its link stays.
+  await page.getByRole("complementary", { name: "Still going" }).getByRole("button", { name: "Archive board" }).click();
+  await expect(group.locator(`a[href="/?board=${board}"]`)).toBeVisible();
+
+  // Closed by hand, it stays closed as the list is read again.
+  await toggle.click();
+  await expect(group.locator(`a[href="/?board=${board}"]`)).toBeHidden();
+  aboard("board", "restore", done); // the list is read again with the head it moves
+  await expect(nav.locator(`a[href="/?board=${done}"]`)).toBeVisible();
+  await expect(group.locator(`a[href="/?board=${board}"]`)).toBeHidden();
+  aboard("board", "restore", board);
+});
+
+test("an archived board offers no replies or reactions, but shows its reactions and threads", async ({ page }) => {
+  const board = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Read only", "--json")).board.name as string;
+  const root = JSON.parse(aboard("say", "--as", "writer", "--board", board, "Finished the draft", "--json")).message;
+  aboard("react", "--as", "writer", "--board", board, String(root.seq), "👍");
+  aboard("say", "--as", "writer", "--board", board, "--reply", root.id, "--to", "all", "Looks right to me");
+  aboard("board", "archive", board);
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const timeline = page.locator(".message", { hasText: "Finished the draft" });
+  await expect(timeline).toBeVisible();
+  await timeline.hover();
+  await expect(page.getByRole("button", { name: /^Reply to / })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^React to / })).toHaveCount(0);
+  const reaction = timeline.locator('[data-reaction="thumbsup"]');
+  await expect(reaction).toContainText("1");
+  await expect(timeline.getByRole("button", { name: /Add yours|Take yours back/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Show 1 reply/ }).click();
+  await expect(page.getByText("Looks right to me", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reply in thread" })).toHaveCount(0);
+});
+
+test("a board another person deletes while it is open says it is no longer available", async ({ page }) => {
+  aboard("up");
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // sol makes a board and puts alex on it; sol, its creator, deletes it later.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  const sol = await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "sol", key_name: "laptop" });
+  const solKey = (sol.key as { token: string }).token;
+  const made = await api(solKey, "POST", "/v1/boards", { template: "general", title: "Sol's board" });
+  const board = made.name as string;
+  await api(solKey, "POST", `/v1/boards/${board}/people`, { handle: "alex" });
+  const other = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Untouched", "--json")).board.name as string;
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  await expect(nav.locator(`a[href="/?board=${board}"]`)).toBeVisible();
+  await api(solKey, "POST", `/v1/boards/${board}/archive`, {});
+  await expect(page.getByRole("region", { name: "Archived board", exact: true })).toBeVisible();
+  await api(solKey, "POST", `/v1/boards/${board}/delete`, {});
+
+  const gone = page.getByRole("region", { name: "Board unavailable" });
+  await expect(gone).toContainText("This board is no longer available.");
+  await expect(page.getByRole("form", { name: "Post a message" })).toHaveCount(0);
+  await expect(page.getByText("Sol's board")).toHaveCount(0);
+  await gone.getByRole("link", { name: "your boards" }).click();
+  await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href="/?board=${other}"]`)).toBeVisible();
+});
