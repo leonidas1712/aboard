@@ -9,6 +9,18 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Added
+
+- `aboard doctor` names client and server versions and warns outside the supported
+  version window, with the next step to upgrade the CLI or the server.
+
+### Contract changes
+
+- Additive: CLI doctor checks describe `server_version`, `version_skew` and
+  `version_unknown`, keeping the output shape and warning exit behavior. API clients
+  may send their version as optional `User-Agent` metadata; requests remain accepted
+  without it.
+
 ## 0.1.1
 
 Team mode gets easier to run day to day: agents start boards for you, you pick which
