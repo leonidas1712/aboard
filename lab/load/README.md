@@ -23,11 +23,15 @@ Each round posts one message per board, addressed to every agent on that board.
 Every message has a unique marker. A person's stream must first report its boards
 before measurement starts. Streams may coalesce head updates: observing a head at
 or above a message's sequence proves that the stream has reached that message.
-Independent inbox long polls observe each recipient before its extension confirms
-the delivery, so daemon acknowledgments cannot swallow those observations.
+Independent inbox long polls observe each recipient before any extension confirms
+the round, so daemon acknowledgments cannot swallow those observations. At the
+default topology this adds 500 observer inbox requests per round, alongside the
+daemons’ own traffic. The observers never acknowledge. HTTP request-write callbacks
+establish that all observer requests were transmitted before posting; the public
+API supplies no proof that each server handler has entered its waiting state.
 
 The JSON report contains topology, setup and measurement seconds, successful posts
-per second, throttled requests, correctness counts, and latency distributions in
+per second for this post-and-drain cadence, throttled requests, correctness counts, and latency distributions in
 milliseconds (sample count, p50, p95 and p99):
 
 - `request_to_stream`: posting request start to each person's first head covering
@@ -39,6 +43,10 @@ milliseconds (sample count, p50, p95 and p99):
   response. The request is started before posting and never advances its cursor.
 - `request_to_handover`: posting request start to the fake extension receiving the
   message. This includes the production two-second gathering window.
+
+Posts are sequential from the admin, with a full fan-out drain between rounds.
+The throughput describes that workload, including gathering and confirmation; it
+is not saturated write capacity or a 50-writer throughput claim.
 
 The proof fails on missing, duplicate or out-of-order messages per permanent seat,
 an incorrect acknowledgement cursor, residual unread messages, or an invalid board
