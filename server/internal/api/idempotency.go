@@ -39,7 +39,7 @@ type SavedResponse struct {
 // idempotent replays the saved response when a write is retried with the same
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
-// again. The responses that carry a login code, a browser token, a server invite, an
+// again. The responses that carry a join code, a login code, a browser token, a server invite, an
 // access key, a guest's key and agent token, a machine request's secrets, a machine's
 // delegation, or a delegated join's agent token are never saved, so none is ever
 // written to disk: those writes ignore the key. A join with a person's key or a code
@@ -52,6 +52,8 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||
+			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/boards/") &&
+				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
