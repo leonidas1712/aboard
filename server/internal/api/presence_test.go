@@ -46,6 +46,7 @@ func at(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 // An agent reports its presence with its own token, every member of the board sees it,
 // and reporting the same presence again keeps when it began.
 func TestAgentReportsPresenceThatMembersSee(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -94,6 +95,7 @@ func TestAgentReportsPresenceThatMembersSee(t *testing.T) {
 }
 
 func TestOnlyAgentsReportPresence(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.pair("starter")
 	r, err := s.client(s.owner).SetPresenceWithResponse(context.Background(), nil, api.SetPresenceJSONRequestBody{Presence: api.PresenceIdle})
@@ -109,6 +111,7 @@ func TestOnlyAgentsReportPresence(t *testing.T) {
 // A presence that isn't renewed runs out, so an agent whose daemon went away doesn't
 // stay working; the next report starts a new presence.
 func TestPresenceRunsOutWithoutRenewal(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName, writer, _ := s.pair("starter")
 	s.setPresence(writer, api.PresenceWorking)
@@ -156,6 +159,7 @@ func (st *eventStream) presence() presenceEvent {
 // The stream tells the board's people when an agent's presence changes, including when
 // it runs out, and says nothing when a report only renews it.
 func TestStreamSendsPresenceChanges(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName, writer, _ := s.pair("starter")
 	st := s.openStream(s.owner)
@@ -194,6 +198,7 @@ func TestStreamSendsPresenceChanges(t *testing.T) {
 // An agent's delivery mode is reported with its presence and shown to the board's
 // members; a report without one keeps the mode reported before.
 func TestDeliveryModeIsReportedWithPresence(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")

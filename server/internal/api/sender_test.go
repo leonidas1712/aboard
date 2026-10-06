@@ -49,6 +49,7 @@ func (s *testServer) newBoard() string {
 }
 
 func TestAgentsAreNamedAfterTheirHarness(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName := s.newBoard()
 	for _, tt := range []struct{ harness, want string }{
@@ -65,6 +66,7 @@ func TestAgentsAreNamedAfterTheirHarness(t *testing.T) {
 }
 
 func TestSenderLabelSaysWhoseSideTheSenderIsOn(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName, writer, reviewer := s.pair("starter")
 
@@ -121,6 +123,7 @@ func TestSenderLabelSaysWhoseSideTheSenderIsOn(t *testing.T) {
 }
 
 func TestHidingHarnessesNamesAgentsNeutrally(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	human := s.client(s.owner)

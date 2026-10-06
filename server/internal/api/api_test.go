@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -130,17 +131,23 @@ func (s *testServer) client(token string) *api.ClientWithResponses {
 // httpClient returns an HTTP client whose every response is checked against the spec.
 func (s *testServer) httpClient() *http.Client {
 	s.t.Helper()
-	spec, err := api.GetSwagger()
-	if err != nil {
-		s.t.Fatal(err)
-	}
-	spec.Servers = nil
-	router, err := gorillamux.NewRouter(spec)
+	router, err := specRouter()
 	if err != nil {
 		s.t.Fatal(err)
 	}
 	return &http.Client{Transport: conformance{t: s.t, router: router}}
 }
+
+// specRouter parses the OpenAPI spec and builds its router once for the whole package:
+// parsing it took most of each request's time, and the router is only read.
+var specRouter = sync.OnceValues(func() (routers.Router, error) {
+	spec, err := api.GetSwagger()
+	if err != nil {
+		return nil, err
+	}
+	spec.Servers = nil
+	return gorillamux.NewRouter(spec)
+})
 
 type conformance struct {
 	t      *testing.T
@@ -290,6 +297,7 @@ func say(s *testServer, token, boardName string, to []string, body string) *api.
 }
 
 func TestAgentCannotBroadcastWhenRoleLacksPermission(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	// The writer-reviewer roles grant broadcast, so use a board whose agents only have the
 	// default member role.
@@ -312,6 +320,7 @@ func TestAgentCannotBroadcastWhenRoleLacksPermission(t *testing.T) {
 }
 
 func TestStarterPolicyLetsAnyRoleBroadcast(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	human := s.client(s.owner)
@@ -327,6 +336,7 @@ func TestStarterPolicyLetsAnyRoleBroadcast(t *testing.T) {
 }
 
 func TestUrgentNeedsPermissionUnderRecommended(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	human := s.client(s.owner)
@@ -351,6 +361,7 @@ func TestUrgentNeedsPermissionUnderRecommended(t *testing.T) {
 }
 
 func TestAddressedVisibilityHidesOtherAgentsMessages(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("recommended")
@@ -395,6 +406,7 @@ func TestAddressedVisibilityHidesOtherAgentsMessages(t *testing.T) {
 }
 
 func TestTimelineFiltersPageBothWays(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -446,6 +458,7 @@ func TestTimelineFiltersPageBothWays(t *testing.T) {
 }
 
 func TestIdempotentPostIsReplayedNotDuplicated(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -475,6 +488,7 @@ func TestIdempotentPostIsReplayedNotDuplicated(t *testing.T) {
 }
 
 func TestJoinCodesExpireAndCanBeRevoked(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
@@ -513,6 +527,7 @@ func TestJoinCodesExpireAndCanBeRevoked(t *testing.T) {
 // can't redeem it, whether or not they are on the board, and nothing is written; once
 // on the board, they join with a code of their own.
 func TestAPairingCodeAdmitsOnlyItsMakersSessions(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
@@ -552,6 +567,7 @@ func TestAPairingCodeAdmitsOnlyItsMakersSessions(t *testing.T) {
 }
 
 func TestInboxWaitWakesWhenAMessageArrives(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -573,6 +589,7 @@ func TestInboxWaitWakesWhenAMessageArrives(t *testing.T) {
 }
 
 func TestInboxWaitReturnsEmptyAtTimeout(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	_, _, reviewer := s.pair("starter")
 	wait := 30
@@ -605,6 +622,7 @@ func TestInboxWaitReturnsEmptyAtTimeout(t *testing.T) {
 }
 
 func TestInboxHoldsOnlyMessagesAddressedToTheAgentSinceItJoined(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -636,6 +654,7 @@ func TestInboxHoldsOnlyMessagesAddressedToTheAgentSinceItJoined(t *testing.T) {
 }
 
 func TestAckMovesForwardOnlyAndNotPastTheHead(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -671,6 +690,7 @@ func TestAckMovesForwardOnlyAndNotPastTheHead(t *testing.T) {
 }
 
 func TestAgentsCannotSeeOtherBoardsOrDoHumanOnlyThings(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	first, writer, _ := s.pair("starter")
@@ -700,6 +720,7 @@ func TestAgentsCannotSeeOtherBoardsOrDoHumanOnlyThings(t *testing.T) {
 }
 
 func TestPolicyChangeIsRecordedAndApplied(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
@@ -718,6 +739,7 @@ func TestPolicyChangeIsRecordedAndApplied(t *testing.T) {
 }
 
 func TestBadTargetsAreRejected(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName, writer, _ := s.pair("starter")
 	tests := []struct {
@@ -736,6 +758,7 @@ func TestBadTargetsAreRejected(t *testing.T) {
 }
 
 func TestInvalidRequestsGetTheErrorShape(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName, writer, _ := s.pair("starter")
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, s.url+"/v1/boards/"+boardName+"/messages", strings.NewReader(`{"body": 5}`))
@@ -760,6 +783,7 @@ func TestInvalidRequestsGetTheErrorShape(t *testing.T) {
 }
 
 func TestJoinIsRateLimited(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	human := s.client(s.owner)
@@ -783,6 +807,7 @@ func TestJoinIsRateLimited(t *testing.T) {
 }
 
 func TestOperationsThisServerDoesNotProvideReturnNotImplemented(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -799,6 +824,7 @@ func TestOperationsThisServerDoesNotProvideReturnNotImplemented(t *testing.T) {
 // An agent that has seen its unread messages can wait for the next one with after,
 // without acknowledging the ones before it.
 func TestInboxWaitAfterSkipsMessagesAlreadySeen(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")

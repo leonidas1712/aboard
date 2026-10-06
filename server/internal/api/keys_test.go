@@ -81,6 +81,7 @@ func (s *testServer) works(token string, want bool) {
 // A person makes a key, sees it listed without its secret, and revokes it; the key stops
 // working and their other key doesn't.
 func TestAPersonCreatesListsAndRevokesKeys(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	r := s.createKey(s.owner, "phone", 0)
 	mustStatus(t, r, nil, 201)
@@ -122,6 +123,7 @@ func TestAPersonCreatesListsAndRevokesKeys(t *testing.T) {
 // Names say where each key is kept, so a working key's name isn't given twice; a revoked
 // key's name is free again. A key works for an hour to a year.
 func TestKeyNamesAndLifetimes(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	id, _ := s.newKey(s.owner, "phone")
 	wantCode(t, s.createKey(s.owner, "phone", 0), 409, "key_name_taken")
@@ -143,6 +145,7 @@ func TestKeyNamesAndLifetimes(t *testing.T) {
 // Keys are managed only with a person's own key: an agent's token and a browser can't
 // list, create or revoke one, the browser not even for its own person.
 func TestOnlyAPersonsOwnKeyManagesKeys(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	_, agent := s.joinAs(s.owner, s.newBoard(), "writer", "")
@@ -176,6 +179,7 @@ func TestOnlyAPersonsOwnKeyManagesKeys(t *testing.T) {
 // An admin lists and revokes anyone's keys but creates keys only for themselves; a
 // member sees and revokes only their own, and another person's key looks like no key.
 func TestAdminRevokesAMembersKeyButCantCreateOne(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	sam := s.addHuman("sam")
@@ -226,6 +230,7 @@ func TestAdminRevokesAMembersKeyButCantCreateOne(t *testing.T) {
 // and a waiting inbox read returns 401, while the person's other key and what it started
 // carry on.
 func TestRevokingAKeyEndsItsStreamsAndWaits(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	id, phone := s.newKey(s.owner, "phone")
@@ -304,6 +309,7 @@ func (s *testServer) timersWaiting(n int) int {
 // When a key expires, its stream ends at that moment and a read waiting with an agent
 // token it started returns 401, while the person's other key keeps working.
 func TestAnExpiredKeyEndsItsStreamsAndWaits(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	id, phone := s.newKey(s.owner, "phone")
@@ -353,6 +359,7 @@ func TestAnExpiredKeyEndsItsStreamsAndWaits(t *testing.T) {
 // A browser login's stream ends when the login expires, after 30 days, without waiting
 // for its key.
 func TestABrowsersStreamEndsWhenItsLoginExpires(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.newBoard()
 	browser := s.browserToken(s.owner)
@@ -370,6 +377,7 @@ func TestABrowsersStreamEndsWhenItsLoginExpires(t *testing.T) {
 
 // Logging the browsers out ends their open streams too.
 func TestLoggingBrowsersOutEndsTheirStreams(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.newBoard()
 	st := s.openStream(s.browserToken(s.owner))
@@ -383,6 +391,7 @@ func TestLoggingBrowsersOutEndsTheirStreams(t *testing.T) {
 // tokens it started, recorded once a minute at most; the listing says when the key it
 // was made with was used before.
 func TestLastUsedCountsWhatTheKeyStarted(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	start := s.clock.Now()
 	_, phone := s.newKey(s.owner, "phone")
@@ -429,6 +438,7 @@ func TestLastUsedCountsWhatTheKeyStarted(t *testing.T) {
 // A machine's key from an invite expires only after 90 days without use: each use
 // moves its expiry on.
 func TestAMachinesKeyExpiresOnlyOnceUnused(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	k := keyNamed(t, s.keys(maya, ""), "laptop")

@@ -35,6 +35,7 @@ func (s *testServer) guestJoin(code string) *api.GuestJoinResponse {
 // that one board; the guest's agent can't reach any other board, and a probe of a board
 // it isn't on answers byte for byte as a board that doesn't exist.
 func TestAGuestJoinsWithNoTokenAndSeesOneBoard(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
@@ -123,6 +124,7 @@ func TestAGuestJoinsWithNoTokenAndSeesOneBoard(t *testing.T) {
 // Each code works only at its own door: a guest code with a person's key is refused, a
 // pairing code with no key looks like a wrong code, and an agent can't make a guest code.
 func TestCodesAreNeverTakenForTheOtherKind(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -146,6 +148,7 @@ func TestCodesAreNeverTakenForTheOtherKind(t *testing.T) {
 // Redeeming guest codes needs no token, so it is limited per address and across the
 // server, together with redeeming invites.
 func TestGuestJoinAttemptsAreLimited(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t, func(o *api.Options) { o.ConnectsPerMinute, o.ConnectsPerMinuteServer = 3, 100 })
 	wantCode(t, s.connect("abi_guess", "maya"), 404, "invite_invalid")
 	for range 2 {
@@ -164,6 +167,7 @@ func TestGuestJoinAttemptsAreLimited(t *testing.T) {
 // changes a role or removes someone, and a removed person's key, browser and agent all
 // stop at once.
 func TestServerPeopleRolesAndRemoval(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")

@@ -45,6 +45,7 @@ func (s *testServer) browserToken(token string) string {
 }
 
 func TestLoginCodeGivesOneBrowserTokenOnce(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	code := s.loginCode(s.owner)
 
@@ -68,6 +69,7 @@ func TestLoginCodeGivesOneBrowserTokenOnce(t *testing.T) {
 }
 
 func TestLoginCodeExpiresAfterAMinute(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	code := s.loginCode(s.owner)
 	s.clock.Advance(61 * time.Second)
@@ -78,6 +80,7 @@ func TestLoginCodeExpiresAfterAMinute(t *testing.T) {
 }
 
 func TestOnlyHumansGetLoginCodes(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	_, writer, _ := s.pair("starter")
 	r, err := s.client(writer).CreateLoginCodeWithResponse(context.Background(), nil)
@@ -90,6 +93,7 @@ func TestOnlyHumansGetLoginCodes(t *testing.T) {
 // it reads and posts like their CLI, an admin's changes the board's policy and a
 // member's is refused, and it can't make another browser login.
 func TestBrowserTokenActsAsItsPerson(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -162,6 +166,7 @@ func (s *testServer) restart() {
 }
 
 func TestBrowserTokensSurviveARestartUntilTheyExpire(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	token := s.browserToken(s.owner)
@@ -188,6 +193,7 @@ func TestBrowserTokensSurviveARestartUntilTheyExpire(t *testing.T) {
 // Ending browser logins logs out every browser of the person who asks, and no one
 // else's; only the person's own login can ask.
 func TestEndBrowserTokensLogsThePersonsBrowsersOut(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	_, writer, _ := s.pair("starter")
@@ -229,6 +235,7 @@ func TestEndBrowserTokensLogsThePersonsBrowsersOut(t *testing.T) {
 }
 
 func TestServerRefusesOtherHostsAndServesTheUI(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	clk := clock.NewFake(time.Date(2026, 10, 1, 16, 0, 0, 0, time.UTC))
 	st, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "aboard.db"), clk)
@@ -281,6 +288,7 @@ func TestServerRefusesOtherHostsAndServesTheUI(t *testing.T) {
 }
 
 func TestLoginCodesAreNeverSavedForRepeats(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	key := "open-1"
 	var codes []string

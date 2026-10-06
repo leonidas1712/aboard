@@ -12,6 +12,7 @@ import (
 // The person who creates a board is its admin; a person who joins because their agent
 // did is a member, the log records which, and only an admin may change the policy.
 func TestOnlyAdminsChangePolicy(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")

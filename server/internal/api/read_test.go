@@ -36,6 +36,7 @@ func (st *eventStream) readPosition() readEvent {
 // moves, whichever client acknowledged; a read position is bookkeeping and never moves
 // the board's head.
 func TestStreamSendsReadPositionsToTheOwnerOnly(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")

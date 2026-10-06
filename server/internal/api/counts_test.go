@@ -12,6 +12,7 @@ import (
 // may read them all: its people, and its agents while visibility is open. Under addressed
 // visibility an agent gets no count, which would tell it how much it can't read.
 func TestBoardCountsItsMessages(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
