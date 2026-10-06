@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
@@ -362,6 +363,29 @@ func TestBoardDeleteAsksForTheName(t *testing.T) {
 	r = e.run("board", "delete")
 	if r.code != 0 || !strings.Contains(r.stdout, "Type the board's name") || !strings.HasSuffix(r.stdout, "Deleted payments-design. Its record is kept; nobody can open it again.\n") || b.lifecycle != "deleted" {
 		t.Fatalf("the right name: %d %q %q %s", r.code, r.stdout, r.stderr, b.lifecycle)
+	}
+}
+
+// The typed confirmation takes as long as the person needs: each request has its own
+// timeout, and none runs while the question waits.
+func TestBoardDeleteWaitsForASlowConfirmation(t *testing.T) {
+	b := paymentsDesign()
+	b.lifecycle = "archived"
+	srv := newLifecycleServer(t, b)
+	e := newLifecycleEnv(t, srv)
+	e.stdin = "unused\n"
+	var out bytes.Buffer
+	a := e.app(&out, &out)
+	a.timeout = 50 * time.Millisecond
+	a.askLine = func(string) (string, error) {
+		time.Sleep(4 * a.timeout) // longer than one request may take
+		return "payments-design", nil
+	}
+	if err := runBoard(context.Background(), a, []string{"delete"}); err != nil {
+		t.Fatalf("delete after a slow confirmation: %v; output %q", err, out.String())
+	}
+	if b.lifecycle != "deleted" || !strings.HasSuffix(out.String(), "Deleted payments-design. Its record is kept; nobody can open it again.\n") {
+		t.Fatalf("lifecycle %s, output %q", b.lifecycle, out.String())
 	}
 }
 

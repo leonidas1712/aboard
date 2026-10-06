@@ -122,13 +122,16 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
-	defer cancel()
+	// Each request gets its own timeout; none runs while the person types, which takes
+	// as long as it takes.
 	byID := boardIDPattern.MatchString(t.board)
 	if !byID {
 		// Say an active board needs archiving before asking for its name. A board this
 		// person can't read is left to the server, which answers as for any other.
-		if b, err := c.board(ctx, t.board); err == nil && (b.Lifecycle == nil || *b.Lifecycle != api.BoardLifecycleArchived) {
+		pctx, cancel := context.WithTimeout(ctx, a.requestTimeout())
+		b, err := c.board(pctx, t.board)
+		cancel()
+		if err == nil && (b.Lifecycle == nil || *b.Lifecycle != api.BoardLifecycleArchived) {
 			return newError("board_not_archived",
 				t.board+" isn't archived, and only an archived board can be deleted.",
 				"Archive it first with aboard board archive "+shellWord(t.board)+", then delete it.")
@@ -141,7 +144,7 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 		}
 		_, _ = io.WriteString(a.env.Stdout, "Deleting "+t.board+" ends every way into it for good: "+
 			"its people and agents lose it, its join codes stop, and nobody can open or restore it. Its record is kept.\n")
-		typed, err := a.asker().text("Type the board's "+what+" to delete it", "", "")
+		typed, err := a.askText("Type the board's " + what + " to delete it")
 		if errors.Is(err, errAborted) || (err == nil && strings.TrimSpace(typed) != t.board) {
 			_, _ = io.WriteString(a.env.Stdout, "Nothing changed: that isn't the board's "+what+".\n")
 			return nil
@@ -150,7 +153,9 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 			return err
 		}
 	}
-	r, err := c.api.DeleteBoardWithResponse(ctx, t.board, &api.DeleteBoardParams{})
+	dctx, cancel := context.WithTimeout(ctx, a.requestTimeout())
+	defer cancel()
+	r, err := c.api.DeleteBoardWithResponse(dctx, t.board, &api.DeleteBoardParams{})
 	if err != nil {
 		return c.unreachable(err)
 	}

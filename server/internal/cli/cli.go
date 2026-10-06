@@ -81,6 +81,27 @@ type app struct {
 	homeAddr string
 	// harnesses are the harnesses Aboard knows, once listed.
 	harnesses harness.Set
+	// timeout, when set, replaces requestTimeout for one request, and askLine replaces
+	// the terminal question for a line of text; tests use them to stand in for a slow
+	// person.
+	timeout time.Duration
+	askLine func(title string) (string, error)
+}
+
+// requestTimeout returns how long one request may take.
+func (a *app) requestTimeout() time.Duration {
+	if a.timeout > 0 {
+		return a.timeout
+	}
+	return requestTimeout
+}
+
+// askText asks the person for a line of text at the terminal.
+func (a *app) askText(title string) (string, error) {
+	if a.askLine != nil {
+		return a.askLine(title)
+	}
+	return a.asker().text(title, "", "")
 }
 
 type command struct {
