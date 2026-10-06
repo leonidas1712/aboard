@@ -104,6 +104,8 @@
               "cli/invite",
               "cli/delivery",
               "cli/board",
+              "cli/agent",
+              "cli/leave",
               "cli/boards",
               "cli/audit",
               "cli/resume",

@@ -136,6 +136,8 @@ func commands() []command {
 		{"status", runStatus},
 		{"delivery", runDelivery},
 		{"board", runBoard},
+		{"agent", runAgent},
+		{"leave", runLeave},
 		{"boards", runBoards},
 		{"audit", runAudit},
 		{"resume", runResume},

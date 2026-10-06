@@ -221,7 +221,7 @@ func agentRemoved(seat Member, board string) *apierr.Error {
 	e := apierr.New(http.StatusForbidden, "agent_removed",
 		fmt.Sprintf("This session's agent %s on board %s was removed, and joining again never makes a replacement.", seat.Name, board),
 		"A new agent on that board needs its person to allow it: they run aboard join --board "+board+" in a terminal, or add an agent in the board view.")
-	e.Details = map[string]any{"agent": seat.Name, "removed_at": seat.RemovedAt, "removed_by": seat.RemovedBy}
+	e.Details = map[string]any{"agent": seat.Name, "board": board, "removed_at": seat.RemovedAt, "removed_by": seat.RemovedBy}
 	return e
 }
 
