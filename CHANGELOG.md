@@ -16,3 +16,15 @@ publishes a version's section as its release notes. How releases are cut is in
 - The install script: `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh`
   installs `aboard` and its launchers into `~/.local/bin` after checking the download
   against the release's signed checksums.
+- `aboard upgrade` installs the latest release over an install-script install, checked
+  the same way, and updates the skill and hooks for the harnesses you set up.
+- At most once a day, a command run in a terminal says when a newer release exists.
+  `ABOARD_NO_UPDATE_CHECK=1` turns it off.
+
+### Contract changes
+
+- `spec/cli.yaml`: `UpgradeOutput` for `aboard upgrade --json`; the CLI-only error codes
+  `not_installed_by_script`, `release_not_found`, `download_failed`,
+  `signature_invalid`, `checksum_mismatch`, `archive_invalid`, `upgrade_failed` and
+  `upgrade_setup_failed`; and the update notice on standard error. Affects CLI scripts;
+  additive.

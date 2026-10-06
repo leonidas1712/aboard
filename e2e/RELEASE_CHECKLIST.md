@@ -100,6 +100,8 @@ removing Aboard is covered by the tests in `e2e/uninstall_test.go`.
 
 ## Upgrading ([docs/install.mdx](../docs/install.mdx#update), [spec/delivery.md](../spec/delivery.md#upgrades))
 
+- [ ] On a machine where the install script installed the previous release, set up with `aboard init --yes`: a command in a terminal says once that the new release is available; `aboard upgrade` says the signature was checked (with cosign installed), upgrades `aboard` and `aboard-launcher-herdr` in `~/.local/bin`, refreshes the skill and hooks, and `aboard doctor` is green. A second `aboard upgrade` says there is nothing to upgrade. Inside a Claude Code session, `aboard upgrade` refuses and names the command for the person. **Automated** against a fake release server, `e2e/selfupgrade_test.go`; the real release and cosign, by hand.
+
 On a machine set up with the previous release, with a Claude Code session and a Codex
 session paired and idle (their stop hooks waiting):
 
