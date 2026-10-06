@@ -174,7 +174,9 @@ How Aboard does it:
   reply. The thread fades in.
 - **Remembered.** Each thread stays open or closed as the person left it, per board in
   this browser, with the newest reply they have seen in it. A thread holding a question
-  that waits for the person opens by default.
+  that waits for the person, or a reply to them (not to everyone) after their read
+  position, opens by default: a closed thread's replies are never acknowledged (D194),
+  so a reply to the person there would stay unread and its receipt pending.
 - **Nothing missed while closed.** A reply from someone else that the person hasn't
   seen shows on the row as an accent dot and "1 new"; the "Now:" line adds "2 new
   replies in a thread", which opens the thread at the first of them. A question to the
