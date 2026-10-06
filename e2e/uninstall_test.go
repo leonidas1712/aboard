@@ -110,7 +110,7 @@ func TestInitRecordsWhatItWroteInTheInstallManifest(t *testing.T) {
 	}
 	for path, hk := range want {
 		f, ok := m[path]
-		if !ok || f.Harness != hk[0] || f.Kind != hk[1] || f.Scope != "global" || f.Version != "0.1.0" || len(f.SHA256) != 64 {
+		if !ok || f.Harness != hk[0] || f.Kind != hk[1] || f.Scope != "global" || f.Version != sourceVersion || len(f.SHA256) != 64 {
 			t.Fatalf("manifest's record of %s: %+v", path, f)
 		}
 	}
@@ -140,7 +140,7 @@ func TestDoctorTellsOutdatedFilesFromEditedOnes(t *testing.T) {
 	codexHooks := filepath.Join(e.home, ".codex", "hooks.json")
 	checks := e.doctorChecks()
 	if c := checks["codex_hooks"]; c["code"] != "hooks_outdated" ||
-		c["message"] != "codex: the Aboard hooks in "+codexHooks+" were written by aboard "+oldVersion+" and differ from the ones aboard 0.1.0 installs" {
+		c["message"] != "codex: the Aboard hooks in "+codexHooks+" were written by aboard "+oldVersion+" and differ from the ones aboard "+sourceVersion+" installs" {
 		t.Fatalf("codex_hooks: %v", c)
 	}
 
@@ -191,8 +191,8 @@ func TestDoctorTellsOutdatedFilesFromEditedOnes(t *testing.T) {
 			t.Fatalf("after init --yes, doctor's %s check: %v", name, checks[name])
 		}
 	}
-	if v := e.manifest()[codexHooks].Version; v != "0.1.0" {
-		t.Fatalf("manifest version after init --yes %q, want 0.1.0", v)
+	if v := e.manifest()[codexHooks].Version; v != sourceVersion {
+		t.Fatalf("manifest version after init --yes %q, want %s", v, sourceVersion)
 	}
 }
 
@@ -326,7 +326,7 @@ func TestUninstallKeepsAnEditedSkill(t *testing.T) {
 	}
 
 	r := e.run("uninstall")
-	if !strings.Contains(r.stdout, "keep     ~/.claude/skills/aboard/SKILL.md (claude-code skill: edited since aboard 0.1.0 wrote it; remove it yourself if you don't need it)\n") {
+	if !strings.Contains(r.stdout, "keep     ~/.claude/skills/aboard/SKILL.md (claude-code skill: edited since aboard "+sourceVersion+" wrote it; remove it yourself if you don't need it)\n") {
 		t.Fatalf("uninstall:\n%s", r)
 	}
 	if readFile(t, skill) != mine {
