@@ -17,7 +17,9 @@ info:
     leaving, revoking codes, making the board private, restoring and deleting still work.
     Making it open, raising board roles, and any policy, charter or title edit require
     restoring first, even when the proposed policy would be more restrictive. These
-    writes answer 409 `board_archived` with a restore-first hint.
+    writes answer 409 `board_archived`. The hint asks the person who created the board,
+    while still on it, or a server admin to restore it; it never suggests that an
+    ordinary board owner can restore it. Hidden targets still answer only 404.
     Existing code redemption, including a delegated seat-token rotation, is refused with
     409 `board_archived`; archiving does not revoke codes, so restoring permits a code
     that still works. Archive does not extend expiry; maker authority, current membership
@@ -1309,13 +1311,18 @@ paths:
         Appends `board.archived` and changes lifecycle in one transaction. A new call on
         an already archived board answers `changed: false` without another event.
 
-        The selector is a name or immutable board id. An admin who is outside a private
-        board uses its id from `hidden_boards`; this never grants membership or read
-        access. The response contains only `id`, `lifecycle` and `changed`, never the
-        private name, title, membership, counts or content. A caller without lifecycle
-        authority gets 403 `board_creator_required`; guests get `guest_not_allowed`.
-        Other callers get the same
-        404 `board_not_found` for a hidden, missing or deleted target.
+        Authenticate the credential first. Delegations receive 403 `forbidden` before
+        any board lookup, uniformly for every selector. After credential-kind checks,
+        a hidden, missing or deleted target gets the same 404 `board_not_found` before
+        checking board-specific lifecycle authority. Only a readable target may return
+        403 `guest_not_allowed` for a guest or `board_creator_required` for a caller
+        without lifecycle authority. The successful deletion replay exception follows
+        the delete endpoint's rule.
+
+        The selector is a name or immutable board id. An outside server admin may manage
+        a private board only by its immutable id, never by its hidden name. This exception
+        grants no membership or read access. The response contains only `id`, `lifecycle`
+        and `changed`, never the private name, title, membership, counts or content.
 
         Credential validity, current person and authority, board visibility and lifecycle
         are rechecked in the write transaction with its clock. Cookie writes require
@@ -1354,13 +1361,18 @@ paths:
         Appends `board.restored` and changes lifecycle in one transaction. A new call on
         an already active board answers `changed: false` without another event.
 
-        The selector is a name or immutable board id. An admin who is outside a private
-        board uses its id from `hidden_boards`; this never grants membership or read
-        access. The response contains only `id`, `lifecycle` and `changed`, never the
-        private name, title, membership, counts or content. A caller without lifecycle
-        authority gets 403 `board_creator_required`; guests get `guest_not_allowed`.
-        Other callers get the same
-        404 `board_not_found` for a hidden, missing or deleted target.
+        Authenticate the credential first. Delegations receive 403 `forbidden` before
+        any board lookup, uniformly for every selector. After credential-kind checks,
+        a hidden, missing or deleted target gets the same 404 `board_not_found` before
+        checking board-specific lifecycle authority. Only a readable target may return
+        403 `guest_not_allowed` for a guest or `board_creator_required` for a caller
+        without lifecycle authority. The successful deletion replay exception follows
+        the delete endpoint's rule.
+
+        The selector is a name or immutable board id. An outside server admin may manage
+        a private board only by its immutable id, never by its hidden name. This exception
+        grants no membership or read access. The response contains only `id`, `lifecycle`
+        and `changed`, never the private name, title, membership, counts or content.
 
         Credential validity, current person and authority, board visibility and lifecycle
         are rechecked in the write transaction with its clock. Cookie writes require
@@ -1391,7 +1403,8 @@ paths:
       summary: Delete a board
       description: |
         Person credentials only: the creator while still on the board, or a server
-        admin. An agent gets 403 `human_token_required` and a delegation 403 `forbidden`.
+        admin. An agent gets 403 `human_token_required` and a delegation 403 `forbidden`,
+        uniformly before any board lookup; neither refusal reveals target existence.
         An active board gets 409 `board_not_archived`; archive it first.
 
         Appends `board.deleted` and commits a tombstone in one transaction. The record
@@ -1409,13 +1422,18 @@ paths:
         expired credential, removed person or lost authority cannot replay it. There
         is no new event. The receipt proves a committed operation, not current access.
 
-        The selector is a name or immutable board id. An admin who is outside a private
-        board uses its id from `hidden_boards`; this never grants membership or read
-        access. The response contains only `id`, `lifecycle` and `changed`, never the
-        private name, title, membership, counts or content. A caller without lifecycle
-        authority gets 403 `board_creator_required`; guests get `guest_not_allowed`.
-        Other callers get the same
-        404 `board_not_found` for a hidden, missing or deleted target.
+        Authenticate the credential first. Delegations receive 403 `forbidden` before
+        any board lookup, uniformly for every selector. After credential-kind checks,
+        a hidden, missing or deleted target gets the same 404 `board_not_found` before
+        checking board-specific lifecycle authority. Only a readable target may return
+        403 `guest_not_allowed` for a guest or `board_creator_required` for a caller
+        without lifecycle authority. The successful deletion replay exception follows
+        the delete endpoint's rule.
+
+        The selector is a name or immutable board id. An outside server admin may manage
+        a private board only by its immutable id, never by its hidden name. This exception
+        grants no membership or read access. The response contains only `id`, `lifecycle`
+        and `changed`, never the private name, title, membership, counts or content.
 
         Credential validity, current person and authority, board visibility and lifecycle
         are rechecked in the write transaction with its clock. Cookie writes require

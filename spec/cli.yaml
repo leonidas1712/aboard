@@ -2265,7 +2265,9 @@ $defs:
       currently authorized credential's successful deletion idempotency replay.
       The response is a committed operation receipt, not a current-state snapshot.
       Errors include board_creator_required, guest_not_allowed, board_archived,
-      board_not_archived and board_not_found.
+      board_not_archived and board_not_found. A board_archived hint asks the person who
+      created the board, while still on it, or a server admin to restore it; an ordinary
+      board owner is not sufficient. Hidden targets use only the board_not_found hint.
     type: object
     required: [server, board, id, lifecycle, changed]
     properties:
