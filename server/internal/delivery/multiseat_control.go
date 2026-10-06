@@ -36,6 +36,19 @@ func (d *Daemon) setExtensionProblem(key SessionKey, outdated bool) {
 	}
 }
 
+func (d *Daemon) setHandoffProblem(key SessionKey, failing bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.handoffProblems == nil {
+		d.handoffProblems = map[SessionKey]bool{}
+	}
+	if failing {
+		d.handoffProblems[key] = true
+	} else {
+		delete(d.handoffProblems, key)
+	}
+}
+
 func (d *Daemon) setGeneration(agent AgentRef, generation uint64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
