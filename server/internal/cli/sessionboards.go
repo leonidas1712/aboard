@@ -14,7 +14,7 @@ import (
 // the session's person can see, listed through the daemon's delegation, with the
 // session's seat on each and that seat's unread inbox. The list never authorizes a
 // join: join --board checks again.
-func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, project projectFile, linked bool) error {
+func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, project projectFile, linked, archived bool) error {
 	if _, _, err := a.checkSession(ctx); err != nil {
 		return err
 	}
@@ -30,7 +30,11 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 	if err != nil {
 		return err
 	}
-	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBoards, Harness: key.Harness, Session: key.ID, Server: srv.URL})
+	lifecycle := ""
+	if archived {
+		lifecycle = "archived"
+	}
+	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBoards, Harness: key.Harness, Session: key.ID, Server: srv.URL, Lifecycle: lifecycle})
 	if err != nil {
 		return err
 	}
@@ -51,7 +55,7 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 			return fmt.Errorf("read a listed board's seat: %w", err)
 		}
 		row := boardsRow{
-			Name: b.Name, Title: b.Title, Visibility: b.Visibility, OnBoard: b.OnBoard, Agents: b.AgentCount,
+			Name: b.Name, Title: b.Title, Visibility: b.Visibility, Lifecycle: b.Lifecycle, OnBoard: b.OnBoard, Agents: b.AgentCount,
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 			Seat:    &seatName{},
 		}
@@ -73,14 +77,17 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 		}
 	}
 	a.emit(struct {
-		Server  serverRef         `json:"server"`
-		As      *string           `json:"as"`
-		Person  *string           `json:"person,omitempty"`
-		Session string            `json:"session"`
-		All     bool              `json:"all"`
-		Boards  []boardsRow       `json:"boards"`
-		Hidden  []api.HiddenBoard `json:"hidden_boards"`
-	}{srv, nil, person, key.String(), false, rows, []api.HiddenBoard{}}, sessionBoardsText(rows))
+		Server        serverRef         `json:"server"`
+		As            *string           `json:"as"`
+		Person        *string           `json:"person,omitempty"`
+		Session       string            `json:"session"`
+		All           bool              `json:"all"`
+		Lifecycle     string            `json:"lifecycle"`
+		Boards        []boardsRow       `json:"boards"`
+		ArchivedCount *int              `json:"archived_count,omitempty"`
+		Hidden        []api.HiddenBoard `json:"hidden_boards"`
+	}{srv, nil, person, key.String(), false, listLifecycle(archived), rows, resp.ArchivedCount, []api.HiddenBoard{}},
+		sessionBoardsText(rows, archived)+archivedHint(archived, false, resp.ArchivedCount))
 	return nil
 }
 
@@ -90,7 +97,8 @@ func (a *app) seatUnread(ctx context.Context, srv serverRef, cred agentCredentia
 	if err != nil {
 		return nil
 	}
-	r, err := c.api.ListBoardsWithResponse(ctx, &api.ListBoardsParams{})
+	all := api.ListBoardsParamsLifecycleAll
+	r, err := c.api.ListBoardsWithResponse(ctx, &api.ListBoardsParams{Lifecycle: &all})
 	if err != nil || r.JSON200 == nil {
 		return nil
 	}
@@ -104,7 +112,10 @@ func (a *app) seatUnread(ctx context.Context, srv serverRef, cred agentCredentia
 
 // sessionBoardsText is aboard boards' text output in a session: one line per board,
 // with its visibility, its agents, and the session's seat or the person's place on it.
-func sessionBoardsText(rows []boardsRow) string {
+func sessionBoardsText(rows []boardsRow, archived bool) string {
+	if len(rows) == 0 && archived {
+		return "No archived boards you can see.\n"
+	}
 	if len(rows) == 0 {
 		return "No boards you can see yet; a person makes one with aboard pair or in the board view.\n"
 	}
@@ -123,6 +134,8 @@ func sessionBoardsText(rows []boardsRow) string {
 			cols = append(cols, "you're "+*r.Seat.name+" here")
 		case r.OnBoard:
 			cols = append(cols, "you're on it")
+		case archived:
+			cols = append(cols, "archived")
 		default:
 			cols = append(cols, "join with aboard join --board "+r.Name)
 		}
