@@ -91,7 +91,7 @@ func workAssertOwnership(t *testing.T, tm *team, person *env, out map[string]any
 			t.Fatal("creation did not give the person's ordinary agent its own seat")
 		}
 	}
-	if humanID == nil || field(t, out, "board.created_by") != humanID {
+	if humanID == nil || field(t, out, "board.created_by.id") != humanID {
 		t.Fatal("the person is not the recorded creator")
 	}
 	status, people := tm.call("GET", "/v1/boards/"+board+"/people", tm.key(person), nil)
@@ -113,7 +113,7 @@ func TestTeamWorkDelegatedCreationIsAtomicAndReplaysOnlyTheCurrentSeat(t *testin
 	if len(rows) != 3 || rows[0].(map[string]any)["type"] != "board.created" || rows[1].(map[string]any)["type"] != "member.joined" || rows[2].(map[string]any)["type"] != "member.joined" {
 		t.Fatal("atomic creation did not record the board, person and agent in order")
 	}
-	if field(t, rows[0].(map[string]any), "actor.member_id") != field(t, out, "board.created_by") || field(t, rows[0].(map[string]any), "data.agent_id") != field(t, out, "agent.id") {
+	if field(t, rows[0].(map[string]any), "actor.member_id") != field(t, out, "board.created_by.id") || field(t, rows[0].(map[string]any), "data.agent_id") != field(t, out, "agent.id") {
 		t.Fatal("creation record does not name the person and its agent seat")
 	}
 	raw, err := json.Marshal(events)
@@ -324,7 +324,7 @@ func TestTeamWorkManualSeatsAndLostOwnerAuthorityCannotAddPeople(t *testing.T) {
 	workStatus(t, status, http.StatusOK, out)
 	status, out = tm.call("DELETE", "/v1/boards/"+board+"/people/maya", tm.key(tm.admin), nil)
 	workStatus(t, status, http.StatusOK, out)
-	workRefusal(t, tm, board, joined["token"].(string), "sam", 404, "board_not_found")
+	workRefusal(t, tm, board, joined["token"].(string), "sam", 403, "agent_removed")
 }
 
 func TestTeamWorkCreationRechecksParentAndServerCreationPolicy(t *testing.T) {
