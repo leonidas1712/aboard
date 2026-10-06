@@ -754,7 +754,7 @@ $defs:
       A person command for a server admin, with their access key: it makes a server
       invite (POST /v1/invites) and prints the link a newcomer passes to aboard connect.
       The server is the one this directory's .aboard names, else the one server this
-      machine is connected to when there is exactly one (D199: a team server's first
+      machine is connected to when there is exactly one (a team server's first
       admin right after aboard login), else the local server, which it starts if needed. The invite works once, makes a member (never an admin) and
       expires after --ttl (Go duration, 1m to 720h; default 168h). A person who isn't a
       server admin gets server_admin_required. Inside a harness session it refuses with

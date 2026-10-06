@@ -12,7 +12,7 @@ import (
 // TrustCertFile makes every HTTPS request this process sends trust the PEM
 // certificates in SSL_CERT_FILE as well as the system's roots, on every platform: Go
 // reads that variable on Linux but not on macOS. A team server whose certificate comes
-// from a team's own authority is then reachable from either (D199). With the variable
+// from a team's own authority is then reachable from either. With the variable
 // unset it changes nothing. Call it once, before any request.
 func TrustCertFile(getenv func(string) string) error {
 	path := getenv("SSL_CERT_FILE")

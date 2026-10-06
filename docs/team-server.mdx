@@ -1,0 +1,145 @@
+---
+title: "Run a team server"
+description: "Run aboard for your team in a container behind HTTPS, sign in as its first admin, and upgrade it safely."
+---
+
+At the end of this page your team has one aboard server at an `https://` address:
+you are its admin, colleagues connect their machines to it, and you know how to upgrade
+it and go back.
+
+## What you run
+
+A team server is the same aboard as your local one, started with `aboard serve --team`.
+It runs as one container with its database on a volume, behind a proxy (an ingress, a
+gateway or a load balancer) that ends HTTPS. The server itself speaks plain HTTP to that
+proxy and never sees a certificate.
+
+You give it three things, as flags or as environment variables:
+
+| Variable | Flag | What it is |
+| --- | --- | --- |
+| `ABOARD_PUBLIC_URL` | `--public-url` | The `https://` address people use, such as `https://aboard.example.com`. Required. |
+| `ABOARD_DATA` | `--data` | The folder for the database, files and backups. The image sets `/data`. |
+| `ABOARD_LISTEN` | `--listen` | The address to listen on. Default: `0.0.0.0:7400`. |
+| `ABOARD_ADMIN` | `--admin` | The first admin's handle, used on the first start only. Default: `admin`. |
+
+The server answers only requests for the public URL's host. Requests that name another
+host get `host_not_allowed`, so health checks must send that host too. The board view's
+sign-in cookie is always the secure kind, for that address only.
+
+## Build the image
+
+The image is the repository's `Dockerfile`: aboard with the board view, running as a
+non-root user, with `/data` as its volume. From a checkout of the repository:
+
+```bash
+docker build --build-arg VERSION=0.1.0 -t aboard:0.1.0 .
+```
+
+Push it to a registry your cluster can pull from.
+
+## Run it in Kubernetes
+
+[`deploy/kubernetes/aboard.yaml`](https://github.com/leonidas1712/aboard/blob/main/deploy/kubernetes/aboard.yaml)
+is a complete recipe: a volume claim, a deployment, a service and an ingress. Replace
+the host, the image and the storage class in it, then apply it:
+
+```bash
+kubectl create namespace aboard
+kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml
+```
+
+Three things in it matter:
+
+- **One replica, recreated on upgrade.** SQLite has one writer, so only one server may
+  open the database at a time.
+- **Block storage for the volume.** Use a class backed by a block disk. Never NFS or
+  another network file system: SQLite's locks don't hold there, and the database can be
+  corrupted.
+- **The proxy keeps the `Host` header and allows long requests.** Ingress controllers
+  keep `Host` by default. Set the read timeout to at least 11 minutes, because the event
+  stream and long waits for messages stay open that long.
+
+The server reads no `X-Forwarded-*` header. It knows it is behind HTTPS from its public
+URL. Rate limits per address count the proxy as one address, and the server-wide limits
+still apply.
+
+## Sign in as the first admin
+
+The first start makes the first admin and writes their access key to `admin-key` in the
+data folder, readable only by the server's user. The log names the file, never the key.
+On your own machine, pipe the key into `aboard login`, then delete the file:
+
+```bash
+kubectl exec -n aboard deploy/aboard -- cat /data/admin-key | aboard login https://aboard.example.com
+kubectl exec -n aboard deploy/aboard -- rm /data/admin-key
+```
+
+Check that you are the admin:
+
+```
+$ aboard people --server https://aboard.example.com
+People on https://aboard.example.com:
+  admin  admin
+```
+
+Later starts never make another admin, even if the file is gone. If you lose the key
+before you sign in, start again with an empty volume.
+
+<Note>
+If the server's certificate comes from your team's own certificate authority, set
+`SSL_CERT_FILE` to a file with that authority's certificate when you run aboard
+commands, on macOS and Linux alike.
+</Note>
+
+## Bring your colleagues in
+
+Make an invite link for each colleague. Run this outside any directory linked to another
+server, and it uses the server you just signed in to:
+
+```bash
+aboard invite --server
+```
+
+Each colleague installs aboard and connects with the link. Their other machines connect
+by approval, as [Team mode](/team-mode#another-machine-of-yours) shows:
+
+```bash
+aboard connect https://aboard.example.com/join#abi_…
+```
+
+## Upgrade, and go back
+
+Build or pull the new image and point the deployment at it:
+
+```bash
+kubectl set image -n aboard deploy/aboard aboard=ghcr.io/OWNER/aboard:0.2.0
+```
+
+On start, before it changes the database, the server copies it to
+`/data/backups/aboard-<time>-schema-<n>.db` and keeps the newest three. It then runs every
+change in one transaction. If the upgrade fails, the database is as it was, and the log
+names the copy. A server older than its data refuses to start (`data_newer`).
+
+To go back after an upgrade that worked, stop the server, put the copy in place of the
+database, and start the older image:
+
+```bash
+kubectl scale -n aboard deploy/aboard --replicas=0
+kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/OWNER/aboard:0.1.0 \
+  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/OWNER/aboard:0.1.0","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
+# in that shell:
+ls /data/backups
+cp /data/backups/aboard-<time>-schema-<n>.db /data/aboard.db && rm -f /data/aboard.db-wal /data/aboard.db-shm
+exit
+kubectl set image -n aboard deploy/aboard aboard=ghcr.io/OWNER/aboard:0.1.0
+kubectl scale -n aboard deploy/aboard --replicas=1
+```
+
+Anything written after that copy was made is lost.
+
+## Who can read what
+
+Whoever runs the server can read everything in it: every board, message and file is in
+its database and on its volume. Run it where only people your team trusts with all of
+that have access to the volume and the cluster.

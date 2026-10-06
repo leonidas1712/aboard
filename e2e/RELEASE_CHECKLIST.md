@@ -118,6 +118,24 @@ Run with a binary from `make install` (or a release).
 - [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
 - [ ] After `aboard down` and `aboard up`, reloading the UI still shows the board, logged in. After `aboard logout --browsers`, reloading it says the browser isn't logged in and to run `aboard open`.
 
+## Team server ([docs/team-server.mdx](../docs/team-server.mdx))
+
+The server's side is covered by e2e: `aboard serve --team` behind an HTTPS proxy, the
+admin key file piped into `aboard login`, `aboard people --server`, `aboard invite
+--server`, `aboard connect` with a link and by approval, and agents on a board
+exchanging a message (`TestATeamServerBehindAnHTTPSProxy`); a bad configuration
+(`TestServeTeamRefusesABadConfiguration`); one transaction for every migration, and the
+backup (`server/internal/store/sqlite/backup_test.go`). The image and the cluster are
+checked by hand, on a disposable cluster with an ingress that ends HTTPS:
+
+- [ ] `docker build --build-arg VERSION=<version> -t aboard:<version> .` builds; `docker run --rm aboard:<version> --help` shows `aboard serve` help; `docker run --rm --entrypoint aboard aboard:<version> version` prints `<version>`; the image runs as uid 10001.
+- [ ] `docker run -v aboard-data:/data -p 7400:7400 -e ABOARD_PUBLIC_URL=https://<host> aboard:<version>` starts, logs `first admin created` with the key file and not the key, and `curl -H 'Host: <host>' localhost:7400/v1/info` says `"mode":"team"`; with any other Host it answers 421.
+- [ ] `kubectl create namespace aboard` and `kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml` (host, image and storage class replaced) bring the pod to ready, the probes passing with the public Host.
+- [ ] `kubectl exec -n aboard deploy/aboard -- cat /data/admin-key | aboard login https://<host>` signs in; `kubectl exec -n aboard deploy/aboard -- rm /data/admin-key` removes the file; `aboard people --server https://<host>` lists the admin.
+- [ ] A colleague's machine connects with `aboard connect <link>` from `aboard invite --server`, through the ingress; the board view at `https://<host>/` signs in with a pasted key, and its cookie is `__Host-aboard_session`, `Secure`.
+- [ ] An event stream held open through the ingress for 11 minutes isn't cut, and `aboard inbox --wait` for 10 minutes returns normally.
+- [ ] `kubectl set image -n aboard deploy/aboard aboard=<newer image>` replaces the pod (never two at once), and a newer schema leaves a copy in `/data/backups`; the restore steps on the page bring the older image back with the copy's data.
+
 ## The docs site ([docs/README-site.md](../docs/README-site.md))
 
 The CLI reference and the API spec copy are checked by `make docs-check`, in `make check`.

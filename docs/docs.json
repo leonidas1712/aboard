@@ -49,7 +49,7 @@
           },
           {
             "group": "Teams",
-            "pages": ["team-mode"]
+            "pages": ["team-mode", "team-server"]
           },
           {
             "group": "Control and safety",

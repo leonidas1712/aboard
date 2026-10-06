@@ -194,7 +194,7 @@ type teamFlags struct{ publicURL, data, listen, admin string }
 // address, since its proxy reaches it from outside its container or machine.
 const defaultTeamListen = "0.0.0.0:7400"
 
-// serveTeam runs a team server in the foreground until interrupted (D199). Each flag not
+// serveTeam runs a team server in the foreground until interrupted. Each flag not
 // given comes from its ABOARD_ variable, so a container can be configured by its
 // environment.
 func (a *app) serveTeam(ctx context.Context, f teamFlags) error {

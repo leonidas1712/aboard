@@ -1,0 +1,13 @@
+# Only what the image build needs goes into its context.
+.git
+.bin
+.env
+.env.*
+.aboard
+.claude
+private
+web/node_modules
+web/.next
+web/out
+docs/node_modules
+**/.DS_Store

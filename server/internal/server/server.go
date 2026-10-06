@@ -60,7 +60,7 @@ type Options struct {
 	Team *Team
 }
 
-// Team configures a team server, which runs behind a proxy that ends HTTPS (D199).
+// Team configures a team server, which runs behind a proxy that ends HTTPS.
 type Team struct {
 	// PublicURL is the address people use, as ParsePublicURL returns it.
 	PublicURL PublicURL
