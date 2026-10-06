@@ -267,6 +267,9 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 		}
 	}()
 	if len(s.agents) > 1 && !c.SupportsHandoffs() {
+		if s.ext == nil || !s.ext.SupportsHandoffs() {
+			s.d.setExtensionProblem(s.key, true)
+		}
 		_ = c.write(errorResponse("extension_outdated", "This extension cannot deliver to several board seats.", "Run aboard init, then restart the harness."))
 		_ = c.conn.Close()
 		return
@@ -278,6 +281,9 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 		old.replace()
 	}
 	s.ext = c
+	if c.SupportsHandoffs() {
+		s.d.setExtensionProblem(s.key, false)
+	}
 	reopened := s.started && !s.open
 	s.noteProcess(ctx, req)
 	s.inTurn, s.working = false, false

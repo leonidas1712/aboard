@@ -238,7 +238,7 @@ func (r *rig) wait(id, boot string, resumed bool) *hook {
 				continue
 			}
 			if resp.Event == delivery.EventDeliver {
-				_ = delivery.WriteFrame(c, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived})
+				_ = delivery.WriteFrame(c, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
 			}
 			h.events <- resp
 			if resp.Event != "" || resp.Error != nil {

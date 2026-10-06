@@ -911,6 +911,12 @@ func (d *Daemon) serveWait(ctx context.Context, conn net.Conn, r *bufio.Reader, 
 			break
 		}
 		if m.Op == OpReceived {
+			w.mu.Lock()
+			expected := w.pendingHandoff
+			w.mu.Unlock()
+			if expected != "" && m.HandoffID != expected {
+				continue
+			}
 			select {
 			case w.received <- struct{}{}:
 			default:
@@ -925,16 +931,31 @@ func (d *Daemon) serveWait(ctx context.Context, conn net.Conn, r *bufio.Reader, 
 
 // waiter is a stop hook waiting on its connection.
 type waiter struct {
-	mu       sync.Mutex
-	conn     net.Conn
-	received chan struct{}
-	gone     chan struct{}
+	mu             sync.Mutex
+	conn           net.Conn
+	received       chan struct{}
+	pendingHandoff string
+	gone           chan struct{}
 }
 
 // Deliver sends the bundle and waits for the hook to say it has it. A hook names no
 // delivery, so the id isn't sent.
 func (w *waiter) Deliver(ctx context.Context, _ int64, bundle string) error {
-	err := w.write(Response{V: ProtocolVersion, Event: EventDeliver, Bundle: bundle})
+	return w.deliverFrame(ctx, Response{V: ProtocolVersion, Event: EventDeliver, Bundle: bundle})
+}
+
+func (w *waiter) DeliverHandoff(ctx context.Context, h Handover) error {
+	if h.HandoffID == "" {
+		return w.Deliver(ctx, h.ID, h.Bundle)
+	}
+	w.mu.Lock()
+	w.pendingHandoff = h.HandoffID
+	w.mu.Unlock()
+	return w.deliverFrame(ctx, Response{V: ProtocolVersion, Event: EventDeliver, HandoffID: h.HandoffID, DeliveryClass: h.Class, Bundle: h.Bundle})
+}
+
+func (w *waiter) deliverFrame(ctx context.Context, frame Response) error {
+	err := w.write(frame)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrBusy, err)
 	}
