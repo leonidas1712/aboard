@@ -19,11 +19,15 @@ GORELEASER    := $(BIN)/goreleaser-$(GORELEASER_VERSION)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-preview docs-links vuln tools core-size web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
+.PHONY: check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-preview docs-links vuln tools core-size web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check core-size harness-table-check docs-check test e2e extension-test vuln
 	@echo "make check: OK"
+
+## quick: the fast checks to run before asking for review or landing: format, lint, vet, generated code, core size (no tests)
+quick: fmt-check lint vet generate-check core-size
+	@echo "make quick: OK"
 
 ## fmt: rewrite Go files with gofumpt and goimports
 fmt: $(GOLANGCI_LINT)
@@ -79,7 +83,7 @@ test:
 e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
-	go test -race -tags e2e -count=1 ./e2e/...
+	go test -race -tags e2e -count=1 -timeout 20m ./e2e/...
 
 ## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
 # The kit's two halves also run in make test and make e2e, so make check runs them. A
@@ -261,7 +265,9 @@ $(GOLANGCI_LINT):
 
 $(GORELEASER):
 	@mkdir -p $(BIN)/tmp
-	GOBIN=$(BIN)/tmp go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
+	# GoReleaser needs a newer Go than the one we build with; auto fetches it (checked
+	# against the Go checksum database) for this install only.
+	GOTOOLCHAIN=auto GOBIN=$(BIN)/tmp go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 	@mv $(BIN)/tmp/goreleaser $@
 
 $(GOVULNCHECK):

@@ -185,6 +185,10 @@ info:
     **Writes.** Every POST, PUT, PATCH and DELETE accepts an `Idempotency-Key` header. A repeat
     with the same key and body (per token, kept 24 hours) returns the first response with
     `Idempotent-Replayed: true`. The same key with a different body is `idempotency_conflict`.
+    At 24 hours the saved response expires: using that key again is a new request,
+    including when its body differs. Expired rows are removed at server startup and
+    periodically while it runs. Row removal is logical deletion, not secure erasure
+    of copies in SQLite free pages, WAL files or backups.
     Two rules on top, for answers that carry a secret (a token, a key, a code): such an answer
     is not kept, so a repeat is a new call, unless a lost answer would make a retry create a
     second resource (a second agent, say). Then it is kept, and a repeat returns it only to

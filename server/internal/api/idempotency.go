@@ -21,10 +21,10 @@ import (
 // Responses stores the answers to idempotent writes.
 type Responses interface {
 	// SavedResponse returns the response saved for key in a caller's scope, and whether
-	// there was one.
+	// there is one within its 24-hour lifetime.
 	SavedResponse(ctx context.Context, scope, key string) (SavedResponse, bool, error)
 	// SaveResponse saves the response for key in a caller's scope. If one is already
-	// saved for the key, the first one is kept.
+	// saved for the key and has not expired, the first one is kept.
 	SaveResponse(ctx context.Context, scope, key string, r SavedResponse) error
 }
 
