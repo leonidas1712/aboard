@@ -373,7 +373,7 @@ func TestADelegatedJoinMakesASeatAndReusesIt(t *testing.T) {
 	dlg := d.str("token")
 	before := s.head(maya, board)
 
-	first := s.joinSession(dlg, board, "claude-code:5f1c", map[string]any{"harness": "claude-code"})
+	first := s.joinSession(dlg, board, "claude-code:vouched-session-marker", map[string]any{"harness": "claude-code"})
 	if first.status != 201 || first.body["reused"] != nil {
 		t.Fatalf("first join: %d %s", first.status, first.raw)
 	}
@@ -387,7 +387,7 @@ func TestADelegatedJoinMakesASeatAndReusesIt(t *testing.T) {
 	if data["via"] != "delegation" || data["delegation_id"] != d.str("id") || data["join_code_id"] != nil || actor["name"] != "maya" || data["role"] != "member" {
 		t.Errorf("member.joined: %v by %v", data, actor)
 	}
-	if strings.Contains(fmt.Sprint(evs), "5f1c") {
+	if strings.Contains(fmt.Sprint(evs), "vouched-session-marker") {
 		t.Errorf("the session string reached the record: %v", evs)
 	}
 	agent := first.str("agent", "id")
@@ -395,7 +395,7 @@ func TestADelegatedJoinMakesASeatAndReusesIt(t *testing.T) {
 	s.works(oldToken, true)
 
 	head := s.head(maya, board)
-	again := s.joinSession(dlg, board, "claude-code:5f1c", nil)
+	again := s.joinSession(dlg, board, "claude-code:vouched-session-marker", nil)
 	if again.status != 200 || again.body["reused"] != true || again.str("agent", "id") != agent || again.str("token") == oldToken {
 		t.Fatalf("second join: %d %s", again.status, again.raw)
 	}

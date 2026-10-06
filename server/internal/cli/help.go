@@ -501,7 +501,7 @@ func helpText(templates string) []commandHelp {
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
-				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the local server."},
+				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the one server this machine is connected to, else the local server."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -534,18 +534,21 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "board", Group: groupBoard,
-			Summary: "Change a board's policy, title, people or visibility",
+			Summary: "Create a board, or change a board's policy, title, people or visibility",
 			Usage: []string{
-				"aboard board policy <starter|recommended> [--board NAME] [--json]",
+				"aboard board new <name> [--title TEXT] [--private] [--server URL] [--json]",
+				"aboard board policy <starter|recommended> [--board NAME [--server URL]] [--json]",
 				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
 				"aboard board people [--as AGENT] [--board NAME] [--json]",
-				"aboard board add @handle [--board NAME] [--json]",
-				"aboard board remove @handle [--board NAME] [--json]",
-				"aboard board leave [--board NAME] [--json]",
-				"aboard board owner @handle [--board NAME] [--json]",
-				"aboard board visibility <open|private> [--yes] [--board NAME] [--json]",
+				"aboard board add @handle [--board NAME [--server URL]] [--json]",
+				"aboard board remove @handle [--board NAME [--server URL]] [--json]",
+				"aboard board leave [--board NAME [--server URL]] [--json]",
+				"aboard board owner @handle [--board NAME [--server URL]] [--json]",
+				"aboard board visibility <open|private> [--yes] [--board NAME [--server URL]] [--json]",
 			},
-			Description: "policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
+			Description: "new creates a board with you as its owner and no agents on it, open to every person on the server unless --private, and says how agents and people join it. " +
+				"Its server is --server, else this directory's .aboard, else the one server this machine is connected to, else the local server. A directory linked to no board is linked to the new one, as pair does.\n\n" +
+				"policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
 				"Switch to recommended before adding other people or their agents.\n\n" +
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
@@ -558,14 +561,18 @@ func helpText(templates string) []commandHelp {
 				"leave takes you off the board; its last owner makes someone else an owner first. " +
 				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
 				"and before making a private board open it says how many messages and files every person on the server could then read, and asks; without a terminal it needs --yes.\n\n" +
-				"add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.",
+				"new, add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.",
 			Flags: []helpFlag{
 				{"--as", "AGENT", "title and people only: act as this agent, for its owner. Default inside an agent's session: the session's agent."},
 				{"--yes", "", "visibility only: make a private board open without asking."},
+				{"--title", "TEXT", "new only: the new board's title."},
+				{"--private", "", "new only: make the new board private, seen only by the people on it."},
+				{"--server", "URL", "With new: the server to create it on, when it isn't the one this machine would pick. With policy, add, remove, leave, owner or visibility, and --board: the server of that board, when it isn't this directory's."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which); for an agent, its own board."},
 				flagJSON,
 			},
 			Examples: []helpExample{
+				{"aboard board new payments --title \"Payments retry design\"", "Create a board for your team's agents to join"},
 				{"aboard board policy recommended", "Tighten the board before others join"},
 				{"aboard board title \"Payments retry design\"", "Name what the board is for"},
 				{"aboard board add @maya", "Bring a teammate onto the board"},
@@ -775,11 +782,24 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "serve", Group: groupInternal,
-			Summary: "Run the local server in the foreground",
-			Usage:   []string{"aboard serve"},
+			Summary: "Run the local server, or a team server, in the foreground",
+			Usage:   []string{"aboard serve", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE]"},
 			Description: "Runs the local server in the foreground until it is stopped. " +
-				"aboard up and other commands start it in the background this way; use aboard up instead.",
-			SeeAlso: []string{"up", "down"},
+				"aboard up and other commands start it in the background this way; use aboard up instead. " +
+				"With --team it runs a team server behind a proxy that ends HTTPS, such as a container behind an ingress. " +
+				"Each of its flags can come from a variable instead: ABOARD_PUBLIC_URL, ABOARD_DATA, ABOARD_LISTEN and ABOARD_ADMIN. " +
+				"Its first start makes the first admin and writes their key to admin-key in the data folder; pipe that file into aboard login on your own machine, then delete it.",
+			Flags: []helpFlag{
+				{"--team", "", "Run a team server instead of the local one."},
+				{"--public-url", "URL", "With --team: the https address people use, such as https://aboard.example.com. Only requests for its host are answered."},
+				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own, never a network file system. It must be this user's alone (mode 700, no links); the server makes it so when it is new."},
+				{"--listen", "ADDR", "With --team: the address to listen on. Default: 0.0.0.0:7400."},
+				{"--admin", "HANDLE", "With --team: the first admin's handle, used on the first start only. Default: admin."},
+			},
+			Examples: []helpExample{
+				{"aboard serve --team --public-url https://aboard.example.com --data /srv/aboard", "Run a team server for aboard.example.com"},
+			},
+			SeeAlso: []string{"up", "down", "login"},
 		},
 		{
 			Name: "hook", Group: groupInternal,

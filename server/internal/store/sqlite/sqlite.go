@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 
@@ -55,11 +56,24 @@ func Open(ctx context.Context, path string, clk clock.Clock) (*Store, error) {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
 	s := &Store{db: db, clk: clk, path: path}
-	if err := s.migrate(ctx); err != nil {
+	// A new connection switches the database to WAL, which SQLite refuses at once,
+	// without waiting, while another server starting on the same file holds a lock. A
+	// failed migration changes nothing, so it is tried again until the busy timeout.
+	err = s.migrate(ctx, migrations)
+	for deadline := time.Now().Add(10 * time.Second); busy(err) && time.Now().Before(deadline); err = s.migrate(ctx, migrations) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 	return s, nil
+}
+
+// busy reports whether err is SQLite's "database is locked" (SQLITE_BUSY).
+func busy(err error) bool {
+	var e interface{ Code() int }
+	return errors.As(err, &e) && e.Code()&0xff == 5
 }
 
 // ErrNewerSchema means the data was written by a newer aboard, whose schema this one
@@ -75,12 +89,12 @@ func migrationNumber(name string) int {
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) migrate(ctx context.Context) error {
+func (s *Store) migrate(ctx context.Context, files fs.FS) error {
 	var version int
 	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
-	names, err := fs.Glob(migrations, "migrations/*.sql")
+	names, err := fs.Glob(files, "migrations/*.sql")
 	if err != nil {
 		return fmt.Errorf("list migrations: %w", err)
 	}
@@ -89,11 +103,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if version > latest {
 		return fmt.Errorf("%w: the database is at schema %d, and this aboard knows up to %d", ErrNewerSchema, version, latest)
 	}
-	if version > 0 && version < latest {
-		if err := s.backup(ctx, version); err != nil {
-			return err
-		}
-	}
+	var pending []migration
 	for _, name := range names {
 		n, err := strconv.Atoi(strings.SplitN(strings.TrimPrefix(name, "migrations/"), "_", 2)[0])
 		if err != nil {
@@ -102,21 +112,42 @@ func (s *Store) migrate(ctx context.Context) error {
 		if n <= version {
 			continue
 		}
-		body, err := migrations.ReadFile(name)
+		body, err := fs.ReadFile(files, name)
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
-		if err := s.apply(ctx, n, string(body)); err != nil {
-			return fmt.Errorf("migration %s: %w", name, err)
+		pending = append(pending, migration{name: name, n: n, body: string(body)})
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	backup := ""
+	if version > 0 {
+		if backup, err = s.backup(ctx, version); err != nil {
+			return err
 		}
+	}
+	if err := s.apply(ctx, pending); err != nil {
+		if backup != "" {
+			return fmt.Errorf("%w; the database is unchanged, at schema %d, and a copy of it from before is at %s", err, version, backup)
+		}
+		return err
 	}
 	return nil
 }
 
-// apply runs one migration in a transaction on a connection of its own with foreign keys
-// off, as SQLite asks for a migration that rebuilds a table, and checks every foreign key
-// before it commits.
-func (s *Store) apply(ctx context.Context, n int, body string) error {
+// migration is one numbered migration file.
+type migration struct {
+	name string
+	n    int
+	body string
+}
+
+// apply runs the migrations in one transaction, so a failure leaves the database as it
+// was. The transaction has a connection of its own with foreign keys off, as SQLite asks
+// for a migration that rebuilds a table, and every foreign key is checked after each
+// migration.
+func (s *Store) apply(ctx context.Context, pending []migration) error {
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("open a connection: %w", err)
@@ -132,12 +163,24 @@ func (s *Store) apply(ctx context.Context, n int, body string) error {
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	if err := applyIn(ctx, sqlTx, n, body); err != nil {
+	// Another server starting on the same database may have migrated it since the version
+	// was read; the transaction holds the write lock, so what it reads now stays true.
+	var current int
+	if err := sqlTx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&current); err != nil {
 		_ = sqlTx.Rollback()
-		return err
+		return fmt.Errorf("read schema version: %w", err)
+	}
+	for _, m := range pending {
+		if m.n <= current {
+			continue
+		}
+		if err := applyIn(ctx, sqlTx, m.n, m.body); err != nil {
+			_ = sqlTx.Rollback()
+			return fmt.Errorf("migration %s: %w", m.name, err)
+		}
 	}
 	if err := sqlTx.Commit(); err != nil {
-		return fmt.Errorf("commit: %w", err)
+		return fmt.Errorf("commit the migrations: %w", err)
 	}
 	return nil
 }
@@ -172,35 +215,64 @@ func checkForeignKeys(ctx context.Context, sqlTx *sql.Tx) error {
 // migrations.
 func (s *Store) backupDir() string { return filepath.Join(filepath.Dir(s.path), "backups") }
 
+// privateDir makes dir, readable only by its owner, unless it exists. One that exists
+// must be a real folder, not a link, that no one else can open: a copy of the database
+// holds everything in it.
+func privateDir(dir string) error {
+	info, err := os.Lstat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			return fmt.Errorf("create the backup folder %s: %w", dir, err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check the backup folder %s: %w", dir, err)
+	}
+	if info.Mode()&fs.ModeSymlink != 0 || !info.IsDir() {
+		return fmt.Errorf("%s is a link or a file, not the backup folder; move it away so the next start can make the folder", dir)
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("the backup folder %s can be opened by others (mode %04o); run chmod 700 %s", dir, info.Mode().Perm(), dir)
+	}
+	return nil
+}
+
 // backup copies the database, at schema version, into the backups folder before a
-// migration changes it, and keeps only the newest keptBackups copies. The copy is a
-// consistent snapshot made while the database is open (VACUUM INTO), readable only by its
-// owner.
-func (s *Store) backup(ctx context.Context, version int) error {
+// migration changes it, keeps only the newest keptBackups copies and returns the copy's
+// path. The copy is a consistent snapshot made while the database is open (VACUUM INTO),
+// in a file created readable only by its owner before SQLite writes to it.
+func (s *Store) backup(ctx context.Context, version int) (string, error) {
 	dir := s.backupDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("create backup folder: %w", err)
+	if err := privateDir(dir); err != nil {
+		return "", fmt.Errorf("back up the database before migrating it: %w", err)
 	}
 	name := fmt.Sprintf("aboard-%s-schema-%d.db", s.clk.Now().UTC().Format("20060102T150405.000Z"), version)
 	path := filepath.Join(dir, name)
-	if _, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
-		return fmt.Errorf("back up the database before migrating it: %w", err)
+	// VACUUM INTO writes into an empty file it finds there, keeping the file's mode.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // a name made here, in the database's own folder
+	if err != nil {
+		return "", fmt.Errorf("back up the database before migrating it: %w", err)
 	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		return fmt.Errorf("protect the backup %s: %w", path, err)
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("back up the database before migrating it: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
+		_ = os.Remove(path)
+		return "", fmt.Errorf("back up the database before migrating it: %w", err)
 	}
 	old, err := filepath.Glob(filepath.Join(dir, "aboard-*-schema-*.db"))
 	if err != nil {
-		return fmt.Errorf("list backups: %w", err)
+		return "", fmt.Errorf("list backups: %w", err)
 	}
 	sort.Strings(old) // the names start with the time they were made
 	for len(old) > keptBackups {
 		if err := os.Remove(old[0]); err != nil {
-			return fmt.Errorf("remove an old backup: %w", err)
+			return "", fmt.Errorf("remove an old backup: %w", err)
 		}
 		old = old[1:]
 	}
-	return nil
+	return path, nil
 }
 
 // tx is one transaction. Its methods read and write within it.
@@ -279,13 +351,19 @@ func (s *Store) Setting(ctx context.Context, key string) (value string, ok bool,
 	return v, true, nil
 }
 
-// SetSetting stores a server setting, replacing any earlier value.
-func (s *Store) SetSetting(ctx context.Context, key, value string) error {
+// SettingOnce stores a server setting unless it has a value already, and returns the
+// value it has afterwards: value, or the one stored first. Stored values never change,
+// so two servers starting at once on one database agree on the one that was kept.
+func (s *Store) SettingOnce(ctx context.Context, key, value string) (string, error) {
+	var stored string
 	err := s.write(ctx, func(t *tx) error {
-		return t.exec("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", key, value)
+		if err := t.exec("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", key, value); err != nil {
+			return err
+		}
+		return t.queryRow("SELECT value FROM meta WHERE key = ?", key).Scan(&stored)
 	})
 	if err != nil {
-		return fmt.Errorf("save setting %s: %w", key, err)
+		return "", fmt.Errorf("save setting %s: %w", key, err)
 	}
-	return nil
+	return stored, nil
 }

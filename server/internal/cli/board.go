@@ -48,9 +48,29 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	boardFlag := fs.String("board", "", "the board to change")
 	as := fs.String("as", "", "the agent that sets the title, for its owner")
 	yes := fs.Bool("yes", false, "visibility only: make a private board open without asking")
+	newTitle := fs.String("title", "", "new only: the new board's title")
+	private := fs.Bool("private", false, "new only: make the new board private")
+	serverFlag := fs.String("server", "", "new only: the server to create the board on")
 	pos, err := a.parse(fs, args, boardUsage, 1, -1)
 	if err != nil {
 		return err
+	}
+	if pos[0] == "new" {
+		if len(pos) != 2 || *as != "" || *boardFlag != "" || *yes {
+			return usageError("Name the new board, and only that: aboard board new payments [--title T] [--private] [--server URL].", boardUsage)
+		}
+		return runBoardNew(ctx, a, pos[1], *newTitle, *private, *serverFlag)
+	}
+	if *newTitle != "" || *private {
+		return usageError("--title and --private work only with new.", boardUsage)
+	}
+	if *serverFlag != "" {
+		switch pos[0] {
+		case "policy", "add", "remove", "leave", "owner", "visibility":
+			a.boardServerFlag = *serverFlag
+		default:
+			return usageError("--server works only with new, policy, add, remove, leave, owner and visibility.", boardUsage)
+		}
 	}
 	onePerson := func() (string, error) {
 		if len(pos) != 2 || handleArg(pos[1]) == "" {
@@ -111,7 +131,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		}
 		return runBoardTitle(ctx, a, *boardFlag, *as, strings.Join(pos[1:], " "))
 	}
-	return usageError(fmt.Sprintf("%q is not a board command; use people, add, remove, leave, owner, visibility, policy or title.", pos[0]), boardUsage)
+	return usageError(fmt.Sprintf("%q is not a board command; use new, people, add, remove, leave, owner, visibility, policy or title.", pos[0]), boardUsage)
 }
 
 // runBoardTitle changes a board's title; an empty title removes it. When an agent is
@@ -171,10 +191,10 @@ func runBoardPolicy(ctx context.Context, a *app, boardFlag, presetArg string) er
 	if preset != "starter" && preset != "recommended" {
 		return usageError(fmt.Sprintf("%q is not a policy preset; use starter or recommended.", presetArg), boardUsage)
 	}
-	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(a.namedBoard(boardFlag))); err != nil {
+	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+commandWord(string(preset))+a.boardFlags(boardFlag)); err != nil {
 		return err
 	}
-	t, err := a.selectBoard(boardFlag)
+	t, err := a.personBoard(boardFlag)
 	if err != nil {
 		return err
 	}

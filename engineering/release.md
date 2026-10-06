@@ -59,7 +59,7 @@ tracks the work.
 | --- | --- | --- |
 | `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh \| sh` | Anyone on macOS or Linux | Yes, once a release is published (`scripts/install.sh`, attached to every release). The script picks the platform's archive, checks the checksums' signature when cosign is installed (and prints the command otherwise), verifies the archive against them, refuses an archive with anything but plain files, installs `aboard` and the launchers to `~/.local/bin` (or `ABOARD_INSTALL_DIR`) by renaming each into place, and says if that folder isn't on the `PATH`. `ABOARD_VERSION` picks a version. `e2e/installscript_test.go` runs it against a fake release server. |
 | `brew install leonidas1712/aboard/aboard` | macOS and Linux with Homebrew | Configured but off. To turn it on: create the public repository `leonidas1712/homebrew-aboard`; add a fine-grained token with contents write on that repository only as the secret `HOMEBREW_TAP_TOKEN`; pass it to the release step's environment; set `skip_upload: false` under `homebrew_casks` in `.goreleaser.yaml`; and, while the macOS binaries aren't notarized, add a post-install hook that clears the quarantine attribute Homebrew sets on casks. |
-| `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It is built from `Dockerfile.release`, which copies the release binary from the build context's `$TARGETPLATFORM/aboard` into the same image the root `Dockerfile` builds from source: alpine, user 10001, `aboard serve --team` with its data on the volume `/data`. |
+| `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It is built from `Dockerfile.release`, which copies the release binary from the build context's `$TARGETPLATFORM/aboard` into the same image the root `Dockerfile` builds from source: alpine, user 10001, `aboard serve --team` with its data in `/data/aboard` on a volume at `/data`. Building it from source instead: `docker build --build-arg VERSION=… .` with the root `Dockerfile`. |
 | `make install` | Building from source | Yes. Needs Go and Node. |
 
 All of them install the same binary. The skill published for `npx skills` is generated
@@ -74,7 +74,7 @@ session that is already running.
 | --- | --- | --- | --- |
 | The binary (CLI, daemon, local server) | A package manager, the install script, or `aboard upgrade` | Never installed silently. A command in a terminal says once a day that a newer release exists. A running daemon or local server from an older build is replaced by the first newer command or hook that reaches it. | Yes: replacement, the notice and `aboard upgrade` (`e2e/selfupgrade_test.go`) |
 | Files installed into harnesses (the skill, hook entries, allow rules) | `aboard init --yes` | Hooks run the installed binary by its path, so a new binary takes effect without rewriting them. `aboard doctor` reports a file that differs from what this build would write; the install manifest tells an outdated file from one the person edited. | Yes |
-| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, after a backup of the database. A binary older than its data refuses to start. | Forward-only and refusal: yes. Backup: to build, in the team step |
+| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, in one transaction after a backup of the database. A binary older than its data refuses to start. | Yes |
 
 ### No silent installs
 
@@ -130,11 +130,16 @@ The database schema is a sequence of numbered SQL migrations embedded in the bin
 no down migrations: going back means restoring a backup. Data written by a newer
 schema is refused with `data_newer`, so an older binary never misreads it.
 
-Before applying any migration, the server copies the database with SQLite's online
-backup to `backups/aboard-<schema>-<time>.db` next to it and keeps the last three. A
-failed migration leaves the original untouched and says where the backup is. The local
-server does the same; it is a team server with one person. *To build, in the team
-step.*
+Before applying any migration, the server copies the database with `VACUUM INTO` (a
+consistent copy taken while it is open) to `backups/aboard-<time>-schema-<n>.db` next
+to it and keeps the newest three. The folder is created owner-only, and one that is a
+link, a file or open to others stops the start before anything is copied; each copy is
+created owner-only before SQLite writes it. Every pending migration then runs in one
+transaction, so a failed upgrade leaves the database as it was and the error names the
+copy. Going back after an upgrade that worked means stopping the server, putting a copy
+in place of `aboard.db` (and removing `aboard.db-wal` and `aboard.db-shm`), and starting
+the older binary. The local server does the same; it is a team server with one person
+(D184, D199). *Today.*
 
 Every released schema keeps a fixture database, and a test migrates each one forward
 ([testing.md](testing.md#practices)).

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -136,8 +137,19 @@ func localPID(p paths) int {
 // runServe runs the local server in the foreground until interrupted.
 func runServe(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("serve")
+	team := fs.Bool("team", false, "run a team server")
+	publicURL := fs.String("public-url", "", "the https address people use")
+	data := fs.String("data", "", "the folder for the database, files and backups")
+	listen := fs.String("listen", "", "the address to listen on")
+	admin := fs.String("admin", "", "the first admin's handle")
 	if _, err := a.parse(fs, args, usageOf("serve"), 0, 0); err != nil {
 		return err
+	}
+	if *team {
+		return a.serveTeam(ctx, teamFlags{publicURL: *publicURL, data: *data, listen: *listen, admin: *admin})
+	}
+	if *publicURL != "" || *data != "" || *listen != "" || *admin != "" {
+		return usageError("--public-url, --data, --listen and --admin are for a team server: add --team.", usageOf("serve"))
 	}
 	p, err := a.paths()
 	if err != nil {
@@ -171,6 +183,70 @@ func runServe(ctx context.Context, a *app, args []string) error {
 				" so the next start picks a free port, or set ABOARD_LOCAL_ADDR to a free one."
 		}
 		return &Error{Code: "server_not_running", Message: "The local server stopped: " + err.Error(), Hint: hint, Err: err}
+	}
+	return nil
+}
+
+// teamFlags are aboard serve --team's flags as given; empty when not given.
+type teamFlags struct{ publicURL, data, listen, admin string }
+
+// defaultTeamListen is where a team server listens unless told otherwise: every
+// address, since its proxy reaches it from outside its container or machine.
+const defaultTeamListen = "0.0.0.0:7400"
+
+// serveTeam runs a team server in the foreground until interrupted. Each flag not
+// given comes from its ABOARD_ variable, so a container can be configured by its
+// environment.
+func (a *app) serveTeam(ctx context.Context, f teamFlags) error {
+	pick := func(flagValue, name, def string) string {
+		if flagValue != "" {
+			return flagValue
+		}
+		if v := strings.TrimSpace(a.env.Getenv(name)); v != "" {
+			return v
+		}
+		return def
+	}
+	rawURL := pick(f.publicURL, "ABOARD_PUBLIC_URL", "")
+	data := pick(f.data, "ABOARD_DATA", "")
+	listen := pick(f.listen, "ABOARD_LISTEN", defaultTeamListen)
+	admin := pick(f.admin, "ABOARD_ADMIN", "admin")
+	use := usageOf("serve")
+	if rawURL == "" {
+		return usageError("A team server needs its public URL: give --public-url or set ABOARD_PUBLIC_URL.", use)
+	}
+	pub, err := server.ParsePublicURL(rawURL)
+	if err != nil {
+		return usageError("The public URL "+err.Error()+".", use)
+	}
+	if data == "" {
+		return usageError("A team server needs a folder for its data: give --data or set ABOARD_DATA.", use)
+	}
+	if !filepath.IsAbs(data) {
+		return usageError("The data folder "+data+" is not an absolute path.", use)
+	}
+	if _, _, err := net.SplitHostPort(listen); err != nil {
+		return usageError("The listen address "+listen+" is not a host and port, such as 0.0.0.0:7400.", use)
+	}
+	if h := rules.NormalizeName(admin); h == "" || !strings.EqualFold(h, admin) {
+		return usageError("The first admin's handle "+admin+" can't be a handle: use lowercase letters, digits and dashes.", use)
+	}
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	b := currentBuild()
+	err = server.Run(ctx, server.Options{
+		Addr: listen, DataDir: data, Version: b.Version, Commit: b.Commit, CommitTime: b.CommitTime,
+		Log:  slog.New(slog.NewJSONHandler(a.env.Stderr, nil)),
+		Team: &server.Team{PublicURL: pub, AdminName: admin},
+	})
+	if errors.Is(err, sqlite.ErrNewerSchema) {
+		return dataNewer(data, err)
+	}
+	if err != nil {
+		return &Error{
+			Code: "server_not_running", Message: "The team server stopped: " + err.Error(),
+			Hint: "If another program uses " + listen + ", set --listen or ABOARD_LISTEN to a free address.", Err: err,
+		}
 	}
 	return nil
 }
