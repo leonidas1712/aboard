@@ -13,9 +13,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -53,6 +55,48 @@ type Options struct {
 	Log        *slog.Logger
 	Clock      clock.Clock
 	Rand       io.Reader
+	// Team, when set, runs a team server instead of the local one: OwnerName,
+	// MachineName and OwnerTokenPath are then unused.
+	Team *Team
+}
+
+// Team configures a team server, which runs behind a proxy that ends HTTPS (D199).
+type Team struct {
+	// PublicURL is the address people use, as ParsePublicURL returns it.
+	PublicURL PublicURL
+	// AdminName is the first admin's handle, made on the first start of an empty
+	// database.
+	AdminName string
+}
+
+// PublicURL is a team server's public address.
+type PublicURL struct {
+	// Origin is the URL's scheme, host and port: https://team.example.com.
+	Origin string
+	// Host is the Host header requests arrive with, with the port when it isn't 443.
+	Host string
+}
+
+// AdminKeyFile is the file in a team server's data folder that the first admin's key is
+// written to.
+const AdminKeyFile = "admin-key"
+
+// ParsePublicURL checks a team server's public URL: https, a host, and no user, path,
+// query or fragment. The default port is dropped, as browsers drop it from Origin and
+// Host.
+func ParsePublicURL(s string) (PublicURL, error) {
+	u, err := url.Parse(strings.TrimSpace(s))
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || strings.Trim(u.Path, "/") != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || strings.HasSuffix(u.Host, ":") {
+		return PublicURL{}, fmt.Errorf("%q is not an https address such as https://team.example.com, with no path", s)
+	}
+	host := strings.ToLower(u.Host)
+	if u.Port() == "443" {
+		host = strings.ToLower(u.Hostname())
+		if strings.Contains(host, ":") {
+			host = "[" + host + "]"
+		}
+	}
+	return PublicURL{Origin: "https://" + host, Host: host}, nil
 }
 
 // JoinHost is how join lines name a local server at addr: "localhost", with the port
@@ -66,7 +110,8 @@ func JoinHost(addr string) string {
 	return "localhost:" + port
 }
 
-// Run serves a local server until ctx is done, then shuts down gracefully.
+// Run serves a local server, or a team server with o.Team, until ctx is done, then shuts
+// down gracefully.
 func Run(ctx context.Context, o Options) error {
 	if o.Clock == nil {
 		o.Clock = clock.Real{}
@@ -91,14 +136,24 @@ func Run(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	svc := board.New(st, notify.NewInProcess(), o.Clock, ids.New(o.Rand), key, board.Config{ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}, o.Log)
-	token, err := svc.BootstrapOwner(ctx, rules.NormalizeName(o.OwnerName), rules.NormalizeName(o.MachineName))
-	if err != nil {
-		return err
+	cfg := board.Config{ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}
+	if o.Team != nil {
+		cfg.Mode, cfg.JoinHost = "team", o.Team.PublicURL.Host
 	}
-	if token != "" {
-		if err := writePrivate(o.OwnerTokenPath, token+"\n"); err != nil {
-			return fmt.Errorf("save owner token: %w", err)
+	svc := board.New(st, notify.NewInProcess(), o.Clock, ids.New(o.Rand), key, cfg, o.Log)
+	if o.Team != nil {
+		if err := firstAdmin(ctx, svc, o.DataDir, o.Team.AdminName, o.Log); err != nil {
+			return err
+		}
+	} else {
+		token, err := svc.BootstrapOwner(ctx, rules.NormalizeName(o.OwnerName), rules.NormalizeName(o.MachineName))
+		if err != nil {
+			return err
+		}
+		if token != "" {
+			if err := writePrivate(o.OwnerTokenPath, token+"\n"); err != nil {
+				return fmt.Errorf("save owner token: %w", err)
+			}
 		}
 	}
 	// shutdown ends open event streams when the server shuts down: http.Server.Shutdown
@@ -109,12 +164,16 @@ func Run(ctx context.Context, o Options) error {
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", o.Addr, err)
 	}
+	hosts, publicOrigin := api.LocalHosts(ln.Addr().String()), ""
+	if o.Team != nil {
+		hosts, publicOrigin = []string{o.Team.PublicURL.Host}, o.Team.PublicURL.Origin
+	}
 	handler, err := api.NewHandler(api.Options{
 		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30, ConnectsPerMinute: 10, ConnectsPerMinuteServer: 60,
 		MachineRequests: api.Limits{PerAddr: 10, Server: 60}, MachineCodes: api.Limits{PerAddr: 10, PerPerson: 10, Server: 60},
 		MachineCollects: api.Limits{PerAddr: 60, Server: 600},
 		SignInFailures:  api.Limits{PerAddr: 20, Server: 100}, SignInAttempts: api.Limits{PerAddr: 120, Server: 600},
-		Shutdown: shutdown, Hosts: api.LocalHosts(ln.Addr().String()), UI: web.Files(),
+		Shutdown: shutdown, Hosts: hosts, PublicOrigin: publicOrigin, UI: web.Files(),
 	})
 	if err != nil {
 		_ = ln.Close()
@@ -143,7 +202,7 @@ func Run(ctx context.Context, o Options) error {
 		IdleTimeout:  2 * time.Minute,
 	}
 	srv.RegisterOnShutdown(startShutdown)
-	o.Log.Info("serving", "addr", ln.Addr().String(), "server_id", serverID)
+	o.Log.Info("serving", "addr", ln.Addr().String(), "server_id", serverID, "mode", cfg.Mode)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
@@ -202,6 +261,33 @@ func setting(ctx context.Context, st settings, key string, create func() (string
 		return "", err
 	}
 	return v, st.SetSetting(ctx, key, v)
+}
+
+// firstAdmin makes a team server's first person, its admin, on the first start of an
+// empty database, and writes their key to the admin key file in dataDir, which must not
+// exist yet. Later starts, and every start but one when several begin at once, find a
+// person already there and do nothing: the person is made in a write transaction that
+// first checks there is none. The key is logged by its file only, never itself.
+func firstAdmin(ctx context.Context, svc *board.Service, dataDir, name string, log *slog.Logger) error {
+	handle := rules.NormalizeName(name)
+	token, err := svc.BootstrapOwner(ctx, handle, "admin-key")
+	if err != nil || token == "" {
+		return err
+	}
+	path := filepath.Join(dataDir, AdminKeyFile)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // the server's own data folder
+	if err != nil {
+		return fmt.Errorf("save the first admin's key: %w; it is lost, so start again with an empty data folder", err)
+	}
+	if _, err := f.WriteString(token + "\n"); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("save the first admin's key in %s: %w", path, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("save the first admin's key in %s: %w", path, err)
+	}
+	log.Info("first admin created", "handle", handle, "key_file", path)
+	return nil
 }
 
 // writePrivate writes a file only its owner can read.
