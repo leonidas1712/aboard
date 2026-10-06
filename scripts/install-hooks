@@ -1,0 +1,66 @@
+#!/bin/sh
+# Installs, or removes, a git pre-push hook that runs make quick before every push, in
+# every worktree of this repository. It is opt-in, and it never replaces a pre-push hook
+# it didn't write. git push --no-verify skips it once.
+#
+#   scripts/install-hooks [--remove]
+#
+# Exit codes: 0 installed or removed (or nothing to remove), 1 usage error or another
+# pre-push hook is in the way.
+set -eu
+
+say() { printf '%s\n' "$*"; }
+marker="# Installed by aboard's scripts/install-hooks."
+
+remove=no
+case ${1:-} in
+'') ;;
+--remove) remove=yes ;;
+*)
+	say "usage: scripts/install-hooks [--remove]" >&2
+	exit 1
+	;;
+esac
+[ $# -le 1 ] || {
+	say "usage: scripts/install-hooks [--remove]" >&2
+	exit 1
+}
+
+# Hooks are shared by every worktree (or wherever core.hooksPath points).
+hooks=$(git rev-parse --path-format=absolute --git-path hooks 2>/dev/null) || {
+	say "install-hooks: run this inside the repository (any worktree of it)" >&2
+	exit 1
+}
+hook="$hooks/pre-push"
+ours=no
+[ -f "$hook" ] && grep -qxF "$marker" "$hook" && ours=yes
+
+if [ "$remove" = yes ]; then
+	if [ "$ours" = yes ]; then
+		rm "$hook"
+		say "Removed the pre-push hook at $hook."
+	else
+		say "No pre-push hook from install-hooks at $hook; nothing to remove."
+	fi
+	exit 0
+fi
+
+if [ -e "$hook" ] && [ "$ours" = no ]; then
+	say "install-hooks: $hook exists and isn't one this script wrote; add make quick to it yourself, or move it and run this again" >&2
+	exit 1
+fi
+mkdir -p "$hooks"
+cat >"$hook" <<EOF
+#!/bin/sh
+$marker
+# Runs make quick (format, lint, vet, generated code, core size) before a push.
+# Skip it once with git push --no-verify; remove it with scripts/install-hooks --remove.
+cd "\$(git rev-parse --show-toplevel)" || exit 1
+if ! make quick; then
+	echo "pre-push: make quick failed; fix it, or push with --no-verify to skip the check once" >&2
+	exit 1
+fi
+EOF
+chmod +x "$hook"
+say "Installed a pre-push hook at $hook: every push runs make quick first."
+say "Skip it once with git push --no-verify; remove it with scripts/install-hooks --remove."

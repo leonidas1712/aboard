@@ -353,6 +353,11 @@ or read position, but it fences callbacks from the earlier credential. Re-regist
 the same session retains the generation; a changed process has a new session boot.
 A legacy binding receives a generation during migration after its own token proves
 its member id. Unresolved legacy state is never assigned to a same-name replacement.
+When the daemon starts and a legacy seat's server can't be reached or fails, the seat
+waits with the agent problem `server_unreachable`: the daemon tries again with backoff
+(1, 2, 4 … 60 seconds) and gives the seat back to its session once its token proves it,
+with no restart. A refusal (`unauthorized`, `board_gone`) is final, at start or on a
+later try.
 
 **Preparing.** Before exposing any combined text, one journal transaction stores its
 new handoff id, session and boot, each admitted seat's server, board, member id,
