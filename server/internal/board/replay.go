@@ -12,6 +12,8 @@ import (
 // Replay identifies the data held by an immutable cached response. The adapter
 // supplies identifiers, never authority; the read transaction checks the caller again.
 type Replay struct {
+	AddPeople  bool
+	Handle     string
 	Name       string
 	ID         string
 	MessageID  string
@@ -26,6 +28,10 @@ type Replay struct {
 func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in Replay) error {
 	return s.st.Read(ctx, func(tx ReadTx) error {
 		if _, err := caller(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
+		if in.AddPeople {
+			_, _, _, err := s.addPersonAuthority(tx, p, in.Name, in.Handle)
 			return err
 		}
 		if in.Lifecycle != "" {

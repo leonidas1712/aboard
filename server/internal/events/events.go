@@ -16,18 +16,19 @@ var GenesisHash = "sha256:" + strings.Repeat("0", 64)
 
 // Event types written to the log.
 const (
-	BoardCreated       = "board.created"
-	BoardArchived      = "board.archived"
-	BoardRestored      = "board.restored"
-	BoardDeleted       = "board.deleted"
-	BoardPolicyChanged = "board.policy_changed"
-	BoardTitled        = "board.titled"
-	MemberJoined       = "member.joined"
-	JoinCodeCreated    = "joincode.created"
-	JoinCodeRevoked    = "joincode.revoked"
-	MessagePosted      = "message.posted"
-	ReactionAdded      = "reaction.added"
-	ReactionRemoved    = "reaction.removed"
+	BoardCreated                = "board.created"
+	BoardArchived               = "board.archived"
+	BoardRestored               = "board.restored"
+	BoardDeleted                = "board.deleted"
+	BoardPolicyChanged          = "board.policy_changed"
+	BoardTitled                 = "board.titled"
+	BoardAgentsAddPeopleChanged = "board.agents_add_people_changed"
+	MemberJoined                = "member.joined"
+	JoinCodeCreated             = "joincode.created"
+	JoinCodeRevoked             = "joincode.revoked"
+	MessagePosted               = "message.posted"
+	ReactionAdded               = "reaction.added"
+	ReactionRemoved             = "reaction.removed"
 	// People coming onto a board, leaving it and becoming its owners, and the board
 	// turning open or private.
 	PersonAdded            = "person.added"

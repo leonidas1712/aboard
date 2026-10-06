@@ -109,7 +109,7 @@ func NewHandler(o Options) (http.Handler, error) {
 		requests: newLimiters(o.Clock, o.MachineRequests), codes: newLimiters(o.Clock, o.MachineCodes), collects: newLimiters(o.Clock, o.MachineCollects),
 	}
 	signIns := signInLimits{failed: newLimiters(o.Clock, o.SignInFailures), attempts: newLimiters(o.Clock, o.SignInAttempts)}
-	apiChain := validate(authenticate(o, limiter, connects, machines, signIns, idempotent(o, routes)))
+	apiChain := creationRequestHash(o, validate(authenticate(o, limiter, connects, machines, signIns, idempotent(o, routes))))
 	ui, err := serveUI(o.UI)
 	if err != nil {
 		return nil, err
@@ -284,7 +284,7 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 		}
 		if p.Delegation != nil && !delegationMay(r) {
 			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden",
-				"A machine's delegation only lists its person's boards and joins sessions to them.",
+				"A machine's delegation only lists its person's boards, joins sessions and creates boards with session seats.",
 				"Use the person's own access key or the agent's token for anything else."))
 			return
 		}
@@ -304,13 +304,14 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 }
 
 // delegationMay reports whether a machine's delegation may make request r: list boards,
-// join a session, or ask to make a delegation, which the service refuses it with
+// join a session, create a board with its seat, or ask to make a delegation, which
+// the service refuses it with
 // human_token_required. Everything else is forbidden, whatever the service would do.
 func delegationMay(r *http.Request) bool {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/boards":
 		return true
-	case r.Method == http.MethodPost && (r.URL.Path == "/v1/join" || r.URL.Path == "/v1/delegations"):
+	case r.Method == http.MethodPost && (r.URL.Path == "/v1/join" || r.URL.Path == "/v1/delegations" || r.URL.Path == "/v1/delegations/boards"):
 		return true
 	}
 	return false

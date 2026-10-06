@@ -81,7 +81,7 @@ func personNotOnBoard(handle, board string) *apierr.Error {
 		"Run aboard board people --board "+board+" to see who is.")
 }
 
-// humanOnly refuses an agent: managing a board's people is for people. The hint gives
+// humanOnly refuses an agent for actions reserved to people. The hint gives
 // the command to hand the agent's person.
 func humanOnly(p Principal, what, command string) error {
 	if p.Human != nil {
@@ -92,32 +92,19 @@ func humanOnly(p Principal, what, command string) error {
 		"Ask your person to run: "+command)
 }
 
-// AddPerson puts a person on the server onto a board as a member. Anyone on the board may
-// add anyone; a person not on an open board may add only themselves, which is joining
+// AddPerson puts a person on the server onto a board as a member. A person on the
+// board, or a permitted session agent, may add them; a person outside an open board
+// may add only themselves, which is joining
 // it. A person who left or was removed comes back under their old member id and name.
 func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle string) (Person, error) {
-	if err := humanOnly(p, "add people to a board", "aboard board add @"+handle+" --board "+boardName); err != nil {
-		return Person{}, err
-	}
 	var out Person
 	var b Board
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		var me Member
 		var on bool
 		var err error
-		// The board comes first, so a board the caller can't see is not found whatever
-		// the handle.
-		if b, me, on, err = s.see(tx, p, boardName); err != nil {
+		if b, me, on, err = s.addPersonAuthority(tx, p, boardName, handle); err != nil {
 			return err
-		}
-		if err := requireActive(b); err != nil {
-			return err
-		}
-		if person, err := caller(tx, p, stamp(s.clk.Now())); err != nil || person.Role == ServerGuest {
-			if err != nil {
-				return err
-			}
-			return guestNotAllowed("add people to a board")
 		}
 		target, err := tx.HumanByName(handle)
 		if errors.Is(err, ErrNotFound) {
@@ -129,7 +116,7 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		if target.Role == ServerGuest {
 			return personIsGuest(handle, "A guest comes onto a board only through a guest code for it: aboard invite --guest "+handle+" --board "+b.Name+".")
 		}
-		if !on && target.ID != p.Human.ID {
+		if !on && target.ID != p.personID() {
 			return notOnBoard(b.Name, p.Human.Name)
 		}
 		now := s.clk.Now()
@@ -144,7 +131,7 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 			if !on {
 				actor = actorOf(existing)
 			}
-			if err := s.restorePerson(tx, &b, &existing, actor, now, nil); err != nil {
+			if err := s.restorePerson(tx, &b, &existing, actor, now, addPersonProvenance(p)); err != nil {
 				return err
 			}
 			out = Person{Member: existing, Person: target}
@@ -166,9 +153,11 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		if !on {
 			actor = actorOf(m)
 		}
-		if _, err := s.append(tx, &b, events.PersonAdded, actor, now, map[string]any{
-			"member_id": m.ID, "person_id": target.ID, "name": m.Name, "access": m.Access, "rejoined": false,
-		}); err != nil {
+		data := map[string]any{"member_id": m.ID, "person_id": target.ID, "name": m.Name, "access": m.Access, "rejoined": false}
+		for key, value := range addPersonProvenance(p) {
+			data[key] = value
+		}
+		if _, err := s.append(tx, &b, events.PersonAdded, actor, now, data); err != nil {
 			return err
 		}
 		if err := startReading(tx, b, m); err != nil {
@@ -523,8 +512,14 @@ func (s *Service) SetVisibility(ctx context.Context, p Principal, boardName, vis
 		if out.Reveals != nil {
 			reveals = map[string]int64{"messages": out.Reveals.Messages, "files": out.Reveals.Files}
 		}
+		if visibility == BoardPrivate {
+			b.AgentsAddPeople = false
+			if err := tx.SetBoardAgentsAddPeople(b.ID, false); err != nil {
+				return err
+			}
+		}
 		if _, err := s.append(tx, &b, events.BoardVisibilityChanged, actorOf(me), now, map[string]any{
-			"before": b.Visibility, "after": visibility, "reveals": reveals,
+			"before": b.Visibility, "after": visibility, "reveals": reveals, "agents_add_people": b.AgentsAddPeople,
 		}); err != nil {
 			return err
 		}
@@ -545,6 +540,7 @@ func (s *Service) SetVisibility(ctx context.Context, p Principal, boardName, vis
 
 // Settings are the server's settings.
 type Settings struct {
+	AgentsAddPeople *bool
 	// BoardCreation is who may create boards: CreationMembers or CreationAdmins.
 	BoardCreation string
 }
@@ -558,6 +554,11 @@ func (s *Service) ServerSettings(ctx context.Context, p Principal) (Settings, er
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		var err error
 		out.BoardCreation, err = tx.BoardCreation()
+		if err != nil {
+			return err
+		}
+		allowed, err := tx.AgentsAddPeople()
+		out.AgentsAddPeople = &allowed
 		return err
 	})
 	return out, err
@@ -593,7 +594,17 @@ func (s *Service) UpdateServerSettings(ctx context.Context, p Principal, change 
 				return err
 			}
 		}
+		if change.AgentsAddPeople != nil {
+			if err := tx.SetAgentsAddPeople(*change.AgentsAddPeople); err != nil {
+				return err
+			}
+		}
 		out.BoardCreation, err = tx.BoardCreation()
+		if err != nil {
+			return err
+		}
+		allowed, err := tx.AgentsAddPeople()
+		out.AgentsAddPeople = &allowed
 		return err
 	})
 	return out, err

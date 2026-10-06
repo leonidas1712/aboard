@@ -36,6 +36,23 @@ type SavedResponse struct {
 	Body        []byte
 }
 
+// creationRequestHash keeps the incoming bytes before validation applies defaults.
+func creationRequestHash(o Options, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/delegations/boards" {
+			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+			if err != nil {
+				writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body could not be read.", "Send the request again."))
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
+			r = r.WithContext(context.WithValue(r.Context(), requestHashKey{}, hex.EncodeToString(sum[:])))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // idempotent replays the saved response when a write is retried with the same
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
@@ -76,22 +93,32 @@ func idempotent(o Options, next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
 		reqHash := hex.EncodeToString(sum[:])
+		if rawHash, ok := r.Context().Value(requestHashKey{}).(string); ok {
+			reqHash = rawHash
+		}
+		ctx := context.WithValue(r.Context(), requestHashKey{}, reqHash)
+		r = r.WithContext(ctx)
 
-		saved, found, err := o.Responses.SavedResponse(r.Context(), scope, key)
+		saved, found, err := o.Responses.SavedResponse(ctx, scope, key)
 		switch {
 		case err != nil:
 			writeError(w, o.Log, err)
 			return
 		case found && saved.RequestHash == reqHash:
-			if r.URL.Path == "/v1/join" {
+			if r.URL.Path == "/v1/delegations/boards" {
+				if err := checkCreationReplay(ctx, o.Service, saved); err != nil {
+					writeError(w, o.Log, err)
+					return
+				}
+			} else if r.URL.Path == "/v1/join" {
 				// A stored join answer holds the agent's token: it is returned only
 				// while the caller may still have it.
-				if err := checkJoinReplay(r.Context(), o.Service, body, saved); err != nil {
+				if err := checkJoinReplay(ctx, o.Service, body, saved); err != nil {
 					writeError(w, o.Log, err)
 					return
 				}
 				w.Header().Set("Cache-Control", "no-store")
-			} else if err := checkBoardReplay(r.Context(), o.Service, r.Method, r.URL.Path, body, saved); err != nil {
+			} else if err := checkBoardReplay(ctx, o.Service, r.Method, r.URL.Path, body, saved); err != nil {
 				writeError(w, o.Log, err)
 				return
 			}
@@ -111,7 +138,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 		if rec.status >= 500 {
 			return
 		}
-		err = o.Responses.SaveResponse(r.Context(), scope, key, SavedResponse{
+		err = o.Responses.SaveResponse(ctx, scope, key, SavedResponse{
 			RequestHash: reqHash, Status: rec.status, ContentType: rec.Header().Get("Content-Type"), Body: rec.body.Bytes(),
 		})
 		if err != nil {
@@ -185,6 +212,15 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		}
 	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
 		in.Name = parts[2]
+		if len(parts) == 4 && parts[3] == "people" && method == http.MethodPost {
+			var add struct {
+				Handle string `json:"handle"`
+			}
+			if err := json.Unmarshal(request, &add); err != nil {
+				return err
+			}
+			in.AddPeople, in.Handle = true, add.Handle
+		}
 		if len(parts) == 4 && (parts[3] == "archive" || parts[3] == "restore" || parts[3] == "delete") {
 			in.Lifecycle = parts[3]
 			in.DeleteDone = parts[3] == "delete" && saved.Status == http.StatusOK
@@ -279,4 +315,19 @@ func (l *rateLimiter) fail(addr string) {
 	defer l.mu.Unlock()
 	l.window()
 	l.count[addr]++
+}
+
+func checkCreationReplay(ctx context.Context, svc *board.Service, saved SavedResponse) error {
+	if saved.Status != http.StatusCreated {
+		return svc.CheckDelegation(ctx, principal(ctx))
+	}
+	var result struct {
+		Board struct{ ID string }
+		Agent struct{ ID string }
+		Token string
+	}
+	if err := json.Unmarshal(saved.Body, &result); err != nil {
+		return fmt.Errorf("decode saved creation result: %w", err)
+	}
+	return svc.CheckCreationReplay(ctx, principal(ctx), result.Board.ID, result.Agent.ID, result.Token)
 }

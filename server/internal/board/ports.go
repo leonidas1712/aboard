@@ -70,6 +70,10 @@ type ReadTx interface {
 	PrivateBoardsNotOn(humanID string) ([]Board, error)
 	// BoardCreation returns who may create boards: CreationMembers unless set.
 	BoardCreation() (string, error)
+	// AgentsAddPeople reports the server-wide gate, true unless disabled.
+	AgentsAddPeople() (bool, error)
+	// DelegatedCreation finds a committed creation receipt, including expired receipts.
+	DelegatedCreation(delegationID, key string) (CreationReceipt, error)
 	// WorkingJoinCodes lists a board's join codes that are neither revoked nor expired
 	// at now, oldest first.
 	WorkingJoinCodes(boardID, now string) ([]JoinCode, error)
@@ -206,6 +210,12 @@ type Tx interface {
 	InsertBoard(b Board) error
 	// SetBoardPolicy replaces a board's policy.
 	SetBoardPolicy(boardID string, p rules.Policy) error
+	// SetBoardAgentsAddPeople changes the board gate without altering its message policy.
+	SetBoardAgentsAddPeople(boardID string, allowed bool) error
+	// SetAgentsAddPeople changes the server-wide gate.
+	SetAgentsAddPeople(allowed bool) error
+	// SaveDelegatedCreation keeps the receipt in the resource's own transaction.
+	SaveDelegatedCreation(receipt CreationReceipt) error
 	// SetBoardTitle replaces a board's title; nil removes it.
 	SetBoardTitle(boardID string, title *string) error
 	// SetBoardVisibility makes a board BoardOpen or BoardPrivate.
