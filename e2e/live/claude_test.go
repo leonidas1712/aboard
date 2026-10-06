@@ -208,7 +208,7 @@ func TestSessionKeepsBothBoards(t *testing.T) {
 			HeadSeq int `json:"head_seq"`
 		}
 		l.multiSeatOwnerRequest(http.MethodGet, "/v1/boards/"+board, nil, &state)
-		body := fmt.Sprintf("Run exactly `aboard say --board %s --reply %d \"%s\"`. Run no other Aboard command.", board, state.HeadSeq+1, markers[i])
+		body := fmt.Sprintf("Run exactly `aboard say --board %s --reply %d %q`. Run no other Aboard command.", board, state.HeadSeq+1, markers[i])
 		pings[i] = l.say("writer", "--board", board, "--to", "@claude", "--expect-reply", body)
 	}
 	for i, board := range boards {

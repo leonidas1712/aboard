@@ -13,7 +13,11 @@ import (
 // pane's project, must keep that unfinished turn busy even while the screen looks idle.
 func TestCodexIdleWaitsForThisPanesStopHook(t *testing.T) {
 	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "tmux"), []byte("#!/bin/sh\nprintf '%s\\n' '? for shortcuts'\n"), 0o700); err != nil {
+	tmux := filepath.Join(bin, "tmux")
+	if err := os.WriteFile(tmux, []byte("#!/bin/sh\nprintf '%s\\n' '? for shortcuts'\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(tmux, 0o700); err != nil { // #nosec G302 -- The owner must execute this scratch tmux stand-in.
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
