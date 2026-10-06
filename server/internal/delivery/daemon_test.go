@@ -184,18 +184,20 @@ type hook struct {
 }
 
 // passStep and passLimit are how the fake clock moves while a test waits for the daemon
-// to hand something over: by passStep every few milliseconds, up to passLimit in all, as
-// time passes for a real daemon, so messages it gathers for QueueGather go.
+// to hand something over: by passStep every few milliseconds, as time passes for a real
+// daemon, so messages it gathers for QueueGather go. nothingFor moves it up to passLimit.
 const (
 	passStep  = 250 * time.Millisecond
 	passLimit = delivery.QueueGather + time.Second
 )
 
-// await returns the next value from ch, moving c on as time would pass meanwhile.
+// await returns the next value from ch, moving c on as time would pass meanwhile. The
+// clock moves while a timer is due within QueueGather, as the daemon's gathering is, so
+// the daemon's gathering ends however late it starts (a slow inbox read after a
+// rebind), and timers further off, such as stalls, never fire from waiting alone.
 func await[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string) (T, bool) {
 	t.Helper()
 	deadline := time.After(within)
-	moved := time.Duration(0)
 	for {
 		select {
 		case v, ok := <-ch:
@@ -205,9 +207,11 @@ func await[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string) (T, boo
 			var zero T
 			return zero, false
 		case <-time.After(5 * time.Millisecond): // a poll interval, not a wait for the daemon
-			if c != nil && moved < passLimit {
-				c.Advance(passStep)
-				moved += passStep
+			if c == nil {
+				continue
+			}
+			if next, ok := c.Next(); ok && !next.After(c.Now().Add(delivery.QueueGather)) {
+				c.Advance(min(passStep, next.Sub(c.Now())))
 			}
 		}
 	}
