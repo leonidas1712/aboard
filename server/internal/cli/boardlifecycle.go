@@ -24,16 +24,6 @@ type boardLifecycleOutput struct {
 	Changed   bool               `json:"changed"`
 }
 
-// lifecycleSelector names a board to the lifecycle endpoints: by its permanent id when
-// sel is one, else by name.
-func lifecycleSelector(sel string) (api.BoardLifecycleSelector, error) {
-	var s api.BoardLifecycleSelector
-	if boardIDPattern.MatchString(sel) {
-		return s, s.FromBoardID(sel)
-	}
-	return s, s.FromBoardName(sel)
-}
-
 // runBoardArchive archives (restore false) or restores a board. A person uses their own
 // login; an agent selected by --as, ABOARD_AGENT or its session uses its own seat's
 // token, on its own board, and never the person's login.
@@ -58,10 +48,6 @@ func runBoardArchive(ctx context.Context, a *app, sel, asFlag string, restore bo
 	if err != nil {
 		return err
 	}
-	s, err := lifecycleSelector(t.board)
-	if err != nil {
-		return err
-	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	var (
@@ -70,13 +56,13 @@ func runBoardArchive(ctx context.Context, a *app, sel, asFlag string, restore bo
 		out    *api.BoardLifecycleResult
 	)
 	if restore {
-		r, err := c.api.RestoreBoardWithResponse(ctx, s, &api.RestoreBoardParams{})
+		r, err := c.api.RestoreBoardWithResponse(ctx, t.board, &api.RestoreBoardParams{})
 		if err != nil {
 			return c.unreachable(err)
 		}
 		body, status, out = r.Body, r.StatusCode(), r.JSON200
 	} else {
-		r, err := c.api.ArchiveBoardWithResponse(ctx, s, &api.ArchiveBoardParams{})
+		r, err := c.api.ArchiveBoardWithResponse(ctx, t.board, &api.ArchiveBoardParams{})
 		if err != nil {
 			return c.unreachable(err)
 		}
@@ -164,11 +150,7 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 			return err
 		}
 	}
-	s, err := lifecycleSelector(t.board)
-	if err != nil {
-		return err
-	}
-	r, err := c.api.DeleteBoardWithResponse(ctx, s, &api.DeleteBoardParams{})
+	r, err := c.api.DeleteBoardWithResponse(ctx, t.board, &api.DeleteBoardParams{})
 	if err != nil {
 		return c.unreachable(err)
 	}

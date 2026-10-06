@@ -100,6 +100,26 @@ func TestADelegationNeedsAKeyAndAServer(t *testing.T) {
 	}
 }
 
+// Against a real server, an archived board leaves the delegation's default list, is
+// counted there, and is listed with the archived filter.
+func TestADelegationListsArchivedBoards(t *testing.T) {
+	url, owner := localServer(t)
+	board, _ := post(t, "POST", url+"/v1/boards", owner, map[string]any{"template": "general"})["name"].(string)
+	if got := post(t, "POST", url+"/v1/boards/"+board+"/archive", owner, nil); got["lifecycle"] != "archived" {
+		t.Fatalf("archive: %v", got)
+	}
+	d := NewDelegated(url, "laptop", tokens{human: map[string]string{url: owner}})
+	ctx := context.Background()
+	active, err := d.Boards(ctx, "")
+	if err != nil || len(active.Boards) != 0 || active.ArchivedCount == nil || *active.ArchivedCount != 1 {
+		t.Fatalf("active: %+v %v", active, err)
+	}
+	archived, err := d.Boards(ctx, "archived")
+	if err != nil || len(archived.Boards) != 1 || archived.Boards[0].Name != board {
+		t.Fatalf("archived: %+v %v", archived, err)
+	}
+}
+
 // The delegation asks for the lifecycle filter it is given and passes the server's
 // archived count back; it sends no filter for the default, and a missing count stays
 // missing, never zero.

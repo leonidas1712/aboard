@@ -158,26 +158,32 @@ type lifecycleEnv struct {
 	t     *testing.T
 	home  string
 	dir   string
-	srv   *lifecycleServer
 	env   map[string]string
 	stdin string
 }
 
 func newLifecycleEnv(t *testing.T, srv *lifecycleServer) *lifecycleEnv {
 	t.Helper()
-	e := &lifecycleEnv{t: t, home: t.TempDir(), dir: t.TempDir(), srv: srv, env: map[string]string{}}
+	return lifecycleMachine(t, srv.URL, "abh_person", agentCredential{Server: srv.URL, Board: "payments-design", Name: "claude", MemberID: "mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W", Token: "aba_agent"})
+}
+
+// lifecycleMachine is a person's machine logged in to url with key, holding the agent
+// seat cred, whose directory's board is cred's board.
+func lifecycleMachine(t *testing.T, url, key string, cred agentCredential) *lifecycleEnv {
+	t.Helper()
+	e := &lifecycleEnv{t: t, home: t.TempDir(), dir: t.TempDir(), env: map[string]string{}}
 	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
-	if err := a.writeProject(projectFile{Server: serverRef{URL: srv.URL}, Board: "payments-design"}); err != nil {
+	if err := a.writeProject(projectFile{Server: serverRef{URL: url}, Board: cred.Board}); err != nil {
 		t.Fatal(err)
 	}
 	p, err := a.paths()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeJSONFile(p.servers(), serverLogins{Servers: []serverLogin{{URL: srv.URL, Handle: "alex", Key: "abh_person"}}}, 0o600); err != nil {
+	if err := writeJSONFile(p.servers(), serverLogins{Servers: []serverLogin{{URL: url, Handle: "alex", Key: key}}}, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: "payments-design", Name: "claude", MemberID: "mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W", Token: "aba_agent"}); err != nil {
+	if err := a.saveCredential(cred); err != nil {
 		t.Fatal(err)
 	}
 	return e
@@ -512,4 +518,60 @@ func fakeDaemonAnswering(t *testing.T, a *app, answer func(delivery.Request) del
 		}
 	}()
 	a.daemonChecked = true
+}
+
+// Against a real server: the creator archives and deletes, their agent restores its own
+// board, boards counts and lists archives, and delete keeps its refusals.
+func TestBoardLifecycleOnARealServer(t *testing.T) {
+	url, owner := testServer(t)
+	cred := seatOn(t, url, owner)
+	e := lifecycleMachine(t, url, owner, cred)
+	board := cred.Board
+	if r := e.run("board", "archive"); r.code != 0 || r.stdout != "Archived "+board+". It's read-only now; restore with: aboard board restore "+board+".\n" {
+		t.Fatalf("archive: %d %q %q", r.code, r.stdout, r.stderr)
+	}
+	if r := e.run("boards"); r.code != 0 || strings.Contains(r.stdout, board+" ") || !strings.HasSuffix(r.stdout, "1 archived board: aboard boards --archived\n") {
+		t.Fatalf("boards: %d %q %q", r.code, r.stdout, r.stderr)
+	}
+	r := e.run("boards", "--archived", "--json")
+	var listed struct {
+		Lifecycle     string `json:"lifecycle"`
+		ArchivedCount *int   `json:"archived_count"`
+		Boards        []struct {
+			Name      string `json:"name"`
+			Lifecycle string `json:"lifecycle"`
+		} `json:"boards"`
+	}
+	if err := json.Unmarshal([]byte(r.stdout), &listed); err != nil || r.code != 0 {
+		t.Fatalf("boards --archived: %d %q %v", r.code, r.stdout, err)
+	}
+	if listed.Lifecycle != "archived" || listed.ArchivedCount == nil || *listed.ArchivedCount != 1 || len(listed.Boards) != 1 || listed.Boards[0].Name != board || listed.Boards[0].Lifecycle != "archived" {
+		t.Fatalf("archived list: %+v", listed)
+	}
+	r = e.run("board", "delete", "--as", cred.Name, "--json")
+	if code, _ := r.errorCode(t); r.code != 1 || code != "human_command_in_session" {
+		t.Fatalf("delete as the agent: %d %q", r.code, r.stdout)
+	}
+	if r := e.run("board", "restore", "--as", cred.Name); r.code != 0 || r.stdout != "Restored "+board+". New messages and joins work again.\n" {
+		t.Fatalf("restore as the agent: %d %q %q", r.code, r.stdout, r.stderr)
+	}
+	r = e.run("board", "delete", "--yes", "--json")
+	if code, _ := r.errorCode(t); r.code != 1 || code != "board_not_archived" {
+		t.Fatalf("delete an active board: %d %q", r.code, r.stdout)
+	}
+	if r := e.run("board", "archive", board); r.code != 0 {
+		t.Fatalf("archive again: %d %q", r.code, r.stderr)
+	}
+	r = e.run("board", "delete", "--yes", "--json")
+	var out boardLifecycleOutput
+	if err := json.Unmarshal([]byte(r.stdout), &out); err != nil || r.code != 0 || out.Lifecycle != "deleted" || !out.Changed || out.Board != board || out.Server.URL != url {
+		t.Fatalf("delete: %d %q %v", r.code, r.stdout, err)
+	}
+	if r := e.run("boards", "--archived"); !strings.Contains(r.stdout, "  none\n") {
+		t.Errorf("after delete: %q", r.stdout)
+	}
+	r = e.run("board", "restore", "--json")
+	if code, _ := r.errorCode(t); r.code != 1 || code != "board_not_found" {
+		t.Errorf("restore a deleted board: %d %q", r.code, r.stdout)
+	}
 }
