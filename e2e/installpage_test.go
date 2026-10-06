@@ -24,7 +24,7 @@ func TestInstallPageCommands(t *testing.T) {
 	// Install: aboard version --json.
 	v := e.run("version", "--json").json(t)
 	matchesCLISpec(t, "VersionOutput", v)
-	if field(t, v, "version") != "0.1.0" {
+	if field(t, v, "version") != sourceVersion {
 		t.Fatalf("version: %v", v)
 	}
 
