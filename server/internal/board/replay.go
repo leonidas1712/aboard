@@ -9,9 +9,9 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/ids"
 )
 
-// BoardReplay identifies the data held by an immutable cached response. The adapter
+// Replay identifies the data held by an immutable cached response. The adapter
 // supplies identifiers, never authority; the read transaction checks the caller again.
-type BoardReplay struct {
+type Replay struct {
 	Name       string
 	ID         string
 	MessageID  string
@@ -23,7 +23,7 @@ type BoardReplay struct {
 
 // CheckBoardReplay checks current read access before a cached board response is sent.
 // A successful deletion receipt is the only response allowed through a tombstone.
-func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in BoardReplay) error {
+func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in Replay) error {
 	return s.st.Read(ctx, func(tx ReadTx) error {
 		if _, err := caller(tx, p, stamp(s.clk.Now())); err != nil {
 			return err

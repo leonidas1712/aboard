@@ -135,12 +135,12 @@ func checkJoinReplay(ctx context.Context, svc *board.Service, request []byte, sa
 	}
 	if err := json.Unmarshal(request, &in); err != nil {
 		if saved.Status >= http.StatusBadRequest {
-			return svc.CheckBoardReplay(ctx, principal(ctx), board.BoardReplay{})
+			return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{})
 		}
 		return fmt.Errorf("decode the stored join's request: %w", err)
 	}
 	if saved.Status != http.StatusCreated {
-		return svc.CheckBoardReplay(ctx, principal(ctx), board.BoardReplay{Name: in.Board, JoinCode: in.Code})
+		return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{Name: in.Board, JoinCode: in.Code})
 	}
 	if err := json.Unmarshal(saved.Body, &answer); err != nil {
 		return fmt.Errorf("decode the stored join's answer: %w", err)
@@ -151,7 +151,7 @@ func checkJoinReplay(ctx context.Context, svc *board.Service, request []byte, sa
 // checkBoardReplay identifies cached board data without trusting the cached response
 // as authority. The service checks the current credential and access in one read.
 func checkBoardReplay(ctx context.Context, svc *board.Service, method, path string, request []byte, saved SavedResponse) error {
-	in := board.BoardReplay{}
+	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
 	case path == "/v1/boards" && method == http.MethodPost:
