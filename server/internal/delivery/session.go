@@ -1746,14 +1746,14 @@ func partSeqs(parts []offer) []int {
 
 // previewText shows the start of a message too long for a tool boundary, and where the
 // rest is.
-func previewTextFor(m Message, context deliverytext.Context) string {
+func previewTextFor(m Message, renderContext deliverytext.Context) string {
 	cut := m
 	cut.Body, cut.Truncated, cut.ExpectsReply = strings.ToValidUTF8(m.Body[:min(previewLimit, len(m.Body))], ""), true, false
 	command := "aboard inbox"
-	if context.BoardQualified {
+	if renderContext.BoardQualified {
 		command += " --board " + m.Board
 	}
-	return deliverytext.Bundle(m.Board, []Message{cut}, context) +
+	return deliverytext.Bundle(m.Board, []Message{cut}, renderContext) +
 		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run %s to read it now.", m.Seq, command)
 }
 
