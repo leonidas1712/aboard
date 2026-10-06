@@ -469,7 +469,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               record={s.record}
               me={me}
               meId={s.me?.kind === "human" ? s.me.id : null}
-              canInvite={s.me?.kind === "human"}
+              canInvite={s.me?.kind === "human" && s.me.server_role !== "guest"}
               from={filter.from}
               onPick={pick}
               reveal={reveal}

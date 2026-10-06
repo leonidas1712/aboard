@@ -256,3 +256,131 @@ func TestOpenRefusesUnknownBoards(t *testing.T) {
 		t.Fatalf("want board_not_found\n%s", r)
 	}
 }
+
+// aboard open signs a browser in to a team server too: the link goes to the server's
+// public address, carries a one-time code and never the machine's key, and the code
+// starts a __Host- session cookie there, as the person whose key asked for it.
+func TestOpenSignsABrowserInToATeamServer(t *testing.T) {
+	t.Parallel()
+	s := startTeamServer(t)
+	adminKey, err := os.ReadFile(filepath.Join(s.data, "admin-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	alex := s.person("alex")
+	if r := alex.exec(nil, string(adminKey), "login", s.url); r.code != 0 {
+		t.Fatalf("login with the admin key:\n%s", r)
+	}
+	alex.run("board", "new", "payments")
+	maya := s.person("maya")
+	maya.run("connect", field(t, alex.run("invite", "--server", "--json").json(t), "link").(string))
+	key := s.savedKey(maya)
+
+	// signIn trades a login link's code for a browser session, as the page does from
+	// the server's own origin.
+	signIn := func(link string) *http.Cookie {
+		t.Helper()
+		u, err := url.Parse(link)
+		if err != nil {
+			t.Fatal(err)
+		}
+		frag, err := url.ParseQuery(u.Fragment)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := json.Marshal(map[string]string{"code": frag.Get("code")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, s.url+"/v1/browser-sessions", strings.NewReader(string(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", s.url)
+		resp, err := s.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		raw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var c *http.Cookie
+		for _, got := range resp.Cookies() {
+			if got.Name == "__Host-aboard_session" {
+				c = got
+			}
+		}
+		if resp.StatusCode != http.StatusCreated || c == nil || !c.Secure || !c.HttpOnly || strings.Contains(string(raw), c.Value) {
+			t.Fatalf("signing in with %s: %d %s %+v", link, resp.StatusCode, raw, c)
+		}
+		return c
+	}
+	// me is who a browser session acts as.
+	me := func(c *http.Cookie) string {
+		t.Helper()
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, s.url+"/v1/me", http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.AddCookie(c)
+		resp, err := s.client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		var v map[string]any
+		_ = json.NewDecoder(resp.Body).Decode(&v)
+		name, _ := v["name"].(string)
+		return name
+	}
+
+	// --server names the team server; the link is its public address with a code.
+	out := maya.openUI("true", "--server", s.url).json(t)
+	matchesCLISpec(t, "OpenOutput", out)
+	link, _ := out["url"].(string)
+	if out["opened"] != true || out["server_started"] != false || field(t, out, "server.url") != s.url || out["ui_url"] != s.url+"/" ||
+		!strings.HasPrefix(link, s.url+"/#code=abl_") || strings.Contains(link, key) {
+		t.Fatalf("aboard open --server: %v", out)
+	}
+	if got := me(signIn(link)); got != "maya" {
+		t.Fatalf("the browser signed in as %q, want maya", got)
+	}
+
+	// With no --server and no .aboard, the one server this machine is connected to.
+	out = maya.openUI("true").json(t)
+	if field(t, out, "server.url") != s.url || !strings.HasPrefix(field(t, out, "url").(string), s.url+"/#code=abl_") {
+		t.Fatalf("aboard open on a machine connected to one server: %v", out)
+	}
+
+	// A directory linked to a board on the team server opens that board there.
+	out = alex.openUI("true").json(t)
+	if out["board"] != "payments" || out["ui_url"] != s.url+"/?board=payments" || !strings.HasSuffix(field(t, out, "url").(string), "&board=payments") {
+		t.Fatalf("aboard open in a directory linked to payments: %v", out)
+	}
+	if got := me(signIn(out["url"].(string))); got != "alex" {
+		t.Fatalf("the browser signed in as %q, want alex", got)
+	}
+
+	// Inside an agent's session it opens the browser but never shows the link.
+	browser, saved := maya.recordingBrowser()
+	r := maya.exec([]string{"CLAUDECODE=1", "BROWSER=" + browser}, "", "open", "--server", s.url, "--json")
+	if r.code != 0 || r.json(t)["url"] != nil || strings.Contains(r.stdout, "code=") {
+		t.Fatalf("aboard open in a session:\n%s", r)
+	}
+	raw, err := os.ReadFile(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := me(signIn(string(raw))); got != "maya" {
+		t.Fatalf("the session's browser signed in as %q, want maya", got)
+	}
+
+	// A server this machine has no key for is refused before anything is sent.
+	stranger := s.person("sam")
+	if r := stranger.openUI("true", "--server", s.url); r.code != 1 || field(t, r.json(t), "error.code") != "login_required" {
+		t.Fatalf("aboard open on a server with no key:\n%s", r)
+	}
+}

@@ -164,18 +164,22 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "open", Group: groupStart,
 			Summary: "Open the board view in your browser",
-			Usage:   []string{"aboard open [--board NAME] [--json]"},
-			Description: "Starts the local server if it isn't running and opens the board view, logged in as you, through a one-time login link. " +
+			Usage:   []string{"aboard open [--board NAME] [--server URL] [--json]"},
+			Description: "Opens the board view, signed in as you, through a one-time login link. " +
+				"The server is --server, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. " +
+				"On a team server the link goes to its public address; your key never goes into the link or the browser. " +
 				"It opens the board this directory is linked to, else the list of boards.\n\n" +
 				"Inside an agent's session it never prints the link, since whoever has it could log in as you; " +
 				"if no browser starts there, run it in your own terminal.",
 			Flags: []helpFlag{
 				{"--board", "NAME", "The board to show. Default: this directory's board, else the list of boards."},
+				{"--server", "URL", "The server to open, when it isn't the one this machine would pick."},
 				flagJSON,
 			},
 			Examples: []helpExample{
 				{"aboard open", "Open this directory's board"},
 				{"aboard open --board general", "Open another board"},
+				{"aboard open --server https://team.example.com", "Sign this browser in to a team server"},
 			},
 			SeeAlso: []string{"watch", "status", "logout"},
 		},

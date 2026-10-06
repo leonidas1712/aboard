@@ -106,6 +106,7 @@ the board.
 | Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines: acknowledged only for a contiguous stretch of presented message rows (the board view, `aboard read --mark-read`), unread in `GET /v1/boards`, `aboard boards` and the stream | done | D102, D194 |
 | Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | done (#92) | D179, D183, D189 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
+| `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D202 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | later | D148 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
 

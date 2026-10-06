@@ -1668,19 +1668,25 @@ $defs:
       board: { type: string }
       message: { $ref: "#/$defs/Message" }
 
-  # ---------- aboard open [--board NAME] ----------
+  # ---------- aboard open [--board NAME] [--server URL] ----------
   OpenOutput:
     description: |
-      Opens the web UI in the default browser, already logged in as the local owner. It
-      starts the local server if it isn't running, asks it for a one-time login code
-      (POST /v1/login-codes) with the human login, and opens
-      <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
-      send to a server: the page exchanges it once for a browser session that acts as the
-      owner (POST /v1/browser-sessions), kept in a cookie the page's scripts can't read,
-      removes the code from the address bar and shows the board, or the board list when no
-      board is selected. The board is --board, then the
-      project's .aboard file; with neither, the board list opens. A --board the owner
-      isn't on fails with board_not_found.
+      Opens the web UI in the default browser, already signed in as the person. The
+      server is --server, else the one this directory's .aboard names, else the one
+      server this machine is connected to when there is exactly one, else the local
+      server, which it starts if it isn't running. It asks that server for a one-time
+      login code (POST /v1/login-codes) with the key this machine keeps for it (the local
+      owner's login on the local server), and opens <server>/#code=…[&board=NAME], where
+      <server> is the server's URL as this machine connected to it: a team server's public
+      URL. The key itself never goes into the link or the browser. The code is in the
+      fragment, which browsers never send to a server: the page exchanges it once for a
+      browser session that acts as the person (POST /v1/browser-sessions), kept in a
+      cookie the page's scripts can't read (__Host-aboard_session and Secure on a team
+      server), removes the code from the address bar and shows the board, or the board
+      list when no board is selected. The board is --board, then the project's .aboard
+      file when it names the same server; with neither, the board list opens. A --board
+      the person isn't on fails with board_not_found. A --server this machine has no key
+      for fails as other person commands do, with a hint to run aboard connect.
 
       The browser is $BROWSER when set (run with the URL as its only argument), else
       `open` on macOS and `xdg-open` elsewhere.
