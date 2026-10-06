@@ -117,6 +117,7 @@ func commands() []command {
 		{"init", runInit},
 		{"doctor", runDoctor},
 		{"uninstall", runUninstall},
+		{"upgrade", runUpgrade},
 		{"version", runVersion},
 		{"help", runHelp},
 		{"serve", runServe},

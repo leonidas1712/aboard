@@ -485,7 +485,7 @@ $defs:
          bundle. When cosign is on the PATH, checks the bundle against the identity
          https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v<version>
          and the issuer https://token.actions.githubusercontent.com (signature_invalid);
-         otherwise signature_checked is false and the text gives the command. Then the
+         otherwise signature_checked is false and the text says so. Then the
          archive's SHA-256 (checksum_mismatch), its contents: plain files with plain
          names, among them aboard (archive_invalid), and that the new aboard runs
          (archive_invalid).
