@@ -4,28 +4,25 @@ import { type Page, expect, test } from "@playwright/test";
 // be looked at side by side, and a click-through of the main paths. Run with
 // `make lab-shots`.
 
-type Shot = { name: string; query: string; theme?: "dark" | "light"; click?: string };
+type Shot = { name: string; query: string; theme?: "dark" | "light"; click?: string; hover?: string };
 
 const team = "lab=team&board=checkout-v2";
 const shots: Shot[] = [
   { name: "inbox", query: "lab=team&step=3&inbox=1" },
-  { name: "inbox-light", query: "lab=team&step=3&inbox=1", theme: "light" },
   { name: "inbox-workspace", query: "lab=workspace&step=3&inbox=1" },
   { name: "board", query: `${team}&step=3` },
   { name: "board-light", query: `${team}&step=3`, theme: "light" },
-  { name: "board-brief-open", query: `${team}&step=3`, click: ".brief button[aria-expanded]" },
-  { name: "board-step1", query: `${team}&step=1` },
-  { name: "board-agent-popover", query: `${team}&step=3`, click: '[data-agent="claude"] button' },
-  { name: "task-open", query: `${team}&step=3&task=CHK-16` },
-  { name: "task-open-tell", query: `${team}&step=3&task=CHK-12`, click: ".tell button:has-text('Split it')" },
-  { name: "artifact-open", query: `${team}&step=3&task=CHK-18&artifact=status` },
-  { name: "artifact-open-light", query: `${team}&step=3&task=CHK-18&artifact=status`, theme: "light" },
-  { name: "tasks", query: `${team}&step=3&view=tasks` },
-  { name: "tasks-light", query: `${team}&step=3&view=tasks`, theme: "light" },
+  { name: "chip-hover", query: `${team}&step=3`, hover: '.thread-tasks [data-task-chip="CHK-16"]' },
+  { name: "timeline-filter", query: `${team}&step=3&filter=CHK-12` },
+  { name: "tasks-threads", query: `${team}&step=3&view=tasks`, click: '[data-task="CHK-12"] .task-threads' },
+  { name: "task-open", query: `${team}&step=3&task=CHK-12` },
+  { name: "task-open-needs", query: `${team}&step=3&task=CHK-16` },
+  { name: "files", query: `${team}&step=3&view=files` },
+  { name: "files-light", query: `${team}&step=3&view=files`, theme: "light" },
+  { name: "file-open", query: `${team}&step=3&view=files&artifact=explainer` },
+  { name: "file-open-image", query: `${team}&step=3&view=files&artifact=wireframe` },
   { name: "solo", query: "lab=solo&step=2&board=blog-engine" },
-  { name: "solo-step1", query: "lab=solo&step=1&board=blog-engine" },
   { name: "empty", query: "lab=empty&step=2&board=new-board" },
-  { name: "busy", query: "lab=busy&board=platform" },
   { name: "busy-tasks", query: "lab=busy&board=platform&view=tasks" },
 ];
 
@@ -66,6 +63,24 @@ test("click through: Inbox row to board, a task id to its panel, a file to its p
   await page.screenshot({ path: "lab/screenshots/click-through-desktop.png" });
 });
 
+test("a task chip opens its task, and the task narrows the conversation to its threads", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?${team}&step=3&panel=closed`);
+  await settle(page);
+  // The refund-keys thread is about two tasks, and its row says both.
+  const row = page.locator('li.thread[data-thread="m15"] .thread-tasks');
+  await expect(row.locator("[data-task-chip]")).toHaveCount(2);
+  await row.locator('[data-task-chip="CHK-12"]').click();
+  await expect(page.locator(".task-panel h3")).toHaveText("Move payment intents to the v2 API");
+  await expect(page.locator(".task-panel .thread-list > li")).toHaveCount(4);
+  await page.getByRole("button", { name: "Show only CHK-12 in the conversation" }).click();
+  await expect(page.locator(".task-filter")).toContainText("3 threads");
+  await expect(page.locator('li.message[data-id="m13"]')).toBeHidden();
+  await expect(page.locator('li.message[data-id="m17"]')).toBeVisible();
+  await page.getByRole("button", { name: "Show everything" }).click();
+  await expect(page.locator('li.message[data-id="m13"]')).toBeVisible();
+});
+
 test("Tell the team fills in a real message and sends it", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/?${team}&step=3&task=CHK-12&panel=closed`);
@@ -86,6 +101,11 @@ for (const w of widths) {
       await page.emulateMedia({ colorScheme: s.theme ?? "dark" });
       await page.goto(`/?${s.query}${w.panel}`);
       await settle(page);
+      if (s.hover) {
+        await page.locator(s.hover).first().scrollIntoViewIfNeeded();
+        await page.locator(s.hover).first().hover();
+        await page.waitForTimeout(500);
+      }
       if (s.click) {
         await page.locator(s.click).first().click();
         await page.waitForTimeout(300);

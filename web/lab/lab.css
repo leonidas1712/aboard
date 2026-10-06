@@ -6,24 +6,16 @@
 @source "./";
 @tailwind utilities;
 
-/* The colour budget the lab proposes, beside the real tokens: red only for what waits on
-   the person's answer, amber only for late or idle. Text and dots, never fills. */
+/* The light page a file is shown on, so it reads as the agent's work, not the app. */
 :root {
-  --needs: #c23b33;
-  --late: #8a5200;
-  /* The light page a file is shown on, so it reads as the agent's work, not the app. */
   --page: #f7f5f0;
   --page-ink: #1d2328;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --needs: #f27a6e;
-    --late: #e3ad55;
-  }
-}
-:root[data-theme="dark"] {
-  --needs: #f27a6e;
-  --late: #e3ad55;
+
+/* An ask in the conversation shows its own answers in the attention colour; the real
+   "waiting for your reply" box would say the same thing twice. */
+.message:has(.ask-answers) .rounded-box.bg-attention:not(.ask-answers) {
+  display: none;
 }
 
 /* An ask's text is its question: in the conversation it reads as a headline. */

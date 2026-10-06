@@ -22,7 +22,7 @@ export function Ids({ text }: { text: string }) {
             type="button"
             onClick={() => openTask(task.id)}
             title={`${task.id} ${task.title}`}
-            className="task-ref font-bold text-ink underline decoration-1 underline-offset-[3px] hover:decoration-2"
+            className="task-ref text-ink underline decoration-dotted decoration-1 underline-offset-[3px] hover:decoration-solid"
           >
             {p}
           </button>

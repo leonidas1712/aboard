@@ -104,9 +104,10 @@ export function goTo(k: number) {
 // view, and the asks the person answered here. ?view=tasks, ?task=ID and ?artifact=ID
 // open the page there.
 
-export type View = "conversation" | "tasks";
+export type View = "conversation" | "tasks" | "files";
 export type Panel = { kind: "work" } | { kind: "task"; id: string } | { kind: "artifact"; id: string; from: string | null };
-type Ui = { view: View; panel: Panel; thread: string | null; full: boolean; answered: Record<string, string>; n: number };
+/** filter is a task the conversation is narrowed to, or null. */
+type Ui = { view: View; panel: Panel; thread: string | null; full: boolean; answered: Record<string, string>; filter: string | null; n: number };
 
 function firstPanel(): Panel {
   const task = params().get("task");
@@ -117,11 +118,12 @@ function firstPanel(): Panel {
 }
 
 let ui: Ui = {
-  view: params().get("view") === "tasks" ? "tasks" : "conversation",
+  view: params().get("view") === "tasks" ? "tasks" : params().get("view") === "files" ? "files" : "conversation",
   panel: firstPanel(),
   thread: null,
   full: false,
   answered: {},
+  filter: params().get("filter"),
   n: 0,
 };
 const uiListeners = new Set<() => void>();
@@ -154,6 +156,8 @@ export const showWork = () => setUi({ panel: { kind: "work" } });
 export const fullScreen = (on: boolean) => setUi({ full: on });
 /** openThread shows a thread in the conversation, by its first message. */
 export const openThread = (root: string) => setUi({ view: "conversation", thread: root });
+/** filterTo narrows the conversation to one task's threads and messages, or stops with null. */
+export const filterTo = (task: string | null) => setUi({ filter: task, view: "conversation" });
 /** answered records the person's answer to an ask, so it leaves the Inbox. */
 export const markAnswered = (ask: string, answer: string) => setUi({ answered: { ...ui.answered, [ask]: answer } });
 

@@ -44,6 +44,13 @@ export type Lab = {
   }>;
   /** MessageFooter adds to a message in the timeline, under its text. */
   MessageFooter?: ComponentType<{ board: string; message: Message }>;
+  /**
+   * MessageMeta adds to a message's first line, after who it is to; grouped is true for
+   * a message under the header of the one before, which then shows it above its text.
+   */
+  MessageMeta?: ComponentType<{ board: string; message: Message; grouped: boolean }>;
+  /** ThreadMeta adds to the row that opens a thread, after it. */
+  ThreadMeta?: ComponentType<{ board: string; root: Message }>;
   /** Text draws the plain text of a message, between its mentions. */
   Text?: ComponentType<{ text: string }>;
 };

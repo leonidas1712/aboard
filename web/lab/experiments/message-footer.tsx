@@ -27,17 +27,6 @@ export function MessageFooter({ board, message }: { board: string; message: Mess
   return (
     <div className="message-extras mt-2 flex flex-col gap-2">
       {m.question && (
-        <p className="-mt-1.5 text-meta text-muted">
-          {m.ahead ? "goes ahead unless you hold it" : `asks ${m.to?.map((t) => t.replace("@", "")).join(", ").replace(scenario.me, "you") ?? "everyone"}`}
-          {m.task && (
-            <>
-              {" · blocks "}
-              <Ids text={m.task} />
-            </>
-          )}
-        </p>
-      )}
-      {m.question && (
         <p className="ask-detail-text">
           <Ids text={m.body} />
         </p>
@@ -61,13 +50,14 @@ export function MessageFooter({ board, message }: { board: string; message: Mess
       )}
       {m.options &&
         (ask ? (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Answers">
+          <div className="ask-answers flex flex-wrap items-center gap-2 rounded-box bg-attention px-3 py-2.5 text-ink" role="group" aria-label="Answers">
+            <span className="mr-1">{m.ahead ? `${m.from} goes ahead unless you hold it.` : `${m.from} is waiting for your answer.`}</span>
             {(m.ahead ? ["Hold it", "Let it go ahead"] : m.options).map((o, i) => (
               <button
                 key={o}
                 type="button"
                 onClick={() => void answer(ask, o)}
-                className="inline-flex min-h-9 items-center gap-2 rounded-control border border-rule bg-surface px-3 hover:border-field-border hover:bg-selected"
+                className="inline-flex min-h-9 items-center gap-2 rounded-control border border-[color-mix(in_oklab,var(--ink)_25%,transparent)] bg-surface px-3 text-ink hover:bg-selected"
               >
                 <kbd className="inline-flex size-5 items-center justify-center rounded-[4px] border border-rule font-sans text-[12px] text-muted">{i + 1}</kbd>
                 {o}

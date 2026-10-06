@@ -2,16 +2,23 @@
 
 // EXPERIMENTAL, lab only: the board view's centre. Under the "Now:" line (counted
 // facts) comes the brief (an agent's writing, with its byline), then one switch between
-// two views of the same board: Conversation, the record, and Tasks, the work laid out by
-// what the person would act on. The switch appears with the board's first task. The
-// conversation stays mounted under Tasks, so its scroll and read position hold.
+// views of the same board: Conversation, the record; Tasks, the work laid out by what
+// the person would act on, once the board has a task; Files, every file, once it has a
+// file. The conversation stays mounted under the others, so its scroll and read
+// position hold. Narrowed to a task, the conversation shows only that task's threads
+// and messages, under a line that says so and offers the way back.
 
+import { X } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import type { Member, MemberRef } from "@/app/api";
+import { count } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { type View, showView, useLab, useUi } from "../store";
+import { type View, filterTo, showView, useLab, useUi } from "../store";
 import { Brief } from "./brief";
+import { TaskChip } from "./chips";
 import { onBoard } from "./common";
+import { FilesView } from "./files";
+import { aboutTask, filterIds } from "./links";
 import { TaskBoard } from "./tasks";
 
 const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
@@ -40,15 +47,32 @@ export function Centre({
   }, [ui.thread, ui.n, onShow]);
 
   if (!onBoard(board)) return <>{children}</>;
+  const views: View[] = ["conversation", ...(snap.tasks.length > 0 ? (["tasks"] as View[]) : []), ...(snap.artifacts.length > 0 ? (["files"] as View[]) : [])];
+  const shown: View = views.includes(ui.view) ? ui.view : "conversation";
   const tasks = snap.tasks.filter((t) => t.state !== "done").length;
-  const shown: View = snap.tasks.length > 0 ? ui.view : "conversation";
+  const filter = ui.filter && snap.tasks.some((t) => t.id === ui.filter) ? ui.filter : null;
+  const kept = filter ? filterIds(snap, filter) : [];
+  const about = filter ? aboutTask(snap, filter) : null;
+  const label: Record<View, ReactNode> = {
+    conversation: "Conversation",
+    tasks: (
+      <>
+        Tasks <span className="font-normal text-muted tabular-nums">{tasks}</span>
+      </>
+    ),
+    files: (
+      <>
+        Files <span className="font-normal text-muted tabular-nums">{snap.artifacts.length}</span>
+      </>
+    ),
+  };
   return (
     <>
       <div className={column}>
         <Brief />
-        {snap.tasks.length > 0 && (
+        {views.length > 1 && (
           <div role="tablist" aria-label="Board views" className="board-switch mb-2 inline-flex animate-fade-in rounded-control border border-rule bg-surface p-0.5">
-            {(["conversation", "tasks"] as View[]).map((v) => (
+            {views.map((v) => (
               <button
                 key={v}
                 type="button"
@@ -62,19 +86,46 @@ export function Centre({
                   shown === v ? "bg-selected font-bold text-ink" : "text-muted hover:text-ink",
                 )}
               >
-                {v === "conversation" ? "Conversation" : "Tasks"}
-                {v === "tasks" && <span className="font-normal text-muted tabular-nums">{tasks}</span>}
+                {label[v]}
               </button>
             ))}
           </div>
         )}
+        {filter && shown === "conversation" && about && (
+          <p className="task-filter mb-2 flex flex-wrap items-center gap-2 rounded-control bg-selected px-3 py-1.5 text-meta" role="status" aria-live="polite">
+            Only <TaskChip id={filter} />
+            <span className="text-muted">
+              {[about.threads.length > 0 && count(about.threads.length, "thread", "threads"), about.loose.length > 0 && count(about.loose.length, "message", "messages")].filter(Boolean).join(", ")}
+            </span>
+            <button type="button" className="ml-auto inline-flex min-h-8 items-center gap-1 font-bold text-ink hover:underline" onClick={() => filterTo(null)}>
+              <X className="size-3.5" strokeWidth={2} aria-hidden />
+              Show everything
+            </button>
+          </p>
+        )}
       </div>
-      <div id="view-conversation" role={snap.tasks.length > 0 ? "tabpanel" : undefined} className={cn("flex min-h-0 flex-1 flex-col", shown !== "conversation" && "hidden")}>
+      {filter && (
+        // The timeline is the real one; narrowing it hides what isn't about the task.
+        <style>{`[data-lab-filter] li.board-event, [data-lab-filter] .new-divider { display: none; }
+[data-lab-filter] li.message:not(.reply)${kept.map((id) => `:not([data-id="${CSS.escape(id)}"])`).join("")} { display: none; }
+[data-lab-filter] li.thread${kept.map((id) => `:not([data-thread="${CSS.escape(id)}"])`).join("")} { display: none; }`}</style>
+      )}
+      <div
+        id="view-conversation"
+        role={views.length > 1 ? "tabpanel" : undefined}
+        data-lab-filter={filter ?? undefined}
+        className={cn("flex min-h-0 flex-1 flex-col", shown !== "conversation" && "hidden")}
+      >
         {children}
       </div>
       {shown === "tasks" && (
         <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col">
           <TaskBoard agents={members.filter((m) => m.kind === "agent")} />
+        </div>
+      )}
+      {shown === "files" && (
+        <div id="view-files" role="tabpanel" aria-labelledby="tab-files" className="flex min-h-0 flex-1 flex-col">
+          <FilesView />
         </div>
       )}
     </>

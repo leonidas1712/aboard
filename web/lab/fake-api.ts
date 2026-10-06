@@ -223,6 +223,8 @@ function sync(s: Snapshot): string[] {
         body: m.question ?? m.body,
         replyTo: m.replyTo ?? null,
         asks: m.asks ?? (!!m.options && !m.ahead),
+        // The detail of an ask and the task it blocks, which the lab's links read too.
+        about: [...(m.task ? [m.task] : []), ...((m.question ? m.body : "").match(/\b[A-Z]{2,5}-\d+\b/g) ?? [])],
         urgent: m.urgent ?? false,
       });
     }
@@ -339,9 +341,12 @@ async function hashed(w: World): Promise<BoardEvent[]> {
   return w.hashed;
 }
 
-/** postedAbout is the tasks a message posted in the lab names. */
-export function postedAbout(id: string): string[] {
-  return main.messages.find((m) => m.id === id)?.about ?? [];
+/** BoardMessage is a message on the scenario's board as the lab's links read it. */
+export type BoardMessage = { id: string; seq: number; at: number; from: string; body: string; replyTo: string | null; about: string[] };
+
+/** boardMessages is every message on the scenario's board so far, the person's own included, oldest first. */
+export function boardMessages(): BoardMessage[] {
+  return main.messages.map((m) => ({ id: m.id, seq: m.seq, at: m.atMs, from: m.from, body: m.body, replyTo: m.replyTo, about: m.about ?? [] }));
 }
 
 /** answeredByMe says whether the person has replied to a message. */

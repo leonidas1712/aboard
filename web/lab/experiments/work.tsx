@@ -7,20 +7,21 @@
 // with a way back, so the person never leaves the board. A task shows its owner's note,
 // the open question with answer buttons, its files with what you approved, who is on
 // it, a box to tell its people something (Split, Reassign and Hold fill in a message you
-// read before it goes), and every message that mentions it.
+// read before it goes), and its threads and messages, with a way to narrow the
+// conversation to them.
 
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Clock } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Board, type Member, type Message, get, post } from "@/app/api";
 import { AddAgent } from "@/app/board-details";
 import { AgentDetails } from "@/app/sidebars";
 import { count } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { mentioning, rootOf } from "../scenario";
-import { openArtifact, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
+import { filterTo, openArtifact, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
 import { ArtifactPanel, FileIcon, approval } from "./artifacts";
 import { answer, asksOf, statusOf, toneClass } from "./asks";
 import { Mark, active, ago, onBoard, useNow } from "./common";
+import { ThreadList, linkCount } from "./chips";
 import { needsYou } from "./tasks";
 import { Ids } from "./text";
 
@@ -89,8 +90,10 @@ function Work({ members, pick }: { members: Member[]; pick: (name: string) => vo
             <h3>
               <button type="button" onClick={() => openTask(t.id)} className="group flex w-full items-baseline gap-2 text-left">
                 <span className="shrink-0 text-meta text-muted tabular-nums">{t.id}</span>
-                <span className="min-w-0 flex-1 font-bold group-hover:underline">{t.title}</span>
-                {needsYou(t, asks) && <span className="size-2 shrink-0 rounded-full bg-[var(--needs)]" aria-label="Waiting on you" />}
+                <span className="min-w-0 flex-1">
+                  <span className="font-bold group-hover:underline">{t.title}</span>
+                  {needsYou(t, asks) && <span className="ml-1.5 inline-block rounded-[4px] bg-attention px-1.5 text-meta text-ink">needs you</span>}
+                </span>
               </button>
             </h3>
             <ul className="flex flex-col gap-0.5">{on.map(row)}</ul>
@@ -152,7 +155,10 @@ function AgentRow({ agent, status, tone, pick, showOwner }: { agent: Member; sta
             <span className="truncate">{agent.name}</span>
             <ChevronRight className={cn("size-3 shrink-0 text-muted transition-[transform,opacity] duration-200", open ? "rotate-90 opacity-100" : "opacity-0 group-hover:opacity-100")} strokeWidth={1.75} aria-hidden />
           </span>
-          <span className={cn("line-clamp-1 text-meta", tone)}>{status}</span>
+          <span className={cn("line-clamp-1 text-meta", tone)}>
+            {tone.includes("late") && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late or idle" />}
+            {status}
+          </span>
         </span>
       </button>
       {open && (
@@ -181,7 +187,6 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
   const { snap } = useLab();
   const { answered } = useUi();
   const now = useNow();
-  const [showMentions, setShowMentions] = useState(false);
   const t = snap.tasks.find((x) => x.id === id);
   if (!t) return <p className="text-muted">There is no task {id} on this board.</p>;
   const asks = asksOf(snap, answered);
@@ -189,7 +194,7 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
   const needs = needsYou(t, asks);
   const files = snap.artifacts.filter((a) => a.task === t.id);
   const on = [t.owner, ...(t.with ?? [])].filter((n): n is string => !!n);
-  const mentions = mentioning(snap.messages, t.id);
+  const links = linkCount(snap, t.id);
   const agentsOn = on.filter((n) => members.some((m) => m.kind === "agent" && m.name === n));
   const owner = t.owner && agentsOn.includes(t.owner) ? t.owner : null;
   const suggestions: Suggestion[] = [
@@ -204,8 +209,14 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
         <p className="text-meta text-muted tabular-nums">{t.id}</p>
         <h3 className="text-title font-bold">{t.title}</h3>
         <p className="flex items-center gap-1.5 text-meta">
-          <span aria-hidden className={cn("size-2 rounded-full", needs ? "bg-[var(--needs)]" : t.state === "done" ? "bg-muted" : "border-2 border-accent")} />
-          <span className={needs ? "text-ink" : "text-muted"}>{stateText}</span>
+          {needs ? (
+            <span className="rounded-[4px] bg-attention px-1.5 text-ink">{stateText}</span>
+          ) : (
+            <>
+              <span aria-hidden className={cn("size-2 rounded-full", t.state === "done" ? "bg-muted" : "border-2 border-accent")} />
+              <span className="text-muted">{stateText}</span>
+            </>
+          )}
           {t.owner && <span className="text-muted">· owner {t.owner === scenario.me ? "you" : t.owner}</span>}
         </p>
       </header>
@@ -238,6 +249,18 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
               </button>
             ))}
           </div>
+        </section>
+      )}
+
+      {links && (
+        <section aria-label={`Threads and messages about ${t.id}`} className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <h4 className="text-meta font-bold text-muted">{links}</h4>
+            <button type="button" className="min-h-8 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => filterTo(t.id)}>
+              Show only {t.id} in the conversation
+            </button>
+          </div>
+          <ThreadList task={t.id} className="-mx-1.5" />
         </section>
       )}
 
@@ -285,7 +308,10 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
                       {n}
                       {n === t.owner && <span className="text-meta text-muted"> owner</span>}
                     </button>
-                    <span className={cn("text-meta", toneClass[s.tone])}>{s.text}</span>
+                    <span className={cn("text-meta", toneClass[s.tone])}>
+                      {s.tone === "late" && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late or idle" />}
+                      {s.text}
+                    </span>
                   </span>
                 </li>
               );
@@ -296,27 +322,6 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
 
       {t.state !== "done" && <TellTheTeam key={t.id} task={t.id} to={agentsOn} suggestions={suggestions} />}
 
-      {mentions.length > 0 && (
-        <section aria-label={`Messages that mention ${t.id}`} className="flex flex-col gap-1.5">
-          <button type="button" aria-expanded={showMentions} onClick={() => setShowMentions(!showMentions)} className="min-h-8 self-start text-meta text-muted hover:text-ink hover:underline">
-            {count(mentions.length, "message mentions", "messages mention")} {t.id} · {showMentions ? "hide them" : "show them"}
-          </button>
-          {showMentions && (
-            <ul className="flex animate-fade-in flex-col gap-1.5">
-              {mentions.map((m) => (
-                <li key={m.id}>
-                  <button type="button" onClick={() => openThread(rootOf(snap.messages, m).id)} className="grid w-full grid-cols-[20px_minmax(0,1fr)] gap-x-2 text-left text-meta hover:underline">
-                    <Mark name={m.from} />
-                    <span className="line-clamp-2">
-                      <strong>{m.from === scenario.me ? "You" : m.from}</strong> · {ago(m.t, now)}: {m.question ?? m.body}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
     </article>
   );
 }

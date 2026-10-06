@@ -51,10 +51,27 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   appears: in messages, the brief, notes and files. A task lists every message that
   mentions it. A file shows its version, what the person approved, and where the file
   is used.
-- **Colour has a budget.** Red marks only what waits on the person's answer: the Inbox
-  count, the dot on a board, a task's status. Amber marks only what is late or idle:
-  "6m over", "idle 46m". Something new shows as a bold board name and an unread count.
-  Everything else is neutral. When things are normal, the screen is calm.
+- **Attention has one colour.** It is marigold, DESIGN.md's attention colour, and it
+  marks only what waits on the person. It is used for the Inbox count, a board's count
+  of asks, "needs you" on a task, and the answer box on an ask. A waiting ask shows once
+  in each place: in the conversation, the lab's answer box replaces the real "waiting
+  for your reply" box. Late or idle shows as muted text with a clock icon, never as a
+  second colour. Something new shows as a bold board name and an unread count.
+  Everything else is neutral.
+- **Tasks and the conversation link both ways.**
+  - In the conversation, a message shows a quiet chip for each task it is about. A
+    thread's row shows a chip for every task any of its messages is about, so a thread
+    about two tasks shows both. Hovering a chip shows the task's title and status. A
+    click opens the task.
+  - A task's card and panel list its threads (first line, who, replies, last activity)
+    and its loose messages. One click narrows the conversation to that task. A line
+    above the conversation says what it is narrowed to, with "Show everything" to go
+    back.
+- **Files is the third view**, once the board has a file. Each row shows the file's
+  type, what it is, who made it, its version and when it changed, whether it is
+  maintained or one-off, and what the person approved. Each row also links to the
+  file's tasks and to the threads it was posted in. The file panel shows the same
+  links.
 - **Each part appears with its first content.**
   - Two agents see a chat. Asks appear as messages with buttons.
   - The Inbox appears with the first ask.
@@ -66,15 +83,18 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
 
 The design depends on these. Each is a contract change for the maintainer to decide.
 
-1. **Asks as a message type.** An ask carries its options, the task it blocks, and
+1. **Which tasks a message is about.** The server records them, like mentions, so
+   thread chips and task thread lists come from the record rather than from a scan of
+   the text.
+2. **Asks as a message type.** An ask carries its options, the task it blocks, and
    whether the agent goes ahead unless held. The lab marks such a message as asking
    for a reply and keeps its buttons and detail itself.
-2. **"Back by" on an agent's status.** It is an optional time, so that "waiting" and
+3. **"Back by" on an agent's status.** It is an optional time, so that "waiting" and
    "late" are different facts.
-3. **Task ids that messages can mention** (CHK-16). The server resolves them like
+4. **Task ids that messages can mention** (CHK-16). The server resolves them like
    @mentions, and a task can count the messages that mention it.
-4. A file's **version**, its **task**, and **the version a person approved**.
-5. The brief as a file that the **steward** keeps. The design needs to know who the
+5. A file's **version**, its **task**, and **the version a person approved**.
+6. The brief as a file that the **steward** keeps. The design needs to know who the
    steward is.
 
 ## Left out on purpose
@@ -87,8 +107,6 @@ The design depends on these. Each is a contract change for the maintainer to dec
 
 ## Where our parts differ from the mockup
 
-- The real timeline still shows its marigold "codex is waiting for your reply" box on
-  asks, beside the red of the colour budget. Should the budget replace it?
 - The colours are our identity colours, not the mockup's grey squares. Light mode
   follows our tokens. A file is always shown on a light page.
 
@@ -99,4 +117,5 @@ The design depends on these. Each is a contract change for the maintainer to dec
 3. Should people be able to edit the brief, or should only the steward write it?
 4. Should answering an ask in the Inbox also record a decision (an event), or is the
    reply message enough?
-5. Should the marigold "waiting for your reply" box give way to the red budget?
+5. Should narrowing the conversation to a task become a real filter (`?task=`), beside
+   the existing filters for sender and role?

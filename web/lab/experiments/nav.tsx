@@ -1,9 +1,9 @@
 "use client";
 
 // EXPERIMENTAL, lab only: the left panel. The Inbox on top, once there is an ask, with
-// the only solid red count on the page. Then the boards, each with its unread count and
-// a red dot when something on it waits on the person; a board with unread messages is
-// bold. Then "Find or do anything" (⌘K), a stub of one box to jump anywhere.
+// its count in the attention colour. Then the boards, each with how many asks on it wait
+// on the person (attention colour) and its unread count (plain); a board with unread
+// messages is bold. Then "Find or do anything" (⌘K), a stub of one box to jump anywhere.
 
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -37,7 +37,7 @@ export function Nav({ current, boards }: { current: string | null; boards: Board
         <a href={labHref({ inbox: "1", board: null, view: null, task: null, artifact: null })} aria-current={inInbox ? "page" : undefined} className={cn(row, "font-bold", inInbox && "bg-selected")}>
           <span className="flex-1">Inbox</span>
           {asks.length > 0 && (
-            <span className="inbox-count min-w-6 rounded-full bg-[var(--needs)] px-1.5 text-center text-meta font-bold text-on-ink tabular-nums" title={`${asks.length} waiting on you`}>
+            <span className="inbox-count min-w-6 rounded-[6px] bg-attention px-1.5 text-center text-meta font-bold text-ink tabular-nums" title={`${asks.length} waiting on you`}>
               {asks.length}
             </span>
           )}
@@ -62,10 +62,14 @@ export function Nav({ current, boards }: { current: string | null; boards: Board
                   className={cn(row, here && "bg-selected")}
                 >
                   <span className={cn("min-w-0 flex-1 truncate", (unread > 0 || here) && "font-bold")}>{boardLabel(b)}</span>
-                  {(waiting > 0 || unread > 0) && (
-                    <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-selected px-1.5 text-meta text-muted tabular-nums">
-                      {waiting > 0 && <span className="size-1.5 rounded-full bg-[var(--needs)]" aria-label={`${waiting} waiting on you`} />}
-                      {unread > 0 && <span title={`${unread} unread`}>{unread}</span>}
+                  {waiting > 0 && (
+                    <span className="shrink-0 rounded-[6px] bg-attention px-1.5 text-meta font-bold text-ink tabular-nums" title={`${waiting} waiting on you`}>
+                      {waiting}
+                    </span>
+                  )}
+                  {unread > 0 && (
+                    <span className="shrink-0 text-meta text-muted tabular-nums" title={`${unread} unread`}>
+                      {unread}
                     </span>
                   )}
                 </a>

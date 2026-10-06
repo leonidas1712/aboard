@@ -40,7 +40,7 @@ export function Brief() {
         <p className="min-w-0 flex-1 text-meta text-muted" title={`Updated ${exactTime(new Date(at(b.t)).toISOString())}`}>
           by {b.by === scenario.me ? "you" : b.by} · updated {ago(b.t, now)} · {count(since, "message", "messages")} since
           {stale && (
-            <span className="text-[var(--late)]">
+            <span>
               {" · "}
               <History className="inline size-3.5 -translate-y-px" strokeWidth={1.75} aria-hidden /> may be out of date
             </span>

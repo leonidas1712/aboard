@@ -17,7 +17,7 @@ A floating panel at the bottom left picks the scenario and its time step. **Play
 through the steps. A later step happens live: new messages arrive on the stream and
 presence changes. An earlier step reloads the page. The address keeps the moment:
 `?lab=<scenario>&step=<n>`, then `inbox=1` for the Inbox, `board=<name>` for a board,
-or `list=1` for the list of boards. On a board, `view=tasks` opens Tasks, `task=<id>`
+or `list=1` for the list of boards. On a board, `view=tasks` or `view=files` opens that view, `task=<id>`
 opens a task in the side panel, and `artifact=<id>` opens a file there. Add
 `panel=closed` to fold the lab panel. With no place named, the lab opens on the Inbox
 when there is an ask, and on the scenario's board when there isn't.
@@ -72,7 +72,11 @@ the server.
   count, and a stub of ⌘K.
 - **Brief** (`experiments/brief.tsx`): the steward's writing, with a byline. Open, it
   shows Goal, Approach, Who's doing what, Blocked on, Next and Sources.
-- **Conversation | Tasks** (`experiments/centre.tsx`, `tasks.tsx`). The columns are
+- **Tasks and threads** (`experiments/chips.tsx`, `links.ts`): task chips on messages
+  and thread rows, task thread lists, and narrowing the conversation to one task
+  (`filter=<id>` in the address).
+- **Files** (`experiments/files.tsx`): every file, with its context.
+- **Conversation | Tasks | Files** (`experiments/centre.tsx`, `tasks.tsx`). The columns are
   Needs you, In progress, Waiting and Not picked up. Free agents are listed beside
   them. Done folds away.
 - **Side panel** (`experiments/work.tsx`, `artifacts.tsx`): the board's Work, a task

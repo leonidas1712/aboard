@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import type { Artifact } from "../scenario";
 import { fullScreen, openTask, openThread, scenario, showWork, useLab, useUi } from "../store";
 import { ago, useNow } from "./common";
+import { Context } from "./files";
+import { contextOf } from "./links";
 import { Markdown } from "./markdown";
 
 const formats = { html: "HTML", md: "Markdown", svg: "Image" } as const;
@@ -75,7 +77,6 @@ export function ArtifactPanel({ id }: { id: string }) {
   const uses = snap.messages.filter((m) => m.attach === a.id);
   const asks = uses.filter((m) => m.options).length;
   const ok = approval(a);
-  const used = asks > 0 ? `used in ${count(asks, "ask", "asks")}` : uses.length > 0 ? `posted with ${count(uses.length, "message", "messages")}` : null;
   return (
     <div className="artifact-panel flex flex-col gap-3">
       <div className="flex items-center justify-end gap-1 text-meta">
@@ -90,17 +91,13 @@ export function ArtifactPanel({ id }: { id: string }) {
       <header className="flex flex-col gap-0.5">
         <h3 className="text-title font-bold break-all">{a.name}</h3>
         <p className="text-meta text-muted">
-          Made by {a.by === scenario.me ? "you" : a.by} · {ago(a.t, now)} · {formatOf(a)} · v{a.version}
-          {used && (
-            <>
-              {" · "}
-              <button type="button" className="underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => openThread(uses[0].id)}>
-                {used}
-              </button>
-            </>
-          )}
+          {a.maintained ? "Maintained" : "One-off"} · made by {a.by === scenario.me ? "you" : a.by} · {ago(a.t, now)} · {formatOf(a)} · v{a.version}
+          {asks > 0 && ` · used in ${count(asks, "ask", "asks")}`}
         </p>
         {ok && <p className={cn("text-meta", ok.changed ? "font-bold text-ink" : "text-muted")}>{ok.text}</p>}
+        <div className="pt-1">
+          <Context a={a} ctx={contextOf(snap, a)} />
+        </div>
       </header>
       <Page a={a} />
       <div className="flex gap-4 text-meta">

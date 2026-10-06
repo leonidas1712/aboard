@@ -8,6 +8,7 @@
 import type { Lab } from "@/app/lab-seam";
 import { asksOf } from "./experiments/asks";
 import { Centre } from "./experiments/centre";
+import { MessageMeta, ThreadMeta } from "./experiments/chips";
 import { Inbox } from "./experiments/inbox";
 import { MessageFooter } from "./experiments/message-footer";
 import { Nav } from "./experiments/nav";
@@ -63,5 +64,7 @@ export const lab: Lab | null = {
   RightTitle: Title,
   RightPanel: WorkPanel,
   MessageFooter,
+  MessageMeta,
+  ThreadMeta,
   Text,
 };

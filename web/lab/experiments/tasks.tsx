@@ -7,14 +7,16 @@
 // the work nobody has taken. A card opens its task in the side panel. Red only marks
 // what waits on your answer; amber only what is late or idle.
 
+import { Clock, MessagesSquare } from "lucide-react";
 import { useState } from "react";
 import type { Member } from "@/app/api";
 import { count } from "@/app/words";
 import { cn } from "@/lib/utils";
-import { type ScenarioTask, threadsOf } from "../scenario";
+import type { ScenarioTask } from "../scenario";
 import { openTask, scenario, useLab, useUi } from "../store";
 import { Ask } from "./ask";
 import { type Ask as AskItem, asksOf, statusOf, toneClass } from "./asks";
+import { ThreadList, linkCount } from "./chips";
 import { Mark, active, ago, useNow } from "./common";
 
 /** needsYou is true for a task that waits on the person, or that an unanswered ask blocks. */
@@ -46,15 +48,19 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
           {columns.map((c) => (
             <section key={c.key} aria-labelledby={`tasks-${c.key}`} className="task-column flex min-w-0 flex-col gap-2">
               <h3 id={`tasks-${c.key}`} className="flex items-center gap-2 pb-1 text-meta font-bold text-ink">
-                <span
-                  aria-hidden
-                  className={cn(
-                    "size-2 rounded-full",
-                    c.key === "needs" ? (c.list.length > 0 ? "bg-[var(--needs)]" : "border border-muted") : c.key === "doing" ? "border-2 border-accent" : "border border-dashed border-muted",
-                  )}
-                />
-                {c.title}
-                <span className="font-normal text-muted tabular-nums">{c.list.length}</span>
+                {c.key !== "needs" && (
+                  <span aria-hidden className={cn("size-2 rounded-full", c.key === "doing" ? "border-2 border-accent" : "border border-dashed border-muted")} />
+                )}
+                {c.key === "needs" && c.list.length > 0 ? (
+                  <span className="rounded-[4px] bg-attention px-1.5 text-ink">
+                    {c.title} <span className="tabular-nums">{c.list.length}</span>
+                  </span>
+                ) : (
+                  <>
+                    {c.title}
+                    <span className="font-normal text-muted tabular-nums">{c.list.length}</span>
+                  </>
+                )}
               </h3>
               <ul className="flex flex-col gap-2">
                 {c.list.map((t) => (
@@ -74,7 +80,10 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
                           <Mark name={a.name} />
                           <span className="flex flex-col">
                             <span>{a.name}</span>
-                            <span className={cn("text-meta", toneClass[s.tone])}>{s.text}</span>
+                            <span className={cn("text-meta", toneClass[s.tone])}>
+                              {s.tone === "late" && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late or idle" />}
+                              {s.text}
+                            </span>
                           </span>
                         </li>
                       );
@@ -110,11 +119,12 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
   const { snap } = useLab();
   const ask = asks.find((a) => a.task === t.id && !a.ahead);
   const people = [t.owner, ...(t.with ?? [])].filter((n): n is string => !!n);
-  const threads = threadsOf(snap.messages, t.id).length;
+  const [open, setOpen] = useState(false);
+  const links = linkCount(snap, t.id);
   const files = snap.artifacts.filter((a) => a.task === t.id).length;
   const done = t.state === "done";
   let line: string | null = null;
-  if (needs) line = ask ? `Waiting on you: ${ask.question}` : `Waiting on you: ${t.reason ?? ""}`;
+  if (needs) line = ask ? ask.question : (t.reason ?? null);
   else if (t.state === "waiting") line = `Waiting on ${t.waitingOn}${t.reason ? `: ${t.reason}` : ""}`;
   else if (t.state === "open") line = `No owner · opened ${ago(t.t, now)}`;
   else if (t.state === "claimed") line = "Claimed, not started";
@@ -129,12 +139,13 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
         <span className="text-meta text-muted tabular-nums">{t.id}</span>
         <span className={cn("leading-snug", done ? "font-normal" : "font-bold")}>{t.title}</span>
       </button>
-      {line && <p className={cn("text-meta", needs ? "text-ink" : "text-muted")}>{line}</p>}
+      {line && <p className={cn("text-meta", needs ? "text-ink" : "text-muted")}>{needs && <span className="font-bold">Waiting on you: </span>}{line}</p>}
       {people.length > 0 && (
         <ul className="flex flex-col gap-2 border-t border-rule pt-2.5">
           {people.map((n, i) => {
             const human = scenario.people.some((p) => p.name === n);
             const s = human ? { text: n === scenario.me ? "that's you" : "on it", tone: "quiet" as const } : statusOf(snap, n, asks, now);
+            const late = s.tone === "late";
             return (
               <li key={n} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-2">
                 <Mark name={n} />
@@ -143,7 +154,12 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
                     {n}
                     {i === 0 && t.owner === n && <span className="text-meta text-muted"> owner</span>}
                   </span>
-                  {!done && <span className={cn("line-clamp-2 text-meta", toneClass[s.tone])}>{s.text}</span>}
+                  {!done && (
+                    <span className={cn("line-clamp-2 text-meta", toneClass[s.tone])}>
+                      {late && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late" />}
+                      {s.text}
+                    </span>
+                  )}
                 </span>
               </li>
             );
@@ -153,9 +169,19 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
       {t.state === "open" && steward && (
         <Ask label={`Ask ${steward} to assign it`} to={steward} text={`${t.id} (${t.title}) has no owner. Please assign it, and say who and why.`} />
       )}
-      <p className="border-t border-rule pt-2 text-meta text-muted">
-        {[threads > 0 && count(threads, "thread", "threads"), files > 0 && count(files, "artifact", "artifacts"), ago(t.t, now)].filter(Boolean).join(" · ")}
-      </p>
+      <div className="flex flex-col gap-1 border-t border-rule pt-2 text-meta text-muted">
+        {links && (
+          <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="task-threads inline-flex min-h-7 items-center gap-1 self-start underline decoration-1 underline-offset-[3px] hover:text-ink">
+            <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />
+            {links}
+          </button>
+        )}
+        <p>
+          {files > 0 && `${count(files, "file", "files")} · `}
+          {ago(t.t, now)}
+        </p>
+        {open && <ThreadList task={t.id} className="-mx-1.5 animate-fade-in" />}
+      </div>
     </article>
   );
 }

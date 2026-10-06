@@ -565,6 +565,7 @@ function MessageEntry({
                 ) : (
                   <span className="ml-2 text-meta text-muted">Asks for a reply</span>
                 ))}
+              {lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped={false} />}
             </p>
             {actions}
             <Time at={m.at} now={now} />
@@ -576,6 +577,7 @@ function MessageEntry({
             <span className="truncate">{quote ?? "Replying to an earlier message"}</span>
           </p>
         )}
+        {grouped && lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped />}
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
           <Body m={m} mentions={mentions} />
         </p>
@@ -655,26 +657,35 @@ function ThreadBlock({
       )}
     </>
   );
+  const toggle = thread.filtered ? (
+    <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
+  ) : (
+    <button
+      type="button"
+      className="thread-toggle -ml-1.5 flex min-h-11 max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-control px-1.5 text-left text-meta transition-colors duration-[140ms] ease-out hover:bg-selected"
+      aria-expanded={open}
+      aria-controls={open ? id : undefined}
+      aria-label={`${open ? "Hide" : "Show"} ${replies}${thread.fresh > 0 && !open ? `, ${thread.fresh} new` : ""}`}
+      onClick={() => onToggle(root.id, !open)}
+    >
+      {summary}
+      <ChevronRight
+        className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")}
+        strokeWidth={1.75}
+        aria-hidden
+      />
+    </button>
+  );
   return (
     <li className="thread pr-2.5 pb-2 pl-[54px] max-sm:pl-[42px]" data-thread={root.id}>
-      {thread.filtered ? (
-        <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
+      {lab?.ThreadMeta && receipts ? (
+        // Only the UI lab adds to this row (lab-seam.ts).
+        <div className="flex flex-wrap items-center gap-x-2">
+          {toggle}
+          <lab.ThreadMeta board={receipts.board} root={root} />
+        </div>
       ) : (
-        <button
-          type="button"
-          className="thread-toggle -ml-1.5 flex min-h-11 max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-control px-1.5 text-left text-meta transition-colors duration-[140ms] ease-out hover:bg-selected"
-          aria-expanded={open}
-          aria-controls={open ? id : undefined}
-          aria-label={`${open ? "Hide" : "Show"} ${replies}${thread.fresh > 0 && !open ? `, ${thread.fresh} new` : ""}`}
-          onClick={() => onToggle(root.id, !open)}
-        >
-          {summary}
-          <ChevronRight
-            className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")}
-            strokeWidth={1.75}
-            aria-hidden
-          />
-        </button>
+        toggle
       )}
       {!open && thread.waiting && (
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">

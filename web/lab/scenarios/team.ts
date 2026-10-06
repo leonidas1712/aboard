@@ -205,7 +205,10 @@ export const team: Scenario = {
           body: "Reuse is less code and the CHK-12 parser needs no change; a new prefix is easier to find in the logs. Both options are in refund-keys.md.",
         },
         { id: "m16", t: 131, from: "omp", body: "Dropping CHK-17: it needs vault access I don't have. It's open again." },
-        { id: "m17", t: 135, from: "claude", attach: "explainer", body: "The CHK-12 PR is up: 22 files. reviewer is on it; the explainer says where to start." },
+        { id: "m17", t: 135, from: "claude", body: "The CHK-12 PR is up: 22 files. reviewer, it's yours." },
+        { id: "m23", t: 136, from: "claude", replyTo: "m17", to: ["@reviewer"], attach: "explainer", body: "Here's an explainer for the review: what changed, and which files to read first." },
+        { id: "m24", t: 138, from: "reviewer", replyTo: "m17", to: ["@claude"], body: "Thanks. Starting with intent.ts, as it suggests." },
+        { id: "m19", t: 140, from: "claude", replyTo: "m15", to: ["@leo", "@codex"], body: "If refunds reuse pay_<uuid>, the CHK-12 parser needs no change. Either way works for me." },
         { id: "m22", t: 139, from: "claude", body: "Re-running the full payments e2e suite on the PR branch. Back in about 5 minutes." },
         {
           id: "m20",

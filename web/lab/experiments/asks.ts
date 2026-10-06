@@ -91,11 +91,11 @@ export function noticesOf(snap: Snapshot, now: number): Notice[] {
   return out;
 }
 
-export type Status = { text: string; tone: "needs" | "late" | "quiet" | "plain" };
+/** Status is what an agent is doing; late marks a "back by" passed or a long idle, said quietly. */
+export type Status = { text: string; tone: "late" | "quiet" | "plain" };
 
 /** statusOf is what an agent is doing right now, in a few words, and how loudly to say it. */
 export function statusOf(snap: Snapshot, name: string, asks: Ask[], now: number): Status {
-  if (asks.some((a) => a.from === name && !a.ahead && a.board === scenario.board.name)) return { text: "waiting on you", tone: "needs" };
   const line = snap.now[name];
   const presence = snap.presence[name];
   if (line?.backBy !== undefined && now > at(line.backBy)) {
@@ -114,8 +114,7 @@ export function statusOf(snap: Snapshot, name: string, asks: Ask[], now: number)
 }
 
 export const toneClass: Record<Status["tone"], string> = {
-  needs: "text-[var(--needs)]",
-  late: "text-[var(--late)]",
+  late: "late text-muted",
   quiet: "text-muted",
   plain: "text-muted",
 };

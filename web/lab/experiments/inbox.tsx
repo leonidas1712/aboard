@@ -8,7 +8,7 @@
 // the arrows, move between asks; Enter opens it on its board. An answer is an ordinary
 // reply to the agent who asked. Home at scale: the lab opens here when there is an ask.
 
-import { ArrowDown, ArrowUp, CornerDownLeft, FileText } from "lucide-react";
+import { ArrowDown, ArrowUp, Clock, CornerDownLeft, FileText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Board, get } from "@/app/api";
 import { Account } from "@/app/account";
@@ -96,7 +96,7 @@ export function Inbox({ onSignOut }: { onSignOut: () => void }) {
                         <Mark name={n.who} size="md" />
                         <span className="flex min-w-0 flex-col">
                           <span>
-                            {n.late && <span className="mr-1.5 inline-block size-1.5 -translate-y-0.5 rounded-full bg-[var(--late)]" aria-hidden />}
+                            {n.late && <Clock className="mr-1.5 inline size-3.5 -translate-y-px text-muted" strokeWidth={2} aria-label="Late or idle" />}
                             {n.text}
                           </span>
                           <span className="text-meta text-muted">
