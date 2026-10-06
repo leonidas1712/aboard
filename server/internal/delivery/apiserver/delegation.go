@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -167,30 +168,36 @@ func (d *Delegated) call(ctx context.Context, method, path string, body any) (st
 	}
 }
 
-// Boards lists the boards the person can see.
-func (d *Delegated) Boards(ctx context.Context) ([]delivery.SeatBoard, error) {
-	status, raw, err := d.call(ctx, http.MethodGet, "/v1/boards", nil)
+// Boards lists the boards the person can see, filtered by lifecycle (empty asks for
+// the server's default, active boards), with the server's archived count when it sent one.
+func (d *Delegated) Boards(ctx context.Context, lifecycle string) (delivery.SeatBoards, error) {
+	path := "/v1/boards"
+	if lifecycle != "" {
+		path += "?lifecycle=" + url.QueryEscape(lifecycle)
+	}
+	status, raw, err := d.call(ctx, http.MethodGet, path, nil)
 	if err != nil {
-		return nil, err
+		return delivery.SeatBoards{}, err
 	}
 	if status != http.StatusOK {
-		return nil, refusal(status, raw)
+		return delivery.SeatBoards{}, refusal(status, raw)
 	}
 	var list struct {
-		Boards []json.RawMessage `json:"boards"`
+		Boards        []json.RawMessage `json:"boards"`
+		ArchivedCount *int              `json:"archived_count"`
 	}
 	if err := json.Unmarshal(raw, &list); err != nil {
-		return nil, fmt.Errorf("%w: the list of boards isn't JSON: %w", delivery.ErrServerUnreachable, err)
+		return delivery.SeatBoards{}, fmt.Errorf("%w: the list of boards isn't JSON: %w", delivery.ErrServerUnreachable, err)
 	}
-	out := make([]delivery.SeatBoard, 0, len(list.Boards))
+	out := delivery.SeatBoards{Boards: make([]delivery.SeatBoard, 0, len(list.Boards)), ArchivedCount: list.ArchivedCount}
 	for _, b := range list.Boards {
 		var named struct {
 			Name string `json:"name"`
 		}
 		if err := json.Unmarshal(b, &named); err != nil {
-			return nil, fmt.Errorf("%w: a board isn't JSON: %w", delivery.ErrServerUnreachable, err)
+			return delivery.SeatBoards{}, fmt.Errorf("%w: a board isn't JSON: %w", delivery.ErrServerUnreachable, err)
 		}
-		out = append(out, delivery.SeatBoard{Name: named.Name, Board: b})
+		out.Boards = append(out.Boards, delivery.SeatBoard{Name: named.Name, Board: b})
 	}
 	return out, nil
 }

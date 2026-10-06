@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -38,7 +40,8 @@ func TestADelegationListsAndJoins(t *testing.T) {
 	board, _ := post(t, "POST", url+"/v1/boards", owner, map[string]any{"template": "general"})["name"].(string)
 	d := NewDelegated(url, "laptop", tokens{human: map[string]string{url: owner}})
 	ctx := context.Background()
-	boards, err := d.Boards(ctx)
+	list, err := d.Boards(ctx, "")
+	boards := list.Boards
 	if err != nil || len(boards) != 1 || boards[0].Name != board {
 		t.Fatalf("boards: %v %v", boards, err)
 	}
@@ -65,19 +68,19 @@ func TestADelegationIsMadeAgainOnce(t *testing.T) {
 	url, owner := localServer(t)
 	d := NewDelegated(url, "laptop", tokens{human: map[string]string{url: owner}})
 	ctx := context.Background()
-	if _, err := d.Boards(ctx); err != nil {
+	if _, err := d.Boards(ctx, ""); err != nil {
 		t.Fatal(err)
 	}
 	// Another delegation with the same key and name ends the one d holds.
 	post(t, "POST", url+"/v1/delegations", owner, map[string]any{"name": "laptop"})
-	if _, err := d.Boards(ctx); err != nil {
+	if _, err := d.Boards(ctx, ""); err != nil {
 		t.Fatalf("after the delegation was replaced: %v", err)
 	}
 	// With the key revoked, nothing works.
 	keys := post(t, "GET", url+"/v1/keys", owner, nil)
 	id, _ := keys["current_key_id"].(string)
 	post(t, "DELETE", url+"/v1/keys/"+id, owner, nil)
-	_, err := d.Boards(ctx)
+	_, err := d.Boards(ctx, "")
 	var refused *delivery.WireError
 	if !errors.As(err, &refused) || refused.Code != "delegation_revoked" {
 		t.Fatalf("after the key was revoked: %v", err)
@@ -88,11 +91,49 @@ func TestADelegationIsMadeAgainOnce(t *testing.T) {
 func TestADelegationNeedsAKeyAndAServer(t *testing.T) {
 	url, _ := localServer(t)
 	ctx := context.Background()
-	if _, err := NewDelegated(url, "laptop", tokens{}).Boards(ctx); !errors.Is(err, delivery.ErrLoginMissing) {
+	if _, err := NewDelegated(url, "laptop", tokens{}).Boards(ctx, ""); !errors.Is(err, delivery.ErrLoginMissing) {
 		t.Errorf("no key: %v", err)
 	}
 	gone := "http://127.0.0.1:1"
 	if _, err := NewDelegated(gone, "laptop", tokens{human: map[string]string{gone: "abh_x"}}).Join(ctx, delivery.SeatRequest{Board: "b", Session: "codex:1"}); !errors.Is(err, delivery.ErrServerUnreachable) {
 		t.Errorf("no server: %v", err)
+	}
+}
+
+// The delegation asks for the lifecycle filter it is given and passes the server's
+// archived count back; it sends no filter for the default, and a missing count stays
+// missing, never zero.
+func TestADelegationListsByLifecycle(t *testing.T) {
+	var queries []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/delegations":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"token":"abd_test"}`))
+		case "/v1/boards":
+			queries = append(queries, r.URL.RawQuery)
+			if r.URL.Query().Get("lifecycle") == "archived" {
+				_, _ = w.Write([]byte(`{"boards":[{"name":"old","lifecycle":"archived"}],"archived_count":1}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"boards":[{"name":"docs"}]}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	d := NewDelegated(srv.URL, "laptop", tokens{human: map[string]string{srv.URL: "abh_x"}})
+	ctx := context.Background()
+	archived, err := d.Boards(ctx, "archived")
+	if err != nil || len(archived.Boards) != 1 || archived.Boards[0].Name != "old" || archived.ArchivedCount == nil || *archived.ArchivedCount != 1 {
+		t.Fatalf("archived: %+v %v", archived, err)
+	}
+	active, err := d.Boards(ctx, "")
+	if err != nil || len(active.Boards) != 1 || active.ArchivedCount != nil {
+		t.Fatalf("active: %+v %v", active, err)
+	}
+	if fmt.Sprint(queries) != "[lifecycle=archived ]" {
+		t.Errorf("queries: %q", queries)
 	}
 }
