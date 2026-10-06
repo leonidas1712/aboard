@@ -2,8 +2,8 @@
 // each board, by its permanent id. Board lists, the board itself, acknowledgements and
 // the stream's unread events all carry that pair, and they can arrive out of order: a
 // list read before an acknowledgement can answer after the stream already said the board
-// is read. Each source takes a generation when its request starts (or when its event
-// arrives), and a pair replaces the kept one only when its generation is newer. Board
+// is read. A read position only moves forward; at the same position the newest source
+// (by when its request started or its event arrived) says how many are unread. Board
 // metadata, access and lifecycle always come from the fresh response; only the pair is
 // overlaid, and only for boards that response contains.
 
@@ -21,10 +21,27 @@ export class ReadProgress {
     return ++this.gen;
   }
 
-  /** note keeps a board's pair, seen at generation gen, unless a newer one is kept. */
+  /**
+   * note keeps a board's pair, seen at generation gen. A read position only moves
+   * forward: a higher read_up_to is always taken and a lower one never is, whatever its
+   * generation, since a read started late can still see an old position, and an event
+   * can arrive late. At the same read_up_to the newer generation's unread is taken, as a
+   * new message raises it without moving the position. The kept generation is the
+   * newest seen.
+   */
   note(id: string, gen: number, read_up_to: number | undefined, unread: number | undefined): void {
     const kept = this.pairs.get(id);
-    if (!kept || gen > kept.gen) this.pairs.set(id, { gen, read_up_to, unread });
+    if (!kept) {
+      this.pairs.set(id, { gen, read_up_to, unread });
+      return;
+    }
+    const was = kept.read_up_to ?? -1;
+    const now = read_up_to ?? -1;
+    if (now > was || (now === was && gen > kept.gen)) {
+      this.pairs.set(id, { gen: Math.max(gen, kept.gen), read_up_to, unread });
+    } else {
+      kept.gen = Math.max(gen, kept.gen);
+    }
   }
 
   /** board returns b, read at generation gen, with the newest pair kept for it. */

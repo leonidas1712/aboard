@@ -1681,3 +1681,79 @@ test("a board gone from a fresh list leaves the board list, and an older list ca
     await expect(keepRow.locator(".unread")).toHaveCount(0);
   }
 });
+
+// holdEvents keeps the page's event stream connections waiting, like holdStream, and
+// send answers the waiting one with any one event, so a test can deliver a stream event
+// late. The page connects again after each, to wait for the next.
+async function holdEvents(page: Page): Promise<{ send: (event: string, data: unknown) => Promise<void> }> {
+  const waiting: Route[] = [];
+  await page.route("**/v1/stream", (route) => {
+    waiting.push(route);
+  });
+  return {
+    send: async (event: string, data: unknown) => {
+      await expect.poll(() => waiting.length).toBeGreaterThan(0);
+      await waiting.shift()!.fulfill({
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+        body: `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+      });
+    },
+  };
+}
+
+test("a board list read while an acknowledgement waits never moves the read position back", async ({ page }) => {
+  const here = await otherWithUnread("Cursor ack held");
+  const neighbour = await newBoard("Cursor neighbour");
+  // The stream is held, so only the reads and the acknowledgement say how far alex read.
+  const events = await holdEvents(page);
+  const acks: Route[] = [];
+  await page.route(
+    (url) => url.pathname === `/v1/boards/${here.name}/ack`,
+    (route) => {
+      acks.push(route);
+    },
+  );
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${here.name}"]`);
+  await expect(page.getByText(`A note on Cursor ack held.`, { exact: true })).toBeVisible();
+  // The page asks to acknowledge the message it shows; the server hasn't taken it yet.
+  await expect.poll(() => acks.length).toBe(1);
+  expect(unreadOn(here.name)).toBe(1);
+
+  // A list read now still has the old read position, and is held.
+  const lists = await holdLists(page);
+  await events.send("board_unavailable", { board_id: neighbour.id });
+  await expect.poll(lists.count).toBe(1);
+
+  // The server takes the acknowledgement and the page gets its answer.
+  const answered = page.waitForResponse((r) => new URL(r.url()).pathname === `/v1/boards/${here.name}/ack`);
+  await acks[0].continue();
+  await (await answered).finished();
+  expect(unreadOn(here.name)).toBe(0);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // The old list arrives last, read later than the acknowledgement started.
+  const shown = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await lists.release(0);
+  await (await shown).finished();
+  await frames(page);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+});
+
+test("a stream event delayed from before an acknowledgement never moves the read position back", async ({ page }) => {
+  const here = await otherWithUnread("Cursor late event");
+  const before = await api(ownerKey(), "GET", `/v1/boards/${here.name}`);
+  const events = await holdEvents(page);
+  const acked = page.waitForResponse((r) => new URL(r.url()).pathname === `/v1/boards/${here.name}/ack`);
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${here.name}"]`);
+  await (await acked).finished();
+  expect(unreadOn(here.name)).toBe(0);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // The unread event the server sent before the acknowledgement arrives only now.
+  await events.send("unread", { board: here.name, board_id: here.id, read_up_to: before.read_up_to, unread: 1 });
+  await frames(page);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+});
