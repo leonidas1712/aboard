@@ -1,7 +1,8 @@
 "use client";
 
 // EXPERIMENTAL, lab only: the Inbox, the place for deciding. Every ask from every board
-// that waits on the person, blocking ones first and those an agent goes ahead with
+// that waits on the person, blocking ones first and then those an agent is "going with
+// X unless you say", which block nothing,
 // unless held after them; below, what is worth a look (late, idle, stale). The selected
 // ask shows large, with its evidence and numbered answer buttons, and number keys
 // answer it: 1, 2… for its options, the last for a reply in your own words. j and k, or
@@ -76,7 +77,7 @@ export function Inbox({ onSignOut }: { onSignOut: () => void }) {
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate font-bold">{a.question}</span>
                       <span className="truncate text-meta text-muted">
-                        {a.boardTitle} · {a.from} · {a.ahead ? "goes ahead unless you hold it" : relativeTime(new Date(a.at).toISOString(), now)}
+                        {a.boardTitle} · {a.from} · {a.ahead ? `going with ${a.goingWith ?? "it"} unless you say` : relativeTime(new Date(a.at).toISOString(), now)}
                       </span>
                     </span>
                   </button>
@@ -136,7 +137,7 @@ function Detail({ a, index, count, onPick, onAnswer }: { a: Ask; index: number; 
   const [writing, setWriting] = useState(false);
   const [text, setText] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
-  const options = a.ahead ? ["Hold it", "Let it go ahead"] : a.options;
+  const options = a.options;
   const boardHref = labHref({ board: a.board, inbox: null, view: null, artifact: null, task: a.task ?? null });
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -175,7 +176,7 @@ function Detail({ a, index, count, onPick, onAnswer }: { a: Ask; index: number; 
       <p className="flex items-center gap-2">
         <Mark name={a.from} size="md" />
         <strong>{a.from}</strong>
-        <span className="text-meta text-muted">{a.ahead ? "goes ahead unless you hold it" : "asks you"}</span>
+        <span className="text-meta text-muted">{a.ahead ? `is going with ${a.goingWith ?? "it"} unless you say` : "asks you"}</span>
       </p>
       <h2 className="text-headline font-bold">{a.question}</h2>
       {a.body !== a.question && <p className="text-now">{a.body}</p>}

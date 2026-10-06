@@ -76,9 +76,9 @@ test("a task chip opens its task, and the task narrows the conversation to its t
   await expect(row.locator("[data-task-chip]")).toHaveCount(2);
   await row.locator('[data-task-chip="CHK-12"]').click();
   await expect(page.locator(".task-panel h3")).toHaveText("Move payment intents to the v2 API");
-  await expect(page.locator(".task-panel .thread-list > li")).toHaveCount(4);
+  await expect(page.locator(".task-panel .thread-list > li")).toHaveCount(5);
   await page.getByRole("button", { name: "Show only CHK-12 in the conversation" }).click();
-  await expect(page.locator(".task-filter")).toContainText("4 in conversation");
+  await expect(page.locator(".task-filter")).toContainText("5 in conversation");
   await expect(page.locator('li.message[data-id="m13"]')).toBeHidden();
   await expect(page.locator('li.message[data-id="m17"]')).toBeVisible();
   await page.getByRole("button", { name: "Show everything" }).click();
@@ -98,6 +98,26 @@ test("an agent's popover jumps to its latest message, and narrows the conversati
   await expect(page.locator('li.message[data-id="m17"]')).toBeHidden();
   await page.getByRole("button", { name: "Show everything" }).click();
   await expect(page.locator('li.message[data-id="m17"]')).toBeVisible();
+});
+
+test("a whole task card opens its task, and its inner controls keep their own action", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?${team}&step=3&view=tasks&panel=closed`);
+  await settle(page);
+  // CHK-19 is blocked on an ask between agents, so it is in Blocked, not Waiting.
+  await expect(page.locator("#tasks-blocked").locator("..").locator('[data-task="CHK-19"]')).toBeVisible();
+  // A click on the card's body, away from its title, opens the task.
+  const card = page.locator('[data-task="CHK-12"]');
+  const box = (await card.boundingBox())!;
+  await page.mouse.click(box.x + box.width - 12, box.y + box.height / 2);
+  await expect(page.locator(".task-panel h3")).toHaveText("Move payment intents to the v2 API");
+  // An agent's name on a card opens its popover in the Work panel instead.
+  await card.getByRole("button", { name: "reviewer" }).click();
+  await expect(page.locator('[data-agent="reviewer"] .agent-popover')).toBeVisible();
+  // So does the keyboard: the card's title is a real button.
+  await page.locator('[data-task="CHK-18"] .card-open').focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".task-panel h3")).toHaveText("Load-test checkout at 3x traffic");
 });
 
 test("Tell the team fills in a real message and sends it", async ({ page }) => {

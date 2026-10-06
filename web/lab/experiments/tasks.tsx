@@ -1,12 +1,13 @@
 "use client";
 
 // EXPERIMENTAL, lab only: the Tasks view, the board's work laid out by what the person
-// would act on: Needs you, In progress, Waiting, Not picked up. Done folds away. Each
-// card lists everyone on it, owner first (the agent responsible for it, not whoever opened
-// it), with what they are doing right now, so a card is also who works with whom. Its
-// threads open in the task's side panel. Free agents (idle or disconnected, on no task) sit beside
-// the work nobody has taken. A card opens its task in the side panel. Red only marks
-// what waits on your answer; amber only what is late or idle.
+// would act on: Needs you, In progress, Blocked, Not picked up. Done folds away. Blocked
+// is never set by hand: a task is Blocked while it has an open blocking ask, and Needs
+// you when that ask is to you. Each card lists everyone on it, owner first (the agent
+// responsible for it, not whoever opened it), with what they are doing right now, so a
+// card is also who works with whom. Free agents (idle or disconnected, on no task) sit
+// beside the work nobody has taken. The whole card opens its task in the side panel;
+// its inner controls keep their own action.
 
 import { Clock, MessagesSquare } from "lucide-react";
 import { useState } from "react";
@@ -14,15 +15,26 @@ import type { Member } from "@/app/api";
 import { count } from "@/app/words";
 import { cn } from "@/lib/utils";
 import type { ScenarioTask } from "../scenario";
-import { openTask, scenario, useLab, useUi } from "../store";
+import { current, openAgent, openArtifact, openTask, scenario, uiAnswered, useLab, useUi } from "../store";
+import { FileIcon } from "./artifacts";
 import { Ask } from "./ask";
-import { type Ask as AskItem, agentState, asksOf, statusOf, toneClass } from "./asks";
+import { type Ask as AskItem, type Block, agentState, asksOf, blocksOf, statusOf, toneClass } from "./asks";
 import { OwnerLabel, linkCount } from "./chips";
 import { Mark, active, ago, useNow } from "./common";
 
-/** needsYou is true for a task that waits on the person, or that an unanswered ask blocks. */
-export function needsYou(t: ScenarioTask, asks: AskItem[]): boolean {
-  return (t.state === "waiting" && t.waitingOn === scenario.me) || asks.some((a) => a.task === t.id && !a.ahead && a.board === scenario.board.name);
+/** needsYou is true for a task an open ask to the person blocks. */
+export function needsYou(t: ScenarioTask, _asks: AskItem[], blocks: Block[] = currentBlocks()): boolean {
+  return blocks.some((b) => b.task === t.id && b.on === scenario.me);
+}
+
+/** blockerOf is the open ask that blocks a task on someone other than the person, if any. */
+export function blockerOf(t: ScenarioTask, blocks: Block[] = currentBlocks()): Block | undefined {
+  return blocks.find((b) => b.task === t.id && b.on !== scenario.me);
+}
+
+function currentBlocks(): Block[] {
+  const { snap, answered } = { ...current(), answered: uiAnswered() };
+  return blocksOf(snap, answered);
 }
 
 export function TaskBoard({ agents }: { agents: Member[] }) {
@@ -31,13 +43,16 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
   const now = useNow();
   const [done, setDone] = useState(false);
   const asks = asksOf(snap, answered);
+  const blocks = blocksOf(snap, answered);
   const tasks = [...snap.tasks].sort((a, b) => b.t - a.t);
   const live = tasks.filter((t) => t.state !== "done");
+  const needs = (t: ScenarioTask) => needsYou(t, asks, blocks);
+  const blocked = (t: ScenarioTask) => !needs(t) && !!blockerOf(t, blocks);
   const columns = [
-    { key: "needs", title: "Needs you", list: live.filter((t) => needsYou(t, asks)) },
-    { key: "doing", title: "In progress", list: live.filter((t) => !needsYou(t, asks) && (t.state === "working" || t.state === "claimed")) },
-    { key: "waiting", title: "Waiting", list: live.filter((t) => !needsYou(t, asks) && t.state === "waiting") },
-    { key: "open", title: "Not picked up", list: live.filter((t) => !needsYou(t, asks) && t.state === "open") },
+    { key: "needs", title: "Needs you", list: live.filter(needs) },
+    { key: "doing", title: "In progress", list: live.filter((t) => !needs(t) && !blocked(t) && t.state !== "open") },
+    { key: "blocked", title: "Blocked", list: live.filter(blocked) },
+    { key: "open", title: "Not picked up", list: live.filter((t) => !needs(t) && !blocked(t) && t.state === "open") },
   ];
   const busy = new Set(snap.tasks.filter(active).flatMap((t) => [t.owner, ...(t.with ?? [])]));
   const free = agents.filter((a) => !busy.has(a.name) && (a.presence === "idle" || a.presence === "no_session"));
@@ -50,7 +65,7 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
             <section key={c.key} aria-labelledby={`tasks-${c.key}`} className="task-column flex min-w-0 flex-col gap-2">
               <h3 id={`tasks-${c.key}`} className="flex items-center gap-2 pb-1 text-meta font-bold text-ink">
                 {c.key !== "needs" && (
-                  <span aria-hidden className={cn("size-2 rounded-full", c.key === "doing" ? "border-2 border-accent" : "border border-dashed border-muted")} />
+                  <span aria-hidden className={cn("size-2 rounded-full", c.key === "doing" ? "border-2 border-accent" : c.key === "blocked" ? "bg-ink" : "border border-dashed border-muted")} />
                 )}
                 {c.key === "needs" && c.list.length > 0 ? (
                   <span className="rounded-[4px] bg-attention px-1.5 text-ink">
@@ -66,7 +81,7 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
               <ul className="flex flex-col gap-2">
                 {c.list.map((t) => (
                   <li key={t.id}>
-                    <TaskCard task={t} asks={asks} now={now} needs={c.key === "needs"} />
+                    <TaskCard task={t} asks={asks} now={now} needs={c.key === "needs"} blocker={c.key === "blocked" ? blockerOf(t, blocks) : undefined} />
                   </li>
                 ))}
               </ul>
@@ -116,30 +131,46 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
   );
 }
 
-function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: AskItem[]; now: number; needs: boolean }) {
+function TaskCard({ task: t, asks, now, needs, blocker }: { task: ScenarioTask; asks: AskItem[]; now: number; needs: boolean; blocker?: Block }) {
   const { snap } = useLab();
   const ask = asks.find((a) => a.task === t.id && !a.ahead);
+  const fileList = snap.artifacts.filter((a) => a.task === t.id);
   const people = [t.owner, ...(t.with ?? [])].filter((n): n is string => !!n);
   const links = linkCount(snap, t.id);
-  const files = snap.artifacts.filter((a) => a.task === t.id).length;
   const done = t.state === "done";
   let line: string | null = null;
   if (needs) line = ask ? ask.question : (t.reason ?? null);
-  else if (t.state === "waiting") line = `Waiting on ${t.waitingOn}${t.reason ? `: ${t.reason}` : ""}`;
+  else if (blocker) line = `${blocker.from || "Its owner"} asked ${blocker.on}: ${blocker.question}`;
   else if (t.state === "open") line = `No owner · opened by ${t.by ?? "someone"} ${ago(snap.opened[t.id] ?? t.t, now)}`;
   else if (t.state === "claimed") line = "Claimed, not started";
   const steward = scenario.steward;
   return (
+    // One clickable card: the title's button stretches over the whole card, and the inner
+    // controls sit above it, so each keeps its own action and stays reachable.
     <article
-      className={cn("task-card flex flex-col gap-2.5 rounded-box border border-rule px-3.5 py-3 transition-colors duration-[140ms] ease-out hover:border-field-border", done ? "bg-transparent" : "bg-surface")}
+      className={cn(
+        "task-card relative flex flex-col gap-2.5 rounded-box border border-rule px-3.5 py-3 transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-selected has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent",
+        done ? "bg-transparent" : "bg-surface",
+      )}
       data-task={t.id}
       data-needs-you={needs || undefined}
     >
-      <button type="button" onClick={() => openTask(t.id)} className="flex flex-col gap-0.5 text-left" title={`Open ${t.id}`}>
+      <button
+        type="button"
+        onClick={() => openTask(t.id)}
+        className="card-open flex flex-col gap-0.5 text-left outline-none after:absolute after:inset-0 after:rounded-box after:content-['']"
+        title={`Open ${t.id}`}
+      >
         <span className="text-meta text-muted tabular-nums">{t.id}</span>
         <span className={cn("leading-snug", done ? "font-normal" : "font-bold")}>{t.title}</span>
       </button>
-      {line && <p className={cn("text-meta", needs ? "text-ink" : "text-muted")}>{needs && <span className="font-bold">Waiting on you: </span>}{line}</p>}
+      {line && (
+        <p className={cn("text-meta", needs ? "text-ink" : "text-muted")}>
+          {needs && <span className="font-bold">Waiting on you: </span>}
+          {blocker && <span className="font-bold text-ink">Blocked: </span>}
+          {line}
+        </p>
+      )}
       {people.length > 0 && (
         <ul className="flex flex-col gap-2 border-t border-rule pt-2.5">
           {people.map((n, i) => {
@@ -151,11 +182,19 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
                 <Mark name={n} />
                 <span className="flex min-w-0 flex-col">
                   <span>
-                    {n}
+                    {human ? (
+                      n
+                    ) : (
+                      <button type="button" className="relative z-10 hover:underline" onClick={() => openAgent(n)} title={`${n}'s details`}>
+                        {n}
+                      </button>
+                    )}
                     {i === 0 && t.owner === n && (
                       <>
                         {" "}
-                        <OwnerLabel task={t} />
+                        <span className="relative z-10">
+                          <OwnerLabel task={t} />
+                        </span>
                       </>
                     )}
                     {!human && !done && <span className="text-meta text-muted"> · {agentState(snap, n, now)}</span>}
@@ -173,18 +212,31 @@ function TaskCard({ task: t, asks, now, needs }: { task: ScenarioTask; asks: Ask
         </ul>
       )}
       {t.state === "open" && steward && (
-        <Ask label={`Ask ${steward} to assign it`} to={steward} text={`${t.id} (${t.title}) has no owner. Please assign it, and say who and why.`} />
+        <span className="relative z-10">
+          <Ask label={`Ask ${steward} to assign it`} to={steward} text={`${t.id} (${t.title}) has no owner. Please assign it, and say who and why.`} />
+        </span>
       )}
       <div className="flex flex-col gap-1 border-t border-rule pt-2 text-meta text-muted">
         {links && (
-          <button type="button" onClick={() => openTask(t.id)} title={`Open ${t.id}, with its threads`} className="task-threads inline-flex min-h-7 items-center gap-1 self-start underline decoration-1 underline-offset-[3px] hover:text-ink">
+          <button type="button" onClick={() => openTask(t.id)} title={`Open ${t.id}, with its conversation`} className="task-threads relative z-10 inline-flex min-h-7 items-center gap-1 self-start underline decoration-1 underline-offset-[3px] hover:text-ink">
             <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />
             {links} in conversation
           </button>
         )}
-        <p>
-          {files > 0 && `${count(files, "file", "files")} · `}
-          {ago(t.t, now)}
+        <p className="flex flex-wrap items-center gap-x-1.5">
+          {fileList.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => openArtifact(a.id, t.id)}
+              className="relative z-10 inline-flex max-w-[180px] items-center gap-1 rounded-[6px] border border-rule px-1.5 hover:border-field-border hover:text-ink"
+              title={`Open ${a.name}`}
+            >
+              <FileIcon a={a} className="size-3" />
+              <span className="truncate">{a.name}</span>
+            </button>
+          ))}
+          <span>{ago(t.t, now)}</span>
         </p>
       </div>
     </article>

@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { type ScenarioTask } from "../scenario";
 import { boardMessages } from "../fake-api";
 import { openTask, openThread, scenario, useLab, useUi } from "../store";
-import { asksOf } from "./asks";
+import { blocksOf } from "./asks";
 import { Mark, onBoard, useNow } from "./common";
 import { aboutTask, tasksOf, threadOf } from "./links";
 
@@ -27,8 +27,6 @@ export function stateOf(t: ScenarioTask, needs: boolean): string {
       return "Not picked up";
     case "claimed":
       return "Claimed, not started";
-    case "waiting":
-      return `Waiting on ${t.waitingOn}`;
     case "done":
       return "Done";
     default:
@@ -59,7 +57,9 @@ export function TaskChip({ id, short, className }: { id: string; short?: boolean
   const { answered } = useUi();
   const t = snap.tasks.find((x) => x.id === id);
   if (!t) return null;
-  const needs = (t.state === "waiting" && t.waitingOn === scenario.me) || asksOf(snap, answered).some((a) => a.task === t.id && !a.ahead && a.board === scenario.board.name);
+  const blocks = blocksOf(snap, answered);
+  const needs = blocks.some((b) => b.task === t.id && b.on === scenario.me);
+  const blocker = blocks.find((b) => b.task === t.id && b.on !== scenario.me);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -81,7 +81,7 @@ export function TaskChip({ id, short, className }: { id: string; short?: boolean
           {t.id} {t.title}
         </span>
         <span className="block">
-          {stateOf(t, needs)}
+          {blocker ? `Blocked: ${blocker.from || "its owner"} asked ${blocker.on}` : stateOf(t, needs)}
           {t.owner && ` · owner ${t.owner === scenario.me ? "you" : t.owner}`}
         </span>
         <span className="block opacity-80">Click to open the task</span>

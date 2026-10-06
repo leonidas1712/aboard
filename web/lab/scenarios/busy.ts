@@ -92,7 +92,7 @@ const messages: ScenarioMessage[] = lines.map(([t, from, body, to], i) => ({
   ...(to ? { to: [to], asks: to === "@leo" } : {}),
   // claude-3's question is an ask about PLT-12, the audit log retention.
   ...(body.startsWith("Audit logs") ? { task: "PLT-12", question: "Keep audit logs 90 days, or a year for enterprise plans?", options: ["90 days for everyone", "A year for enterprise plans"] } : {}),
-        ...(body.startsWith("Sessions now") ? { task: "PLT-2", ahead: true, question: "Cutting sessions over to Redis at 18:00", options: ["Hold it", "Let it go ahead"] } : {}),
+        ...(body.startsWith("Sessions now") ? { task: "PLT-2", ahead: true, goingWith: "the Redis cutover at 18:00", question: "Cut sessions over to Redis at 18:00?", options: ["Go ahead", "Hold off"] } : {}),
 }));
 
 export const busy: Scenario = {

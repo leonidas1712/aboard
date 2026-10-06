@@ -116,6 +116,8 @@ type Ui = {
   filter: string | null;
   /** agent is an agent the conversation is narrowed to, or null. */
   agent: string | null;
+  /** agentOpen is an agent whose popover the Work panel should open, or null. */
+  agentOpen: string | null;
   /** workBy is how the Work panel groups the board, remembered per viewer. */
   workBy: "task" | "agent";
   n: number;
@@ -146,6 +148,7 @@ let ui: Ui = {
   filter: params().get("filter"),
   agent: params().get("agent"),
   workBy: params().get("by") === "agent" ? "agent" : storedWorkBy(),
+  agentOpen: null,
   n: 0,
 };
 const uiListeners = new Set<() => void>();
@@ -180,6 +183,10 @@ export const fullScreen = (on: boolean) => setUi({ full: on });
 export const openThread = (root: string) => setUi({ view: "conversation", thread: root });
 /** filterTo narrows the conversation to one task's threads and messages, or stops with null. */
 export const filterTo = (task: string | null) => setUi({ filter: task, agent: null, view: "conversation" });
+/** openAgent shows the board's Work and opens one agent's popover there. */
+export const openAgent = (name: string) => setUi({ panel: { kind: "work" }, agentOpen: name });
+/** uiAnswered is the asks the person answered here, outside React. */
+export const uiAnswered = () => ui.answered;
 /** groupWork groups the Work panel by task or by agent, and remembers it in this browser. */
 export const groupWork = (by: "task" | "agent") => {
   try {

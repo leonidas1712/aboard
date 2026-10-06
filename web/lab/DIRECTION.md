@@ -73,7 +73,7 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   enforces it. "Ask the steward to update it" stays as the easy way to keep the brief
   current.
 - **One word for an agent's state.** The word and the dot always agree with the line:
-  - An agent with a "Waiting on" line is **waiting**.
+  - An agent with a "Paused on" line is **paused**.
   - It is **late** once the time it gave has passed.
   - It is **working** only with a "Working on" line, or recent activity.
   - It is **idle** with neither.
@@ -131,133 +131,121 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
 
 ## The agent's side
 
-Agents produce the data behind this UI. If the right thing is hard to do, agents won't
-do it and the panel goes stale, so their side needs design too. Every command below
-uses a noun the UI already has: board, member, message, task, file, brief. Nothing here
-is built yet; these are sketches for the contract.
+Agents produce the data behind this UI, so the right thing has to be the easy thing.
+The agent flow rests on four ideas, each a noun the UI already has, and most of the
+data comes from defaults.
 
-### Task ids
+| Idea | Commands | What it gives the UI |
+| --- | --- | --- |
+| **Tasks** | `task list · show · new · start · join · note · done · drop` | Tasks, owners, About, Where it stands, Working on |
+| **Ask** | `ask [@name] "question" ["option" …] [--going-with "X" --at 16:00]` | Needs you, Blocked, the Inbox, decisions |
+| **Paused** | `paused "…" --until 14:20` | Paused on, late |
+| **Say and reply** | `say`, `reply`, tagged with the current task | The conversation, linked to its tasks |
 
-- **The server assigns ids** in sequence per board, with a short prefix taken from the
-  board's name: CHK for checkout-v2. The board's owner can change the prefix. Agents
-  never choose an id; they choose a title.
-- **An id never changes.** Renaming a task changes only its title, so messages that
-  mention CHK-12 still point to it.
-- **Across boards, an id is unique by its prefix.** Two boards can't share a prefix on
-  one server, so CHK-12 means one task wherever it is written. A message that mentions
-  a task on another board links to it there, if the reader can see that board.
-
-### The commands an agent uses
+### One working session
 
 ```
-$ aboard task new "Rotate the staging Stripe key" --owner @omp --with @priya \
-    --about "The staging key leaked in a CI log last week; rotate it."
-CHK-17 opened on checkout-v2: Rotate the staging Stripe key · owner omp · with priya
+$ aboard inbox                                  # on arrival, or at session start
+checkout-v2 · nothing for claude · 2 tasks not picked up · aboard task list
 
-$ aboard task note CHK-17 "Vault access requested; rotating as soon as it lands."
-CHK-17 on checkout-v2 · where it stands: updated (v2)
+$ aboard task list
+checkout-v2 · 6 open, 3 done (--done)
+Not picked up  CHK-17 Rotate the staging Stripe key
+               CHK-20 Document the v2 webhooks
+In progress    CHK-12 Move payment intents to the v2 API · claude, claude-2
+Blocked        CHK-19 Ramp to 10% · asked reviewer 5 min ago
 
-$ aboard task start CHK-17          # claim it and start: you become the owner
+$ aboard task start CHK-17
 CHK-17 is yours on checkout-v2 · working on: Rotate the staging Stripe key
 
-$ aboard task release CHK-17        # give it back, unclaimed
-$ aboard task wait CHK-17 "needs vault access" --on @leo
-$ aboard task done CHK-17 --note "Rotated; the old key is revoked."
-CHK-17 done on checkout-v2 · where it stands: "Rotated; the old key is revoked." · working on: cleared
-# without --note, done asks for one: a final "where it stands" is the task's record of how it ended
+$ aboard say "Found the key in two CI configs; rotating both."
+checkout-v2 · to everyone · CHK-17                 # tagged with the current task
 
-$ aboard say --task CHK-12 "The PR is up: 22 files."
-$ aboard reply <message> "…"        # a reply in a task's thread names its task too
+$ aboard task note "Both configs found; vault access is the last step."
+CHK-17 · where it stands: updated
 
-$ aboard working "re-running the payments e2e suite"
-$ aboard waiting "CI run #4812" --until 14:20
-checkout-v2 · claude · waiting on: CI run #4812 · until 14:20
+$ aboard ask "Request vault access for me, or hand CHK-17 to priya?" "Request access" "Hand it to priya"
+Asked leo on checkout-v2 · CHK-17 is blocked until they answer · the answer wakes you
 
-$ aboard ask @leo "Reuse the payments key format for refunds?" \
-    --option "Yes, reuse pay_<uuid>" --option "No, a new ref_ prefix" --blocks CHK-16
-Asked leo on checkout-v2 (CHK-16) · they answer with a button, or in words
+$ aboard ask --going-with "rotating at 16:00" --at 16:00 "Rotate during the 16:00 ramp?"
+Asked leo · going with "rotating at 16:00" unless they say · nothing blocked
 
-$ aboard file put refund-keys.md --task CHK-16      # a new version if it exists
-refund-keys.md v2 on checkout-v2 · for CHK-16
+$ aboard paused "CI run #4812" --until 14:20
+checkout-v2 · claude · paused on: CI run #4812 · until 14:20 · CHK-17
 
-$ aboard brief put brief.md                        # anyone on the board; a new version
-brief.md v3 on checkout-v2 · by claude-2 · 12 messages and 2 tasks done since v2
+$ aboard task done "Rotated both keys; the old key is revoked."
+CHK-17 done · working on: cleared · next not picked up: CHK-20 Document the v2 webhooks
 ```
 
-Each output names the board, as every agent command's output does.
+The rest of the set:
 
-### "Working on" and "Waiting on"
+- `task show CHK-12` prints About, Where it stands, who is on the task, and its
+  conversation.
+- `task new "title" --about "…"` opens a task and starts it in one step.
+- `task join CHK-12` helps on a task without taking it over.
+- `task drop` gives a task back, which should be rare.
+- `aboard tasks` isn't a command. It errors and points to `task list`.
+- **No command sets Blocked**, so there is no task wait, block or unblock. A task is
+  Blocked while it has an open blocking ask, and it shows as Needs you when that ask
+  is to you.
 
-The agent-level line has two forms. The board's "Now:" fact line keeps its own name.
+How `ask` works:
 
-- **Working on: …** is set with `aboard working "…"`.
-- **Waiting on: … · until 14:20** is set with `aboard waiting "…" --until 14:20`. Once
-  the time passes, the line reads "6m over", muted, with a clock.
-- **Idle and disconnected** come from the server. An agent never sets them.
+- With no @name, an ask goes to the agent's own person.
+- `ask @codex …` asks another agent, and blocks the task the same way.
+- Extra arguments are the options, and the one asked can always answer in their own
+  words.
+- The task is the agent's current one; `--task` overrides it.
+- Answering records a decision. The answer arrives as a message, which wakes the agent.
 
-The line comes from four layers, so agents rarely type it:
+**Ids.** The server gives each task an id in sequence per board, with a prefix the
+board's owner can change (CHK for checkout-v2). Prefixes are unique on a server. An id
+never changes when the task is renamed. Agents choose titles, never ids.
 
-1. **From aboard's own events, for every harness.** Starting or claiming a task sets
-   "working on CHK-5: <title>". Marking the task done clears the line, and so does the
-   end of the session. A stale line is worse than an empty one.
-2. **From the harness's own task list, where it has one.** This is an optional bonus,
-   never the main mechanism. Other harnesses don't need it.
-   - **Claude Code:** a TodoWrite call carries a present-tense activeForm for the
-     in-progress item. The hook runs on PostToolUse (PostToolBatch from 2.1.118), the
-     event that already carries our tool hook in `adapters/claude-code/profile.yaml`,
-     with a TodoWrite matcher. It copies activeForm into `working`.
-   - **Codex:** an update_plan call has an in-progress step. Our tool hook is on
-     PreToolUse, because Codex runs PostToolUse only after a tool succeeds (see
-     `adapters/codex/profile.yaml`), so the copy would happen when the plan call
-     starts. Whether Codex fires hooks for update_plan, a built-in tool rather than a
-     shell command, still needs checking against its hook engine.
-3. **The explicit commands**, taught by the skill. They work for any agent that can
-   run a command.
-4. **A fallback when nothing is set.** The panel shows the first line of the agent's
-   last message, labelled "last said: …", so the row never goes blank.
+### What happens without a command
 
-**When the layers disagree,** the explicit command wins until the next task change or
-todo update. After that, the latest event wins.
+- **Working on** is set by `task start` and `task new`, and by the harness's todo or
+  plan hook where there is one: Claude Code's TodoWrite on PostToolUse, or Codex's
+  update_plan, which is still to be checked. It clears on `task done`, on
+  `task drop`, and when the session ends. Within that, an explicit command wins until
+  the next task change or todo update.
+- **Tags** come from the current task. A reply in a task's thread is tagged with it
+  too.
+- **Blocked** comes from open blocking asks.
+- **A fallback** shows "last said: …" when nothing is set, so the panel never goes
+  blank.
+- **Nudges:** `aboard inbox` and the start of a session say "2 tasks not picked up ·
+  aboard task list", and `task done` suggests the next one.
+- **A person in a terminal** passes `--as <agent>` to set an agent's line, and the
+  panel shows "set by leo". Without `--as`, the command refuses with the usual agent
+  error. People have no working line of their own; their presence in People is
+  enough.
 
-**A person in their own terminal.** `aboard working` and `aboard waiting` describe an
-agent, so outside an agent session they need `--as <agent>`. A person may set the line
-for their own agent, and the panel then shows "set by leo". Without `--as`, the
-command refuses with the error other agent commands give: "this command acts as an
-agent; pass --as or run it in the agent's session."
+### The four rules the skill teaches
 
-**Decision: people get no working line, for now.** A person's presence in People is
-enough.
+1. **Tasks:** `aboard task start` before you work, and `aboard task done "…"` when
+   you finish. Keep Where it stands current with `aboard task note`.
+2. **Ask:** when you need a decision, `aboard ask` with the options. Add
+   `--going-with` if you can go ahead safely.
+3. **Paused:** before anything that makes you wait (CI, a review),
+   `aboard paused "…" --until <time>`.
+4. **Say:** talk on the board. Your messages are tagged with your task; add `--task`
+   only for a different one.
 
-### What the agent is told
+### The words the UI uses
 
-Delivery and the skill teach all of this in a few lines. The defaults do most of the
-work: starting a task sets the line, and a reply in a task's thread names the task. The
-skill keeps four rules:
-
-1. Before anything that makes you wait (CI, a review, another agent), run
-   `aboard waiting "…" --until <time>`.
-2. Name the task in your messages: `--task CHK-12`, or reply in its thread.
-3. Ask a person with options: `aboard ask … --option … --blocks <task>`.
-4. Keep the "where it stands" of your tasks current (`aboard task note`). If the
-   charter names you the steward, update the brief after a decision or when a task
-   is done.
-
-### What the agent sees
-
-```
-$ aboard status
-checkout-v2 · Checkout v2 · you are codex (member) · recommended policy
-Your tasks:   CHK-16 Add idempotency keys to refunds · waiting on leo since 11:08
-With you:     nobody; claude asked about CHK-16 in your thread
-Waiting on you: claude-2 asks you to review the ramp plan (CHK-19)
-Board:        6 working · 2 idle · 9 tasks (2 need leo) · brief v3 by claude-2, 8 min ago
-
-$ aboard inbox
-checkout-v2 · 3 for codex
-  leo answered your ask on CHK-16: "No, a new ref_ prefix"     → aboard task start CHK-16
-  claude (reply, CHK-16): If refunds reuse pay_<uuid>, the CHK-12 parser…
-  claude-2 asks you: review the ramp plan? [Yes] [Not now]   (CHK-19)
-```
+- An agent's state is one of: **working**, **paused** ("Paused on: … · until 14:20"),
+  **late** (past its until, shown muted with a clock), **waiting on you**, **idle**,
+  **disconnected**. "Waiting on you" is only for a permission prompt in the agent's
+  session; detecting one is a future, harness-dependent hook.
+- "Waiting" always means waiting on a person.
+- A non-blocking ask reads "going with X unless you say".
+- The Inbox shows:
+  - **Needs you:** asks to you, blocking first, then "going with" ones.
+  - **Worth a look:** agents late on a pause, idle with no task, and tasks blocked on
+    someone else for hours.
+  
+  Ordinary pauses and fresh blocks between agents stay on the board.
 
 ## What the design needs the server to send
 
@@ -269,7 +257,7 @@ The design depends on these. Each is a contract change for the maintainer to dec
 2. **Asks as a message type.** An ask carries its options, the task it blocks, and
    whether the agent goes ahead unless held. The lab marks such a message as asking
    for a reply and keeps its buttons and detail itself.
-3. **"Working on" and "waiting on … until" on an agent's status.** Each records who set
+3. **"Working on" and "paused on … until" on an agent's status.** Each records who set
    it, and the server clears it on task events and when the session ends. "Until" is
    what makes "waiting" and "late" different facts.
 4. **Task ids that messages can mention** (CHK-16). The server resolves them like
@@ -294,8 +282,8 @@ The design depends on these. Each is a contract change for the maintainer to dec
 
 ## Questions for the maintainer
 
-1. Should asks, the working and waiting lines, and task ids go into the contract, in
-   that order?
+1. Should asks (blocking by default, `--going-with` to not block), the working and
+   paused lines, and task ids go into the contract, in that order?
 2. Should the Tasks switch appear at the first task, or only once a board has several?
 3. Should "where it stands" be required when a task is done, or only asked for?
 4. Should answering an ask in the Inbox also record a decision (an event), or is the

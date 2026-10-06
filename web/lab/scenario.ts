@@ -1,7 +1,7 @@
 // A scenario is a made-up board, and how it changes over a few time steps, written as
 // plain data. The fake API (fake-api.ts) serves its board, members and messages to the
 // real UI; the experimental views read the parts the API doesn't have yet (working
-// and waiting lines,
+// and paused lines,
 // tasks, asks, the brief, files) from the same steps. Times are minutes since the
 // scenario starts.
 //
@@ -38,13 +38,16 @@ export type ScenarioMessage = {
   decision?: boolean;
   /**
    * An ask is a message with answer buttons: question is its headline, options its
-   * buttons (the person can always reply with something else), task the task it blocks.
-   * ahead marks one the agent goes ahead with unless the person holds it.
+   * buttons (the one asked can always reply with something else), task the task it
+   * blocks. An ask blocks its task until answered, unless the agent is going with an
+   * option anyway (goingWith, `aboard ask --going-with "X" --at 16:00`): then ahead
+   * is set and nothing is blocked.
    */
   question?: string;
   options?: string[];
   task?: string;
   ahead?: boolean;
+  goingWith?: string;
 };
 
 /** InboxAsk is an ask on a board the scenario only summarises (a workspace's other boards). */
@@ -57,6 +60,7 @@ export type InboxAsk = {
   options: string[];
   task?: string;
   ahead?: boolean;
+  goingWith?: string;
   /** artifact is evidence attached to the ask: its name and what it is. */
   artifact?: { name: string; summary: string };
   /** ago is how many minutes before the last step it was asked. */
@@ -66,7 +70,11 @@ export type InboxAsk = {
 /** Notice is a "worth a look" item on a board the scenario only summarises. */
 export type Notice = { board: string; who: string; text: string; detail: string };
 
-/** TaskState is where a task is. Claimed has an owner who hasn't started on it. */
+/**
+ * TaskState is where a task is. Claimed has an owner who hasn't started on it. Blocked is
+ * never a state: a task is blocked while it has an open blocking ask. "waiting" (with
+ * waitingOn) is the busy scenario's shorthand for such an ask.
+ */
 export type TaskState = "open" | "claimed" | "working" | "waiting" | "done";
 
 export type ScenarioTask = {
@@ -91,15 +99,15 @@ export type ScenarioTask = {
 };
 
 /**
- * NowLine is what an agent is on, and when it said so: "Working on: …" (`aboard working`,
- * mostly copied from its own task list by a hook), or "Waiting on: … · until 14:20"
- * (`aboard waiting "…" --until 14:20`). until (minutes) makes waiting and late different
+ * NowLine is what an agent is on, and when it said so: "Working on: …" (set by task start
+ * and new, or the harness's todo or plan hook), or "Paused on: … · until 14:20"
+ * (`aboard paused "…" --until 14:20`). until (minutes) makes paused and late different
  * facts. Idle and disconnected come from the server; an agent never sets them.
  */
 export type NowLine = {
   text: string;
   t: number;
-  waiting?: boolean;
+  paused?: boolean;
   until?: number;
   /** setBy is the person who set the line for their agent (`aboard working --as`), if not the agent. */
   setBy?: string;
@@ -148,7 +156,7 @@ export type Artifact = {
 
 /**
  * Step is one moment of a scenario. Each step changes only what it names: presence and
- * working and waiting lines by agent (null clears one), tasks and artifacts by id, the brief, and new
+ * working and paused lines by agent (null clears one), tasks and artifacts by id, the brief, and new
  * messages.
  */
 export type Step = {

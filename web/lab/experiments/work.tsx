@@ -29,7 +29,7 @@ import { Mark, active, ago, minutesSince, onBoard, staleAfter, useNow } from "./
 import { OwnerLabel, TaskChip, ThreadList, linkCount } from "./chips";
 import { latestFrom, tasksOf } from "./links";
 import { Ask } from "./ask";
-import { needsYou } from "./tasks";
+import { blockerOf, needsYou } from "./tasks";
 import { Ids } from "./text";
 
 const back = "inline-flex min-h-9 items-center gap-1.5 rounded-control text-meta font-normal text-muted hover:text-ink";
@@ -213,6 +213,13 @@ function People({ members }: { members: Member[] }) {
 function AgentRow({ agent, status, tone, showOwner, tasks }: { agent: Member; status: string; tone: string; showOwner: boolean; tasks?: string[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLLIElement>(null);
+  const { agentOpen, n: asked } = useUi();
+  // A click on the agent elsewhere (a task card) opens its popover here.
+  useEffect(() => {
+    if (agentOpen !== agent.name) return;
+    setOpen(true);
+    ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [agentOpen, asked, agent.name]);
   useEffect(() => {
     if (!open) return;
     const away = (e: MouseEvent) => {
@@ -384,7 +391,8 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
     { label: "Reassign", to: owner ? [owner] : [scenario.steward ?? "all"], text: `${t.id}: please hand this to someone free and tell them where it stands.` },
     agentsOn.length > 0 && { label: "Hold", to: agentsOn, text: `${t.id}: hold here. Finish what you're on, then wait until I say go.` },
   ].filter((s): s is Suggestion => !!s);
-  const stateText = needs ? "Waiting on you" : t.state === "open" ? "Not picked up" : t.state === "claimed" ? "Claimed, not started" : t.state === "waiting" ? `Waiting on ${t.waitingOn}` : t.state === "done" ? "Done" : "In progress";
+  const blocker = blockerOf(t);
+  const stateText = needs ? "Waiting on you" : blocker ? `Blocked: ${blocker.from || "its owner"} asked ${blocker.on}` : t.state === "open" ? "Not picked up" : t.state === "claimed" ? "Claimed, not started" : t.state === "done" ? "Done" : "In progress";
   return (
     <article className="task-panel flex flex-col gap-5" aria-label={`${t.id} ${t.title}`}>
       <header className="flex flex-col gap-1">

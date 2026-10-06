@@ -1,15 +1,16 @@
 // EXPERIMENTAL, lab only: asks, as the Inbox and the board see them. An ask is a message
 // with answer buttons that names the task it blocks. Answering sends an ordinary reply
-// to the agent who asked. The Inbox gathers every unanswered ask from every board, and
-// below them what is worth a look: agents past the time they said they'd wait until,
-// idle with no task, or with a working line gone stale.
+// to the agent who asked, which wakes it, and records a decision. An ask blocks its
+// task until answered, unless the agent is "going with X unless you say". The Inbox
+// gathers every unanswered ask to the viewer from every board, blocking ones first, and
+// below them what is worth a look.
 
 import { type Message, post } from "@/app/api";
 import { clockTime } from "@/app/words";
 import { answeredByMe } from "../fake-api";
 import { type Snapshot, type ScenarioMessage, rootOf } from "../scenario";
 import { at, markAnswered, scenario } from "../store";
-import { active, minutesSince, staleAfter } from "./common";
+import { active, minutesSince } from "./common";
 import { latestFrom } from "./links";
 
 export type Ask = {
@@ -22,6 +23,8 @@ export type Ask = {
   options: string[];
   task?: string;
   ahead: boolean;
+  /** goingWith is what the agent goes with unless the person says otherwise. */
+  goingWith?: string;
   /** artifact is the evidence: a file on the scenario's board, or a summary of one elsewhere. */
   artifact?: { id?: string; name: string; summary: string };
   /** at is when it was asked, in ms. */
@@ -49,6 +52,7 @@ export function asksOf(snap: Snapshot, answered: Record<string, string>): Ask[] 
         options: m.options!,
         task: m.task,
         ahead: !!m.ahead,
+        goingWith: m.goingWith,
         artifact: file && { id: file.id, name: file.name, summary: file.summary ?? "" },
         at: at(m.t),
       };
@@ -60,9 +64,35 @@ export function asksOf(snap: Snapshot, answered: Record<string, string>): Ask[] 
   return [...here, ...there].sort((a, b) => Number(a.ahead) - Number(b.ahead) || b.at - a.at);
 }
 
+/**
+ * Block is an open blocking ask on a task: who it waits on and what it asks. A task is
+ * Blocked while it has one (Needs you when it waits on the viewer); nobody sets that
+ * by hand. The busy scenario's "waiting" tasks stand for such asks.
+ */
+export type Block = { id: string; task: string; on: string; from: string; question: string; t: number };
+
+export function blocksOf(snap: Snapshot, answered: Record<string, string>): Block[] {
+  const out: Block[] = [];
+  for (const m of snap.messages) {
+    if (!m.options || m.ahead || !m.task) continue;
+    const on = m.to?.find((x) => x.startsWith("@"))?.slice(1) ?? scenario.me;
+    const done =
+      !!answered[m.id] || (on === scenario.me && answeredByMe(m.id)) || snap.messages.some((r) => r.replyTo === m.id && r.from === on);
+    if (!done) out.push({ id: m.id, task: m.task, on, from: m.from, question: m.question ?? m.body, t: m.t });
+  }
+  for (const t of snap.tasks) {
+    if (t.state === "waiting" && t.waitingOn) out.push({ id: t.id, task: t.id, on: t.waitingOn, from: t.owner ?? "", question: t.reason ?? "", t: t.t });
+  }
+  return out;
+}
+
 export type Notice = { key: string; board: string; boardTitle: string; who: string; text: string; detail: string; late: boolean };
 
-/** noticesOf is what is worth a look: late, idle or stale, on every board. */
+/**
+ * noticesOf is what is worth a look on every board: an agent paused past the time it
+ * gave (late), an agent idle with no task, and a task blocked on someone else for more
+ * than a few hours. A normal pause, or a fresh block between agents, stays on the board.
+ */
 export function noticesOf(snap: Snapshot, now: number): Notice[] {
   const out: Notice[] = [];
   const board = scenario.board.name;
@@ -70,23 +100,25 @@ export function noticesOf(snap: Snapshot, now: number): Notice[] {
   for (const a of scenario.agents) {
     const line = snap.now[a.name];
     const task = snap.tasks.find((t) => active(t) && (t.owner === a.name || t.with?.includes(a.name)));
-    if (line?.until !== undefined && now > at(line.until)) {
+    if (line?.paused && line.until !== undefined && now > at(line.until)) {
       const over = Math.round((now - at(line.until)) / 60_000);
       out.push({
         key: `late-${a.name}`,
         board,
         boardTitle: titleOf(board),
         who: a.name,
-        text: `${a.name} is waiting on ${line.text} until ${clockTime(new Date(at(line.until)).toISOString())}, now ${over}m over`,
+        text: `${a.name} paused on ${line.text} until ${clockTime(new Date(at(line.until)).toISOString())}, now ${over}m over`,
         detail: task ? task.id : "no task",
         late: true,
       });
-    } else if (snap.presence[a.name] === "idle" && !busy.has(a.name) && minutesSince(snap.presenceSince[a.name] ?? 0, now) >= 30) {
+    } else if (snap.presence[a.name] === "idle" && !line && !busy.has(a.name) && minutesSince(snap.presenceSince[a.name] ?? 0, now) >= 30) {
       const idle = Math.round(minutesSince(snap.presenceSince[a.name] ?? 0, now));
       out.push({ key: `idle-${a.name}`, board, boardTitle: titleOf(board), who: a.name, text: `${a.name} has been idle for ${idle < 60 ? `${idle}m` : `${Math.floor(idle / 60)}h`}`, detail: "no task", late: true });
-    } else if (line && minutesSince(line.t, now) > staleAfter && snap.presence[a.name] === "working") {
-      out.push({ key: `stale-${a.name}`, board, boardTitle: titleOf(board), who: a.name, text: `${a.name}'s working line is ${Math.floor(minutesSince(line.t, now) / 60)}h old`, detail: task ? task.id : "no task", late: false });
     }
+  }
+  for (const b of blocksOf(snap, {})) {
+    if (b.on === scenario.me || minutesSince(b.t, now) < 180) continue;
+    out.push({ key: `blocked-${b.task}`, board, boardTitle: titleOf(board), who: b.from || b.on, text: `${b.task} blocked on ${b.on} for ${Math.floor(minutesSince(b.t, now) / 60)}h`, detail: b.question, late: true });
   }
   for (const n of scenario.notices ?? []) out.push({ key: `${n.board}-${n.who}`, ...n, boardTitle: titleOf(n.board), late: true });
   return out;
@@ -95,20 +127,20 @@ export function noticesOf(snap: Snapshot, now: number): Notice[] {
 /** Status is what an agent is on, in the UI's words; late marks a passed "until" or a long idle, said quietly. */
 export type Status = { text: string; tone: "late" | "quiet" | "plain" };
 
-/** statusOf is what an agent is doing right now, in a few words, and how loudly to say it. */
 /**
  * AgentState is the one word for what an agent is doing, which its dot and its line
- * agree on: waiting when it said what it waits on (late once past its time), working
- * when it said what it works on or was busy just now, idle with neither, disconnected
- * with no session.
+ * agree on: paused when it said what it is paused on (late once past its time),
+ * waiting on you only for a permission prompt in its session (detecting one is a
+ * future, harness-dependent hook), working when it said what it works on or was busy
+ * just now, idle with neither, disconnected with no session.
  */
-export type AgentState = "working" | "waiting" | "late" | "idle" | "disconnected";
+export type AgentState = "working" | "paused" | "late" | "waiting on you" | "idle" | "disconnected";
 
 export function agentState(snap: Snapshot, name: string, now: number): AgentState {
   const line = snap.now[name];
   const presence = snap.presence[name];
-  if (line?.waiting) return line.until !== undefined && now > at(line.until) ? "late" : "waiting";
-  if (presence === "waiting") return "waiting";
+  if (presence === "waiting") return "waiting on you";
+  if (line?.paused) return line.until !== undefined && now > at(line.until) ? "late" : "paused";
   if (presence === "no_session") return "disconnected";
   if (line || presence === "working") return "working";
   return "idle";
@@ -117,12 +149,14 @@ export function agentState(snap: Snapshot, name: string, now: number): AgentStat
 /** stateDot is the dot beside an agent's mark for each state. */
 export const stateDot: Record<AgentState, string> = {
   working: "bg-accent",
-  waiting: "bg-ink",
+  paused: "border-2 border-accent bg-sidebar",
   late: "bg-muted",
+  "waiting on you": "bg-attention border border-ink",
   idle: "border border-muted bg-sidebar",
   disconnected: "bg-sidebar border border-dashed border-muted",
 };
 
+/** statusOf is what an agent is on right now, in the UI's words, and how loudly to say it. */
 export function statusOf(snap: Snapshot, name: string, _asks: Ask[], now: number): Status {
   const line = snap.now[name];
   const state = agentState(snap, name, now);
@@ -130,11 +164,11 @@ export function statusOf(snap: Snapshot, name: string, _asks: Ask[], now: number
   const by = line?.setBy ? ` · set by ${line.setBy === scenario.me ? "you" : line.setBy}` : "";
   switch (state) {
     case "late":
-      return { text: `Waiting on: ${line!.text} · ${Math.round((now - at(line!.until!)) / 60_000)}m over${by}`, tone: "late" };
-    case "waiting":
-      return line?.waiting
-        ? { text: `Waiting on: ${line.text}${line.until !== undefined ? ` · until ${time(line.until)}` : ""}${by}`, tone: "plain" }
-        : { text: "Waiting on: you, in its session", tone: "plain" };
+      return { text: `Paused on: ${line!.text} · ${Math.round((now - at(line!.until!)) / 60_000)}m over${by}`, tone: "late" };
+    case "paused":
+      return { text: `Paused on: ${line!.text}${line!.until !== undefined ? ` · until ${time(line!.until)}` : ""}${by}`, tone: "plain" };
+    case "waiting on you":
+      return { text: "waiting on you in its session, such as a permission prompt", tone: "plain" };
     case "disconnected":
       return { text: "disconnected", tone: "quiet" };
     case "idle": {

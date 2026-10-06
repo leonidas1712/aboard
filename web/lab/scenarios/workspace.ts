@@ -61,9 +61,10 @@ export const workspace: Scenario = {
       from: "codex-2",
       task: "AUTH-31",
       ahead: true,
-      question: "Deleting auth/legacy in an hour",
-      body: "Nothing imports it since this morning. I'll delete it at 12:30 unless someone holds it.",
-      options: ["Hold it", "Let it go ahead"],
+      goingWith: "deleting auth/legacy at 12:30",
+      question: "Delete auth/legacy at 12:30?",
+      body: "Nothing imports it since this morning.",
+      options: ["Go ahead", "Keep it"],
       ago: 15,
     },
     {
@@ -79,7 +80,7 @@ export const workspace: Scenario = {
     },
   ],
   notices: [
-    { board: "infra", who: "omp-1", text: "omp-1 is waiting on the disk check until 11:00, now 32m over", detail: "INF-9 disk alerts" },
+    { board: "infra", who: "omp-1", text: "omp-1 paused on the disk check until 11:00, now 32m over", detail: "INF-9 disk alerts" },
     { board: "billing-v3", who: "claude-4", text: "claude-4 has been idle for 3h", detail: "no task" },
     { board: "growth", who: "claude-1", text: "No message for 5h; 2 tasks claimed, not started", detail: "GRO-3, GRO-4" },
   ],
