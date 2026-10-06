@@ -53,6 +53,7 @@ func (g *streamStartGate) Read(ctx context.Context, fn func(board.ReadTx) error)
 }
 
 func TestStreamStartFailureDoesNotOpenAnEmptyStream(t *testing.T) {
+	t.Parallel()
 	for _, ending := range []string{"revoked", "expired", "store failure"} {
 		t.Run(ending, func(t *testing.T) {
 			var gate *streamStartGate
@@ -133,6 +134,7 @@ func (w *streamStatus) WriteHeader(status int) {
 }
 
 func TestStreamReadsItsStartingPointBeforeReportingSuccess(t *testing.T) {
+	t.Parallel()
 	var gate *streamStartGate
 	s := newTestServer(t, func(o *api.Options) {
 		store, ok := o.Responses.(board.Store)

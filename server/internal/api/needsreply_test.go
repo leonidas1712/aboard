@@ -38,6 +38,7 @@ func (s *testServer) needsReply(token, boardName string) *int {
 }
 
 func TestQuestionsNeedThePersonsOwnDirectReply(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	b, writer, reviewer := s.pair("starter")

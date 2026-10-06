@@ -8,6 +8,7 @@ import (
 )
 
 func TestAGuestCodeCannotIssueAnotherKeyForAnExistingPerson(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	firstBoard, _, _ := s.pair("starter")
@@ -31,6 +32,7 @@ func TestAGuestCodeCannotIssueAnotherKeyForAnExistingPerson(t *testing.T) {
 }
 
 func TestOutstandingGuestCodesDoNotBecomeIdentityProof(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	firstBoard, _, _ := s.pair("starter")

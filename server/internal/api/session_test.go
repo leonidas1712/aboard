@@ -150,6 +150,7 @@ func (b *browser) works(want bool) {
 }
 
 func TestSessionCookieIsHttpOnlyLaxAndHostOnly(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	c := s.signIn(map[string]string{"code": s.loginCode(s.owner)})
 	if c.status != http.StatusCreated {
@@ -191,6 +192,7 @@ func TestSessionCookieIsHttpOnlyLaxAndHostOnly(t *testing.T) {
 }
 
 func TestCookieWritesNeedTheOriginAndTheCSRFToken(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName := s.newBoard()
 	b := s.cookieBrowser(s.owner)
@@ -243,6 +245,7 @@ func TestCookieWritesNeedTheOriginAndTheCSRFToken(t *testing.T) {
 }
 
 func TestSigningInNeedsTheServersOwnPage(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	code := s.loginCode(s.owner)
 	for _, origin := range []string{"", "https://evil.example", "null"} {
@@ -267,6 +270,7 @@ func TestSigningInNeedsTheServersOwnPage(t *testing.T) {
 }
 
 func TestACookieSessionCantManageKeysOrSessions(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	b := s.cookieBrowser(s.owner)
 	keyID := s.keys(s.owner, "").JSON200.CurrentKeyId
@@ -294,6 +298,7 @@ func TestACookieSessionCantManageKeysOrSessions(t *testing.T) {
 }
 
 func TestAPastedKeySignsInAndIsNeverKept(t *testing.T) {
+	t.Parallel()
 	var logs bytes.Buffer
 	s := newTestServer(t, func(o *api.Options) { o.Log = slog.New(slog.NewTextHandler(&logs, nil)) })
 	id, key := s.newKey(s.owner, "phone")
@@ -341,6 +346,7 @@ func TestAPastedKeySignsInAndIsNeverKept(t *testing.T) {
 }
 
 func TestASessionEndsNoLaterThanItsKey(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	r := s.createKey(s.owner, "short", 2*24*3600)
 	mustStatus(t, r, nil, 201)
@@ -357,6 +363,7 @@ func TestASessionEndsNoLaterThanItsKey(t *testing.T) {
 }
 
 func TestRevokingTheKeyEndsTheCookieSessionAndItsStream(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.newBoard()
 	id, key := s.newKey(s.owner, "phone")
@@ -369,6 +376,7 @@ func TestRevokingTheKeyEndsTheCookieSessionAndItsStream(t *testing.T) {
 }
 
 func TestSignInIsRateLimitedPerAddressAndAcrossTheServer(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t, func(o *api.Options) { o.SignInFailures = api.Limits{PerAddr: 3, Server: 5} })
 	h := s.srv.Config.Handler
 	try := func(addr string) int {
@@ -408,6 +416,7 @@ func TestSignInIsRateLimitedPerAddressAndAcrossTheServer(t *testing.T) {
 }
 
 func TestAStoredBrowserTokenMovesIntoTheCookie(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	token := s.browserToken(s.owner)
 	b := s.browserFrom(s.signIn(map[string]string{"token": token}))
@@ -425,6 +434,7 @@ func TestAStoredBrowserTokenMovesIntoTheCookie(t *testing.T) {
 }
 
 func TestSigningOutEndsOnlyThatSession(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.newBoard()
 	b, other := s.cookieBrowser(s.owner), s.cookieBrowser(s.owner)
@@ -455,6 +465,7 @@ func TestSigningOutEndsOnlyThatSession(t *testing.T) {
 }
 
 func TestAPersonListsAndEndsTheirSessionsOneAtATime(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	phoneID, phone := s.newKey(s.owner, "phone")
 	laptop := s.cookieBrowser(s.owner)
@@ -500,6 +511,7 @@ func TestAPersonListsAndEndsTheirSessionsOneAtATime(t *testing.T) {
 // answer only GET and HEAD, and reading the session or the sign-in route leaves the
 // sessions and codes as they were.
 func TestNoGetChangesState(t *testing.T) {
+	t.Parallel()
 	spec, err := api.GetSwagger()
 	if err != nil {
 		t.Fatal(err)
@@ -526,6 +538,7 @@ func TestNoGetChangesState(t *testing.T) {
 // The server sends no CORS headers, so no other site can read a response, even one a
 // signed-in browser's cookie would allow.
 func TestNoOtherSiteCanReadResponses(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	b := s.cookieBrowser(s.owner)
 	h := s.srv.Config.Handler
@@ -545,6 +558,7 @@ func TestNoOtherSiteCanReadResponses(t *testing.T) {
 }
 
 func TestPagesAndResponsesCarryAStrictPolicy(t *testing.T) {
+	t.Parallel()
 	script := `self.__next_f.push([1,"x"])`
 	page := `<!doctype html><script src="/_next/a.js"></script><script>` + script + `</script><p>the board list</p>`
 	s := newTestServer(t, func(o *api.Options) { o.UI = fstest.MapFS{"index.html": {Data: []byte(page)}} })
@@ -586,6 +600,7 @@ func TestPagesAndResponsesCarryAStrictPolicy(t *testing.T) {
 // Away from this computer the server's own origin is https, so a page served over plain
 // HTTP there can't sign in: its Origin doesn't match. The key it sent is refused.
 func TestAPlainHTTPPageAwayFromThisComputerCantSignIn(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	_, key := s.newKey(s.owner, "phone")
 	for _, path := range []string{"/v1/browser-sessions", "/v1/login-codes/preview"} {
@@ -621,6 +636,7 @@ func (s *testServer) preview(code string, edit func(*http.Request)) call {
 // A page asks who a code would sign it in as before it signs in: the answer names the
 // person and key, and leaves the code working.
 func TestPreviewingALoginCodeNamesItsPersonAndKeepsIt(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	code := s.loginCode(maya)
@@ -644,6 +660,7 @@ func TestPreviewingALoginCodeNamesItsPersonAndKeepsIt(t *testing.T) {
 // Attempts that work don't reach the failure limit, but a higher limit on every attempt
 // still bounds them, previews and sign-ins together.
 func TestEveryAttemptMeetsTheHigherLimit(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t, func(o *api.Options) {
 		o.SignInFailures = api.Limits{PerAddr: 1, Server: 1}
 		o.SignInAttempts = api.Limits{PerAddr: 3, Server: 100}
@@ -665,6 +682,7 @@ func TestEveryAttemptMeetsTheHigherLimit(t *testing.T) {
 // Guesses are what the limit is for: a wrong code, previewed or used, counts; a preview or
 // sign-in that works doesn't.
 func TestFailedPreviewsAndSignInsShareTheLimit(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t, func(o *api.Options) { o.SignInFailures = api.Limits{PerAddr: 2, Server: 100} })
 	code := s.loginCode(s.owner)
 	for range 5 {
@@ -691,6 +709,7 @@ func TestFailedPreviewsAndSignInsShareTheLimit(t *testing.T) {
 // confirm_switch, which a page sends only after its person clicked; a refused code stays
 // usable. Signing in again as the same person needs nothing.
 func TestSwitchingABrowserToAnotherPersonNeedsConfirmation(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	alex := s.cookieBrowser(s.owner)

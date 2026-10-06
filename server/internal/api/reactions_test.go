@@ -60,6 +60,7 @@ func reactionTypes(evs []events.Event) []string {
 // Members react with emoji from the set and take them back; each change is one event in
 // the record, a repeat changes nothing, and every reader sees who reacted.
 func TestReactionsAreRecordedAndShownOnTheMessage(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -131,6 +132,7 @@ func reactionsEqual(a, b []api.Reaction) bool {
 // A reaction is not a message: it never reaches an inbox, never counts as unread and
 // never ends an inbox wait.
 func TestReactionsNeverReachAnInbox(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -174,6 +176,7 @@ func TestReactionsNeverReachAnInbox(t *testing.T) {
 
 // A repeat with the same Idempotency-Key replays the answer.
 func TestIdempotentReactionIsReplayed(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -198,6 +201,7 @@ func TestIdempotentReactionIsReplayed(t *testing.T) {
 // Under addressed visibility a member can react only to a message it may see, and the
 // record withholds reactions on a message from a reader who may not see it.
 func TestReactionsRespectVisibility(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	th := newThread(t, s) // under addressed visibility
 	mustStatus(t, s.react(th.reviewer, th.root.Id, api.ReactionEyes), nil, 200)
@@ -234,6 +238,7 @@ func TestReactionsRespectVisibility(t *testing.T) {
 // The board's threads list newest activity first, with who wrote in each, counting only
 // what the reader may see.
 func TestThreadsListNewestActivityFirst(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	th := newThread(t, s)

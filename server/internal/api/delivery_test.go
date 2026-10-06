@@ -56,6 +56,7 @@ func (s *testServer) boardWithMayasAgent(maya, sam string) (boardName, agent, ag
 // again changes nothing. The member, the agent's own view of itself and its inbox all
 // carry the mode and its revision.
 func TestOnlyAnAgentsPersonSetsItsDeliveryMode(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam, lee := s.addHuman("maya"), s.addHuman("sam"), s.addHuman("lee")
 	b, agent, agentToken := s.boardWithMayasAgent(maya, sam)
@@ -156,6 +157,7 @@ func TestOnlyAnAgentsPersonSetsItsDeliveryMode(t *testing.T) {
 // The board view sets a mode with the person's browser session, whose writes need the
 // session's CSRF token, as every write with a cookie does.
 func TestABrowserSessionSetsTheModeWithItsCSRFToken(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	b, agent, _ := s.boardWithMayasAgent(maya, sam)
@@ -178,6 +180,7 @@ func TestABrowserSessionSetsTheModeWithItsCSRFToken(t *testing.T) {
 
 // Setting a mode accepts an Idempotency-Key: the same request again gets the same answer.
 func TestSettingADeliveryModeIsIdempotent(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	b, agent, _ := s.boardWithMayasAgent(maya, sam)

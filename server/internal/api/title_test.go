@@ -34,6 +34,7 @@ func titledEvents(t *testing.T, s *testServer, boardName string) []map[string]an
 
 // A board made with a title keeps it beside its name, and the record says so.
 func TestBoardCreatedWithATitle(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	human := s.client(s.owner)
@@ -65,6 +66,7 @@ func TestBoardCreatedWithATitle(t *testing.T) {
 // An admin changes and removes a board's title; each change is an event, and a change
 // to the same title writes nothing.
 func TestAdminChangesTheTitle(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
@@ -104,6 +106,7 @@ func TestAdminChangesTheTitle(t *testing.T) {
 // owner. An agent still can't change the policy. A title must be one line of at most
 // 80 characters.
 func TestOnlyAdminsAndTheirAgentsChangeTheTitle(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -169,6 +172,7 @@ func TestOnlyAdminsAndTheirAgentsChangeTheTitle(t *testing.T) {
 // GET /v1/me says who a token acts as: a person, their browser, or an agent with its
 // board and owner.
 func TestMeNamesTheCaller(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
