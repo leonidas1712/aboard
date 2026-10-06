@@ -48,14 +48,15 @@ func localServer(t *testing.T) (url, owner string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The server takes the listener itself: a port closed again before it listens could
+	// go to another test's server, which knows none of this one's tokens.
 	addr := l.Addr().String()
-	_ = l.Close()
 	dir := t.TempDir()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
 		done <- server.Run(ctx, server.Options{
-			Addr: addr, DataDir: filepath.Join(dir, "data"), OwnerName: "alex",
+			Listener: l, DataDir: filepath.Join(dir, "data"), OwnerName: "alex",
 			OwnerTokenPath: filepath.Join(dir, "owner-token"), Version: "test",
 			Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		})

@@ -137,15 +137,30 @@ afterAll(async () => {
 
 const ID = "0199a3c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d";
 
-/** Starts a main session and waits until the daemon has its hello. */
+/** How many connections the extension has logged as welcomed so far. */
+function welcomes(): number {
+	let text = "";
+	try {
+		text = fs.readFileSync(path.join(state, "omp-extension.log"), "utf8");
+	} catch {
+		return 0;
+	}
+	return text.split("\n").filter(line => line.includes('"msg":"connected"')).length;
+}
+
+/**
+ * Starts a main session and waits until the extension has taken the daemon's welcome:
+ * until then it sends no turn reports, so a test that emits one sooner loses it.
+ */
 async function started(entries: { type: string }[] = []) {
 	const omp = fakeOmp();
 	aboard(omp.pi as never);
 	const c = omp.ctx(ID, "main", entries);
+	const before = welcomes();
 	await omp.emit("session_start", { type: "session_start" }, c);
 	await until("the hello", () => daemon.hellos().length === 1);
 	const conn = daemon.hellos()[0];
-	await until("the welcome", () => conn.sock.readyState === "open");
+	await until("the welcome", () => welcomes() > before);
 	return { omp, c, conn };
 }
 

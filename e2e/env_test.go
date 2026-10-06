@@ -376,3 +376,16 @@ func freeAddr(t *testing.T) string {
 	defer l.Close()
 	return l.Addr().String()
 }
+
+// writeProgram writes an executable file that a test then runs. A child process writes
+// it: on Linux a file this process held open for writing is inherited by any command a
+// parallel test starts at that moment, and running the file before that command execs
+// fails with "text file busy" (golang.org/issue/22315).
+func writeProgram(t testing.TB, path string, content []byte) {
+	t.Helper()
+	cmd := exec.Command("/bin/sh", "-c", `cat >"$1" && chmod 755 "$1"`, "sh", path)
+	cmd.Stdin = bytes.NewReader(content)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("write %s: %v\n%s", path, err, out)
+	}
+}

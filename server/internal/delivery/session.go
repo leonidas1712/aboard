@@ -38,6 +38,9 @@ type sessionMsg struct {
 	checkAlive bool
 	// modeChanged says an agent's delivery mode changed, so what may be delivered did.
 	modeChanged bool
+	// modeWas is the mode each changed agent had before, which a session bound before
+	// the daemon first read the agent's mode takes as the one it was told.
+	modeWas map[AgentKey]Mode
 	// credentialChanged refreshes a reused seat after its saved token changed.
 	credentialChanged *AgentRef
 	// restoreSeat gives back a journal seat that was proved only after the daemon
@@ -278,6 +281,11 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 	case m.restoreSeat != nil:
 		s.onRestoreSeat(ctx, *m.restoreSeat)
 	case m.modeChanged:
+		for key, was := range m.modeWas {
+			if a := s.agents[key]; a != nil && a.told == "" {
+				a.told = was
+			}
+		}
 		s.refreshAll(false)
 	case m.renewPresence:
 	case m.hold != nil:
@@ -847,7 +855,16 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 		s.d.learnMode(ctx, a.ref, *r.mode)
 	}
 	if a.told == "" {
+		// The first read shows the mode the binding command saw. The mode in force may
+		// already be newer: a change passed on while this read was on its way.
 		a.told = s.d.mode(a.ref)
+		if r.mode != nil {
+			if m, ok := ParseMode(string(r.mode.Mode)); ok {
+				a.told = m
+			} else {
+				a.told = ModeFocused
+			}
+		}
 	}
 	if r.cursor > a.ackedUpTo {
 		s.movedTo(ctx, a, r.cursor)
