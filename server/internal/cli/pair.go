@@ -60,6 +60,11 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if inSession {
+		if err := a.preflightNewSeat(ctx, session, a.localServer().URL); err != nil {
+			return err
+		}
+	}
 	started, err := a.ensureLocal(ctx)
 	if err != nil {
 		return err
@@ -85,12 +90,22 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		return apiError(created.StatusCode(), created.Body)
 	}
 	board := created.JSON201.Name
+	if inSession {
+		if err := a.preflightNewSeat(ctx, session, srv.URL); err != nil {
+			return err
+		}
+	}
 
 	joined, err := c.join(ctx, api.JoinRequest{
 		Board: &board, Role: &f.Pair[0], Name: optional(*agentName), Harness: harnessOf(session, inSession, ""), Session: sessionParam(session, inSession),
 	})
 	if err != nil {
 		return err
+	}
+	if inSession {
+		if err := a.preflightNewSeat(ctx, session, srv.URL); err != nil {
+			return err
+		}
 	}
 	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id, Token: joined.Token}); err != nil {
 		return err
@@ -139,6 +154,9 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	text.WriteString(relinkedText(board, previous))
 	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id}, heldModeOf(joined.Agent))
 	text.WriteString(mode.line())
+	if inSession {
+		text.WriteString(a.seatBoardReminder(ctx, session, board))
+	}
 	if notice != nil {
 		text.WriteString(st.warn(notice.Message) + "\n")
 	}
@@ -240,6 +258,11 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if inSession {
+		if err := a.preflightNewSeat(ctx, session, srv.URL); err != nil {
+			return err
+		}
+	}
 	if srv.URL == a.localServer().URL {
 		if _, err := a.ensureLocal(ctx); err != nil {
 			return err
@@ -271,6 +294,11 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	board, agent := joined.Board, joined.Agent
+	if inSession {
+		if err := a.preflightNewSeat(ctx, session, srv.URL); err != nil {
+			return err
+		}
+	}
 	if err := a.saveCredential(agentCredential{Server: srv.URL, Board: board.Name, Name: agent.Name, MemberID: agent.Id, Token: joined.Token}); err != nil {
 		return err
 	}
@@ -301,6 +329,9 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 			srv.URL, keyName)
 	}
 	text += how + movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous) + mode.line()
+	if inSession {
+		text += a.seatBoardReminder(ctx, session, board.Name)
+	}
 	a.emit(struct {
 		Guest         bool           `json:"guest,omitempty"`
 		Server        serverRef      `json:"server"`
@@ -329,6 +360,11 @@ func (a *app) guestJoin(ctx context.Context, c *client, req api.GuestJoinRequest
 		return nil, "", apiError(r.StatusCode(), r.Body)
 	}
 	got := r.JSON201
+	if key, inSession := a.sessionKey(); inSession {
+		if err := a.preflightNewSeat(ctx, key, c.server.URL); err != nil {
+			return nil, "", err
+		}
+	}
 	p, err := a.paths()
 	if err != nil {
 		return nil, "", err

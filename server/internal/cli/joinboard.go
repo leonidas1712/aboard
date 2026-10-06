@@ -134,7 +134,7 @@ func runJoinBoard(ctx context.Context, a *app, board, role, name, serverFlag str
 		first = fmt.Sprintf("This session is already %s on %s.\n", agent.Name, b.Name)
 	}
 	text := first + fmt.Sprintf("This session acts as %s on %s, and messages for %s arrive here.\n", agent.Name, b.Name, agent.Name) +
-		movedText(moved, agent.Name, b.Name) + relinkedText(b.Name, previous) + mode.line()
+		movedText(moved, agent.Name, b.Name) + relinkedText(b.Name, previous) + mode.line() + a.seatBoardReminder(ctx, key, b.Name)
 	via := "delegation"
 	a.emit(struct {
 		Via           string         `json:"via"`
