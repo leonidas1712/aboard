@@ -1,0 +1,344 @@
+package board_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/board"
+	"github.com/leonidas1712/aboard/server/internal/rules"
+)
+
+func lifecycleBoard(t *testing.T, w *teamWorld) board.Board {
+	t.Helper()
+	v, err := w.svc.GetBoard(context.Background(), w.maya, w.board)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v.Board
+}
+
+func archiveLifecycleBoard(t *testing.T, w *teamWorld) {
+	t.Helper()
+	if _, err := w.svc.ArchiveBoard(context.Background(), w.maya, w.board); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestArchiveFreezesContentAndGrantsWithoutChangingTheRecord(t *testing.T) {
+	for _, which := range []string{"person post", "agent post", "reply", "reaction add", "reaction remove", "add person", "pair code", "guest code", "person join", "delegated join", "guest redeem", "title", "policy", "make owner", "make open"} {
+		t.Run(which, func(t *testing.T) {
+			ctx := context.Background()
+			w := newTeamWorld(t)
+			m, err := w.svc.PostMessage(ctx, w.maya, w.board, board.NewMessage{Body: "record before archive"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = w.svc.React(ctx, w.sam, m.ID, "thumbsup", true); err != nil {
+				t.Fatal(err)
+			}
+			guest, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "visitor"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			d, err := w.svc.CreateDelegation(ctx, w.sam, "lifecycle-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			delegate := w.auth(ctx, t, d.Token)
+			archiveLifecycleBoard(t, w)
+			before := lifecycleBoard(t, w)
+			switch which {
+			case "person post":
+				_, err = w.svc.PostMessage(ctx, w.sam, w.board, board.NewMessage{Body: "must not appear"})
+			case "agent post":
+				_, err = w.svc.PostMessage(ctx, w.samAgent, w.board, board.NewMessage{Body: "must not appear"})
+			case "reply":
+				_, err = w.svc.PostMessage(ctx, w.sam, w.board, board.NewMessage{Body: "must not appear", ReplyTo: &m.ID})
+			case "reaction add":
+				_, err = w.svc.React(ctx, w.sam, m.ID, "heart", true)
+			case "reaction remove":
+				_, err = w.svc.React(ctx, w.sam, m.ID, "thumbsup", false)
+			case "add person":
+				_, err = w.svc.AddPerson(ctx, w.maya, w.board, "alex")
+			case "pair code":
+				_, err = w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{})
+			case "guest code":
+				_, err = w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "second-visitor"})
+			case "person join":
+				_, err = w.svc.Join(ctx, w.sam, board.JoinInput{Board: w.board, Role: "member"})
+			case "delegated join":
+				_, err = w.svc.Join(ctx, delegate, board.JoinInput{Board: w.board, Session: "codex:lifecycle-test", Role: "member"})
+			case "guest redeem":
+				_, err = w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: guest.Code, KeyName: "visitor-laptop"})
+			case "title":
+				title := "must not appear"
+				_, err = w.svc.UpdateBoard(ctx, w.maya, w.board, board.Change{Title: &title})
+			case "policy":
+				policy := rules.PolicyChange{Preset: before.Policy.Preset}
+				_, err = w.svc.UpdateBoard(ctx, w.maya, w.board, board.Change{Policy: &policy})
+			case "make owner":
+				_, _, err = w.svc.MakeOwner(ctx, w.maya, w.board, "sam")
+			case "make open":
+				_, err = w.svc.SetVisibility(ctx, w.maya, w.board, board.BoardOpen, false)
+			}
+			wantCode(t, which, err, "board_archived")
+			after := lifecycleBoard(t, w)
+			if before.HeadSeq != after.HeadSeq || before.HeadHash != after.HeadHash {
+				t.Fatal("refused archived mutation changed event chain")
+			}
+			if _, err = w.svc.RestoreBoard(ctx, w.maya, w.board); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: guest.Code, KeyName: "visitor-laptop"}); err != nil {
+				t.Fatalf("refusal consumed or revoked existing guest code: %v", err)
+			}
+		})
+	}
+}
+
+func TestArchivedReadersAndAccessReductionsStillWork(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	if _, _, err := w.svc.MakeOwner(ctx, w.maya, w.board, "sam"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.svc.SetVisibility(ctx, w.maya, w.board, board.BoardOpen, false); err != nil {
+		t.Fatal(err)
+	}
+	code, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := w.svc.PostMessage(ctx, w.maya, w.board, board.NewMessage{Body: "still readable"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveLifecycleBoard(t, w)
+	for name, read := range reads {
+		if err := read(ctx, w, w.sam); err != nil {
+			t.Fatalf("archived %s: %v", name, err)
+		}
+	}
+	if _, _, err = w.svc.Inbox(ctx, w.samAgent, 0, 0, 10); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.Ack(ctx, w.samAgent, m.Seq); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.AckBoard(ctx, w.sam, w.board, m.Seq); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = w.svc.SetPresence(ctx, w.samAgent, "idle", "focused"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.SetDeliveryMode(ctx, w.sam, w.board, w.samAgent.Agent.Name, "off"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = w.svc.RevokeJoinCode(ctx, w.maya, w.board, code.JoinCode.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.SetVisibility(ctx, w.maya, w.board, board.BoardPrivate, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.RemovePerson(ctx, w.maya, w.board, "sam"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = w.svc.RestoreBoard(ctx, w.maya, w.board); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = w.svc.Inbox(ctx, w.samAgent, 0, 0, 10)
+	wantCode(t, "restore cannot revive removed seat", err, "board_not_found")
+}
+
+func TestLifecycleAuthorityUsesCreatorAndCurrentPersonRatherThanBoardOwner(t *testing.T) {
+	for _, who := range []string{"creator", "creator agent", "another owner", "another owner agent", "outside admin", "admin agent"} {
+		t.Run(who, func(t *testing.T) {
+			ctx := context.Background()
+			w := newTeamWorld(t)
+			if _, _, err := w.svc.MakeOwner(ctx, w.maya, w.board, "sam"); err != nil {
+				t.Fatal(err)
+			}
+			created := lifecycleBoard(t, w)
+			p, selector := w.maya, w.board
+			expected := ""
+			switch who {
+			case "creator agent":
+				j, err := w.svc.Join(ctx, w.maya, board.JoinInput{Board: w.board, Role: "member"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				p = w.auth(ctx, t, j.Token)
+			case "another owner":
+				p = w.sam
+				expected = "board_creator_required"
+			case "another owner agent":
+				p = w.samAgent
+				expected = "board_creator_required"
+			case "outside admin":
+				p = w.alex
+				selector = created.ID
+			case "admin agent":
+				v, err := w.svc.CreateBoard(ctx, w.alex, board.NewBoard{Template: "general"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				j, err := w.svc.Join(ctx, w.alex, board.JoinInput{Board: v.Board.Name, Role: "member"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				p = w.auth(ctx, t, j.Token)
+				selector = created.ID
+				expected = "board_not_found"
+			}
+			_, err := w.svc.ArchiveBoard(ctx, p, selector)
+			if expected != "" {
+				wantCode(t, who, err, expected)
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = w.svc.RestoreBoard(ctx, p, selector); err != nil {
+				t.Fatal(err)
+			}
+			if who == "outside admin" {
+				_, err = w.svc.GetBoard(ctx, w.alex, w.board)
+				wantCode(t, "housekeeping cannot grant private content", err, "board_not_found")
+			}
+			if who == "creator agent" {
+				_, err = w.svc.DeleteBoard(ctx, p, selector)
+				wantCode(t, "agent cannot delete", err, "human_token_required")
+			}
+		})
+	}
+}
+
+func TestDeletionPreservesHistoryAndNameButEndsOnlyThatBoardsAccess(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	sibling, err := w.svc.CreateBoard(ctx, w.sam, board.NewBoard{Template: "general"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, err := w.svc.Join(ctx, w.sam, board.JoinInput{Board: sibling.Board.Name, Role: "member"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	siblingAgent := w.auth(ctx, t, j.Token)
+	if _, err = w.svc.PostMessage(ctx, w.maya, w.board, board.NewMessage{Body: "retained"}); err != nil {
+		t.Fatal(err)
+	}
+	_, err = w.svc.DeleteBoard(ctx, w.maya, w.board)
+	wantCode(t, "delete active", err, "board_not_archived")
+	archiveLifecycleBoard(t, w)
+	before := lifecycleBoard(t, w)
+	if _, err = w.svc.ArchiveBoard(ctx, w.maya, w.board); err != nil {
+		t.Fatal(err)
+	}
+	unchanged := lifecycleBoard(t, w)
+	if unchanged.HeadSeq != before.HeadSeq || unchanged.HeadHash != before.HeadHash {
+		t.Fatal("repeat archive appended another event")
+	}
+	if _, err = w.svc.DeleteBoard(ctx, w.maya, w.board); err != nil {
+		t.Fatal(err)
+	}
+	for name, read := range reads {
+		wantCode(t, "deleted "+name, read(ctx, w, w.sam), "board_not_found")
+	}
+	_, _, err = w.svc.Inbox(ctx, w.samAgent, 0, 0, 10)
+	wantCode(t, "deleted seat inbox", err, "board_not_found")
+	_, err = w.svc.WhoAmI(ctx, w.samAgent)
+	wantCode(t, "deleted seat metadata", err, "board_not_found")
+	_, err = w.svc.RestoreBoard(ctx, w.maya, w.board)
+	wantCode(t, "deleted cannot restore", err, "board_not_found")
+	if _, _, err = w.svc.Inbox(ctx, siblingAgent, 0, 0, 10); err != nil {
+		t.Fatalf("delete ended sibling: %v", err)
+	}
+	err = w.gate.Store.Read(ctx, func(tx board.ReadTx) error {
+		b, e := tx.BoardByID(before.ID)
+		if e != nil {
+			return e
+		}
+		log, e := tx.Events(before.ID, 0, 100)
+		if e != nil {
+			return e
+		}
+		if b.HeadSeq != before.HeadSeq+1 || len(log) != int(b.HeadSeq) {
+			t.Fatal("delete erased or changed historical chain rows")
+		}
+		if log[len(log)-1].Type != "board.deleted" || log[len(log)-1].PrevHash != before.HeadHash {
+			t.Fatal("tombstone was not appended to retained hash chain")
+		}
+		taken, e := tx.BoardNameTaken(before.Name)
+		if e != nil {
+			return e
+		}
+		if !taken {
+			t.Fatal("delete released reserved name")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLifecycleWriteRechecksCreatorAccessAndCredentialInsideTransaction(t *testing.T) {
+	for _, how := range []string{"removed creator", "revoked key", "expired key"} {
+		t.Run(how, func(t *testing.T) {
+			ctx := context.Background()
+			w := newTeamWorld(t)
+			if _, _, err := w.svc.MakeOwner(ctx, w.maya, w.board, "sam"); err != nil {
+				t.Fatal(err)
+			}
+			key, err := w.svc.CreateKey(ctx, w.maya, "lifecycle", board.MinKeyTTL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p := w.auth(ctx, t, key.Token)
+			waiting, release := w.gate.armWrite()
+			done := make(chan error, 1)
+			go func() { _, e := w.svc.ArchiveBoard(ctx, p, w.board); done <- e }()
+			<-waiting
+			expected := "unauthorized"
+			switch how {
+			case "removed creator":
+				_, err = w.svc.RemovePerson(ctx, w.sam, w.board, "maya")
+				expected = "board_not_found"
+			case "revoked key":
+				_, err = w.svc.RevokeKey(ctx, w.maya, key.Key.ID)
+			case "expired key":
+				w.clk.Advance(board.MinKeyTTL + time.Second)
+			}
+			close(release)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantCode(t, how, <-done, expected)
+			if _, err = w.svc.PostMessage(ctx, w.sam, w.board, board.NewMessage{Body: "still active"}); err != nil {
+				t.Fatalf("failed archive committed lifecycle: %v", err)
+			}
+		})
+	}
+}
+
+func TestContentWriteWaitingForTransactionSeesCommittedArchive(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	waiting, release := w.gate.armWrite()
+	done := make(chan error, 1)
+	go func() {
+		_, err := w.svc.PostMessage(ctx, w.sam, w.board, board.NewMessage{Body: "late write"})
+		done <- err
+	}()
+	<-waiting
+	archiveLifecycleBoard(t, w)
+	before := lifecycleBoard(t, w)
+	close(release)
+	wantCode(t, "post after archive", <-done, "board_archived")
+	after := lifecycleBoard(t, w)
+	if after.HeadSeq != before.HeadSeq || after.HeadHash != before.HeadHash {
+		t.Fatal("waiting post mutated archived record")
+	}
+}
