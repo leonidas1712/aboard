@@ -1273,20 +1273,32 @@ test("an archived board is read-only, groups under Archived, restores and delete
   // Delete shows only on an archived board, and needs the board's name typed exactly.
   await panel.getByRole("button", { name: "Archive board" }).click();
   await expect(notice).toBeVisible();
-  await panel.getByRole("button", { name: "Delete board" }).click();
-  const dialog = page.getByRole("dialog", { name: "Delete Lifecycle check?" });
+  const opener = panel.getByRole("button", { name: "Delete board" });
+  await opener.click();
+  const dialog = page.getByRole("alertdialog", { name: `Delete ${board}?` });
   await expect(dialog).toBeVisible();
-  const confirm = dialog.getByRole("button", { name: "Delete board" });
+  await expect(dialog).toContainText("Nobody can open it again. Its record is kept.");
+  const confirm = dialog.getByRole("button", { name: "Delete", exact: true });
   await expect(confirm).toBeDisabled();
-  await dialog.getByLabel(/to confirm/).fill(board.slice(0, -1));
+  await dialog.getByLabel(`Type ${board} to confirm`).fill(board.slice(0, -1));
   await expect(confirm).toBeDisabled();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
   expect(archivedNames()).toContain(board);
 
-  await panel.getByRole("button", { name: "Delete board" }).click();
-  await dialog.getByLabel(/to confirm/).fill(board);
-  await dialog.getByRole("button", { name: "Delete board" }).click();
+  // Cancel closes it too; the field starts empty when it opens again.
+  await opener.click();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await opener.click();
+  await expect(dialog.getByLabel(`Type ${board} to confirm`)).toHaveValue("");
+  for (const theme of ["dark", "light"] as const) {
+    await page.emulateMedia({ colorScheme: theme });
+    await expect(dialog).toBeVisible();
+  }
+  await dialog.getByLabel(`Type ${board} to confirm`).fill(board);
+  await confirm.click();
   await expect(page).toHaveURL(`${base()}/`);
   await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
   expect(archivedNames()).not.toContain(board);
