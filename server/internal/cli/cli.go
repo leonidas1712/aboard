@@ -222,10 +222,16 @@ func isJSONFlag(arg string) bool {
 // errCheckFailed means a check ran, failed and already printed its result.
 var errCheckFailed = errors.New("check failed")
 
+// errReportedFailure means an error result has already been printed.
+var errReportedFailure = errors.New("reported failure")
+
 // report prints err, if any, and returns the exit code.
 func (a *app) report(err error) int {
 	if err == nil {
 		return exitOK
+	}
+	if errors.Is(err, errReportedFailure) {
+		return exitError
 	}
 	if errors.Is(err, errCheckFailed) {
 		return exitChecked

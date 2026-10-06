@@ -675,8 +675,8 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "boards", Group: groupBoard,
 			Summary: "List your boards, or every board you can see",
-			Usage:   []string{"aboard boards [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
-			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
+			Usage:   []string{"aboard boards [--server URL] [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
+			Description: "Lists the boards you are on across every server this machine knows, grouped by server. --server URL lists just one server: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
 				"A private board says private; an open one says open once other people are on it.\n\n" +
 				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
 				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
@@ -685,6 +685,7 @@ func helpText(templates string) []commandHelp {
 				"and the session's seat on each; join one with aboard join --board NAME.\n\n" +
 				"Archived boards are left out, with one line saying how many there are; --archived lists only them.",
 			Flags: []helpFlag{
+				{"--server", "URL", "List only this server (or local). Person commands only."},
 				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
 				{"--archived", "", "List only archived boards."},
 				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},
