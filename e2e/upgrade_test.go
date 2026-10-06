@@ -381,9 +381,7 @@ func installAt(t *testing.T, from, path string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path+".new", raw, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeProgram(t, path+".new", raw)
 	if err := os.Rename(path+".new", path); err != nil {
 		t.Fatal(err)
 	}
