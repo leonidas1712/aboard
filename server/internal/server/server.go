@@ -215,6 +215,7 @@ func Run(ctx context.Context, o Options) error {
 	srv.RegisterOnShutdown(startShutdown)
 	o.Log.Info("serving", "addr", ln.Addr().String(), "server_id", serverID, "mode", cfg.Mode)
 	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return cleanResponses(ctx, st, o.Clock, o.Log) })
 	g.Go(func() error {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serve: %w", err)
