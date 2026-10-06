@@ -16,10 +16,6 @@ func handoffFixture(t *testing.T) (*Journal, delivery.HandoffManifest) {
 	t.Helper()
 	ctx := context.Background()
 	j := open(t, filepath.Join(t.TempDir(), "journal.db"))
-	// Multi-seat activation belongs to integration, not this migration.
-	if _, err := j.db.ExecContext(ctx, "DROP INDEX bindings_one_per_session"); err != nil {
-		t.Fatal(err)
-	}
 	session := delivery.SessionKey{Harness: "codex", ID: "session"}
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	if err := j.SaveSession(ctx, delivery.SessionRecord{Key: session, Boot: "boot", Open: true, UpdatedAt: now}); err != nil {
@@ -28,14 +24,11 @@ func handoffFixture(t *testing.T) (*Journal, delivery.HandoffManifest) {
 	m := delivery.HandoffManifest{ID: "hnd_0123456789abcdef0123456789abcdef", Session: session, Boot: "boot", Class: delivery.ClassMixed, PayloadHash: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", CreatedAt: now}
 	for _, board := range []string{"one", "two"} {
 		a := delivery.AgentRef{Server: "https://team.example", Board: board, Name: "writer", MemberID: "mem_" + board}
-		b, err := j.BindGeneration(ctx, delivery.Binding{Agent: a, Session: delivery.SessionKey{Harness: session.Harness, ID: board}, BoundAt: now}, false)
+		b, err := j.BindGeneration(ctx, delivery.Binding{RetainSiblings: true, Agent: a, Session: session, BoundAt: now}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		m.Parts = append(m.Parts, delivery.HandoffPart{Agent: a, Generation: b.Generation, Seqs: []int{1, 2}})
-	}
-	if _, err := j.db.ExecContext(ctx, `UPDATE bindings SET session_id = ?`, session.ID); err != nil {
-		t.Fatal(err)
 	}
 	return j, m
 }
@@ -268,8 +261,8 @@ func TestUpgradeAssignsGenerationOnlyToVerifiedSeats(t *testing.T) {
 		}
 	}
 	var count int
-	if err := j.db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE name = 'bindings_one_per_session'`).Scan(&count); err != nil || count != 1 {
-		t.Fatalf("migration enabled multi-seat gate %d %v", count, err)
+	if err := j.db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE name = 'bindings_one_per_board'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("migration lost board binding uniqueness %d %v", count, err)
 	}
 }
 
@@ -383,5 +376,46 @@ func TestUnconfirmedHandoffRetargetsOnlyToVerifiedNewBinding(t *testing.T) {
 	ds, err := j.ConfirmHandoff(ctx, next.ID, next.Session, next.Boot, []delivery.AgentKey{p.Agent.Key()}, m.CreatedAt)
 	if err != nil || len(ds) != 1 || ds[0].ID != p.DeliveryID || ds[0].Session != moved || ds[0].Attempts != 2 {
 		t.Fatalf("retarget %+v %v", ds, err)
+	}
+}
+
+func TestSameSeatHandoffPartsRemainDisjointAndAtomic(t *testing.T) {
+	ctx := context.Background()
+	j, m := handoffFixture(t)
+	part := m.Parts[0]
+	m.Parts = []delivery.HandoffPart{part, part}
+	m.Parts[0].Seqs = []int{1}
+	m.Parts[1].Seqs = []int{2}
+	id, err := j.AddDelivery(ctx, delivery.Delivery{Agent: part.Agent, Session: m.Session, Boot: m.Boot, State: delivery.StateRetry, Seqs: []int{1}, CreatedAt: m.CreatedAt, UpdatedAt: m.CreatedAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Parts[0].DeliveryID = id
+	bad := m
+	bad.Parts = append([]delivery.HandoffPart(nil), m.Parts...)
+	bad.Parts[1].Seqs = []int{1}
+	if _, err := j.PrepareHandoff(ctx, bad); err == nil {
+		t.Fatal("overlapping parts admitted")
+	}
+	if _, err := j.db.ExecContext(ctx, `CREATE TRIGGER fail_same_seat BEFORE INSERT ON delivery_messages WHEN NEW.seq = 2 BEGIN SELECT RAISE(ABORT,'second row failed'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := j.PrepareHandoff(ctx, m); err == nil {
+		t.Fatal("partial same-seat manifest succeeded")
+	}
+	ds, err := j.Deliveries(ctx, delivery.StateRetry)
+	if err != nil || len(ds) != 1 || ds[0].HandoffID != "" {
+		t.Fatalf("failed preparation consumed existing row %+v %v", ds, err)
+	}
+	if _, err := j.db.ExecContext(ctx, "DROP TRIGGER fail_same_seat"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := j.PrepareHandoff(ctx, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ds, err = j.ConfirmHandoff(ctx, saved.ID, m.Session, m.Boot, []delivery.AgentKey{part.Agent.Key()}, m.CreatedAt)
+	if err != nil || len(ds) != 2 {
+		t.Fatalf("same-seat rows not confirmed atomically %+v %v", ds, err)
 	}
 }

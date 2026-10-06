@@ -57,18 +57,29 @@ func validateManifest(m delivery.HandoffManifest) error {
 	if m.Session.Harness == "" || m.Session.ID == "" || m.Boot == "" || len(m.Parts) == 0 || m.CreatedAt.IsZero() {
 		return errors.New("incomplete handoff manifest")
 	}
-	seen := map[delivery.AgentKey]bool{}
+	seen := map[delivery.AgentKey]delivery.HandoffPart{}
+	sequences := map[delivery.AgentKey]map[int]bool{}
 	rows := map[int64]bool{}
 	for _, p := range m.Parts {
-		if p.Agent.MemberID == "" || p.Agent.Server == "" || p.Agent.Board == "" || p.Generation == 0 || len(p.Seqs) == 0 || p.DeliveryID < 0 || seen[p.Agent.Key()] {
+		if p.Agent.MemberID == "" || p.Agent.Server == "" || p.Agent.Board == "" || p.Generation == 0 || len(p.Seqs) == 0 || p.DeliveryID < 0 {
 			return errors.New("invalid handoff part")
 		}
 		if p.DeliveryID > 0 && rows[p.DeliveryID] {
 			return errors.New("duplicate handoff delivery")
 		}
 		rows[p.DeliveryID] = true
-		seen[p.Agent.Key()] = true
+		if previous, ok := seen[p.Agent.Key()]; ok && (previous.Generation != p.Generation || previous.Agent.Board != p.Agent.Board) {
+			return errors.New("one seat has conflicting handoff bindings")
+		}
+		seen[p.Agent.Key()] = p
+		if sequences[p.Agent.Key()] == nil {
+			sequences[p.Agent.Key()] = map[int]bool{}
+		}
 		for i, seq := range p.Seqs {
+			if sequences[p.Agent.Key()][seq] {
+				return errors.New("one seat has overlapping handoff sequences")
+			}
+			sequences[p.Agent.Key()][seq] = true
 			if seq <= 0 || (i > 0 && seq <= p.Seqs[i-1]) {
 				return errors.New("handoff sequences must be positive and increasing")
 			}

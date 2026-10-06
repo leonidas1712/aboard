@@ -152,10 +152,11 @@ type Process struct {
 
 // Binding says which session an agent's messages go to.
 type Binding struct {
-	Generation uint64
-	Agent      AgentRef
-	Session    SessionKey
-	BoundAt    time.Time
+	RetainSiblings bool `json:"-"`
+	Generation     uint64
+	Agent          AgentRef
+	Session        SessionKey
+	BoundAt        time.Time
 }
 
 // Mode is how an agent's messages reach its session. A person chooses it per agent.

@@ -221,15 +221,25 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 // Bind records the session an agent's messages go to, replacing the agent's earlier
 // session and the session's earlier agent: a session is bound to at most one agent.
 func (j *Journal) Bind(ctx context.Context, b delivery.Binding) error {
+	b.RetainSiblings = false
 	_, err := j.BindGeneration(ctx, b, false)
 	return err
 }
 
 // BindGeneration fences a changed credential explicitly; metadata-only refreshes
-// preserve the generation. The one-seat session gate remains in effect.
+// preserve the generation. Retaining other boards requires explicit activation.
 func (j *Journal) BindGeneration(ctx context.Context, b delivery.Binding, advance bool) (delivery.Binding, error) {
 	err := j.write(ctx, func(tx *sql.Tx) error {
 		var err error
+		if b.RetainSiblings {
+			var otherServers int
+			if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM bindings WHERE harness = ? AND session_id = ? AND server <> ?`, b.Session.Harness, b.Session.ID, b.Agent.Server).Scan(&otherServers); err != nil {
+				return err
+			}
+			if otherServers != 0 {
+				return errors.New("a session cannot bind seats from another server")
+			}
+		}
 		if b.Agent.MemberID != "" {
 			b.Generation, err = bindingGeneration(ctx, tx, b, advance)
 			if err != nil {
@@ -238,9 +248,15 @@ func (j *Journal) BindGeneration(ctx context.Context, b delivery.Binding, advanc
 		} else {
 			b.Generation = 0
 		}
-		_, err = tx.ExecContext(ctx, `
-			DELETE FROM bindings WHERE harness = ? AND session_id = ? AND NOT (server = ? AND ((member_id <> '' AND member_id = ?) OR (member_id = '' AND ? = '' AND board = ? AND agent = ?)))`,
-			b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.MemberID, b.Agent.MemberID, b.Agent.Board, b.Agent.Name)
+		if b.RetainSiblings {
+			_, err = tx.ExecContext(ctx, `DELETE FROM bindings WHERE harness = ? AND session_id = ? AND server = ? AND board = ?
+                AND NOT ((member_id <> '' AND member_id = ?) OR (member_id = '' AND ? = '' AND agent = ?))`,
+				b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.Board, b.Agent.MemberID, b.Agent.MemberID, b.Agent.Name)
+		} else {
+			_, err = tx.ExecContext(ctx, `DELETE FROM bindings WHERE harness = ? AND session_id = ?
+                AND NOT (server = ? AND ((member_id <> '' AND member_id = ?) OR (member_id = '' AND ? = '' AND board = ? AND agent = ?)))`,
+				b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.MemberID, b.Agent.MemberID, b.Agent.Board, b.Agent.Name)
+		}
 		if err != nil {
 			return fmt.Errorf("end the earlier binding of session %s: %w", b.Session, err)
 		}
