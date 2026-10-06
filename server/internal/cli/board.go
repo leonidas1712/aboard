@@ -170,7 +170,7 @@ func runBoardTitle(ctx context.Context, a *app, boardFlag, asFlag, title string)
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.selectBoard(boardFlag); err != nil {
+		if t, err = a.humanBoard(boardFlag); err != nil {
 			return err
 		}
 		c, err = a.humanClient(ctx, t)

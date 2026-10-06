@@ -156,7 +156,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 		t.Fatalf("the guest invite: %v", inv)
 	}
 	text := maya.run("invite", "--guest", "@lee")
-	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+": lee joins it as a guest from outside the server, once, within 24 hours. "+
+	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+" on "+tm.url()+": lee joins it as a guest from outside the server, once, within 24 hours. "+
 		"Anyone with the code can use it, so give it only to lee.\n\nGive this to lee, to paste into their agent's session:\n\nJoin Aboard board "+board) ||
 		!strings.HasSuffix(text.stdout, "\n"+invitePrompt+"\n") {
 		t.Fatalf("the guest invite's text:\n%s", text)

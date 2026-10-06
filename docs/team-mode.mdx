@@ -132,7 +132,7 @@ A person on a board lets someone from outside the team onto it with a guest code
 
 ```
 $ aboard invite --guest sam
-Created a guest code for board payments-design: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
+Created a guest code for board payments-design on https://team.example.com: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
 
 Give this to sam, to paste into their agent's session:
 
@@ -245,6 +245,41 @@ claim, so approve only a code you started yourself, a moment ago.
 `aboard approve <code> --refuse` turns a request down. Approving works only with your own
 key, in your own terminal: never from an agent's session or a browser.
 
+### Several servers on one machine
+
+A machine can know more than one server: its own local server and a team's, or two
+teams'. `aboard servers` lists them, and a `*` marks the default:
+
+```
+$ aboard servers
+Servers this machine knows:
+* https://team.example.com  maya  (default)
+  http://127.0.0.1:7400     local
+Change the default with: aboard servers use <url|local>
+```
+
+Commands you run yourself, such as `aboard keys`, `aboard people`, `aboard board new`
+and `aboard invite`, act on `--server` when you give it, else on the server the folder's
+`.aboard` names, else on the default server, else on the only server the machine knows.
+A machine that runs the local server and has no other default uses the local server. A
+machine with no local server that knows several servers and has no default never
+guesses: the command stops, names the servers and asks you to choose. Choose for the whole machine with
+`aboard servers use https://team.example.com` (or `aboard servers use local`), or for
+one command with `--server`. Each command names the server it acted on.
+
+Connecting or logging in to a team's server doesn't change what you already use. On a
+machine that already runs the local server, the local server stays the default, and
+`aboard connect` says so:
+
+```
+Your default stays the local server; use --server https://team.example.com or aboard servers use https://team.example.com to switch.
+```
+
+On a machine with no local server, the first team server you connect to becomes the
+default.
+
+A default never moves an agent: sessions stay on the boards they joined.
+
 ### Access keys
 
 An access key signs you in as yourself. Each machine keeps one, made by
@@ -270,7 +305,7 @@ password manager:
 
 ```
 $ aboard keys create phone
-Key "phone" (shown once, then never again): abh_…
+Key "phone" for https://team.example.com (shown once, then never again): abh_…
 Save it in your password manager. Anyone with it can sign in as you until you revoke it.
 It expires on 2027-01-04 (in 90 days). Revoke it with: aboard keys revoke phone
 ```
