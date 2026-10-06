@@ -113,6 +113,7 @@
               "cli/swarm",
               "cli/doctor",
               "cli/uninstall",
+              "cli/upgrade",
               "cli/version",
               "cli/help"
             ]

@@ -742,6 +742,27 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"init", "down"},
 		},
 		{
+			Name: "upgrade", Group: groupMaintain,
+			Summary: "Install the latest release of aboard over this one",
+			Usage:   []string{"aboard upgrade [--version V] [--json]"},
+			Description: "Downloads the latest release (or --version) for this system, checks it the way the install script does " +
+				"(the checksums' signature when cosign is installed, the archive's checksum and contents), replaces this aboard and the launchers next to it, " +
+				"then runs the new aboard's init --yes for the harnesses set up for every project, so the skill and hooks match the new build. " +
+				"Every check comes before anything is replaced.\n\n" +
+				"It upgrades an aboard installed by the install script. For one installed with Homebrew or built from source it changes nothing and gives the command to run instead. " +
+				"It is a person's action, so it is refused inside an agent's session. " +
+				"Running daemons and the local server switch to the new aboard at the next command.",
+			Flags: []helpFlag{
+				{"--version", "V", "Install this version, such as 0.2.0, instead of the latest."},
+				flagJSON,
+			},
+			Examples: []helpExample{
+				{"aboard upgrade", "Install the latest release"},
+				{"aboard upgrade --version 0.2.0", "Install a given release"},
+			},
+			SeeAlso: []string{"version", "init", "doctor"},
+		},
+		{
 			Name: "version", Group: groupMaintain,
 			Summary:     "Print aboard's version",
 			Usage:       []string{"aboard version [--json]"},

@@ -110,6 +110,14 @@
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
 #   Where the board and agent came from is shown only by `aboard status` and in
 #   selection errors.
+# - Update notice: at most once a day, a command run by a person in a terminal (standard
+#   input, output and error all terminals, no --json, not inside a harness session and no
+#   ABOARD_AGENT) checks for a newer release and, when there is one, writes one line to
+#   standard error after the command's own output: "aboard 0.2.0 is available (you have
+#   0.1.0). Run: aboard upgrade". The check reads the latest release's checksums.txt with
+#   a short timeout, fails silently, and records when it ran and what it found in
+#   update-check.json in the state folder. It never runs with ABOARD_NO_UPDATE_CHECK=1,
+#   in a dev build (a version with +dev), or for hook, daemon, serve and upgrade.
 # - Message references: wherever a command takes a message, it accepts the message id
 #   (`msg_…`), its sequence number on the current board (`6` or `#6`), or a sequence
 #   number on another board (`board-name#6`).
@@ -190,6 +198,18 @@ $defs:
       launcher_not_found (no built-in launcher and no aboard-launcher-<name> on the PATH)
       · launcher_failed (the launcher answered with an error; details.code, details.stderr)
       · launcher_broken (an external launcher didn't keep to spec/launcher.md) ·
+      not_installed_by_script (aboard upgrade on a binary that wasn't installed from a
+      release: under Homebrew, in Go's bin folder, or a dev build; the hint is the command
+      that upgrades it, and nothing was downloaded) · release_not_found (the release, or
+      its build for this system, doesn't exist) · download_failed · signature_invalid
+      (cosign found the checksums weren't signed by aboard's release workflow for that
+      version) · checksum_mismatch · archive_invalid (the archive holds anything but plain
+      files with plain names, has no aboard, is over the limits (a file over 64 MiB, more
+      than 128 MiB in all, more than 32 files), or its aboard doesn't run here) ·
+      upgrade_failed (the new programs couldn't be written next to the running one; the
+      old ones are untouched) · upgrade_setup_failed (exit 1; the binary was upgraded, but
+      refreshing the skill and hooks failed; details.from, details.to; the hint is aboard
+      init --yes, then aboard doctor) ·
       headless_unsupported (the harness has no native headless mode the headless
       launcher can run) · agent_seat_elsewhere (the board has an agent with that name,
       but this machine holds no credential for it) · swarm_not_ready (swarm up's --wait
@@ -463,6 +483,69 @@ $defs:
           remove:
             type: string
             description: The command that removes it, such as "rm /home/alex/go/bin/aboard", or "brew uninstall aboard" for a Homebrew install.
+
+  # ---------- aboard upgrade ----------
+  UpgradeOutput:
+    description: |
+      Installs a release of aboard over the running binary, the way the install script
+      (scripts/install.sh) does, then refreshes the skill and hooks with the new binary.
+      In order, with every refusal and check before anything is written:
+
+      1. Refuses inside a harness session or with ABOARD_AGENT set, with
+         human_command_in_session: upgrading is a person's action.
+      2. Refuses with not_installed_by_script when the binary wasn't installed from a
+         release: under Homebrew (hint: brew upgrade aboard), in Go's bin folder ($GOBIN,
+         $GOPATH/bin or ~/go/bin) or a dev build (hint: in the checkout, git pull, then
+         make install, then aboard init --yes).
+      3. Finds the release: --version, else the latest, read from the latest release's
+         checksums.txt. When it is the running version, nothing changes and upgraded is
+         false.
+      4. Downloads the archive for this system, checksums.txt and the checksums' cosign
+         bundle. When cosign is on the PATH, checks the bundle against the identity
+         https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v<version>
+         and the issuer https://token.actions.githubusercontent.com (signature_invalid);
+         otherwise signature_checked is false and the text says so. Then the
+         archive's SHA-256 (checksum_mismatch), its contents: plain files with plain
+         names, among them aboard, within the size and count limits, never cut short
+         (archive_invalid), and that the new aboard runs
+         (archive_invalid).
+      5. Writes aboard and each launcher in the archive (aboard-launcher-<name>) next to
+         the running binary under a temporary name, then renames each into place. A
+         failure before the renames removes what it wrote and keeps the old programs
+         (upgrade_failed).
+      6. Runs the new binary's aboard init --yes --scope global --harness <the harnesses
+         the install manifest records in the global scope>, which rewrites only what the
+         new build writes differently; nothing when the manifest records none. A failure
+         here is upgrade_setup_failed, exit 1, though the binary was upgraded.
+
+      ABOARD_DOWNLOAD_URL, as for the install script, changes where releases are
+      downloaded from (https only, except a server on this machine). Text output:
+      "Upgraded aboard 0.1.0 to 0.2.0 at ~/.local/bin/aboard.", a line for each launcher,
+      a line for the setup, and a reminder to restart open sessions; or "aboard 0.2.0 is
+      already installed; nothing to upgrade."
+    type: object
+    required: [upgraded, from, to, path, launchers, signature_checked, setup]
+    properties:
+      upgraded: { type: boolean, description: "False when the running version is already the release's." }
+      from: { type: string, description: "The version that ran the command.", examples: ["0.1.0"] }
+      to: { type: string, description: "The release's version.", examples: ["0.2.0"] }
+      path: { type: string, description: "The binary upgraded, links resolved." }
+      launchers:
+        type: array
+        items: { type: string }
+        description: The launchers installed next to it, as paths.
+      signature_checked:
+        type: boolean
+        description: True when cosign checked the checksums' signature; false when cosign isn't installed or nothing was downloaded.
+      setup:
+        type: object
+        required: [refreshed, harnesses]
+        properties:
+          refreshed: { type: boolean, description: "True when aboard init --yes ran with the new binary." }
+          harnesses:
+            type: array
+            items: { type: string }
+            description: The harnesses it refreshed, from the install manifest's global scope.
 
   # ---------- aboard version ----------
   VersionOutput:

@@ -39,3 +39,6 @@ desktop.ini
 
 # Go test binaries from go test -c or -cpuprofile
 *.test
+
+# GoReleaser output: make release-snapshot and the release job build into it
+/dist/
