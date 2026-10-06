@@ -74,8 +74,9 @@ type Daemon struct {
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
 	// turned holds the sessions that have run a turn, for status.
-	turned   map[SessionKey]bool
-	problems map[AgentKey]string
+	turned            map[SessionKey]bool
+	problems          map[AgentKey]string
+	extensionProblems map[SessionKey]bool
 	// modes holds each agent's delivery mode as the journal keeps it: one set on this
 	// machine, or the last one read from its server. An agent not in it has the default.
 	modes map[AgentKey]Mode
@@ -746,6 +747,17 @@ func sessionUnknown(key SessionKey) Response {
 
 // call routes one request to its session and returns the session's answer.
 func (d *Daemon) call(ctx context.Context, req Request) Response {
+	if req.Op == OpBind {
+		release, err := d.joinTurn(ctx, req.Key().String())
+		if err != nil {
+			return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again.")
+		}
+		defer release()
+	}
+	return d.callBindingLocked(ctx, req)
+}
+
+func (d *Daemon) callBindingLocked(ctx context.Context, req Request) Response {
 	ad, ok := d.adapters[req.Harness]
 	if !ok || req.Session == "" {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),
@@ -790,6 +802,9 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 		}
 	}
 	if req.Op == OpBind {
+		if r := d.bindingPreflight(ctx, key, *req.Agent); r.Error != nil {
+			return r
+		}
 		var refusal *Response
 		req, refusal = d.resolveRequest(ctx, req)
 		if refusal != nil {
@@ -971,6 +986,9 @@ func (d *Daemon) status(ctx context.Context) Response {
 		st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: reason})
 	}
 	for a, s := range d.owners {
+		if d.extensionProblems[s.key] {
+			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonExtensionOutdated})
+		}
 		st.Bindings = append(st.Bindings, BindingStatus{Agent: d.refs[a], Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
 	}
 	d.mu.Unlock()

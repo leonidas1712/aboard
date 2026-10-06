@@ -199,6 +199,9 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 			return r
 		}
 	}
+	if r := d.bindingPreflight(ctx, req.Key(), *req.Agent); r.Error != nil {
+		return r
+	}
 	grant, err := d.cfg.Seats.Join(ctx, server, SeatRequest{
 		Board: board, Role: req.Role, Name: req.Agent.Name, Harness: req.Harness, Session: req.Key().String(),
 	})
@@ -214,7 +217,7 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 			"Check that this machine's aboard config folder is writable, then run the join again.")
 	}
 	agent := grantAgent(grant)
-	bound := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent, Process: req.Process})
+	bound := d.callBindingLocked(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent, Process: req.Process})
 	if bound.Error != nil {
 		return bound
 	}
