@@ -313,11 +313,14 @@ func TestUpgradeFromAnOlderBuild(t *testing.T) {
 	}
 	installAt(t, older, r.installed)
 	if d := r.runExit("down", "--json"); d.code != 0 {
-		// The waiting stop hook starts a daemon again as soon as down stops one, and down
-		// waits for no daemon to answer, so it gives up after 10s. The server is stopped
-		// by then, and the daemon that answers is the older one.
-		report("rollback: aboard down exit %d, %v (a daemon started again by the waiting hook)", d.code, field(t, d.json(t), "error.message"))
-		t.Errorf("aboard down with a session waiting:\n%s", d)
+		// This is the older build's down. One from before the fix waits for no daemon to
+		// answer, and the waiting stop hook starts one again at once, so it gives up
+		// after 10s; the server and the daemon it found have stopped by then, as the
+		// recovery page says.
+		if field(t, d.json(t), "error.code") != "daemon_not_running" {
+			t.Fatalf("aboard down on the older build:\n%s", d)
+		}
+		report("rollback: the older build's aboard down gave up on a daemon the waiting hook started again: %v", field(t, d.json(t), "error.message"))
 	}
 	db := filepath.Join(r.dataDir(), "aboard.db")
 	if _, err := os.Stat(db); err != nil {

@@ -99,11 +99,6 @@ shell, then run `aboard down` so the delivery daemon starts again with it.
 | `doctor` or `status` names an older server or daemon | `aboard status`, which replaces them |
 | A session gets no messages | `aboard daemon start`, then `aboard doctor`; in that session, `aboard resume <agent>` |
 
-`aboard down` while a Claude Code session waits for messages can fail after 10 seconds
-with `daemon_not_running`: the session's hook starts a delivery daemon again as soon as
-`down` stops it. The local server has stopped by then, and the daemon that answers runs
-the aboard at the hooks' path, so you can carry on.
-
 ### Go back to the old build
 
 Stop using aboard in your sessions while you do this, then run, with the backup name you
@@ -122,7 +117,10 @@ aboard doctor
 ```
 
 The binary goes back first, renamed into place rather than written over a running file,
-so a hook that starts the daemon again starts the old one. `aboard doctor` may say the
+so a hook that starts the daemon again starts the old one. An older build's
+`aboard down` may then fail after 10 seconds with `daemon_not_running`, because a waiting
+session started a daemon again; the daemon it found and the server have stopped, so go
+on with the next command. `aboard doctor` may say the
 local server doesn't answer for a few seconds, until the daemon reconnects.
 
 If you signed in to a team server after upgrading, also move its login aside:
