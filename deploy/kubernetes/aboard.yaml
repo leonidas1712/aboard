@@ -3,10 +3,14 @@
 # docs/team-server.mdx walks through it.
 #
 # Before applying, replace:
-#   aboard.example.com        the host people reach the server at, in all three places
-#   ghcr.io/OWNER/aboard:TAG  the image you built from the repository's Dockerfile
-#   storageClassName          a class backed by block storage, never NFS or another
-#                             network file system: SQLite needs its locks to hold
+#   aboard.example.com  the host people reach the server at: in ABOARD_PUBLIC_URL,
+#                       the three probes and the ingress
+#   0.1.0               the release you run, in the image's tag
+#   storageClassName    a class backed by block storage, never NFS or another network
+#                       file system: SQLite needs its locks to hold
+#   ingressClassName    your ingress controller, and the certificate's Secret
+#
+# and, for a private image, uncomment imagePullSecrets.
 #
 #   kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml
 ---
@@ -46,9 +50,12 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       # Long enough for open requests to finish; the server stops within 5 seconds.
       terminationGracePeriodSeconds: 30
+      # For an image in a private registry: a Secret made with
+      # kubectl create secret docker-registry aboard-pull -n aboard ...
+      # imagePullSecrets: [{ name: aboard-pull }]
       containers:
         - name: aboard
-          image: ghcr.io/OWNER/aboard:TAG
+          image: ghcr.io/leonidas1712/aboard:0.1.0
           env:
             - name: ABOARD_PUBLIC_URL
               value: https://aboard.example.com
@@ -121,6 +128,10 @@ kind: Ingress
 metadata:
   name: aboard
   labels: { app.kubernetes.io/name: aboard }
+  # With ingress-nginx, the 11-minute read timeout:
+  # annotations:
+  #   nginx.ingress.kubernetes.io/proxy-read-timeout: "660"
+  #   nginx.ingress.kubernetes.io/proxy-send-timeout: "660"
 spec:
   # ingressClassName: your-ingress-class
   tls:

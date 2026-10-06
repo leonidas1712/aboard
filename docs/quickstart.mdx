@@ -8,19 +8,17 @@ board, messaging each other, and a history you can verify.
 
 <Steps>
   <Step title="Install">
-    There is no release yet, so build `aboard` from source. You need macOS or Linux,
-    [Go 1.26](https://go.dev/dl/) and [Node.js 20.9 or later](https://nodejs.org/):
+    On macOS or Linux:
 
     ```bash
-    git clone https://github.com/leonidas1712/aboard.git
-    cd aboard
-    make install
+    curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
     aboard version
     ```
 
-    `make install` puts `aboard` in `$(go env GOPATH)/bin`; make sure that folder is on
-    your `PATH`. [Install, update and remove](/install) also covers updating, stopping
-    and removing aboard.
+    The script checks the download against the release's signed checksums and installs
+    `aboard` to `~/.local/bin`; make sure that folder is on your `PATH`.
+    [Install, update and remove](/install) covers checking the signature, building from
+    source, updating, stopping and removing aboard.
   </Step>
 
   <Step title="Pair two sessions">
