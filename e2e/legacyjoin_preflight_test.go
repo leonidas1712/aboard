@@ -244,11 +244,15 @@ func TestGuestGrantIsNotSavedAfterExtensionDisconnects(t *testing.T) {
 	guest := e.run("invite", "--guest", "visitor", "--json").json(t)
 	target, _ := url.Parse("http://" + e.addr)
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	var conn net.Conn
+	// The proxy's handler runs on server goroutines, so the extension's connection is
+	// published to it atomically once the test has made it.
+	var conn atomic.Pointer[net.Conn]
 	var guestWrites atomic.Int64
 	proxy.ModifyResponse = func(r *http.Response) error {
 		if r.Request.URL.Path == "/v1/guest-join" && r.StatusCode == http.StatusCreated {
-			_ = conn.Close()
+			if c := conn.Load(); c != nil {
+				_ = (*c).Close()
+			}
 			awaitPreflightDisconnect(t, e, "guest-preflight")
 		}
 		return nil
@@ -272,7 +276,8 @@ func TestGuestGrantIsNotSavedAfterExtensionDisconnects(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(e.configDir(), "servers.json"), saved, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	conn = preflightExtension(t, e, "guest-preflight", []string{"handoff-v1"})
+	c := preflightExtension(t, e, "guest-preflight", []string{"handoff-v1"})
+	conn.Store(&c)
 	s := &session{e: e, harness: "omp", id: "guest-preflight", vars: []string{"ABOARD_SESSION=omp:guest-preflight"}}
 	s.run("join", "Join Aboard board first on "+strings.TrimPrefix(server.URL, "http://")+" as reviewer with code "+field(t, first, "join.code").(string), "--name", "first")
 	// The agent remains bound, but this machine has no person key for the proxy URL,
