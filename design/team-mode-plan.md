@@ -60,8 +60,8 @@ Status on 2026-10-06, checked against merged work.
 | 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88); archive, restore and delete in the API, CLI and board view (#117) | |
 | 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c), bots, project labels |
 | 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the person's CLI inbox across boards |
-| 7. A server for a team | | Load test, version-skew check, backup before each migration |
-| After: deploying | | HTTPS, a container and a recipe, the release job and install script, the two-machine test |
+| 7. A server for a team | Team server, secure bootstrap and backup before the atomic migration batch (#118) | Load test, version-skew check |
+| After: deploying | Public HTTPS configuration, container and deployment recipes (#118); release pipeline and install script (#120) | Deployment proof and the two-machine test |
 
 Slice 5a landed in #115 (main `182fc2c`). The final `scripts/land-pr --live` run passed
 the code and e2e gates, then the full affected native suite: 64 cases with four
@@ -273,9 +273,11 @@ from `aboard boards` never authorizes a join: the join is checked again.
    message is stored. On by default; a board's owners can turn it off for that board
    in its policy (a person-only change, recorded like any policy change), and the board
    view and `aboard status` show when it is off.
-6. **7. The server.** Backup before each migration, the version-skew check, the load test.
-7. **Deploy.** HTTPS, a container and one recipe, the release job and install script,
-   then the two-machine test with real people.
+6. **7. The server.** Team serving, secure bootstrap and backup before the atomic
+   migration batch are built (#118). The version-skew check and load test remain.
+7. **Deploy.** Public HTTPS configuration, containers and deployment recipes are built
+   (#118), as are the release pipeline and install script (#120). Deployment proof and
+   the two-machine test with real people remain.
 
 After team-ready, remote runtimes (platforms that run agents in containers, often one
 task at a time) join through the same public API; the roadmap lists what they need. 5a's
