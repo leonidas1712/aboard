@@ -230,7 +230,7 @@ func Run(ctx context.Context, o Options) error {
 // settings stores the server's own configuration, such as its id and digest key.
 type settings interface {
 	Setting(ctx context.Context, key string) (value string, ok bool, err error)
-	SetSetting(ctx context.Context, key, value string) error
+	SettingOnce(ctx context.Context, key, value string) (stored string, err error)
 }
 
 func identity(ctx context.Context, st settings, o Options) (serverID string, key []byte, err error) {
@@ -258,7 +258,7 @@ func identity(ctx context.Context, st settings, o Options) (serverID string, key
 }
 
 // setting returns a stored server setting, first storing the value from create if
-// there is none.
+// there is none. When another start stored one in between, that one is kept and returned.
 func setting(ctx context.Context, st settings, key string, create func() (string, error)) (string, error) {
 	v, ok, err := st.Setting(ctx, key)
 	if err != nil || ok {
@@ -267,7 +267,7 @@ func setting(ctx context.Context, st settings, key string, create func() (string
 	if v, err = create(); err != nil {
 		return "", err
 	}
-	return v, st.SetSetting(ctx, key, v)
+	return st.SettingOnce(ctx, key, v)
 }
 
 // firstAdmin makes a team server's first person, its admin, on the first start of an

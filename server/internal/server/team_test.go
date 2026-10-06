@@ -3,8 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -15,12 +15,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/leonidas1712/aboard/server/internal/board"
-	"github.com/leonidas1712/aboard/server/internal/clock"
-	"github.com/leonidas1712/aboard/server/internal/ids"
-	"github.com/leonidas1712/aboard/server/internal/notify"
-	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
 func TestParsePublicURL(t *testing.T) {
@@ -84,15 +78,25 @@ const publicURL = "https://team.example.com:8443"
 // startTeam runs a team server on data until the test ends or stop is called.
 func startTeam(t *testing.T, data string) *teamServer {
 	t.Helper()
-	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	s, err := launchTeam(t, data)
 	if err != nil {
 		t.Fatal(err)
+	}
+	return s
+}
+
+// launchTeam runs a team server on data, as startTeam does, and returns why it didn't
+// start instead of failing the test. It is safe from several goroutines at once.
+func launchTeam(t *testing.T, data string) (*teamServer, error) {
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
 	}
 	addr := ln.Addr().String()
 	_ = ln.Close()
 	pub, err := ParsePublicURL(publicURL)
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	logs := &syncBuffer{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -106,11 +110,16 @@ func startTeam(t *testing.T, data string) *teamServer {
 	}()
 	s := &teamServer{t: t, addr: addr, data: data, log: logs}
 	var once sync.Once
+	var exited error
+	stopped := false
 	s.stop = func() {
 		once.Do(func() {
 			cancel()
-			if err := <-done; err != nil {
-				t.Errorf("the team server stopped with %v", err)
+			if !stopped {
+				exited = <-done
+			}
+			if exited != nil {
+				t.Errorf("the team server stopped with %v", exited)
 			}
 		})
 	}
@@ -119,19 +128,20 @@ func startTeam(t *testing.T, data string) *teamServer {
 	for {
 		if c, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", addr); err == nil {
 			_ = c.Close()
-			break
+			return s, nil
 		}
 		select {
 		case err := <-done:
-			t.Fatalf("the team server didn't start: %v\n%s", err, logs)
+			stopped = true
+			once.Do(cancel)
+			return nil, fmt.Errorf("the team server didn't start: %w\n%s", err, logs)
 		default:
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("the team server didn't start:\n%s", logs)
+			return nil, fmt.Errorf("the team server didn't start:\n%s", logs)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	return s
 }
 
 // do sends a request to the server as a proxy in front of it would, with host as its
@@ -308,38 +318,36 @@ func TestATeamServersFirstStartMakesOneAdmin(t *testing.T) {
 	}
 }
 
-// Several first starts at once make one admin and one key, written once.
-func TestConcurrentFirstStartsMakeOneAdmin(t *testing.T) {
-	ctx := context.Background()
+// Several real first starts at once on one empty data folder, each opening the database
+// itself, all start; exactly one makes the admin and writes the key once; and after they
+// stop, a restart accepts that key, because every start kept the same digest key.
+func TestConcurrentFirstStartsShareOneIdentityAndAdmin(t *testing.T) {
 	data := t.TempDir()
-	logs := &syncBuffer{}
-	log := slog.New(slog.NewJSONHandler(logs, nil))
-	const starts = 4
-	svcs := make([]*board.Service, starts)
-	for i := range svcs {
-		st, err := sqlite.Open(ctx, filepath.Join(data, "aboard.db"), clock.Real{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = st.Close() })
-		svcs[i] = board.New(st, notify.NewInProcess(), clock.Real{}, ids.New(rand.Reader), []byte("digest key"), board.Config{Mode: "team"}, log)
-	}
-	var wg sync.WaitGroup
+	const starts = 6
+	servers := make([]*teamServer, starts)
 	errs := make([]error, starts)
-	for i, svc := range svcs {
-		wg.Go(func() { errs[i] = firstAdmin(ctx, svc, data, "alex", log) })
+	var wg sync.WaitGroup
+	for i := range starts {
+		wg.Go(func() { servers[i], errs[i] = launchTeam(t, data) })
 	}
 	wg.Wait()
-	for _, err := range errs {
+	made := 0
+	for i, err := range errs {
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("start %d: %v", i, err)
 		}
+		made += strings.Count(servers[i].log.String(), "first admin created")
 	}
-	if n := strings.Count(logs.String(), "first admin created"); n != 1 {
-		t.Fatalf("%d admins were made:\n%s", n, logs)
+	if made != 1 {
+		t.Fatalf("%d starts made an admin", made)
 	}
-	raw, err := os.ReadFile(filepath.Join(data, AdminKeyFile)) //nolint:gosec // the test's own folder
-	if err != nil || strings.Count(string(raw), "abh_") != 1 {
-		t.Fatalf("the key file: %q %v", raw, err)
+	key := servers[0].adminKey()
+	for _, s := range servers {
+		s.stop()
+	}
+	again := startTeam(t, data)
+	resp, me := again.do("GET", "/v1/me", "team.example.com:8443", map[string]string{"Authorization": "Bearer " + key}, nil)
+	if resp.StatusCode != http.StatusOK || me["server_role"] != "admin" {
+		t.Fatalf("the admin key after a restart: %d %v", resp.StatusCode, me)
 	}
 }

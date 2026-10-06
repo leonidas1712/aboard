@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 
@@ -55,11 +56,24 @@ func Open(ctx context.Context, path string, clk clock.Clock) (*Store, error) {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
 	s := &Store{db: db, clk: clk, path: path}
-	if err := s.migrate(ctx, migrations); err != nil {
+	// A new connection switches the database to WAL, which SQLite refuses at once,
+	// without waiting, while another server starting on the same file holds a lock. A
+	// failed migration changes nothing, so it is tried again until the busy timeout.
+	err = s.migrate(ctx, migrations)
+	for deadline := time.Now().Add(10 * time.Second); busy(err) && time.Now().Before(deadline); err = s.migrate(ctx, migrations) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err != nil {
 		_ = db.Close()
 		return nil, err
 	}
 	return s, nil
+}
+
+// busy reports whether err is SQLite's "database is locked" (SQLITE_BUSY).
+func busy(err error) bool {
+	var e interface{ Code() int }
+	return errors.As(err, &e) && e.Code()&0xff == 5
 }
 
 // ErrNewerSchema means the data was written by a newer aboard, whose schema this one
@@ -149,7 +163,17 @@ func (s *Store) apply(ctx context.Context, pending []migration) error {
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
+	// Another server starting on the same database may have migrated it since the version
+	// was read; the transaction holds the write lock, so what it reads now stays true.
+	var current int
+	if err := sqlTx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&current); err != nil {
+		_ = sqlTx.Rollback()
+		return fmt.Errorf("read schema version: %w", err)
+	}
 	for _, m := range pending {
+		if m.n <= current {
+			continue
+		}
 		if err := applyIn(ctx, sqlTx, m.n, m.body); err != nil {
 			_ = sqlTx.Rollback()
 			return fmt.Errorf("migration %s: %w", m.name, err)
@@ -327,13 +351,19 @@ func (s *Store) Setting(ctx context.Context, key string) (value string, ok bool,
 	return v, true, nil
 }
 
-// SetSetting stores a server setting, replacing any earlier value.
-func (s *Store) SetSetting(ctx context.Context, key, value string) error {
+// SettingOnce stores a server setting unless it has a value already, and returns the
+// value it has afterwards: value, or the one stored first. Stored values never change,
+// so two servers starting at once on one database agree on the one that was kept.
+func (s *Store) SettingOnce(ctx context.Context, key, value string) (string, error) {
+	var stored string
 	err := s.write(ctx, func(t *tx) error {
-		return t.exec("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", key, value)
+		if err := t.exec("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", key, value); err != nil {
+			return err
+		}
+		return t.queryRow("SELECT value FROM meta WHERE key = ?", key).Scan(&stored)
 	})
 	if err != nil {
-		return fmt.Errorf("save setting %s: %w", key, err)
+		return "", fmt.Errorf("save setting %s: %w", key, err)
 	}
-	return nil
+	return stored, nil
 }
