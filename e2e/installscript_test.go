@@ -414,7 +414,24 @@ func TestInstallScriptRefuses(t *testing.T) {
 			// One byte over the 64 MiB a file in a release archive may have.
 			r.publish(append(goodEntries(), archiveEntry{name: "padding", body: string(make([]byte, 64<<20+1))}))
 			return nil
-		}, "holds padding, larger than 64 MiB"},
+		}, "holds padding, larger than 67108864 bytes"},
+		// With the limits lowered, small archives reach them.
+		{"more than the total", func(r *installRelease) []string {
+			r.publish(append(goodEntries(), archiveEntry{name: "a", body: strings.Repeat("x", 90)}, archiveEntry{name: "b", body: strings.Repeat("x", 90)}))
+			return []string{"ABOARD_INSTALL_MAX_TOTAL=200"}
+		}, "unpacks to more than 200 bytes"},
+		{"a file too large and more than the total", func(r *installRelease) []string {
+			entries := goodEntries()
+			for i, n := range []int{90, 90, 90, 101} {
+				entries = append(entries, archiveEntry{name: fmt.Sprintf("part-%d", i), body: strings.Repeat("x", n)})
+			}
+			r.publish(entries)
+			return []string{"ABOARD_INSTALL_MAX_FILE=100", "ABOARD_INSTALL_MAX_TOTAL=200"}
+		}, "holds part-3, larger than 100 bytes"},
+		{"lowered limits can't be raised", func(r *installRelease) []string {
+			r.publish(append(goodEntries(), archiveEntry{name: "padding", body: string(make([]byte, 64<<20+1))}))
+			return []string{"ABOARD_INSTALL_MAX_FILE=999999999999", "ABOARD_INSTALL_MAX_TOTAL=999999999999"}
+		}, "holds padding, larger than 67108864 bytes"},
 		{"too many files", func(r *installRelease) []string {
 			entries := goodEntries()
 			for i := range 40 {

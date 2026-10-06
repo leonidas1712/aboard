@@ -30,6 +30,10 @@
 #   ABOARD_DOWNLOAD_URL  where releases are downloaded from (default:
 #                        https://github.com/leonidas1712/aboard/releases); https only,
 #                        except for a server on this machine
+#   ABOARD_INSTALL_MAX_FILE, ABOARD_INSTALL_MAX_TOTAL, ABOARD_INSTALL_MAX_FILES
+#                        for tests only: lower the limits on one file's size and the
+#                        total (bytes) and the file count; a value that isn't smaller
+#                        than the default is ignored
 #
 # Exit codes: 0 installed, 1 failed (the message says why and what to do).
 
@@ -95,6 +99,14 @@ else
 	fail "checking the download needs sha256sum or shasum; install one and run this again."
 fi
 
+# lower prints the default $1, or $2 when it is a smaller whole number.
+lower() {
+	case "$2" in
+	"" | *[!0-9]*) echo "$1" ;;
+	*) if [ "$2" -lt "$1" ]; then echo "$2"; else echo "$1"; fi ;;
+	esac
+}
+
 tmp=$(mktemp -d 2>/dev/null || mktemp -d -t aboard-install)
 
 # The version, and the archive's name in checksums.txt.
@@ -145,20 +157,33 @@ tar -tvzf "$tmp/$archive" >"$tmp/entries" 2>/dev/null || fail "$archive isn't a 
 if grep -v -E '^[A-Za-z0-9_][A-Za-z0-9._-]*$' "$tmp/names" >/dev/null || grep -v '^-' "$tmp/entries" >/dev/null; then
 	fail "$archive holds something other than plain files (a folder, a link or a path). Nothing was installed."
 fi
-# The same limits as aboard upgrade: no file over 64 MiB, 128 MiB in all, 32 files. The
-# size is the 5th field in bsdtar's listing and the 3rd in GNU and busybox tar's, whose
-# 2nd field is owner/group.
-[ "$(grep -c . "$tmp/names")" -le 32 ] || fail "$archive holds more than 32 files. Nothing was installed."
-limits=$(awk '{
-	size = (index($2, "/") > 0) ? $3 : $5
-	if (size !~ /^[0-9]+$/) { print "unreadable"; exit }
-	if (size + 0 > 64 * 1048576) { print "large"; exit }
-	total += size
-} END { if (total > 128 * 1048576) print "total" }' "$tmp/entries")
+# The same limits as aboard upgrade: no file over 64 MiB, 128 MiB in all, 32 files.
+# Tests lower them with the ABOARD_INSTALL_MAX_* variables, which can only lower them.
+max_file=$(lower 67108864 "${ABOARD_INSTALL_MAX_FILE:-}")
+max_total=$(lower 134217728 "${ABOARD_INSTALL_MAX_TOTAL:-}")
+max_files=$(lower 32 "${ABOARD_INSTALL_MAX_FILES:-}")
+[ "$(grep -c . "$tmp/names")" -le "$max_files" ] || fail "$archive holds more than $max_files files. Nothing was installed."
+# One status line, always from END: ok, or the first problem. The size is the 5th field
+# in bsdtar's listing and the 3rd in GNU and busybox tar's, whose 2nd is owner/group.
+limits=$(awk -v max_file="$max_file" -v max_total="$max_total" '
+	status != "" { next }
+	{
+		size = (index($2, "/") > 0) ? $3 : $5
+		if (size !~ /^[0-9]+$/) { status = "unreadable"; next }
+		if (size + 0 > max_file + 0) { status = "large " $NF; next }
+		total += size
+	}
+	END {
+		if (status == "" && total > max_total + 0) status = "total"
+		if (status == "") status = "ok"
+		print status
+	}' "$tmp/entries") || limits=unreadable
+# Anything but exactly "ok" refuses.
 case "$limits" in
-unreadable) fail "$archive's listing couldn't be read. Nothing was installed." ;;
-large) fail "$archive holds $(awk '{ size = (index($2, "/") > 0) ? $3 : $5; if (size + 0 > 64 * 1048576) { print $NF; exit } }' "$tmp/entries"), larger than 64 MiB. Nothing was installed." ;;
-total) fail "$archive unpacks to more than 128 MiB. Nothing was installed." ;;
+ok) ;;
+"large "*) fail "$archive holds ${limits#large }, larger than $max_file bytes. Nothing was installed." ;;
+total) fail "$archive unpacks to more than $max_total bytes. Nothing was installed." ;;
+*) fail "$archive's listing couldn't be read. Nothing was installed." ;;
 esac
 mkdir "$tmp/unpacked"
 tar -xzf "$tmp/$archive" -C "$tmp/unpacked" || fail "couldn't unpack $archive. Nothing was installed."
