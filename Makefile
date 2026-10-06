@@ -9,15 +9,17 @@ SHELL := /bin/bash
 
 GOLANGCI_LINT_VERSION := v2.14.0
 GOVULNCHECK_VERSION   := v1.8.0
+GORELEASER_VERSION    := v2.18.2
 
 BIN           := $(CURDIR)/.bin
 GOLANGCI_LINT := $(BIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
+GORELEASER    := $(BIN)/goreleaser-$(GORELEASER_VERSION)
 
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-preview docs-links vuln tools core-size web web-check web-e2e install dev sandbox sandbox-clean
+.PHONY: check fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-preview docs-links vuln tools core-size web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check core-size harness-table-check docs-check test e2e extension-test vuln
@@ -229,6 +231,24 @@ web-check: web
 web-e2e:
 	cd web && $(WEB_ENV) npx playwright test
 
+# The release build (.goreleaser.yaml). The release job runs it on a version tag; locally it
+# builds every platform's archive into dist/ and publishes nothing. It builds the web UI
+# first, so it needs Node, and syft for the SBOMs. By default it skips signing and the
+# image (RELEASE_SKIP), which need the release job's identity and Docker.
+RELEASE_SKIP ?= sign,docker
+## release-snapshot: build every release archive into dist/ without publishing (needs Node and syft)
+release-snapshot: $(GORELEASER)
+	ABOARD_SNAPSHOT_VERSION='$(DEV_VERSION)' $(GORELEASER) release --snapshot --clean --skip=$(RELEASE_SKIP)
+
+# Only the release job runs this: it publishes, and signs with the job's identity.
+release: $(GORELEASER)
+	@if [ -z "$$GITHUB_ACTIONS" ]; then echo "make release runs only in the release job; use make release-snapshot"; exit 1; fi
+	$(GORELEASER) release --clean --release-notes "$(RELEASE_NOTES)"
+
+## release-check: validate .goreleaser.yaml
+release-check: $(GORELEASER)
+	$(GORELEASER) check
+
 vuln: $(GOVULNCHECK)
 	@$(REQUIRE_GO); $(GOVULNCHECK) ./...
 
@@ -238,6 +258,11 @@ $(GOLANGCI_LINT):
 	@mkdir -p $(BIN)/tmp
 	GOBIN=$(BIN)/tmp go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 	@mv $(BIN)/tmp/golangci-lint $@
+
+$(GORELEASER):
+	@mkdir -p $(BIN)/tmp
+	GOBIN=$(BIN)/tmp go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
+	@mv $(BIN)/tmp/goreleaser $@
 
 $(GOVULNCHECK):
 	@mkdir -p $(BIN)/tmp
