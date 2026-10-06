@@ -24,6 +24,63 @@ var (
 func RunJournal(t *testing.T, open func(t *testing.T) delivery.Journal) {
 	ctx := context.Background()
 
+	t.Run("HandoffGenerationAndFrozenEvidence", func(t *testing.T) {
+		j := open(t)
+		agent := journalSeat(t, writer, "mem_manifest")
+		b, err := j.BindGeneration(ctx, delivery.Binding{Agent: agent, Session: claudeA, BoundAt: t0}, false)
+		must(t, err)
+		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "boot", Open: true, UpdatedAt: t0}))
+		manifest := delivery.HandoffManifest{
+			ID: "hnd_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Session: claudeA, Boot: "boot",
+			Class: delivery.ClassMixed, PayloadHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", CreatedAt: t0,
+			Parts: []delivery.HandoffPart{{Agent: agent, Generation: b.Generation, Seqs: []int{1, 2}}},
+		}
+		saved, err := j.PrepareHandoff(ctx, manifest)
+		must(t, err)
+		if saved.Parts[0].DeliveryID == 0 {
+			t.Fatal("prepared handoff has no durable delivery")
+		}
+		confirmed, err := j.ConfirmHandoff(ctx, saved.ID, claudeA, "boot", []delivery.AgentKey{agent.Key()}, t0)
+		must(t, err)
+		if len(confirmed) != 1 || !slices.Equal(confirmed[0].Seqs, []int{1, 2}) {
+			t.Fatalf("confirmed manifest: %+v", confirmed)
+		}
+		rotated, err := j.BindGeneration(ctx, b, true)
+		must(t, err)
+		if rotated.Generation <= b.Generation {
+			t.Fatal("credential change reused generation")
+		}
+		durable, err := j.Deliveries(ctx, delivery.StateConfirmed)
+		must(t, err)
+		if len(durable) != 1 {
+			t.Fatal("rotation erased received evidence")
+		}
+	})
+
+	t.Run("HandoffKeepsMultipleRowsForOneSeat", func(t *testing.T) {
+		j := open(t)
+		agent := journalSeat(t, writer, "mem_parts")
+		b, err := j.BindGeneration(ctx, delivery.Binding{Agent: agent, Session: claudeA}, false)
+		must(t, err)
+		must(t, j.SaveSession(ctx, delivery.SessionRecord{Key: claudeA, Boot: "boot", Open: true, UpdatedAt: t0}))
+		existing, err := j.AddDelivery(ctx, delivery.Delivery{Agent: agent, Session: claudeA, Boot: "boot", State: delivery.StateRetry, Seqs: []int{1}, CreatedAt: t0, UpdatedAt: t0})
+		must(t, err)
+		manifest := delivery.HandoffManifest{
+			ID: "hnd_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", Session: claudeA, Boot: "boot", Class: delivery.ClassMixed, PayloadHash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", CreatedAt: t0,
+			Parts: []delivery.HandoffPart{{Agent: agent, Generation: b.Generation, Seqs: []int{1}, DeliveryID: existing}, {Agent: agent, Generation: b.Generation, Seqs: []int{2}}},
+		}
+		saved, err := j.PrepareHandoff(ctx, manifest)
+		must(t, err)
+		if saved.Parts[0].DeliveryID != existing || saved.Parts[1].DeliveryID == existing {
+			t.Fatalf("rows were coalesced %+v", saved)
+		}
+		confirmed, err := j.ConfirmHandoff(ctx, saved.ID, claudeA, "boot", []delivery.AgentKey{agent.Key()}, t0)
+		must(t, err)
+		if len(confirmed) != 2 || confirmed[0].Seqs[0] != 1 || confirmed[1].Seqs[0] != 2 {
+			t.Fatalf("same-seat parts confirmation %+v", confirmed)
+		}
+	})
+
 	t.Run("SeatIdentitySurvivesRenameAndSeparatesReusedNames", func(t *testing.T) {
 		j := open(t)
 		a := journalSeat(t, review, "mem_first")

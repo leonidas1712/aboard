@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"sync"
 	"time"
 )
@@ -53,8 +54,17 @@ func (d *Daemon) serveExtension(ctx context.Context, conn net.Conn, r *bufio.Rea
 	if s == nil {
 		return
 	}
-	c := &extConn{conn: conn, took: map[int64]bool{}, signal: make(chan struct{}, 1), gone: make(chan struct{})}
+	c := &extConn{conn: conn, handoffs: map[string]bool{}, supportsHandoffs: slices.Contains(hello.Capabilities, CapabilityHandoffV1), took: map[int64]bool{}, registered: make(chan bool, 1), signal: make(chan struct{}, 1), gone: make(chan struct{})}
+	defer close(c.gone)
 	s.mail.put(sessionMsg{req: hello, ext: c})
+	select {
+	case accepted := <-c.registered:
+		if !accepted {
+			return
+		}
+	case <-ctx.Done():
+		return
+	}
 	if hello.Launch != "" {
 		// The bind goes through the session's mailbox after the hello, so the session is
 		// registered first.
@@ -70,7 +80,11 @@ func (d *Daemon) serveExtension(ctx context.Context, conn net.Conn, r *bufio.Rea
 		}
 		switch m.Op {
 		case OpReceived:
-			c.received(m.ID)
+			if m.HandoffID != "" {
+				c.receivedHandoff(m.HandoffID)
+			} else {
+				c.received(m.ID)
+			}
 		case OpPrompt, OpTurnEnd, OpGoodbye:
 			// These name no session: the connection's hello did.
 			req := Request{Op: m.Op, Harness: hello.Harness, Session: hello.Session, Boot: hello.Boot}
@@ -83,7 +97,6 @@ func (d *Daemon) serveExtension(ctx context.Context, conn net.Conn, r *bufio.Rea
 				"Use the extension that this aboard installs: run aboard init."))
 		}
 	}
-	close(c.gone)
 	if !goodbye && ctx.Err() == nil {
 		s.mail.put(sessionMsg{extGone: c})
 	}
@@ -96,13 +109,19 @@ type extConn struct {
 	// wmu keeps writes whole: the session's goroutine and the reader both write.
 	wmu sync.Mutex
 	// mu guards took, the deliveries the extension confirmed.
-	mu     sync.Mutex
-	took   map[int64]bool
-	signal chan struct{}
-	gone   chan struct{}
+	mu               sync.Mutex
+	took             map[int64]bool
+	handoffs         map[string]bool
+	pendingHandoff   string
+	supportsHandoffs bool
+	registered       chan bool
+	signal           chan struct{}
+	gone             chan struct{}
 }
 
 var _ Waiter = (*extConn)(nil)
+
+var _ HandoffWaiter = (*extConn)(nil)
 
 // write sends one frame, giving up after waiterWriteTimeout so an extension that stopped
 // reading can't hold up its session.
@@ -137,6 +156,10 @@ func (c *extConn) Deliver(ctx context.Context, id int64, bundle string) error {
 	if err := c.write(Response{V: ProtocolVersion, Event: EventDeliver, ID: id, Bundle: bundle}); err != nil {
 		return fmt.Errorf("%w: %w", ErrBusy, err)
 	}
+	return c.waitLegacy(ctx, id)
+}
+
+func (c *extConn) waitLegacy(ctx context.Context, id int64) error {
 	for {
 		if c.has(id) {
 			return nil
@@ -150,6 +173,74 @@ func (c *extConn) Deliver(ctx context.Context, id int64, bundle string) error {
 			return ErrBusy
 		case <-ctx.Done():
 			return fmt.Errorf("wait for the extension to confirm delivery %d: %w", id, ctx.Err())
+		}
+	}
+}
+
+// SupportsHandoffs reports only this live connection's negotiated capability.
+func (c *extConn) SupportsHandoffs() bool {
+	if c == nil || !c.supportsHandoffs {
+		return false
+	}
+	select {
+	case <-c.gone:
+		return false
+	default:
+		return true
+	}
+}
+
+func (c *extConn) receivedHandoff(id string) {
+	c.mu.Lock()
+	if c.supportsHandoffs && id == c.pendingHandoff {
+		c.handoffs[id] = true
+	}
+	c.mu.Unlock()
+	select {
+	case c.signal <- struct{}{}:
+	default:
+	}
+}
+
+func (c *extConn) hasHandoff(id string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.handoffs[id]
+}
+
+func (c *extConn) DeliverHandoff(ctx context.Context, h Handover) error {
+	class := ClassMixed
+	if h.Class == ClassOwnerOnly {
+		class = ClassOwnerOnly
+	}
+	if h.HandoffID == "" {
+		if err := c.write(Response{V: ProtocolVersion, Event: EventDeliver, ID: h.ID, Bundle: h.Bundle, DeliveryClass: class}); err != nil {
+			return fmt.Errorf("%w: %w", ErrBusy, err)
+		}
+		return c.waitLegacy(ctx, h.ID)
+	}
+	if !c.SupportsHandoffs() {
+		return ErrExtensionOutdated
+	}
+	c.mu.Lock()
+	c.pendingHandoff = h.HandoffID
+	c.mu.Unlock()
+	if err := c.write(Response{V: ProtocolVersion, Event: EventDeliver, HandoffID: h.HandoffID, Bundle: h.Bundle, DeliveryClass: class}); err != nil {
+		return fmt.Errorf("%w: %w", ErrBusy, err)
+	}
+	for {
+		if c.hasHandoff(h.HandoffID) {
+			return nil
+		}
+		select {
+		case <-c.signal:
+		case <-c.gone:
+			if c.hasHandoff(h.HandoffID) {
+				return nil
+			}
+			return ErrBusy
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -170,6 +261,20 @@ func (c *extConn) replace() {
 // the same id is bound again to the agent it filled. Bundles handed to an earlier
 // connection and never confirmed go again; the extension skips those it already added.
 func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
+	accepted := false
+	defer func() {
+		if c.registered != nil {
+			c.registered <- accepted
+		}
+	}()
+	if len(s.agents) > 1 && !c.SupportsHandoffs() {
+		if s.ext == nil || !s.ext.SupportsHandoffs() {
+			s.d.setExtensionProblem(s.key, true)
+		}
+		_ = c.write(errorResponse("extension_outdated", "This extension cannot deliver to several board seats.", "Run aboard init, then restart the harness."))
+		_ = c.conn.Close()
+		return
+	}
 	if old := s.ext; old != nil && old != c {
 		if s.waiter == old {
 			s.waiter = nil
@@ -177,6 +282,9 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 		old.replace()
 	}
 	s.ext = c
+	if c.SupportsHandoffs() {
+		s.d.setExtensionProblem(s.key, false)
+	}
 	reopened := s.started && !s.open
 	s.noteProcess(ctx, req)
 	s.inTurn, s.working = false, false
@@ -190,7 +298,7 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 	if !s.open {
 		s.setOpen(ctx, true)
 	}
-	welcome := Response{V: ProtocolVersion, Event: EventWelcome, Boot: s.boot, Reopened: reopened, Agents: s.agentRefs()}
+	welcome := Response{V: ProtocolVersion, Event: EventWelcome, Capabilities: negotiatedCapabilities(c), Boot: s.boot, Reopened: reopened, Agents: s.agentRefs()}
 	if len(welcome.Agents) == 0 {
 		welcome.Lost = s.lost
 	}
@@ -199,6 +307,7 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 		s.d.log.Warn("extension connection: couldn't send welcome", "session", s.key.String(), "error", err)
 		return
 	}
+	accepted = true
 	s.waiter = c
 	s.refreshAll(true)
 	pid := 0
@@ -245,4 +354,11 @@ func (s *session) onExtensionGone(ctx context.Context, c *extConn) {
 		s.d.log.Info("closing session: its extension connection closed", "session", s.key.String())
 		s.setOpen(ctx, false)
 	}
+}
+
+func negotiatedCapabilities(c *extConn) []string {
+	if c.SupportsHandoffs() {
+		return []string{CapabilityHandoffV1}
+	}
+	return nil
 }

@@ -37,13 +37,13 @@ const INSTALLED_HOME = "{aboard_home}";
 /** The control protocol version this extension speaks. */
 const PROTOCOL = 1;
 /** This extension's version, sent in hello; it changes when the file does. */
-const EXTENSION_VERSION = "3";
+const EXTENSION_VERSION = "4";
 const HARNESS = "omp";
 
 /** One id per omp process, so a bundle handed to an earlier process goes again. */
 const BOOT = randomBytes(8).toString("hex");
 /** Deliveries already added to a session in this process, by id. */
-const ADDED = new Set<number>();
+const ADDED = new Set<number | string>();
 
 /** What a session id may contain, as Aboard's hooks accept it. */
 const SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -127,6 +127,9 @@ interface Frame {
 	v?: number;
 	event?: string;
 	id?: number;
+	handoff_id?: string;
+	delivery_class?: string;
+	capabilities?: string[];
 	bundle?: string;
 	notice?: string;
 	boot?: string;
@@ -177,6 +180,7 @@ class Link {
 	#sock: net.Socket | undefined;
 	/** The session's connection was welcomed before, so a new one reconnects. */
 	#welcomed = false;
+	#handoffs = false;
 	#connected = false;
 	/** The daemon said another connection serves the session, or the session ended. */
 	#stopped = false;
@@ -204,7 +208,7 @@ class Link {
 		if (this.#session !== "") this.goodbye();
 		this.#session = id;
 		this.#source = ctx.sessionManager.getEntries().some(e => e.type === "message") ? "resume" : "startup";
-		this.#welcomed = this.#connected = this.#stopped = this.#busy = this.#mismatch = false;
+		this.#welcomed = this.#connected = this.#stopped = this.#busy = this.#mismatch = this.#handoffs = false;
 		this.#attempt = 0;
 		this.#connect();
 	}
@@ -218,6 +222,7 @@ class Link {
 		if (sock && this.#connected) sock.write(`${JSON.stringify({ v: PROTOCOL, op: "goodbye" })}\n`);
 		sock?.end();
 		this.#connected = false;
+		this.#handoffs = false;
 		log("session closed", { session: this.#session });
 	}
 
@@ -300,6 +305,7 @@ class Link {
 					cwd: ctx?.cwd,
 					harness_version: (this.#pi as { pi?: { VERSION?: string } }).pi?.VERSION,
 					extension_version: EXTENSION_VERSION,
+					capabilities: ["handoff-v1"],
 					// The launch ticket aboard swarm up started omp with, if any: the daemon
 					// binds the session to the agent it names. A ticket works once.
 					launch: process.env.ABOARD_LAUNCH || undefined,
@@ -322,6 +328,7 @@ class Link {
 			this.#sock = undefined;
 			const wasConnected = this.#connected;
 			this.#connected = false;
+		this.#handoffs = false;
 			if (this.#stopped) return;
 			if (wasConnected) log("connection to the daemon closed; connecting again", { session: this.#session });
 			void guard("connect again", async () => {
@@ -350,6 +357,7 @@ class Link {
 		switch (f.event) {
 			case "welcome":
 				this.#connected = true;
+				this.#handoffs = f.capabilities?.includes("handoff-v1") === true;
 				this.#attempt = 0;
 				this.#mismatch = false;
 				log("connected", { session: this.#session, source: this.#source, resumed: this.#welcomed, reopened: !!f.reopened });
@@ -359,12 +367,16 @@ class Link {
 				if (this.#busy) this.#send({ op: "prompt" });
 				return;
 			case "deliver":
-				if (typeof f.id === "number" && typeof f.bundle === "string") this.#deliver(f.id, f.bundle);
+				if (typeof f.bundle !== "string") return;
+				if (typeof f.handoff_id === "string") {
+					if (this.#handoffs && /^hnd_[0-9a-f]{32}$/.test(f.handoff_id)) this.#deliver(f.handoff_id, f.bundle, f.delivery_class);
+				} else if (typeof f.id === "number") this.#deliver(f.id, f.bundle, f.delivery_class);
 				return;
 			case "release":
 				log("the daemon released this connection: another one serves the session", { session: this.#session });
 				this.#stopped = true;
 				this.#connected = false;
+				this.#handoffs = false;
 				this.#sock = undefined;
 				sock.end();
 				return;
@@ -372,7 +384,7 @@ class Link {
 	}
 
 	/** Adds a bundle to the session once, and confirms it. */
-	#deliver(id: number, bundle: string): void {
+	#deliver(id: number | string, bundle: string, deliveryClass?: string): void {
 		if (!ADDED.has(id)) {
 			const message = { customType: "aboard", content: bundle, display: true, attribution: "agent" as const };
 			if (this.#idle()) {
@@ -380,12 +392,12 @@ class Link {
 			} else {
 				// A turn started as the bundle came: the owner's messages go in at the next step,
 				// anyone else's once the turn ends.
-				this.#pi.sendMessage(message, { deliverAs: bundle.includes('sender="owner"') ? "aside" : "followUp" });
+				this.#pi.sendMessage(message, { deliverAs: deliveryClass === "owner_only" ? "aside" : "followUp" });
 			}
 			ADDED.add(id);
 			log("delivered", { session: this.#session, delivery: id, bytes: bundle.length });
 		}
-		this.#send({ op: "received", id });
+		this.#send(typeof id === "string" ? { op: "received", handoff_id: id } : { op: "received", id });
 	}
 
 	#idle(): boolean {

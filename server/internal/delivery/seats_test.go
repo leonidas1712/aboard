@@ -160,21 +160,31 @@ func TestAJoinSavesTheTokenBeforeItBinds(t *testing.T) {
 	}
 }
 
-// Until several seats per session are switched on, a join for another board keeps the
-// one-seat rule: it ends the session's other binding and answers it as previous.
-func TestAJoinKeepsOneSeatPerSession(t *testing.T) {
+// Joining another board preserves the first seat and its immutable identity.
+func TestAJoinRetainsEachBoardsSeat(t *testing.T) {
 	r, _ := seatsRig(t)
 	r.register("s1", "b1")
-	r.join("s1", "docs")
+	first := r.join("s1", "docs")
+	if first.Error != nil || first.Joined == nil {
+		t.Fatalf("first board: %+v", first)
+	}
 	resp := r.join("s1", "plans")
-	if resp.Error != nil || resp.Previous == nil || resp.Previous.Board != "docs" {
+	if resp.Error != nil || resp.Previous != nil || resp.Joined == nil {
 		t.Fatalf("second board: %+v", resp)
 	}
-	if got := r.agentsOf(); len(got) != 1 || got[0].Board != "plans" {
-		t.Errorf("bound: %v", got)
+	got := r.agentsOf()
+	if len(got) != 2 {
+		t.Fatalf("bound: %v", got)
 	}
-	if st := r.status(); st.MultiSeat {
-		t.Errorf("status says multi_seat")
+	ids := map[string]string{}
+	for _, a := range got {
+		ids[a.Board] = a.MemberID
+	}
+	if ids["docs"] != first.Joined.MemberID || ids["plans"] != resp.Joined.MemberID || ids["docs"] == ids["plans"] {
+		t.Fatalf("board identities: %v", ids)
+	}
+	if st := r.status(); !st.MultiSeat {
+		t.Errorf("status omits multi_seat")
 	}
 }
 

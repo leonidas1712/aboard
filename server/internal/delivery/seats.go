@@ -199,12 +199,18 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 			return r
 		}
 	}
+	if r := d.bindingPreflight(ctx, req.Key(), *req.Agent); r.Error != nil {
+		return r
+	}
 	grant, err := d.cfg.Seats.Join(ctx, server, SeatRequest{
 		Board: board, Role: req.Role, Name: req.Agent.Name, Harness: req.Harness, Session: req.Key().String(),
 	})
 	if err != nil {
 		d.log.Warn("join through the delegation", "server", server, "board", board, "session", req.Key().String(), "error", err)
 		return seatsError(server, err)
+	}
+	if r := d.bindingPreflight(ctx, req.Key(), grantAgent(grant)); r.Error != nil {
+		return r
 	}
 	// The token is saved before the seat is bound or success answered, so the token a
 	// session holds is always the newest one the server issued.
@@ -214,7 +220,7 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 			"Check that this machine's aboard config folder is writable, then run the join again.")
 	}
 	agent := grantAgent(grant)
-	bound := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent, Process: req.Process})
+	bound := d.callBindingLocked(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent, Process: req.Process})
 	if bound.Error != nil {
 		return bound
 	}

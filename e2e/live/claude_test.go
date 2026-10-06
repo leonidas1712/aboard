@@ -4,7 +4,9 @@ package live
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -139,10 +141,9 @@ func readFile(t *testing.T, path string) []byte {
 	return raw
 }
 
-// A session fills one seat at a time. A Claude Code session joins one board, then joins
-// another: a message on the new board wakes it and it replies there, while a message to
-// its old agent wakes nothing and waits unread for whichever session resumes that agent.
-func TestSessionMovesBetweenBoards(t *testing.T) {
+// Joining another board retains the session's first seat. Replies and server
+// acknowledgements must use the selected board even when both seats have one name.
+func TestSessionKeepsBothBoards(t *testing.T) {
 	only(t, "claude-code")
 	requireClaude(t)
 	parallel(t)
@@ -159,39 +160,88 @@ func TestSessionMovesBetweenBoards(t *testing.T) {
 	l.decode(l.human, &first, "pair", "writer-reviewer")
 	session := l.startClaude("mover", l.project("project", "claude-code"))
 	session.submit(first.Join.Line)
-	l.waitMessage("claude", time.Time{}, "", 3*time.Minute) // its hello on the first board
+	l.waitMessage("claude", time.Time{}, "", 3*time.Minute)
 	l.waitQuiet(3*time.Minute, "writer", session)
 
-	// The person's terminal now defaults to the second board, so writer and claude there
-	// need no --board.
-	moving := time.Now()
 	l.decode(l.human, &second, "pair", "writer-reviewer", "--new")
-	session.submit(second.Join.Line)
-	l.waitMessage("claude", moving, "", 3*time.Minute) // its hello on the second board
-	l.waitQuiet(3*time.Minute, "writer", session)
+	session.submit("Run `" + second.Join.Line + "` now. Keep both seats. Whenever an Aboard message arrives, run exactly its requested command using its named board, then stop. Reply only OK now.")
+	session.waitIdle(3 * time.Minute)
+	l.waitFor(30*time.Second, "the session's second seat", func() bool {
+		return slices.Contains(l.agents(second.Board.Name), "claude")
+	})
 
-	old := l.say("writer", "--board", first.Board.Name, "--to", "@claude", "Reply to this message with exactly OLD-SEAT.")
-	l.neverWithin(20*time.Second, "a bundle was handed for the old seat", func() bool { return len(l.handedAfter(old.At)) > 0 })
-
-	ping := l.say("writer", "--to", "@claude", "--expect-reply", "Reply to this message with exactly MOVED-1.")
-	wake := l.waitHanded(ping.At)
-	reply := l.waitMessage("claude", ping.At, "MOVED-1", 2*time.Minute)
-	t.Logf("measured: handed %s after posting, reply on the board %s after posting",
-		wake.Time.Sub(ping.At), reply.At.Sub(ping.At))
-	checkWake(t, l.driverFor("claude"), ping, wake)
-
-	var inbox struct {
-		Messages []message `json:"messages"`
+	raw := readFile(t, filepath.Join(l.configDir(), "credentials.json"))
+	var saved struct {
+		Agents []multiSeatCredential `json:"agents"`
 	}
-	l.decode(l.human, &inbox, "inbox", "--peek", "--as", "claude", "--board", first.Board.Name)
-	if !slices.ContainsFunc(inbox.Messages, func(m message) bool { return m.Seq == old.Seq }) {
-		t.Errorf("message #%d to the old seat isn't waiting unread for it: %+v", old.Seq, inbox.Messages)
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		t.Fatal(err)
 	}
-	var page struct {
-		Messages []message `json:"messages"`
+	boards := []string{first.Board.Name, second.Board.Name}
+	seats := make([]multiSeatCredential, len(boards))
+	for i, board := range boards {
+		count := 0
+		for _, seat := range saved.Agents {
+			if seat.Board == board && seat.Name == "claude" {
+				seats[i] = seat
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("%s has %d claude credentials; want one", board, count)
+		}
 	}
-	l.decode(l.human, &page, "read", "--as", "writer", "--board", first.Board.Name, "--limit", "200")
-	if slices.ContainsFunc(page.Messages, func(m message) bool { return m.From.Name == "claude" && strings.Contains(m.Body, "OLD-SEAT") }) {
-		t.Error("the moved session answered the old seat's message")
+	if seats[0].MemberID == "" || seats[0].MemberID == seats[1].MemberID {
+		t.Fatal("the two boards did not retain distinct seats")
+	}
+	messages := func(board string) []message {
+		var page struct {
+			Messages []message `json:"messages"`
+		}
+		l.decode(l.human, &page, "read", "--as", "writer", "--board", board, "--limit", "200")
+		return page.Messages
+	}
+	markers := []string{"OLD-SEAT", "SECOND-SEAT"}
+	pings := make([]message, len(boards))
+	for i, board := range boards {
+		var state struct {
+			HeadSeq int `json:"head_seq"`
+		}
+		l.multiSeatOwnerRequest(http.MethodGet, "/v1/boards/"+board, nil, &state)
+		body := fmt.Sprintf("Run exactly `aboard say --board %s --reply %d %q`. Run no other Aboard command.", board, state.HeadSeq+1, markers[i])
+		pings[i] = l.say("writer", "--board", board, "--to", "@claude", "--expect-reply", body)
+	}
+	for i, board := range boards {
+		l.waitFor(3*time.Minute, "the retained seat to reply on "+board, func() bool {
+			for _, m := range messages(board) {
+				if m.From.Name == "claude" && m.Body == markers[i] && m.ReplyToSeq != nil && *m.ReplyToSeq == pings[i].Seq {
+					return true
+				}
+			}
+			return false
+		})
+	}
+	session.waitIdle(2 * time.Minute)
+	for i, board := range boards {
+		count := 0
+		for _, m := range messages(board) {
+			if m.Body == markers[1-i] {
+				t.Errorf("the other seat's reply appeared on %s", board)
+			}
+			if m.Body == markers[i] {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("%s has %d replies; want one", board, count)
+		}
+		l.waitFor(30*time.Second, "the retained seat's independent acknowledgement on "+board, func() bool {
+			var inbox struct {
+				Cursor   int       `json:"cursor"`
+				Messages []message `json:"messages"`
+			}
+			l.multiSeatRequest(seats[i].Token, http.MethodGet, "/v1/me/inbox", nil, &inbox)
+			return inbox.Cursor >= pings[i].Seq && len(inbox.Messages) == 0
+		})
 	}
 }

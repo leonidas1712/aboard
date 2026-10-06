@@ -135,6 +135,10 @@ $defs:
       state and runs in a subagent, which may only read; the hint names what it can run) ·
       codex_subagent_target · codex_target_absent ·
       harness_unavailable (the session couldn't be checked for another reason) ·
+      extension_outdated (exit 1; pair, join, resume or a launch binding would add a
+      second seat to an extension session that did not negotiate handoff-v1; no seat or
+      binding changes. The hint says to run aboard init in a terminal and restart the
+      harness; spec/control.md, "Combined handoffs") ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
       inside a harness's sandbox, where it won't start one) · sandbox_blocks_network (the
       command runs inside a harness's sandbox that blocks network access, Codex's by
@@ -589,7 +593,8 @@ $defs:
       session already has a working seat reuses it (reused true), never a second one.
       Refusals: board_not_found (a board the person can't see, a guest's other boards),
       delegation_revoked, agent_removed, guest_not_allowed (a guest's agents come only
-      from guest codes), session_on_another_server, name_taken, role_not_found, and
+      from guest codes), session_on_another_server, extension_outdated (the extension
+      cannot safely receive several-seat delivery), name_taken, role_not_found, and
       server_unreachable when the server can't be reached: the daemon always asks the
       server, which decides reuse, and never answers a join from its own records. With
       --as or ABOARD_AGENT and no session, it fails with session_unknown: there is no

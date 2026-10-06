@@ -314,13 +314,18 @@ known, so the next failure is compared against it rather than retried.
 
 - `TestInitShowsWhatIsAlreadySetUp` (`e2e/terminal_test.go`) reported a race on
   GitHub's ubuntu-latest runner for PR #94, commit `f29df43`, run `37291410541`,
-  on 2026-10-05. The race was between `cancelreader`'s Linux
-  `epollCancelReader.wait` calling `os.File.Fd` and `epollCancelReader.Close`
-  closing its cancellation pipe during Bubble Tea shutdown after Ctrl-C.
-  Ten runs with `-race` passed on macOS; they do not exercise Linux's epoll reader.
-  Local Linux reproduction was unavailable because the Docker daemon did not
-  respond. The test remains unchanged; compare the next Linux failure with this
-  stack before treating it as the same problem.
+  on 2026-10-05. PR #115's full local suite at `eacf15d` reported the same race on
+  macOS on 2026-10-06. Bubble Tea's interrupt shutdown closed `cancelreader`'s
+  cancellation pipe without waiting for its read loop; the Linux epoll and macOS
+  kqueue readers were still calling `os.File.Fd` on that pipe.
+  Setup now turns keyboard and OS interrupts into graceful shutdown, uses the
+  library's bounded input-loop wait, and returns an aborted answer so no choices
+  are applied.
+  `TestSetupInterruptsRestoreTerminalWithoutApplyingAnswers` checks Ctrl-C and
+  SIGINT, unchanged configuration, and restored default PTY input mode. Before the
+  fix, 20 focused runs of the original test passed despite the full-suite failure.
+  After the fix, both tests passed 20 times under `-race` on macOS. A Linux native
+  rerun was not available; do not describe the macOS result as a Linux proof.
 
 - `TestHumansModeWakesOnlyForPeople` (`e2e/modes_test.go`): timed out after 5 s waiting
   for both messages to be acknowledged, once, on GitHub's ubuntu-latest runner for

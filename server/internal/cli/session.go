@@ -285,6 +285,6 @@ func runResume(ctx context.Context, a *app, args []string) error {
 		PreviousAgent *previousAgent `json:"previous_agent"`
 		seatDelivery
 	}{cred.Name, cred.Board, key.String(), prev, mode},
-		fmt.Sprintf("Resumed %s on %s in this session.\n", cred.Name, cred.Board)+movedText(prev, cred.Name, cred.Board)+mode.line())
+		fmt.Sprintf("Resumed %s on %s in this session.\n", cred.Name, cred.Board)+movedText(prev, cred.Name, cred.Board)+mode.line()+a.seatBoardReminder(ctx, key, cred.Board))
 	return nil
 }

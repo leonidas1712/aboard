@@ -420,6 +420,10 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 		plural(st.OpenSessions, "session", "sessions"), stalled, a.daemonReplaced.text())
 	for _, p := range st.Agents {
 		d.StoppedAgents = append(d.StoppedAgents, stoppedAgent{Server: p.Agent.Server, Board: p.Agent.Board, Name: p.Agent.Name, Reason: p.Reason})
+		if p.Reason == delivery.ReasonExtensionOutdated {
+			fmt.Fprintln(text, "        The harness extension cannot deliver to several boards. Run aboard init, then restart the harness.")
+			continue
+		}
 		if p.Reason == delivery.ReasonBoardGone {
 			fmt.Fprintf(text, "        %s. Join again with a new agent (aboard join) if the person still belongs on it.\n", boardGoneText(p.Agent.Name, p.Agent.Board))
 			continue

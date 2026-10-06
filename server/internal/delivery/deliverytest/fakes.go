@@ -80,7 +80,17 @@ func (f *FakeAdapter) Hand(ctx context.Context, h delivery.Handover) (bool, erro
 		if h.Waiter == nil {
 			return false, delivery.ErrBusy
 		}
-		if err := h.Waiter.Deliver(ctx, h.ID, h.Bundle); err != nil {
+		var err error
+		if h.HandoffID != "" {
+			if w, ok := h.Waiter.(delivery.HandoffWaiter); ok {
+				err = w.DeliverHandoff(ctx, h)
+			} else {
+				err = delivery.ErrExtensionOutdated
+			}
+		} else {
+			err = h.Waiter.Deliver(ctx, h.ID, h.Bundle)
+		}
+		if err != nil {
 			return false, err
 		}
 	}

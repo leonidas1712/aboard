@@ -66,14 +66,16 @@ func TestDeadHarnessLeavesItsAgentWithNoSession(t *testing.T) {
 	r.eventually("no session", delivery.LivenessCheck, func() bool { return r.server.Presence(reviewer) == delivery.PresenceNoSession })
 }
 
-// Moving a session to another agent leaves the old one with no session.
+// Replacing the session's seat on one board leaves that seat with no session.
 func TestMovedSessionLeavesTheOldAgentWithNoSession(t *testing.T) {
 	r := newRig(t)
+	replacement := planner
+	replacement.Board = reviewer.Board
 	r.register("s1", "b1")
 	r.bind("claude-code", "s1", reviewer)
 	r.presence(reviewer, delivery.PresenceIdle)
-	r.bind("claude-code", "s1", planner)
-	r.presence(planner, delivery.PresenceIdle)
+	r.bind("claude-code", "s1", replacement)
+	r.presence(replacement, delivery.PresenceIdle)
 	r.presence(reviewer, delivery.PresenceNoSession)
 }
 

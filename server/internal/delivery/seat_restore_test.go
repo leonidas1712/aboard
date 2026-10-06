@@ -11,8 +11,12 @@ import (
 func TestVerifiedLegacyIdentityIsResolvedBeforeRestore(t *testing.T) {
 	r := newRig(t)
 	r.register("old-session", "old-boot")
-	r.bind("claude-code", "old-session", reviewer)
-	if err := r.journal.SetMode(context.Background(), reviewer, delivery.ModeHumans); err != nil {
+	legacy := reviewer
+	legacy.MemberID = ""
+	if err := r.journal.Bind(context.Background(), delivery.Binding{Agent: legacy, Session: delivery.SessionKey{Harness: "claude-code", ID: "old-session"}, BoundAt: r.clock.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.journal.SetMode(context.Background(), legacy, delivery.ModeHumans); err != nil {
 		t.Fatal(err)
 	}
 	r.stop()
@@ -34,12 +38,16 @@ func TestVerifiedLegacyIdentityIsResolvedBeforeRestore(t *testing.T) {
 func TestUnresolvedLegacyStateIsNotGivenToASameNameReplacement(t *testing.T) {
 	r := newRig(t)
 	r.register("old-session", "old-boot")
-	r.bind("claude-code", "old-session", reviewer)
-	if err := r.journal.SetMode(context.Background(), reviewer, delivery.ModeHumans); err != nil {
+	legacy := reviewer
+	legacy.MemberID = ""
+	if err := r.journal.Bind(context.Background(), delivery.Binding{Agent: legacy, Session: delivery.SessionKey{Harness: "claude-code", ID: "old-session"}, BoundAt: r.clock.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.journal.SetMode(context.Background(), legacy, delivery.ModeHumans); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.journal.AddDelivery(context.Background(), delivery.Delivery{
-		Agent:   reviewer,
+		Agent:   legacy,
 		Session: delivery.SessionKey{Harness: "claude-code", ID: "old-session"}, State: delivery.StateConfirmed,
 		Seqs: []int{7}, CreatedAt: r.clock.Now(), UpdatedAt: r.clock.Now(),
 	}); err != nil {
@@ -56,6 +64,10 @@ func TestUnresolvedLegacyStateIsNotGivenToASameNameReplacement(t *testing.T) {
 	got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "old-session"})
 	if len(got.Agents) != 0 {
 		t.Fatalf("unverified seat was restored: %+v", got)
+	}
+	stale := r.call(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "old-session", Agent: &legacy})
+	if stale.Error == nil || stale.Error.Code != "unauthorized" {
+		t.Fatalf("unverified legacy name was rebound: %+v", stale)
 	}
 	fresh := reviewer
 	fresh.MemberID = "mem_replacement"

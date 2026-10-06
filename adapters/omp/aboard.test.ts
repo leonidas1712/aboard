@@ -163,7 +163,7 @@ describe("identity and hello", () => {
 			process: { pid: process.pid },
 			cwd: "/work/project",
 			harness_version: "18.5.1",
-			extension_version: "3",
+			extension_version: "4",
 		});
 		expect(hello.boot).toMatch(/^[0-9a-f]{16}$/);
 		expect(hello.resumed).toBeUndefined();
@@ -210,6 +210,47 @@ describe("identity and hello", () => {
 	});
 });
 
+describe("combined handoffs", () => {
+ test("negotiated handoffs deduplicate by handoff id and keep mixed traffic as follow-up", async () => {
+  daemon.onHello=c=>c.send({v:1,event:"welcome",boot:"b",capabilities:["handoff-v1"]});
+  const {omp,c,conn}=await started();
+  expect(conn.frames[0].capabilities).toEqual(["handoff-v1"]);
+  omp.setIdle(false);await omp.emit("agent_start",{type:"agent_start"},c);
+  const id="hnd_11111111111111111111111111111111";
+  conn.send({v:1,event:"deliver",handoff_id:id,delivery_class:"mixed",bundle:'<aboard-message sender="owner">owner</aboard-message><aboard-message sender="other_agent">peer</aboard-message>'});
+  await until("combined received",()=>conn.frames.some(f=>f.handoff_id===id && f.op==="received"));
+  expect(omp.sent[0].options).toEqual({deliverAs:"followUp"});
+  expect(conn.frames.find(f=>f.handoff_id===id)?.id).toBeUndefined();
+  conn.send({v:1,event:"deliver",handoff_id:id,delivery_class:"mixed",bundle:"repeat"});
+  await until("duplicate confirmed",()=>conn.frames.filter(f=>f.handoff_id===id).length===2);
+  expect(omp.sent).toHaveLength(1);
+  const next="hnd_22222222222222222222222222222222";
+  conn.send({v:1,event:"deliver",handoff_id:next,delivery_class:"owner_only",bundle:"same rows in new manifest"});
+  await until("new manifest",()=>conn.frames.some(f=>f.handoff_id===next));
+  expect(omp.sent).toHaveLength(2);
+  expect(omp.sent[1].options).toEqual({deliverAs:"aside"});
+ });
+ test("sending a capability does not negotiate it without a welcome echo",async()=>{
+  const {omp,conn}=await started();
+  conn.send({v:1,event:"deliver",handoff_id:"hnd_33333333333333333333333333333333",delivery_class:"owner_only",bundle:"not negotiated"});
+  conn.send({v:1,event:"deliver",id:1901,bundle:"legacy barrier"});
+  await until("legacy received",()=>conn.frames.some(f=>f.id===1901 && f.op==="received"));
+  expect(omp.sent).toHaveLength(1);
+  expect(omp.sent[0].message.content).toBe("legacy barrier");
+  expect(conn.frames.some(f=>typeof f.handoff_id==="string")).toBe(false);
+ });
+});
+
+describe("trusted delivery classes", () => {
+ test("a mixed owner and peer payload stays a follow-up during a turn", async () => {
+  const {omp,c,conn}=await started();
+  omp.setIdle(false);await omp.emit("agent_start",{type:"agent_start"},c);
+  conn.send({v:1,event:"deliver",id:1801,delivery_class:"mixed",bundle:'<aboard-message sender="owner">owner</aboard-message><aboard-message sender="other_agent">peer</aboard-message>'});
+  await until("received mixed",()=>conn.frames.some(f=>f.op==="received" && f.id===1801));
+  expect(omp.sent[0].options).toEqual({deliverAs:"followUp"});
+ });
+});
+
 describe("delivery", () => {
 	test("a bundle for an idle session starts a turn, once, and is confirmed by id", async () => {
 		const { omp, conn } = await started();
@@ -229,7 +270,7 @@ describe("delivery", () => {
 		const { omp, c, conn } = await started();
 		omp.setIdle(false);
 		await omp.emit("agent_start", { type: "agent_start" }, c);
-		conn.send({ v: 1, event: "deliver", id: 42, bundle: '<aboard-message sender="owner">stop</aboard-message>' });
+		conn.send({ v: 1, event: "deliver", id: 42, delivery_class: "owner_only", bundle: '<aboard-message sender="owner">stop</aboard-message>' });
 		conn.send({ v: 1, event: "deliver", id: 43, bundle: '<aboard-message sender="other_agent">later</aboard-message>' });
 		await until("both received", () => conn.frames.filter(f => f.op === "received").length === 2);
 		expect(omp.sent.map(s => s.options)).toEqual([{ deliverAs: "aside" }, { deliverAs: "followUp" }]);

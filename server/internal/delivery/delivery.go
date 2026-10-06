@@ -103,8 +103,9 @@ const (
 // Delivery is one agent's part of a bundle handed to a harness. A bundle carries one
 // delivery for each agent bound to the session that has messages in it.
 type Delivery struct {
-	ID    int64
-	Agent AgentRef
+	HandoffID string
+	ID        int64
+	Agent     AgentRef
 	// Session and Boot are the session the delivery was last handed to.
 	Session  SessionKey
 	Boot     string
@@ -151,9 +152,11 @@ type Process struct {
 
 // Binding says which session an agent's messages go to.
 type Binding struct {
-	Agent   AgentRef
-	Session SessionKey
-	BoundAt time.Time
+	RetainSiblings bool `json:"-"`
+	Generation     uint64
+	Agent          AgentRef
+	Session        SessionKey
+	BoundAt        time.Time
 }
 
 // Mode is how an agent's messages reach its session. A person chooses it per agent.
@@ -305,4 +308,24 @@ func backoff(attempts int) time.Duration {
 		d *= 2
 	}
 	return min(d, time.Minute)
+}
+
+// HandoffManifest freezes the payload and admitted seat allocation before handoff.
+// It contains delivery metadata only, never bodies or credentials.
+type HandoffManifest struct {
+	ID          string
+	Session     SessionKey
+	Boot        string
+	Class       Class
+	PayloadHash string
+	Parts       []HandoffPart
+	CreatedAt   time.Time
+}
+
+// HandoffPart identifies one seat's exact contribution to an immutable payload.
+type HandoffPart struct {
+	Agent      AgentRef
+	Generation uint64
+	Seqs       []int
+	DeliveryID int64
 }

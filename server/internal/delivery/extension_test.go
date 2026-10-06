@@ -246,7 +246,7 @@ func TestControlSpecExtensionExamplesPlayAgainstTheDaemon(t *testing.T) {
 	if !found {
 		t.Fatal("spec/control.md has no section on the extension connection")
 	}
-	section := string(after)
+	section, _, _ := strings.Cut(string(after), "### Combined handoffs")
 	var lines []string
 	for _, m := range regexp.MustCompile("(?s)```json\n(.*?)```").FindAllStringSubmatch(section, -1) {
 		lines = append(lines, strings.Split(strings.TrimSpace(m[1]), "\n")...)
@@ -296,6 +296,8 @@ func TestControlSpecExtensionExamplesPlayAgainstTheDaemon(t *testing.T) {
 	got := e.next()
 	var wantDeliver map[string]any
 	_ = json.Unmarshal([]byte(inline["deliver"]), &wantDeliver)
+	// The legacy id stays intact; trusted classification is additive on the wire.
+	wantDeliver["delivery_class"] = "mixed"
 	sameShape(t, "deliver", wantDeliver, got)
 	e.send(delivery.Request{Op: delivery.OpReceived, ID: got.ID})
 	play("goodbye")
@@ -320,5 +322,25 @@ func sameShape(t *testing.T, what string, want map[string]any, got delivery.Resp
 	}
 	if !slices.Equal(keys(want), keys(have)) || want["event"] != have["event"] {
 		t.Errorf("%s: the daemon answered %s; the spec shows fields %v and event %v", what, raw, keys(want), want["event"])
+	}
+}
+
+func TestExtensionNegotiatesOnlyHandoffCapability(t *testing.T) {
+	r := newRig(t)
+	var hello delivery.Request
+	if err := json.Unmarshal([]byte(`{"harness":"omp","session":"o1","boot":"b1","capabilities":["unknown","handoff-v1"]}`), &hello); err != nil {
+		t.Fatal(err)
+	}
+	_, welcome := r.connect(hello)
+	raw, err := json.Marshal(welcome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	if err = json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := body["capabilities"].([]any); len(got) != 1 || got[0] != "handoff-v1" {
+		t.Fatalf("negotiated capabilities: %s", raw)
 	}
 }

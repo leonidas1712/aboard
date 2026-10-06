@@ -74,8 +74,10 @@ type Daemon struct {
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
 	// turned holds the sessions that have run a turn, for status.
-	turned   map[SessionKey]bool
-	problems map[AgentKey]string
+	turned            map[SessionKey]bool
+	problems          map[AgentKey]string
+	extensionProblems map[SessionKey]bool
+	generations       map[AgentKey]uint64
 	// modes holds each agent's delivery mode as the journal keeps it: one set on this
 	// machine, or the last one read from its server. An agent not in it has the default.
 	modes map[AgentKey]Mode
@@ -100,7 +102,7 @@ func Run(ctx context.Context, cfg Config) error {
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		refs: map[AgentKey]AgentRef{}, sessions: map[SessionKey]*session{}, owners: map[AgentKey]*session{},
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentKey]string{},
-		modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
+		generations: map[AgentKey]uint64{}, modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -181,6 +183,8 @@ func (d *Daemon) restore(ctx context.Context) error {
 			continue
 		}
 		a := newAgentState(b.Agent, false)
+		a.generation = b.Generation
+		d.generations[b.Agent.Key()] = b.Generation
 		// What a session was told before the daemon stopped isn't kept: it is taken to
 		// know the mode its agent has when its inbox is first read (onInbox).
 		for i := range deliveries {
@@ -194,7 +198,12 @@ func (d *Daemon) restore(ctx context.Context) error {
 		d.owners[b.Agent.Key()] = s
 		d.watchLocked(b.Agent)
 	}
+	manifests, err := d.cfg.Journal.Handoffs(ctx)
+	if err != nil {
+		return fmt.Errorf("load handoffs: %w", err)
+	}
 	for _, s := range d.sessions {
+		s.restoreHandoffs(manifests)
 		s.restored = true
 		d.startSession(s)
 	}
@@ -746,6 +755,17 @@ func sessionUnknown(key SessionKey) Response {
 
 // call routes one request to its session and returns the session's answer.
 func (d *Daemon) call(ctx context.Context, req Request) Response {
+	if req.Op == OpBind {
+		release, err := d.joinTurn(ctx, req.Key().String())
+		if err != nil {
+			return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again.")
+		}
+		defer release()
+	}
+	return d.callBindingLocked(ctx, req)
+}
+
+func (d *Daemon) callBindingLocked(ctx context.Context, req Request) Response {
 	ad, ok := d.adapters[req.Harness]
 	if !ok || req.Session == "" {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),
@@ -790,6 +810,9 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 		}
 	}
 	if req.Op == OpBind {
+		if r := d.bindingPreflight(ctx, key, *req.Agent); r.Error != nil {
+			return r
+		}
 		var refusal *Response
 		req, refusal = d.resolveRequest(ctx, req)
 		if refusal != nil {
@@ -888,6 +911,12 @@ func (d *Daemon) serveWait(ctx context.Context, conn net.Conn, r *bufio.Reader, 
 			break
 		}
 		if m.Op == OpReceived {
+			w.mu.Lock()
+			expected := w.pendingHandoff
+			w.mu.Unlock()
+			if expected != "" && m.HandoffID != expected {
+				continue
+			}
 			select {
 			case w.received <- struct{}{}:
 			default:
@@ -902,16 +931,31 @@ func (d *Daemon) serveWait(ctx context.Context, conn net.Conn, r *bufio.Reader, 
 
 // waiter is a stop hook waiting on its connection.
 type waiter struct {
-	mu       sync.Mutex
-	conn     net.Conn
-	received chan struct{}
-	gone     chan struct{}
+	mu             sync.Mutex
+	conn           net.Conn
+	received       chan struct{}
+	pendingHandoff string
+	gone           chan struct{}
 }
 
 // Deliver sends the bundle and waits for the hook to say it has it. A hook names no
 // delivery, so the id isn't sent.
 func (w *waiter) Deliver(ctx context.Context, _ int64, bundle string) error {
-	err := w.write(Response{V: ProtocolVersion, Event: EventDeliver, Bundle: bundle})
+	return w.deliverFrame(ctx, Response{V: ProtocolVersion, Event: EventDeliver, Bundle: bundle})
+}
+
+func (w *waiter) DeliverHandoff(ctx context.Context, h Handover) error {
+	if h.HandoffID == "" {
+		return w.Deliver(ctx, h.ID, h.Bundle)
+	}
+	w.mu.Lock()
+	w.pendingHandoff = h.HandoffID
+	w.mu.Unlock()
+	return w.deliverFrame(ctx, Response{V: ProtocolVersion, Event: EventDeliver, HandoffID: h.HandoffID, DeliveryClass: h.Class, Bundle: h.Bundle})
+}
+
+func (w *waiter) deliverFrame(ctx context.Context, frame Response) error {
+	err := w.write(frame)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrBusy, err)
 	}
@@ -955,7 +999,8 @@ func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: Eve
 // status reports the daemon's state for aboard doctor.
 func (d *Daemon) status(ctx context.Context) Response {
 	st := &Status{
-		PID: d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
+		MultiSeat: multiSeatEnabled,
+		PID:       d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
 		Attention: []StatusItem{}, Skipped: []StatusItem{}, Stalled: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
 	}
 	d.mu.Lock()
@@ -971,6 +1016,9 @@ func (d *Daemon) status(ctx context.Context) Response {
 		st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: reason})
 	}
 	for a, s := range d.owners {
+		if d.extensionProblems[s.key] {
+			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonExtensionOutdated})
+		}
 		st.Bindings = append(st.Bindings, BindingStatus{Agent: d.refs[a], Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
 	}
 	d.mu.Unlock()

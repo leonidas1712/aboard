@@ -41,9 +41,6 @@ writes, spelled the same way.
 Every connection's first message carries `v`, the protocol version. This page is
 version **1**.
 
-Examples in `json-planned` blocks are contract ahead of the daemon (team slice 5a). The
-spec test skips them; each becomes a `json` block when the daemon speaks it.
-
 - The daemon answers a first message whose `v` isn't its own with
   `daemon_protocol_mismatch` and closes the connection:
 
@@ -86,7 +83,9 @@ optional; each operation says which it reads.
 | `process` | object | The harness process the request came from: `{"pid","start"}`, `start` in the system's own units, so a reused pid isn't mistaken for it |
 | `reply_to` | integer | The message whose replies a hold keeps out of bundles |
 | `seqs` | array of integers | Messages a claim records as received |
-| `id` | integer | The delivery an extension confirms |
+| `id` | integer | The delivery an extension confirms on the legacy one-seat path; never substitutes for `handoff_id` |
+| `handoff_id` | string | On `received`: the exact combined handoff being confirmed, when the connection negotiated `handoff-v1` |
+| `capabilities` | array of strings | On `hello`: optional extension capabilities, including `handoff-v1` ("Combined handoffs") |
 | `cwd` | string | The extension session's working directory |
 | `harness_version` | string | The harness's version, as it reports it |
 | `extension_version` | string | The extension's own version |
@@ -101,7 +100,10 @@ on a connection that stays open.
 | `v` | integer | Protocol version |
 | `event` | string | On a connection that stays open: `waiting`, `deliver`, `release`, `welcome` |
 | `bundle` | string | Messages in the delivery format (delivery.md, "The delivery format") |
-| `id` | integer | The delivery a `deliver` event on an extension connection carries |
+| `id` | integer | The delivery a legacy one-seat `deliver` event carries; kept for compatibility |
+| `handoff_id` | string | On a negotiated combined `deliver`: its immutable handoff id, independent of delivery ids |
+| `delivery_class` | string | On a negotiated combined `deliver`: `owner_only` or `mixed`, computed by the daemon from all messages in the payload |
+| `capabilities` | array of strings | On `welcome`: the extension capabilities this connection negotiated. On `agents`: capabilities of the session's current live extension; absent means none are established |
 | `notice` | string | The waiting notice: names waiting messages without their content |
 | `boot` | string | The session's boot id |
 | `agents` | array of agents | The agents bound to the session |
@@ -230,17 +232,16 @@ session to resume its agent.
 
 ### `bind`: an agent takes the session
 
-Sent by `aboard pair`, `join` and `resume` run in a session. A session holds one agent;
-`previous` names the one it moved away from. A harness whose delivery waits for an idle
+Sent by `aboard pair`, `join` and `resume` run in a session. A session holds one seat
+per board; `previous` names a seat replaced on the same board. A harness whose delivery waits for an idle
 hook must have registered first; one whose harness confirms on handing (Codex) can be
 bound from any command run in the session.
 
-Precisely, as built and until multi-seat binding is on ("Several seats" below):
-binding an agent the session already holds changes nothing and answers no `previous`;
-binding any other agent ends every other binding the session has, on the same board or
-another, and answers the one it ended as `previous`; binding an agent another session
-holds moves the agent to this session, and that session is left with no agent. The
-journal holds at most one binding per session (its migration 004). A client may send
+Binding an agent the session already holds changes nothing and answers no `previous`.
+Binding another agent on the same board replaces that board's seat; a seat on another
+board is added without ending its siblings. Binding an agent another session holds
+moves only that agent. All seats in a session must use one server ("Several seats"
+below). A client may send
 the seat's `member_id` in `agent`; a daemon that keys seats by it finds it itself when
 it is left out, and checks one that is sent against the seat's own token ("Seats").
 
@@ -317,8 +318,8 @@ committed but its answer never arrived (the connection dropped): the join answer
 join for the same person, session and board finds the same seat through the server's
 lookup and recovers it with a new token, never a second seat.
 
-```json-planned
-{"v":1,"op":"join","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","agent":{"server":"https://team.example.com","board":"payments-design"}}
+```json
+{"v":1,"op":"join","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","agent":{"server":"https://team.example.com","board":"payments-design","name":""}}
 {"v":1,"joined":{"server":"https://team.example.com","board":"payments-design","name":"claude","member_id":"mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W"},"board":{"name":"payments-design"},"member":{"id":"mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W","name":"claude"},"mode":"focused"}
 ```
 
@@ -404,6 +405,13 @@ state, and a new seat with an old seat's name never inherits it.
   event's board and name match a seat. The same holds for a `presence` event without
   `member_id`.
 
+A validated direct binding to a queue-capable session can precede trusted harness
+hooks. When that session has no boot yet, the daemon saves a random local `boot_`
+marker before binding or exposing a payload. Failure to save it binds and hands
+nothing. A later hook that supplies the harness process's boot replaces this marker
+and fences the earlier handoffs as any boot change does. This fallback does not
+replace exact harness-target validation or give an unresolved seat combined delivery.
+
 ## Several seats
 
 What we want: one session can work on several boards at once, each as its own seat,
@@ -414,17 +422,12 @@ board, all on one server. Each seat is an agent with its own name, history, read
 position, delivery mode and waiting messages; the session holds the turn state (the
 harness connection, busy or idle, its boot, the one handoff in flight).
 
-**Gating.** It is built in three lanes: seats keyed by `member_id` (lane 1); the CLI's
-`board_ambiguous` and several seats in `status` and `inbox` (lane 2); and the combined
-delivery to a session with several seats (lane 3). Lane 1 may land first. Until lanes 2
-and 3 have both landed, **no operation and no command creates a second live binding
-for a session**: `bind`, `join`, `register` with a launch ticket and a resumed
-session's rebinding all keep the one-seat rule stated under `bind` (a new seat replaces
-the session's other binding, answered as `previous`), and the journal keeps its
-one-binding-per-session index. Multi-seat binding is switched on in one build, the one
-that has both lanes, never by a setting; that build's `status` answers
-`"multi_seat":true`, and its `bind`, `join` and `agents` answers carry `seats`. One-seat
-behaviour, output and delivery text stay byte for byte as they are, before and after.
+**Compatibility.** Older builds without `multi_seat:true` keep one binding per
+session: a new binding replaces the previous one, even across boards. The current
+build's `status` answers `"multi_seat":true`, and its `bind`, `join` and `agents`
+answers carry `seats`. This is a build capability, never a setting. One-seat output
+and delivery text stay unchanged; the live extension requirement for pairing and code
+joins is described under "Combined handoffs".
 
 **Once on.** Binding a seat on a board where the session holds none adds it and keeps
 the others; binding a seat on a board where the session holds another replaces only
@@ -574,6 +577,7 @@ A hook that gets an error, or can't reach the daemon, prints one line starting
 | `codex_target_absent` | `register` or `bind` for a session the harness says doesn't exist |
 | `harness_unavailable` | The harness couldn't be asked about the session |
 | `subagent_session` | `hello` from a subagent (extension connection, below) |
+| `extension_outdated` | An extension without `handoff-v1` attempts to serve several seats; install the current extension with `aboard init` and restart the harness |
 | `daemon_not_running` | The daemon is stopping |
 | `internal` | The daemon couldn't read or write its journal |
 | `login_required` | `boards` or `join` for a server this machine has no key for |
@@ -619,6 +623,7 @@ process to another session. Its first message is `hello`:
 | `resumed` | True when the extension reconnects after the connection dropped, with the same session and boot |
 | `process` | Required. The harness process: `pid`, and `start` when the extension can read it in the system's own units. When `start` is left out the daemon reads it from the process table as the hello arrives. The connection is the session's liveness; the process is what tells the daemon, after it restarted, that a session whose extension never came back has ended |
 | `cwd`, `harness_version`, `extension_version` | Recommended. The daemon logs them with the session's start, for debugging a setup |
+| `capabilities` | Optional. `handoff-v1` declares support for the immutable combined handoff id and explicit delivery class below. Unknown entries are ignored; `welcome.capabilities` names only those accepted |
 | `subagent` | Set only by an extension running inside a subagent. The daemon refuses it with `subagent_session`: messages go to the root conversation |
 
 `welcome` carries what `register` answers: `boot`, `agents`, `mode`, and `reopened` or
@@ -669,6 +674,79 @@ back for `prompt`, `turn_end`, `received` or `goodbye`.
   session that takes the agent.
 - **One connection per session.** A `hello` for a session that already has a connection
   replaces it: the daemon sends `release` on the older one and closes it.
+
+### Combined handoffs
+
+The additive `handoff-v1` capability applies when a session holds several seats.
+The daemon and extension negotiate it through `hello.capabilities` and
+`welcome.capabilities`; neither a version string nor a message body proves support.
+
+Before `pair` creates a board or a code join redeems either kind of code, the CLI
+asks `agents` for current seats and live capabilities. A bound session on another
+server refuses before creating a board, person, key or seat. A bound omp session
+without live `handoff-v1` refuses code redemption or pairing with
+`extension_outdated`, including a same-board replacement by code. Pasted board names
+are not verified code metadata and cannot exempt a full join line. First-seat joins,
+and Claude Code and Codex hooks, keep their existing behavior. An affected omp user
+runs `aboard init` and restarts, or uses a fresh session. This is a compatibility
+restriction for an old or disconnected extension, rather than a server permission.
+The CLI checks again before saving a newly granted seat's credential. A connection
+lost while a request is in flight can leave the server's committed resource, but
+never causes a known-incapable session to save or bind the grant.
+An extension must not assume negotiation because it sent the capability.
+
+```json
+{"v":1,"op":"hello","harness":"omp","session":"session-id","boot":"boot-id","capabilities":["handoff-v1"]}
+{"v":1,"event":"welcome","boot":"boot-id","capabilities":["handoff-v1"]}
+{"v":1,"event":"deliver","handoff_id":"hnd_0123456789abcdef0123456789abcdef","delivery_class":"mixed","bundle":"…"}
+{"v":1,"op":"received","handoff_id":"hnd_0123456789abcdef0123456789abcdef"}
+```
+
+The hello example leaves out the ordinary required process fields for brevity.
+`handoff_id` is `hnd_` followed by 32 random hexadecimal digits, allocated and saved
+before handing text over. It identifies one immutable manifest, as specified in
+[delivery.md](delivery.md#combined-handoff-state). It never names the first delivery
+row, even when the combined payload contains only one board's messages.
+
+- A several-seat `deliver` includes `handoff_id` and `delivery_class` and omits the
+  legacy `id`. `received` must echo `handoff_id`. An `id`-only answer confirms nothing
+  on this path. An unknown, changed or stale handoff id confirms nothing.
+- The extension deduplicates by `handoff_id` for its process lifetime. It answers again
+  for the exact handoff already added. A new id is a new at-least-once handoff; it must
+  not be suppressed because it shares a delivery row or sequence number.
+- `owner_only` requires at least one admitted message, and every admitted message
+  must be from its receiving seat's person, with sender label `owner` for that seat.
+  `mixed` covers every other payload, including owner and peer messages together,
+  notes-only payloads and an unknown class. The daemon derives the class from the
+  whole admitted payload, never from rendered text. During a running turn, omp may
+  add only `owner_only` as an aside; `mixed` goes as a follow-up. A race with turn start
+  never changes this class. No substring inspection can promote `mixed` to an aside.
+- A `received` is accepted only on the connection that was handed that manifest, or
+  on its negotiated reconnection with the same session and boot to which that exact
+  manifest was sent again. An old connection cannot confirm a newer binding or boot.
+- A one-seat session keeps today's legacy `id` and confirmation semantics, and its
+  user-facing delivery text stays byte for byte unchanged. Negotiation may add fields
+  to internal JSON frames. A new extension
+  receiving that legacy format without an explicit `delivery_class` treats its class
+  as unknown: if the session becomes busy before adding it, it uses a follow-up
+  rather than examining the body. A trusted daemon may add `delivery_class` to a
+  legacy frame; only explicit `owner_only` permits an aside. Its explicit
+  tool-boundary owner path is unchanged.
+- An extension lacking this capability can continue serving one seat. An operation
+  that would give its session a second seat refuses with `extension_outdated`, before
+  any server join or credential rotation, credential-file save or journal bind.
+  Disconnected or unknown extension support also refuses a second seat; cached
+  support from an earlier connection does not authorize it. If several bindings already exist on resume,
+  `hello` refuses with the same error and hands nothing; it retains the bindings and
+  unread messages. Its hint names `aboard init` and restarting the harness. The
+  refusal is visible in `aboard status` and `aboard doctor` as `extension_outdated`,
+  with that same fix, so an older omp extension does not fail silently.
+- A new extension talking to a daemon that does not echo the capability uses only the
+  legacy one-seat path. It never receives combined delivery through a guessed version
+  fallback. Hooks and queue adapters use the same immutable manifest inside the daemon;
+  their existing one-seat output and hook confirmation remain unchanged. Claude
+  Code and Codex shell hooks run the current `aboard` binary and need no extension
+  capability negotiation.
 
 ### Reconnecting
 

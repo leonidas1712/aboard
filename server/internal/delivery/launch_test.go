@@ -75,14 +75,13 @@ func TestLaunchTicketBindsAnExtensionSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := r.dial()
-	defer func() { _ = c.Close() }()
-	go func() {
-		_ = delivery.WriteFrame(c, delivery.Request{
-			V: delivery.ProtocolVersion, Op: delivery.OpHello, Harness: "omp", Session: "o-1", Boot: "b1",
-			Process: &delivery.Process{PID: 4321, Start: 1}, Launch: ticket,
-		})
-	}()
+	_, welcome := r.connect(delivery.Request{
+		Harness: "omp", Session: "o-1", Boot: "b1", Capabilities: []string{delivery.CapabilityHandoffV1},
+		Process: &delivery.Process{PID: 4321, Start: 1}, Launch: ticket,
+	})
+	if welcome.Error != nil || welcome.Event != delivery.EventWelcome {
+		t.Fatalf("extension welcome: %+v", welcome)
+	}
 	r.eventually("the omp session to take its seat", passStep, func() bool {
 		for _, b := range r.status().Bindings {
 			if b.Agent == reviewer && b.Session == "omp:o-1" && b.Open {

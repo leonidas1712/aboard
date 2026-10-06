@@ -40,6 +40,15 @@ func (Adapter) Hand(ctx context.Context, h delivery.Handover) (bool, error) {
 	if h.Waiter == nil {
 		return false, delivery.ErrBusy
 	}
+	if w, ok := h.Waiter.(delivery.HandoffWaiter); ok {
+		if err := w.DeliverHandoff(ctx, h); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	if h.HandoffID != "" {
+		return false, delivery.ErrExtensionOutdated
+	}
 	if err := h.Waiter.Deliver(ctx, h.ID, h.Bundle); err != nil {
 		return false, err
 	}

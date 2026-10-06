@@ -221,30 +221,66 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 // Bind records the session an agent's messages go to, replacing the agent's earlier
 // session and the session's earlier agent: a session is bound to at most one agent.
 func (j *Journal) Bind(ctx context.Context, b delivery.Binding) error {
-	return j.write(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			DELETE FROM bindings WHERE harness = ? AND session_id = ? AND NOT (server = ? AND ((member_id <> '' AND member_id = ?) OR (member_id = '' AND ? = '' AND board = ? AND agent = ?)))`,
-			b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.MemberID, b.Agent.MemberID, b.Agent.Board, b.Agent.Name)
+	b.RetainSiblings = false
+	_, err := j.BindGeneration(ctx, b, false)
+	return err
+}
+
+// BindGeneration fences a changed credential explicitly; metadata-only refreshes
+// preserve the generation. Retaining other boards requires explicit activation.
+func (j *Journal) BindGeneration(ctx context.Context, b delivery.Binding, advance bool) (delivery.Binding, error) {
+	err := j.write(ctx, func(tx *sql.Tx) error {
+		var err error
+		if b.RetainSiblings {
+			var otherServers int
+			if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM bindings WHERE harness = ? AND session_id = ? AND server <> ?`, b.Session.Harness, b.Session.ID, b.Agent.Server).Scan(&otherServers); err != nil {
+				return err
+			}
+			if otherServers != 0 {
+				return errors.New("a session cannot bind seats from another server")
+			}
+		}
+		if b.Agent.MemberID != "" {
+			b.Generation, err = bindingGeneration(ctx, tx, b, advance)
+			if err != nil {
+				return err
+			}
+		} else {
+			b.Generation = 0
+		}
+		if b.RetainSiblings {
+			_, err = tx.ExecContext(ctx, `DELETE FROM bindings WHERE harness = ? AND session_id = ? AND server = ? AND board = ?
+                AND NOT ((member_id <> '' AND member_id = ?) OR (member_id = '' AND ? = '' AND agent = ?))`,
+				b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.Board, b.Agent.MemberID, b.Agent.MemberID, b.Agent.Name)
+		} else {
+			_, err = tx.ExecContext(ctx, `DELETE FROM bindings WHERE harness = ? AND session_id = ?
+                AND NOT (server = ? AND ((member_id <> '' AND member_id = ?) OR (member_id = '' AND ? = '' AND board = ? AND agent = ?)))`,
+				b.Session.Harness, b.Session.ID, b.Agent.Server, b.Agent.MemberID, b.Agent.MemberID, b.Agent.Board, b.Agent.Name)
+		}
 		if err != nil {
 			return fmt.Errorf("end the earlier binding of session %s: %w", b.Session, err)
 		}
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO bindings (server, board, agent, member_id, harness, session_id, bound_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO bindings (server, board, agent, member_id, harness, session_id, bound_at, generation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (server, member_id) WHERE member_id <> '' DO UPDATE SET
-				board = excluded.board, agent = excluded.agent, harness = excluded.harness, session_id = excluded.session_id, bound_at = excluded.bound_at
+				board = excluded.board, agent = excluded.agent, harness = excluded.harness, session_id = excluded.session_id, bound_at = excluded.bound_at, generation = excluded.generation
 			ON CONFLICT (server, board, agent) WHERE member_id = '' DO UPDATE SET
-				harness = excluded.harness, session_id = excluded.session_id, bound_at = excluded.bound_at`,
-			b.Agent.Server, b.Agent.Board, b.Agent.Name, b.Agent.MemberID, b.Session.Harness, b.Session.ID, formatTime(b.BoundAt))
+				harness = excluded.harness, session_id = excluded.session_id, bound_at = excluded.bound_at, generation = excluded.generation`,
+			b.Agent.Server, b.Agent.Board, b.Agent.Name, b.Agent.MemberID, b.Session.Harness, b.Session.ID, formatTime(b.BoundAt), b.Generation)
 		if err != nil {
 			return fmt.Errorf("bind %s on %s: %w", b.Agent.Name, b.Agent.Board, err)
 		}
 		return nil
 	})
+	if err != nil {
+		return delivery.Binding{}, err
+	}
+	return b, nil
 }
 
 // Bindings returns every agent's binding.
 func (j *Journal) Bindings(ctx context.Context) ([]delivery.Binding, error) {
-	rows, err := j.db.QueryContext(ctx, `SELECT server, board, agent, member_id, harness, session_id, bound_at FROM bindings ORDER BY server, board, agent`)
+	rows, err := j.db.QueryContext(ctx, `SELECT server, board, agent, member_id, harness, session_id, bound_at, generation FROM bindings ORDER BY server, board, agent`)
 	if err != nil {
 		return nil, fmt.Errorf("list bindings: %w", err)
 	}
@@ -253,7 +289,7 @@ func (j *Journal) Bindings(ctx context.Context) ([]delivery.Binding, error) {
 	for rows.Next() {
 		var b delivery.Binding
 		var bound string
-		if err := rows.Scan(&b.Agent.Server, &b.Agent.Board, &b.Agent.Name, &b.Agent.MemberID, &b.Session.Harness, &b.Session.ID, &bound); err != nil {
+		if err := rows.Scan(&b.Agent.Server, &b.Agent.Board, &b.Agent.Name, &b.Agent.MemberID, &b.Session.Harness, &b.Session.ID, &bound, &b.Generation); err != nil {
 			return nil, fmt.Errorf("read binding: %w", err)
 		}
 		if b.BoundAt, err = parseTime(bound); err != nil {
@@ -419,7 +455,7 @@ func (j *Journal) Deliveries(ctx context.Context, states ...delivery.State) ([]d
 func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]delivery.Delivery, error) {
 	rows, err := j.db.QueryContext(ctx, `
 		SELECT d.id, d.server, d.board, d.agent, d.member_id, d.harness, d.session_id, d.boot, d.attempts, d.reason,
-		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, m.seq
+		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, d.handoff_id, m.seq
 		FROM deliveries d JOIN delivery_messages m ON m.delivery_id = d.id
 		WHERE d.state = ?
 		ORDER BY d.id, m.seq`, string(state))
@@ -433,7 +469,7 @@ func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]del
 		var retry, created, updated, accepted, turnStarted string
 		var seq int
 		if err := rows.Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Agent.MemberID, &d.Session.Harness, &d.Session.ID,
-			&d.Boot, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &turnStarted, &d.Stalled, &seq); err != nil {
+			&d.Boot, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &turnStarted, &d.Stalled, &d.HandoffID, &seq); err != nil {
 			return nil, fmt.Errorf("read delivery: %w", err)
 		}
 		if n := len(out); n > 0 && out[n-1].ID == d.ID {
@@ -482,6 +518,11 @@ func (j *Journal) ResolveIdentity(ctx context.Context, old, resolved delivery.Ag
 				return fmt.Errorf("resolve journal identity: conflicting %s for member %s", table, resolved.MemberID)
 			}
 		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO seat_generations (server, member_id, generation)
+            SELECT server, ?, 1 FROM bindings WHERE server = ? AND board = ? AND agent = ? AND member_id = ''
+            ON CONFLICT (server, member_id) DO UPDATE SET generation = generation + 1`, resolved.MemberID, old.Server, old.Board, old.Name); err != nil {
+			return err
+		}
 		for _, update := range []struct{ table, query string }{
 			{"bindings", `UPDATE bindings SET member_id = ? WHERE server = ? AND board = ? AND agent = ? AND member_id = ''`},
 			{"modes", `UPDATE modes SET member_id = ? WHERE server = ? AND board = ? AND agent = ? AND member_id = ''`},
@@ -491,6 +532,10 @@ func (j *Journal) ResolveIdentity(ctx context.Context, old, resolved delivery.Ag
 				resolved.MemberID, old.Server, old.Board, old.Name); err != nil {
 				return fmt.Errorf("resolve %s identity: %w", update.table, err)
 			}
+		}
+
+		if _, err := tx.ExecContext(ctx, `UPDATE bindings SET generation = (SELECT generation FROM seat_generations WHERE server = ? AND member_id = ?) WHERE server = ? AND member_id = ?`, resolved.Server, resolved.MemberID, resolved.Server, resolved.MemberID); err != nil {
+			return err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE sessions SET lost_member_id = ? WHERE lost_server = ? AND lost_board = ? AND lost_agent = ? AND lost_member_id = ''`,
 			resolved.MemberID, old.Server, old.Board, old.Name); err != nil {

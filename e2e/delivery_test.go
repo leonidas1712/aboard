@@ -104,54 +104,65 @@ func TestUnconfirmedBundleGoesToTheNextSession(t *testing.T) {
 	}
 }
 
-// A session fills one seat at a time: joining another board moves it there. The old
-// agent's later messages wait for whichever session resumes it, and the bundle handed
-// for it before the move is handed again there, so nothing is lost.
-func TestJoiningAnotherBoardMovesTheSession(t *testing.T) {
+// Joining another board keeps both seats, delivers their messages together, and
+// requires an explicit board for replies and messages.
+func TestJoiningAnotherBoardRetainsTheSessionsSeats(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer, reviewer := pairedClaudeSessions(t, e)
+	var originalID string
+	for _, cred := range credentialsOf(t, e) {
+		if cred["board"] == "writer-reviewer" && cred["name"] == "reviewer" {
+			originalID, _ = cred["member_id"].(string)
+		}
+	}
+	if originalID == "" {
+		t.Fatal("original seat has no immutable member id")
+	}
 	line := field(t, e.run("pair", "writer-reviewer", "--new", "--json").json(t), "join.line").(string)
-
 	stop := reviewer.startHook("stop")
-	writer.run("say", "--to", "@reviewer", "handed before the move")
+	writer.run("say", "--to", "@reviewer", "handed before the second board")
 	if woke := stop.wait(5 * time.Second); woke.code != 2 {
 		t.Fatalf("no wake\n%s", woke)
 	}
-	// In the woken turn, before anything confirms the bundle, the session joins another board.
-	moved := reviewer.run("join", line, "--name", "sweeper")
-	if !strings.Contains(moved.stdout, "This session was reviewer on writer-reviewer; it is now sweeper on writer-reviewer-2.") {
-		t.Fatalf("join didn't say the session moved\n%s", moved)
+	reviewer.run("join", line, "--name", "sweeper")
+	status := reviewer.run("status", "--json").json(t)
+	seats, ok := status["seats"].([]any)
+	if !ok || len(seats) != 2 {
+		t.Fatalf("session did not retain both seats: %+v", status)
 	}
-	if got := field(t, reviewer.run("status", "--json").json(t), "agent"); got != "sweeper" {
-		t.Fatalf("status in the session shows agent %v, want sweeper", got)
+	bound := map[string]map[string]any{}
+	for _, raw := range seats {
+		seat := raw.(map[string]any)
+		bound[seat["board"].(string)] = seat
 	}
-	again := reviewer.run("resume", "sweeper", "--json").json(t)
-	if prev := field(t, again, "previous_agent"); prev != nil {
-		t.Fatalf("resuming the agent the session already holds moved it from %v", prev)
+	if bound["writer-reviewer"]["name"] != "reviewer" || bound["writer-reviewer-2"]["name"] != "sweeper" ||
+		bound["writer-reviewer"]["member_id"] != originalID || bound["writer-reviewer-2"]["member_id"] == "" ||
+		bound["writer-reviewer"]["member_id"] == bound["writer-reviewer-2"]["member_id"] {
+		t.Fatalf("wrong board identities: %+v", bound)
 	}
-
-	writer.run("say", "--to", "@reviewer", "for the old seat")
-	e.run("say", "--as", "writer", "--board", "writer-reviewer-2", "--to", "@sweeper", "for the new seat")
+	original := writer.run("say", "--to", "@reviewer", "for the original seat", "--json").json(t)
+	e.run("say", "--as", "writer", "--board", "writer-reviewer-2", "--to", "@sweeper", "for the second seat")
 	woke := reviewer.startHook("stop").wait(5 * time.Second)
-	if woke.code != 2 || !strings.Contains(woke.stderr, "for the new seat") ||
-		strings.Contains(woke.stderr, "for the old seat") || strings.Contains(woke.stderr, "handed before the move") {
-		t.Fatalf("the moved session should get only the new seat's messages\n%s", woke)
+	if woke.code != 2 {
+		t.Fatalf("retained seats did not wake\n%s", woke)
 	}
-
-	next := e.claudeSession("s-reviewer-2")
-	resumed := next.run("resume", "reviewer", "--json").json(t)
-	if prev := field(t, resumed, "previous_agent"); prev != nil {
-		t.Fatalf("a session with no agent moved from %v", prev)
+	for _, want := range []string{`board="writer-reviewer"`, `board="writer-reviewer-2"`, "for the original seat", "for the second seat"} {
+		if !strings.Contains(woke.stderr, want) {
+			t.Fatalf("combined delivery lacks %q\n%s", want, woke)
+		}
 	}
-	// The bundle handed before the move goes again as it was, then what came after it.
-	got := next.startHook("stop").wait(5 * time.Second)
-	if got.code != 2 || !strings.Contains(got.stderr, "handed before the move") {
-		t.Fatalf("resuming the old agent should hand its unconfirmed bundle again\n%s", got)
+	if strings.Contains(woke.stderr, "handed before the second board") {
+		t.Fatalf("joining another board redelivered the accepted first bundle\n%s", woke)
 	}
-	got = next.startHook("stop").wait(5 * time.Second)
-	if got.code != 2 || !strings.Contains(got.stderr, "for the old seat") {
-		t.Fatalf("resuming the old agent should deliver what came after the move\n%s", got)
+	seq := int(field(t, original, "message.seq").(float64))
+	reply := reviewer.run("say", "--board", "writer-reviewer", "--reply", strconv.Itoa(seq), "reply from the original seat", "--json").json(t)
+	if field(t, reply, "message.board") != "writer-reviewer" || field(t, reply, "message.reply_to_seq") != float64(seq) {
+		t.Fatalf("reply reached the wrong board: %+v", reply)
+	}
+	second := reviewer.run("say", "--board", "writer-reviewer-2", "--to", "@writer", "message from the second seat", "--json").json(t)
+	if field(t, second, "message.board") != "writer-reviewer-2" {
+		t.Fatalf("message reached the wrong board: %+v", second)
 	}
 }
 

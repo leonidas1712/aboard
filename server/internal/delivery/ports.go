@@ -2,7 +2,9 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"net"
+	"time"
 )
 
 // Adapter is how the daemon reaches one harness. A new harness is a new Adapter; it
@@ -22,9 +24,24 @@ type Adapter interface {
 	Hand(ctx context.Context, h Handover) (confirmed bool, err error)
 }
 
+// Class is derived from every admitted message, never from rendered text.
+type Class string
+
+// Handoff classes distinguish owner-only payloads from mixed or unknown ones.
+const (
+	ClassOwnerOnly      Class = "owner_only"
+	ClassMixed          Class = "mixed"
+	CapabilityHandoffV1       = "handoff-v1"
+)
+
+// ErrExtensionOutdated means the connected extension cannot receive combined handoffs.
+var ErrExtensionOutdated = errors.New("the extension does not support combined handoffs")
+
 // Handover is one bundle for one session.
 type Handover struct {
 	SessionID string
+	HandoffID string
+	Class     Class
 	// ID is the first delivery the bundle carries, which a harness extension names when
 	// it confirms the bundle.
 	ID     int64
@@ -43,6 +60,12 @@ type Waiter interface {
 	// Release tells a hook to exit without a bundle. An extension's connection stays
 	// open, so it is told nothing.
 	Release()
+}
+
+// HandoffWaiter accepts an immutable combined handoff or an explicitly classified
+// legacy delivery. Existing one-seat waiters need only implement Waiter.
+type HandoffWaiter interface {
+	DeliverHandoff(context.Context, Handover) error
 }
 
 // Server is one Aboard server, reached with this machine's logins.
@@ -69,6 +92,10 @@ type Journal interface {
 	SaveSession(ctx context.Context, s SessionRecord) error
 	Sessions(ctx context.Context) ([]SessionRecord, error)
 	Bind(ctx context.Context, b Binding) error
+	BindGeneration(ctx context.Context, b Binding, advance bool) (Binding, error)
+	PrepareHandoff(ctx context.Context, manifest HandoffManifest) (HandoffManifest, error)
+	ConfirmHandoff(ctx context.Context, id string, session SessionKey, boot string, surviving []AgentKey, at time.Time) ([]Delivery, error)
+	Handoffs(ctx context.Context) ([]HandoffManifest, error)
 	Bindings(ctx context.Context) ([]Binding, error)
 	// ResolveIdentity attaches legacy state to the seat proved by its own token.
 	// It never changes rows that already name a different seat.
