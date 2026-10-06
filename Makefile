@@ -261,7 +261,9 @@ $(GOLANGCI_LINT):
 
 $(GORELEASER):
 	@mkdir -p $(BIN)/tmp
-	GOBIN=$(BIN)/tmp go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
+	# GoReleaser needs a newer Go than the one we build with; auto fetches it (checked
+	# against the Go checksum database) for this install only.
+	GOTOOLCHAIN=auto GOBIN=$(BIN)/tmp go install github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 	@mv $(BIN)/tmp/goreleaser $@
 
 $(GOVULNCHECK):
