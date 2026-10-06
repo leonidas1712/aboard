@@ -145,6 +145,21 @@ tar -tvzf "$tmp/$archive" >"$tmp/entries" 2>/dev/null || fail "$archive isn't a 
 if grep -v -E '^[A-Za-z0-9_][A-Za-z0-9._-]*$' "$tmp/names" >/dev/null || grep -v '^-' "$tmp/entries" >/dev/null; then
 	fail "$archive holds something other than plain files (a folder, a link or a path). Nothing was installed."
 fi
+# The same limits as aboard upgrade: no file over 64 MiB, 128 MiB in all, 32 files. The
+# size is the 5th field in bsdtar's listing and the 3rd in GNU and busybox tar's, whose
+# 2nd field is owner/group.
+[ "$(grep -c . "$tmp/names")" -le 32 ] || fail "$archive holds more than 32 files. Nothing was installed."
+limits=$(awk '{
+	size = (index($2, "/") > 0) ? $3 : $5
+	if (size !~ /^[0-9]+$/) { print "unreadable"; exit }
+	if (size + 0 > 64 * 1048576) { print "large"; exit }
+	total += size
+} END { if (total > 128 * 1048576) print "total" }' "$tmp/entries")
+case "$limits" in
+unreadable) fail "$archive's listing couldn't be read. Nothing was installed." ;;
+large) fail "$archive holds $(awk '{ size = (index($2, "/") > 0) ? $3 : $5; if (size + 0 > 64 * 1048576) { print $NF; exit } }' "$tmp/entries"), larger than 64 MiB. Nothing was installed." ;;
+total) fail "$archive unpacks to more than 128 MiB. Nothing was installed." ;;
+esac
 mkdir "$tmp/unpacked"
 tar -xzf "$tmp/$archive" -C "$tmp/unpacked" || fail "couldn't unpack $archive. Nothing was installed."
 new="$tmp/unpacked/aboard"

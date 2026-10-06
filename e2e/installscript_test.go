@@ -410,6 +410,19 @@ func TestInstallScriptRefuses(t *testing.T) {
 			r.publish(append(goodEntries(), archiveEntry{name: "sub/", typ: tar.TypeDir}))
 			return nil
 		}, notPlain},
+		{"a file too large", func(r *installRelease) []string {
+			// One byte over the 64 MiB a file in a release archive may have.
+			r.publish(append(goodEntries(), archiveEntry{name: "padding", body: string(make([]byte, 64<<20+1))}))
+			return nil
+		}, "holds padding, larger than 64 MiB"},
+		{"too many files", func(r *installRelease) []string {
+			entries := goodEntries()
+			for i := range 40 {
+				entries = append(entries, archiveEntry{name: fmt.Sprintf("extra-%02d", i), body: "x"})
+			}
+			r.publish(entries)
+			return nil
+		}, "holds more than 32 files"},
 		{"a plain-HTTP download address", func(r *installRelease) []string {
 			return []string{"ABOARD_DOWNLOAD_URL=http://releases.example.test/releases"}
 		}, "ABOARD_DOWNLOAD_URL must start with https://"},
