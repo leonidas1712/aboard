@@ -125,20 +125,24 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       const since = prefs.seen(root.id) ?? (lastSeen > 0 ? lastSeen : (opened.current ?? 0));
       const waits = all.find((r) => waiting.has(r.id)) ?? null;
       const fresh = all.filter((r) => r.seq > since && r.sender !== "self");
+      // A reply to the person they haven't read opens its thread, as a question does: a
+      // collapsed reply is never acknowledged, so it would stay pending and unread.
+      const from = s.readFrom;
+      const forMe = from !== null && all.some((r) => r.seq > from && r.sender !== "self" && s.toMe.has(r.id) && !r.to.includes("all"));
       return {
         root: root.id,
         replies: only ?? all,
         total: all.length,
         lastAt: last.at,
         repliers,
-        open: prefs.open(root.id) ?? waits !== null,
+        open: prefs.open(root.id) ?? (waits !== null || forMe),
         filtered: only !== null,
         fresh: fresh.length,
         firstFresh: fresh[0]?.id ?? null,
         waiting: waits,
       };
     },
-    [threads, prefs, lastSeen, waiting],
+    [threads, prefs, lastSeen, waiting, s.readFrom, s.toMe],
   );
 
   const entries = useMemo<Entry[]>(() => {
