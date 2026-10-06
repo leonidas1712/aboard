@@ -59,7 +59,7 @@ Status on 2026-10-06, checked against merged work.
 | 3. Members, roles and guests | All: roles, removing a person, guest codes, pairing and guest codes split (#96) | |
 | 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88) | Archive, restore, delete (4b) |
 | 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c), bots, project labels |
-| 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the CLI inbox across boards |
+| 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the person's CLI inbox across boards |
 | 7. A server for a team | | Load test, version-skew check, backup before each migration |
 | After: deploying | | HTTPS, a container and a recipe, the release job and install script, the two-machine test |
 
