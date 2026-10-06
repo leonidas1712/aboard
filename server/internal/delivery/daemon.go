@@ -1000,7 +1000,7 @@ func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: Eve
 func (d *Daemon) status(ctx context.Context) Response {
 	st := &Status{
 		MultiSeat: multiSeatEnabled,
-		PID: d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
+		PID:       d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
 		Attention: []StatusItem{}, Skipped: []StatusItem{}, Stalled: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
 	}
 	d.mu.Lock()
