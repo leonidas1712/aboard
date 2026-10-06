@@ -43,7 +43,8 @@ func (tm *team) agentToken(e *env, board string) string {
 
 // People on a board are listed with their board role; a member adds people but only an
 // owner removes them; the last owner can't leave; a removed person and their agent lose
-// the private board at once; and an agent's session can't manage people.
+// the private board at once. An agent needs the board's permission to add people;
+// removing people and changing access still belong to the person.
 func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
@@ -76,9 +77,22 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 		t.Fatalf("a member turning the board open:\n%s", r)
 	}
 
-	// Inside an agent's session, managing people is handed to the person.
 	s := maya.claudeSession("s-people")
-	for _, args := range [][]string{{"board", "add", "@kim"}, {"board", "remove", "@sam"}, {"board", "visibility", "open"}, {"board", "leave"}} {
+	s.run("join", "--board", board, "--server", tm.url(), "--json")
+	status, before := tm.call("GET", "/v1/boards/"+board, tm.key(maya), nil)
+	if status != http.StatusOK {
+		t.Fatalf("board before refused addition: status %d, error %v", status, before["error"])
+	}
+	refused := s.runExit("board", "add", "@kim", "--board", board, "--json")
+	if refused.code != 1 || errorCode(t, refused.json(t)) != "add_people_not_allowed" {
+		t.Fatalf("agent adding people to a private board without opt-in: exit %d, error %v", refused.code, refused.json(t)["error"])
+	}
+	status, after := tm.call("GET", "/v1/boards/"+board, tm.key(maya), nil)
+	if status != http.StatusOK || after["head_seq"] != before["head_seq"] {
+		t.Fatal("refused agent addition changed the private board")
+	}
+	// Access changes inside the agent's session are still handed to the person.
+	for _, args := range [][]string{{"board", "remove", "@sam"}, {"board", "visibility", "open"}, {"board", "leave"}} {
 		r := s.e.exec(s.vars, "", append(args, "--json")...)
 		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
 			t.Fatalf("%v in an agent's session:\n%s", args, r)
