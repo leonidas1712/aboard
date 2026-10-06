@@ -183,6 +183,9 @@ type hook struct {
 	clock  *clock.Fake
 	conn   net.Conn
 	events chan delivery.Response
+	// still, when set, is called once while the hook waits, when it first stops moving
+	// the clock.
+	still func()
 }
 
 // passStep and passLimit are how the fake clock moves while a test waits for the daemon
@@ -200,6 +203,13 @@ const (
 // that were further off can come within QueueGather and fire.
 func await[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string) (T, bool) {
 	t.Helper()
+	return awaitStill(t, c, ch, what, nil)
+}
+
+// awaitStill is await that calls still, once, the first time it decides not to move
+// the clock.
+func awaitStill[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string, still func()) (T, bool) {
+	t.Helper()
 	deadline := time.After(within)
 	for {
 		select {
@@ -215,6 +225,9 @@ func await[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string) (T, boo
 			}
 			if next, ok := c.Next(); ok && !next.After(c.Now().Add(delivery.QueueGather)) {
 				c.Advance(min(passStep, next.Sub(c.Now())))
+			} else if still != nil {
+				still()
+				still = nil
 			}
 		}
 	}
@@ -267,7 +280,7 @@ func (r *rig) wait(id, boot string, resumed bool) *hook {
 // next returns what the hook got: a bundle or a release.
 func (h *hook) next() delivery.Response {
 	h.t.Helper()
-	resp, ok := await(h.t, h.clock, h.events, "the hook")
+	resp, ok := awaitStill(h.t, h.clock, h.events, "the hook", h.still)
 	if !ok {
 		h.t.Fatal("the hook's connection closed without an event")
 	}
@@ -672,8 +685,8 @@ func (g *gatedInbox) Inbox(ctx context.Context, agent delivery.AgentRef) ([]deli
 	return g.Server.Inbox(ctx, agent)
 }
 
-// The next session's inbox read may answer only after a waiting hook has seen the
-// fake clock move past QueueGather and more; the daemon starts gathering from that late
+// The next session's inbox read may answer only after a waiting hook has stopped
+// moving the fake clock; the daemon starts gathering from that late
 // answer, and the bundle still goes. This is how the test above failed on slow runners.
 func TestUnconfirmedBundleGoesToTheNextSessionAfterALateInboxRead(t *testing.T) {
 	g := &gatedInbox{release: make(chan struct{})}
@@ -694,25 +707,8 @@ func TestUnconfirmedBundleGoesToTheNextSessionAfterALateInboxRead(t *testing.T) 
 	r.register("s2", "c1")
 	r.bind("claude-code", "s2", reviewer)
 	h := r.wait("s2", "c1", false)
-	// Answer the inbox read once the hook's wait has moved the clock past passLimit, or
-	// has stopped moving it: either way, after the time the daemon would have gathered.
-	start := r.clock.Now()
-	go func() {
-		last, still := start, 0
-		for still < 20 {
-			<-time.After(5 * time.Millisecond) // a poll interval, not a wait for the daemon
-			now := r.clock.Now()
-			if now.Sub(start) >= passLimit {
-				break
-			}
-			if now.Equal(last) {
-				still++
-			} else {
-				last, still = now, 0
-			}
-		}
-		open()
-	}()
+	// Answer the inbox read only once the hook's wait has stopped moving the clock.
+	h.still = open
 	if b := h.bundle(); !strings.Contains(b, "please review") {
 		t.Fatalf("next session got:\n%s", b)
 	}
