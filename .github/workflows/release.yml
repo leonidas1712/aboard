@@ -1,0 +1,135 @@
+# Builds, signs and publishes a release when a version tag (v0.2.0, v0.2.0-rc.1) is
+# pushed: the archives for macOS and Linux on ARM and Intel with the web UI embedded,
+# checksums.txt signed with cosign under this workflow's identity, an SBOM per archive,
+# the install script, and the server image on GHCR. engineering/release.md says how to
+# cut a release.
+#
+# Run by hand (workflow_dispatch), it is a dry run: the same checks and a snapshot build
+# of everything, with read-only permissions, publishing nothing.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Every job starts read-only; only the release job, which runs only for a pushed tag,
+# gets more.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The fast checks, since merges are gated by local checks rather than CI.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install tmux
+        run: command -v tmux || { sudo apt-get update && sudo apt-get install -y tmux; }
+      - name: Check the tag matches the source's version
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          source_version="$(sed -n 's/^var version = "\(.*\)"$/\1/p' server/internal/cli/build.go)"
+          tag_version="${TAG#v}"
+          case "$tag_version" in
+          "$source_version" | "$source_version"-*) ;;
+          *) echo "The tag $TAG doesn't match version $source_version in server/internal/cli/build.go"; exit 1 ;;
+          esac
+      - name: make fmt-check vet test e2e
+        run: make fmt-check vet test e2e
+      - name: make web
+        run: make web
+
+  # A pushed tag: build, sign and publish.
+  release:
+    needs: checks
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Protection rules on this environment (required reviewers, tags only) are set in the
+    # repository's settings; engineering/release.md lists them.
+    environment: release
+    permissions:
+      contents: write # create the release and upload its files
+      id-token: write # cosign's keyless signing with this workflow's identity
+      packages: write # push the server image to GHCR
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Install cosign and syft
+        run: |
+          go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.3
+          go install github.com/anchore/syft/cmd/syft@v1.54.0
+          echo "$(go env GOPATH)/bin" >>"$GITHUB_PATH"
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+      - name: Release notes from CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: scripts/release-notes "$TAG" >"$RUNNER_TEMP/notes.md"
+      - name: make release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make release RELEASE_NOTES="$RUNNER_TEMP/notes.md"
+
+  # Run by hand: the snapshot build of every archive and the image, nothing published.
+  dry-run:
+    needs: checks
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Install syft
+        run: |
+          go install github.com/anchore/syft/cmd/syft@v1.54.0
+          echo "$(go env GOPATH)/bin" >>"$GITHUB_PATH"
+      - name: make release-snapshot, with the image
+        run: make release-snapshot RELEASE_SKIP=sign
+      - name: What the release would publish
+        run: ls -l dist

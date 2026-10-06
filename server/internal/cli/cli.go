@@ -117,6 +117,7 @@ func commands() []command {
 		{"init", runInit},
 		{"doctor", runDoctor},
 		{"uninstall", runUninstall},
+		{"upgrade", runUpgrade},
 		{"version", runVersion},
 		{"help", runHelp},
 		{"serve", runServe},
@@ -158,7 +159,10 @@ func Run(ctx context.Context, args []string, env Env) int {
 		if !slices.Contains(noLaunchClaim, c.name) {
 			a.claimLaunch(ctx)
 		}
-		return a.report(c.run(ctx, a, args[1:]))
+		notice := a.startUpdateCheck(ctx, c.name)
+		code := a.report(c.run(ctx, a, args[1:]))
+		notice()
+		return code
 	}
 	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")
 	e.Hint = "Run aboard help to see the commands."

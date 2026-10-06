@@ -1,0 +1,125 @@
+# The release build: .github/workflows/release.yml runs it on a version tag, and
+# make release-snapshot runs it locally without publishing anything. What it produces
+# and why is in engineering/release.md.
+version: 2
+
+project_name: aboard
+
+before:
+  hooks:
+    # The web UI is built once and embedded in every aboard binary (the ui tag).
+    - make web
+
+builds:
+  - id: aboard
+    main: ./server/cmd/aboard
+    binary: aboard
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    tags: [ui]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/leonidas1712/aboard/server/internal/cli.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  # Each launcher in launchers/ ships next to aboard as aboard-launcher-<name>.
+  # e2e/installscript_test.go fails when a launcher has no build here.
+  - id: launcher-herdr
+    main: ./launchers/herdr
+    binary: aboard-launcher-herdr
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+# make release-snapshot stamps a dev version (0.1.0+dev.<commit>), like make dev, so a
+# snapshot never passes for a release.
+snapshot:
+  version_template: '{{ envOrDefault "ABOARD_SNAPSHOT_VERSION" "0.0.0+dev" }}'
+
+archives:
+  # Flat archives holding only regular files: scripts/install.sh refuses anything else.
+  - id: aboard
+    ids: [aboard, launcher-herdr]
+    formats: [tar.gz]
+    name_template: "aboard_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+sboms:
+  - id: archives
+    artifacts: archive
+    documents: ["{{ .ArtifactName }}.sbom.json"]
+
+# Keyless signing with the release job's GitHub identity: the bundle holds the signature
+# and the certificate naming .github/workflows/release.yml on the tag. scripts/install.sh
+# checks it when cosign is installed.
+signs:
+  - id: checksums
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: [sign-blob, "--bundle=${signature}", "--yes", "${artifact}"]
+
+# The server image for team servers. The build context holds the binaries at
+# <os>/<arch>/aboard (linux/amd64/aboard, linux/arm64/aboard), which Dockerfile.release
+# copies by $TARGETPLATFORM. The root Dockerfile builds the same image from source.
+dockers_v2:
+  - id: server
+    ids: [aboard]
+    dockerfile: Dockerfile.release
+    images: ["ghcr.io/leonidas1712/aboard"]
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms: [linux/amd64, linux/arm64]
+    labels:
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: Apache-2.0
+
+docker_signs:
+  - id: server
+    cmd: cosign
+    artifacts: manifests
+    args: [sign, "${artifact}@${digest}", "--yes"]
+
+release:
+  github:
+    owner: leonidas1712
+    name: aboard
+  # A tag such as v0.2.0-rc.1 is published as a prerelease and never becomes "latest",
+  # so the install script and the image's latest tag skip it.
+  prerelease: auto
+  # The install script is attached to every release, so
+  # releases/latest/download/install.sh is the script that matches the latest binaries.
+  extra_files:
+    - glob: ./scripts/install.sh
+
+# The release notes are the version's section of CHANGELOG.md, passed with
+# --release-notes by the release job; GoReleaser writes none of its own.
+changelog:
+  disable: true
+
+# Homebrew: off until the tap repository exists. engineering/release.md says how to
+# turn it on.
+homebrew_casks:
+  - name: aboard
+    ids: [aboard]
+    binaries: [aboard, aboard-launcher-herdr]
+    homepage: https://github.com/leonidas1712/aboard
+    description: A shared room where your coding agents talk to each other and to you.
+    license: Apache-2.0
+    repository:
+      owner: leonidas1712
+      name: homebrew-aboard
+      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
+    skip_upload: true
