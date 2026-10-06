@@ -63,7 +63,7 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 	return known, def, nil
 }
 
-// resolveServer is the server a person command acts on (D202): flag, else the server
+// resolveServer is the server a person command acts on (D203): flag, else the server
 // this directory's .aboard names, else this machine's default server, else the only
 // server it knows, else the local server. With several and no default it refuses with
 // server_not_selected, naming --server and aboard servers use. It starts nothing.
@@ -227,11 +227,19 @@ func (a *app) setDefaultServer(srv serverRef) error {
 	})
 }
 
-// offerDefault runs after this machine signs in to srv. When srv is a server other than
-// the local one, the machine knows other servers too and srv isn't its default, it asks
-// at a terminal whether to make srv the default, and elsewhere says how. It returns
-// whether srv is the default now, and the text to add to the command's output.
+// offerDefault runs after this machine signs in to srv, and decides whether srv becomes
+// its default server (D203). Signing in to a team's server never moves a machine off
+// what it already uses: a machine with a default keeps it, and one that already uses
+// its local server keeps that as its default, saved now so its commands stay
+// unambiguous. Only on a machine with no default and no local server does srv become
+// the default. At a terminal, a machine whose default is another team's server is asked
+// whether to switch. It returns whether srv is the default now, and the text to add to
+// the command's output.
 func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err error) {
+	local := a.localServer()
+	if srv.URL == local.URL {
+		return false, "", nil
+	}
 	known, def, err := a.knownServers()
 	if err != nil {
 		return false, "", err
@@ -239,12 +247,24 @@ func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err erro
 	if def != nil && def.URL == srv.URL {
 		return true, "", nil
 	}
-	if len(known) < 2 || srv.URL == a.localServer().URL {
-		return false, "", nil
-	}
-	if a.interactive() {
-		ok, err := a.asker().confirm("Make "+srv.URL+" this machine's default server?",
-			"Person commands outside a linked folder act on the default server. Change it later with aboard servers use.", true)
+	usesLocal := len(known) > 0 && known[0].Local
+	switch {
+	case def == nil && usesLocal:
+		if err := a.setDefaultServer(local); err != nil {
+			return false, "", err
+		}
+		def = &local
+	case def == nil:
+		if err := a.setDefaultServer(srv); err != nil {
+			return false, "", err
+		}
+		if len(known) < 2 {
+			return true, "", nil
+		}
+		return true, "The default server is now " + srv.URL + ".\n", nil
+	case def.URL != local.URL && a.interactive():
+		ok, err := a.asker().confirm("Make "+srv.URL+" this machine's default server instead of "+def.URL+"?",
+			"Person commands outside a linked folder act on the default server. Change it later with aboard servers use.", false)
 		if errors.Is(err, errAborted) {
 			ok, err = false, nil
 		}
@@ -258,5 +278,9 @@ func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err erro
 			return true, "The default server is now " + srv.URL + ".\n", nil
 		}
 	}
-	return false, "To act on " + srv.URL + " outside a linked folder, pass --server " + srv.URL + " or run: aboard servers use " + srv.URL + "\n", nil
+	stays := def.URL
+	if def.URL == local.URL {
+		stays = "the local server"
+	}
+	return false, "Your default stays " + stays + "; use --server " + srv.URL + " or aboard servers use " + srv.URL + " to switch.\n", nil
 }

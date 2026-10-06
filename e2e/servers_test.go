@@ -3,16 +3,20 @@
 package e2e
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 )
 
-// A machine that runs its own local server and is also connected to a team's server
-// never guesses which one a person command is for (issue #136): with neither --server,
-// .aboard nor a default, keys, people, invite and board new refuse and name both
-// servers. aboard servers lists them, servers use picks the default, and every command
-// names the server it acted on.
+// A machine that runs its own local server and then connects to a team's server keeps
+// the local server as its default, so its commands carry on as before and name the
+// server they acted on (issue #136). A machine that knows several servers with no
+// default, such as one that connected before defaults existed, never guesses: keys,
+// people, invite and board new refuse and name both servers. aboard servers lists them
+// and servers use picks the default.
 func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
@@ -23,19 +27,37 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	connected := maya.run("connect", tm.invite(), "--json").json(t)
 	matchesCLISpec(t, "ConnectOutput", connected)
 	if field(t, connected, "default") != false {
-		t.Fatalf("connect made the team's server the default without asking: %v", connected)
+		t.Fatalf("connect moved a machine that uses its local server to the team's server: %v", connected)
 	}
-
 	listed := maya.run("servers", "--json").json(t)
 	matchesCLISpec(t, "ServersOutput", listed)
-	if n := len(field(t, listed, "servers").([]any)); n != 2 || field(t, listed, "default") != nil {
-		t.Fatalf("servers: %v", listed)
+	if n := len(field(t, listed, "servers").([]any)); n != 2 || field(t, listed, "default.url") != local {
+		t.Fatalf("servers after connect: %v", listed)
+	}
+	if text := maya.run("keys", "create", "laptop").stdout; !strings.Contains(text, " for "+local+" ") {
+		t.Fatalf("keys create with the local server still the default:\n%s", text)
+	}
+
+	// A second machine of maya's that uses its local server says so when it logs in.
+	key := field(t, maya.run("keys", "create", "desktop", "--server", tm.url(), "--json").json(t), "key.token").(string)
+	desktop := newPersonHome(t, "maya")
+	desktop.run("up")
+	login := desktop.exec(nil, key+"\n", "login", tm.url())
+	if login.code != 0 || !strings.Contains(login.stdout,
+		"Your default stays the local server; use --server "+tm.url()+" or aboard servers use "+tm.url()+" to switch.\n") {
+		t.Fatalf("login on a machine that uses its local server:\n%s", login)
+	}
+
+	// A machine that connected before defaults existed has none, and must choose.
+	forgetDefault(t, maya)
+	listed = maya.run("servers", "--json").json(t)
+	if field(t, listed, "default") != nil {
+		t.Fatalf("servers with the default forgotten: %v", listed)
 	}
 	text := maya.run("servers").stdout
 	if !strings.Contains(text, local) || !strings.Contains(text, tm.url()) || !strings.Contains(text, "No default server") {
 		t.Fatalf("servers:\n%s", text)
 	}
-
 	for _, args := range [][]string{
 		{"keys", "create", "browser"},
 		{"keys"},
@@ -56,9 +78,9 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	}
 
 	// --server chooses, and the output names the server.
-	key := maya.run("keys", "create", "browser", "--server", tm.url()).stdout
-	if !strings.HasPrefix(key, `Key "browser" for `+tm.url()+" (shown once") {
-		t.Fatalf("keys create --server:\n%s", key)
+	created := maya.run("keys", "create", "browser", "--server", tm.url()).stdout
+	if !strings.HasPrefix(created, `Key "browser" for `+tm.url()+" (shown once") {
+		t.Fatalf("keys create --server:\n%s", created)
 	}
 	for _, args := range [][]string{{"invite", "--server", tm.url(), "--json"}, {"invite", "--server=" + tm.url(), "--json"}} {
 		inv := maya.runExit(args...)
@@ -96,9 +118,9 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	if field(t, used, "server.url") != local || field(t, used, "previous.url") != tm.url() {
 		t.Fatalf("servers use local: %v", used)
 	}
-	created := maya.run("board", "new", "payments", "--json").json(t)
-	if field(t, created, "server.url") != local {
-		t.Fatalf("board new with the local server as the default: %v", created)
+	board := maya.run("board", "new", "payments", "--json").json(t)
+	if field(t, board, "server.url") != local {
+		t.Fatalf("board new with the local server as the default: %v", board)
 	}
 	inv := maya.run("invite", "--json").json(t)
 	matchesCLISpec(t, "InviteOutput", inv)
@@ -127,7 +149,29 @@ func TestOneKnownServerNeedsNoChoice(t *testing.T) {
 	if got := sam.run("keys", "--json").json(t); field(t, got, "server.url") != tm.url() {
 		t.Fatalf("keys on a machine connected only to a team's server: %v", got)
 	}
-	if text := sam.run("servers").stdout; !strings.Contains(text, tm.url()) || strings.Contains(text, "No default") {
-		t.Fatalf("servers with one server:\n%s", text)
+	if text := sam.run("servers").stdout; !strings.Contains(text, "* "+tm.url()) {
+		t.Fatalf("servers on a machine whose only server is a team's:\n%s", text)
+	}
+}
+
+// forgetDefault removes the default server from a home's servers.json, as on a machine
+// that connected before defaults existed.
+func forgetDefault(t *testing.T, e *env) {
+	t.Helper()
+	path := filepath.Join(e.configDir(), "servers.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v map[string]any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	delete(v, "default")
+	if raw, err = json.Marshal(v); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
 	}
 }

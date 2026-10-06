@@ -14,7 +14,7 @@ With an invite link from an admin of a server (aboard invite `--server`): the se
 
 With the server's address alone, on a machine of yours that isn't connected yet: it asks for your handle and shows a short code, such as 4KQ-7ZX, which you approve within 5 minutes from a machine where you're signed in, with aboard approve. Only your own approval counts. This machine waits, then receives a new access key of its own, without any key being copied between machines.
 
-Either way, the key is saved in servers.json, readable only by you, and sent only to that server. From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. When this machine knows other servers too, it offers to make this one the default (aboard servers), or says how. A machine keeps one key per server. A server other than this machine must be reached over https. Connecting is up to a person, so it refuses inside an agent's session.
+Either way, the key is saved in servers.json, readable only by you, and sent only to that server. From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. A machine that already has a default server, or already uses its local server, keeps it as the default (aboard servers) and says how to switch; otherwise this server becomes the default. A machine keeps one key per server. A server other than this machine must be reached over https. Connecting is up to a person, so it refuses inside an agent's session.
 
 ## Flags
 

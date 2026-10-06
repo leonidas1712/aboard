@@ -224,8 +224,18 @@ and `aboard invite`, act on `--server` when you give it, else on the server the 
 A machine that knows several servers and has no default never guesses: the command
 stops, names the servers and asks you to choose. Choose for the whole machine with
 `aboard servers use https://team.example.com` (or `aboard servers use local`), or for
-one command with `--server`. `aboard connect` and `aboard login` offer to make a new
-server the default. Each command names the server it acted on.
+one command with `--server`. Each command names the server it acted on.
+
+Connecting or logging in to a team's server doesn't change what you already use. On a
+machine that already runs the local server, the local server stays the default, and
+`aboard connect` says so:
+
+```
+Your default stays the local server; use --server https://team.example.com or aboard servers use https://team.example.com to switch.
+```
+
+On a machine with no local server, the first team server you connect to becomes the
+default.
 
 A default never moves an agent: sessions stay on the boards they joined.
 

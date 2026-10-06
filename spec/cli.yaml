@@ -108,7 +108,7 @@
 #   --board, then the project's .aboard file, then the machine default.
 # - Server for person commands (keys, people, board new, invite and invite --server, the
 #   person forms of board people, title, policy, add, remove, leave, owner and
-#   visibility) (D202): --server, then the server this directory's .aboard names, then
+#   visibility) (D203): --server, then the server this directory's .aboard names, then
 #   this machine's default server (aboard servers use), then the only server it knows.
 #   The servers it knows are the local server, once it has an owner login, and every
 #   server in servers.json. With several and no default, these commands fail with
@@ -813,7 +813,7 @@ $defs:
     properties:
       server:
         $ref: "#/$defs/ServerRef"
-        description: The board's server (D202).
+        description: The board's server (D203).
       board: { type: string, examples: [general] }
       role: { type: string, examples: [member] }
       join_line:
@@ -848,7 +848,7 @@ $defs:
     properties:
       server:
         $ref: "#/$defs/ServerRef"
-        description: The board's server (D202).
+        description: The board's server (D203).
       board: { type: string, examples: [payments-design] }
       role: { type: string, examples: [member] }
       guest: { $ref: openapi.yaml#/components/schemas/Handle }
@@ -932,12 +932,18 @@ $defs:
       default:
         type: boolean
         description: |
-          True when the server is now this machine's default server (D202). When the
-          machine knows other servers too, at a terminal it asks "Make <url> this
-          machine's default server?" (default yes); elsewhere it changes nothing and the
-          text output ends with "To act on <url> outside a linked folder, pass --server
-          <url> or run: aboard servers use <url>". A machine that knows no other server
-          needs no default, so it neither asks nor says so.
+          True when the server is now this machine's default server (D203). Adding a
+          team's server never moves a machine off what it already uses. A machine that
+          has a default keeps it; one with no default that already uses its local server
+          (it has a local owner login) makes the local server its default, saved now. In
+          both cases the text output ends with "Your default stays the local server; use
+          --server <url> or aboard servers use <url> to switch." (naming the other
+          default's URL when it isn't the local server). Only a machine with no default
+          and no local server makes the new server its default; when it knows other
+          servers too, the text says "The default server is now <url>." At a terminal, a
+          machine whose default is another team's server is asked "Make <url> this
+          machine's default server instead of <default>?" (default no). Signing in to
+          the local server leaves the default alone and false here.
 
   # ---------- aboard approve <code> [--refuse] [--yes] [--server URL] ----------
   ApproveOutput:
@@ -1113,17 +1119,23 @@ $defs:
       default:
         type: boolean
         description: |
-          True when the server is now this machine's default server (D202). When the
-          machine knows other servers too, at a terminal it asks "Make <url> this
-          machine's default server?" (default yes); elsewhere it changes nothing and the
-          text output ends with "To act on <url> outside a linked folder, pass --server
-          <url> or run: aboard servers use <url>". A machine that knows no other server
-          needs no default, so it neither asks nor says so.
+          True when the server is now this machine's default server (D203). Adding a
+          team's server never moves a machine off what it already uses. A machine that
+          has a default keeps it; one with no default that already uses its local server
+          (it has a local owner login) makes the local server its default, saved now. In
+          both cases the text output ends with "Your default stays the local server; use
+          --server <url> or aboard servers use <url> to switch." (naming the other
+          default's URL when it isn't the local server). Only a machine with no default
+          and no local server makes the new server its default; when it knows other
+          servers too, the text says "The default server is now <url>." At a terminal, a
+          machine whose default is another team's server is asked "Make <url> this
+          machine's default server instead of <default>?" (default no). Signing in to
+          the local server leaves the default alone and false here.
 
   # ---------- aboard servers ----------
   ServersOutput:
     description: |
-      The servers this machine knows (D202): the local server, once it has an owner
+      The servers this machine knows (D203): the local server, once it has an owner
       login, and every server in servers.json, from aboard connect, aboard login or a
       join line. One of them may be the machine's default server, which person commands
       use outside a folder whose .aboard chooses one (see the rules above). A person
@@ -1161,7 +1173,7 @@ $defs:
   # ---------- aboard servers use <url|local> ----------
   ServersUseOutput:
     description: |
-      Makes a server this machine knows its default server (D202), saved in
+      Makes a server this machine knows its default server (D203), saved in
       servers.json. "local" names the local server. A server this machine doesn't know
       fails with server_unknown, whose details.choices lists the ones it does; nothing
       changes. It never moves an agent: sessions stay on the boards they joined, and a

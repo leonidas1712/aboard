@@ -79,7 +79,7 @@ func sourceText(source string) string {
 // humanBoard picks the board a person's command acts on, as selectBoard does, except
 // that in a directory with no .aboard the server is the one resolveServer picks: the
 // default server, else the only one this machine knows. With several and no default it
-// refuses with server_not_selected rather than guess (D202).
+// refuses with server_not_selected rather than guess (D203).
 func (a *app) humanBoard(boardFlag string) (target, error) {
 	t, err := a.selectBoard(boardFlag)
 	if err != nil {
