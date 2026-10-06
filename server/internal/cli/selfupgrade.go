@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -172,9 +171,10 @@ func (a *app) installedFromRelease(exe string) error {
 	return nil
 }
 
-// replacePrograms writes each program next to the running one under a temporary name,
-// then renames each into place. A failure before the renames removes what it wrote, so
-// the old programs stay as they were.
+// replacePrograms writes each program next to the running one into a new file with a
+// random name, created exclusively so no link planted beforehand is followed, then
+// renames each into place. A failure before the renames removes what it wrote, so the
+// old programs stay as they were.
 func replacePrograms(dir string, names []string, files map[string][]byte) error {
 	parts := make([]string, 0, len(names))
 	cleanup := func() {
@@ -183,13 +183,11 @@ func replacePrograms(dir string, names []string, files map[string][]byte) error 
 		}
 	}
 	for _, n := range names {
-		part := filepath.Join(dir, "."+n+".upgrade."+strconv.Itoa(os.Getpid()))
-		parts = append(parts, part)
-		if err := os.WriteFile(part, files[n], 0o755); err != nil { //nolint:gosec // an installed program
-			cleanup()
-			return upgradeFailed(dir, err)
+		part, err := stageProgram(dir, n, files[n])
+		if part != "" {
+			parts = append(parts, part)
 		}
-		if err := os.Chmod(part, 0o755); err != nil { //nolint:gosec // an installed program
+		if err != nil {
 			cleanup()
 			return upgradeFailed(dir, err)
 		}
@@ -204,6 +202,32 @@ func replacePrograms(dir string, names []string, files map[string][]byte) error 
 		}
 	}
 	return nil
+}
+
+// stageProgram writes data to a new executable file in dir and returns its path, which
+// it also returns with an error once the file exists, so the caller removes it.
+func stageProgram(dir, name string, data []byte) (string, error) {
+	// CreateTemp opens with O_CREATE|O_EXCL under a random name: a new file this process made.
+	f, err := os.CreateTemp(dir, "."+name+".upgrade.*")
+	if err != nil {
+		return "", err
+	}
+	part := f.Name()
+	_, werr := f.Write(data)
+	cerr := f.Chmod(0o755)
+	created, serr := f.Stat()
+	if err := errors.Join(werr, cerr, serr, f.Close()); err != nil {
+		return part, err
+	}
+	// The path still names the regular file this process created.
+	now, err := os.Lstat(part)
+	if err != nil {
+		return part, err
+	}
+	if !now.Mode().IsRegular() || !os.SameFile(created, now) {
+		return part, fmt.Errorf("%s changed while it was being written", part)
+	}
+	return part, nil
 }
 
 func upgradeFailed(dir string, err error) error {

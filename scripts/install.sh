@@ -45,8 +45,11 @@ fail() {
 	exit 1
 }
 
-tmp=""
-cleanup() { if [ -n "$tmp" ]; then rm -rf "$tmp"; fi; }
+tmp="" part=""
+cleanup() {
+	if [ -n "$tmp" ]; then rm -rf "$tmp"; fi
+	if [ -n "$part" ]; then rm -f "$part"; fi
+}
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 
@@ -157,11 +160,17 @@ mkdir -p "$dir" || fail "couldn't create $dir. Set ABOARD_INSTALL_DIR to a folde
 for f in "$tmp"/unpacked/aboard "$tmp"/unpacked/aboard-launcher-*; do
 	[ -f "$f" ] || continue
 	name=$(basename "$f")
-	part="$dir/.$name.install.$$"
-	if ! cp "$f" "$part" || ! chmod 755 "$part" || ! mv -f "$part" "$dir/$name"; then
+	# mv would put the program inside a folder (or a link to one) at the target.
+	[ ! -d "$dir/$name" ] || fail "$dir/$name is a folder. Move it away and run this again."
+	# A new file with a random name that mktemp creates, and no other process has opened;
+	# never a name someone could have planted a link at.
+	part=$(mktemp "$dir/.$name.install.XXXXXXXX") ||
+		fail "couldn't write in $dir. Set ABOARD_INSTALL_DIR to a folder you can write to."
+	if [ ! -f "$part" ] || [ -L "$part" ] || ! cat "$f" >"$part" || ! chmod 755 "$part" || ! mv -f "$part" "$dir/$name"; then
 		rm -f "$part"
 		fail "couldn't write $dir/$name. Set ABOARD_INSTALL_DIR to a folder you can write to."
 	fi
+	part=""
 	say "Installed $dir/$name"
 done
 
