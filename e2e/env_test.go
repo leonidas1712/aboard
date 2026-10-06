@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -30,6 +31,20 @@ var oldBinary string
 
 // oldVersion is oldBinary's version, older than the source's.
 const oldVersion = "0.0.1"
+
+// sourceVersion is the version the source builds as: version in
+// server/internal/cli/build.go, which a release bumps.
+var sourceVersion = func() string {
+	raw, err := os.ReadFile(filepath.Join("..", "server", "internal", "cli", "build.go"))
+	if err != nil {
+		panic(err)
+	}
+	m := regexp.MustCompile(`(?m)^var version = "([^"]+)"$`).FindSubmatch(raw)
+	if m == nil {
+		panic("no version in server/internal/cli/build.go")
+	}
+	return string(m[1])
+}()
 
 // unstampedBinary is aboard at the source's version built without Git information,
 // playing a build from before servers reported their commit.
