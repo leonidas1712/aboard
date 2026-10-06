@@ -66,6 +66,20 @@ func (f *Fake) Waiters() int {
 	return len(f.waiters)
 }
 
+// Next returns when the earliest timer waiting for the clock to move fires, and false
+// when none waits.
+func (f *Fake) Next() (time.Time, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var next time.Time
+	for _, w := range f.waiters {
+		if next.IsZero() || w.at.Before(next) {
+			next = w.at
+		}
+	}
+	return next, !next.IsZero()
+}
+
 // Advance moves the clock forward by d and fires every timer that is now due.
 func (f *Fake) Advance(d time.Duration) {
 	f.mu.Lock()
