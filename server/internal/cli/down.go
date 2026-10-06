@@ -55,7 +55,11 @@ func (a *app) stopAll(ctx context.Context) (serverStopped, daemonStopped bool, e
 		serverStopped = true
 	}
 	if st, _ := a.daemonStatus(ctx); st != nil {
-		if err := stopAboard(ctx, st.PID, func() bool { st, _ := a.daemonStatus(ctx); return st == nil }); err != nil {
+		// Done when the daemon found has let go of the socket: none answers, or another
+		// does. An open session's waiting stop hook starts a new daemon as soon as this
+		// one stops, so waiting for none to answer would wait out the timeout.
+		stopped := func() bool { now, _ := a.daemonStatus(ctx); return now == nil || now.PID != st.PID }
+		if err := stopAboard(ctx, st.PID, stopped); err != nil {
 			return serverStopped, false, &Error{
 				Code: "daemon_not_running", Message: "Couldn't stop the delivery daemon: " + err.Error(),
 				Hint: "Look at the daemon log at " + p.daemonLog() + ".",
