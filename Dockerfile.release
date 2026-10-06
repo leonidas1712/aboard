@@ -4,7 +4,7 @@
 # built. To build the image from source instead, use the Dockerfile next to this one;
 # both run the server the same way.
 #
-#   docker run -v aboard-data:/data -p 7400:7400 \
+#   docker run -v aboard-data:/data -p 127.0.0.1:7400:7400 \
 #     -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:<version>
 
 # A small image with a shell, so an operator can read the first admin's key file with

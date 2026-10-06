@@ -249,8 +249,8 @@ Set one for the whole file with `launcher: herdr`, for one agent with its `launc
 for this run with `aboard swarm up --launcher herdr`.
 
 The herdr launcher is a separate program, `aboard-launcher-herdr`, which `swarm up` runs
-from your `PATH`. It is installed next to `aboard`: `make install` installs both, and
-release packages will include it. If `swarm up` says the launcher isn't found, check that
+from your `PATH`. It is installed next to `aboard`: the install script and
+`make install` install both. If `swarm up` says the launcher isn't found, check that
 the folder `aboard` was installed to is on your `PATH`.
 
 Any program called `aboard-launcher-<name>` on your `PATH` is a launcher. It reads one

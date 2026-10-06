@@ -13,20 +13,35 @@ agent can follow the page and confirm every step on its own.
 aboard is one binary, `aboard`. It holds the CLI, the local server, the delivery daemon
 and the web UI, and it writes everything aboard installs anywhere else.
 
-### From source
+### With the install script
 
-There is no released build yet, so today you build it. You need macOS or Linux,
-[Go 1.26](https://go.dev/dl/) and [Node.js 20.9 or later](https://nodejs.org/).
+On macOS or Linux, on ARM or Intel:
 
 ```bash
-git clone https://github.com/leonidas1712/aboard.git
-cd aboard
-make install
+curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
 ```
 
-`make install` builds the web UI and installs `aboard` with the UI inside it into
-`$(go env GOPATH)/bin`, or `$GOBIN` when that is set. Make sure that folder is on your
-`PATH`. Check:
+The script downloads the latest release's archive for your system, checks it against the
+release's checksums, and their signature when cosign is installed
+([below](#check-the-signature)), and installs `aboard` and the launchers shipped with it
+to `~/.local/bin`. It never uses `sudo`. The download, the signature (with cosign), the
+checksum and the archive's contents are all checked before anything is written, so if one of those
+checks fails, an install you already have stays as it was. It then replaces `aboard`
+and each launcher one at a time, each written under a temporary name and renamed into
+place, so no program is ever half-written. A failure while writing can leave some
+programs new and others old; run the script again to finish. It says when
+`~/.local/bin` isn't on your `PATH`, with the line to add.
+Two variables change what it does:
+
+| Variable | What it does |
+| --- | --- |
+| `ABOARD_VERSION` | Install this version, such as `0.1.0`, instead of the latest. |
+| `ABOARD_INSTALL_DIR` | Install into this folder instead of `~/.local/bin`. |
+
+Set them for `sh`, such as
+`curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | ABOARD_INSTALL_DIR=~/bin sh`.
+
+Check:
 
 ```bash
 aboard version --json
@@ -39,15 +54,52 @@ aboard version --json
 }
 ```
 
-### Release installs
+### Check the signature
 
-No release is published yet, so the commands in this section don't work today. Once
-releases exist, they install the same binary:
+Each release's `checksums.txt` is signed by aboard's release job on GitHub, with
+Sigstore's [cosign](https://docs.sigstore.dev/cosign/system_config/installation/). When
+cosign is installed, the script checks that signature and says so:
 
-| Command | For |
-| --- | --- |
-| `curl -fsSL <install URL> \| sh` | macOS and Linux. The script checks the download against the release's signed checksums and installs `aboard` to `~/.local/bin`, or to the folder in `ABOARD_INSTALL_DIR`. |
-| `brew install <tap>/aboard` | macOS and Linux with Homebrew. |
+```text
+Checked the signature: signed by aboard's release workflow for v0.1.0
+```
+
+Without cosign it checks only the archive against `checksums.txt`, and prints the
+command that checks the signature by hand. Run it in a folder with the release's
+`checksums.txt` and `checksums.txt.sigstore.json`:
+
+```bash
+cosign verify-blob --bundle checksums.txt.sigstore.json \
+  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.0 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+```
+
+It prints `Verified OK` only for checksums the release job signed for that tag.
+
+Apple doesn't notarize aboard's macOS binaries. Installed with the script, they run
+without a prompt. An archive downloaded with a browser is blocked the first time it
+runs: allow it in System Settings, under Privacy & Security, or install with the script
+instead. Either way, the checksums' signature, checked with cosign, is what shows the download is aboard's.
+
+### Team servers
+
+A team server runs the image `ghcr.io/leonidas1712/aboard:<version>`, which holds the
+same binary. [Run a team server](/team-server) sets one up.
+
+### From source
+
+You need macOS or Linux, [Go 1.26](https://go.dev/dl/) and
+[Node.js 20.9 or later](https://nodejs.org/).
+
+```bash
+git clone https://github.com/leonidas1712/aboard.git
+cd aboard
+make install
+```
+
+`make install` builds the web UI and installs `aboard` with the UI inside it into
+`$(go env GOPATH)/bin`, or `$GOBIN` when that is set. Make sure that folder is on your
+`PATH`, and check with `aboard version --json`.
 
 Everything after this section works the same however `aboard` was installed.
 
@@ -90,6 +142,32 @@ is current.
 
 ## Update
 
+At most once a day, a command you run in a terminal says after its output when a newer
+release exists:
+
+```text
+aboard 0.2.0 is available (you have 0.1.0). Run: aboard upgrade
+```
+
+The notice never shows in `--json` output, in hooks or inside an agent's session, and
+`ABOARD_NO_UPDATE_CHECK=1` turns it off. aboard never installs anything by itself.
+
+For an install from the script, upgrade with:
+
+```bash
+aboard upgrade
+```
+
+It downloads the release and checks it as the install script does, replaces `aboard`
+and the launchers next to it, then runs the new build's `aboard init --yes` for the
+harnesses `aboard init` set up for every project, so the skill and hooks match it.
+Every check comes before anything is replaced: if one fails, your install stays as it
+was. If the binary was replaced but the skill and hooks weren't updated, it says so and
+exits with the error `upgrade_setup_failed`; then run `aboard init --yes`, and check
+with `aboard doctor`. `aboard upgrade --version 0.2.0` installs a given release, and
+`--json` gives the result as data, with `from`, `to` and `setup`. It is a person's
+command, so it is refused inside an agent's session.
+
 From source, pull and install again:
 
 ```bash
@@ -98,9 +176,10 @@ make install
 aboard init --yes
 ```
 
+`aboard upgrade` on a source build or a Homebrew install changes nothing and prints the command to use instead.
 `aboard init --yes` updates the skill and hooks only where the new build writes
 something different, and says "Nothing to change." otherwise. `aboard version --json`
-shows the new `commit`. Releases will have `aboard upgrade`, which isn't a command yet.
+shows the new version.
 
 What happens to what is already running:
 
@@ -204,7 +283,7 @@ kept.
 
 | What | Where |
 | --- | --- |
-| The binary | `$(go env GOPATH)/bin/aboard` from source; `~/.local/bin/aboard` from the install script |
+| The binary | `~/.local/bin/aboard` (or `ABOARD_INSTALL_DIR`) from the install script, with the launchers beside it; `$(go env GOPATH)/bin/aboard` from source |
 | Claude Code, everywhere | `~/.claude/skills/aboard/SKILL.md`, and hooks (and the allow rule) in `~/.claude/settings.json`; under `$CLAUDE_CONFIG_DIR` when it is set |
 | Claude Code, one project | `.claude/skills/aboard/SKILL.md` and `.claude/settings.local.json` in the project |
 | Codex, everywhere | `~/.agents/skills/aboard/SKILL.md`, hooks in `~/.codex/hooks.json`, the allow rule in `~/.codex/rules/aboard.rules`; the last two under `$CODEX_HOME` when it is set |
