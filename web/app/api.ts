@@ -72,7 +72,7 @@ export type Receipt = { member: MemberRef; state: "pending" | "received" | "read
 export type Receipts = { board: string; seq: number; message_id: string; to: string[]; to_everyone: boolean; available: boolean; recipients: Receipt[] };
 
 /** UnreadEvent is the person's own read position and unread count on one of their boards. */
-export type UnreadEvent = { board: string; read_up_to: number; unread: number };
+export type UnreadEvent = { board: string; board_id?: string; read_up_to: number; unread: number };
 
 /** ReadEvent says one of the person's own agents acknowledged its messages up to read_up_to. */
 export type ReadEvent = { board: string; agent: string; read_up_to: number };

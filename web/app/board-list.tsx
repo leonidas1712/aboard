@@ -11,6 +11,7 @@ import { type Board, type Member, follow, get, isArchived } from "./api";
 import { ArchivedGroup } from "./sidebars";
 import { Account } from "./account";
 import { Header, Problem, VisibilityLabel } from "./chrome";
+import { ReadProgress } from "./read-progress";
 import { boardLabel, count, exactTime, policyName, relativeTime } from "./words";
 
 /** Facts are what the list says about one board's members, read from the public API. */
@@ -40,17 +41,24 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         (f) => live && setFacts((all) => ({ ...all, [b.name]: f })),
         () => {}, // the row shows without facts
       );
-    const load = () =>
-      get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }).then(
+    // progress keeps each board's newest read position and unread count, so a list
+    // read earlier never undoes a newer stream update or a newer list.
+    const progress = new ReadProgress();
+    const load = () => {
+      const gen = progress.next();
+      return get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }).then(
         (r) => {
           if (!live) return;
-          listed.current = r.boards;
-          setBoards(r.boards);
+          const fresh = progress.list(r.boards, gen);
+          if (!fresh) return;
+          listed.current = fresh;
+          setBoards(fresh);
           setNow(Date.now());
           for (const b of r.boards) void loadFacts(b);
         },
         (e) => live && setError(e),
       );
+    };
     void load();
     const known = new Map<string, number>();
     const stop = follow({
@@ -68,7 +76,14 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
       unavailable: () => void load(),
       unread: (u) => {
         if (!live) return;
-        setBoards((bs) => bs?.map((b) => (b.name === u.board ? { ...b, read_up_to: u.read_up_to, unread: u.unread } : b)) ?? bs);
+        const gen = progress.next();
+        if (u.board_id) progress.note(u.board_id, gen, u.read_up_to, u.unread);
+        const set = (b: Board) => {
+          if (u.board_id ? b.id !== u.board_id : b.name !== u.board) return b;
+          progress.note(b.id, gen, u.read_up_to, u.unread);
+          return progress.apply(b);
+        };
+        setBoards((bs) => bs?.map(set) ?? bs);
       },
       error: (e) => live && setError(e),
     });

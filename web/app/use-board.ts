@@ -19,6 +19,7 @@ import {
   follow,
   get,
 } from "./api";
+import { ReadProgress } from "./read-progress";
 import { type Chain, type Problem, emptyChain, rememberHead, rememberedHead, verify } from "./record";
 
 const PAGE = 50;
@@ -99,6 +100,9 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const [gone, setGone] = useState(false);
   // boardId is the id of the board on screen, as last read, to match board_unavailable hints.
   const boardId = useRef<string | null>(null);
+  // progress keeps the newest read position and unread count per board, whichever
+  // request or stream event brought it.
+  const progress = useRef(new ReadProgress());
   // seenIds are the ids of every board this page has listed or shown.
   const seenIds = useRef<Set<string>>(new Set());
   // Threads read whole because a loaded reply's first message wasn't loaded.
@@ -140,10 +144,12 @@ export function useBoard(name: string, filter: Filter): BoardState {
   }, []);
 
   const loadBoards = useCallback(async () => {
+    const gen = progress.current.next();
     const r = await get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" });
     if (!live.current) return;
     for (const b of r.boards) seenIds.current.add(b.id);
-    setBoards(r.boards);
+    const list = progress.current.list(r.boards, gen);
+    if (list) setBoards(list);
   }, []);
 
   // reloadBoards rereads the list of boards, whose message counts change with every head.
@@ -182,13 +188,14 @@ export function useBoard(name: string, filter: Filter): BoardState {
   );
 
   const catchUp = useCallback(async () => {
+    const gen = progress.current.next();
     const [b, m, mine] = await Promise.all([
       get<Board>(path),
       get<{ members: Member[] }>(`${path}/members`),
       get<MessagePage>(`${path}/messages`, { to_me: true, newest: true, limit: PAGE }),
     ]);
     if (!live.current) return;
-    setBoard(b);
+    setBoard(progress.current.board(b, gen));
     boardId.current = b.id;
     seenIds.current.add(b.id);
     setMembers(m.members);
@@ -270,7 +277,14 @@ export function useBoard(name: string, filter: Filter): BoardState {
         reloadBoards();
       },
       unread: (u) => {
-        const set = (b: Board) => (b.name === u.board ? { ...b, read_up_to: u.read_up_to, unread: u.unread } : b);
+        const gen = progress.current.next();
+        const p = progress.current;
+        const set = (b: Board) => {
+          if (u.board_id ? b.id !== u.board_id : b.name !== u.board) return b;
+          p.note(b.id, gen, u.read_up_to, u.unread);
+          return p.apply(b);
+        };
+        if (u.board_id) p.note(u.board_id, gen, u.read_up_to, u.unread);
         setBoards((bs) => bs?.map(set) ?? bs);
         setBoard((b) => (b ? set(b) : b));
         // The person's own position is a receipt of messages to them.
@@ -361,7 +375,17 @@ export function useBoard(name: string, filter: Filter): BoardState {
     (seq: number) => {
       if (seq <= acked.current || (board?.read_up_to ?? 0) >= seq) return;
       acked.current = seq;
-      ackBoard(name, seq).catch((e) => {
+      const gen = progress.current.next();
+      ackBoard(name, seq).then((r) => {
+        // The answer is the read position when the server took the ack; a stream update
+        // that arrived since is newer and stays.
+        const id = boardId.current;
+        if (!live.current || !id) return;
+        progress.current.note(id, gen, r.read_up_to, r.unread);
+        const set = (b: Board) => (b.id === id ? progress.current.apply(b) : b);
+        setBoards((bs) => bs?.map(set) ?? bs);
+        setBoard((b) => (b ? set(b) : b));
+      }, (e) => {
         // A lost login is reported as for any other request; anything else is tried
         // again the next time something is seen.
         if (e instanceof ApiError && e.status === 401) setError(e);
