@@ -267,6 +267,14 @@ guesses: the command stops, names the servers and asks you to choose. Choose for
 `aboard servers use https://team.example.com` (or `aboard servers use local`), or for
 one command with `--server`. Each command names the server it acted on.
 
+`aboard boards` lists boards across every server this machine knows, grouped by server.
+Use `aboard boards --server https://team.example.com` to list one. Each group uses
+that server's own login. If one server is unavailable, the other groups stay visible.
+
+Outside a linked folder, `aboard status`, `aboard watch --board NAME` and
+`aboard audit verify --board NAME` use the default server too. Agent sessions stay
+on their own server, even when you change the machine default.
+
 Connecting or logging in to a team's server doesn't change what you already use. On a
 machine that already runs the local server, the local server stays the default, and
 `aboard connect` says so:

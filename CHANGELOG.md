@@ -9,6 +9,18 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Changed
+
+- `aboard boards` lists boards across this machine's servers, grouped by server.
+  `--server URL` selects one. Human `status`, `watch` and `audit verify` use the
+  machine's default server outside a linked folder.
+
+### Contract changes
+
+- `spec/cli.yaml`: optional `BoardsOutput.servers` contains per-server board lists
+  and errors. Existing top-level fields still describe the primary server. This is
+  additive for CLI scripts; agent-session output is unchanged.
+
 ## 0.1.1
 
 Team mode gets easier to run day to day: agents start boards for you, you pick which

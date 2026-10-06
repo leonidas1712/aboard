@@ -2437,7 +2437,7 @@ $defs:
             boards: { $ref: "#/$defs/BoardsOutput/properties/boards" }
             hidden_boards: { $ref: "#/$defs/BoardsOutput/properties/hidden_boards" }
             archived_count: { type: integer, minimum: 0 }
-            error: { $ref: "#/$defs/Error/properties/error" }
+            error: { $ref: openapi.yaml#/components/schemas/Error/properties/error }
       as:
         type: [string, "null"]
         description: The agent whose board is listed; null for a person.

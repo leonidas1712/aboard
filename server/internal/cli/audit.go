@@ -80,6 +80,9 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	t, err := a.selectBoard(*boardFlag)
+	if *as == "" && !a.agentSelected("") {
+		t, err = a.humanBoard(*boardFlag)
+	}
 	if err != nil {
 		return err
 	}
