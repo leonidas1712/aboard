@@ -91,7 +91,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	if r := sam.runExit("board", "people", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
 		t.Fatalf("sam after removal:\n%s", r)
 	}
-	if status, v := tm.call("GET", "/v1/me/inbox", samAgent, nil); status != http.StatusNotFound || errorCode(t, v) != "board_not_found" {
+	if status, v := tm.call("GET", "/v1/me/inbox", samAgent, nil); status != http.StatusForbidden || errorCode(t, v) != "agent_removed" {
 		t.Fatalf("sam's agent after sam's removal: %d %v", status, v)
 	}
 
@@ -101,7 +101,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	}
 	maya.run("board", "add", "@sam")
 	// Added back, sam returns, but his old agent stays removed; a new one works.
-	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", samAgent, map[string]any{"body": "back again"}); status != http.StatusNotFound || errorCode(t, v) != "board_not_found" {
+	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", samAgent, map[string]any{"body": "back again"}); status != http.StatusForbidden || errorCode(t, v) != "agent_removed" {
 		t.Fatalf("sam's old agent after sam was added back: %d %v", status, v)
 	}
 	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", tm.agentToken(sam, board), map[string]any{"body": "a new agent"}); status != http.StatusCreated {

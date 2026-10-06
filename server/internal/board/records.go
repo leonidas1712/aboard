@@ -217,12 +217,13 @@ type Member struct {
 	RemovedBy *string
 }
 
-// Who removed an agent: its own person (leaving the board), one of the board's owners,
-// or a server admin (removing its person from the server).
+// Who removed an agent: its own person (removing it, or leaving the board), one of the
+// board's owners, a server admin, or the agent itself, leaving.
 const (
 	RemovedByPerson = "person"
 	RemovedByOwner  = "board_owner"
 	RemovedByAdmin  = "admin"
+	RemovedBySelf   = "self"
 )
 
 // Rules returns what the rules package needs to know about the member.

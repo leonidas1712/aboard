@@ -197,7 +197,7 @@ func TestPublicMultiseatRemovingOneSeatKeepsTheOtherUsable(t *testing.T) {
 		t.Fatalf("surviving seat not acknowledged: unread %d", n)
 	}
 	status, out = tm.call("GET", "/v1/boards/"+seats[0].board+"/messages", seats[0].token, nil)
-	if status != http.StatusNotFound || errorCode(t, out) != "board_not_found" {
+	if status != http.StatusForbidden || errorCode(t, out) != "agent_removed" {
 		t.Fatalf("removed seat can read: status %d, error %v", status, out["error"])
 	}
 	r := s.runExit("join", "--board", seats[0].board, "--json")

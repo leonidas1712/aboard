@@ -223,6 +223,10 @@ func (t daemonTokens) ResolveAgent(ctx context.Context, agent delivery.AgentRef)
 		return delivery.AgentRef{}, c.unreachable(err)
 	}
 	if r.JSON200 == nil {
+		if e := apiError(r.StatusCode(), r.Body); e.Code == "agent_removed" {
+			// The seat was removed: final, like a board that is gone.
+			return delivery.AgentRef{}, fmt.Errorf("%w: %s", delivery.ErrBoardGone, e.Message)
+		}
 		if r.StatusCode() == http.StatusUnauthorized || r.StatusCode() == http.StatusForbidden {
 			return denied()
 		}

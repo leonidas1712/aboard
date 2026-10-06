@@ -88,7 +88,11 @@ func TestRemovalWhileAnAttentionReadWaitsEndsTheRead(t *testing.T) {
 					t.Error(err)
 				}
 			})
-			wantCode(t, "receipts", err, "board_not_found")
+			want := "board_not_found"
+			if who == "agent" {
+				want = "agent_removed"
+			}
+			wantCode(t, "receipts", err, want)
 		})
 	}
 	t.Run("unread in the list", func(t *testing.T) {

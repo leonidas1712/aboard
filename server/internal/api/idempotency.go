@@ -185,6 +185,9 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		}
 	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
 		in.Name = parts[2]
+		if len(parts) == 5 && parts[3] == "members" && method == http.MethodDelete {
+			in.AgentRemoval = true
+		}
 		if len(parts) == 4 && (parts[3] == "archive" || parts[3] == "restore" || parts[3] == "delete") {
 			in.Lifecycle = parts[3]
 			in.DeleteDone = parts[3] == "delete" && saved.Status == http.StatusOK
@@ -202,6 +205,17 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		in.MessageID = parts[2]
 	case path == "/v1/me/inbox/ack" || path == "/v1/me/presence":
 		in.OwnSeat = true
+	case path == "/v1/agents/prune":
+		// The answer names only the caller's own agents, or for an admin's prune across
+		// the server what it removed: the caller's credential and role are checked again.
+		var requested struct {
+			All bool `json:"all"`
+		}
+		_ = json.Unmarshal(request, &requested)
+		in.PruneAll = requested.All
+	case path == "/v1/me/leave":
+		// The answer is about the caller's own seat, which ended with it.
+		return nil
 	default:
 		return nil
 	}

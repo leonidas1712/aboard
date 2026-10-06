@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
@@ -19,13 +20,26 @@ type Replay struct {
 	OwnSeat    bool
 	Lifecycle  string
 	DeleteDone bool
+	// AgentRemoval is an agent removed from the board Name names (by name or id).
+	AgentRemoval bool
+	// PruneAll is a prune across the server, which only a server admin may see again.
+	PruneAll bool
 }
 
 // CheckBoardReplay checks current read access before a cached board response is sent.
 // A successful deletion receipt is the only response allowed through a tombstone.
 func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in Replay) error {
 	return s.st.Read(ctx, func(tx ReadTx) error {
-		if _, err := caller(tx, p, stamp(s.clk.Now())); err != nil {
+		person, err := caller(tx, p, stamp(s.clk.Now()))
+		if err != nil {
+			return err
+		}
+		if in.PruneAll && person.Role != ServerAdmin {
+			return apierr.New(http.StatusForbidden, "server_admin_required",
+				"Only an admin of this server can prune agents across the server.", "Prune your own agents: aboard agent prune.")
+		}
+		if in.AgentRemoval {
+			_, _, _, err := s.removalBoard(tx, p, person, in.Name)
 			return err
 		}
 		if in.Lifecycle != "" {

@@ -90,9 +90,9 @@ func TestRemovedPeoplesAgentsStayRemoved(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err := w.svc.PostMessage(ctx, w.samAgent, w.board, board.NewMessage{Body: "back again"})
-			wantCode(t, "the old agent posting", err, "board_not_found")
+			wantCode(t, "the old agent posting", err, "agent_removed")
 			_, _, err = w.svc.Inbox(ctx, w.samAgent, 0, 0, 10)
-			wantCode(t, "the old agent's inbox", err, "board_not_found")
+			wantCode(t, "the old agent's inbox", err, "agent_removed")
 			joined, err := w.svc.Join(ctx, w.sam, board.JoinInput{Board: w.board, Role: "member"})
 			if err != nil {
 				t.Fatal(err)
