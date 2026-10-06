@@ -69,12 +69,12 @@ signs:
     args: [sign-blob, "--bundle=${signature}", "--yes", "${artifact}"]
 
 # The server image for team servers. The build context holds the binaries at
-# <os>/<arch>/aboard (linux/amd64/aboard, linux/arm64/aboard), which the Dockerfile at
-# the repository's root copies by $TARGETPLATFORM.
+# <os>/<arch>/aboard (linux/amd64/aboard, linux/arm64/aboard), which Dockerfile.release
+# copies by $TARGETPLATFORM. The root Dockerfile builds the same image from source.
 dockers_v2:
   - id: server
     ids: [aboard]
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.release
     images: ["ghcr.io/leonidas1712/aboard"]
     tags:
       - "{{ .Version }}"

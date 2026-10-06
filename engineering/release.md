@@ -59,7 +59,7 @@ tracks the work.
 | --- | --- | --- |
 | `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh \| sh` | Anyone on macOS or Linux | Yes, once a release is published (`scripts/install.sh`, attached to every release). The script picks the platform's archive, checks the checksums' signature when cosign is installed (and prints the command otherwise), verifies the archive against them, refuses an archive with anything but plain files, installs `aboard` and the launchers to `~/.local/bin` (or `ABOARD_INSTALL_DIR`) by renaming each into place, and says if that folder isn't on the `PATH`. `ABOARD_VERSION` picks a version. `e2e/installscript_test.go` runs it against a fake release server. |
 | `brew install leonidas1712/aboard/aboard` | macOS and Linux with Homebrew | Configured but off. To turn it on: create the public repository `leonidas1712/homebrew-aboard`; add a fine-grained token with contents write on that repository only as the secret `HOMEBREW_TAP_TOKEN`; pass it to the release step's environment; set `skip_upload: false` under `homebrew_casks` in `.goreleaser.yaml`; and, while the macOS binaries aren't notarized, add a post-install hook that clears the quarantine attribute Homebrew sets on casks. |
-| `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It needs the `Dockerfile` at the repository's root, which copies the binary from the build context's `$TARGETPLATFORM/aboard` and runs `aboard serve` with its data on a mounted volume. |
+| `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It is built from `Dockerfile.release`, which copies the release binary from the build context's `$TARGETPLATFORM/aboard` into the same image the root `Dockerfile` builds from source: alpine, user 10001, `aboard serve --team` with its data on the volume `/data`. |
 | `make install` | Building from source | Yes. Needs Go and Node. |
 
 All of them install the same binary. The skill published for `npx skills` is generated
@@ -229,10 +229,9 @@ These are repository settings, made by the maintainer:
 4. **The image**: after the first release, set the `aboard` package on GHCR to public
    (Packages → aboard → Package settings → Change visibility), so team servers can pull
    it without logging in.
-5. **The Dockerfile**: the image builds from `Dockerfile` at the repository's root,
-   which must copy the binary from `$TARGETPLATFORM/aboard` in its build context (the
-   release binaries, not a build from source). Until it is on `main`, run
-   `make release-snapshot` (which skips the image) rather than the workflow's dry run.
+5. **The image's two Dockerfiles stay alike**: `Dockerfile.release` (the release
+   binaries) and the root `Dockerfile` (a build from source) must set the same user,
+   volume, environment and entrypoint; change both together.
 
 No secrets are needed: signing is keyless, with the job's own GitHub identity, and the
 release and image are published with the job's `GITHUB_TOKEN`.
@@ -261,8 +260,11 @@ image's `latest` tag skip it.
    `cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.0-rc.1 --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt`.
 4. On a clean macOS machine and a clean Linux machine, install the candidate with the
    prerelease's own script:
-   `curl -fsSL https://github.com/leonidas1712/aboard/releases/download/v0.1.0-rc.1/install.sh | ABOARD_VERSION=0.1.0-rc.1 sh`,
-   then run the quickstart.
+   `curl -fsSL https://github.com/leonidas1712/aboard/releases/download/v0.1.0-rc.1/install.sh | ABOARD_VERSION=v0.1.0-rc.1 sh`,
+   then run the quickstart. A candidate is always installed by its version: the
+   `releases/latest/download` address never points at a prerelease, so the one-line
+   install in the docs works only once `v0.1.0` itself is published. Land the docs that
+   lead with it together with that release.
 5. `docker pull ghcr.io/leonidas1712/aboard:0.1.0-rc.1`, run it with a volume, and open
    the board view.
 6. If anything fails, fix it on `main` and cut `v0.1.0-rc.2`. Delete a failed
