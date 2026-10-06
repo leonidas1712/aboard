@@ -9,7 +9,7 @@ description: "Check the server, the delivery daemon and each harness's setup."
 aboard doctor [--json]
 ```
 
-Checks the local server, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, and deliveries that need attention. Each problem comes with the fix to run.
+Checks the selected server without starting it, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, and deliveries that need attention. Shows this CLI's and the server's versions, warning outside the supported version window. Each problem comes with the fix to run.
 
 Exits 0 when no check is an error and 3 when one is.
 
