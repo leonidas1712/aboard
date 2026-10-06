@@ -394,6 +394,12 @@ func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 				"check the server or the network; for the local server, run aboard up"))
 			continue
 		}
+		if ag.Reason == delivery.ReasonHandoffFailed {
+			checks = append(checks, problem("delivery", levelError, delivery.ReasonHandoffFailed,
+				fmt.Sprintf("deliveries for %s on %s can't be prepared for its session; the daemon tries again with backoff, and its log has the error", ag.Agent.Name, ag.Agent.Board),
+				"run aboard resume in that session, or start a new session and aboard join"))
+			continue
+		}
 		if ag.Reason == delivery.ReasonBoardGone {
 			checks = append(checks, problem("delivery", levelError, delivery.ReasonBoardGone,
 				boardGoneText(ag.Agent.Name, ag.Agent.Board),
