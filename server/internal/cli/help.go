@@ -562,7 +562,7 @@ func helpText(templates string) []commandHelp {
 				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
 				"and before making a private board open it says how many messages and files every person on the server could then read, and asks; without a terminal it needs --yes.\n\n" +
 				"add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.\n\n" +
-				"archive makes a board read-only: everything on it stays readable, but nobody can post, react, join or change its settings until it is restored. " +
+				"archive makes a board read-only: everything on it stays readable, but there are no new messages, nobody new joins and nobody gets more access until it is restored; people can still leave or be removed, and the board can be made private. " +
 				"restore makes it active again; people and agents removed before stay removed. " +
 				"Both are for the person who created the board, while still on it, or a server admin; an agent may archive or restore its own board for the person who created it. " +
 				"delete ends every way into an archived board for good: its people and agents lose it, its join codes stop, and nobody can open or restore it, though its record is kept. " +
