@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/clock"
 )
@@ -49,7 +50,11 @@ func TestLifecycleUpgradeDeletesOnlyCachedJoinCodeSecrets(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	st, err := Open(ctx, path, clock.Real{})
+	created, err := time.Parse(time.RFC3339Nano, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := Open(ctx, path, clock.NewFake(created))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -388,6 +388,12 @@ func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 			checks = append(checks, problem("delivery", levelError, delivery.ReasonExtensionOutdated, "The harness extension cannot deliver to several boards.", "Run aboard init, then restart the harness."))
 			continue
 		}
+		if ag.Reason == delivery.ReasonServerUnreachable {
+			checks = append(checks, problem("delivery", levelWarning, delivery.ReasonServerUnreachable,
+				fmt.Sprintf("deliveries for %s on %s wait for %s, which can't be reached; they resume once it answers", ag.Agent.Name, ag.Agent.Board, ag.Agent.Server),
+				"check the server or the network; for the local server, run aboard up"))
+			continue
+		}
 		if ag.Reason == delivery.ReasonBoardGone {
 			checks = append(checks, problem("delivery", levelError, delivery.ReasonBoardGone,
 				boardGoneText(ag.Agent.Name, ag.Agent.Board),

@@ -220,6 +220,9 @@ const (
 	ReasonBoardGone    = "board_gone"
 	ReasonHarnessError = "harness_error"
 	ReasonTooLarge     = "too_large"
+	// ReasonServerUnreachable is an agent whose server couldn't be reached to prove its
+	// seat. It passes: the daemon keeps trying and restores the seat once it answers.
+	ReasonServerUnreachable = "server_unreachable"
 )
 
 // Errors that adapters return, so the daemon can decide what a failure means.

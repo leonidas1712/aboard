@@ -21,10 +21,10 @@ import (
 // Responses stores the answers to idempotent writes.
 type Responses interface {
 	// SavedResponse returns the response saved for key in a caller's scope, and whether
-	// there was one.
+	// there is one within its 24-hour lifetime.
 	SavedResponse(ctx context.Context, scope, key string) (SavedResponse, bool, error)
 	// SaveResponse saves the response for key in a caller's scope. If one is already
-	// saved for the key, the first one is kept.
+	// saved for the key and has not expired, the first one is kept.
 	SaveResponse(ctx context.Context, scope, key string, r SavedResponse) error
 }
 
@@ -95,10 +95,15 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				writeError(w, o.Log, err)
 				return
 			}
+			saved.Body, err = withheldNames(r.Context(), o.Service, r.Method, r.URL.Path, saved)
+			if err != nil {
+				writeError(w, o.Log, err)
+				return
+			}
 			w.Header().Set("Content-Type", saved.ContentType)
 			w.Header().Set("Idempotent-Replayed", "true")
 			w.WriteHeader(saved.Status)
-			_, _ = w.Write(saved.Body)
+			_, _ = w.Write(saved.Body) //nolint:gosec // a JSON answer this server stored, sent as application/json
 			return
 		case found:
 			writeError(w, o.Log, apierr.New(http.StatusUnprocessableEntity, "idempotency_conflict",
@@ -220,6 +225,51 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		return nil
 	}
 	return svc.CheckBoardReplay(ctx, principal(ctx), in)
+}
+
+// withheldNames returns a stored answer to an agent removal or a prune as it may be
+// sent again: the board and agent names of every board the caller can no longer see
+// are withheld, as they would be in a new answer. Every other answer is sent as stored.
+func withheldNames(ctx context.Context, svc *board.Service, method, path string, saved SavedResponse) ([]byte, error) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	removal := method == http.MethodDelete && len(parts) == 5 && parts[1] == "boards" && parts[3] == "members"
+	if saved.Status != http.StatusOK || (path != "/v1/agents/prune" && !removal) {
+		return saved.Body, nil
+	}
+	var answer map[string]any
+	if err := json.Unmarshal(saved.Body, &answer); err != nil {
+		return nil, fmt.Errorf("decode the stored answer: %w", err)
+	}
+	rows := []map[string]any{answer}
+	if !removal {
+		rows = nil
+		list, _ := answer["agents"].([]any)
+		for _, v := range list {
+			if m, ok := v.(map[string]any); ok {
+				rows = append(rows, m)
+			}
+		}
+	}
+	var ids []string
+	for _, m := range rows {
+		if id, ok := m["board_id"].(string); ok {
+			ids = append(ids, id)
+		}
+	}
+	hidden, err := svc.HiddenBoards(ctx, principal(ctx), ids)
+	if err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, m := range rows {
+		if id, _ := m["board_id"].(string); hidden[id] && (m["board"] != nil || m["name"] != nil) {
+			m["board"], m["name"], changed = nil, nil, true
+		}
+	}
+	if !changed {
+		return saved.Body, nil
+	}
+	return json.Marshal(answer)
 }
 
 // recorder passes a response through while keeping a copy of it.

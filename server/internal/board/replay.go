@@ -26,6 +26,39 @@ type Replay struct {
 	PruneAll bool
 }
 
+// HiddenBoards returns which of the boards, by id, the caller can't see now: a private
+// board they aren't on, a deleted or missing one, or for a guest any board they aren't
+// on. A cached answer naming such a board has its names withheld before it is sent
+// again, since the caller may have seen the board when it was first made.
+func (s *Service) HiddenBoards(ctx context.Context, p Principal, boardIDs []string) (map[string]bool, error) {
+	hidden := map[string]bool{}
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		person, err := caller(tx, p, stamp(s.clk.Now()))
+		if err != nil {
+			return err
+		}
+		for _, id := range boardIDs {
+			b, err := tx.BoardByID(id)
+			if errors.Is(err, ErrNotFound) {
+				hidden[id] = true
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			me, err := tx.HumanMember(b.ID, person.ID)
+			if err != nil && !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			on := err == nil && me.Status == StatusActive
+			open := b.Visibility == BoardOpen && person.Role != ServerGuest
+			hidden[id] = lifecycleOf(b) == LifecycleDeleted || (!on && !open)
+		}
+		return nil
+	})
+	return hidden, err
+}
+
 // CheckBoardReplay checks current read access before a cached board response is sent.
 // A successful deletion receipt is the only response allowed through a tombstone.
 func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in Replay) error {

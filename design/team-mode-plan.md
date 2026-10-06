@@ -264,8 +264,8 @@ from `aboard boards` never authorizes a join: the join is checked again.
    removal racing reads and writes, and re-adding followed by the old token's refusal.
 4. **4b. Archive, restore, delete.** Done (#117), using the seat ids delivered by 5a.
    Deletion ends access and preserves the record; it does not erase stored bytes. The
-   general 24-hour idempotency lifetime remains a separate required follow-up before
-   team-ready: expired answers must be ignored and their rows purged. Row removal
+   general 24-hour idempotency lifetime is done (#128): expired answers are ignored,
+   and expired rows are purged at server startup and hourly. Row removal
    does not securely erase copies in the WAL, free pages or migration backups.
 5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
    stays small (not required for team-ready): deterministic patterns for known

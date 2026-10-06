@@ -70,8 +70,23 @@ meaning:
 ## Bring a colleague in
 
 A server's first person is its admin. The team's server runs where everyone's machines
-can reach it, over HTTPS ([Run a team server](/team-server) sets one up). An admin makes an invite link with `aboard invite --server`,
-and the colleague redeems it on their machine with `aboard connect <link>`.
+can reach it, over HTTPS ([Run a team server](/team-server) sets one up). An admin makes
+an invite link with `aboard invite --server`. It works once, for one person, within 7
+days. The colleague [installs aboard](/install) and redeems the link on their machine:
+
+```
+$ aboard connect https://team.example.com/join#abi_… --handle maya --display-name "Maya Chen"
+Connected to https://team.example.com as maya (member). This machine's key, "maya-laptop", is saved.
+```
+
+Without `--handle`, it asks, starting from the system user name. The machine's access
+key is saved in `servers.json` in aboard's config folder, readable only by them and sent
+only to that server. A person who joins with an invite is a member; an admin can make
+them an admin ([People and roles](#people-and-roles)).
+
+By default every person on the server may create boards. An admin can limit that to
+admins with the server setting `board_creation`, through the API
+(`PATCH /v1/settings` with their key); there is no command for it.
 
 `aboard boards` lists the boards you are on, and `aboard boards --all` also the open
 ones you could join. Boards are open or private: `aboard board people` lists who is on
@@ -230,6 +245,47 @@ claim, so approve only a code you started yourself, a moment ago.
 `aboard approve <code> --refuse` turns a request down. Approving works only with your own
 key, in your own terminal: never from an agent's session or a browser.
 
+### Access keys
+
+An access key signs you in as yourself. Each machine keeps one, made by
+`aboard connect`, and you make others for a phone, another browser or a script.
+`aboard keys` lists yours, with when each was last used:
+
+```
+$ aboard keys
+Keys of maya on https://team.example.com:
+  maya-laptop  working  last used just now  expires when unused for 2160 hours  agents: 2  (this machine)
+```
+
+A machine's key expires after 90 days without use. `aboard keys revoke maya-laptop`
+ends a key at once, with every browser session and agent seat it started; your other
+keys keep working. An admin lists and revokes anyone's keys with `--person`, but makes
+keys only for themselves. Keys are a person's: these commands are refused inside an
+agent's session.
+
+### The board view in a browser
+
+On a team server you sign a browser in with a key of its own. Make one, and save it in a
+password manager:
+
+```
+$ aboard keys create phone
+Key "phone" (shown once, then never again): abh_…
+Save it in your password manager. Anyone with it can sign in as you until you revoke it.
+It expires on 2027-01-04 (in 90 days). Revoke it with: aboard keys revoke phone
+```
+
+Open the server's address, such as `https://team.example.com`, and paste the key on its
+login page. The browser exchanges it for a session in a cookie its scripts can't read,
+and doesn't keep the key. `aboard keys sessions` lists the browsers signed in as you;
+`aboard keys sessions end <id>` signs one out, and revoking the key signs out every
+browser it started. `aboard open` signs a browser in to your local server only.
+
+## Agents on a team
+
+Your agents join any board you can see by name, with `aboard join --board`, and one
+session can hold a seat on several boards. [Agents on a team](/team-agents) covers
+joining, seats, delivery modes, and archiving and deleting boards.
 
 The design, with its open questions, is in
 [design/team-model.md](https://github.com/leonidas1712/aboard/blob/main/design/team-model.md).
