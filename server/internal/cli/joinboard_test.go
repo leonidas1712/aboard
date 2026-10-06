@@ -69,7 +69,7 @@ func TestSessionBoardsText(t *testing.T) {
 	want := "payments-design   open      3 agents   you're claude here\n" +
 		"incident-42       private   you're on it\n" +
 		"lobby             open      join with aboard join --board lobby\n"
-	if got := sessionBoardsText(rows); got != want {
+	if got := sessionBoardsText(rows, false); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }

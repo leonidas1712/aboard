@@ -14,12 +14,14 @@ type boardsRow struct {
 	Name       string              `json:"name"`
 	Title      *string             `json:"title"`
 	Visibility api.BoardVisibility `json:"visibility"`
-	OnBoard    bool                `json:"on_board"`
-	Role       *api.BoardRole      `json:"role"`
-	People     int                 `json:"people"`
-	Agents     *int                `json:"agents"`
-	Unread     *int                `json:"unread"`
-	Default    bool                `json:"default"`
+	// Lifecycle is the board's lifecycle as the server gave it; absent means active.
+	Lifecycle *api.BoardLifecycle `json:"lifecycle,omitempty"`
+	OnBoard   bool                `json:"on_board"`
+	Role      *api.BoardRole      `json:"role"`
+	People    int                 `json:"people"`
+	Agents    *int                `json:"agents"`
+	Unread    *int                `json:"unread"`
+	Default   bool                `json:"default"`
 	// Seat is, when listing through the machine's delegation from a session, the
 	// session's seat on the board (its agent's name) or nil.
 	Seat *seatName `json:"seat,omitempty"`
@@ -38,6 +40,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	use := usageOf("boards")
 	fs := a.flags("boards")
 	all := fs.Bool("all", false, "also list open boards you aren't on, and for an admin, private boards you aren't on")
+	archived := fs.Bool("archived", false, "list only archived boards")
 	as := fs.String("as", "", "list this agent's board")
 	boardFlag := fs.String("board", "", "the agent's board, when its name is used on several")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
@@ -57,7 +60,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 		if *boardFlag != "" {
 			return usageError("--board picks an agent's board, so it works only with --as.", use)
 		}
-		return a.sessionBoards(ctx, key, project, linked)
+		return a.sessionBoards(ctx, key, project, linked, *archived)
 	}
 	if a.agentSelected(*as) {
 		if *all {
@@ -94,7 +97,12 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	r, err := c.api.ListBoardsWithResponse(ctx, &api.ListBoardsParams{All: all})
+	params := &api.ListBoardsParams{All: all}
+	if *archived {
+		l := api.ListBoardsParamsLifecycleArchived
+		params.Lifecycle = &l
+	}
+	r, err := c.api.ListBoardsWithResponse(ctx, params)
 	if err != nil {
 		return c.unreachable(err)
 	}
@@ -115,7 +123,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	rows := []boardsRow{}
 	for _, b := range r.JSON200.Boards {
 		row := boardsRow{
-			Name: b.Name, Title: b.Title, Visibility: b.Visibility, OnBoard: b.OnBoard, Unread: b.Unread,
+			Name: b.Name, Title: b.Title, Visibility: b.Visibility, Lifecycle: b.Lifecycle, OnBoard: b.OnBoard, Unread: b.Unread,
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 		}
 		p, err := c.api.ListPeopleWithResponse(ctx, b.Name)
@@ -155,27 +163,60 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 		hidden = *r.JSON200.HiddenBoards
 	}
 	a.emit(struct {
-		Server serverRef         `json:"server"`
-		As     *string           `json:"as"`
-		All    bool              `json:"all"`
-		Boards []boardsRow       `json:"boards"`
-		Hidden []api.HiddenBoard `json:"hidden_boards"`
-	}{srv, agent, *all, rows, hidden}, boardsText(srv, agent, *all, rows, hidden))
+		Server        serverRef         `json:"server"`
+		As            *string           `json:"as"`
+		All           bool              `json:"all"`
+		Lifecycle     string            `json:"lifecycle"`
+		Boards        []boardsRow       `json:"boards"`
+		ArchivedCount *int              `json:"archived_count,omitempty"`
+		Hidden        []api.HiddenBoard `json:"hidden_boards"`
+	}{srv, agent, *all, listLifecycle(*archived), rows, r.JSON200.ArchivedCount, hidden},
+		boardsText(srv, agent, *all, *archived, rows, hidden)+archivedHint(*archived, *all, r.JSON200.ArchivedCount))
 	return nil
 }
 
+// listLifecycle is the lifecycle aboard boards lists, for its --json output.
+func listLifecycle(archived bool) string {
+	if archived {
+		return "archived"
+	}
+	return "active"
+}
+
+// archivedHint is the one quiet line under a list of active boards when some boards in
+// the same scope are archived, saying how to list them.
+func archivedHint(archived, all bool, count *int) string {
+	if archived || count == nil || *count == 0 {
+		return ""
+	}
+	command := "aboard boards --archived"
+	if all {
+		command += " --all"
+	}
+	return counted(*count, "archived board") + ": " + command + "\n"
+}
+
 // boardsText is aboard boards' text output.
-func boardsText(srv serverRef, agent *string, all bool, rows []boardsRow, hidden []api.HiddenBoard) string {
+func boardsText(srv serverRef, agent *string, all, archived bool, rows []boardsRow, hidden []api.HiddenBoard) string {
 	var b strings.Builder
 	switch {
+	case agent != nil && archived:
+		fmt.Fprintf(&b, "Archived boards of agent %s on %s: an agent sees only its own board.\n", *agent, srv.URL)
 	case agent != nil:
 		fmt.Fprintf(&b, "Boards of agent %s on %s: an agent sees only its own board.\n", *agent, srv.URL)
+	case all && archived:
+		fmt.Fprintf(&b, "Archived boards you can see on %s:\n", srv.URL)
 	case all:
 		fmt.Fprintf(&b, "Boards you can see on %s:\n", srv.URL)
+	case archived:
+		fmt.Fprintf(&b, "Your archived boards on %s:\n", srv.URL)
 	default:
 		fmt.Fprintf(&b, "Your boards on %s:\n", srv.URL)
 	}
-	if len(rows) == 0 {
+	switch {
+	case len(rows) == 0 && archived:
+		b.WriteString("  none\n")
+	case len(rows) == 0:
 		b.WriteString("  none yet; run aboard pair to make one\n")
 	}
 	for _, r := range rows {
@@ -204,7 +245,7 @@ func boardsText(srv serverRef, agent *string, all bool, rows []boardsRow, hidden
 			parts = append(parts, "default")
 		}
 		line := "  " + strings.Join(parts, " · ")
-		if !r.OnBoard {
+		if !r.OnBoard && !archived {
 			line += "; join with aboard board add @me --board " + r.Name
 		}
 		b.WriteString(line + "\n")

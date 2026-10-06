@@ -7,9 +7,11 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { type Board, type Member, follow, get } from "./api";
+import { type Board, type Member, follow, get, isArchived } from "./api";
+import { ArchivedGroup } from "./sidebars";
 import { Account } from "./account";
 import { Header, Problem, VisibilityLabel } from "./chrome";
+import { ReadProgress } from "./read-progress";
 import { boardLabel, count, exactTime, policyName, relativeTime } from "./words";
 
 /** Facts are what the list says about one board's members, read from the public API. */
@@ -39,17 +41,24 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         (f) => live && setFacts((all) => ({ ...all, [b.name]: f })),
         () => {}, // the row shows without facts
       );
-    const load = () =>
-      get<{ boards: Board[] }>("/v1/boards").then(
+    // progress keeps each board's newest read position and unread count, so a list
+    // read earlier never undoes a newer stream update or a newer list.
+    const progress = new ReadProgress();
+    const load = () => {
+      const gen = progress.next();
+      return get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }).then(
         (r) => {
           if (!live) return;
-          listed.current = r.boards;
-          setBoards(r.boards);
+          const fresh = progress.list(r.boards, gen);
+          if (!fresh) return;
+          listed.current = fresh;
+          setBoards(fresh);
           setNow(Date.now());
           for (const b of r.boards) void loadFacts(b);
         },
         (e) => live && setError(e),
       );
+    };
     void load();
     const known = new Map<string, number>();
     const stop = follow({
@@ -63,9 +72,18 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         const b = listed.current.find((x) => x.name === p.board);
         if (b) void loadFacts(b);
       },
+      // A board may have gone: read the list again rather than trust the hint.
+      unavailable: () => void load(),
       unread: (u) => {
         if (!live) return;
-        setBoards((bs) => bs?.map((b) => (b.name === u.board ? { ...b, read_up_to: u.read_up_to, unread: u.unread } : b)) ?? bs);
+        const gen = progress.next();
+        if (u.board_id) progress.note(u.board_id, gen, u.read_up_to, u.unread);
+        const set = (b: Board) => {
+          if (u.board_id ? b.id !== u.board_id : b.name !== u.board) return b;
+          progress.note(b.id, gen, u.read_up_to, u.unread);
+          return progress.apply(b);
+        };
+        setBoards((bs) => bs?.map(set) ?? bs);
       },
       error: (e) => live && setError(e),
     });
@@ -78,6 +96,8 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
   }, []);
 
   const showPeople = Object.values(facts).some((f) => f.people > 1);
+  const active = boards?.filter((b) => !isArchived(b)) ?? null;
+  const archived = boards?.filter((b) => isArchived(b)) ?? [];
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -88,12 +108,12 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         {boards === null && error === null && (
           <div className="h-20 rounded-box bg-selected motion-safe:animate-pulse" role="status" aria-label="Loading your boards" />
         )}
-        {boards?.length === 0 && (
+        {active?.length === 0 && archived.length === 0 && (
           <p>
             You aren&apos;t on any board yet. Run <code>aboard pair</code> in a terminal to make one.
           </p>
         )}
-        {boards && boards.length > 0 && (
+        {active && active.length > 0 && (
           <table className="boards w-full border-collapse text-left max-md:block">
             <thead className="max-md:sr-only">
               <tr className="border-b border-rule text-meta text-muted">
@@ -120,11 +140,24 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
               </tr>
             </thead>
             <tbody className="max-md:block">
-              {boards.map((b) => (
+              {active.map((b) => (
                 <BoardRow key={b.id} board={b} facts={facts[b.name]} showPeople={showPeople} now={now} />
               ))}
             </tbody>
           </table>
+        )}
+        {archived.length > 0 && (
+          <div className="mt-6">
+            <ArchivedGroup count={archived.length} holdsCurrent={false}>
+              <table className="boards w-full border-collapse text-left max-md:block">
+                <tbody className="max-md:block">
+                  {archived.map((b) => (
+                    <BoardRow key={b.id} board={b} facts={facts[b.name]} showPeople={showPeople} now={now} />
+                  ))}
+                </tbody>
+              </table>
+            </ArchivedGroup>
+          </div>
         )}
       </main>
     </div>

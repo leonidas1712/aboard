@@ -37,8 +37,8 @@ func (s *daemonSeats) server(url string) *apiserver.Delegated {
 	return d
 }
 
-func (s *daemonSeats) Boards(ctx context.Context, server string) ([]delivery.SeatBoard, error) {
-	return s.server(server).Boards(ctx)
+func (s *daemonSeats) Boards(ctx context.Context, server, lifecycle string) (delivery.SeatBoards, error) {
+	return s.server(server).Boards(ctx, lifecycle)
 }
 
 func (s *daemonSeats) Join(ctx context.Context, server string, req delivery.SeatRequest) (delivery.SeatGrant, error) {

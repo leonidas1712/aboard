@@ -230,12 +230,12 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility"
+const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle"
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -257,9 +257,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
-		b.MessageCount, b.LastMessageAt, b.Visibility)
+		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle))
 }
 
 // SetBoardPolicy replaces a board's policy.
@@ -298,17 +298,17 @@ const onBoard = "(SELECT board_id FROM members WHERE human_id = ? AND kind = 'hu
 
 // BoardsOfHuman lists the boards a human is on, by name.
 func (t *tx) BoardsOfHuman(humanID string) ([]board.Board, error) {
-	return t.boards("SELECT "+boardColumns+" FROM boards WHERE id IN "+onBoard+" ORDER BY name", humanID)
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE lifecycle != 'deleted' AND id IN "+onBoard+" ORDER BY name", humanID)
 }
 
 // BoardsSeenBy lists, by name, the open boards and the boards the human is on.
 func (t *tx) BoardsSeenBy(humanID string) ([]board.Board, error) {
-	return t.boards("SELECT "+boardColumns+" FROM boards WHERE visibility = 'open' OR id IN "+onBoard+" ORDER BY name", humanID)
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE lifecycle != 'deleted' AND (visibility = 'open' OR id IN "+onBoard+") ORDER BY name", humanID)
 }
 
 // PrivateBoardsNotOn lists, oldest first, the private boards the human isn't on.
 func (t *tx) PrivateBoardsNotOn(humanID string) ([]board.Board, error) {
-	return t.boards("SELECT "+boardColumns+" FROM boards WHERE visibility = 'private' AND id NOT IN "+onBoard+" ORDER BY created_at, id", humanID)
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE lifecycle != 'deleted' AND visibility = 'private' AND id NOT IN "+onBoard+" ORDER BY created_at, id", humanID)
 }
 
 // SetBoardVisibility makes a board open or private.
@@ -587,4 +587,16 @@ func (t *tx) Events(boardID string, after int64, limit int) ([]events.Event, err
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func lifecycleDefault(v string) string {
+	if v == "" {
+		return board.LifecycleActive
+	}
+	return v
+}
+
+// SetBoardLifecycle changes only access state, retaining all rows and the name.
+func (t *tx) SetBoardLifecycle(id, lifecycle string) error {
+	return t.exec("UPDATE boards SET lifecycle = ? WHERE id = ?", lifecycle, id)
 }

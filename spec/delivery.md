@@ -906,6 +906,29 @@ server's answer as it is: nothing is waiting to be handed on this machine.
 The skill tells the agent to run `aboard inbox --wait`. The inbox output uses the same
 delivery format and acknowledges what it shows.
 
+## Archived and unavailable boards
+
+An archive is not an ended seat. Its existing messages remain readable and may be
+received and acknowledged, with normal per-seat modes, deduplication and visibility.
+It refuses new content and joins, including server-side seat-token rotation. Local
+resume with a still-working seat credential remains possible. Restoring an archive
+never revives a removed person or ended seat.
+
+A person's stream sends `board_unavailable` only for a board id that stream already
+showed. It contains no board name, title or reason, and optionally an own member id.
+The daemon treats it as a refresh hint: it checks each affected current seat through
+that seat's own token before stopping it. Unknown board ids are ignored, and a delayed
+notice never stops a new authorized seat by name or by an earlier binding's identity.
+The person's stream and seats on other boards continue normally.
+
+If the current seat is unavailable, pending deliveries and waits for that seat end
+without acknowledging unseen content. A combined handoff keeps the same rules: an
+accepted payload cannot be recalled, and ending one part never re-sends another
+seat's already accepted messages. A failed ack is rechecked independently with its
+own seat credential; it cannot revive the ended seat or affect a sibling seat.
+Deletion ends the board's seats and codes, not the person's access key or browser
+session. No restore or automatic join bypasses the tombstone.
+
 ## Presence
 
 What we want: the people on a board can see whether each agent's session is running a

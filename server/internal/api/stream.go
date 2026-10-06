@@ -26,6 +26,11 @@ const keepaliveEvery = 25 * time.Second
 // within this window.
 const streamWriteWindow = 30 * time.Second
 
+type boardUnavailableEvent struct {
+	BoardID  string  `json:"board_id"`
+	MemberID *string `json:"member_id,omitempty"`
+}
+
 // headEvent is the data of one `head` event, the HeadEvent schema in the spec.
 type headEvent struct {
 	Board   string `json:"board"`
@@ -156,6 +161,9 @@ func (s headStream) ended(ctx context.Context, err error) {
 // when ticked.
 func streamEvents(u board.Update, ticked bool) []byte {
 	var buf bytes.Buffer
+	for _, unavailable := range u.Unavailable {
+		writeEvent(&buf, "board_unavailable", boardUnavailableEvent{BoardID: unavailable.BoardID, MemberID: unavailable.MemberID})
+	}
 	for _, hd := range u.Heads {
 		writeEvent(&buf, "head", headEvent{Board: hd.Board, BoardID: hd.BoardID, Seq: hd.Seq})
 	}

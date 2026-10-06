@@ -42,7 +42,28 @@ export type Board = {
   unread?: number;
   /** needs_reply counts questions to this person without their own direct reply. */
   needs_reply?: number | null;
+  /** lifecycle is archived for a read-only board; absent means active. */
+  lifecycle?: Lifecycle;
+  /** can_archive, can_restore and can_delete are what this person may do now; absent means no. */
+  can_archive?: boolean;
+  can_restore?: boolean;
+  can_delete?: boolean;
 };
+
+export type Lifecycle = "active" | "archived";
+
+/** isArchived says a board is read-only until someone restores it. */
+export function isArchived(b: Board | null | undefined): boolean {
+  return b?.lifecycle === "archived";
+}
+
+/** LifecycleResult is the server's receipt of an archive, restore or delete: only the board's id and lifecycle. */
+export type LifecycleResult = { id: string; lifecycle: Lifecycle | "deleted"; changed: boolean };
+
+/** changeLifecycle archives, restores or deletes a board, named by its name. */
+export function changeLifecycle(board: string, action: "archive" | "restore" | "delete"): Promise<LifecycleResult> {
+  return post<LifecycleResult>(`/v1/boards/${encodeURIComponent(board)}/${action}`, {});
+}
 
 /** Receipt is whether a message has reached one of its recipients; presence is an agent's now, null for a person. */
 export type Receipt = { member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null };
@@ -51,7 +72,7 @@ export type Receipt = { member: MemberRef; state: "pending" | "received" | "read
 export type Receipts = { board: string; seq: number; message_id: string; to: string[]; to_everyone: boolean; available: boolean; recipients: Receipt[] };
 
 /** UnreadEvent is the person's own read position and unread count on one of their boards. */
-export type UnreadEvent = { board: string; read_up_to: number; unread: number };
+export type UnreadEvent = { board: string; board_id?: string; read_up_to: number; unread: number };
 
 /** ReadEvent says one of the person's own agents acknowledged its messages up to read_up_to. */
 export type ReadEvent = { board: string; agent: string; read_up_to: number };
@@ -465,6 +486,11 @@ export type StreamHandlers = {
   unread?: (u: UnreadEvent) => void;
   /** read runs when one of the person's own agents acknowledges its messages. */
   read?: (r: ReadEvent) => void;
+  /**
+   * unavailable runs when a board this stream showed may no longer be open to the person,
+   * with only its id. It is a hint to read the board again, never proof it is gone.
+   */
+  unavailable?: (boardId: string) => void;
   /** open runs each time the stream connects, so a reader can reread what it may have missed. */
   open?: () => void;
   /** error gets a refused session; following then ends. */
@@ -506,6 +532,9 @@ export function follow(on: StreamHandlers): () => void {
               on.unread?.(JSON.parse(data) as UnreadEvent);
             } else if (event === "read") {
               on.read?.(JSON.parse(data) as ReadEvent);
+            } else if (event === "board_unavailable") {
+              const hint = JSON.parse(data) as { board_id?: string };
+              if (hint.board_id) on.unavailable?.(hint.board_id);
             }
           });
         }

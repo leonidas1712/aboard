@@ -54,6 +54,9 @@ func (s *Service) React(ctx context.Context, p Principal, messageID, name string
 		if err != nil {
 			return err
 		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
 		existing, err := tx.Reactions([]string{m.ID})
 		if err != nil {
 			return err

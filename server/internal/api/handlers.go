@@ -77,14 +77,19 @@ func (h *handlers) CreateBoard(ctx context.Context, req CreateBoardRequestObject
 
 func (h *handlers) ListBoards(ctx context.Context, req ListBoardsRequestObject) (ListBoardsResponseObject, error) {
 	all := req.Params.All != nil && *req.Params.All
-	list, err := h.svc.ListBoards(ctx, principal(ctx), all)
+	lifecycle := "active"
+	if req.Params.Lifecycle != nil {
+		lifecycle = string(*req.Params.Lifecycle)
+	}
+	list, err := h.svc.ListBoards(ctx, principal(ctx), all, lifecycle)
 	if err != nil {
 		return nil, err
 	}
 	out := struct {
-		Boards []wireBoard       `json:"boards"`
-		Hidden *[]map[string]any `json:"hidden_boards,omitempty"`
-	}{Boards: []wireBoard{}}
+		Boards        []wireBoard       `json:"boards"`
+		Hidden        *[]map[string]any `json:"hidden_boards,omitempty"`
+		ArchivedCount int               `json:"archived_count"`
+	}{Boards: []wireBoard{}, ArchivedCount: list.ArchivedCount}
 	for _, v := range list.Boards {
 		out.Boards = append(out.Boards, boardOf(v, principal(ctx)))
 	}
@@ -92,8 +97,9 @@ func (h *handlers) ListBoards(ctx context.Context, req ListBoardsRequestObject) 
 		// A delegation never gets the person's own read position or questions, and no
 		// hidden boards, whatever all says.
 		return convert[ListBoards200JSONResponse](struct {
-			Boards []wireBoard `json:"boards"`
-		}{Boards: out.Boards})
+			Boards        []wireBoard `json:"boards"`
+			ArchivedCount int         `json:"archived_count"`
+		}{Boards: out.Boards, ArchivedCount: list.ArchivedCount})
 	}
 	if all {
 		hidden := []map[string]any{}
@@ -101,6 +107,7 @@ func (h *handlers) ListBoards(ctx context.Context, req ListBoardsRequestObject) 
 			hidden = append(hidden, map[string]any{
 				"id": hb.ID, "visibility": board.BoardPrivate, "created_at": hb.CreatedAt,
 				"created_by": map[string]string{"id": hb.Creator.ID, "handle": hb.Creator.Name}, "people": hb.People,
+				"lifecycle": hb.Lifecycle, "can_archive": hb.CanArchive, "can_restore": hb.CanRestore, "can_delete": hb.CanDelete,
 			})
 		}
 		out.Hidden = &hidden

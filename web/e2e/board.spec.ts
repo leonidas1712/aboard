@@ -3,8 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Page, type Response, expect, test } from "@playwright/test";
+import { type Page, type Response, type Route, expect, test } from "@playwright/test";
+import type { Board } from "../app/api";
 import { modeRules, settableModes } from "../app/delivery-modes.gen";
+import { ReadProgress } from "../app/read-progress";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -59,8 +61,10 @@ test.beforeEach(({ page }) => {
     if (m.text().includes("Content Security Policy")) violations.push(m.text());
   });
 });
-test.afterEach(() => {
+test.afterEach(async ({ page }) => {
   expect(violations).toEqual([]);
+  // A test that holds requests may leave one in flight as it ends; it isn't answered.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 // base is the local server's address, as aboard open links to it.
@@ -687,8 +691,8 @@ test("a browser without a session signs in with a pasted key it never keeps, and
 });
 
 test("a login an older page kept in storage moves into a cookie once", async ({ page }) => {
-  aboard("pair", "writer-reviewer", "--new", "--title", "Upgrade check");
-  const open = JSON.parse(aboard("open", "--json"));
+  const upgrade = await newBoard("Upgrade check");
+  const open = JSON.parse(aboard("open", "--board", upgrade.name, "--json"));
   const code = new URLSearchParams(new URL(open.url).hash.slice(1)).get("code");
   // An older page traded the code for a token it kept in localStorage.
   const resp = await fetch(`${base()}/v1/browser-tokens`, {
@@ -943,10 +947,11 @@ test("the header, the board list and the people on a board show open, private an
   await api(owner, "POST", "/v1/boards/secret-plans/visibility", { visibility: "private" });
 
   // The board list marks the private board, and says nothing on a board only alex is on.
+  const solo = await newBoard("Only alex here");
   await page.goto(`http://${env.ABOARD_LOCAL_ADDR}/`);
   const row = page.locator(".board-row", { hasText: "Secret plans" });
   await expect(row.locator('[data-visibility="private"]')).toHaveText("Private");
-  const alone = page.locator(".board-row", { hasText: "Docs review" });
+  const alone = page.locator(".board-row", { has: page.locator(`a[href="/?board=${solo.name}"]`) });
   await expect(alone).toBeVisible();
   await expect(alone.locator(".visibility")).toHaveCount(0);
 });
@@ -1075,14 +1080,18 @@ test("the person's read position moves only with what they saw, and receipts say
   await expect.poll(() => unreadOn(board)).toBe(0);
 
   // Another board with something unread shows how many in the board list, and marking it
-  // read from the CLI clears it here too.
-  aboard("read", "--mark-read", "--board", "writer-reviewer", "--limit", "200");
+  // read from the CLI clears it here too. The test makes that board itself, with pat to
+  // write on it, so it never depends on what an earlier test left.
+  const second = await newBoard("Second look");
+  const pat = await person("pat");
+  await api(ownerKey(), "POST", `/v1/boards/${second.name}/people`, { handle: "pat" });
   const nav = page.getByRole("navigation", { name: "Boards" });
-  const docs = nav.getByRole("link", { name: /Docs review/ });
+  const docs = nav.locator(`a[href="/?board=${second.name}"]`);
+  await expect(docs).toBeVisible();
   await expect(docs.locator(".unread-count")).toHaveCount(0);
-  aboard("say", "--as", "reviewer", "--board", "writer-reviewer", "A note on the other board.");
+  await api(pat, "POST", `/v1/boards/${second.name}/messages`, { body: "A note on the other board.", to: ["all"] });
   await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
-  aboard("read", "--mark-read", "--board", "writer-reviewer");
+  aboard("read", "--mark-read", "--board", second.name);
   await expect(docs.locator(".unread-count")).toHaveCount(0);
   await expect(docs.locator(".message-count")).toHaveCount(0);
 
@@ -1104,11 +1113,11 @@ test("the person's read position moves only with what they saw, and receipts say
 
   // The other board opens with "New since you last looked" where the server's position
   // says, which the CLI moved above, and showing it marks it read.
-  aboard("say", "--as", "reviewer", "--board", "writer-reviewer", "Back on the first board.");
+  await api(pat, "POST", `/v1/boards/${second.name}/messages`, { body: "Back on the first board.", to: ["all"] });
   await expect(docs.locator(".unread-count [aria-hidden]")).toHaveText("1");
   await docs.click();
   await expect(page.locator(".new-divider + .message")).toContainText("Back on the first board.");
-  await expect.poll(() => unreadOn("writer-reviewer")).toBe(0);
+  await expect.poll(() => unreadOn(second.name)).toBe(0);
 });
 
 test("the newest page does not acknowledge older unloaded messages", async ({ page }) => {
@@ -1198,4 +1207,638 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   });
   expect(refused.status).toBe(403);
   expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
+});
+
+// ownerKey is alex's key on the local server, started if it isn't running.
+function ownerKey(): string {
+  aboard("up");
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  return readFileSync(found, "utf8").trim();
+}
+
+// newBoard makes a board as alex through the public API, with no agent seats. The
+// server limits joins per client, and the whole spec shares one client, so tests that
+// need no agent make their boards this way rather than with aboard pair.
+async function newBoard(title: string): Promise<{ name: string; id: string }> {
+  const b = await api(ownerKey(), "POST", "/v1/boards", { template: "general", title });
+  return { name: b.name as string, id: b.id as string };
+}
+
+// person brings another person onto the server once per server, and returns their key.
+// Tests that need someone other than alex to write use them instead of more agent seats.
+const people = new Map<string, string>();
+async function person(handle: string): Promise<string> {
+  const known = people.get(`${base()} ${handle}`);
+  if (known) return known;
+  const invite = await api(ownerKey(), "POST", "/v1/invites", {});
+  const made = await api("", "POST", "/v1/connect", { invite: invite.invite, handle, key_name: "laptop" });
+  const key = (made.key as { token: string }).token;
+  people.set(`${base()} ${handle}`, key);
+  return key;
+}
+
+function archivedNames(): string[] {
+  return (JSON.parse(aboard("boards", "--archived", "--json")) as { boards: { name: string }[] }).boards.map((b) => b.name);
+}
+
+test("an archived board is read-only, groups under Archived, restores and deletes behind its typed name", async ({ page, browser }) => {
+  const { name: board } = await newBoard("Lifecycle check");
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // rae, another person on the server and not an admin, is on alex's board.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  const rae = await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "rae", key_name: "laptop" });
+  const raeKey = (rae.key as { token: string }).token;
+  await api(owner, "POST", `/v1/boards/${board}/people`, { handle: "rae" });
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Lifecycle check" });
+  const composer = page.getByRole("form", { name: "Post a message" });
+  await expect(composer).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Delete board" })).toHaveCount(0);
+
+  // alex made the board, so Details offers Archive; archiving swaps the message box for
+  // a calm notice, and the record says who archived it.
+  await panel.getByRole("button", { name: "Archive board" }).click();
+  const notice = page.getByRole("region", { name: "Archived board", exact: true });
+  await expect(notice).toContainText("This board is archived. It's read-only.");
+  await expect(composer).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Archive board" })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Add an agent" })).toHaveCount(0);
+  await expect(page.locator(".board-event", { hasText: "alex archived the board" })).toBeVisible();
+  expect(archivedNames()).toContain(board);
+
+  // The board list keeps it in an Archived group at the bottom, open here since it is
+  // the board on screen.
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  await expect(nav.getByRole("region", { name: "Archived boards" }).locator(`a[href="/?board=${board}"]`)).toBeVisible();
+  for (const theme of ["Dark", "Light"]) {
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    await page.getByRole("menuitemradio", { name: theme }).click();
+    await page.keyboard.press("Escape");
+    await expect(notice).toBeVisible();
+  }
+
+  // rae is on the board but neither made it nor runs the server: her board list keeps
+  // the group closed, and she reads the notice with no Restore, Archive or Delete.
+  const raeContext = await browser.newContext();
+  const raePage = await raeContext.newPage();
+  await raePage.goto(`${base()}/`);
+  await raePage.getByLabel("Access key").fill(raeKey);
+  await raePage.getByRole("button", { name: "Sign in" }).click();
+  await expect(raePage.getByRole("button", { name: /^You are rae/ })).toBeVisible();
+  const raeGroup = raePage.getByRole("region", { name: "Archived boards" });
+  await expect(raeGroup.locator(`a[href="/?board=${board}"]`)).toBeHidden();
+  await raeGroup.getByRole("button", { name: /Archived/ }).click();
+  await raeGroup.locator(`a[href="/?board=${board}"]`).click();
+  const raeNotice = raePage.getByRole("region", { name: "Archived board", exact: true });
+  await expect(raeNotice).toContainText("This board is archived. It's read-only.");
+  await expect(raeNotice.getByRole("button", { name: "Restore" })).toHaveCount(0);
+  const raePanel = raePage.getByRole("complementary", { name: "Lifecycle check" });
+  await expect(raePanel.locator(".board-facts")).toBeVisible();
+  await expect(raePanel.getByRole("button", { name: /Archive board|Delete board/ })).toHaveCount(0);
+  await raeContext.close();
+
+  // Restore brings the message box back.
+  await notice.getByRole("button", { name: "Restore" }).click();
+  await expect(composer).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  await expect(page.locator(".board-event", { hasText: "alex restored the board" })).toBeVisible();
+
+  // Delete shows only on an archived board, and needs the board's name typed exactly.
+  await panel.getByRole("button", { name: "Archive board" }).click();
+  await expect(notice).toBeVisible();
+  const opener = panel.getByRole("button", { name: "Delete board" });
+  await opener.click();
+  const dialog = page.getByRole("alertdialog", { name: `Delete ${board}?` });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Nobody can open it again. Its record is kept.");
+  const confirm = dialog.getByRole("button", { name: "Delete", exact: true });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(`Type ${board} to confirm`).fill(board.slice(0, -1));
+  await expect(confirm).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  expect(archivedNames()).toContain(board);
+
+  // Cancel closes it too; the field starts empty when it opens again.
+  await opener.click();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await opener.click();
+  await expect(dialog.getByLabel(`Type ${board} to confirm`)).toHaveValue("");
+  for (const theme of ["dark", "light"] as const) {
+    await page.emulateMedia({ colorScheme: theme });
+    await expect(dialog).toBeVisible();
+  }
+  await dialog.getByLabel(`Type ${board} to confirm`).fill(board);
+  await confirm.click();
+  await expect(page).toHaveURL(`${base()}/`);
+  await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
+  expect(archivedNames()).not.toContain(board);
+});
+
+test("archiving the board on screen opens a collapsed Archived group, and a later collapse stays", async ({ page }) => {
+  const { name: done } = await newBoard("Already done");
+  const { name: board } = await newBoard("Still going");
+  aboard("board", "archive", done);
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const group = nav.getByRole("region", { name: "Archived boards" });
+  const toggle = group.getByRole("button", { name: /Archived/ });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+  // The board on screen moves into the collapsed group, which opens so its link stays.
+  await page.getByRole("complementary", { name: "Still going" }).getByRole("button", { name: "Archive board" }).click();
+  await expect(group.locator(`a[href="/?board=${board}"]`)).toBeVisible();
+
+  // Closed by hand, it stays closed as the list is read again.
+  await toggle.click();
+  await expect(group.locator(`a[href="/?board=${board}"]`)).toBeHidden();
+  aboard("board", "restore", done); // the list is read again with the head it moves
+  await expect(nav.locator(`a[href="/?board=${done}"]`)).toBeVisible();
+  await expect(group.locator(`a[href="/?board=${board}"]`)).toBeHidden();
+  aboard("board", "restore", board);
+});
+
+test("an archived board offers no replies or reactions, but shows its reactions and threads", async ({ page }) => {
+  const { name: board } = await newBoard("Read only");
+  const owner = ownerKey();
+  const root = await api(owner, "POST", `/v1/boards/${board}/messages`, { body: "Finished the draft", to: ["all"] });
+  await api(owner, "PUT", `/v1/messages/${root.id as string}/reactions/thumbsup`);
+  await api(owner, "POST", `/v1/boards/${board}/messages`, { body: "Looks right to me", to: ["all"], reply_to: root.id });
+  aboard("board", "archive", board);
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const timeline = page.locator(".message", { hasText: "Finished the draft" });
+  await expect(timeline).toBeVisible();
+  await timeline.hover();
+  await expect(page.getByRole("button", { name: /^Reply to / })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^React to / })).toHaveCount(0);
+  const reaction = timeline.locator('[data-reaction="thumbsup"]');
+  await expect(reaction).toContainText("1");
+  await expect(timeline.getByRole("button", { name: /Add yours|Take yours back/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Show 1 reply/ }).click();
+  await expect(page.getByText("Looks right to me", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reply in thread" })).toHaveCount(0);
+});
+
+test("a board another person deletes while it is open says it is no longer available", async ({ page }) => {
+  aboard("up");
+  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const owner = readFileSync(found, "utf8").trim();
+  // sol makes a board and puts alex on it; sol, its creator, deletes it later.
+  const invite = await api(owner, "POST", "/v1/invites", {});
+  const sol = await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "sol", key_name: "laptop" });
+  const solKey = (sol.key as { token: string }).token;
+  const made = await api(solKey, "POST", "/v1/boards", { template: "general", title: "Sol's board" });
+  const board = made.name as string;
+  await api(solKey, "POST", `/v1/boards/${board}/people`, { handle: "alex" });
+  const { name: other } = await newBoard("Untouched");
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  await expect(nav.locator(`a[href="/?board=${board}"]`)).toBeVisible();
+  await api(solKey, "POST", `/v1/boards/${board}/archive`, {});
+  await expect(page.getByRole("region", { name: "Archived board", exact: true })).toBeVisible();
+  await api(solKey, "POST", `/v1/boards/${board}/delete`, {});
+
+  const gone = page.getByRole("region", { name: "Board unavailable" });
+  await expect(gone).toContainText("This board is no longer available.");
+  await expect(page.getByRole("form", { name: "Post a message" })).toHaveCount(0);
+  await expect(page.getByText("Sol's board")).toHaveCount(0);
+  await gone.getByRole("link", { name: "your boards" }).click();
+  await expect(page.locator(`a[href="/?board=${board}"]`)).toHaveCount(0);
+  await expect(page.locator(`a[href="/?board=${other}"]`)).toBeVisible();
+});
+
+// holdStream keeps the page's event stream connections waiting, so a test decides what
+// arrives: hint(id) answers the waiting connection with one board_unavailable for id,
+// and the page connects again, to wait for the next. Nothing else reaches the stream.
+async function holdStream(page: Page): Promise<{ hint: (id: string) => Promise<void> }> {
+  const waiting: Route[] = [];
+  await page.route("**/v1/stream", (route) => {
+    waiting.push(route);
+  });
+  return {
+    hint: async (id: string) => {
+      await expect.poll(() => waiting.length).toBeGreaterThan(0);
+      await waiting.shift()!.fulfill({
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+        body: `event: board_unavailable\ndata: ${JSON.stringify({ board_id: id })}\n\n`,
+      });
+    },
+  };
+}
+
+test("a board_unavailable hint for a board never seen, or for another board still open, changes nothing", async ({ page }) => {
+  const { name: board } = await newBoard("Hint check");
+  const other = await newBoard("Hint neighbour");
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  const stream = await holdStream(page);
+  await openLink(page, open.url);
+  const composer = page.getByRole("form", { name: "Post a message" });
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  await expect(composer).toBeVisible();
+  await expect(nav.locator(`a[href="/?board=${other.name}"]`)).toBeVisible();
+
+  // The list is read again only for a board the page has seen, and then shows it still.
+  let listed = 0;
+  page.on("request", (r) => {
+    if (new URL(r.url()).pathname === "/v1/boards") listed++;
+  });
+  for (const [id, seen] of [
+    ["brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7Z", false],
+    [other.id, true],
+  ] as const) {
+    const before = listed;
+    await stream.hint(id);
+    if (seen) await expect.poll(() => listed).toBeGreaterThan(before);
+    await expect(nav.locator(`a[href="/?board=${other.name}"]`)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Hint check");
+    await expect(composer).toBeVisible();
+    await expect(page.getByRole("region", { name: "Board unavailable" })).toHaveCount(0);
+    if (!seen) expect(listed).toBe(before);
+  }
+});
+
+test("a board_unavailable hint whose fresh read fails for a while keeps the board shown", async ({ page }) => {
+  const flaky = await newBoard("Flaky read");
+  const board = flaky.name;
+  await api(ownerKey(), "POST", `/v1/boards/${board}/messages`, { body: "Finished the plan", to: ["all"] });
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  const stream = await holdStream(page);
+  await openLink(page, open.url);
+  const composer = page.getByRole("form", { name: "Post a message" });
+  await expect(composer).toBeVisible();
+  // The board has loaded (the message box shows before it does) before any read fails.
+  await expect(page.getByText("Finished the plan", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Flaky read");
+
+  for (const fail of ["5xx", "network"] as const) {
+    let failed = 0;
+    await page.route(`**/v1/boards/${board}`, (route) => {
+      failed++;
+      return fail === "5xx"
+        ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "internal", message: "Try again.", hint: "" } }) })
+        : route.abort("connectionreset");
+    });
+    await stream.hint(flaky.id);
+    await expect.poll(() => failed).toBeGreaterThan(0);
+    await page.unroute(`**/v1/boards/${board}`);
+    await expect(page.getByRole("region", { name: "Board unavailable" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Flaky read");
+    await expect(composer).toBeVisible();
+    await expect(page.getByText("Finished the plan", { exact: true })).toBeVisible();
+  }
+});
+
+// holdLists answers every board list the page asks for from the server at the moment it
+// asks, then holds that answer until release(i), so a test can deliver an old list after
+// newer news. edit may change the held answer, to mark it.
+type ListBody = { boards: { id: string; title: string | null }[] };
+async function holdLists(page: Page, edit: (body: ListBody) => void = () => {}) {
+  const held: { route: Route; body: string; status: number }[] = [];
+  await page.route(
+    (url) => url.pathname === "/v1/boards",
+    async (route) => {
+      const resp = await route.fetch();
+      const body = (await resp.json()) as ListBody;
+      edit(body);
+      held.push({ route, body: JSON.stringify(body), status: resp.status() });
+    },
+  );
+  return {
+    count: () => held.length,
+    release: (i: number) => held[i].route.fulfill({ status: held[i].status, contentType: "application/json", body: held[i].body }),
+  };
+}
+
+// retitle marks a held list's copy of one board, so a test sees when that list is shown.
+function retitle(id: string, title: string) {
+  return (body: ListBody) => {
+    for (const b of body.boards) if (b.id === id) b.title = title;
+  };
+}
+
+// otherWithUnread makes a board pat writes one message on, unread for alex.
+async function otherWithUnread(title: string): Promise<{ name: string; id: string; seq: number }> {
+  const pat = await person("pat");
+  const b = await newBoard(title);
+  await api(ownerKey(), "POST", `/v1/boards/${b.name}/people`, { handle: "pat" });
+  const m = await api(pat, "POST", `/v1/boards/${b.name}/messages`, { body: `A note on ${title}.`, to: ["all"] });
+  return { ...b, seq: m.seq as number };
+}
+
+// archivedInList is how many archived boards the board list's Archived group counts; 0
+// when it has none.
+async function archivedInList(page: Page): Promise<number> {
+  const group = page.getByRole("region", { name: "Archived boards" });
+  if ((await group.count()) === 0) return 0;
+  return Number((await group.getByRole("button", { name: /Archived/ }).innerText()).replace(/\D/g, ""));
+}
+
+// frames waits for the page to render twice, so work its scripts queued has shown.
+async function frames(page: Page) {
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+}
+
+test("a board list read before an acknowledgement never brings back the unread count (board view)", async ({ page }) => {
+  const here = await newBoard("Stale list here");
+  const other = await otherWithUnread("Stale list other");
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${other.name}"]`);
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+
+  const lists = await holdLists(page, retitle(other.id, "Stale snapshot"));
+  // A message here makes the page read the list again; the server answers while the
+  // other board still has one unread, and the answer is held.
+  await api(ownerKey(), "POST", `/v1/boards/${here.name}/messages`, { body: "Moving on.", to: ["all"] });
+  await expect.poll(lists.count).toBe(1);
+  await api(ownerKey(), "POST", `/v1/boards/${other.name}/ack`, { up_to: other.seq });
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+  await lists.release(0);
+  await expect(link).toContainText("Stale snapshot");
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+});
+
+test("a board list read before an acknowledgement never brings back the unread count (board list)", async ({ page }) => {
+  const here = await newBoard("Home stale here");
+  const other = await otherWithUnread("Home stale other");
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  await page.goto(`${base()}/`);
+  const row = page.locator(".board-row", { has: page.locator(`a[href="/?board=${other.name}"]`) });
+  await expect(row.locator(".unread")).toHaveText("1 unread");
+
+  const lists = await holdLists(page, retitle(other.id, "Home snapshot"));
+  await api(ownerKey(), "POST", `/v1/boards/${here.name}/messages`, { body: "Moving on.", to: ["all"] });
+  await expect.poll(lists.count).toBe(1);
+  await api(ownerKey(), "POST", `/v1/boards/${other.name}/ack`, { up_to: other.seq });
+  await expect(row.locator(".unread")).toHaveCount(0);
+  await lists.release(0);
+  await expect(row).toContainText("Home snapshot");
+  await expect(row.locator(".unread")).toHaveCount(0);
+});
+
+test("an acknowledgement answered after a newer message never hides that message's unread", async ({ page }) => {
+  const pat = await person("pat");
+  const here = await otherWithUnread("Held ack");
+  // The page acknowledges the message it shows; the server takes it, and its answer is held.
+  const acks: { route: Route; status: number; body: string }[] = [];
+  await page.route(
+    (url) => url.pathname === `/v1/boards/${here.name}/ack`,
+    async (route) => {
+      const resp = await route.fetch();
+      acks.push({ route, status: resp.status(), body: await resp.text() });
+    },
+  );
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${here.name}"]`);
+  await expect.poll(() => acks.length).toBe(1);
+  await expect.poll(() => unreadOn(here.name)).toBe(0);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+  // A reply in a closed thread isn't shown, so it stays unread, at the same read position.
+  const page1 = await api(pat, "GET", `/v1/boards/${here.name}/messages?newest=true&limit=1`);
+  const root = (page1.messages as { id: string }[])[0];
+  // The reply's head makes the page read the board and then the list again; both finish
+  // before the old answer is let through, so nothing read later can mend it.
+  const reread = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await api(pat, "POST", `/v1/boards/${here.name}/messages`, { body: "A reply alex hasn't opened.", to: ["all"], reply_to: root.id });
+  await (await reread).finished();
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  const answered = page.waitForResponse((r) => new URL(r.url()).pathname === `/v1/boards/${here.name}/ack`);
+  await acks[0].route.fulfill({ status: acks[0].status, contentType: "application/json", body: acks[0].body });
+  await (await answered).finished();
+  await frames(page);
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  expect(unreadOn(here.name)).toBe(1);
+});
+
+test("a board gone from a fresh list leaves the board view, and the others keep their newer read counts", async ({ page }) => {
+  const here = await newBoard("Fresh view here");
+  const keep = await otherWithUnread("Fresh view keep");
+  const gone = await newBoard("Fresh view gone");
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const keepLink = nav.locator(`a[href="/?board=${keep.name}"]`);
+  const goneLink = nav.locator(`a[href="/?board=${gone.name}"]`);
+  await expect(keepLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await expect(goneLink).toBeVisible();
+
+  const lists = await holdLists(page);
+  await api(ownerKey(), "POST", `/v1/boards/${here.name}/messages`, { body: "Board view.", to: ["all"] });
+  await expect.poll(lists.count).toBe(1);
+  await api(ownerKey(), "POST", `/v1/boards/${keep.name}/ack`, { up_to: keep.seq });
+  await expect(keepLink.locator(".unread-count")).toHaveCount(0);
+  await api(ownerKey(), "POST", `/v1/boards/${gone.name}/archive`, {});
+  await api(ownerKey(), "POST", `/v1/boards/${gone.name}/delete`, {});
+  // The board view reads lists one at a time: the old one first, then a fresh one
+  // without the deleted board.
+  await lists.release(0);
+  await expect(keepLink.locator(".unread-count")).toHaveCount(0);
+  await expect.poll(lists.count).toBe(2);
+  await lists.release(1);
+  await expect(goneLink).toHaveCount(0);
+  await expect(keepLink.locator(".unread-count")).toHaveCount(0);
+});
+
+test("a board gone from a fresh list leaves the board list, and an older list can't bring it back", async ({ page }) => {
+  const here = await newBoard("Fresh home here");
+  const keep = await otherWithUnread("Fresh home keep");
+  const gone = await newBoard("Fresh home gone");
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  await page.goto(`${base()}/`);
+  const keepRow = page.locator(".board-row", { has: page.locator(`a[href="/?board=${keep.name}"]`) });
+  const goneRow = page.locator(".board-row", { has: page.locator(`a[href="/?board=${gone.name}"]`) });
+  await expect(keepRow.locator(".unread")).toHaveText("1 unread");
+  await expect(goneRow).toBeVisible();
+
+  const lists = await holdLists(page);
+  await api(ownerKey(), "POST", `/v1/boards/${here.name}/messages`, { body: "List page.", to: ["all"] });
+  await expect.poll(lists.count).toBe(1);
+  await api(ownerKey(), "POST", `/v1/boards/${keep.name}/ack`, { up_to: keep.seq });
+  await expect(keepRow.locator(".unread")).toHaveCount(0);
+  await api(ownerKey(), "POST", `/v1/boards/${gone.name}/archive`, {});
+  await expect.poll(lists.count).toBe(2);
+  await api(ownerKey(), "POST", `/v1/boards/${gone.name}/delete`, {});
+  await expect.poll(lists.count).toBe(3);
+  // The newest list, read after the delete, arrives first; the older two after it.
+  await lists.release(2);
+  await expect(goneRow).toHaveCount(0);
+  // Earlier tests may have left archived boards; the deleted one must not join them.
+  const archivedNow = await archivedInList(page);
+  for (const older of [0, 1]) {
+    const shown = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+    await lists.release(older);
+    await (await shown).finished();
+    await frames(page);
+    await expect(goneRow).toHaveCount(0);
+    expect(await archivedInList(page)).toBe(archivedNow);
+    await expect(keepRow).toBeVisible();
+    await expect(keepRow.locator(".unread")).toHaveCount(0);
+  }
+});
+
+// holdEvents keeps the page's event stream connections waiting, like holdStream, and
+// send answers the waiting one with any one event, so a test can deliver a stream event
+// late. The page connects again after each, to wait for the next.
+async function holdEvents(page: Page): Promise<{ send: (event: string, data: unknown) => Promise<void> }> {
+  const waiting: Route[] = [];
+  await page.route("**/v1/stream", (route) => {
+    waiting.push(route);
+  });
+  return {
+    send: async (event: string, data: unknown) => {
+      await expect.poll(() => waiting.length).toBeGreaterThan(0);
+      await waiting.shift()!.fulfill({
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+        body: `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+      });
+    },
+  };
+}
+
+test("a board list read while an acknowledgement waits never moves the read position back", async ({ page }) => {
+  const here = await otherWithUnread("Cursor ack held");
+  const neighbour = await newBoard("Cursor neighbour");
+  // The stream is held, so only the reads and the acknowledgement say how far alex read.
+  const events = await holdEvents(page);
+  const acks: Route[] = [];
+  await page.route(
+    (url) => url.pathname === `/v1/boards/${here.name}/ack`,
+    (route) => {
+      acks.push(route);
+    },
+  );
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${here.name}"]`);
+  await expect(page.getByText(`A note on Cursor ack held.`, { exact: true })).toBeVisible();
+  // The page asks to acknowledge the message it shows; the server hasn't taken it yet.
+  await expect.poll(() => acks.length).toBe(1);
+  expect(unreadOn(here.name)).toBe(1);
+
+  // A list read now still has the old read position, and is held.
+  const lists = await holdLists(page);
+  await events.send("board_unavailable", { board_id: neighbour.id });
+  await expect.poll(lists.count).toBe(1);
+
+  // The server takes the acknowledgement and the page gets its answer.
+  const answered = page.waitForResponse((r) => new URL(r.url()).pathname === `/v1/boards/${here.name}/ack`);
+  await acks[0].continue();
+  await (await answered).finished();
+  expect(unreadOn(here.name)).toBe(0);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // The old list arrives last, read later than the acknowledgement started.
+  const shown = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await lists.release(0);
+  await (await shown).finished();
+  await frames(page);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+});
+
+test("a stream event delayed from before an acknowledgement never moves the read position back", async ({ page }) => {
+  const here = await otherWithUnread("Cursor late event");
+  const before = await api(ownerKey(), "GET", `/v1/boards/${here.name}`);
+  const events = await holdEvents(page);
+  const acked = page.waitForResponse((r) => new URL(r.url()).pathname === `/v1/boards/${here.name}/ack`);
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${here.name}"]`);
+  await (await acked).finished();
+  expect(unreadOn(here.name)).toBe(0);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // The unread event the server sent before the acknowledgement arrives only now.
+  await events.send("unread", { board: here.name, board_id: here.id, read_up_to: before.read_up_to, unread: 1 });
+  await frames(page);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+});
+
+test("leaving a board clears its read count, a late event can't bring it back, and rejoining starts afresh", async ({ page }) => {
+  const pat = await person("pat");
+  const alexKey = ownerKey();
+  // pat's open board, with alex on it and one message alex hasn't read.
+  const made = await api(pat, "POST", "/v1/boards", { template: "general", title: "Pat's open board" });
+  const board = { name: made.name as string, id: made.id as string };
+  await api(pat, "POST", `/v1/boards/${board.name}/people`, { handle: "alex" });
+  await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "Before alex left.", to: ["all"] });
+  const before = await api(alexKey, "GET", `/v1/boards/${board.name}`);
+  const here = await newBoard("Leave check here");
+
+  // The page's board lists also show open boards alex isn't on (all=true), as the
+  // server gives them: on_board false, with no read position or unread count.
+  await page.route(
+    (url) => url.pathname === "/v1/boards",
+    (route) => {
+      const url = new URL(route.request().url());
+      url.searchParams.set("all", "true");
+      return route.continue({ url: url.toString() });
+    },
+  );
+  const events = await holdEvents(page);
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${board.name}"]`);
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+
+  // alex leaves; the list read after it still shows the open board, without bookkeeping.
+  await api(alexKey, "POST", `/v1/boards/${board.name}/leave`, {});
+  const fresh = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await events.send("board_unavailable", { board_id: board.id });
+  const listed = (await (await fresh).json()) as { boards: { id: string; on_board: boolean; unread?: number }[] };
+  const row = listed.boards.find((b) => b.id === board.id);
+  expect(row?.on_board).toBe(false);
+  expect(row?.unread).toBeUndefined();
+  await expect(link).toBeVisible();
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // An unread event from before the leave, arriving late, changes nothing.
+  await events.send("unread", { board: board.name, board_id: board.id, read_up_to: before.read_up_to, unread: 1 });
+  await frames(page);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // alex comes back and pat writes again: the fresh list's bookkeeping shows.
+  await api(alexKey, "POST", `/v1/boards/${board.name}/people`, { handle: "alex" });
+  await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "After alex came back.", to: ["all"] });
+  const now = unreadOn(board.name);
+  expect(now).toBeGreaterThan(0);
+  const again = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await events.send("board_unavailable", { board_id: board.id });
+  await (await again).finished();
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText(String(now));
+});
+
+// fakeBoard is a board as a fresh read returns it, for ReadProgress on its own: only the
+// fields it reads matter.
+function fakeBoard(id: string, read: { read_up_to: number; unread: number } | null): Board {
+  return { id, name: "general", on_board: read !== null, ...(read ?? {}) } as unknown as Board;
+}
+
+test("a not-on-board read that started before a rejoin read never clears the rejoined bookkeeping", () => {
+  const p = new ReadProgress();
+  const id = "brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7N";
+  p.board(fakeBoard(id, { read_up_to: 3, unread: 1 }), p.next());
+  // A read starts while the person is off the board; its answer is held (generation 10).
+  const offRead = p.next();
+  // They rejoin, and a read that started later is taken first (generation 11).
+  const onRead = p.next();
+  expect(p.board(fakeBoard(id, { read_up_to: 5, unread: 2 }), onRead)).toMatchObject({ read_up_to: 5, unread: 2 });
+  // The older not-on-board answer arrives last and changes nothing.
+  p.board(fakeBoard(id, null), offRead);
+  expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: 5, unread: 2 });
+  // Bookkeeping carries on: a new message at the same position raises the count.
+  p.note(id, p.next(), 5, 3);
+  expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: 5, unread: 3 });
+
+  // The other way round: an older on-board read never undoes a newer leave.
+  const onAgain = p.next();
+  const offAgain = p.next();
+  expect(p.board(fakeBoard(id, null), offAgain)).toMatchObject({ read_up_to: undefined, unread: undefined });
+  p.board(fakeBoard(id, { read_up_to: 6, unread: 4 }), onAgain);
+  expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: undefined, unread: undefined });
 });

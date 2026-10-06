@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,7 +39,7 @@ type SavedResponse struct {
 // idempotent replays the saved response when a write is retried with the same
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
-// again. The responses that carry a login code, a browser token, a server invite, an
+// again. The responses that carry a join code, a login code, a browser token, a server invite, an
 // access key, a guest's key and agent token, a machine request's secrets, a machine's
 // delegation, or a delegated join's agent token are never saved, so none is ever
 // written to disk: those writes ignore the key. A join with a person's key or a code
@@ -51,6 +52,8 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||
+			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/boards/") &&
+				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
@@ -88,6 +91,9 @@ func idempotent(o Options, next http.Handler) http.Handler {
 					return
 				}
 				w.Header().Set("Cache-Control", "no-store")
+			} else if err := checkBoardReplay(r.Context(), o.Service, r.Method, r.URL.Path, body, saved); err != nil {
+				writeError(w, o.Log, err)
+				return
 			}
 			w.Header().Set("Content-Type", saved.ContentType)
 			w.Header().Set("Idempotent-Replayed", "true")
@@ -116,11 +122,8 @@ func idempotent(o Options, next http.Handler) http.Handler {
 
 // checkJoinReplay rechecks a stored answer to a join with a person's key or a code
 // before it is returned again: the service decides from the request and the seat and
-// token the answer holds. A stored refusal holds no token and is returned as it is.
+// token the answer holds. A stored refusal still needs current board access.
 func checkJoinReplay(ctx context.Context, svc *board.Service, request []byte, saved SavedResponse) error {
-	if saved.Status != http.StatusCreated {
-		return nil
-	}
 	var in struct {
 		Code  string `json:"code"`
 		Board string `json:"board"`
@@ -133,12 +136,76 @@ func checkJoinReplay(ctx context.Context, svc *board.Service, request []byte, sa
 		Token string `json:"token"`
 	}
 	if err := json.Unmarshal(request, &in); err != nil {
+		if saved.Status >= http.StatusBadRequest {
+			return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{})
+		}
 		return fmt.Errorf("decode the stored join's request: %w", err)
+	}
+	if saved.Status != http.StatusCreated {
+		return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{Name: in.Board, JoinCode: in.Code})
 	}
 	if err := json.Unmarshal(saved.Body, &answer); err != nil {
 		return fmt.Errorf("decode the stored join's answer: %w", err)
 	}
 	return svc.CheckJoinReplay(ctx, principal(ctx), board.JoinInput{Code: in.Code, Board: in.Board, Role: in.Role}, answer.Agent.ID, answer.Token)
+}
+
+// checkBoardReplay identifies cached board data without trusting the cached response
+// as authority. The service checks the current credential and access in one read.
+func checkBoardReplay(ctx context.Context, svc *board.Service, method, path string, request []byte, saved SavedResponse) error {
+	in := board.Replay{}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	switch {
+	case path == "/v1/boards" && method == http.MethodPost:
+		var requested struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(request, &requested); err != nil {
+			if saved.Status >= http.StatusBadRequest {
+				return svc.CheckBoardReplay(ctx, principal(ctx), in)
+			}
+			return fmt.Errorf("decode the stored board creation request: %w", err)
+		}
+		if saved.Status == http.StatusCreated {
+			var result struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return fmt.Errorf("decode the stored board creation response: %w", err)
+			}
+			in.Name, in.ID = requested.Name, result.ID
+		} else {
+			var result Error
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return fmt.Errorf("decode the stored board creation refusal: %w", err)
+			}
+			if result.Error.Code == "board_name_taken" {
+				in.Name = requested.Name
+			}
+		}
+	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
+		in.Name = parts[2]
+		if len(parts) == 4 && (parts[3] == "archive" || parts[3] == "restore" || parts[3] == "delete") {
+			in.Lifecycle = parts[3]
+			in.DeleteDone = parts[3] == "delete" && saved.Status == http.StatusOK
+		}
+		if len(parts) == 4 && parts[3] == "messages" && saved.Status == http.StatusCreated {
+			var result struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return fmt.Errorf("decode the stored message response: %w", err)
+			}
+			in.MessageID = result.ID
+		}
+	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "messages":
+		in.MessageID = parts[2]
+	case path == "/v1/me/inbox/ack" || path == "/v1/me/presence":
+		in.OwnSeat = true
+	default:
+		return nil
+	}
+	return svc.CheckBoardReplay(ctx, principal(ctx), in)
 }
 
 // recorder passes a response through while keeping a copy of it.
