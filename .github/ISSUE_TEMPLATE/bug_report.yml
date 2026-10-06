@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in aboard doesn't work the way the docs say it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. If it's a security problem, please
+        don't file it here: report it privately instead (see the link on the previous page).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including any error message and its code.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The commands you ran, in order, starting from a fresh setup if you can.
+      placeholder: |
+        1. aboard pair
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: aboard version
+      description: The output of `aboard version`.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: aboard doctor output
+      description: |
+        The output of `aboard doctor`. Please read it first and remove anything private,
+        such as server addresses, board or agent names, and paths.
+      render: text
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15.4, Ubuntu 24.04, ...
+    validations:
+      required: true
+  - type: textarea
+    id: harnesses
+    attributes:
+      label: Harnesses and their versions
+      description: The agents involved, for example Claude Code 2.1.0 and Codex 0.50.0.
