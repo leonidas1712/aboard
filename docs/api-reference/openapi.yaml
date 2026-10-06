@@ -3403,7 +3403,7 @@ components:
       oneOf:
         - { $ref: "#/components/schemas/BoardName" }
         - { $ref: "#/components/schemas/BoardID" }
-    BoardLifecycle:
+    LifecycleState:
       type: string
       enum: [active, archived, deleted]
       description: Deleted is a tombstone, never a readable or listed board.
@@ -3417,7 +3417,7 @@ components:
       required: [id, lifecycle, changed]
       properties:
         id: { $ref: "#/components/schemas/BoardID" }
-        lifecycle: { $ref: "#/components/schemas/BoardLifecycle" }
+        lifecycle: { $ref: "#/components/schemas/LifecycleState" }
         changed:
           type: boolean
           description: False for a new archive or restore call already at its requested lifecycle, with no new event.
@@ -4632,8 +4632,8 @@ components:
           type: string
           pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
           description: The authenticated person's permanent id; for an agent, its person's id. Never inferred from a handle.
-        before: { $ref: "#/components/schemas/BoardLifecycle" }
-        after: { $ref: "#/components/schemas/BoardLifecycle" }
+        before: { $ref: "#/components/schemas/LifecycleState" }
+        after: { $ref: "#/components/schemas/LifecycleState" }
     BoardArchivedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
