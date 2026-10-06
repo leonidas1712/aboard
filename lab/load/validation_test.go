@@ -59,6 +59,9 @@ func TestLatencyProofRejectsEmptySamplesAndIncludesTheTail(t *testing.T) {
 	if _, err := summarize(nil); err == nil {
 		t.Fatal("empty latency proof passed")
 	}
+	if _, err := summarize([]time.Duration{-time.Millisecond}); err == nil {
+		t.Fatal("negative elapsed time passed as a successful performance proof")
+	}
 	samples := make([]time.Duration, 100)
 	for i := range samples {
 		samples[i] = time.Duration(100-i) * time.Millisecond
@@ -72,5 +75,24 @@ func TestLatencyProofRejectsEmptySamplesAndIncludesTheTail(t *testing.T) {
 	}
 	if samples[0] != 100*time.Millisecond {
 		t.Fatal("summarizing changed the observations")
+	}
+}
+
+func TestRenderedDeliveryProofRequiresItsActualBoardAndSequence(t *testing.T) {
+	for _, markup := range []string{
+		`<aboard-message board="other" seq="7">load-r0-b0</aboard-message>`,
+		`<aboard-message board="wanted">load-r0-b0</aboard-message>`,
+		`<aboard-message board="wanted" seq="0">load-r0-b0</aboard-message>`,
+		`<aboard-message board="wanted" seq="oops">load-r0-b0</aboard-message>`,
+		`<aboard-message board="wanted" seq="7">load-r0-b0</aboard-message><aboard-message board="wanted" seq="7">duplicate</aboard-message>`,
+		`<aboard-message board="wanted" seq="7">unterminated`,
+	} {
+		if _, err := renderedMessage(markup, "wanted"); err == nil {
+			t.Fatalf("invalid rendered delivery passed: %s", markup)
+		}
+	}
+	got, err := renderedMessage(`<aboard-message board="wanted" seq="9">load-r0-b0</aboard-message>`, "wanted")
+	if err != nil || got != 9 {
+		t.Fatalf("rendered sequence, independent of the marker's posting map: got %d, error %v", got, err)
 	}
 }
