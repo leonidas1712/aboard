@@ -148,16 +148,17 @@ func TestRepeatedJoinNeverClearsTerminalBoardGone(t *testing.T) {
 	case <-time.After(within):
 		t.Fatal("old inbox did not start")
 	}
-	again := r.join("s1", "docs")
-	if again.Error != nil || !again.Reused {
-		t.Fatalf("repeat join: %+v", again)
-	}
 	close(srv.release)
 	r.eventually("terminal refusal", 0, func() bool {
 		st := r.status()
 		return len(st.Agents) == 1 && st.Agents[0].Reason == delivery.ReasonBoardGone
 	})
-	again = r.join("s1", "docs")
+	// Observe the terminal refusal before rotating. An old-generation response after
+	// rotation must be fenced, and does not establish a current terminal state.
+	again := r.join("s1", "docs")
+	if again.Error == nil && !again.Reused {
+		t.Fatal("repeat join did not reuse the terminal seat")
+	}
 	if again.Error != nil {
 		t.Fatalf("fixture join: %+v", again)
 	}
