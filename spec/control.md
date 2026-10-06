@@ -113,7 +113,7 @@ on a connection that stays open.
 | `notice` | string | The waiting notice: names waiting messages without their content |
 | `boot` | string | The session's boot id |
 | `agents` | array of agents | The agents bound to the session |
-| `seats` | array of seats | On `bind`, `join`, `create_board` and `agents` once multi-seat binding is on (see "Several seats"): every seat the session holds, each an agent with its `member_id`, `mode` and `unread` |
+| `seats` | array of seats | On `bind`, `join` and `agents` once multi-seat binding is on (see "Several seats"): every seat the session holds, each an agent with its `member_id`, `mode` and `unread` |
 | `joined` | agent | On `join` or `create_board`: the seat the session has on the board now, with its `member_id` |
 | `reused` | boolean | On `join`: the session already had that seat |
 | `board` | object | On `join` or `create_board`: the board, as the API's `Board` (openapi.yaml) |
@@ -388,7 +388,7 @@ optionally names its agent seat. The daemon:
 4. Saves the answered token atomically in the credentials file, with server and member
    id, before binding the seat or answering success. It binds the new seat as `bind`
    does, retaining every sibling seat, and answers `joined`, `board`, `member`, `mode`
-   and `seats`. No token, delegation or person key appears on the socket.
+   and `agents`. No token, delegation or person key appears on the socket.
 
 Seat additions to one session must serialize their whole-session preflight and binding,
 so two simultaneous requests cannot each pass against an earlier set of seats and then
@@ -414,7 +414,7 @@ new credential. The server's current-access refusals, including `delegation_revo
 
 ```json-planned
 {"v":1,"op":"create_board","harness":"codex","session":"019a0000-0000-7000-8000-000000000001","server":"http://127.0.0.1:7400","idempotency_key":"new-board-019a-1","create":{"name":"retry-design","template":"general","title":"Retry design"},"role":"member","agent_name":"codex"}
-{"v":1,"joined":{"server":"http://127.0.0.1:7400","board":"retry-design","name":"codex","member_id":"mem_01K00000000000000000000002"},"board":{"name":"retry-design"},"member":{"id":"mem_01K00000000000000000000002","name":"codex"},"mode":"focused","seats":[{"server":"http://127.0.0.1:7400","board":"retry-design","name":"codex","member_id":"mem_01K00000000000000000000002","mode":"focused","unread":0}]}
+{"v":1,"joined":{"server":"http://127.0.0.1:7400","board":"retry-design","name":"codex","member_id":"mem_01K00000000000000000000002"},"board":{"name":"retry-design"},"member":{"id":"mem_01K00000000000000000000002","name":"codex"},"mode":"focused","agents":[{"server":"http://127.0.0.1:7400","board":"retry-design","name":"codex","member_id":"mem_01K00000000000000000000002"}]}
 ```
 
 The example abbreviates the ordinary API `Board` and `Member`; actual answers carry
