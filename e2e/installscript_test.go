@@ -15,7 +15,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -55,7 +57,7 @@ exit 1
 // archiveEntry is one entry of a fake release archive.
 type archiveEntry struct {
 	name, body, link string
-	typ             byte
+	typ              byte
 }
 
 // fakeAboard is an aboard that only answers aboard version.
@@ -108,6 +110,9 @@ type installRelease struct {
 	t        *testing.T
 	files    map[string][]byte // by path on the server
 	cut      map[string]bool   // paths whose download stops halfway
+	version  string            // the version publish serves
+	mu       sync.Mutex
+	asked    []string // the paths requested, in order
 	url      string
 	home     string
 	bin      string // the PATH's only folder of commands
@@ -122,7 +127,7 @@ func newInstallRelease(t *testing.T) *installRelease {
 		t.Fatal(err)
 	}
 	r := &installRelease{
-		t: t, files: map[string][]byte{}, cut: map[string]bool{},
+		t: t, files: map[string][]byte{}, cut: map[string]bool{}, version: installVersion,
 		home: filepath.Join(dir, "home"), bin: filepath.Join(dir, "bin"),
 		cosigned: filepath.Join(dir, "cosign.log"),
 	}
@@ -147,6 +152,9 @@ func newInstallRelease(t *testing.T) *installRelease {
 	}
 	r.publish(goodEntries())
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r.mu.Lock()
+		r.asked = append(r.asked, req.URL.Path)
+		r.mu.Unlock()
 		body, ok := r.files[req.URL.Path]
 		if !ok {
 			http.NotFound(w, req)
@@ -173,7 +181,19 @@ func newInstallRelease(t *testing.T) *installRelease {
 }
 
 func (r *installRelease) archiveName() string {
-	return fmt.Sprintf("aboard_%s_%s_%s.tar.gz", installVersion, runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("aboard_%s_%s_%s.tar.gz", r.version, runtime.GOOS, runtime.GOARCH)
+}
+
+// archivePath is where the server serves the archive for this machine.
+func (r *installRelease) archivePath() string {
+	return "/releases/download/v" + r.version + "/" + r.archiveName()
+}
+
+// requests returns the paths requested so far.
+func (r *installRelease) requests() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.asked)
 }
 
 // publish serves a release whose archive for this machine holds entries, with
@@ -181,9 +201,10 @@ func (r *installRelease) archiveName() string {
 func (r *installRelease) publish(entries []archiveEntry) {
 	archive := tarGz(r.t, entries)
 	sum := sha256.Sum256(archive)
-	other := fmt.Sprintf("aboard_%s_plan9_mips.tar.gz", installVersion)
+	clear(r.files)
+	other := fmt.Sprintf("aboard_%s_plan9_mips.tar.gz", r.version)
 	checksums := fmt.Sprintf("%s  %s\n%s  %s\n", strings.Repeat("0", 64), other, hex.EncodeToString(sum[:]), r.archiveName())
-	tag := "/releases/download/v" + installVersion + "/"
+	tag := "/releases/download/v" + r.version + "/"
 	r.files[tag+r.archiveName()] = archive
 	r.files[tag+"checksums.txt"] = []byte(checksums)
 	r.files[tag+"checksums.txt.sigstore.json"] = []byte("{}\n")
@@ -218,7 +239,7 @@ func (r *installRelease) run(env ...string) (string, int) {
 func (r *installRelease) installed() string { return filepath.Join(r.home, ".local", "bin") }
 
 // existing puts an aboard from an earlier install in the install folder.
-func (r *installRelease) existing() string {
+func (r *installRelease) existing() {
 	p := filepath.Join(r.installed(), "aboard")
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		r.t.Fatal(err)
@@ -226,7 +247,6 @@ func (r *installRelease) existing() string {
 	if err := os.WriteFile(p, []byte("earlier aboard\n"), 0o755); err != nil { //nolint:gosec // stands in for an installed program
 		r.t.Fatal(err)
 	}
-	return p
 }
 
 // refused checks the script failed saying want, and left the earlier aboard and
@@ -339,12 +359,11 @@ func TestInstallScriptRefuses(t *testing.T) {
 			return []string{"FAKE_COSIGN_ISSUER=https://accounts.example.test"}
 		}, notSigned},
 		{"a wrong checksum", func(r *installRelease) []string {
-			p := "/releases/download/v" + installVersion + "/" + r.archiveName()
-			r.files[p] = tarGz(r.t, append(goodEntries(), archiveEntry{name: "extra", body: "x"}))
+			r.files[r.archivePath()] = tarGz(r.t, append(goodEntries(), archiveEntry{name: "extra", body: "x"}))
 			return nil
 		}, "doesn't match its checksum"},
 		{"an interrupted download", func(r *installRelease) []string {
-			r.cut["/releases/download/v"+installVersion+"/"+r.archiveName()] = true
+			r.cut[r.archivePath()] = true
 			return nil
 		}, "couldn't download"},
 		{"a path out of the folder", func(r *installRelease) []string {
