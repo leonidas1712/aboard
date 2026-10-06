@@ -209,6 +209,9 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		d.log.Warn("join through the delegation", "server", server, "board", board, "session", req.Key().String(), "error", err)
 		return seatsError(server, err)
 	}
+	if r := d.bindingPreflight(ctx, req.Key(), grantAgent(grant)); r.Error != nil {
+		return r
+	}
 	// The token is saved before the seat is bound or success answered, so the token a
 	// session holds is always the newest one the server issued.
 	if err := d.cfg.Seats.Save(ctx, grant.Seat, grant.Token); err != nil {
