@@ -153,22 +153,3 @@ func (s *Service) checkCreationReplay(tx ReadTx, p Principal, joined Joined) err
 	}
 	return nil
 }
-
-// CheckCreationReplay rechecks the immutable token-bearing answer with current
-// delegation, creator access, lifecycle and seat authority before it leaves storage.
-func (s *Service) CheckCreationReplay(ctx context.Context, p Principal, boardID, memberID, token string) error {
-	if p.Delegation == nil {
-		return delegationForbidden()
-	}
-	return s.st.Read(ctx, func(tx ReadTx) error {
-		return s.checkCreationReplay(tx, p.asDelegate(), Joined{Agent: Member{ID: memberID}, View: View{Board: Board{ID: boardID}}, Token: token})
-	})
-}
-
-// CheckDelegation checks current delegation authority for a cached creation refusal.
-func (s *Service) CheckDelegation(ctx context.Context, p Principal) error {
-	if p.Delegation == nil {
-		return delegationForbidden()
-	}
-	return s.st.Read(ctx, func(tx ReadTx) error { return stillValid(tx, p.asDelegate(), stamp(s.clk.Now())) })
-}

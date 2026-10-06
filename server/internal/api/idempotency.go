@@ -62,6 +62,7 @@ func creationRequestHash(o Options, next http.Handler) http.Handler {
 // written to disk: those writes ignore the key. A join with a person's key or a code
 // keeps its replay, since each makes a new agent, but its stored answer is returned only
 // after the service rechecks that the caller may still have it.
+// Delegated board creation uses its transactional receipt instead of this cache.
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
@@ -73,6 +74,8 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
+			// Creation keeps its answer in the board transaction, with one expiry.
+			r.URL.Path == "/v1/delegations/boards" ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)
@@ -105,12 +108,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			writeError(w, o.Log, err)
 			return
 		case found && saved.RequestHash == reqHash:
-			if r.URL.Path == "/v1/delegations/boards" {
-				if err := checkCreationReplay(ctx, o.Service, saved); err != nil {
-					writeError(w, o.Log, err)
-					return
-				}
-			} else if r.URL.Path == "/v1/join" {
+			if r.URL.Path == "/v1/join" {
 				// A stored join answer holds the agent's token: it is returned only
 				// while the caller may still have it.
 				if err := checkJoinReplay(ctx, o.Service, body, saved); err != nil {
@@ -379,19 +377,4 @@ func (l *rateLimiter) fail(addr string) {
 	defer l.mu.Unlock()
 	l.window()
 	l.count[addr]++
-}
-
-func checkCreationReplay(ctx context.Context, svc *board.Service, saved SavedResponse) error {
-	if saved.Status != http.StatusCreated {
-		return svc.CheckDelegation(ctx, principal(ctx))
-	}
-	var result struct {
-		Board struct{ ID string }
-		Agent struct{ ID string }
-		Token string
-	}
-	if err := json.Unmarshal(saved.Body, &result); err != nil {
-		return fmt.Errorf("decode saved creation result: %w", err)
-	}
-	return svc.CheckCreationReplay(ctx, principal(ctx), result.Board.ID, result.Agent.ID, result.Token)
 }

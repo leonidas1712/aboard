@@ -163,6 +163,39 @@ func TestDelegatedCreationReceiptExpiresAndIsPurgedAt24Hours(t *testing.T) {
 	}
 }
 
+func TestDelegatedCreationUsesOnlyItsReceiptUntilExactExpiry(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	dlg := s.delegate(s.owner)
+	body := map[string]any{"harness": "codex", "session": "codex:receipt-only"}
+	first := s.call("POST", "/v1/delegations/boards", dlg, body, "receipt-only")
+	s.want(first, 201, "")
+	db, err := sql.Open("sqlite", s.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var count int
+	if err := db.QueryRowContext(context.Background(), "SELECT count(*) FROM idempotency").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("creation left %d secondary cache rows", count)
+	}
+	s.clock.Advance(24*time.Hour - time.Nanosecond)
+	replay := s.call("POST", "/v1/delegations/boards", dlg, body, "receipt-only")
+	s.want(replay, 201, "")
+	if replay.raw != first.raw || replay.header.Get("Idempotent-Replayed") != "true" {
+		t.Fatalf("working receipt was not replayed: %s", replay.raw)
+	}
+	s.clock.Advance(time.Nanosecond)
+	second := s.call("POST", "/v1/delegations/boards", dlg, body, "receipt-only")
+	s.want(second, 201, "")
+	if second.str("board", "id") == first.str("board", "id") || second.header.Get("Idempotent-Replayed") != "" {
+		t.Fatalf("unpurged expired receipt reused resource: %s", second.raw)
+	}
+}
+
 func TestDelegatedCreationRefusalsNeverCacheSecrets(t *testing.T) {
 	t.Parallel()
 	s := newTestServer(t)
