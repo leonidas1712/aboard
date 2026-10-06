@@ -4,6 +4,7 @@
 // on. The right one is about the board on screen: its agents and people, its charter,
 // the rules Aboard enforces on it, and its details.
 
+import { lab } from "aboard-lab";
 import { ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -307,26 +308,30 @@ function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
   const showOwner = owners.size > 1;
+  const item = (a: Member) => (
+    <AgentItem
+      key={a.id}
+      agent={a}
+      board={board?.name}
+      mine={meId !== null && a.owner_id === meId}
+      roleCharter={board?.roles[a.role ?? ""]?.charter}
+      showOwner={showOwner}
+      picked={from === a.name}
+      onPick={() => onPick(a.name)}
+    />
+  );
   return (
     <div className="flex flex-col gap-6">
       {members === null ? (
         <div className="h-16 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />
       ) : agents.length === 0 ? (
         <p>No agents yet.</p>
+      ) : lab?.Agents && board ? (
+        // Only the UI lab lays the agents out differently (lab-seam.ts).
+        <lab.Agents board={board.name} agents={agents} item={item} />
       ) : (
         <ul className="flex flex-col gap-5" aria-label="Agents">
-          {agents.map((a) => (
-            <AgentItem
-              key={a.id}
-              agent={a}
-              board={board?.name}
-              mine={meId !== null && a.owner_id === meId}
-              roleCharter={board?.roles[a.role ?? ""]?.charter}
-              showOwner={showOwner}
-              picked={from === a.name}
-              onPick={() => onPick(a.name)}
-            />
-          ))}
+          {agents.map(item)}
         </ul>
       )}
       {people.length > 1 && (
@@ -419,6 +424,7 @@ function AgentItem({
           <CrossFade value={presenceWords[presence]} className={cn("text-meta", presence === "working" || waiting ? "text-ink" : "text-muted")} />
         </span>
       </div>
+      {lab?.AgentLine && board && <lab.AgentLine board={board} agent={agent} />}
       {waiting && <p className="text-meta">Its session is waiting for you, such as a permission prompt.</p>}
       <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
         {showOwner && (

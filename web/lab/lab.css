@@ -1,0 +1,7 @@
+/* The lab's utilities. The real UI's stylesheet leaves web/lab out of its scan, so the
+   classes only the lab uses are made here, from the lab's own files, with the real UI's
+   theme. Only the lab build ever loads this file. */
+@reference "tailwindcss";
+@reference "../app/theme.css";
+@source "./";
+@tailwind utilities;

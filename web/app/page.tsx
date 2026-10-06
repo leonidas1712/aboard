@@ -1,5 +1,6 @@
 "use client";
 
+import { lab } from "aboard-lab";
 import { useEffect, useState } from "react";
 import { type Session, type Started, signedOutEvent, start } from "./api";
 import BoardList from "./board-list";
@@ -81,6 +82,7 @@ export default function Page() {
     <div className={started.board ? "flex min-h-dvh flex-col lg:h-dvh lg:overflow-clip" : undefined}>
       {notice && <SignedInNotice session={notice} note={started.note} onClose={() => setNotice(null)} />}
       {view}
+      {lab && <lab.Overlay />}
     </div>
   );
 }

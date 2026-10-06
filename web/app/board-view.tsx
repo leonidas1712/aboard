@@ -4,7 +4,8 @@
 // box below it, the boards to move between on the left, and this board (its agents and
 // people, charter, rules and details) on the right.
 
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lab } from "aboard-lab";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
@@ -346,6 +347,15 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // An archived board takes nothing new: no message box, no replies, no reactions.
   const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
+  // The conversation, which only the UI lab ever wraps (lab-seam.ts).
+  const centre = (conversation: ReactNode) =>
+    lab?.Centre ? (
+      <lab.Centre board={name} members={s.members ?? []} identity={identity}>
+        {conversation}
+      </lab.Centre>
+    ) : (
+      conversation
+    );
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -398,60 +408,64 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 </div>
               )}
             </div>
-            {loading ? (
-              <div className={cn(column, "min-h-0 flex-1")}>
-                <Loading />
-              </div>
-            ) : (
-              <Timeline
-                column={column}
-                entries={entries}
-                dividerSeq={filterActive(filter) ? null : dividerSeq}
-                hasEarlier={s.hasEarlier}
-                loadEarlier={s.loadEarlier}
-                quote={quote}
-                answer={answer}
-                identity={identity}
-                onMention={onMention}
-                waiting={waiting}
-                onReply={readOnly ? undefined : setReplyTo}
-                onReact={readOnly ? undefined : onReact}
-                me={me}
-                onToggle={onToggle}
-                onShow={onShow}
-                onSeen={onSeen}
-                receipts={receiptsAt}
-                stick={stick}
-                resetKey={JSON.stringify(filter)}
-                empty={filterActive(filter) ? <NoMatches clear={() => setFilter({})} /> : <Empty agents={agents.length} />}
-              />
+            {centre(
+              <>
+                {loading ? (
+                  <div className={cn(column, "min-h-0 flex-1")}>
+                    <Loading />
+                  </div>
+                ) : (
+                  <Timeline
+                    column={column}
+                    entries={entries}
+                    dividerSeq={filterActive(filter) ? null : dividerSeq}
+                    hasEarlier={s.hasEarlier}
+                    loadEarlier={s.loadEarlier}
+                    quote={quote}
+                    answer={answer}
+                    identity={identity}
+                    onMention={onMention}
+                    waiting={waiting}
+                    onReply={readOnly ? undefined : setReplyTo}
+                    onReact={readOnly ? undefined : onReact}
+                    me={me}
+                    onToggle={onToggle}
+                    onShow={onShow}
+                    onSeen={onSeen}
+                    receipts={receiptsAt}
+                    stick={stick}
+                    resetKey={JSON.stringify(filter)}
+                    empty={filterActive(filter) ? <NoMatches clear={() => setFilter({})} /> : <Empty agents={agents.length} />}
+                  />
+                )}
+                <div className={column}>
+                  {isArchived(s.board) && s.board ? (
+                    <ArchivedNotice board={s.board} onChanged={s.refresh} />
+                  ) : (
+                    <Composer
+                      board={name}
+                      members={s.members ?? []}
+                      roles={roles}
+                      me={me}
+                      replyTo={replyTo}
+                      replyDefault={replyDefault}
+                      identity={identity}
+                      onCancelReply={() => setReplyTo(null)}
+                      onPosted={(m) => {
+                        setPostError(null);
+                        // A reply opens its thread and is shown there; anything else is newest.
+                        if (m.thread_root) {
+                          prefs.setOpen(m.thread_root, true);
+                          setPending(m.id);
+                        } else setStick((n) => n + 1);
+                        s.refresh();
+                      }}
+                      onError={setPostError}
+                    />
+                  )}
+                </div>
+              </>,
             )}
-            <div className={column}>
-              {isArchived(s.board) && s.board ? (
-                <ArchivedNotice board={s.board} onChanged={s.refresh} />
-              ) : (
-                <Composer
-                  board={name}
-                  members={s.members ?? []}
-                  roles={roles}
-                  me={me}
-                  replyTo={replyTo}
-                  replyDefault={replyDefault}
-                  identity={identity}
-                  onCancelReply={() => setReplyTo(null)}
-                  onPosted={(m) => {
-                    setPostError(null);
-                    // A reply opens its thread and is shown there; anything else is newest.
-                    if (m.thread_root) {
-                      prefs.setOpen(m.thread_root, true);
-                      setPending(m.id);
-                    } else setStick((n) => n + 1);
-                    s.refresh();
-                  }}
-                  onError={setPostError}
-                />
-              )}
-            </div>
           </main>
 
           <SidePanel
