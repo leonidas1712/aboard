@@ -124,6 +124,13 @@ func TestCachedContentChecksAuthorityAfterWaitingForItsRead(t *testing.T) {
 			body := map[string]any{"body": "not available after access ends"}
 			requireLifecycleCall(t, s.lifecycleCall(key.JSON201.Token, "POST", path, "saved", body), 201, "")
 			waiting, release := make(chan struct{}), make(chan struct{})
+			defer func() {
+				select {
+				case <-release:
+				default:
+					close(release)
+				}
+			}()
 			gate.mu.Lock()
 			gate.skip, gate.waiting, gate.release = 1, waiting, release
 			gate.mu.Unlock()
