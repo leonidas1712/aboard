@@ -57,3 +57,21 @@ state live in a private temporary directory and are removed after shutdown.
 The command exits nonzero on correctness errors, run timeout, or a
 `request_to_stream` p99 of at least 100 ms. Performance findings and SQLite tuning
 are separate changes; this tool does not change server settings or limits.
+
+## Failed runs
+
+A failed run reports `status: incomplete`, the stage that failed, and the counters
+collected so far. Setup time, measurement time, successful posts, observed deliveries,
+and throttled requests are retained even when later checks fail. Incomplete samples
+never count as a performance or correctness pass.
+
+Before stopping child processes, the tool records whether each server or daemon
+already exited and its numeric exit code when available. It also counts structured
+warning and error log entries. A small fixed set of diagnostic categories may identify
+open-file exhaustion, socket reset, timeout, SQLite busy/locked, and runtime panic.
+These are observations from owned subprocess logs, not an inferred root cause.
+
+Diagnostics contain process roles and fixture indices, counts and category names.
+They contain no arbitrary log text, bodies, credentials, command input or log paths.
+The tool still cancels and removes all child state after recording this summary. A
+failed observation is not retried and does not relax limits, gathering or timeouts.
