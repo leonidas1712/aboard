@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -103,7 +104,7 @@ func finishBootstrap(ctx context.Context, svc *board.Service, dataDir string, lo
 	}
 	p, err := svc.Authenticate(ctx, strings.TrimSpace(string(raw)))
 	// Only a key the server says doesn't work is from a start that stopped before the
-	// admin was made. Any other failure, such as a database error or a cancelled start,
+	// admin was made. Any other failure, such as a database error or a canceled start,
 	// says nothing about the key, so it stays for the next start.
 	if e, ok := apierr.As(err); err != nil && (!ok || e.Code != "unauthorized") {
 		return fmt.Errorf("check the first admin's pending key in %s: %w", pendingPath, err)
@@ -123,9 +124,23 @@ func finishBootstrap(ctx context.Context, svc *board.Service, dataDir string, lo
 
 // deliver links the pending key file to the admin key file, which must not exist, and
 // removes the pending one.
+//
+// An admin key file that already holds exactly the pending key is a delivery that
+// stopped before the pending file was removed, so it finishes it. One that holds
+// anything else is left alone, with the pending file, and the start stops.
 func deliver(pendingPath, keyPath, dataDir string) error {
 	if err := os.Link(pendingPath, keyPath); err != nil {
-		return fmt.Errorf("deliver the first admin's key to %s: %w; the key stays in %s for the next start", keyPath, err, pendingPath)
+		if !errors.Is(err, fs.ErrExist) {
+			return fmt.Errorf("deliver the first admin's key to %s: %w; the key stays in %s for the next start", keyPath, err, pendingPath)
+		}
+		pending, perr := readPrivate(pendingPath)
+		delivered, kerr := readPrivate(keyPath)
+		if perr != nil || kerr != nil || !bytes.Equal(pending, delivered) {
+			return fmt.Errorf("%s holds a different key from %s; move away the one that isn't this server's admin's and start again", keyPath, pendingPath)
+		}
+	}
+	if err := bootstrapStep("key linked"); err != nil {
+		return err
 	}
 	if err := os.Remove(pendingPath); err != nil {
 		return fmt.Errorf("remove %s: %w", pendingPath, err)

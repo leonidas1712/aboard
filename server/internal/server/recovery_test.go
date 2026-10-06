@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
@@ -17,8 +18,55 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/store/sqlite"
 )
 
+// A start that stops after delivering the key but before removing the pending file
+// leaves both; the next start sees the delivery was done, removes the pending file and
+// starts, with the same key working.
+func TestABootstrapStoppedAfterTheLinkFinishesOnRestart(t *testing.T) {
+	data := dataDir(t)
+	undo := stopAt(t, "key linked")
+	if _, err := launchTeam(t, data); err == nil {
+		t.Fatal("the start went on")
+	}
+	pending, err := os.ReadFile(filepath.Join(data, pendingKeyFile)) //nolint:gosec // the test's own folder
+	if err != nil {
+		t.Fatalf("no pending key after stopping at the link: %v", err)
+	}
+	undo()
+	s := startTeam(t, data)
+	key := s.adminKey()
+	if key != strings.TrimSpace(string(pending)) {
+		t.Fatal("the delivered key isn't the pending one")
+	}
+	adminWorks(t, s, key)
+	onlyTheKeyFile(t, data)
+}
+
+// A pending key beside a different admin key file is not a finished delivery: the
+// start stops and leaves both files alone.
+func TestAPendingKeyBesideAnotherKeyFileStopsTheStart(t *testing.T) {
+	data := dataDir(t)
+	undo := stopAt(t, "key linked")
+	if _, err := launchTeam(t, data); err == nil {
+		t.Fatal("the start went on")
+	}
+	undo()
+	keyPath := filepath.Join(data, AdminKeyFile)
+	if err := os.Remove(keyPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyPath, []byte("abh_something_else\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := launchTeam(t, data); err == nil || !strings.Contains(err.Error(), keyPath) {
+		t.Fatalf("the start with two different key files: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(data, pendingKeyFile)); err != nil {
+		t.Fatalf("the pending key was removed: %v", err)
+	}
+}
+
 // When checking a pending key fails for a reason other than the key not working, such
-// as a cancelled start or a database error, the pending key stays for the next start
+// as a canceled start or a database error, the pending key stays for the next start
 // and the error is returned.
 func TestACheckThatFailsKeepsThePendingKey(t *testing.T) {
 	data := dataDir(t)
@@ -32,10 +80,10 @@ func TestACheckThatFailsKeepsThePendingKey(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := finishBootstrap(ctx, svc, data, quiet); err == nil || !errors.Is(err, context.Canceled) {
-		t.Fatalf("finishing with a cancelled context: %v", err)
+		t.Fatalf("finishing with a canceled context: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(data, pendingKeyFile)); err != nil {
-		t.Fatalf("the pending key was removed after a cancelled check: %v", err)
+		t.Fatalf("the pending key was removed after a canceled check: %v", err)
 	}
 	if err := st.Close(); err != nil {
 		t.Fatal(err)
