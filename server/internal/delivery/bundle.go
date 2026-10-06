@@ -26,8 +26,10 @@ type offer struct {
 type composed struct {
 	parts []offer
 	// tooLarge are messages that don't fit in a bundle even on their own.
-	tooLarge []offer
-	text     string
+	tooLarge  []offer
+	text      string
+	nextFirst int
+	digests   map[AgentKey]bool
 }
 
 // orderForBundle sorts one agent's messages as a bundle shows them: urgent ones first,
@@ -44,63 +46,122 @@ func orderForBundle(msgs []Message) {
 	})
 }
 
-// quietOverhead is room kept in a focused bundle for the line and the element that set
-// its quiet messages apart.
-const quietOverhead = 400
+// composeOptions carries session context; fair selection advances only when the
+// caller commits the admitted handoff, not when it reconstructs a retry.
+type composeOptions struct {
+	MultiSeat bool
+	First     int
+	// WholeLimit is the payload cap before notes or other seats reserve space.
+	WholeLimit int
+}
 
-// compose builds a bundle of at most limit bytes from offers, taken in order. Text is
-// grouped by board and agent; a session holds one agent, so in practice that is one
-// board's messages. Whatever doesn't fit is left for the next bundle; a message too
-// large for any bundle is returned in tooLarge so it can be skipped.
-func compose(offers []offer, limit int) composed {
+// compose takes whole messages in seat order. Space used by an earlier seat can defer
+// a later message, but cannot make that message oversized.
+func compose(offers []offer, limit int, options ...composeOptions) composed {
 	var c composed
-	type group struct {
-		board string
-		text  string
-	}
-	var groups []group
-	used := 0
-	for _, agentOffers := range byAgent(offers) {
-		if used > 0 && used >= limit {
-			break
+	opts := composeOptions{WholeLimit: limit}
+	if len(options) > 0 {
+		opts = options[0]
+		if opts.WholeLimit <= 0 {
+			opts.WholeLimit = limit
 		}
+	}
+	groups := byAgent(offers)
+	if len(groups) == 0 {
+		return c
+	}
+	first := ((opts.First % len(groups)) + len(groups)) % len(groups)
+	c.nextFirst = (first + 1) % len(groups)
+	type group struct{ board, text string }
+	var rendered []group
+	used := 0
+	for step := 0; step < len(groups); step++ {
+		agentOffers := groups[(first+step)%len(groups)]
 		room := limit - used
 		if used > 0 {
-			room -= 2 // the blank line between boards
+			room -= 2
 		}
-		parts, tooLarge, text := composeAgent(agentOffers, room, len(c.parts) > 0)
+		context := deliverytext.Context{}
+		if opts.MultiSeat {
+			context = deliverytext.Context{Seat: agentOffers[0].agent.Name, BoardQualified: true}
+		}
+		parts, tooLarge, text, digest := composeAgent(agentOffers, room, opts.WholeLimit, context)
 		c.tooLarge = append(c.tooLarge, tooLarge...)
 		if len(parts) == 0 {
-			if len(c.parts) > 0 {
-				break
-			}
 			continue
 		}
 		c.parts = append(c.parts, parts...)
-		groups = append(groups, group{board: agentOffers[0].agent.Board, text: text})
+		if digest {
+			if c.digests == nil {
+				c.digests = map[AgentKey]bool{}
+			}
+			c.digests[agentOffers[0].agent.Key()] = true
+		}
+		rendered = append(rendered, group{board: agentOffers[0].agent.Board, text: text})
 		if used > 0 {
 			used += 2
 		}
 		used += len(text)
 	}
-	slices.SortStableFunc(groups, func(a, b group) int { return cmp.Compare(a.board, b.board) })
-	texts := make([]string, 0, len(groups))
-	for _, g := range groups {
+	slices.SortStableFunc(rendered, func(a, b group) int { return cmp.Compare(a.board, b.board) })
+	texts := make([]string, 0, len(rendered))
+	for _, g := range rendered {
 		texts = append(texts, g.text)
 	}
 	c.text = strings.Join(texts, "\n\n")
 	return c
 }
 
+// renderComposition reproduces the admitted allocation without running fair selection
+// or digest thresholds again. The caller keeps the original parts and digest choices
+// with an in-flight handoff; a restart checks the reconstructed payload's hash.
+func renderComposition(parts []offer, multiSeat bool, digests map[AgentKey]bool) string {
+	type group struct{ board, text string }
+	var rendered []group
+	for _, groupOffers := range byAgent(parts) {
+		agent, mode := groupOffers[0].agent, groupOffers[0].mode
+		context := deliverytext.Context{}
+		if multiSeat {
+			context = deliverytext.Context{Seat: agent.Name, BoardQualified: true}
+		}
+		var msgs []Message
+		for _, o := range groupOffers {
+			msgs = append(msgs, o.msgs...)
+		}
+		if len(msgs) == 0 {
+			continue
+		}
+		var text string
+		switch {
+		case digests[agent.Key()]:
+			concern, quiet := split(msgs, agent.Name)
+			text = deliverytext.Digest(agent.Board, concern, quiet, context)
+		case mode == ModeFocused:
+			concern, quiet := split(msgs, agent.Name)
+			text = deliverytext.Woken(agent.Board, concern, quiet, context)
+		default:
+			orderForBundle(msgs)
+			text = deliverytext.Bundle(agent.Board, msgs, context)
+		}
+		rendered = append(rendered, group{board: agent.Board, text: text})
+	}
+	slices.SortStableFunc(rendered, func(a, b group) int { return cmp.Compare(a.board, b.board) })
+	texts := make([]string, 0, len(rendered))
+	for _, g := range rendered {
+		texts = append(texts, g.text)
+	}
+	return strings.Join(texts, "\n\n")
+}
+
 // byAgent groups offers by agent, keeping their order.
 func byAgent(offers []offer) [][]offer {
 	var out [][]offer
-	index := map[AgentRef]int{}
+	index := map[AgentKey]int{}
 	for _, o := range offers {
-		i, ok := index[o.agent]
+		i, ok := index[o.agent.Key()]
 		if !ok {
 			i = len(out)
-			index[o.agent] = i
+			index[o.agent.Key()] = i
 			out = append(out, nil)
 		}
 		out[i] = append(out[i], o)
@@ -108,27 +169,47 @@ func byAgent(offers []offer) [][]offer {
 	return out
 }
 
-// composeAgent takes what fits in limit bytes of one agent's offers and writes it. With
-// others before it in the bundle (after), a redelivery that doesn't fit waits whole.
-func composeAgent(offers []offer, limit int, after bool) (parts, tooLarge []offer, text string) {
+// composeAgent uses the remaining space for admission and the whole limit only to
+// classify a message that cannot be delivered alone. A redelivery remains indivisible.
+func composeAgent(offers []offer, limit, wholeLimit int, context deliverytext.Context) (parts, tooLarge []offer, text string, digest bool) {
 	agent, mode := offers[0].agent, offers[0].mode
 	var all []Message
 	for _, o := range offers {
 		all = append(all, o.msgs...)
 	}
-	if (mode == ModeFocused || mode == ModeHumans) && digestDue(all) {
-		if parts, tooLarge, text, ok := composeDigest(offers, limit); ok {
-			return parts, tooLarge, text
+	if len(all) > 0 && (mode == ModeFocused || mode == ModeHumans) && digestDue(all) {
+		if parts, tooLarge, text, ok := composeDigest(offers, limit, wholeLimit, context); ok {
+			return parts, tooLarge, text, true
 		}
 	}
-	room := limit
-	if mode == ModeFocused {
-		room -= quietOverhead
+	render := func(msgs []Message) string {
+		if mode == ModeFocused {
+			concern, quiet := split(msgs, agent.Name)
+			return deliverytext.Woken(agent.Board, concern, quiet, context)
+		}
+		ordered := slices.Clone(msgs)
+		orderForBundle(ordered)
+		return deliverytext.Bundle(agent.Board, ordered, context)
+	}
+	// Retain the existing single-seat allocation while several-seat sizing uses the
+	// complete rendered wrappers and routing hints.
+	legacyFocused := mode == ModeFocused && context == (deliverytext.Context{})
+	fits := func(msgs []Message) bool {
+		if len(render(msgs)) > limit {
+			return false
+		}
+		if !legacyFocused {
+			return true
+		}
+		return deliverytext.BundleSize([]deliverytext.Group{{Board: agent.Board, Messages: msgs}}) <= limit-400
+	}
+	aloneSize := func(m Message) int {
+		if legacyFocused {
+			return len(deliverytext.Bundle(agent.Board, []Message{m}))
+		}
+		return len(render([]Message{m}))
 	}
 	var taken []Message
-	size := func(msgs []Message) int {
-		return deliverytext.BundleSize([]deliverytext.Group{{Board: agent.Board, Messages: msgs}})
-	}
 	full := false
 	for _, o := range offers {
 		if full {
@@ -136,7 +217,7 @@ func composeAgent(offers []offer, limit int, after bool) (parts, tooLarge []offe
 		}
 		if o.redeliver != 0 {
 			next := append(slices.Clone(taken), o.msgs...)
-			if size(next) > room && (len(taken) > 0 || after) {
+			if len(render(next)) > limit || (len(taken) > 0 && !fits(next)) {
 				break
 			}
 			taken = next
@@ -145,12 +226,12 @@ func composeAgent(offers []offer, limit int, after bool) (parts, tooLarge []offe
 		}
 		part := offer{agent: o.agent, mode: o.mode}
 		for _, m := range o.msgs {
-			if size([]Message{m}) > limit {
+			if aloneSize(m) > wholeLimit {
 				tooLarge = append(tooLarge, offer{agent: o.agent, mode: o.mode, msgs: []Message{m}})
 				continue
 			}
 			next := append(slices.Clone(taken), m)
-			if size(next) > room {
+			if !fits(next) {
 				full = true
 				break
 			}
@@ -161,15 +242,10 @@ func composeAgent(offers []offer, limit int, after bool) (parts, tooLarge []offe
 			parts = append(parts, part)
 		}
 	}
-	if len(taken) == 0 {
-		return parts, tooLarge, ""
+	if len(taken) > 0 {
+		text = render(taken)
 	}
-	if mode != ModeFocused {
-		orderForBundle(taken)
-		return parts, tooLarge, deliverytext.Bundle(agent.Board, taken)
-	}
-	concern, quiet := split(taken, agent.Name)
-	return parts, tooLarge, deliverytext.Woken(agent.Board, concern, quiet)
+	return parts, tooLarge, text, false
 }
 
 // digestDue reports whether a bundle of msgs is too big to show whole: more than
@@ -200,14 +276,14 @@ func split(msgs []Message, name string) (concern, quiet []Message) {
 // full, as many as fit, and one line for each other message, which always fits. A
 // redelivery is taken whole. ok is false when nothing would be summarized: then every
 // message concerns the agent and the bundle shows them in full.
-func composeDigest(offers []offer, limit int) (parts, tooLarge []offer, text string, ok bool) {
+func composeDigest(offers []offer, limit, wholeLimit int, context deliverytext.Context) (parts, tooLarge []offer, text string, ok bool) {
 	agent := offers[0].agent
 	var concern, quiet []Message
 	for _, o := range offers {
 		c, q := split(o.msgs, agent.Name)
 		concern, quiet = append(concern, c...), append(quiet, q...)
 	}
-	if len(quiet) == 0 {
+	if len(quiet) == 0 || len(deliverytext.Digest(agent.Board, nil, quiet, context)) > limit {
 		return nil, nil, "", false
 	}
 	slices.SortFunc(quiet, func(a, b Message) int { return cmp.Compare(a.Seq, b.Seq) })
@@ -225,18 +301,21 @@ func composeDigest(offers []offer, limit int) (parts, tooLarge []offer, text str
 			}
 		}
 	}
+	if len(deliverytext.Digest(agent.Board, full, quiet, context)) > limit {
+		return nil, nil, "", false
+	}
 	for _, m := range concern {
 		if inFull[m.Seq] {
 			continue
 		}
-		alone := deliverytext.Digest(agent.Board, []Message{m}, quiet)
-		if len(alone) > limit {
+		alone := deliverytext.Bundle(agent.Board, []Message{m}, context)
+		if len(alone) > wholeLimit {
 			tooLarge = append(tooLarge, offer{agent: agent, mode: offers[0].mode, msgs: []Message{m}})
 			continue
 		}
 		next := append(slices.Clone(full), m)
 		orderForBundle(next)
-		if len(deliverytext.Digest(agent.Board, next, quiet)) > limit {
+		if len(deliverytext.Digest(agent.Board, next, quiet, context)) > limit {
 			continue
 		}
 		full = next
@@ -254,7 +333,7 @@ func composeDigest(offers []offer, limit int) (parts, tooLarge []offer, text str
 		}
 	}
 	orderForBundle(full)
-	return parts, tooLarge, deliverytext.Digest(agent.Board, full, quiet), true
+	return parts, tooLarge, deliverytext.Digest(agent.Board, full, quiet, context), true
 }
 
 func seqsOf(msgs []Message) []int {

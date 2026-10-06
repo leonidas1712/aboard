@@ -48,6 +48,34 @@ type Message struct {
 	Truncated bool
 }
 
+// Context adds the receiving seat and explicit board commands when a session works
+// on several boards. An empty context keeps the single-board delivery format.
+type Context struct {
+	Seat           string
+	BoardQualified bool
+}
+
+func contextOf(contexts []Context) Context {
+	if len(contexts) == 0 {
+		return Context{}
+	}
+	return contexts[0]
+}
+
+func seatAttribute(contexts []Context) string {
+	if seat := contextOf(contexts).Seat; seat != "" {
+		return ` seat="` + attrEscaper.Replace(seat) + `"`
+	}
+	return ""
+}
+
+func boardCommand(command, board string, contexts []Context) string {
+	if contextOf(contexts).BoardQualified {
+		return command + " --board " + board
+	}
+	return command
+}
+
 // Reaction is one emoji on a message and how many members reacted with it.
 type Reaction struct {
 	Emoji string
@@ -71,8 +99,12 @@ func EscapeBody(body string) string {
 
 // Format writes one message: the sender's text unchanged between Aboard's tags, and a
 // reply instruction when a reply is expected.
-func Format(m Message) string {
-	attrs := [][2]string{{"board", m.Board}, {"from", "@" + m.FromName}}
+func Format(m Message, contexts ...Context) string {
+	attrs := [][2]string{{"board", m.Board}}
+	if seat := contextOf(contexts).Seat; seat != "" {
+		attrs = append(attrs, [2]string{"seat", seat})
+	}
+	attrs = append(attrs, [2]string{"from", "@" + m.FromName})
 	if !m.FromHuman {
 		if m.Owner != "" {
 			attrs = append(attrs, [2]string{"owner", m.Owner})
@@ -108,17 +140,17 @@ func Format(m Message) string {
 	}
 	b.WriteString("</aboard-message>")
 	if m.ExpectsReply {
-		fmt.Fprintf(&b, "\nReply requested. Reply with: aboard say --reply %d \"…\"", m.Seq)
+		fmt.Fprintf(&b, "\nReply requested. Reply with: %s --reply %d \"…\"", boardCommand("aboard say", m.Board, contexts), m.Seq)
 	}
 	return b.String()
 }
 
 // Bundle writes several messages of one board delivered together, in the order given.
-func Bundle(board string, ms []Message) string {
+func Bundle(board string, ms []Message, contexts ...Context) string {
 	var b strings.Builder
-	b.WriteString(bundleOpen(board, len(ms)))
+	b.WriteString(bundleOpen(board, len(ms), contexts...))
 	for _, m := range ms {
-		b.WriteString(Format(m) + "\n")
+		b.WriteString(Format(m, contexts...) + "\n")
 	}
 	b.WriteString(bundleClose)
 	return b.String()
@@ -126,6 +158,7 @@ func Bundle(board string, ms []Message) string {
 
 // Group is one board's messages in a bundle.
 type Group struct {
+	Context  Context
 	Board    string
 	Messages []Message
 }
@@ -136,7 +169,7 @@ func Bundles(groups []Group) string {
 	parts := make([]string, 0, len(groups))
 	for _, g := range groups {
 		if len(g.Messages) > 0 {
-			parts = append(parts, Bundle(g.Board, g.Messages))
+			parts = append(parts, Bundle(g.Board, g.Messages, g.Context))
 		}
 	}
 	return strings.Join(parts, "\n\n")
@@ -144,19 +177,19 @@ func Bundles(groups []Group) string {
 
 const bundleClose = "</aboard-messages>"
 
-func bundleOpen(board string, count int) string {
-	return `<aboard-messages board="` + attrEscaper.Replace(board) + `" count="` + strconv.Itoa(count) + "\">\n"
+func bundleOpen(board string, count int, contexts ...Context) string {
+	return `<aboard-messages board="` + attrEscaper.Replace(board) + `"` + seatAttribute(contexts) + ` count="` + strconv.Itoa(count) + "\">\n"
 }
 
 // Quiet writes the messages that waited for an agent's next turn without waking it, in
 // a block of their own after an Aboard line that says so.
-func Quiet(board string, ms []Message) string {
+func Quiet(board string, ms []Message, contexts ...Context) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Aboard: while you were away, %s arrived on %s. They didn't wake you; read them, and answer only if one needs you:\n",
 		countOf(len(ms), "other message"), board)
-	b.WriteString(`<aboard-messages board="` + attrEscaper.Replace(board) + `" count="` + strconv.Itoa(len(ms)) + "\" quiet=\"true\">\n")
+	b.WriteString(`<aboard-messages board="` + attrEscaper.Replace(board) + `"` + seatAttribute(contexts) + ` count="` + strconv.Itoa(len(ms)) + "\" quiet=\"true\">\n")
 	for _, m := range ms {
-		b.WriteString(Format(m) + "\n")
+		b.WriteString(Format(m, contexts...) + "\n")
 	}
 	b.WriteString(bundleClose)
 	return b.String()
@@ -165,13 +198,13 @@ func Quiet(board string, ms []Message) string {
 // Woken writes the messages a bundle or a turn's start carries for an agent that sees
 // some quietly: the ones that concern it, then, in a quiet block, the ones that waited
 // for its next turn. Either may be empty.
-func Woken(board string, concern, quiet []Message) string {
+func Woken(board string, concern, quiet []Message, contexts ...Context) string {
 	var parts []string
 	if len(concern) > 0 {
-		parts = append(parts, Bundle(board, concern))
+		parts = append(parts, Bundle(board, concern, contexts...))
 	}
 	if len(quiet) > 0 {
-		parts = append(parts, Quiet(board, quiet))
+		parts = append(parts, Quiet(board, quiet, contexts...))
 	}
 	return strings.Join(parts, "\n\n")
 }
@@ -249,7 +282,7 @@ func digestLines(ms []Message) string {
 // Digest writes a big backlog: the messages that concern the agent in full, and one line
 // for every other message, ending with the commands that read them in full. summarized
 // must not be empty.
-func Digest(board string, full, summarized []Message) string {
+func Digest(board string, full, summarized []Message, contexts ...Context) string {
 	var b strings.Builder
 	total := len(full) + len(summarized)
 	if len(full) == 0 {
@@ -258,16 +291,16 @@ func Digest(board string, full, summarized []Message) string {
 	} else {
 		fmt.Fprintf(&b, "Aboard: %s arrived on %s. The %d that concern you are in full; the other %d are one line each.\n",
 			countOf(total, "message"), board, len(full), len(summarized))
-		b.WriteString(Bundle(board, full) + "\n")
+		b.WriteString(Bundle(board, full, contexts...) + "\n")
 	}
-	b.WriteString(`<aboard-digest board="` + attrEscaper.Replace(board) + `" count="` + strconv.Itoa(len(summarized)) + "\">\n")
+	b.WriteString(`<aboard-digest board="` + attrEscaper.Replace(board) + `"` + seatAttribute(contexts) + ` count="` + strconv.Itoa(len(summarized)) + "\">\n")
 	b.WriteString(digestLines(summarized) + "\n</aboard-digest>\n")
 	first := summarized[0].Seq
 	for _, m := range summarized {
 		first = min(first, m.Seq)
 	}
-	fmt.Fprintf(&b, "Read one in full with aboard read --around <seq>, everything from the first with aboard read --after %d, or the board's threads with aboard read --threads.",
-		first-1)
+	fmt.Fprintf(&b, "Read one in full with %s --around <seq>, everything from the first with %s --after %d, or the board's threads with %s --threads.",
+		boardCommand("aboard read", board, contexts), boardCommand("aboard read", board, contexts), first-1, boardCommand("aboard read", board, contexts))
 	return b.String()
 }
 
@@ -287,9 +320,9 @@ func BundleSize(groups []Group) int {
 			continue
 		}
 		nonEmpty++
-		n += len(bundleOpen(g.Board, len(g.Messages))) + len(bundleClose)
+		n += len(bundleOpen(g.Board, len(g.Messages), g.Context)) + len(bundleClose)
 		for _, m := range g.Messages {
-			n += len(Format(m)) + 1
+			n += len(Format(m, g.Context)) + 1
 		}
 	}
 	if nonEmpty > 1 {
@@ -301,7 +334,7 @@ func BundleSize(groups []Group) int {
 // Notice writes the content-free notice that tells a busy agent which messages are
 // waiting for it: each one's sequence number, sender name, the sender's owner when shown,
 // and sender label, all escaped. It never holds a body or anything else a sender wrote.
-func Notice(board string, ms []Message) string {
+func Notice(board string, ms []Message, contexts ...Context) string {
 	parts := make([]string, 0, len(ms))
 	for _, m := range ms {
 		from := m.FromName
@@ -310,8 +343,8 @@ func Notice(board string, ms []Message) string {
 		}
 		parts = append(parts, fmt.Sprintf("#%d from %s (%s)", m.Seq, from, m.Sender))
 	}
-	text := fmt.Sprintf("%d waiting on %s: %s; run aboard inbox when convenient", len(ms), board, strings.Join(parts, ", "))
-	return `<aboard-notice board="` + attrEscaper.Replace(board) + `" waiting="` + strconv.Itoa(len(ms)) + `">` +
+	text := fmt.Sprintf("%d waiting on %s: %s; run %s when convenient", len(ms), board, strings.Join(parts, ", "), boardCommand("aboard inbox", board, contexts))
+	return `<aboard-notice board="` + attrEscaper.Replace(board) + `"` + seatAttribute(contexts) + ` waiting="` + strconv.Itoa(len(ms)) + `">` +
 		attrEscaper.Replace(text) + "</aboard-notice>"
 }
 
