@@ -120,7 +120,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				writeError(w, o.Log, err)
 				return
 			}
-			saved.Body, err = withheldNames(r.Context(), o.Service, r.Method, r.URL.Path, saved)
+			saved.Body, err = withheldNames(ctx, o.Service, r.Method, r.URL.Path, saved)
 			if err != nil {
 				writeError(w, o.Log, err)
 				return

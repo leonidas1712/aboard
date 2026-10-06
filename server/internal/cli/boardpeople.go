@@ -144,11 +144,6 @@ type boardPersonOutput struct {
 	Person api.BoardPerson `json:"person"`
 }
 
-// runBoardAdd adds a person as the current person or selected agent seat.
-func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
-	return runBoardAddAs(ctx, a, boardFlag, handle, "")
-}
-
 func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) error {
 	var t target
 	var c *client
