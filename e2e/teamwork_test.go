@@ -99,7 +99,7 @@ func workAssertOwnership(t *testing.T, tm *team, person *env, out map[string]any
 	status, people := tm.call("GET", "/v1/boards/"+board+"/people", tm.key(person), nil)
 	workStatus(t, status, http.StatusOK, people)
 	rows = people["people"].([]any)
-	if len(rows) != 1 || rows[0].(map[string]any)["board_role"] != "owner" {
+	if len(rows) != 1 || rows[0].(map[string]any)["board_role"] != "owner" || rows[0].(map[string]any)["id"] != personID || rows[0].(map[string]any)["member_id"] != humanID {
 		t.Fatal("creation did not make the person the sole first owner")
 	}
 	return humanID.(string)
