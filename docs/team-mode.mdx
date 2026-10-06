@@ -269,7 +269,9 @@ one command with `--server`. Each command names the server it acted on.
 
 `aboard boards` lists boards across every server this machine knows, grouped by server.
 Use `aboard boards --server https://team.example.com` to list one. Each group uses
-that server's own login. If one server is unavailable, the other groups stay visible.
+that server's own login. Join and archived-list hints include that server when you
+select one explicitly, so they work even in a folder linked to another server. If
+one server is unavailable, the other groups stay visible.
 
 Outside a linked folder, `aboard status`, `aboard watch --board NAME` and
 `aboard audit verify --board NAME` use the default server too. Agent sessions stay

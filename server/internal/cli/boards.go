@@ -302,12 +302,12 @@ func (a *app) humanBoards(ctx context.Context, project projectFile, linked bool,
 		} else {
 			successes++
 			groupText := boardsText(srv, nil, all, archived, g.Boards, g.Hidden)
-			if len(known) > 1 {
+			if len(known) > 1 || flag != "" {
 				groupText = strings.ReplaceAll(groupText, "join with aboard board add @me --board ", "join with aboard board add @me --server "+commandWord(srv.URL)+" --board ")
 			}
 			text.WriteString(groupText)
 			hint := archivedHint(archived, all, g.ArchivedCount)
-			if len(known) > 1 {
+			if len(known) > 1 || flag != "" {
 				hint = strings.ReplaceAll(hint, "aboard boards --archived", "aboard boards --archived --server "+commandWord(srv.URL))
 			}
 			text.WriteString(hint)

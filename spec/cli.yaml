@@ -2390,7 +2390,9 @@ $defs:
       are never listed. An absent lifecycle field means active.
 
       In a terminal, lists every server this machine knows, grouped by server. With
-      --server URL (or local), lists only that server. Each server is read using only
+      --server URL (or local), lists only that server. Join and archive-list hints
+      name --server for an explicit selection or a multi-server list, so following
+      them keeps the same server even in a folder linked elsewhere. Each server is read using only
       its own stored person credential. Agent forms reject --server: a selected
       agent or session always stays on its own server.
       When several servers are listed, servers contains one group per known server.

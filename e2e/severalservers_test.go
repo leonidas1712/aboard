@@ -117,3 +117,40 @@ func TestBoardsExplicitLocalAndUnknownServer(t *testing.T) {
 		t.Fatalf("unknown server received a request or was accepted: %s, calls %d", r, calls.Load())
 	}
 }
+
+func TestExplicitServerBoardHintsStayOnTheirIssuer(t *testing.T) {
+	t.Parallel()
+	first, second := newTeam(t), newTeam(t)
+	for _, tm := range []*team{first, second} {
+		tm.admin.run("board", "new", "same")
+		tm.admin.run("board", "new", "saved")
+		tm.admin.run("board", "archive", "saved")
+	}
+	person := first.person("sam")
+	person.run("connect", second.invite())
+	project := map[string]any{"server": map[string]string{"name": first.url(), "url": first.url()}, "board": "same"}
+	raw, err := json.Marshal(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(person.dir, ".aboard"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	text := person.run("boards", "--server", second.url(), "--all").stdout
+	joinHint := "aboard board add @me --server " + second.url() + " --board same"
+	archiveHint := "aboard boards --archived --server " + second.url() + " --all"
+	if !strings.Contains(text, "join with "+joinHint) || !strings.Contains(text, ": "+archiveHint) {
+		t.Fatalf("hints lost issuer:\n%s", text)
+	}
+	person.run(strings.Fields(strings.TrimPrefix(joinHint, "aboard "))...)
+	for _, tm := range []*team{first, second} {
+		status, board := tm.call("GET", "/v1/boards/same", tm.key(person), nil)
+		if status != http.StatusOK || field(t, board, "on_board") != (tm == second) {
+			t.Fatalf("join hint acted on wrong server %s: %v", tm.url(), board)
+		}
+	}
+	archived := person.run(append(strings.Fields(strings.TrimPrefix(archiveHint, "aboard ")), "--json")...).json(t)
+	if field(t, archived, "server.url") != second.url() || field(t, archived, "boards.0.name") != "saved" {
+		t.Fatalf("archive hint changed issuer: %v", archived)
+	}
+}
