@@ -66,7 +66,7 @@ the board.
 | Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | done (#82, #86, #88, #91, #92, #96) | D113, D184 |
 | Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | done: open and private boards, owners, people and the board-creation setting (#88); archive, restore and delete in the API, CLI (`aboard board archive`, `restore` and `delete`, `aboard boards --archived`) and board view (#117) | D153, D180, D187, D198 |
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done (#94, #112, #115): stopped state and bindings use immutable seat ids | D187, D190 |
-| Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | required before team-ready, separate follow-up after #117. Existing answers currently do not expire or purge; #117 removes cached join-code creation secrets on upgrade and stops storing new ones. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
+| Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | done (#128): expiry checked in the read transaction; expired answers replaced on reuse and purged at server startup and hourly. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
@@ -76,8 +76,8 @@ the board.
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
-| Pause and resume a board; remove an agent (owner or admin) | later | D97 |
-| Clean up disconnected agents: remove one (its messages stay in the record), prune those disconnected for a while, and a Remove action in the board view; what happens when a removed agent's session returns is undecided | design with team mode (team-model.md) | D97 |
+| Pause and resume a board (removing an agent is in the row below) | later | D97 |
+| Clean up disconnected agents: remove one (its messages stay in the record), `aboard leave`, prune those disconnected for a while, and a Remove action in the board view; a removed agent's session gets `agent_removed` | in review: API, CLI and record (#131); the board view's Remove action next | D97, D182, D202 |
 | Team server with HTTPS: `aboard serve --team` at a public URL behind a proxy that ends HTTPS, the first admin's key in a file on the volume | done (#118) | D104, D199 |
 | OAuth for the remote MCP endpoint, so claude.ai and ChatGPT can join a team server | later | D109 |
 | Recipe: run the server in Docker locally (a Compose file with a volume), with the CLI on the host pointing at it | later | D156 |

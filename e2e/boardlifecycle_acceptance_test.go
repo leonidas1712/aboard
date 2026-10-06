@@ -173,7 +173,7 @@ func TestPublicBoardLifecycleRestoreDoesNotReviveRemovedSeat(t *testing.T) {
 	lifecycleReceipt(t, tm, b, "restore", key, "", "active", true)
 	tm.admin.run("board", "add", "@maya")
 	before := lifecycleRead(t, tm, b, key)["head_seq"]
-	lifecycleRequest(t, tm, "GET", "/v1/boards/"+b+"/messages", token, "", nil, 404, "board_not_found")
+	lifecycleRequest(t, tm, "GET", "/v1/boards/"+b+"/messages", token, "", nil, 403, "agent_removed")
 	refused := delegatedSeat(t, tm, d, b, 403)
 	if errorCode(t, refused) != "agent_removed" {
 		t.Fatalf("reuse removed seat: error %v", refused["error"])

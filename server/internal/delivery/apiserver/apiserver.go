@@ -95,9 +95,10 @@ func (s *Server) idempotencyKey() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// statusError turns an unexpected response into an error, marking a rejected token and
-// a board that answers board_not_found. An agent's requests here act only on its own
-// board, so for them that answer means the agent can't reach its board.
+// statusError turns an unexpected response into an error, marking a rejected token, and
+// a board that answers board_not_found or a seat that answers agent_removed. An agent's
+// requests here act only on its own board, so for them either answer means the agent
+// can't reach its board, for good.
 func statusError(what string, status int, body []byte) error {
 	var w struct {
 		Error struct {
@@ -110,11 +111,13 @@ func statusError(what string, status int, body []byte) error {
 	if w.Error.Code != "" {
 		detail = w.Error.Code + ": " + w.Error.Message
 	}
+	// A removed seat is told so on every request; like a board that is gone, that is final.
+	if (status == http.StatusNotFound && w.Error.Code == "board_not_found") ||
+		(status == http.StatusForbidden && w.Error.Code == "agent_removed") {
+		return fmt.Errorf("%s: %w (%s)", what, delivery.ErrBoardGone, detail)
+	}
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
 		return fmt.Errorf("%s: %w (%s)", what, delivery.ErrUnauthorized, detail)
-	}
-	if status == http.StatusNotFound && w.Error.Code == "board_not_found" {
-		return fmt.Errorf("%s: %w (%s)", what, delivery.ErrBoardGone, detail)
 	}
 	return fmt.Errorf("%s: %s", what, detail)
 }

@@ -220,6 +220,12 @@ const (
 	ReasonBoardGone    = "board_gone"
 	ReasonHarnessError = "harness_error"
 	ReasonTooLarge     = "too_large"
+	// ReasonServerUnreachable is an agent whose server couldn't be reached to prove its
+	// seat. It passes: the daemon keeps trying and restores the seat once it answers.
+	ReasonServerUnreachable = "server_unreachable"
+	// ReasonHandoffFailed is an agent whose session's handoff couldn't be prepared. The
+	// daemon keeps trying with backoff and clears it once a handoff is prepared.
+	ReasonHandoffFailed = "handoff_failed"
 )
 
 // Errors that adapters return, so the daemon can decide what a failure means.

@@ -226,7 +226,7 @@ const (
 // seatStates asks the server, reading the board with each named agent's own token and
 // all at once, whether its seat still works: a seat whose token the server refuses as
 // unauthorized ended with the access key it came from, and one whose board answers
-// board_not_found can't reach the board any more (the board was deleted or is hidden
+// board_not_found or agent_removed can't reach the board any more (the board was deleted or is hidden
 // from the person, or the agent was removed from it), though either's session may still
 // run. Agents this machine holds no token for, and any other answer, are left out. Each
 // check counts as a use of the key behind the seat.
@@ -273,7 +273,7 @@ func (a *app) seatStates(ctx context.Context, srv serverRef, board string, names
 				switch apiError(r.StatusCode(), r.Body).Code {
 				case "unauthorized":
 					state = seatEnded
-				case "board_not_found":
+				case "board_not_found", "agent_removed":
 					state = seatBoardGone
 				}
 			}

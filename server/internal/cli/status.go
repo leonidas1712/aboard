@@ -424,6 +424,14 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 			fmt.Fprintln(text, "        The harness extension cannot deliver to several boards. Run aboard init, then restart the harness.")
 			continue
 		}
+		if p.Reason == delivery.ReasonServerUnreachable {
+			fmt.Fprintf(text, "        deliveries for %s on %s wait for %s, which can't be reached; they resume once it answers\n", p.Agent.Name, p.Agent.Board, p.Agent.Server)
+			continue
+		}
+		if p.Reason == delivery.ReasonHandoffFailed {
+			fmt.Fprintf(text, "        deliveries for %s on %s can't be prepared for its session; run aboard resume in that session (see aboard doctor)\n", p.Agent.Name, p.Agent.Board)
+			continue
+		}
 		if p.Reason == delivery.ReasonBoardGone {
 			fmt.Fprintf(text, "        %s. Join again with a new agent (aboard join) if the person still belongs on it.\n", boardGoneText(p.Agent.Name, p.Agent.Board))
 			continue

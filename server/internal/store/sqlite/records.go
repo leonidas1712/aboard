@@ -361,8 +361,14 @@ func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
 	m.Delivery.Mode = setting.String
+	if m.Kind == "agent" && m.Status == board.StatusLeft && m.RemovedAt != nil && m.RemovedBy == nil {
+		// An agent that left is stored without removed_by, whose column predates the value.
+		m.RemovedBy = ptrTo(board.RemovedBySelf)
+	}
 	return m, notFound(err)
 }
+
+func ptrTo(s string) *string { return &s }
 
 // SetDelivery records an agent's delivery mode as its person set it, and the seq of the
 // event that set it.
@@ -434,8 +440,12 @@ func (t *tx) SetMemberStatus(memberID, status string) error {
 	return t.exec("UPDATE members SET status = ? WHERE id = ?", status, memberID)
 }
 
-// RemoveAgent marks an agent removed, with when and by whom.
+// RemoveAgent marks an agent removed, with when and by whom. An agent that left by
+// itself is stored as left, with no removed_by.
 func (t *tx) RemoveAgent(memberID, at, by string) error {
+	if by == board.RemovedBySelf {
+		return t.exec("UPDATE members SET status = 'left', removed_at = ?, removed_by = NULL WHERE id = ? AND kind = 'agent'", at, memberID)
+	}
 	return t.exec("UPDATE members SET status = 'removed', removed_at = ?, removed_by = ? WHERE id = ? AND kind = 'agent'", at, by, memberID)
 }
 
