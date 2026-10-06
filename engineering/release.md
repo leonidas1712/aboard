@@ -49,7 +49,7 @@ session that is already running.
 | --- | --- | --- | --- |
 | The binary (CLI, daemon, local server) | A package manager, the install script, or `aboard upgrade` | Never installed silently. A command in a terminal says once a day that a newer release exists. A running daemon or local server from an older build is replaced by the first newer command or hook that reaches it. | Replacement: yes. Notice and `aboard upgrade`: to build |
 | Files installed into harnesses (the skill, hook entries, allow rules) | `aboard init --yes` | Hooks run the installed binary by its path, so a new binary takes effect without rewriting them. `aboard doctor` reports a file that differs from what this build would write; the install manifest tells an outdated file from one the person edited. | Yes |
-| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, after a backup of the database. A binary older than its data refuses to start. | Forward-only and refusal: yes. Backup: to build, in the team step |
+| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, in one transaction after a backup of the database. A binary older than its data refuses to start. | Yes |
 
 ### No silent installs
 
@@ -98,11 +98,16 @@ The database schema is a sequence of numbered SQL migrations embedded in the bin
 no down migrations: going back means restoring a backup. Data written by a newer
 schema is refused with `data_newer`, so an older binary never misreads it.
 
-Before applying any migration, the server copies the database with SQLite's online
-backup to `backups/aboard-<schema>-<time>.db` next to it and keeps the last three. A
-failed migration leaves the original untouched and says where the backup is. The local
-server does the same; it is a team server with one person. *To build, in the team
-step.*
+Before applying any migration, the server copies the database with `VACUUM INTO` (a
+consistent copy taken while it is open) to `backups/aboard-<time>-schema-<n>.db` next
+to it and keeps the newest three. The folder is created owner-only, and one that is a
+link, a file or open to others stops the start before anything is copied; each copy is
+created owner-only before SQLite writes it. Every pending migration then runs in one
+transaction, so a failed upgrade leaves the database as it was and the error names the
+copy. Going back after an upgrade that worked means stopping the server, putting a copy
+in place of `aboard.db` (and removing `aboard.db-wal` and `aboard.db-shm`), and starting
+the older binary. The local server does the same; it is a team server with one person
+(D184, D199). *Today.*
 
 Every released schema keeps a fixture database, and a test migrates each one forward
 ([testing.md](testing.md#practices)).
