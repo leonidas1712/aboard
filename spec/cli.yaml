@@ -2341,7 +2341,7 @@ $defs:
       commands run there act on it (linked: true); a linked directory keeps its board. A
       person command: inside a harness session, or with ABOARD_AGENT set, it refuses with
       human_command_in_session before it sends anything, and the hint gives the command
-      for the person to run. A taken name is the server's board_name_taken. Text output:
+      for the person to run with every flag that was given (--title, --private, --server), quoted for a shell where needed; the person board commands with --server hand over --board and --server the same way. A taken name is the server's board_name_taken. Text output:
         Created board payments on https://team.example.com, open to everyone on the server.
         Linked this directory to payments, so board commands run here act on it.
         Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended
