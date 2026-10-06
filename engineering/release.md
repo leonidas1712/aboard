@@ -224,7 +224,10 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
    GitHub accepts a stale head unless `main` requires up-to-date branches. If `main`
    has moved, it doesn't merge: it starts again from step 2, merging the new `main` and
    waiting for CI on the new head (at most three rounds, then exit 4 with nothing
-   merged). If `main` hasn't moved, a refused merge is retried.
+   merged). If `main` hasn't moved, a refused merge is retried. A small window remains
+   between that check and the merge, in which `main` can still move; only GitHub's
+   "require branches to be up to date" rule on `main` closes it, and that rule isn't on
+   yet (see "Require CI on `main`" under [Cutting a release](#cutting-a-release)).
 6. Only then does it remove what it created (the temporary worktree and local branch)
    and delete the branch on GitHub. A failure at any step leaves everything in place
    and says what to do next.
@@ -253,8 +256,10 @@ head commit, and `scripts/ci-status` counts a run only when all of these hold:
 
 The newest run that qualifies decides, at its latest attempt, so rerunning a known
 flake's failed jobs replaces its result. A run passes only when every job in it passed.
-With `main` requiring branches to be up to date before merging, the head that merges
-already contains `main`, so a pass on that head is a pass on what `main` becomes.
+Once `main` requires branches to be up to date before merging, GitHub refuses to merge
+a head that doesn't contain `main`, so a pass on that head is a pass on what `main`
+becomes. Until then, `scripts/land-pr`'s check right before the merge narrows the gap
+but can't close it.
 
 ## Cutting a release
 

@@ -5,8 +5,8 @@
 # A pull request is checked at its exact head commit, not at GitHub's merge of it with
 # main, so a run's result belongs to the commit it names: scripts/land-pr merges that
 # commit (after merging main into it) and the release gate reads push runs on main
-# (scripts/ci-status). With main's ruleset requiring branches to be up to date
-# (engineering/release.md), the head that merges already contains main.
+# (scripts/ci-status). Once main's ruleset requires branches to be up to date
+# (engineering/release.md), GitHub merges only a head that already contains main.
 name: check
 
 on:
