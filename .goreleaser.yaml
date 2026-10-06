@@ -76,8 +76,9 @@ dockers_v2:
     ids: [aboard]
     dockerfile: Dockerfile.release
     images: ["ghcr.io/leonidas1712/aboard"]
+    # A snapshot version (0.1.0+dev.abc) has a "+", which an image tag can't hold.
     tags:
-      - "{{ .Version }}"
+      - "{{ replace .Version \"+\" \"-\" }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
     platforms: [linux/amd64, linux/arm64]
     labels:

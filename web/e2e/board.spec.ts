@@ -1842,3 +1842,25 @@ test("a not-on-board read that started before a rejoin read never clears the rej
   p.board(fakeBoard(id, { read_up_to: 6, unread: 4 }), onAgain);
   expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: undefined, unread: undefined });
 });
+
+test("an agent's reply to the person opens its thread, so the person reads it and its receipt says so", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Replies to me", "--json"));
+  const board: string = pair.board.name;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  await page.getByRole("combobox", { name: "Message everyone" }).fill("What's the plan for the intro?");
+  await page.getByRole("button", { name: "Post" }).click();
+  const ask = page.locator(".message", { hasText: "What's the plan for the intro?" });
+  await expect(ask).toContainText("You");
+
+  // The writer replies in the thread, to the person by default; it arrives live.
+  const read = JSON.parse(aboard("read", "--as", "writer", "--board", board, "--json"));
+  const root = read.messages.find((m: { body: string }) => m.body === "What's the plan for the intro?");
+  const reply = JSON.parse(aboard("say", "--as", "writer", "--board", board, "--reply", root.id, "Diagram first, then the text.", "--json")).message;
+  expect(reply.to).toEqual(["@alex"]);
+  const shown = page.locator(`[data-thread="${root.id}"] .message`, { hasText: "Diagram first, then the text." });
+  await expect(shown).toBeVisible();
+  await expect(shown.locator(".receipt-mark")).toHaveText("Read");
+  await expect.poll(() => unreadOn(board)).toBe(0);
+  expect(aboard("read", "--receipts", String(reply.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
+});

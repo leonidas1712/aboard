@@ -338,37 +338,23 @@ approval. The tag must be one whose `release.yml` has these inputs.
 
 ### A dry run, publishing nothing
 
-Run the `release` workflow by hand with no tag (Actions → release → Run workflow, on
-`main`). It runs the gate on that commit and builds every archive, SBOM and the image
-without publishing or signing, with read-only permissions. Locally, `make
-release-snapshot` builds the archives into `dist/` the same way.
+Run the `release` workflow by hand, with no tag, on the branch you'd release from
+(`gh workflow run release.yml --ref <branch>`, or Actions → release → Run workflow).
+It runs the gate on that commit and builds every archive, SBOM and the image on GitHub's runner, without publishing or
+signing, with read-only permissions. Run it before the first release and after any
+change to the pipeline (`release.yml`, `.goreleaser.yaml`, the Dockerfiles, the tool
+versions in the `Makefile`): `make release-snapshot` on a laptop doesn't catch what
+differs on the runner, such as the job's `GOTOOLCHAIN=local`.
 
-### A release candidate, end to end
+### Release candidates are optional
 
-Before the first release, and before any release that changes the pipeline, cut a
-release candidate. A tag with a suffix, such as `v0.1.0-rc.1`, is published as a GitHub
-prerelease: it never becomes "latest", so the install script, `aboard upgrade` and the
-image's `latest` tag skip it.
-
-1. On `main`, with `version` in `server/internal/cli/build.go` at `0.1.0`:
-   `git tag v0.1.0-rc.1 && git push origin v0.1.0-rc.1`.
-2. Approve the `release` environment when the job asks. The gate checks CI passed on
-   the tagged commit, then the job builds, signs and publishes the prerelease with its archives, `checksums.txt`, its
-   bundle, the SBOMs and `install.sh`, and pushes `ghcr.io/leonidas1712/aboard:0.1.0-rc.1`.
-3. Check the signature from any machine with cosign, in a folder with the prerelease's
-   `checksums.txt` and `checksums.txt.sigstore.json`:
-   `cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.0-rc.1 --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt`.
-4. On a clean macOS machine and a clean Linux machine, install the candidate with the
-   prerelease's own script:
-   `curl -fsSL https://github.com/leonidas1712/aboard/releases/download/v0.1.0-rc.1/install.sh | ABOARD_VERSION=v0.1.0-rc.1 sh`,
-   then run the quickstart. A candidate is always installed by its version: the
-   `releases/latest/download` address never points at a prerelease, so the one-line
-   install in the docs works only once `v0.1.0` itself is published. Land the docs that
-   lead with it together with that release.
-5. `docker pull ghcr.io/leonidas1712/aboard:0.1.0-rc.1`, run it with a volume, and open
-   the board view.
-6. If anything fails, fix it on `main` and cut `v0.1.0-rc.2`. Delete a failed
-   candidate's prerelease and image if you like; its tag can stay.
+Release normal versions. If a release turns out broken, fix it on `main` and release
+the next patch version; a version nobody installed costs nothing. A tag with a suffix,
+such as `v0.2.0-rc.1`, still works when you want one: it is published as a GitHub
+prerelease that never becomes "latest", so the install script, `aboard upgrade` and the
+image's `latest` tag skip it, and it is installed only by its version
+(`curl -fsSL https://github.com/leonidas1712/aboard/releases/download/v0.2.0-rc.1/install.sh | ABOARD_VERSION=v0.2.0-rc.1 sh`).
+Without its own changelog section, a candidate's notes are the Unreleased section.
 
 ### The release
 
@@ -385,8 +371,12 @@ image's `latest` tag skip it.
    that doesn't match it (a candidate's suffix aside). Bump it in a pull request if
    needed.
 5. `git tag vX.Y.Z && git push origin vX.Y.Z`, and approve the `release` environment.
-6. Install from the published script on a clean machine and run the quickstart; on a
-   machine with the previous release, run `aboard upgrade`.
+6. Check the signature from any machine with cosign, in a folder with the release's
+   `checksums.txt` and `checksums.txt.sigstore.json`:
+   `cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/vX.Y.Z --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt`.
+7. Install from the published script on a clean machine and run the quickstart; on a
+   machine with the previous release, run `aboard upgrade`. `docker pull
+   ghcr.io/leonidas1712/aboard:X.Y.Z`, run it with a volume, and open the board view.
 
 After launch, a nightly job runs the live suite against the latest Claude Code and
 Codex releases, so a harness update that breaks delivery shows up before a person
