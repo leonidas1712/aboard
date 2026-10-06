@@ -560,10 +560,14 @@ func (d *Daemon) heldMode(agent AgentRef) bool {
 
 // modeLocked is mode, for a caller that holds d.mu.
 func (d *Daemon) modeLocked(agent AgentRef) Mode {
-	if h, ok := d.held[agent.Key()]; ok {
+	return d.keyModeLocked(agent.Key())
+}
+
+func (d *Daemon) keyModeLocked(key AgentKey) Mode {
+	if h, ok := d.held[key]; ok {
 		return h.Mode
 	}
-	if m, ok := d.modes[agent.Key()]; ok {
+	if m, ok := d.modes[key]; ok {
 		return m
 	}
 	if m, ok := d.modes[AgentKey{}]; ok {
@@ -578,8 +582,8 @@ func (d *Daemon) modeLocked(agent AgentRef) Mode {
 // person set is kept in the journal too, for the daemon's next start; one never set
 // (revision 0) leaves the journal as it is, so aboard doctor can still name a mode set
 // on this machine that the server doesn't have. It reports whether the mode in force
-// changed.
-func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool {
+// changed, and the mode in force before.
+func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) (changed bool, was Mode) {
 	if parsed, ok := ParseMode(string(h.Mode)); ok {
 		h.Mode = parsed
 	} else {
@@ -587,11 +591,11 @@ func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool
 	}
 	d.mu.Lock()
 	prev, known := d.held[agent.Key()]
+	before := d.modeLocked(agent)
 	if known && h.Revision < prev.Revision {
 		d.mu.Unlock()
-		return false
+		return false, before
 	}
-	before := d.modeLocked(agent)
 	cached, inJournal := d.modes[agent.Key()]
 	save := h.Revision > 0 && (!inJournal || cached != h.Mode)
 	if save {
@@ -606,11 +610,11 @@ func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool
 	d.held[agent.Key()] = h
 	d.mu.Unlock()
 	if before == h.Mode {
-		return false
+		return false, before
 	}
 	d.log.Info("delivery mode changed on the server", "agent", agent.Name, "board", agent.Board,
 		"from", before, "to", h.Mode, "revision", h.Revision)
-	return true
+	return true, before
 }
 
 // setMode answers OpMode: it shows the agent's delivery mode, or takes a new one and has
@@ -632,9 +636,9 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a delivery mode.", req.Mode), "Use focused, all, humans or off.")
 	}
 	if req.Revision > 0 && agent != (AgentRef{}) {
-		changed := d.learnMode(ctx, agent, HeldMode{Mode: mode, Revision: req.Revision})
+		changed, was := d.learnMode(ctx, agent, HeldMode{Mode: mode, Revision: req.Revision})
 		if s := d.owner(agent); s != nil && changed {
-			s.mail.put(sessionMsg{modeChanged: true})
+			s.mail.put(sessionMsg{modeChanged: true, modeWas: map[AgentKey]Mode{agent.Key(): was}})
 		}
 		return Response{V: ProtocolVersion, Mode: d.mode(agent), Changed: changed}
 	}
@@ -647,17 +651,21 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	}
 	d.mu.Lock()
 	d.rememberLocked(agent)
-	d.modes[agent.Key()] = req.Mode
-	var owners []*session
+	// Each session hears which of its agents changed and the mode each had before.
+	was := map[*session]map[AgentKey]Mode{}
 	for a, s := range d.owners {
 		if _, own := d.modes[a]; a == agent.Key() || (agent == AgentRef{} && !own) {
-			owners = append(owners, s)
+			if was[s] == nil {
+				was[s] = map[AgentKey]Mode{}
+			}
+			was[s][a] = d.keyModeLocked(a)
 		}
 	}
+	d.modes[agent.Key()] = req.Mode
 	now := d.modeLocked(agent)
 	d.mu.Unlock()
-	for _, s := range owners {
-		s.mail.put(sessionMsg{modeChanged: true})
+	for s, modes := range was {
+		s.mail.put(sessionMsg{modeChanged: true, modeWas: modes})
 	}
 	d.log.Info("delivery mode changed on this machine", "agent", agent.Name, "board", agent.Board, "mode", req.Mode)
 	// A server that holds the agent's mode decides it, so the answer is the mode in force.

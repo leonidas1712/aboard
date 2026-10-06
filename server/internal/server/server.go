@@ -39,6 +39,10 @@ const DefaultLocalAddr = "127.0.0.1:7400"
 type Options struct {
 	// Addr is the address to listen on, such as 127.0.0.1:7400.
 	Addr string
+	// Listener, when set, is the listener to serve on in place of Addr. Run closes it.
+	// A caller that needs a free port listens on port 0 and passes the listener, since a
+	// port closed again before Run listens can be taken in between.
+	Listener net.Listener
 	// DataDir holds aboard.db, server.pid and server.log.
 	DataDir string
 	// OwnerName is the local owner's login name, normalized into a member name.
@@ -126,6 +130,10 @@ func Run(ctx context.Context, o Options) error {
 	if o.Rand == nil {
 		o.Rand = rand.Reader
 	}
+	if o.Listener != nil {
+		o.Addr = o.Listener.Addr().String()
+		defer func() { _ = o.Listener.Close() }()
+	}
 	if o.Team != nil {
 		if err := prepareTeamData(o.DataDir); err != nil {
 			return err
@@ -171,7 +179,10 @@ func Run(ctx context.Context, o Options) error {
 	// waits for active requests, and a stream never finishes on its own.
 	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
 	defer startShutdown()
-	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
+	ln := o.Listener
+	if ln == nil {
+		ln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
+	}
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", o.Addr, err)
 	}

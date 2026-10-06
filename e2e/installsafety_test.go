@@ -25,9 +25,7 @@ func TestInstallScriptNeedsCurl(t *testing.T) {
 		t.Fatal(err)
 	}
 	called := filepath.Join(r.home, "wget-called")
-	if err := os.WriteFile(filepath.Join(r.bin, "wget"), []byte("#!/bin/sh\n: >"+called+"\nexit 1\n"), 0o755); err != nil { //nolint:gosec // a fake command the script might run
-		t.Fatal(err)
-	}
+	writeProgram(t, filepath.Join(r.bin, "wget"), []byte("#!/bin/sh\n: >"+called+"\nexit 1\n"))
 	out, code := r.run()
 	r.refused(out, code, "downloading needs curl")
 	if _, err := os.Stat(called); err == nil {

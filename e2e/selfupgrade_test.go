@@ -70,9 +70,7 @@ func (u *upgradeEnv) install(from, path string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		u.t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(readFile(u.t, from)), 0o755); err != nil { //nolint:gosec // an installed program
-		u.t.Fatal(err)
-	}
+	writeProgram(u.t, path, []byte(readFile(u.t, from)))
 }
 
 // fileSum returns the SHA-256 of the file at path.

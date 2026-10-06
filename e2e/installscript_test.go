@@ -239,9 +239,7 @@ func (r *installRelease) publish(entries []archiveEntry) {
 
 // withCosign puts the fake cosign on the PATH, its bundle signed by signer.
 func (r *installRelease) withCosign(signer string) {
-	if err := os.WriteFile(filepath.Join(r.bin, "cosign"), []byte(fakeCosign), 0o755); err != nil { //nolint:gosec // a fake command the script runs
-		r.t.Fatal(err)
-	}
+	writeProgram(r.t, filepath.Join(r.bin, "cosign"), []byte(fakeCosign))
 	r.env = append(r.env, "FAKE_COSIGN_SIGNER="+signer)
 }
 
@@ -270,9 +268,7 @@ func (r *installRelease) existing() {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		r.t.Fatal(err)
 	}
-	if err := os.WriteFile(p, []byte("earlier aboard\n"), 0o755); err != nil { //nolint:gosec // stands in for an installed program
-		r.t.Fatal(err)
-	}
+	writeProgram(r.t, p, []byte("earlier aboard\n"))
 }
 
 // refused checks the script failed saying want, and left the earlier aboard and

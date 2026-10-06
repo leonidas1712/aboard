@@ -16,6 +16,10 @@ GOLANGCI_LINT := $(BIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 GOVULNCHECK   := $(BIN)/govulncheck-$(GOVULNCHECK_VERSION)
 GORELEASER    := $(BIN)/goreleaser-$(GORELEASER_VERSION)
 
+# Every Go step uses the toolchain go.mod pins, so a newer local Go generates and checks
+# the same code CI does.
+export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
+
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 

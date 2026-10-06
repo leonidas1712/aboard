@@ -202,9 +202,7 @@ func (e *env) recordingBrowser() (browser, saved string) {
 	browser = filepath.Join(e.home, "browser")
 	saved = filepath.Join(e.home, "browser-url")
 	script := "#!/bin/sh\nprintf '%s' \"$1\" > " + saved + "\n"
-	if err := os.WriteFile(browser, []byte(script), 0o755); err != nil { //nolint:gosec // the stand-in browser must be executable
-		e.t.Fatal(err)
-	}
+	writeProgram(e.t, browser, []byte(script))
 	return browser, saved
 }
 

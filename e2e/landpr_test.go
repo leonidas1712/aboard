@@ -161,9 +161,7 @@ func newLandPRRepo(t *testing.T) *landPRRepo {
 		}
 	}
 	for name, body := range map[string]string{"gh": fakeGH, "make": fakeMake} {
-		if err := os.WriteFile(filepath.Join(r.fakes, name), []byte(body), 0o755); err != nil { //nolint:gosec // a fake command the script runs
-			t.Fatal(err)
-		}
+		writeProgram(t, filepath.Join(r.fakes, name), []byte(body))
 	}
 	r.write(filepath.Join(r.ghState, "state"), "OPEN\n")
 	r.env = []string{
