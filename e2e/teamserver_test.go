@@ -233,7 +233,7 @@ func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
 		{[]string{"board", "remove", "@maya", "--board", "pay", "--server", srv}, "aboard board remove @maya --board pay --server https://team.example.com"},
 		{[]string{"board", "leave", "--board", "pay", "--server", srv}, "aboard board leave --board pay --server https://team.example.com"},
 		{[]string{"board", "owner", "@maya", "--board", "pay", "--server", srv}, "aboard board owner @maya --board pay --server https://team.example.com"},
-		{[]string{"board", "visibility", "open", "--yes", "--board", "pay", "--server", srv}, "aboard board visibility open --yes --board pay --server https://team.example.com"},
+		{[]string{"board", "visibility", "open", "--yes", "--board", "pay", "--server", srv}, "aboard board visibility open --board pay --server https://team.example.com"},
 		{
 			[]string{"board", "new", "pay", "--title", "Payments 'retry' design", "--private", "--server", srv},
 			`aboard board new pay --title 'Payments '\''retry'\'' design' --private --server https://team.example.com`,

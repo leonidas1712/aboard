@@ -264,11 +264,9 @@ func runBoardVisibility(ctx context.Context, a *app, boardFlag, to string, yes b
 		return usageError(fmt.Sprintf("%q is not a board visibility; use open or private.", to), boardUsage)
 	}
 	command := "aboard board visibility " + commandWord(to)
-	handoff := command
-	if yes {
-		handoff += " --yes"
-	}
-	t, c, err := a.personClient(ctx, boardFlag, "Turning a board open or private", handoff)
+	// The command handed to the person never carries --yes: they decide, and see what
+	// opening the board reveals before they confirm.
+	t, c, err := a.personClient(ctx, boardFlag, "Turning a board open or private", command)
 	if err != nil {
 		return err
 	}
