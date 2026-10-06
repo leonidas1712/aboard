@@ -261,7 +261,7 @@ from `aboard boards` never authorizes a join: the join is checked again.
    child seats in one step, ends streams, queued deliveries and launch tickets, and keeps
    messages under the seat's id; re-adding a person never revives an old seat. Tests:
    removal racing reads and writes, and re-adding followed by the old token's refusal.
-4. **4b. Archive, restore, delete.** Builds on 5c's seat ids.
+4. **4b. Archive, restore, delete.** In review (#117), using the seat ids delivered by 5a.
 5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
    stays small (not required for team-ready): deterministic patterns for known
    credential formats, as D79's rules checks already intend, replaced before the
