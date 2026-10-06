@@ -27,11 +27,11 @@ them where they protect the most, in this order.
 
 | Layer | What it proves | Runs | Today |
 | --- | --- | --- | --- |
-| Contract suites | Every adapter of a port behaves the same | `make quick`, `make check` | Store (`board/boardtest`), delivery adapter, journal and server (`delivery/deliverytest`), the control socket's messages against spec/control.md, every harness (`make conformance`); launcher and monitor suites come with those ports |
+| Contract suites | Every adapter of a port behaves the same | `make test`, `make check` | Store (`board/boardtest`), delivery adapter, journal and server (`delivery/deliverytest`), the control socket's messages against spec/control.md, every harness (`make conformance`); launcher and monitor suites come with those ports |
 | End-to-end (`/e2e`) | Features work through the real binary, as documented | `make check` | Yes |
 | Live (`e2e/live`) | Delivery, setup and upgrades work in the real harnesses; the support matrix in the README comes from its results | `make live` (`HARNESS=<name>` for one, `make live-affected` for what a change touches), before each release and after any change to delivery, setup or upgrades | Yes |
-| Integration | API behaviour, permissions, error codes, OpenAPI conformance, concurrency | `make quick`, `make check` | Yes |
-| Unit | Pure logic with real edge cases | `make quick`, `make check` | Yes |
+| Integration | API behaviour, permissions, error codes, OpenAPI conformance, concurrency | `make test`, `make check` | Yes |
+| Unit | Pure logic with real edge cases | `make test`, `make check` | Yes |
 | Docs as tests | Every command the docs show still works, with the output they show | `make check` | The quickstart; the rest as pages are written |
 | UI (Playwright) | The board view renders and its flows work, in both themes, with no accessibility violations | `make web-check`, CI | Smoke test; accessibility checks to add |
 
@@ -261,9 +261,12 @@ violation. (The accessibility check is not added yet.)
   command's schema in `spec/cli.yaml`, and a command with no schema fails the test.
   Golden files only for the human output of main commands that no e2e test already
   pins. (The schema check is not built yet.)
-- **Two entry points.** `make quick` runs unit, integration and contract suites in
-  seconds, for the inner loop. `make check` runs everything CI runs, and nothing is done
-  until it passes. (`make quick` is not built yet.)
+- **Three entry points.** `make quick` runs the static checks (format, lint, vet,
+  generated code, the core's size) in about a minute, and runs no tests: run it before
+  asking for review or landing (`scripts/install-hooks` runs it on every push, if you
+  opt in). `make test` runs unit, integration and contract suites, for the inner loop.
+  `make check` runs everything CI runs, and nothing is done until CI's `check` workflow
+  passes on the commit that merges ([release.md](release.md#landing-a-pull-request)).
 - **Migration fixtures.** Each released schema version keeps a small database fixture,
   and a test migrates every fixture forward to the current schema and checks the board
   reads back the same and its chain still verifies. (Not built yet; the first fixture
@@ -301,11 +304,25 @@ A red build is never normal. A test that fails without a code change is fixed, n
 skipped, disabled, loosened or quarantined: a longer timeout or a retry hides the race
 it found, and agents quickly learn to ignore failures that are "usually fine".
 
-Reproduce it first (run it many times, under `-race`, on fewer CPUs, in Docker on the
-other OS), find the cause and fix it, with a test that fails before the fix. If it
-can't be reproduced within a time box, keep the test as it is and record the failure
-below with the evidence, so the next failure is compared against it rather than
-retried.
+A test that fails on unchanged `main`, or on a branch that doesn't touch what it
+tests, is a known flake, and the policy is:
+
+1. **File it** the first time it's seen: an issue, or a row in
+   [design/ROADMAP.md](../design/ROADMAP.md), with the test's name, the run's address,
+   the commit and the system it failed on.
+2. **Fix it in a pull request of its own,** never folded into unrelated work, and never
+   by skipping or loosening the test. Its fix comes before new work.
+3. **It doesn't block unrelated work.** A pull request whose only failure is a known
+   flake reruns the failed jobs (`gh run rerun --failed <run id>`) and lands once they
+   pass. A release whose only failure is a known flake goes out with the release
+   workflow's override, which only the maintainer can use and which records the reason
+   in the release notes ([release.md](release.md#releasing-with-ci-red-the-override)).
+
+Fixing it means reproducing it first (run it many times, under `-race`, on fewer CPUs,
+in Docker on the other OS), finding the cause and fixing it, with a test that fails
+before the fix. If it can't be reproduced within a time box, keep the test as it is and
+record the failure below with the evidence, so the next failure is compared against it
+rather than retried.
 
 ## Known intermittent failures
 
