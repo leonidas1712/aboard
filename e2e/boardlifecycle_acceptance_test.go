@@ -201,11 +201,11 @@ func TestPublicBoardLifecycleDeleteTombstoneAndReplayAuthority(t *testing.T) {
 	lifecycleReceipt(t, tm, b, "delete", key, "delete-receipt", "deleted", true)
 	lifecycleReceipt(t, tm, b, "delete", key, "delete-receipt", "deleted", true)
 	for _, path := range []string{"/v1/boards/" + b, "/v1/boards/" + b + "/messages", "/v1/boards/" + b + "/events", "/v1/me"} {
-		use := key
+		use, status, code := key, http.StatusNotFound, "board_not_found"
 		if path == "/v1/me" {
-			use = token
+			use, status, code = token, http.StatusUnauthorized, "unauthorized"
 		}
-		lifecycleRequest(t, tm, "GET", path, use, "", nil, 404, "board_not_found")
+		lifecycleRequest(t, tm, "GET", path, use, "", nil, status, code)
 	}
 	lifecycleRequest(t, tm, "POST", "/v1/boards/"+id+"/restore", key, "", nil, 404, "board_not_found")
 	lifecycleRequest(t, tm, "POST", "/v1/boards", key, "", map[string]any{"name": b, "template": "general", "visibility": "private"}, 409, "board_name_taken")
