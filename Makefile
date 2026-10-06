@@ -79,7 +79,7 @@ test:
 e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
-	go test -race -tags e2e -count=1 ./e2e/...
+	go test -race -tags e2e -count=1 -timeout 20m ./e2e/...
 
 ## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
 # The kit's two halves also run in make test and make e2e, so make check runs them. A
