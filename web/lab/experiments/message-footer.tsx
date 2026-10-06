@@ -9,7 +9,7 @@
 import type { Message } from "@/app/api";
 import { cn } from "@/lib/utils";
 import { openArtifact, scenario, useLab, useUi } from "../store";
-import { answer, asksOf } from "./asks";
+import { answer, asksOf, blocksOf } from "./asks";
 import { FileIcon, formatOf } from "./artifacts";
 import { onBoard } from "./common";
 import { Ids } from "./text";
@@ -23,6 +23,8 @@ export function MessageFooter({ board, message }: { board: string; message: Mess
   const file = m.attach ? snap.artifacts.find((a) => a.id === m.attach) : undefined;
   const ask = m.options ? asksOf(snap, answered).find((a) => a.id === m.id) : undefined;
   const mine = answered[m.id];
+  // An ask to someone else: it blocks its task until they answer.
+  const open = blocksOf(snap, answered).find((b) => b.id === m.id && b.on !== scenario.me);
   if (!file && !m.options) return null;
   return (
     <div className="message-extras mt-2 flex flex-col gap-2">
@@ -65,7 +67,13 @@ export function MessageFooter({ board, message }: { board: string; message: Mess
             ))}
           </div>
         ) : (
-          <p className={cn("text-meta text-muted")}>{mine ? `You answered: ${mine}` : "Answered"}</p>
+          <p className={cn("text-meta text-muted")}>
+            {mine
+              ? `You answered: ${mine}`
+              : open
+                ? `${m.task} is blocked until ${open.on} answers.`
+                : "Answered"}
+          </p>
         ))}
     </div>
   );

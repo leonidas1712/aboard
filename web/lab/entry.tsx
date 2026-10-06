@@ -16,6 +16,9 @@ import { Text } from "./experiments/text";
 import { Title, WorkPanel } from "./experiments/work";
 import { install } from "./fake-api";
 import "./lab.css";
+import "./themes.css";
+import { labThemes } from "./theme-list";
+import { HarnessMark } from "./experiments/harness-mark";
 import { Panel } from "./panel";
 import { current, labHref, scenario, startClock } from "./store";
 
@@ -35,6 +38,16 @@ if (typeof window !== "undefined") {
   if (!q.has("board") && !q.has("inbox") && !q.has("list")) {
     const asks = asksOf(current().snap, {}).length;
     history.replaceState(null, "", labHref(asks > 0 ? { inbox: "1" } : { board: scenario.board.name }));
+  }
+  // The lab's colour schemes: ?theme= picks one for this load (screenshots use it), else
+  // the one this browser chose. The page's first-paint script only knows light and dark.
+  try {
+    const asked = q.get("theme");
+    if (asked) localStorage.setItem("aboard.theme", JSON.stringify(asked));
+    const chosen = JSON.parse(localStorage.getItem("aboard.theme") ?? "null");
+    if (typeof chosen === "string" && chosen !== "system") document.documentElement.dataset.theme = chosen;
+  } catch {
+    // No storage: the system's light or dark.
   }
   install();
   // The real UI links to /?board=NAME and /; in the lab they keep the scenario and step,
@@ -67,4 +80,6 @@ export const lab: Lab | null = {
   MessageMeta,
   ThreadMeta,
   Text,
+  AgentMark: HarnessMark,
+  themes: labThemes,
 };

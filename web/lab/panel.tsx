@@ -7,6 +7,7 @@ import { FlaskConical, Pause, Play, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { scenarios } from "./scenarios";
+import { allThemes, setTheme } from "./theme-list";
 import { goTo, labHref, play, scenario, useLab } from "./store";
 
 /** marker is on the lab's own element only; `make web-lab-check` makes sure no real build has it. */
@@ -60,6 +61,26 @@ export function Panel() {
           {scenarios.map((s) => (
             <option key={s.id} value={s.id}>
               {s.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-2 text-meta">
+        <span className="text-muted">Theme</span>
+        <select
+          className="min-h-9 flex-1 rounded-control border border-field-border bg-surface px-2 text-ink"
+          defaultValue={(() => {
+            try {
+              return JSON.parse(localStorage.getItem("aboard.theme") ?? '"system"');
+            } catch {
+              return "system";
+            }
+          })()}
+          onChange={(e) => setTheme(e.target.value)}
+        >
+          {allThemes.map((th) => (
+            <option key={th.id} value={th.id}>
+              {th.label}
             </option>
           ))}
         </select>

@@ -380,6 +380,8 @@ export function SenderMark({
   className?: string;
 }) {
   const mark = markOf(name, kind);
+  // Only the UI lab draws an agent's mark another way (lab-seam.ts).
+  if (lab?.AgentMark && kind === "agent") return <lab.AgentMark name={name} identity={identity} className={className} />;
   return (
     <span
       aria-hidden

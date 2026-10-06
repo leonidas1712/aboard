@@ -26,6 +26,11 @@ const shots: Shot[] = [
   { name: "brief-edit", query: `${team}&step=3`, click: [".brief button[aria-expanded]", ".brief button:has-text('Edit')"] },
   { name: "files", query: `${team}&step=3&view=files` },
   { name: "file-open", query: `${team}&step=3&view=files&artifact=explainer` },
+  { name: "theme-ember", query: `${team}&step=3&by=agent&theme=ember` },
+  { name: "theme-tide", query: `${team}&step=3&view=tasks&theme=tide` },
+  { name: "theme-contrast", query: `${team}&step=3&by=agent&theme=contrast` },
+  { name: "theme-light-marks", query: `${team}&step=3&by=agent&theme=light`, theme: "light" },
+  { name: "inbox-ember", query: "lab=workspace&step=3&inbox=1&theme=ember" },
   { name: "solo", query: "lab=solo&step=2&board=blog-engine" },
   { name: "empty", query: "lab=empty&step=2&board=new-board" },
 ];

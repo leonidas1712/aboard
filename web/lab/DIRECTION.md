@@ -129,6 +129,75 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   - The brief appears when someone first writes one.
   - Grouping comes from tasks, so a board of 30 agents still shows 6 or 7 groups.
 
+## Colour schemes and agent avatars (round 8)
+
+### Colour schemes
+
+Beyond Light and Dark there are three schemes:
+
+- **Ember**, a warm dark.
+- **Tide**, a sea-green dark. This is the distinctive one.
+- **High contrast**, a dark scheme for low vision and bright rooms.
+
+Each is a full set of the DESIGN.md tokens on the same CSS variables, including the
+eight identity colours, so every component follows (`lab/themes.css`). A scheme is
+chosen in the account menu, and the lab panel has the same switch. Each viewer's choice
+is remembered. "Same as this computer" stays the default and follows the system's
+light or dark.
+
+`node lab/contrast.mjs` checks each scheme against WCAG AA: text at 4.5:1, accent and
+field edges at 3:1, ink on marigold, and each identity colour's initial on its fill. It
+exits non-zero on a failure. All five pass:
+
+| Scheme | ink/surface | muted/surface | link/surface | ink/attention | accent/surface | identity (lowest) | AA |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| light | 15.9 | 6.9 | 7.3 | 12.4 | 4.3 | 6.0 | all pass |
+| dark | 13.5 | 7.6 | 9.2 | 10.7 | 7.0 | 7.8 | all pass |
+| ember | 14.1 | 7.7 | 10.9 | 9.2 | 8.5 | 7.6 | all pass |
+| tide | 13.7 | 8.1 | 10.9 | 9.8 | 9.2 | 7.3 | all pass |
+| contrast | 18.0 | 13.7 | 13.0 | 8.7 | 10.7 | 7.1 | all pass |
+
+### An agent's avatar is its harness
+
+The harness icon is now the main mark, so a Claude Code, Codex or omp agent can be told
+apart at a glance. On top of the icon go the things that tell two agents of the same
+harness apart:
+
+- the agent's identity colour, as the tile's tint, with the icon in its ink;
+- a small badge in a corner with the agent's initials (C2, RE).
+
+The badge shows from 24px up. At the 20px of chips and panel rows, the tint and the
+name beside the mark are enough. People keep their initials mark. An unknown harness
+gets a neutral prompt icon. This refines D133, which planned a small harness glyph on
+the initials mark: the harness now comes first. The team scenario tests the
+differentiation, with three Claude Code agents, three Codex agents and two omp agents.
+
+**Where the icons come from, and why we may use them.** Orca
+([stablyai/orca](https://github.com/stablyai/orca), MIT) shows the vendors' own marks:
+
+- OpenAI's knot for Codex, in currentColor;
+- Anthropic's starburst for Claude, in its brand colour #D97757;
+- omp.sh's homepage mark, with its gradient.
+
+All of these are inlined as SVG paths in `status-bar/icons.tsx` and
+`lib/agent-icon-glyphs.tsx`, with comments naming each source. Other agents fall back
+to a bundled favicon or Google's favicon service, and then to a letter tile. We kept
+the approach (inline single-colour SVG, a neutral fallback, and the source recorded
+next to each mark) but not their assets:
+
+- **MIT covers Orca's code, not the marks.** The logos stay trademarks of their
+  owners, and Orca records no permission to use them.
+- **Anthropic's trademark guidelines** allow its marks only as Anthropic permits, in
+  materials approved beforehand, and forbid changing their colour or proportions. So
+  the starburst can't be drawn in our theme colour, or used at all, without approval.
+  OpenAI's brand page couldn't be read here (HTTP 403), so it needs checking by hand.
+- **So the lab draws simple original marks** that evoke each harness: an asterisk for
+  Claude Code, a hexagon with a prompt for Codex, and a pi for omp. They are single
+  colour, take the theme, and live in `experiments/harness-mark.tsx`. If the
+  maintainer wants the official marks, the next step is written permission from
+  Anthropic and OpenAI (and a check of omp's licence), with each source recorded
+  beside its path, as Orca does.
+
 ## The agent's side
 
 Agents produce the data behind this UI, so the right thing has to be the easy thing.
@@ -290,5 +359,7 @@ The design depends on these. Each is a contract change for the maintainer to dec
    reply message enough?
 5. Should narrowing the conversation to a task become a real filter (`?task=`), beside
    the existing filters for sender and role?
-6. Should task prefixes be unique per server, as proposed, or should an id carry its
+6. Should the agent avatar use the vendors' official marks, after asking them for
+   permission, or our original ones?
+7. Should task prefixes be unique per server, as proposed, or should an id carry its
    board everywhere (checkout-v2/CHK-12)?
