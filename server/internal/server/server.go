@@ -270,33 +270,6 @@ func setting(ctx context.Context, st settings, key string, create func() (string
 	return st.SettingOnce(ctx, key, v)
 }
 
-// firstAdmin makes a team server's first person, its admin, on the first start of an
-// empty database, and writes their key to the admin key file in dataDir, which must not
-// exist yet. Later starts, and every start but one when several begin at once, find a
-// person already there and do nothing: the person is made in a write transaction that
-// first checks there is none. The key is logged by its file only, never itself.
-func firstAdmin(ctx context.Context, svc *board.Service, dataDir, name string, log *slog.Logger) error {
-	handle := rules.NormalizeName(name)
-	token, err := svc.BootstrapOwner(ctx, handle, "admin-key")
-	if err != nil || token == "" {
-		return err
-	}
-	path := filepath.Join(dataDir, AdminKeyFile)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // the server's own data folder
-	if err != nil {
-		return fmt.Errorf("save the first admin's key: %w; it is lost, so start again with an empty data folder", err)
-	}
-	if _, err := f.WriteString(token + "\n"); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("save the first admin's key in %s: %w", path, err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("save the first admin's key in %s: %w", path, err)
-	}
-	log.Info("first admin created", "handle", handle, "key_file", path)
-	return nil
-}
-
 // writePrivate writes a file only its owner can read.
 func writePrivate(path, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
