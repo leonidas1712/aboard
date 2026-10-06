@@ -156,7 +156,8 @@ $defs:
       behind it, no longer works; the hint says the person runs aboard login or aboard
       connect on this machine) · agent_removed (from the server: the session's seat on
       that board was removed or left it, and joining again never makes a replacement;
-      every command with that seat's token gets it, with details.agent, details.board,
+      every command with that seat's token gets it, except a repeat of the seat's own
+      leave with the same Idempotency-Key, which gets its first answer; details.agent, details.board,
       details.removed_at and details.removed_by: person, board_owner, admin or self) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
       session the daemon hasn't registered) · subagent_without_seat (the command changes
       state and runs in a subagent, which may only read; the hint names what it can run) ·

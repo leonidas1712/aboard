@@ -476,11 +476,18 @@ func disconnectedSince(m Member, now time.Time) (time.Time, bool) {
 	if m.Presence.State == "" {
 		return time.Time{}, false
 	}
-	p := m.CurrentPresence(now)
-	if p.State != PresenceNoSession {
-		return time.Time{}, false
+	// A session reported as ended stays ended until another is reported, even when the
+	// report itself runs out, so its own start counts. Any other presence that ran out
+	// counts from when it was last reported.
+	from := m.Presence.Since
+	if m.Presence.State != PresenceNoSession {
+		p := m.CurrentPresence(now)
+		if p.State != PresenceNoSession {
+			return time.Time{}, false
+		}
+		from = p.Since
 	}
-	since, err := time.Parse(time.RFC3339Nano, p.Since)
+	since, err := time.Parse(time.RFC3339Nano, from)
 	if err != nil {
 		return time.Time{}, false
 	}
