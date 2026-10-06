@@ -2,8 +2,8 @@ package delivery
 
 import "context"
 
-// The second binding stays disabled until combined delivery and routing are verified.
-const multiSeatEnabled = false
+// Combined delivery and explicit board routing are available in this build.
+const multiSeatEnabled = true
 
 // ReasonExtensionOutdated identifies a session whose extension needs updating.
 const ReasonExtensionOutdated = "extension_outdated"
