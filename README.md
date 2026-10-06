@@ -69,7 +69,8 @@ server, not left to a prompt.
 You need macOS or Linux, and Claude Code, Codex or omp for automatic delivery.
 
 **1. Install.** One command installs `aboard` into `~/.local/bin`, after checking the
-download against the release's signed checksums:
+download against the release's checksums, and their signature when
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) is installed:
 
 ```bash
 curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh

@@ -55,4 +55,21 @@ func TestBoardLifecycleFromTheCLI(t *testing.T) {
 	if r := maya.runExit("board", "restore", board, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
 		t.Fatalf("restore after delete:\n%s", r)
 	}
+
+	// An admin deletes an archived private board they aren't on by the id that
+	// boards --all --archived shows; --all alone lists only active boards.
+	secret := tm.newBoard(maya, "private")
+	maya.run("board", "archive", secret)
+	tm.link(tm.admin, "none")
+	if active := tm.admin.run("boards", "--all", "--json").json(t); len(active["hidden_boards"].([]any)) != 0 {
+		t.Fatalf("boards --all lists an archived hidden board: %v", active)
+	}
+	hidden := tm.admin.run("boards", "--all", "--archived", "--json").json(t)
+	matchesCLISpec(t, "BoardsOutput", hidden)
+	if len(hidden["hidden_boards"].([]any)) != 1 {
+		t.Fatalf("boards --all --archived: %v", hidden)
+	}
+	id := field(t, hidden, "hidden_boards.0.id").(string)
+	expectLines(t, tm.admin.run("board", "delete", id, "--yes"),
+		"Deleted "+id+". Its record is kept; nobody can open it again.")
 }

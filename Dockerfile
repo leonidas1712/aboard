@@ -5,7 +5,7 @@
 #
 # and run it behind a proxy that ends HTTPS:
 #
-#   docker run -v aboard-data:/data -p 7400:7400 \
+#   docker run -v aboard-data:/data -p 127.0.0.1:7400:7400 \
 #     -e ABOARD_PUBLIC_URL=https://aboard.example.com aboard:0.1.0
 #
 # docs/team-server.mdx has the rest, a Kubernetes recipe included.

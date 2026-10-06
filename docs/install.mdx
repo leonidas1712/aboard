@@ -23,8 +23,13 @@ curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/insta
 
 The script downloads the latest release's archive for your system, checks it against the
 release's signed checksums, and installs `aboard` and the launchers shipped with it to
-`~/.local/bin`. It never uses `sudo`, and if anything fails, an install you already have
-stays as it was. It says when `~/.local/bin` isn't on your `PATH`, with the line to add.
+`~/.local/bin`. It never uses `sudo`. The download, the signature, the checksum and the
+archive's contents are all checked before anything is written, so if one of those
+checks fails, an install you already have stays as it was. It then replaces `aboard`
+and each launcher one at a time, each written under a temporary name and renamed into
+place, so no program is ever half-written. A failure while writing can leave some
+programs new and others old; run the script again to finish. It says when
+`~/.local/bin` isn't on your `PATH`, with the line to add.
 Two variables change what it does:
 
 | Variable | What it does |

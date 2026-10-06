@@ -32,7 +32,9 @@ aboard serve --team --public-url https://aboard.example.com --data /srv/aboard
 **The Host check.** The server answers only requests for the public URL's host. A
 request that names another host gets `421` with the error `host_not_allowed`, so health
 checks must send that host too. The board view's sign-in cookie is always the secure
-kind, for that address only.
+kind, for that address only. The Host check is not network protection: anyone who
+reaches the server's port can send the right `Host`. Only the proxy may reach the plain
+HTTP port; keep it on a private network or on the proxy's own machine.
 
 **The data folder** holds everything the server knows, so the server makes it readable
 only by its own user, and refuses to start when the folder or a file in it is a link,
@@ -146,15 +148,19 @@ What the recipe already sets, and why:
 
 ## Run it with Docker
 
-On one machine with Docker, run the image with a named volume:
+On one machine with Docker, run the image with a named volume. The port is published on
+`127.0.0.1` only, so the plain HTTP server is reachable from this machine and nowhere
+else:
 
 ```bash
-docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 7400:7400 \
+docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 \
   -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.0
 ```
 
-Put a proxy that ends HTTPS for `aboard.example.com` in front of port 7400, keeping the
-`Host` header and allowing 11-minute reads. Check the server answers for its host:
+Put a proxy that ends HTTPS for `aboard.example.com` on the same machine, in front of
+`127.0.0.1:7400`, keeping the `Host` header and allowing 11-minute reads. Never publish
+port 7400 on every interface (`-p 7400:7400`); if the proxy runs elsewhere, the port
+must sit only on a private network the proxy reaches. Check the server answers for its host:
 
 ```bash
 curl -H 'Host: aboard.example.com' http://localhost:7400/v1/info
@@ -166,18 +172,19 @@ The answer includes `"mode":"team"`. With any other `Host`, it is `421`.
 
 The first start makes the first admin and writes their access key to `admin-key` in the
 data folder, readable only by the server's user. On your own machine, with aboard
-installed, pipe the key into `aboard login`, then delete the file. In Kubernetes:
+installed, pipe the key into `aboard login`, and delete the file only once the login
+worked, so a failed login leaves the key to try again. In Kubernetes:
 
 ```bash
-kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://aboard.example.com
-kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key
+kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://aboard.example.com \
+  && kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key
 ```
 
 With Docker:
 
 ```bash
-docker exec aboard cat /data/aboard/admin-key | aboard login https://aboard.example.com
-docker exec aboard rm /data/aboard/admin-key
+docker exec aboard cat /data/aboard/admin-key | aboard login https://aboard.example.com \
+  && docker exec aboard rm /data/aboard/admin-key
 ```
 
 Check that you are the admin:
@@ -245,12 +252,23 @@ is as it was, and the log names the copy.
 
 Those copies live on the same volume. For a copy that survives losing the volume, take
 a snapshot of the volume with your cluster's or cloud's snapshot tool before each
-upgrade, with the server stopped so the copy is clean:
+upgrade, with the server stopped so the copy is clean. `kubectl scale` returns before
+the pod is gone, so wait for it to be deleted first:
 
 ```bash
 kubectl scale -n aboard deploy/aboard --replicas=0
+kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
 # take the snapshot of the aboard-data volume here
 kubectl scale -n aboard deploy/aboard --replicas=1
+```
+
+With Docker, `docker stop` returns once the container has exited. Copy the volume to
+a file in the current folder, then start the server again:
+
+```bash
+docker stop aboard
+docker run --rm -v aboard-data:/data -v "$PWD":/backup alpine tar czf /backup/aboard-data.tgz -C /data .
+docker start aboard
 ```
 
 ## Upgrade, and go back
@@ -271,6 +289,7 @@ the older image:
 
 ```bash
 kubectl scale -n aboard deploy/aboard --replicas=0
+kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
 kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.0 \
   --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.0","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
 # in that shell:
@@ -280,6 +299,17 @@ exit
 kubectl set image -n aboard deploy/aboard aboard=ghcr.io/leonidas1712/aboard:0.1.0
 kubectl scale -n aboard deploy/aboard --replicas=1
 ```
+
+With Docker, the same steps:
+
+```bash
+docker stop aboard && docker rm aboard
+docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.0
+# in that shell, the same ls, cp and rm as above, then exit
+```
+
+Then run the `docker run` from [Run it with Docker](#run-it-with-docker) with the older
+tag.
 
 Anything written after that copy was made is lost.
 
