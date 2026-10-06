@@ -13,11 +13,21 @@ import (
 // handleArg takes a person's handle as typed: with or without its @.
 func handleArg(s string) string { return strings.TrimPrefix(strings.TrimSpace(s), "@") }
 
+// commandWord is s as one word of a command for a person to paste into a shell: as it
+// is when it holds only characters no shell treats specially, such as a handle or a
+// server URL, and otherwise quoted.
+func commandWord(s string) string {
+	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@%+-./:_,=") == "" {
+		return s
+	}
+	return shellWord(s)
+}
+
 // personClient returns the board a person's command acts on and a client with their
 // login, after refusing inside a harness session, where an agent would act as its
 // person. what says what the command does; command is the command to hand the person.
 func (a *app) personClient(ctx context.Context, boardFlag, what, command string) (target, *client, error) {
-	if err := a.refuseInSession(what, command+boardArg(a.namedBoard(boardFlag))); err != nil {
+	if err := a.refuseInSession(what, command+a.boardFlags(boardFlag)); err != nil {
 		return target{}, nil, err
 	}
 	t, err := a.personBoard(boardFlag)
@@ -26,6 +36,24 @@ func (a *app) personClient(ctx context.Context, boardFlag, what, command string)
 	}
 	c, err := a.humanClient(ctx, t)
 	return t, c, err
+}
+
+// boardFlags are the --board and --server flags to repeat in a command handed to the
+// person, quoted for a shell, so it acts on the same board on the same server: with
+// --server, the board given; otherwise the one this directory names.
+func (a *app) boardFlags(boardFlag string) string {
+	if a.boardServerFlag == "" {
+		return boardArg(a.namedBoard(boardFlag))
+	}
+	return boardArg(boardFlag) + a.serverArg()
+}
+
+// serverArg is the --server flag to repeat in a suggested command, if one was given.
+func (a *app) serverArg() string {
+	if a.boardServerFlag == "" {
+		return ""
+	}
+	return " --server " + commandWord(a.boardServerFlag)
 }
 
 // personBoard is the board a person's board command acts on: with --server, the board
@@ -118,7 +146,7 @@ type boardPersonOutput struct {
 
 // runBoardAdd adds a person on the server to a board, with the person's own login.
 func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
-	t, c, err := a.personClient(ctx, boardFlag, "Adding people to a board", "aboard board add @"+handle)
+	t, c, err := a.personClient(ctx, boardFlag, "Adding people to a board", "aboard board add "+commandWord("@"+handle))
 	if err != nil {
 		return err
 	}
@@ -148,7 +176,7 @@ func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
 
 // runBoardRemove takes a person off a board; owners only.
 func runBoardRemove(ctx context.Context, a *app, boardFlag, handle string) error {
-	t, c, err := a.personClient(ctx, boardFlag, "Removing people from a board", "aboard board remove @"+handle)
+	t, c, err := a.personClient(ctx, boardFlag, "Removing people from a board", "aboard board remove "+commandWord("@"+handle))
 	if err != nil {
 		return err
 	}
@@ -191,7 +219,7 @@ func runBoardLeave(ctx context.Context, a *app, boardFlag string) error {
 
 // runBoardOwner makes a person on a board an owner; owners only.
 func runBoardOwner(ctx context.Context, a *app, boardFlag, handle string) error {
-	t, c, err := a.personClient(ctx, boardFlag, "Making someone an owner of a board", "aboard board owner @"+handle)
+	t, c, err := a.personClient(ctx, boardFlag, "Making someone an owner of a board", "aboard board owner "+commandWord("@"+handle))
 	if err != nil {
 		return err
 	}
@@ -235,8 +263,12 @@ func runBoardVisibility(ctx context.Context, a *app, boardFlag, to string, yes b
 	if vis != api.BoardVisibilityOpen && vis != api.BoardVisibilityPrivate {
 		return usageError(fmt.Sprintf("%q is not a board visibility; use open or private.", to), boardUsage)
 	}
-	command := "aboard board visibility " + to
-	t, c, err := a.personClient(ctx, boardFlag, "Turning a board open or private", command)
+	command := "aboard board visibility " + commandWord(to)
+	handoff := command
+	if yes {
+		handoff += " --yes"
+	}
+	t, c, err := a.personClient(ctx, boardFlag, "Turning a board open or private", handoff)
 	if err != nil {
 		return err
 	}
@@ -261,7 +293,7 @@ func runBoardVisibility(ctx context.Context, a *app, boardFlag, to string, yes b
 			t.board, t.server.URL, counted(preview.Reveals.Messages, "message"), counted(preview.Reveals.Files, "file"))
 		if !a.interactive() {
 			return newError("confirmation_required", what+" It needs a yes first.",
-				"Run "+command+boardArg(t.board)+" --yes to make it open.")
+				"Run "+command+boardArg(t.board)+a.serverArg()+" --yes to make it open.")
 		}
 		_, _ = io.WriteString(a.env.Stdout, what+"\n")
 		ok, err := a.asker().confirm("Continue?", "", false)

@@ -216,6 +216,53 @@ func TestBoardNewOnTheLocalServerAndInASession(t *testing.T) {
 	}
 }
 
+// A person's board command refused inside an agent's session hands the person the
+// command with every flag that was given, quoted for a shell, so it acts on the same
+// board on the same server.
+func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	s := e.claudeSession("s-handoff")
+	const srv = "https://team.example.com"
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"board", "policy", "recommended", "--board", "pay", "--server", srv}, "aboard board policy recommended --board pay --server https://team.example.com"},
+		{[]string{"board", "add", "@maya", "--board", "pay", "--server", srv}, "aboard board add @maya --board pay --server https://team.example.com"},
+		{[]string{"board", "remove", "@maya", "--board", "pay", "--server", srv}, "aboard board remove @maya --board pay --server https://team.example.com"},
+		{[]string{"board", "leave", "--board", "pay", "--server", srv}, "aboard board leave --board pay --server https://team.example.com"},
+		{[]string{"board", "owner", "@maya", "--board", "pay", "--server", srv}, "aboard board owner @maya --board pay --server https://team.example.com"},
+		{[]string{"board", "visibility", "open", "--yes", "--board", "pay", "--server", srv}, "aboard board visibility open --yes --board pay --server https://team.example.com"},
+		{
+			[]string{"board", "new", "pay", "--title", "Payments 'retry' design", "--private", "--server", srv},
+			`aboard board new pay --title 'Payments '\''retry'\'' design' --private --server https://team.example.com`,
+		},
+		{[]string{"board", "new", "pay"}, "aboard board new pay"},
+	} {
+		r := s.runExit(append(c.args, "--json")...)
+		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
+			t.Errorf("aboard %v in a session:\n%s", c.args, r)
+			continue
+		}
+		hint, _ := field(t, r.json(t), "error.hint").(string)
+		if !strings.HasSuffix(hint, ": "+c.want) {
+			t.Errorf("aboard %v hands over:\n%s\nwant it to end with:\n%s", c.args, hint, c.want)
+		}
+	}
+
+	// Outside a session, the command a confirmation asks for keeps --server too.
+	local := "http://" + e.addr
+	e.run("board", "new", "quiet", "--private", "--server", local)
+	r := e.runExit("board", "visibility", "open", "--board", "quiet", "--server", local, "--json")
+	if r.code != 1 || errorCode(t, r.json(t)) != "confirmation_required" {
+		t.Fatalf("visibility open without --yes:\n%s", r)
+	}
+	if hint, _ := field(t, r.json(t), "error.hint").(string); hint != "Run aboard board visibility open --board quiet --server "+local+" --yes to make it open." {
+		t.Fatalf("the confirmation's hint: %q", hint)
+	}
+}
+
 // A team server in its own process behind a proxy that ends HTTPS: its first start makes
 // the admin and writes their key to a file, which the admin pipes into aboard login on
 // their machine; the admin invites a colleague, who connects a second machine by

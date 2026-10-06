@@ -19,7 +19,17 @@ type staysLinked struct {
 // directory linked to no board is linked to it. It is up to a person, so it refuses
 // inside a harness session.
 func runBoardNew(ctx context.Context, a *app, name, title string, private bool, serverFlag string) error {
-	command := "aboard board new " + name
+	// The command handed to the person keeps every flag given, quoted for a shell.
+	command := "aboard board new " + commandWord(name)
+	if title != "" {
+		command += " --title " + commandWord(title)
+	}
+	if private {
+		command += " --private"
+	}
+	if serverFlag != "" {
+		command += " --server " + commandWord(serverFlag)
+	}
 	if err := a.refuseInSession("Creating a board", command); err != nil {
 		return err
 	}
