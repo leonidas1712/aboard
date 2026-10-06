@@ -409,6 +409,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 	case OpAgents:
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
+		ok.Capabilities = negotiatedCapabilities(s.ext)
 	}
 	return ok
 }
