@@ -3418,10 +3418,9 @@ components:
       type: string
       pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
     BoardLifecycleSelector:
+      type: string
+      pattern: "^([a-z0-9][a-z0-9-]{0,38}[a-z0-9]|brd_[0-9A-HJKMNP-TV-Z]{26})$"
       description: A board name, or its permanent id for lifecycle actions without discovering its name.
-      oneOf:
-        - { $ref: "#/components/schemas/BoardName" }
-        - { $ref: "#/components/schemas/BoardID" }
     LifecycleState:
       type: string
       enum: [active, archived, deleted]
