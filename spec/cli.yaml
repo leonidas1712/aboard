@@ -186,7 +186,8 @@ $defs:
       its build for this system, doesn't exist) · download_failed · signature_invalid
       (cosign found the checksums weren't signed by aboard's release workflow for that
       version) · checksum_mismatch · archive_invalid (the archive holds anything but plain
-      files with plain names, has no aboard, or its aboard doesn't run here) ·
+      files with plain names, has no aboard, is over the limits (a file over 64 MiB, more
+      than 128 MiB in all, more than 32 files), or its aboard doesn't run here) ·
       upgrade_failed (the new programs couldn't be written next to the running one; the
       old ones are untouched) · upgrade_setup_failed (exit 1; the binary was upgraded, but
       refreshing the skill and hooks failed; details.from, details.to; the hint is aboard
@@ -487,7 +488,8 @@ $defs:
          and the issuer https://token.actions.githubusercontent.com (signature_invalid);
          otherwise signature_checked is false and the text says so. Then the
          archive's SHA-256 (checksum_mismatch), its contents: plain files with plain
-         names, among them aboard (archive_invalid), and that the new aboard runs
+         names, among them aboard, within the size and count limits, never cut short
+         (archive_invalid), and that the new aboard runs
          (archive_invalid).
       5. Writes aboard and each launcher in the archive (aboard-launcher-<name>) next to
          the running binary under a temporary name, then renames each into place. A

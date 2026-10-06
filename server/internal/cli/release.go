@@ -34,6 +34,12 @@ const (
 	releaseIssuer = "https://token.actions.githubusercontent.com"
 	// maxReleaseFile bounds any one download, well above an archive's size.
 	maxReleaseFile = 256 << 20
+	// maxArchiveEntry, maxArchiveTotal and maxArchiveEntries bound what a release archive
+	// may unpack to: a file, all files together, and how many. A release holds aboard
+	// (about 20 MiB), a few launchers and two text files.
+	maxArchiveEntry   = 64 << 20
+	maxArchiveTotal   = 128 << 20
+	maxArchiveEntries = 32
 )
 
 // releaseIdentity is the signer a version's checksums must carry: the release workflow
@@ -234,7 +240,9 @@ func downloadError(err error) *Error {
 var plainName = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._-]*$`)
 
 // unpackArchive reads a release archive, which holds only plain files with plain names
-// and an aboard among them; anything else (a folder, a link, a path) is refused.
+// and an aboard among them; anything else (a folder, a link, a path) is refused, and so
+// is an archive over the limits on one file's size, the total size and the file count.
+// Nothing is cut short to fit.
 func unpackArchive(archive []byte) (map[string][]byte, error) {
 	gz, err := gzip.NewReader(bytes.NewReader(archive))
 	if err != nil {
@@ -242,6 +250,7 @@ func unpackArchive(archive []byte) (map[string][]byte, error) {
 	}
 	tr := tar.NewReader(gz)
 	files := map[string][]byte{}
+	var total int64
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -253,9 +262,23 @@ func unpackArchive(archive []byte) (map[string][]byte, error) {
 		if h.Typeflag != tar.TypeReg || !plainName.MatchString(h.Name) || files[h.Name] != nil {
 			return nil, errors.New("holds something other than plain files (a folder, a link or a path)")
 		}
-		data, err := io.ReadAll(io.LimitReader(tr, maxReleaseFile))
+		if len(files) == maxArchiveEntries {
+			return nil, fmt.Errorf("holds more than %d files", maxArchiveEntries)
+		}
+		if h.Size > maxArchiveEntry {
+			return nil, fmt.Errorf("holds %s, larger than %d MiB", h.Name, maxArchiveEntry>>20)
+		}
+		// Read one byte past the limit, so content longer than its header says is caught
+		// rather than cut short.
+		data, err := io.ReadAll(io.LimitReader(tr, maxArchiveEntry+1))
 		if err != nil {
 			return nil, errors.New("isn't a readable archive")
+		}
+		if len(data) > maxArchiveEntry {
+			return nil, fmt.Errorf("holds %s, larger than %d MiB", h.Name, maxArchiveEntry>>20)
+		}
+		if total += int64(len(data)); total > maxArchiveTotal {
+			return nil, fmt.Errorf("unpacks to more than %d MiB", maxArchiveTotal>>20)
 		}
 		files[h.Name] = data
 	}

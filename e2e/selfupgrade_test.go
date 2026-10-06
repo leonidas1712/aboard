@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -262,6 +263,26 @@ func TestUpgradeRefusesBeforeChangingAnything(t *testing.T) {
 			name: "an aboard that doesn't run", code: "archive_invalid", downloads: true,
 			setup: func(u *upgradeEnv) []string {
 				u.r.publish(u.releaseEntries("#!/bin/sh\nexit 1\n"))
+				return nil
+			},
+		},
+		{
+			// One byte over the 64 MiB a file in a release archive may have.
+			name: "a file too large", code: "archive_invalid", downloads: true,
+			setup: func(u *upgradeEnv) []string {
+				big := archiveEntry{name: "padding", body: string(make([]byte, 64<<20+1))}
+				u.r.publish(append(u.releaseEntries(fakeAboard), big))
+				return nil
+			},
+		},
+		{
+			name: "too many files", code: "archive_invalid", downloads: true,
+			setup: func(u *upgradeEnv) []string {
+				entries := u.releaseEntries(fakeAboard)
+				for i := range 40 {
+					entries = append(entries, archiveEntry{name: fmt.Sprintf("extra-%02d", i), body: "x"})
+				}
+				u.r.publish(entries)
 				return nil
 			},
 		},
