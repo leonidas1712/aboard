@@ -105,8 +105,9 @@ jobs:
           "$source_version" | "$source_version"-*) ;;
           *) echo "::error::The tag $TAG doesn't match version $source_version in server/internal/cli/build.go"; exit 1 ;;
           esac
-      # Waits up to 20 minutes for a run still going. A commit with no run fails at once:
-      # it never went through a pull request or main.
+      # Only a push run on main for this exact commit, from this repository, counts: a
+      # pull request's run tested a branch, not main. It waits up to 20 minutes for a run
+      # still going; a commit with no such run fails at once.
       - name: Check CI passed on this commit
         id: ci
         env:
@@ -119,7 +120,7 @@ jobs:
         run: |
           sha=$(git rev-parse HEAD)
           status=0
-          result=$(scripts/ci-status --wait 1200 "$sha") || status=$?
+          result=$(scripts/ci-status --event push --branch main --wait 1200 "$sha") || status=$?
           url=${result#* }
           case $status in
           0)
@@ -128,7 +129,7 @@ jobs:
             exit 0
             ;;
           2) why="The check workflow ended with ${result%% *} on $sha: $url" ;;
-          3) why="The check workflow has no run on $sha; a commit gets one when it is pushed to a pull request or to main" ;;
+          3) why="The check workflow has no push run on main for $sha; tag a commit that was main's head when it was pushed, since only those runs test exactly the tagged code" ;;
           4) why="The check workflow was still running on $sha after 20 minutes: $url" ;;
           *) why="Couldn't read the check workflow's runs on $sha" ;;
           esac

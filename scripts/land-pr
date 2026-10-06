@@ -25,11 +25,13 @@
 #                                       harness-table-check test e2e
 #        web/ too                       make web-check as well
 #      A change to delivery, setup or upgrades also gets a note that make live must pass
-#      before merging. With --live, the script runs make live-affected, which needs
-#      harness logins and so can't run in CI, and merges only if it passes. While CI
-#      runs, the live tests run beside it.
-#   5. Push the branch, merge the PR with a merge commit (retrying while GitHub says the
-#      base branch was modified), and confirm GitHub reports it MERGED.
+#      before merging (classify below lists the paths). With --live, the script runs
+#      make live-affected, which needs harness logins and so can't run in CI, and
+#      merges only if it passes. While CI runs, the live tests run beside it.
+#   5. Push the branch, merge the PR with a merge commit at exactly the checked commit,
+#      and confirm GitHub reports it MERGED. If GitHub refuses because main moved, start
+#      again from step 3, so the new main is merged and the new head checked (at most
+#      three rounds); if main didn't move, retry the merge.
 #   6. Only after a confirmed merge: remove the worktree and local branch if this script
 #      created them, and delete the branch on GitHub.
 #
@@ -64,7 +66,12 @@ set -eu
 
 code_checks="fmt-check lint vet generate-check core-size harness-table-check test e2e"
 merge_attempts=5
-ci_status="$(cd "$(dirname "$0")" && pwd)/ci-status"
+max_rounds=3
+script_dir=$(cd "$(dirname "$0")" && pwd)
+self="$script_dir/$(basename "$0")"
+ci_status="$script_dir/ci-status"
+# The arguments, for starting again when main moves (they hold no spaces).
+args="$*"
 
 say() { printf '%s\n' "$*"; }
 fail() {
@@ -101,12 +108,19 @@ classify() {
 		esac
 		case $path in
 		*_test.go) ;;
+		# Delivery, then setup (init, doctor, the install manifest, the launchers), then
+		# upgrades (aboard upgrade, the release it reads, the update notice, the install
+		# script).
 		server/internal/delivery/* | server/internal/harness/* | adapters/* | skills/* | \
 			server/internal/cli/daemon.go | server/internal/cli/delivery*.go | \
-			server/internal/cli/hook.go | server/internal/cli/init*.go | \
+			server/internal/cli/hook.go | \
+			server/internal/cli/init*.go | server/internal/cli/doctor.go | \
 			server/internal/cli/installed.go | server/internal/cli/manifest.go | \
+			server/internal/cli/uninstall.go | server/internal/cli/launch.go | \
+			server/internal/launcher/* | launchers/* | \
 			server/internal/cli/outdated.go | server/internal/cli/upgrade.go | \
-			server/internal/cli/uninstall.go)
+			server/internal/cli/selfupgrade.go | server/internal/cli/release.go | \
+			server/internal/cli/updatenotice.go | scripts/install.sh)
 			live=yes
 			;;
 		esac
@@ -242,7 +256,7 @@ if [ "$dry_run" = yes ]; then
 	explain "$plan"
 	if [ "$mode" = ci ]; then
 		if git merge-base --is-ancestor origin/main "$head_ref"; then
-			ci_out=$("$ci_status" "$(git rev-parse "$head_ref")" 2>/dev/null) || true
+			ci_out=$("$ci_status" --event pull_request "$(git rev-parse "$head_ref")" 2>/dev/null) || true
 			case $ci_out in
 			success*) say "CI: passed on the branch's head (${ci_out#* }); a real run merges without waiting." ;;
 			missing* | pending*) say "CI: no result on the branch's head yet; a real run pushes it and waits for CI." ;;
@@ -334,7 +348,7 @@ head_sha=$(git rev-parse HEAD)
 ci_wait=no
 if [ "$mode" = ci ]; then
 	ci_code=0
-	ci_out=$("$ci_status" "$head_sha") || ci_code=$?
+	ci_out=$("$ci_status" --event pull_request "$head_sha") || ci_code=$?
 	case $ci_code in
 	0) say "CI: passed on $(git rev-parse --short HEAD) (${ci_out#* })" ;;
 	2) ci_failed "$ci_out" ;;
@@ -377,7 +391,7 @@ if [ "$ci_wait" = yes ]; then
 	ci_limit=${LAND_PR_CI_WAIT:-1800}
 	say "CI: waiting up to $((ci_limit / 60)) min for the check workflow on $(git rev-parse --short HEAD)"
 	ci_code=0
-	ci_out=$("$ci_status" --wait "$ci_limit" --expect "$head_sha") || ci_code=$?
+	ci_out=$("$ci_status" --event pull_request --wait "$ci_limit" --expect "$head_sha") || ci_code=$?
 	case $ci_code in
 	0) say "CI: passed (${ci_out#* })" ;;
 	2) ci_failed "$ci_out" ;;
@@ -399,6 +413,17 @@ while [ "$attempt" -le "$merge_attempts" ]; do
 	if [ "$(gh pr view "$pr" --json state --jq .state 2>/dev/null)" = MERGED ]; then
 		merged=yes
 		break
+	fi
+	# If main moved, the checked commit no longer has all of main: start over, merging
+	# the new main and checking the new head, rather than merging what wasn't checked.
+	git fetch -q origin main || fail 4 "can't fetch main from origin to see whether it moved; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
+	if ! git merge-base --is-ancestor origin/main HEAD; then
+		round=${LAND_PR_ROUND:-1}
+		[ "$round" -lt "$max_rounds" ] ||
+			fail 4 "main moved during each of $max_rounds tries to land PR #$pr; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
+		say "Main moved to $(git rev-parse --short origin/main) while landing; starting again to merge it and check the new head ($((round + 1)) of $max_rounds)"
+		# shellcheck disable=SC2086 # args are options and a number, no spaces inside
+		LAND_PR_ROUND=$((round + 1)) exec "$self" $args
 	fi
 	case $out in
 	*"ase branch was modified"*)

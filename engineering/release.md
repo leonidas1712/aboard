@@ -205,9 +205,8 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
 2. It merges `origin/main` into the branch, and stops on a conflict, naming the files
    and leaving the merge in the worktree to resolve.
 3. It asks GitHub for the `check` workflow's result on the branch's head after that
-   merge, the exact commit it will merge (`scripts/ci-status`, which reads the
-   workflow's newest run for that commit; a run passes only when every job in it
-   passed):
+   merge, the exact commit it will merge (`scripts/ci-status`; [which runs
+   count](#which-ci-runs-count)):
    - **passed**: nothing runs here;
    - **failed**: it stops with exit 3 and the run's address. If the same test fails on
      unchanged `main`, it is a known flake ([testing.md](testing.md#flaky-tests)):
@@ -220,8 +219,10 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
    only if it passes. Without `--live`, it notes a change to delivery, setup or upgrades,
    which must pass `make live` before merging.
 5. It pushes, merges with `gh pr merge --merge --match-head-commit <the checked
-   commit>` (retrying while GitHub says the base branch was modified), and confirms
-   GitHub reports the PR merged.
+   commit>`, and confirms GitHub reports the PR merged. If GitHub refuses and `main`
+   has moved, the checked commit no longer contains `main`, so it starts again from
+   step 2: it merges the new `main` and waits for CI on the new head (at most three
+   rounds, then exit 4). If `main` hasn't moved, it retries the merge.
 6. Only then does it remove what it created (the temporary worktree and local branch)
    and delete the branch on GitHub. A failure at any step leaves everything in place
    and says what to do next.
@@ -234,6 +235,24 @@ the `check` workflow's jobs (below), GitHub still refuses the merge until CI pas
 `--dry-run` prints the plan, including any conflict with `main` and CI's result so far,
 and changes nothing. The script's header lists its exit codes, and
 `e2e/landpr_test.go` runs it against a local repository with a fake `gh`.
+
+### Which CI runs count
+
+GitHub indexes a workflow run by its head commit, but what the run tested depends on
+its event: by default a pull request's run tests GitHub's merge of the branch with
+`main`, a tree no commit names. So `check.yml` checks a pull request out at its exact
+head commit, and `scripts/ci-status` counts a run only when all of these hold:
+
+- its event is the one the caller asks for: `pull_request` for `scripts/land-pr`, and
+  `push` on the branch `main` for the release gate, since a pull request's run tested a
+  branch, not what `main` released;
+- its head commit is exactly the commit asked about;
+- it ran in this repository on this repository's code, not a fork's.
+
+The newest run that qualifies decides, at its latest attempt, so rerunning a known
+flake's failed jobs replaces its result. A run passes only when every job in it passed.
+With `main` requiring branches to be up to date before merging, the head that merges
+already contains `main`, so a pass on that head is a pass on what `main` becomes.
 
 ## Cutting a release
 
@@ -250,8 +269,10 @@ These are repository settings, made by the maintainer:
    maintainer may create, update or delete them, so nobody else can start a release.
 3. **Require CI on `main`** (Settings → Rules → New branch ruleset, target the default
    branch): require status checks to pass before merging, with the `check` workflow's
-   jobs `check (ubuntu-latest)`, `check (macos-latest)`, `web` and `docs`. This is what
-   makes CI the merge gate for everyone, not only for `scripts/land-pr`.
+   jobs `check (ubuntu-latest)`, `check (macos-latest)`, `web` and `docs`, and require
+   branches to be up to date before merging (strict), so the commit CI passed is the
+   one `main` becomes. This makes CI the merge gate for everyone, not only for
+   `scripts/land-pr`.
 4. **Workflow permissions** (Settings → Actions → General): keep the default
    `GITHUB_TOKEN` read-only; the release job asks for `contents`, `id-token` and
    `packages` write itself, and the gate job only `actions: read`, to read the `check`
@@ -276,11 +297,12 @@ gate, checks with read-only permissions that:
   (never a pull request);
 - the tag matches `version` in `server/internal/cli/build.go` (a candidate's suffix
   aside);
-- the `check` workflow passed on the tag's exact commit. `scripts/ci-status` asks
-  GitHub for the workflow's newest run on that commit (`gh run list --workflow
-  check.yml --commit <sha>`), which passes only when every job in it passed. A run still
-  going is waited for, up to 20 minutes; a commit with no run fails at once, since it
-  never went through a pull request or `main`;
+- the `check` workflow passed on the tag's exact commit, in a `push` run on `main` from
+  this repository ([which runs count](#which-ci-runs-count)). `scripts/ci-status --event
+  push --branch main` reads the runs from GitHub's API (`actions/workflows/check.yml/runs`
+  filtered by the commit) and checks each field itself. A run still going is waited
+  for, up to 20 minutes. A commit with no such run fails at once: tag a commit that was
+  `main`'s head when it was pushed, such as a PR's merge commit;
 - the code builds (`go build ./...`).
 
 If CI didn't pass, the release stops before anything is built, naming the run and the

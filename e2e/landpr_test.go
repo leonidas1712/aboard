@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,6 +28,15 @@ func TestLandPRClassify(t *testing.T) {
 		{"delivery", "server/internal/delivery/daemon.go\n", code + "\nlive-note"},
 		{"setup", "server/internal/cli/init.go\n", code + "\nlive-note"},
 		{"upgrade", "server/internal/cli/upgrade.go\n", code + "\nlive-note"},
+		{"self-upgrade", "server/internal/cli/selfupgrade.go\n", code + "\nlive-note"},
+		{"release", "server/internal/cli/release.go\n", code + "\nlive-note"},
+		{"update notice", "server/internal/cli/updatenotice.go\n", code + "\nlive-note"},
+		{"install script", "scripts/install.sh\n", code + "\nlive-note"},
+		{"doctor", "server/internal/cli/doctor.go\n", code + "\nlive-note"},
+		{"init setup", "server/internal/cli/initsetup.go\n", code + "\nlive-note"},
+		{"launcher", "server/internal/launcher/tmux/tmux.go\n", code + "\nlive-note"},
+		{"external launcher", "launchers/herdr/main.go\n", code + "\nlive-note"},
+		{"a test of upgrades", "server/internal/cli/selfupgrade_test.go\n", code},
 		{"adapter", "adapters/codex/profile.yaml\n", code + "\nlive-note"},
 		{"a test of delivery", "server/internal/delivery/daemon_test.go\n", code},
 		{"other cli", "server/internal/cli/say.go\n", code},
@@ -54,21 +64,26 @@ type landPRRepo struct {
 
 // fakeGH answers the gh calls scripts/land-pr makes for PR 7 on branch feature. Its
 // first merge fails the way GitHub does when main moved underneath it; the next one
-// merges feature into the origin's main. gh run list answers with the lines of
-// $GH_STATE/runs in turn, as gh's --jq would print them, repeating the last one; with
-// no such file, the check workflow passed.
+// merges feature into the origin's main; with $GH_STATE/move-main, the first merge
+// moves main before refusing, as another PR landing at that moment would.
+//
+// gh api for the check workflow's runs answers with the blocks of $GH_STATE/runs in
+// turn, blocks separated by a "--" line and the last repeated, each line a run as
+// scripts/ci-status's --jq prints it, with SHA standing for the commit asked about. An
+// empty block is no runs; with no such file, the pull request's run passed.
 const fakeGH = `#!/bin/sh
 set -eu
 case "$1 $2" in
-"run list")
+"api repos/{owner}/{repo}/actions/workflows/check.yml/runs?"*)
 	echo "$*" >>"$GH_STATE/run-lists"
+	sha=$(printf '%s\n' "$2" | sed -n 's/.*head_sha=\([0-9a-f]*\).*/\1/p')
 	if [ ! -f "$GH_STATE/runs" ]; then
-		echo "https://example.test/runs/1 completed success"
+		echo "pull_request feature $sha o/aboard o/aboard 1 completed success https://example.test/runs/1"
 		exit 0
 	fi
-	head -n 1 "$GH_STATE/runs"
-	if [ "$(wc -l <"$GH_STATE/runs")" -gt 1 ]; then
-		tail -n +2 "$GH_STATE/runs" >"$GH_STATE/runs.next"
+	awk '$0 == "--" { exit } { print }' "$GH_STATE/runs" | sed "s/SHA/$sha/g"
+	if grep -qx -- -- "$GH_STATE/runs"; then
+		awk 'found { print } $0 == "--" && !found { found = 1 }' "$GH_STATE/runs" >"$GH_STATE/runs.next"
 		mv "$GH_STATE/runs.next" "$GH_STATE/runs"
 	fi
 	;;
@@ -82,6 +97,16 @@ case "$1 $2" in
 	echo "$*" >>"$GH_STATE/merges"
 	if [ ! -f "$GH_STATE/refused" ]; then
 		: >"$GH_STATE/refused"
+		if [ -f "$GH_STATE/move-main" ]; then
+			blob=$(echo "Landed meanwhile" | git -C "$ORIGIN" hash-object -w --stdin)
+			export GIT_INDEX_FILE="$GH_STATE/index"
+			git -C "$ORIGIN" read-tree main
+			git -C "$ORIGIN" update-index --add --cacheinfo "100644,$blob,design/meanwhile.md"
+			tree=$(git -C "$ORIGIN" write-tree)
+			unset GIT_INDEX_FILE
+			commit=$(git -C "$ORIGIN" commit-tree "$tree" -p main -m "Land another PR")
+			git -C "$ORIGIN" update-ref refs/heads/main "$commit"
+		fi
 		echo "GraphQL: Base branch was modified. Review and try the merge again. (mergePullRequest)" >&2
 		exit 1
 	fi
@@ -408,7 +433,7 @@ func TestLandPRMergesWhenCIPassedOnTheHead(t *testing.T) {
 	if r.read("make") != "" {
 		t.Errorf("ran make when CI had passed: %q", r.read("make"))
 	}
-	if !strings.Contains(r.read("run-lists"), "--workflow check.yml --commit "+head) {
+	if !strings.Contains(r.read("run-lists"), "actions/workflows/check.yml/runs?head_sha="+head+"&event=pull_request") {
 		t.Errorf("didn't ask for the check workflow on %s: %q", head, r.read("run-lists"))
 	}
 	if !strings.Contains(r.read("merges"), "--match-head-commit "+head) {
@@ -428,7 +453,7 @@ func TestLandPRWaitsForCIOnTheMergedHead(t *testing.T) {
 	r.branch("docs/page.mdx", "A page\n")
 	r.moveMain("design/notes.md", "Notes\n")
 	r.write(filepath.Join(r.ghState, "runs"),
-		"missing\nmissing\nhttps://example.test/runs/2 in_progress \nhttps://example.test/runs/2 completed success\n")
+		"\n--\n\n--\n"+prRun("in_progress", "-", 2)+"--\n"+prRun("completed", "success", 2))
 
 	out, code := r.land("7")
 	if code != 0 {
@@ -441,7 +466,7 @@ func TestLandPRWaitsForCIOnTheMergedHead(t *testing.T) {
 	if parents := strings.Fields(r.git(r.origin, "rev-list", "--parents", "-n", "1", merged)); len(parents) != 3 {
 		t.Errorf("the merged head %s isn't the merge with main: %v", merged, parents)
 	}
-	if got := strings.Count(r.read("run-lists"), "--commit "+merged); got != 4 {
+	if got := strings.Count(r.read("run-lists"), "head_sha="+merged); got != 4 {
 		t.Errorf("asked about %s %d times, want 4:\n%s", merged, got, r.read("run-lists"))
 	}
 	if !strings.Contains(r.read("merges"), "--match-head-commit "+merged) {
@@ -460,7 +485,7 @@ func TestLandPRStopsWhenCIFailed(t *testing.T) {
 	t.Parallel()
 	r := newLandPRRepo(t)
 	r.branch("server/internal/cli/say.go", "package cli\n")
-	r.write(filepath.Join(r.ghState, "runs"), "https://example.test/runs/3 completed failure\n")
+	r.write(filepath.Join(r.ghState, "runs"), prRun("completed", "failure", 3))
 
 	out, code := r.land("7")
 	if code != 3 {
@@ -483,7 +508,7 @@ func TestLandPRStopsWhenCIIsStillRunning(t *testing.T) {
 	r := newLandPRRepo(t)
 	r.branch("docs/page.mdx", "A page\n")
 	r.moveMain("design/notes.md", "Notes\n")
-	r.write(filepath.Join(r.ghState, "runs"), "https://example.test/runs/4 queued \n")
+	r.write(filepath.Join(r.ghState, "runs"), prRun("queued", "-", 4))
 	r.env = append(r.env, "LAND_PR_CI_WAIT=0")
 
 	out, code := r.land("7")
@@ -499,31 +524,92 @@ func TestLandPRStopsWhenCIIsStillRunning(t *testing.T) {
 	}
 }
 
-// scripts/ci-status reads the check workflow's newest run for a commit: its exit code
-// says passed, failed, missing or still running, and with --wait it waits for a run
-// that is still going.
+// prRun is a pull request's check workflow run on the commit asked about, as the fake
+// gh prints it, ending the block of runs.
+func prRun(status, conclusion string, n int) string {
+	return fmt.Sprintf("pull_request feature SHA o/aboard o/aboard 1 %s %s https://example.test/runs/%d\n", status, conclusion, n)
+}
+
+// When main moves while the PR is merging, land-pr doesn't merge the commit CI checked
+// without the new main: it starts again, merges the new main, checks the new head, and
+// merges that.
+func TestLandPRStartsAgainWhenMainMovesWhileMerging(t *testing.T) {
+	t.Parallel()
+	r := newLandPRRepo(t)
+	r.branch("docs/page.mdx", "A page\n")
+	first := r.git(r.origin, "rev-parse", "feature")
+	r.write(filepath.Join(r.ghState, "move-main"), "")
+
+	out, code := r.land("7")
+	if code != 0 {
+		t.Fatalf("land-pr exited %d:\n%s", code, out)
+	}
+	if !strings.Contains(out, "Main moved to") || !strings.Contains(out, "Merged: PR #7") {
+		t.Errorf("output doesn't say it started again and merged:\n%s", out)
+	}
+	merged := r.git(r.origin, "rev-parse", "main^2")
+	if merged == first {
+		t.Fatalf("merged %s, the head checked before main moved", first)
+	}
+	if got := r.git(r.origin, "show", merged+":design/meanwhile.md"); got != "Landed meanwhile" {
+		t.Errorf("the merged head doesn't have the new main: %q", got)
+	}
+	merges := r.read("merges")
+	if !strings.Contains(merges, "--match-head-commit "+first) || !strings.Contains(merges, "--match-head-commit "+merged) {
+		t.Errorf("merges weren't at the first head and then the new one:\n%s", merges)
+	}
+	if !strings.Contains(r.read("run-lists"), "head_sha="+merged) {
+		t.Errorf("didn't check CI on the new head %s:\n%s", merged, r.read("run-lists"))
+	}
+}
+
+// scripts/ci-status reads the check workflow's newest qualifying run for a commit: one
+// for the event (and branch) asked for, on exactly that commit, from this repository.
+// Its exit code says passed, failed, missing or still running, and with --wait it waits
+// for a run that is still going.
 func TestCIStatus(t *testing.T) {
 	t.Parallel()
 	sha := strings.Repeat("ab", 20)
+	other := strings.Repeat("cd", 20)
+	run := func(event, branch, commit, headRepo, status, conclusion string) string {
+		return fmt.Sprintf("%s %s %s %s o/aboard 2 %s %s https://example.test/runs/1\n", event, branch, commit, headRepo, status, conclusion)
+	}
+	release := []string{"--event", "push", "--branch", "main"}
+	land := []string{"--event", "pull_request"}
 	for _, tc := range []struct {
 		name, runs string
 		args       []string
 		code       int
 		want       string
 	}{
-		{"passed", "https://example.test/runs/1 completed success\n", nil, 0, "success https://example.test/runs/1"},
-		{"failed", "https://example.test/runs/1 completed failure\n", nil, 2, "failure https://example.test/runs/1"},
-		{"cancelled", "https://example.test/runs/1 completed cancelled\n", nil, 2, "cancelled https://example.test/runs/1"},
-		{"no run", "missing\n", []string{"--wait", "60"}, 3, "missing -"},
-		{"still running", "https://example.test/runs/1 in_progress \n", nil, 4, "pending https://example.test/runs/1"},
+		{"passed", run("push", "main", "SHA", "o/aboard", "completed", "success"), release, 0, "success https://example.test/runs/1"},
+		{"failed", run("push", "main", "SHA", "o/aboard", "completed", "failure"), release, 2, "failure https://example.test/runs/1"},
+		{"cancelled", run("pull_request", "feature", "SHA", "o/aboard", "completed", "cancelled"), land, 2, "cancelled https://example.test/runs/1"},
+		{"no run", "", append([]string{"--wait", "60"}, release...), 3, "missing -"},
+		{"still running", run("push", "main", "SHA", "o/aboard", "in_progress", "-"), release, 4, "pending https://example.test/runs/1"},
+		{"a pull request's run doesn't count for a release", run("pull_request", "main", "SHA", "o/aboard", "completed", "success"), release, 3, "missing -"},
+		{"a push to another branch doesn't count for a release", run("push", "feature", "SHA", "o/aboard", "completed", "success"), release, 3, "missing -"},
+		{"a run on another commit doesn't count", run("push", "main", other, "o/aboard", "completed", "success"), release, 3, "missing -"},
+		{"a fork's run doesn't count", run("pull_request", "feature", "SHA", "fork/aboard", "completed", "success"), land, 3, "missing -"},
 		{
-			"waits for the run", "https://example.test/runs/1 queued \nhttps://example.test/runs/1 in_progress \nhttps://example.test/runs/1 completed success\n",
-			[]string{"--wait", "60"},
+			"the newest qualifying run decides",
+			run("pull_request", "feature", "SHA", "fork/aboard", "completed", "success") +
+				run("pull_request", "feature", "SHA", "o/aboard", "completed", "failure") +
+				run("pull_request", "feature", "SHA", "o/aboard", "completed", "success"),
+			land, 2, "failure https://example.test/runs/1",
+		},
+		{
+			"waits for the run",
+			run("push", "main", "SHA", "o/aboard", "queued", "-") + "--\n" +
+				run("push", "main", "SHA", "o/aboard", "in_progress", "-") + "--\n" +
+				run("push", "main", "SHA", "o/aboard", "completed", "success"),
+			append([]string{"--wait", "60"}, release...),
 			0, "success https://example.test/runs/1",
 		},
 		{
-			"waits for the run to start", "missing\nhttps://example.test/runs/1 completed failure\n",
-			[]string{"--wait", "60", "--expect"},
+			"waits for the run to start",
+			"\n--\n" + run("pull_request", "feature", "SHA", "o/aboard", "completed", "failure"),
+			append([]string{"--wait", "60", "--expect"}, land...),
 			2, "failure https://example.test/runs/1",
 		},
 	} {
@@ -545,7 +631,9 @@ func TestCIStatus(t *testing.T) {
 			t.Errorf("%s: exit %d and %q, want %d and %q", tc.name, code, stdout.String(), tc.code, tc.want)
 		}
 	}
-	if err := exec.Command(filepath.Join("..", "scripts", "ci-status"), "abc123").Run(); err == nil {
-		t.Errorf("ci-status accepted a short commit id")
+	for _, args := range [][]string{{"--event", "push", "abc123"}, {strings.Repeat("ab", 20)}, {"--event", "schedule", strings.Repeat("ab", 20)}} {
+		if err := exec.Command(filepath.Join("..", "scripts", "ci-status"), args...).Run(); err == nil { //nolint:gosec // the script under test
+			t.Errorf("ci-status accepted %q", args)
+		}
 	}
 }
