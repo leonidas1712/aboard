@@ -89,6 +89,10 @@ type Journal interface {
 	SaveSession(ctx context.Context, s SessionRecord) error
 	Sessions(ctx context.Context) ([]SessionRecord, error)
 	Bind(ctx context.Context, b Binding) error
+	BindGeneration(ctx context.Context, b Binding, advance bool) (Binding, error)
+	PrepareHandoff(ctx context.Context, manifest HandoffManifest) (HandoffManifest, error)
+	ConfirmHandoff(ctx context.Context, id string, session SessionKey, boot string, surviving []AgentKey, at time.Time) ([]Delivery, error)
+	Handoffs(ctx context.Context) ([]HandoffManifest, error)
 	Bindings(ctx context.Context) ([]Binding, error)
 	// ResolveIdentity attaches legacy state to the seat proved by its own token.
 	// It never changes rows that already name a different seat.
