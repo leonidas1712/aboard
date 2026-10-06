@@ -1054,6 +1054,7 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
 
   /v1/people:
