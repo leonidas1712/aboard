@@ -412,7 +412,7 @@ new credential. The server's current-access refusals, including `delegation_revo
 `board_not_found`, `board_archived`, `agent_removed`, `seat_token_replaced` and
 `idempotency_conflict`, are passed on. Existing bindings remain as they were on failure.
 
-```json-planned
+```json
 {"v":1,"op":"create_board","harness":"codex","session":"019a0000-0000-7000-8000-000000000001","server":"http://127.0.0.1:7400","idempotency_key":"new-board-019a-1","create":{"name":"retry-design","template":"general","title":"Retry design"},"role":"member","agent_name":"codex"}
 {"v":1,"joined":{"server":"http://127.0.0.1:7400","board":"retry-design","name":"codex","member_id":"mem_01K00000000000000000000002"},"board":{"name":"retry-design"},"member":{"id":"mem_01K00000000000000000000002","name":"codex"},"mode":"focused","agents":[{"server":"http://127.0.0.1:7400","board":"retry-design","name":"codex","member_id":"mem_01K00000000000000000000002"}]}
 ```
