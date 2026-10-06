@@ -85,6 +85,18 @@
 #   ABOARD_LOCAL_ADDR, when set, is the local server's address in either case. A relative
 #   ABOARD_HOME fails with invalid_request. URLs, join lines ("on localhost:<port>"),
 #   status and doctor all show the address in use.
+# - A team server (D199): `aboard serve --team --public-url https://HOST[:PORT] --data DIR
+#   [--listen ADDR] [--admin HANDLE]` runs in the foreground, with no --json; each flag
+#   may instead come from ABOARD_PUBLIC_URL, ABOARD_DATA, ABOARD_LISTEN and ABOARD_ADMIN,
+#   read only with --team, a flag winning. --listen defaults to 0.0.0.0:7400 and --admin
+#   to admin. A public URL that isn't https, or has a path, query or user, fails with
+#   invalid_request (exit 2), as does a missing --public-url or --data. It writes JSON log
+#   lines to stderr; on the first start of an empty database it creates the first admin
+#   and writes their access key to DIR/admin-key (mode 0600, never replaced) and logs
+#   {"msg":"first admin created","handle":…,"key_file":…}, never the key. Plain
+#   `aboard serve` is unchanged and ignores those variables.
+# - Certificates: every command that talks to a server trusts, besides the system's
+#   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
 # - Board for agent commands (say, inbox, read, react): the board of the agent they act as.
 #   Board for human commands (board policy, board title in a terminal, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.

@@ -134,7 +134,11 @@ info:
     **Host.** A local server answers only requests whose `Host` header is its own address
     (`127.0.0.1:PORT` or `localhost:PORT`). Any other host gets 421 `host_not_allowed`, so
     a web page that points a domain name at 127.0.0.1 can't reach the server through the
-    browser.
+    browser. A team server (`aboard serve --team`) answers only its public URL's host, with
+    the port when it isn't 443, and refuses every other host the same way. It reads no
+    `X-Forwarded-*` or `Forwarded` header: its browser cookie is always
+    `__Host-aboard_session` and `Secure`, and the `Origin` a cookie's write needs is always
+    the public URL, because HTTPS ends at the proxy in front of it.
 
     **Writes.** Every POST, PUT, PATCH and DELETE accepts an `Idempotency-Key` header. A repeat
     with the same key and body (per token, kept 24 hours) returns the first response with
@@ -155,6 +159,8 @@ info:
 servers:
   - url: http://127.0.0.1:7400
     description: Local mode
+  - url: https://team.example.com
+    description: Team mode, at the server's public URL
 
 security:
   - bearer: []
@@ -2589,7 +2595,12 @@ components:
             `version`, the one with the later `commit_time` is newer, and one without
             a `commit_time` is older than one with it.
         server_id: { type: string, pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$" }
-        mode: { type: string, enum: [local, team] }
+        mode:
+          type: string
+          enum: [local, team]
+          description: |
+            `local` for a person's own server, `team` for one started with
+            `aboard serve --team` at a public URL.
 
     LoginCode:
       type: object
