@@ -57,8 +57,10 @@ if [ "$(uname -s)" = Darwin ] && command -v sandbox-exec >/dev/null; then
 	run=(sandbox-exec -p "$profile" "${run[@]}")
 fi
 cd "$root"
+set +e
 "${run[@]}" | tee "$work/test.log"
 status=${PIPESTATUS[0]}
+set -e
 echo
 echo "Rehearsal steps:"
 grep 'REHEARSAL:' "$work/test.log" | sed 's/^.*REHEARSAL: /  /' || true
