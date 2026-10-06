@@ -543,3 +543,36 @@ func TestStatusShowsWhatRunsAndDownStopsIt(t *testing.T) {
 	}
 	expectLines(t, e.run("up"), "Started local Aboard at http://127.0.0.1:"+e.port())
 }
+
+// aboard down stops the daemon it found even when an open session's waiting stop hook
+// starts a new one at once, and that session still gets its messages afterwards. The
+// build without the race detector starts the new daemon within milliseconds, as on a
+// person's machine.
+func TestDownWithAWaitingStopHook(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.bin = plainBinary
+	writer, reviewer := pairedClaudeSessions(t, e)
+	waiting := reviewer.startHook("stop")
+	if !waiting.running(300 * time.Millisecond) {
+		t.Fatalf("stop hook returned without a message\n%s", waiting.wait(time.Second))
+	}
+	stopped := e.daemonPID()
+
+	down := e.runExit("down", "--json")
+	if down.code != 0 || field(t, down.json(t), "daemon_stopped") != true {
+		t.Fatalf("down with a stop hook waiting:\n%s", down)
+	}
+	eventually(t, 5*time.Second, "the waiting hook to start a daemon again", func() bool {
+		pid := e.daemonPID()
+		return pid != 0 && pid != stopped && e.daemonRunning()
+	})
+	if !waiting.running(100 * time.Millisecond) {
+		t.Fatalf("the stop hook stopped waiting after down\n%s", waiting.wait(time.Second))
+	}
+	e.run("up")
+	writer.run("say", "--to", "@reviewer", "after down")
+	if woke := waiting.wait(10 * time.Second); woke.code != 2 || !strings.Contains(woke.stderr, "after down") {
+		t.Fatalf("the session wasn't woken after down\n%s", woke)
+	}
+}
