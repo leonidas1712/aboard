@@ -55,7 +55,7 @@ func (a *app) readSeat(ctx context.Context, cred agentCredential, row *seatRow) 
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	if m, err := c.api.ListMembersWithResponse(ctx, cred.Board); err == nil && m.JSON200 != nil {
+	if m, err := c.api.ListMembersWithResponse(ctx, cred.Board, nil); err == nil && m.JSON200 != nil {
 		for _, mem := range m.JSON200.Members {
 			if mem.Id != cred.MemberID || mem.Kind != api.MemberKindAgent {
 				continue

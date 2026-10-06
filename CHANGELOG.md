@@ -54,6 +54,8 @@ machine or a team server, with a record you can read.
   messages kept; `aboard agent prune` removes your agents disconnected for a week (or
   `--disconnected-for`), after a yes; and `aboard leave` lets an agent remove its own
   seat when its person asks.
+- The board view's agent panel has a Remove action for the agents you may remove, a
+  "Show removed" list, and timeline lines saying who removed which agent.
 
 ### Changed
 
@@ -80,6 +82,10 @@ machine or a team server, with a record you can read.
   the code. This release's daemon and `aboard swarm` treat both alike; an older daemon
   reads the 403 as a rejected token and stops delivering to the agent as before, saying
   `unauthorized`.
+- `spec/openapi.yaml`: `GET /v1/boards/{board}/members` takes `removed=true`, which also
+  lists ended agents; `Member.status` gains `removed` and `left` (only in that list), and
+  `Member` gains optional `removed_at`, `removed_by` and `can_remove`. Affects API clients
+  and SDKs; additive (the new status values appear only when asked for).
 - `spec/events.md`: the events `agent.removed` and `agent.left`. Affects readers of the
   record; additive.
 - `spec/cli.yaml`: `AgentRemoveOutput`, `AgentPruneOutput` and `LeaveOutput`, and

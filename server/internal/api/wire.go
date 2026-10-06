@@ -45,6 +45,11 @@ type wireMember struct {
 	// it and the seq of the event that set it; null for people.
 	DeliveryMode     *string `json:"delivery_mode"`
 	DeliveryRevision *int64  `json:"delivery_revision"`
+	// RemovedAt and RemovedBy are set only for an agent whose seat ended.
+	RemovedAt *string `json:"removed_at,omitempty"`
+	RemovedBy *string `json:"removed_by,omitempty"`
+	// CanRemove is set only in a person's member list.
+	CanRemove *bool `json:"can_remove,omitempty"`
 }
 
 type wireBoard struct {

@@ -169,15 +169,24 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 }
 
 func (h *handlers) ListMembers(ctx context.Context, req ListMembersRequestObject) (ListMembersResponseObject, error) {
-	ms, err := h.svc.Members(ctx, principal(ctx), req.Board)
+	removed := req.Params.Removed != nil && *req.Params.Removed
+	l, err := h.svc.ListMembers(ctx, principal(ctx), req.Board, removed)
 	if err != nil {
 		return nil, err
 	}
 	out := struct {
 		Members []wireMember `json:"members"`
 	}{Members: []wireMember{}}
-	for _, m := range ms {
-		out.Members = append(out.Members, memberOf(m, req.Board))
+	for _, m := range l.Members {
+		w := memberOf(m, req.Board)
+		if can, ok := l.CanRemove[m.ID]; ok {
+			w.CanRemove = &can
+		}
+		if m.Status != board.StatusActive {
+			w.RemovedAt, w.RemovedBy = m.RemovedAt, m.RemovedBy
+			w.Presence, w.PresenceSince = nil, nil
+		}
+		out.Members = append(out.Members, w)
 	}
 	return convert[ListMembers200JSONResponse](out)
 }

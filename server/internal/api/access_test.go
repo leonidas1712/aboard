@@ -19,7 +19,7 @@ func TestOnlyAdminsChangePolicy(t *testing.T) {
 	priya := s.addHuman("priya")
 	s.joinBoard(priya, boardName, "reviewer", nil)
 
-	ms, err := s.client(priya).ListMembersWithResponse(ctx, boardName)
+	ms, err := s.client(priya).ListMembersWithResponse(ctx, boardName, nil)
 	mustStatus(t, ms, err, 200)
 	for _, m := range ms.JSON200.Members {
 		access := "null"

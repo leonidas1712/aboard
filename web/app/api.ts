@@ -112,7 +112,28 @@ export type Member = MemberRef & {
   /** delivery_mode is the agent's delivery mode as its person set it, held by the server; null for people. */
   delivery_mode?: SettableMode | null;
   delivery_revision?: number | null;
+  /** status is active for a member on the board now; removed or left for an agent whose seat ended. */
+  status?: "active" | "removed" | "left";
+  /** removed_at and removed_by are set for an agent whose seat ended. */
+  removed_at?: string;
+  removed_by?: RemovedBy;
+  /** can_remove says this person may remove the agent now; absent means no. */
+  can_remove?: boolean;
 };
+
+/** RemovedBy is who ended an agent's seat: its person, a board owner, a server admin, or itself. */
+export type RemovedBy = "person" | "board_owner" | "admin" | "self";
+
+/** removeAgent removes an agent from a board for good; its messages stay. */
+export function removeAgent(board: string, agent: string): Promise<unknown> {
+  return send("DELETE", `/v1/boards/${encodeURIComponent(board)}/members/${encodeURIComponent(agent)}`);
+}
+
+/** removedAgents lists the agents whose seats on a board ended. */
+export async function removedAgents(board: string): Promise<Member[]> {
+  const r = await get<{ members: Member[] }>(`/v1/boards/${encodeURIComponent(board)}/members`, { removed: true });
+  return r.members.filter((m) => m.kind === "agent" && m.status !== undefined && m.status !== "active");
+}
 
 /** DeliverySetting is an agent's delivery mode after a person sets it. */
 export type DeliverySetting = { board: string; agent: string; mode: SettableMode; revision: number; changed: boolean };

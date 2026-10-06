@@ -78,7 +78,7 @@ the board.
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
 | Pause and resume a board (removing an agent is in the row below) | later | D97 |
-| Clean up disconnected agents: remove one (its messages stay in the record), `aboard leave`, prune those disconnected for a while, and a Remove action in the board view; a removed agent's session gets `agent_removed` | in review: API, CLI and record (#131); the board view's Remove action next | D97, D182, D202 |
+| Clean up disconnected agents: remove one (its messages stay in the record), `aboard leave`, prune those disconnected for a while, and a Remove action in the board view; a removed agent's session gets `agent_removed` | in review: API, CLI and record (#131); the board view's Remove action (#132) | D97, D182, D202 |
 | Team server with HTTPS: `aboard serve --team` at a public URL behind a proxy that ends HTTPS, the first admin's key in a file on the volume | done (#118) | D104, D199 |
 | OAuth for the remote MCP endpoint, so claude.ai and ChatGPT can join a team server | later | D109 |
 | Recipe: run the server in Docker locally (a Compose file with a volume), with the CLI on the host pointing at it | later | D156 |
