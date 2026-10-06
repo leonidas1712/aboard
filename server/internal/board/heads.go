@@ -48,6 +48,12 @@ func (s *Service) Heads(ctx context.Context, p Principal) ([]Head, error) {
 	return out, nil
 }
 
+// BoardUnavailable names only a board previously observed by this feed.
+type BoardUnavailable struct {
+	BoardID  string
+	MemberID *string
+}
+
 // HeadFeed follows the heads of one human's boards, including boards the human joins
 // while following, and the presence of the agents on them. It holds no goroutines;
 // each call to Next does its own waiting.
@@ -81,14 +87,15 @@ func (s *Service) FollowHeads(p Principal) (*HeadFeed, error) {
 // changed, the human's own agents whose read position moved, and the human's own read
 // position or unread count where either changed.
 type Update struct {
-	Heads    []Head
-	Presence []PresenceChange
-	Reads    []ReadChange
-	Unread   []UnreadChange
+	Unavailable []BoardUnavailable
+	Heads       []Head
+	Presence    []PresenceChange
+	Reads       []ReadChange
+	Unread      []UnreadChange
 }
 
 func (u Update) empty() bool {
-	return len(u.Heads) == 0 && len(u.Presence) == 0 && len(u.Reads) == 0 && len(u.Unread) == 0
+	return len(u.Unavailable) == 0 && len(u.Heads) == 0 && len(u.Presence) == 0 && len(u.Reads) == 0 && len(u.Unread) == 0
 }
 
 // UnreadChange is the human's own read position and unread count on one of their boards,
@@ -173,6 +180,11 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 		names[h.BoardID] = h.Board
 		if seq, ok := f.sent[h.BoardID]; !ok || seq != h.Seq {
 			u.Heads = append(u.Heads, h)
+		}
+	}
+	for id := range f.sent {
+		if _, ok := current[id]; !ok {
+			u.Unavailable = append(u.Unavailable, BoardUnavailable{BoardID: id})
 		}
 	}
 	f.sent = current

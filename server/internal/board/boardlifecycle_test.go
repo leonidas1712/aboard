@@ -37,7 +37,7 @@ func TestArchiveFreezesContentAndGrantsWithoutChangingTheRecord(t *testing.T) {
 			if _, err = w.svc.React(ctx, w.sam, m.ID, "thumbsup", true); err != nil {
 				t.Fatal(err)
 			}
-			guest, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "visitor"})
+			guest, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "visitor", Role: "member"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -62,9 +62,9 @@ func TestArchiveFreezesContentAndGrantsWithoutChangingTheRecord(t *testing.T) {
 			case "add person":
 				_, err = w.svc.AddPerson(ctx, w.maya, w.board, "alex")
 			case "pair code":
-				_, err = w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{})
+				_, err = w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Role: "member"})
 			case "guest code":
-				_, err = w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "second-visitor"})
+				_, err = w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "second-visitor", Role: "member"})
 			case "person join":
 				_, err = w.svc.Join(ctx, w.sam, board.JoinInput{Board: w.board, Role: "member"})
 			case "delegated join":
@@ -106,7 +106,7 @@ func TestArchivedReadersAndAccessReductionsStillWork(t *testing.T) {
 	if _, err := w.svc.SetVisibility(ctx, w.maya, w.board, board.BoardOpen, false); err != nil {
 		t.Fatal(err)
 	}
-	code, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{})
+	code, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Role: "member"})
 	if err != nil {
 		t.Fatal(err)
 	}

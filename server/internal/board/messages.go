@@ -35,6 +35,9 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		if err != nil {
 			return err
 		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
 		var replyToSeq *int64
 		var threadRoot *string
 		if in.ReplyTo != nil {

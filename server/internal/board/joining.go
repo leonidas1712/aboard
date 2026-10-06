@@ -76,6 +76,9 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName str
 		if err != nil {
 			return err
 		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
 		if me.PersonRole == ServerGuest {
 			return guestNotAllowed("make join codes")
 		}
@@ -251,6 +254,19 @@ func (s *Service) workingCode(tx ReadTx, code, now string) (JoinCode, error) {
 	if jc.RevokedAt != nil || jc.UsedAt != nil || jc.ExpiresAt <= now {
 		return JoinCode{}, joinCodeInvalid()
 	}
+	if _, err := codeMaker(tx, jc); err != nil {
+		return JoinCode{}, err
+	}
+	b, err := tx.BoardByID(jc.BoardID)
+	if err != nil {
+		return JoinCode{}, err
+	}
+	if lifecycleOf(b) == LifecycleDeleted {
+		return JoinCode{}, joinCodeInvalid()
+	}
+	if err := requireActive(b); err != nil {
+		return JoinCode{}, err
+	}
 	return jc, nil
 }
 
@@ -343,6 +359,9 @@ func (s *Service) Join(ctx context.Context, p Principal, in JoinInput) (Joined, 
 			role = in.Role
 		default:
 			return invalid("A join needs a code, or a board and a role.", "Paste the whole join line into aboard join.")
+		}
+		if err := requireActive(b); err != nil {
+			return err
 		}
 		owner, err := tx.HumanMember(b.ID, p.Human.ID)
 		if errors.Is(err, ErrNotFound) || (err == nil && owner.Status != StatusActive) {

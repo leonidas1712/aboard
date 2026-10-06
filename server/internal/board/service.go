@@ -109,6 +109,9 @@ func (s *Service) see(tx ReadTx, p Principal, name string) (Board, Member, bool,
 	if err != nil {
 		return Board{}, Member{}, false, err
 	}
+	if lifecycleOf(b) == LifecycleDeleted {
+		return Board{}, Member{}, false, apierr.BoardNotFound(name)
+	}
 	me, err := tx.HumanMember(b.ID, p.Human.ID)
 	switch {
 	case err == nil && me.Status == StatusActive:
@@ -154,6 +157,9 @@ func seatOf(tx ReadTx, agent Member) (Board, Member, error) {
 	b, err := tx.BoardByID(agent.BoardID)
 	if err != nil {
 		return Board{}, Member{}, err
+	}
+	if lifecycleOf(b) == LifecycleDeleted {
+		return Board{}, Member{}, apierr.BoardNotFound(b.Name)
 	}
 	me, err := tx.MemberByName(b.ID, agent.Name)
 	if errors.Is(err, ErrNotFound) || (err == nil && (me.ID != agent.ID || me.Status != StatusActive)) {

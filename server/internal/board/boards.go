@@ -18,8 +18,9 @@ import (
 
 // View is a board with the member who created it, as one caller sees it.
 type View struct {
-	Board   Board
-	Creator Member
+	CanArchive, CanRestore, CanDelete bool
+	Board                             Board
+	Creator                           Member
 	// OnBoard is whether the caller is on the board, rather than seeing an open board
 	// from outside.
 	OnBoard bool
@@ -176,7 +177,8 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 		if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now, nil); err != nil {
 			return err
 		}
-		view = View{Board: b, Creator: creator, OnBoard: true}
+		b.Lifecycle = LifecycleActive
+		view = View{Board: b, Creator: creator, OnBoard: true, CanArchive: true}
 		return nil
 	})
 	if err != nil {
@@ -216,15 +218,18 @@ func (s *Service) addMember(tx Tx, b *Board, m Member, actor events.Actor, joinC
 // exists, when and by whom it was created and how many people are on it, and nothing
 // of its name, title, people or content.
 type HiddenBoard struct {
-	ID        string
-	CreatedAt string
-	Creator   Human
-	People    int
+	Lifecycle                         string
+	CanArchive, CanRestore, CanDelete bool
+	ID                                string
+	CreatedAt                         string
+	Creator                           Human
+	People                            int
 }
 
 // Listing is the boards a caller sees.
 type Listing struct {
-	Boards []View
+	ArchivedCount int
+	Boards        []View
 	// Hidden is filled only for a server admin listing every board.
 	Hidden []HiddenBoard
 }
@@ -233,12 +238,24 @@ type Listing struct {
 // and its person are on it. With all, a person also gets the open boards they aren't
 // on, and a server admin the private boards they aren't on, as HiddenBoards. An admin's
 // agent gets no more than any agent.
-func (s *Service) ListBoards(ctx context.Context, p Principal, all bool) (Listing, error) {
+func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecycle ...string) (Listing, error) {
+	filter := LifecycleActive
+	if len(lifecycle) > 0 && lifecycle[0] != "" {
+		filter = lifecycle[0]
+	}
+	if filter != LifecycleActive && filter != LifecycleArchived && filter != "all" {
+		return Listing{}, invalid("Unknown board lifecycle filter.", "Use active, archived or all.")
+	}
 	if p.Delegation != nil {
-		return s.delegatedBoards(ctx, p)
+		return s.delegatedBoards(ctx, p, filter)
 	}
 	var out Listing
-	err := s.st.Read(ctx, func(tx ReadTx) error {
+	err := s.st.Read(ctx, func(tx ReadTx) (err error) {
+		defer func() {
+			if err == nil {
+				err = s.filterListing(tx, p, &out, filter)
+			}
+		}()
 		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
 			return err
 		}
@@ -382,6 +399,10 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 		if v, err = viewOf(tx, b); err != nil {
 			return err
 		}
+		v.CanArchive, v.CanRestore, v.CanDelete, err = s.capabilities(tx, p, b)
+		if err != nil {
+			return err
+		}
 		v.OnBoard = on
 		if on {
 			pos, err := positionOf(tx, me, readsAll(b, me))
@@ -478,6 +499,9 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		if err != nil {
 			return err
 		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
 		what := "change its policy"
 		if change.Policy == nil {
 			what = "change its title"
@@ -525,6 +549,9 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 			b.Policy = after
 		}
 		v, err = viewOf(tx, b)
+		if err == nil {
+			v.CanArchive, v.CanRestore, v.CanDelete, err = s.capabilities(tx, p, b)
+		}
 		return err
 	})
 	if err != nil {
@@ -550,7 +577,10 @@ func (s *Service) WhoAmI(ctx context.Context, p Principal) (Me, error) {
 		return me, nil
 	}
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, err := tx.BoardByID(p.Agent.BoardID)
+		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
+			return err
+		}
+		b, _, err := seatOf(tx, *p.Agent)
 		me.Board = b.Name
 		return err
 	})

@@ -162,10 +162,15 @@ func (s *Service) CreateDelegation(ctx context.Context, p Principal, name string
 // delegatedBoards lists, for a delegation, every board its person can see: the open
 // boards and the private boards they are on, and for a guest only the boards they are
 // on. It never lists hidden boards, and never the person's own read position.
-func (s *Service) delegatedBoards(ctx context.Context, p Principal) (Listing, error) {
+func (s *Service) delegatedBoards(ctx context.Context, p Principal, filter string) (Listing, error) {
 	p = p.asDelegate()
 	var out Listing
-	err := s.st.Read(ctx, func(tx ReadTx) error {
+	err := s.st.Read(ctx, func(tx ReadTx) (err error) {
+		defer func() {
+			if err == nil {
+				err = s.filterListing(tx, p, &out, filter)
+			}
+		}()
 		person, err := caller(tx, p, stamp(s.clk.Now()))
 		if err != nil {
 			return err
@@ -269,6 +274,12 @@ func (s *Service) joinDelegated(ctx context.Context, p Principal, in JoinInput) 
 			return guestNotAllowed("add agents through a machine's delegation; a guest's agents come only from guest codes")
 		case person.Role == ServerGuest, !on && b.Visibility != BoardOpen:
 			return apierr.BoardNotFound(in.Board)
+		}
+		if lifecycleOf(b) == LifecycleDeleted {
+			return apierr.BoardNotFound(in.Board)
+		}
+		if err := requireActive(b); err != nil {
+			return err
 		}
 		// 3. The session's seat on the board, if it has one.
 		seat, err := tx.SeatForSession(b.ID, person.ID, in.Session)
@@ -389,6 +400,9 @@ func (s *Service) CheckJoinReplay(ctx context.Context, p Principal, in JoinInput
 			if in.Code != "" && isBoardNotFound(err) {
 				return joinCodeInvalid()
 			}
+			return err
+		}
+		if err := requireActive(b); err != nil {
 			return err
 		}
 		if seat.Status != StatusActive {
