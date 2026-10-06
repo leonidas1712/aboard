@@ -20,13 +20,16 @@ import (
 type fakeSeats struct {
 	mu       sync.Mutex
 	boards   []delivery.SeatBoard
-	joinErr  error
-	saveErr  error
-	seats    map[string]delivery.SeatRef // by board
-	saved    map[string]string           // token by member id
-	joins    int
-	inFlight int
-	most     int
+	archived *int
+	// lifecycles are the lifecycle filters Boards was asked for, in order.
+	lifecycles []string
+	joinErr    error
+	saveErr    error
+	seats      map[string]delivery.SeatRef // by board
+	saved      map[string]string           // token by member id
+	joins      int
+	inFlight   int
+	most       int
 	// beforeSave runs as Save starts, outside the lock.
 	beforeSave func()
 	// gate, when set, holds every Join until it is closed.
@@ -37,13 +40,14 @@ func newFakeSeats() *fakeSeats {
 	return &fakeSeats{seats: map[string]delivery.SeatRef{}, saved: map[string]string{}}
 }
 
-func (f *fakeSeats) Boards(context.Context, string) ([]delivery.SeatBoard, error) {
+func (f *fakeSeats) Boards(_ context.Context, _ string, lifecycle string) (delivery.SeatBoards, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.lifecycles = append(f.lifecycles, lifecycle)
 	if f.joinErr != nil {
-		return nil, f.joinErr
+		return delivery.SeatBoards{}, f.joinErr
 	}
-	return f.boards, nil
+	return delivery.SeatBoards{Boards: f.boards, ArchivedCount: f.archived}, nil
 }
 
 func (f *fakeSeats) Join(_ context.Context, server string, req delivery.SeatRequest) (delivery.SeatGrant, error) {
@@ -363,5 +367,29 @@ func TestBoardsMarksTheSessionsSeat(t *testing.T) {
 	}
 	if resp := r.call(delivery.Request{Op: delivery.OpBoards, Harness: "claude-code", Session: "nope", Server: serverURL}); resp.Error == nil || resp.Error.Code != "session_unknown" {
 		t.Errorf("unknown session: %+v", resp)
+	}
+}
+
+// boards passes the lifecycle filter to the server and the server's archived count
+// back, and refuses a filter the API doesn't have before asking the server.
+func TestBoardsPassesTheLifecycleFilterAndTheArchivedCount(t *testing.T) {
+	r, f := seatsRig(t)
+	r.register("s1", "b1")
+	two := 2
+	f.archived = &two
+	f.boards = []delivery.SeatBoard{{Name: "old", Board: json.RawMessage(`{"name":"old","visibility":"open","lifecycle":"archived"}`)}}
+	resp := r.ok(delivery.Request{Op: delivery.OpBoards, Harness: "claude-code", Session: "s1", Server: serverURL, Lifecycle: "archived"})
+	if resp.ArchivedCount == nil || *resp.ArchivedCount != 2 || len(resp.Boards) != 1 {
+		t.Fatalf("archived boards: %+v", resp)
+	}
+	f.archived = nil
+	if resp := r.ok(delivery.Request{Op: delivery.OpBoards, Harness: "claude-code", Session: "s1", Server: serverURL}); resp.ArchivedCount != nil {
+		t.Errorf("a count the server didn't send: %d", *resp.ArchivedCount)
+	}
+	if resp := r.call(delivery.Request{Op: delivery.OpBoards, Harness: "claude-code", Session: "s1", Server: serverURL, Lifecycle: "deleted"}); resp.Error == nil || resp.Error.Code != "invalid_request" {
+		t.Errorf("a filter the API doesn't have: %+v", resp)
+	}
+	if got := fmt.Sprint(f.lifecycles); got != "[archived ]" {
+		t.Errorf("filters sent to the server: %s", got)
 	}
 }

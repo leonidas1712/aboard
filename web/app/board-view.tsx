@@ -7,7 +7,8 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type MemberRef, type Message, type ReactionName, react } from "./api";
+import { ApiError, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
+import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
 import { replyRecipients } from "./mentions";
@@ -404,26 +405,30 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               />
             )}
             <div className={column}>
-              <Composer
-                board={name}
-                members={s.members ?? []}
-                roles={roles}
-                me={me}
-                replyTo={replyTo}
-                replyDefault={replyDefault}
-                identity={identity}
-                onCancelReply={() => setReplyTo(null)}
-                onPosted={(m) => {
-                  setPostError(null);
-                  // A reply opens its thread and is shown there; anything else is newest.
-                  if (m.thread_root) {
-                    prefs.setOpen(m.thread_root, true);
-                    setPending(m.id);
-                  } else setStick((n) => n + 1);
-                  s.refresh();
-                }}
-                onError={setPostError}
-              />
+              {isArchived(s.board) && s.board ? (
+                <ArchivedNotice board={s.board} onChanged={s.refresh} />
+              ) : (
+                <Composer
+                  board={name}
+                  members={s.members ?? []}
+                  roles={roles}
+                  me={me}
+                  replyTo={replyTo}
+                  replyDefault={replyDefault}
+                  identity={identity}
+                  onCancelReply={() => setReplyTo(null)}
+                  onPosted={(m) => {
+                    setPostError(null);
+                    // A reply opens its thread and is shown there; anything else is newest.
+                    if (m.thread_root) {
+                      prefs.setOpen(m.thread_root, true);
+                      setPending(m.id);
+                    } else setStick((n) => n + 1);
+                    s.refresh();
+                  }}
+                  onError={setPostError}
+                />
+              )}
             </div>
           </main>
 
@@ -446,6 +451,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               from={filter.from}
               onPick={pick}
               reveal={reveal}
+              onLifecycle={s.refresh}
             />
           </SidePanel>
         </div>

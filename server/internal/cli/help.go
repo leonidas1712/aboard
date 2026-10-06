@@ -534,7 +534,7 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "board", Group: groupBoard,
-			Summary: "Change a board's policy, title, people or visibility",
+			Summary: "Change a board's policy, title, people or visibility, or archive it",
 			Usage: []string{
 				"aboard board policy <starter|recommended> [--board NAME] [--json]",
 				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
@@ -544,6 +544,9 @@ func helpText(templates string) []commandHelp {
 				"aboard board leave [--board NAME] [--json]",
 				"aboard board owner @handle [--board NAME] [--json]",
 				"aboard board visibility <open|private> [--yes] [--board NAME] [--json]",
+				"aboard board archive [NAME] [--as AGENT] [--json]",
+				"aboard board restore [NAME] [--as AGENT] [--json]",
+				"aboard board delete [NAME] [--yes] [--json]",
 			},
 			Description: "policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
@@ -558,10 +561,16 @@ func helpText(templates string) []commandHelp {
 				"leave takes you off the board; its last owner makes someone else an owner first. " +
 				"visibility turns the board open (every person on the server sees it and may join it) or private (only the people on it see it, and its join codes stop working); it is for owners, " +
 				"and before making a private board open it says how many messages and files every person on the server could then read, and asks; without a terminal it needs --yes.\n\n" +
-				"add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.",
+				"add, remove, leave, owner and visibility use your own login and are up to a person, so they are refused inside an agent's session; an agent asked to do one gives its person the command.\n\n" +
+				"archive makes a board read-only: everything on it stays readable, but nobody can post, react, join or change its settings until it is restored. " +
+				"restore makes it active again; people and agents removed before stay removed. " +
+				"Both are for the person who created the board, while still on it, or a server admin; an agent may archive or restore its own board for the person who created it. " +
+				"delete ends every way into an archived board for good: its people and agents lose it, its join codes stop, and nobody can open or restore it, though its record is kept. " +
+				"It is for a person only; in a terminal it asks you to type the board's name, and without one it needs --yes. " +
+				"A server admin names a private board they aren't on by the id aboard boards --all shows, and types that id to confirm.",
 			Flags: []helpFlag{
 				{"--as", "AGENT", "title and people only: act as this agent, for its owner. Default inside an agent's session: the session's agent."},
-				{"--yes", "", "visibility only: make a private board open without asking."},
+				{"--yes", "", "visibility and delete only: go ahead without asking."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which); for an agent, its own board."},
 				flagJSON,
 			},
@@ -570,22 +579,26 @@ func helpText(templates string) []commandHelp {
 				{"aboard board title \"Payments retry design\"", "Name what the board is for"},
 				{"aboard board add @maya", "Bring a teammate onto the board"},
 				{"aboard board visibility private", "Hide the board from everyone not on it"},
+				{"aboard board archive payments-design", "Make a finished board read-only"},
+				{"aboard board delete payments-design", "Delete an archived board for good"},
 			},
 			SeeAlso: []string{"status", "invite"},
 		},
 		{
 			Name: "boards", Group: groupBoard,
 			Summary: "List your boards, or every board you can see",
-			Usage:   []string{"aboard boards [--all] [--json]", "aboard boards --as AGENT [--board NAME] [--json]"},
+			Usage:   []string{"aboard boards [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
 			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
 				"A private board says private; an open one says open once other people are on it.\n\n" +
 				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
 				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
 				"With --as or ABOARD_AGENT, it lists only that agent's own board, with the agent's own token, and says so. " +
 				"Inside an agent's session without them, it lists every board your person can see, through this machine's delegation, " +
-				"and the session's seat on each; join one with aboard join --board NAME.",
+				"and the session's seat on each; join one with aboard join --board NAME.\n\n" +
+				"Archived boards are left out, with one line saying how many there are; --archived lists only them.",
 			Flags: []helpFlag{
 				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
+				{"--archived", "", "List only archived boards."},
 				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},
 				{"--board", "NAME", "With --as: the agent's board, when its name is used on more than one."},
 				flagJSON,
@@ -593,6 +606,7 @@ func helpText(templates string) []commandHelp {
 			Examples: []helpExample{
 				{"aboard boards", "The boards you are on"},
 				{"aboard boards --all", "Also the open boards you could join"},
+				{"aboard boards --archived", "Archived boards you are on"},
 			},
 			SeeAlso: []string{"board", "status"},
 		},

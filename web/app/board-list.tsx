@@ -7,7 +7,8 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { type Board, type Member, follow, get } from "./api";
+import { type Board, type Member, follow, get, isArchived } from "./api";
+import { ArchivedGroup } from "./sidebars";
 import { Account } from "./account";
 import { Header, Problem, VisibilityLabel } from "./chrome";
 import { boardLabel, count, exactTime, policyName, relativeTime } from "./words";
@@ -40,7 +41,7 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         () => {}, // the row shows without facts
       );
     const load = () =>
-      get<{ boards: Board[] }>("/v1/boards").then(
+      get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }).then(
         (r) => {
           if (!live) return;
           listed.current = r.boards;
@@ -78,6 +79,8 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
   }, []);
 
   const showPeople = Object.values(facts).some((f) => f.people > 1);
+  const active = boards?.filter((b) => !isArchived(b)) ?? null;
+  const archived = boards?.filter((b) => isArchived(b)) ?? [];
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -88,12 +91,12 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         {boards === null && error === null && (
           <div className="h-20 rounded-box bg-selected motion-safe:animate-pulse" role="status" aria-label="Loading your boards" />
         )}
-        {boards?.length === 0 && (
+        {active?.length === 0 && archived.length === 0 && (
           <p>
             You aren&apos;t on any board yet. Run <code>aboard pair</code> in a terminal to make one.
           </p>
         )}
-        {boards && boards.length > 0 && (
+        {active && active.length > 0 && (
           <table className="boards w-full border-collapse text-left max-md:block">
             <thead className="max-md:sr-only">
               <tr className="border-b border-rule text-meta text-muted">
@@ -120,11 +123,24 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
               </tr>
             </thead>
             <tbody className="max-md:block">
-              {boards.map((b) => (
+              {active.map((b) => (
                 <BoardRow key={b.id} board={b} facts={facts[b.name]} showPeople={showPeople} now={now} />
               ))}
             </tbody>
           </table>
+        )}
+        {archived.length > 0 && (
+          <div className="mt-6">
+            <ArchivedGroup count={archived.length} startOpen={false}>
+              <table className="boards w-full border-collapse text-left max-md:block">
+                <tbody className="max-md:block">
+                  {archived.map((b) => (
+                    <BoardRow key={b.id} board={b} facts={facts[b.name]} showPeople={showPeople} now={now} />
+                  ))}
+                </tbody>
+              </table>
+            </ArchivedGroup>
+          </div>
         )}
       </main>
     </div>

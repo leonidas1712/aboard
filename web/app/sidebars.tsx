@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type Member, setDelivery } from "./api";
+import { ApiError, type Board, type Member, isArchived, setDelivery } from "./api";
 import { AddAgent, Details } from "./board-details";
+import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
@@ -31,8 +32,10 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
     const activity = (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at);
     return activity || a.id.localeCompare(b.id);
   });
-  const needs = recent.filter((b) => (b.needs_reply ?? 0) > 0);
-  const others = recent.filter((b) => (b.needs_reply ?? 0) === 0);
+  const archived = recent.filter((b) => isArchived(b));
+  const active = recent.filter((b) => !isArchived(b));
+  const needs = active.filter((b) => (b.needs_reply ?? 0) > 0);
+  const others = active.filter((b) => (b.needs_reply ?? 0) === 0);
   return (
     <div className="flex flex-col gap-5">
       {needs.length > 0 && (
@@ -47,8 +50,39 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
           <BoardLinks current={current} boards={others} />
         </section>
       )}
+      {archived.length > 0 && (
+        <ArchivedGroup count={archived.length} startOpen={archived.some((b) => b.name === current)}>
+          <BoardLinks current={current} boards={archived} />
+        </ArchivedGroup>
+      )}
       {boards.length === 0 && <p className="text-meta text-muted">No boards yet.</p>}
     </div>
+  );
+}
+
+/**
+ * ArchivedGroup holds archived boards at the bottom of a list, closed unless the board
+ * on screen is one of them, so finished work stays out of the way.
+ */
+export function ArchivedGroup({ count: n, startOpen, children }: { count: number; startOpen: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(startOpen);
+  return (
+    <Collapsible asChild open={open} onOpenChange={setOpen}>
+      <section aria-label="Archived boards" className="archived-boards flex flex-col">
+        <h3 className="text-meta font-bold text-muted">
+          <CollapsibleTrigger className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
+            <ChevronRight
+              className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            Archived
+            <span className="font-normal tabular-nums">{n}</span>
+          </CollapsibleTrigger>
+        </h3>
+        <CollapsibleContent className="pt-1 animate-fade-in">{children}</CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
 
@@ -109,17 +143,19 @@ type BoardPanelProps = {
   /** onPick filters the timeline to a member, or clears that filter when it's already set. */
   onPick: (name: string) => void;
   reveal: Reveal;
+  /** onLifecycle reloads the board after it is archived or restored. */
+  onLifecycle: () => void;
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
     <div className="flex flex-col gap-4">
       <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
         <div className="flex flex-col gap-4 pt-1">
-          {canInvite && board && <AddAgent board={board} />}
+          {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
           <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
         </div>
       </Section>
@@ -158,7 +194,10 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
 
       {board && (
         <Section id="board-details" title="Details" reveal={reveal}>
-          <Details board={board} agents={agents.length} people={people.length} record={record} />
+          <div className="flex flex-col gap-3">
+            <Details board={board} agents={agents.length} people={people.length} record={record} />
+            <LifecycleActions board={board} onChanged={onLifecycle} />
+          </div>
         </Section>
       )}
     </div>

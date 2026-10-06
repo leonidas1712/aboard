@@ -42,7 +42,28 @@ export type Board = {
   unread?: number;
   /** needs_reply counts questions to this person without their own direct reply. */
   needs_reply?: number | null;
+  /** lifecycle is archived for a read-only board; absent means active. */
+  lifecycle?: Lifecycle;
+  /** can_archive, can_restore and can_delete are what this person may do now; absent means no. */
+  can_archive?: boolean;
+  can_restore?: boolean;
+  can_delete?: boolean;
 };
+
+export type Lifecycle = "active" | "archived";
+
+/** isArchived says a board is read-only until someone restores it. */
+export function isArchived(b: Board | null | undefined): boolean {
+  return b?.lifecycle === "archived";
+}
+
+/** LifecycleResult is the server's receipt of an archive, restore or delete: only the board's id and lifecycle. */
+export type LifecycleResult = { id: string; lifecycle: Lifecycle | "deleted"; changed: boolean };
+
+/** changeLifecycle archives, restores or deletes a board, named by its name. */
+export function changeLifecycle(board: string, action: "archive" | "restore" | "delete"): Promise<LifecycleResult> {
+  return post<LifecycleResult>(`/v1/boards/${encodeURIComponent(board)}/${action}`, {});
+}
 
 /** Receipt is whether a message has reached one of its recipients; presence is an agent's now, null for a person. */
 export type Receipt = { member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null };

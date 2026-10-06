@@ -40,14 +40,14 @@ var boardUsage = usageOf("board")
 
 // runBoard runs "aboard board policy <preset>", which switches a board's policy preset,
 // "aboard board title <text>", which changes its title, and the commands for a board's
-// people and visibility. Those that change policy, people or visibility use the human
-// login, so they refuse inside a harness session; an agent may set the title for its
-// owner, and list a board's people.
+// people, visibility and lifecycle. Those that change policy, people or visibility, and
+// delete, use the human login, so they refuse inside a harness session; an agent may set
+// the title for its owner, list a board's people, and archive or restore its own board.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("board")
 	boardFlag := fs.String("board", "", "the board to change")
 	as := fs.String("as", "", "the agent that sets the title, for its owner")
-	yes := fs.Bool("yes", false, "visibility only: make a private board open without asking")
+	yes := fs.Bool("yes", false, "visibility and delete only: go ahead without asking")
 	pos, err := a.parse(fs, args, boardUsage, 1, -1)
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 			return "", usageError("Name one person, by handle: aboard board "+pos[0]+" @maya.", boardUsage)
 		}
 		if *as != "" {
-			return "", usageError("Only a person changes who is on a board, so --as works only with title and people.", boardUsage)
+			return "", usageError("Only a person changes who is on a board, so --as works only with title, people, archive and restore.", boardUsage)
 		}
 		return handleArg(pos[1]), nil
 	}
@@ -89,12 +89,30 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 			return usageError("Say open or private: aboard board visibility private.", boardUsage)
 		}
 		if *as != "" {
-			return usageError("Only a person turns a board open or private, so --as works only with title and people.", boardUsage)
+			return usageError("Only a person turns a board open or private, so --as works only with title, people, archive and restore.", boardUsage)
 		}
 		return runBoardVisibility(ctx, a, *boardFlag, pos[1], *yes)
+	case "archive", "restore", "delete":
+		if len(pos) > 2 {
+			return usageError("Name one board: aboard board "+pos[0]+" payments-design.", boardUsage)
+		}
+		sel := *boardFlag
+		if len(pos) == 2 {
+			if sel != "" && sel != pos[1] {
+				return usageError("Name the board once: as the argument or with --board, not both.", boardUsage)
+			}
+			sel = pos[1]
+		}
+		if pos[0] == "delete" {
+			return runBoardDelete(ctx, a, sel, *as, *yes)
+		}
+		if *yes {
+			return usageError("--yes works only with visibility and delete.", boardUsage)
+		}
+		return runBoardArchive(ctx, a, sel, *as, pos[0] == "restore")
 	}
 	if *yes {
-		return usageError("--yes works only with visibility.", boardUsage)
+		return usageError("--yes works only with visibility and delete.", boardUsage)
 	}
 	switch pos[0] {
 	case "policy":
@@ -111,7 +129,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		}
 		return runBoardTitle(ctx, a, *boardFlag, *as, strings.Join(pos[1:], " "))
 	}
-	return usageError(fmt.Sprintf("%q is not a board command; use people, add, remove, leave, owner, visibility, policy or title.", pos[0]), boardUsage)
+	return usageError(fmt.Sprintf("%q is not a board command; use people, add, remove, leave, owner, visibility, policy, title, archive, restore or delete.", pos[0]), boardUsage)
 }
 
 // runBoardTitle changes a board's title; an empty title removes it. When an agent is
