@@ -583,6 +583,8 @@ func (l *lab) saveArtifacts() {
 	}
 	for _, p := range l.panes {
 		write("pane-"+p.name+".txt", []byte(p.scrollback()))
+		title, err := command(context.Background(), "tmux", "-S", p.socket(), "display-message", "-p", "-t", p.target(), "#{pane_title}").CombinedOutput()
+		write("pane-"+p.name+"-title.txt", []byte(fmt.Sprintf("title=%q\nerror=%v\n", strings.TrimSpace(string(title)), err)))
 	}
 	for name, data := range l.extra {
 		write(name, data)
