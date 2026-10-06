@@ -34,3 +34,18 @@ func (d *Daemon) setExtensionProblem(key SessionKey, outdated bool) {
 		delete(d.extensionProblems, key)
 	}
 }
+
+func (d *Daemon) setGeneration(agent AgentRef, generation uint64) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.generations == nil {
+		d.generations = map[AgentKey]uint64{}
+	}
+	d.generations[agent.Key()] = generation
+}
+
+func (d *Daemon) generation(agent AgentRef) uint64 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.generations[agent.Key()]
+}

@@ -77,6 +77,7 @@ type Daemon struct {
 	turned            map[SessionKey]bool
 	problems          map[AgentKey]string
 	extensionProblems map[SessionKey]bool
+	generations       map[AgentKey]uint64
 	// modes holds each agent's delivery mode as the journal keeps it: one set on this
 	// machine, or the last one read from its server. An agent not in it has the default.
 	modes map[AgentKey]Mode
@@ -101,7 +102,7 @@ func Run(ctx context.Context, cfg Config) error {
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		refs: map[AgentKey]AgentRef{}, sessions: map[SessionKey]*session{}, owners: map[AgentKey]*session{},
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentKey]string{},
-		modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
+		generations: map[AgentKey]uint64{}, modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -182,6 +183,8 @@ func (d *Daemon) restore(ctx context.Context) error {
 			continue
 		}
 		a := newAgentState(b.Agent, false)
+		a.generation = b.Generation
+		d.generations[b.Agent.Key()] = b.Generation
 		// What a session was told before the daemon stopped isn't kept: it is taken to
 		// know the mode its agent has when its inbox is first read (onInbox).
 		for i := range deliveries {
@@ -195,7 +198,12 @@ func (d *Daemon) restore(ctx context.Context) error {
 		d.owners[b.Agent.Key()] = s
 		d.watchLocked(b.Agent)
 	}
+	manifests, err := d.cfg.Journal.Handoffs(ctx)
+	if err != nil {
+		return fmt.Errorf("load handoffs: %w", err)
+	}
 	for _, s := range d.sessions {
+		s.restoreHandoffs(manifests)
 		s.restored = true
 		d.startSession(s)
 	}

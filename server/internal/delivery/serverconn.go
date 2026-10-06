@@ -16,9 +16,10 @@ type srvMsg struct {
 	// watch adds an agent whose inbox is read when its board's head moves.
 	watch *AgentRef
 	// refresh reads an agent's inbox now and answers replyTo with id.
-	refresh *AgentRef
-	id      int64
-	replyTo *session
+	refresh    *AgentRef
+	id         int64
+	replyTo    *session
+	generation uint64
 	// ack acknowledges an agent's messages up to upTo and answers replyTo.
 	ack  *AgentRef
 	upTo int
@@ -102,17 +103,17 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 	for _, agent := range c.watched {
 		if (all || boards[agent.Board]) && !c.gone[agent.Key()] {
 			if s := c.d.owner(agent); s != nil {
-				s.mail.put(sessionMsg{inbox: c.fetch(ctx, agent, 0)})
+				s.mail.put(sessionMsg{inbox: c.fetch(ctx, agent, 0, c.d.generation(agent))})
 			}
 		}
 	}
 	for _, m := range batch {
 		switch {
 		case m.refresh != nil:
-			m.replyTo.mail.put(sessionMsg{inbox: c.fetch(ctx, *m.refresh, m.id)})
+			m.replyTo.mail.put(sessionMsg{inbox: c.fetch(ctx, *m.refresh, m.id, m.generation)})
 		case m.ack != nil:
-			err := c.ack(ctx, *m.ack, m.upTo)
-			m.replyTo.mail.put(sessionMsg{ack: &ackResult{agent: *m.ack, upTo: m.upTo, err: err}})
+			err := c.ack(ctx, *m.ack, m.upTo, m.generation)
+			m.replyTo.mail.put(sessionMsg{ack: &ackResult{agent: *m.ack, upTo: m.upTo, err: err, generation: m.generation}})
 		}
 	}
 	c.reportPresence(ctx, batch)
@@ -123,14 +124,14 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 var errStillGone = fmt.Errorf("%w: not asked again", ErrBoardGone)
 
 // ack acknowledges an agent's messages, unless its board is gone.
-func (c *serverConn) ack(ctx context.Context, agent AgentRef, upTo int) error {
+func (c *serverConn) ack(ctx context.Context, agent AgentRef, upTo int, generation uint64) error {
 	if c.gone[agent.Key()] {
 		return errStillGone
 	}
 	actx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
 	err := c.srv.Ack(actx, agent, upTo)
-	if errors.Is(err, ErrBoardGone) {
+	if errors.Is(err, ErrBoardGone) && generation == c.d.generation(agent) {
 		c.gone[agent.Key()] = true
 	}
 	return err
@@ -165,28 +166,28 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 			continue
 		}
 		c.d.log.Warn("report presence", "agent", agent.Name, "board", agent.Board, "presence", m.state, "error", err)
-		if errors.Is(err, ErrBoardGone) {
+		if errors.Is(err, ErrBoardGone) && m.generation == c.d.generation(agent) {
 			c.gone[agent.Key()] = true
 		}
 		if problemOf(err) != "" {
 			if s := c.d.owner(agent); s != nil {
-				s.mail.put(sessionMsg{refused: &refusal{agent: agent, err: err}})
+				s.mail.put(sessionMsg{refused: &refusal{agent: agent, err: err, generation: m.generation}})
 			}
 		}
 	}
 }
 
-func (c *serverConn) fetch(ctx context.Context, agent AgentRef, refresh int64) *inboxResult {
+func (c *serverConn) fetch(ctx context.Context, agent AgentRef, refresh int64, generation uint64) *inboxResult {
 	if c.gone[agent.Key()] {
-		return &inboxResult{agent: agent, err: errStillGone, refresh: refresh}
+		return &inboxResult{agent: agent, err: errStillGone, refresh: refresh, generation: generation}
 	}
 	fctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
 	defer cancel()
 	msgs, cursor, mode, err := c.srv.Inbox(fctx, agent)
-	if errors.Is(err, ErrBoardGone) {
+	if errors.Is(err, ErrBoardGone) && generation == c.d.generation(agent) {
 		c.gone[agent.Key()] = true
 	}
-	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, mode: mode, err: err, refresh: refresh}
+	return &inboxResult{agent: agent, msgs: msgs, cursor: cursor, mode: mode, err: err, refresh: refresh, generation: generation}
 }
 
 // followOnce follows the stream until it fails, recording why. It reports whether the
