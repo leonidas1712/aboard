@@ -318,10 +318,11 @@ known, so the next failure is compared against it rather than retried.
   macOS on 2026-10-06. Bubble Tea's interrupt shutdown closed `cancelreader`'s
   cancellation pipe without waiting for its read loop; the Linux epoll and macOS
   kqueue readers were still calling `os.File.Fd` on that pipe.
-  Setup now turns keyboard and OS interrupts into graceful shutdown, waits for the
-  input reader, and returns an aborted answer so no choices are applied.
+  Setup now turns keyboard and OS interrupts into graceful shutdown, uses the
+  library's bounded input-loop wait, and returns an aborted answer so no choices
+  are applied.
   `TestSetupInterruptsRestoreTerminalWithoutApplyingAnswers` checks Ctrl-C and
-  SIGINT, unchanged configuration, and restored terminal input mode. Before the
+  SIGINT, unchanged configuration, and restored default PTY input mode. Before the
   fix, 20 focused runs of the original test passed despite the full-suite failure.
   After the fix, both tests passed 20 times under `-race` on macOS. A Linux native
   rerun was not available; do not describe the macOS result as a Linux proof.

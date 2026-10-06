@@ -52,8 +52,8 @@ func (a *app) asker() *asker {
 // run asks one question.
 func (k *asker) run(field huh.Field) error {
 	interrupted := false
-	// Interrupt closes Bubble Tea's input reader without joining its read loop.
-	// Quit waits for that loop; remember the signal so no answer is applied.
+	// Interrupt skips Bubble Tea's input-loop wait before closing its reader.
+	// Use graceful Quit and preserve the aborted result for signals.
 	filter := tea.WithFilter(func(_ tea.Model, msg tea.Msg) tea.Msg {
 		if _, ok := msg.(tea.InterruptMsg); ok {
 			interrupted = true
