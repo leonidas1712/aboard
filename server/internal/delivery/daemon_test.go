@@ -674,7 +674,7 @@ type gatedInbox struct {
 	release chan struct{}
 }
 
-func (g *gatedInbox) Inbox(ctx context.Context, agent delivery.AgentRef) ([]delivery.Message, int, *delivery.HeldMode, error) {
+func (g *gatedInbox) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, mode *delivery.HeldMode, err error) {
 	if g.armed.Load() {
 		select {
 		case <-g.release:
