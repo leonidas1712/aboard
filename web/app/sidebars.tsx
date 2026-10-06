@@ -4,7 +4,7 @@
 // on. The right one is about the board on screen: its agents and people, its charter,
 // the rules Aboard enforces on it, and its details.
 
-import { ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -27,7 +27,7 @@ import type { RecordCheck } from "./use-board";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
-export function BoardNav({ current, boards }: { current: string; boards: Board[] | null }) {
+export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const recent = [...boards].sort((a, b) => {
     const activity = (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at);
@@ -42,18 +42,18 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
       {needs.length > 0 && (
         <section aria-label="Needs you">
           <h3 className="mb-1 text-meta font-bold text-ink">Needs you</h3>
-          <BoardLinks current={current} boards={needs} />
+          <BoardLinks current={current} boards={needs} onMarkRead={onMarkRead} />
         </section>
       )}
       {others.length > 0 && (
         <section aria-label={needs.length > 0 ? "Other boards" : "Your boards"}>
           {needs.length > 0 && <h3 className="mb-1 text-meta font-bold text-muted">Other boards</h3>}
-          <BoardLinks current={current} boards={others} />
+          <BoardLinks current={current} boards={others} onMarkRead={onMarkRead} />
         </section>
       )}
       {archived.length > 0 && (
         <ArchivedGroup count={archived.length} holdsCurrent={archived.some((b) => b.name === current)}>
-          <BoardLinks current={current} boards={archived} />
+          <BoardLinks current={current} boards={archived} onMarkRead={onMarkRead} />
         </ArchivedGroup>
       )}
       {boards.length === 0 && <p className="text-meta text-muted">No boards yet.</p>}
@@ -94,13 +94,15 @@ export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: num
   );
 }
 
-function BoardLinks({ current, boards }: { current: string; boards: Board[] }) {
+// A board with something unread offers "Mark all as read" on hover or focus, over its
+// unread count, which it stands for.
+function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: Board[]; onMarkRead: (b: Board) => void }) {
   return (
     <ul className="board-nav -mx-2.5 flex flex-col gap-0.5">
       {boards.map((b) => {
         const here = b.name === current;
         return (
-          <li key={b.id}>
+          <li key={b.id} className="group relative">
             <a
               href={`/?board=${encodeURIComponent(b.name)}`}
               aria-current={here ? "page" : undefined}
@@ -126,6 +128,17 @@ function BoardLinks({ current, boards }: { current: string; boards: Board[] }) {
                 </span>
               )}
             </a>
+            {(b.unread ?? 0) > 0 && (
+              <button
+                type="button"
+                className="mark-read pointer-events-none absolute top-1/2 right-1.5 z-10 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[6px] bg-selected text-muted opacity-0 transition-opacity duration-[140ms] ease-out group-hover:pointer-events-auto group-hover:opacity-100 hover:text-ink focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:hidden"
+                aria-label={`Mark all as read on ${boardLabel(b)}`}
+                title="Mark all as read"
+                onClick={() => onMarkRead(b)}
+              >
+                <CheckCheck className="size-4" strokeWidth={1.5} aria-hidden />
+              </button>
+            )}
           </li>
         );
       })}

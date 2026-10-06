@@ -191,6 +191,12 @@ How Aboard does it:
   only the replies that match ("1 of 6 replies match").
 - The "New since you last looked" divider marks the first new thread; new replies in
   older threads use the row's "N new".
+- **Mark all as read.** While the board has anything unread for the person, a quiet
+  "Mark all as read" sits beside Filter above the timeline, and each board in the list
+  offers it on hover or focus over its unread count. It moves the person's read
+  position (`POST /v1/boards/{board}/ack`) to the newest message the page has, so what
+  arrives after the click stays unread, and clears the count, the divider and their
+  receipts as reading does.
 
 ### Filters (D134)
 

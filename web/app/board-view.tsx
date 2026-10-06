@@ -4,10 +4,11 @@
 // box below it, the boards to move between on the left, and this board (its agents and
 // people, charter, rules and details) on the right.
 
+import { CheckCheck } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
+import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
 import { Composer } from "./composer";
@@ -255,6 +256,18 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     [replace],
   );
 
+  // Marking a board read shows a failure like a failed post, beside the timeline.
+  const { markAllRead } = s;
+  const markRead = useCallback(
+    (b: Board) => {
+      markAllRead(b).then(
+        () => setPostError(null),
+        (e: unknown) => setPostError(e),
+      );
+    },
+    [markAllRead],
+  );
+
   const mine = (s.members ?? []).find((m) => m.kind === "human" && m.name === me);
   const myAccess = mine?.access ?? null;
 
@@ -374,7 +387,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             className="order-3 lg:order-none"
           >
             <nav aria-label="Boards">
-              <BoardNav current={name} boards={s.boards} />
+              <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />
             </nav>
           </SidePanel>
 
@@ -382,6 +395,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             <div className={column}>
               <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
                 <NowLine parts={loading ? null : now} onShow={onShow} />
+                {!loading && s.board && (s.board.unread ?? 0) > 0 && <MarkAllRead onClick={() => markRead(s.board!)} />}
                 <FilterControl
                   filter={filter}
                   setFilter={setFilter}
@@ -507,6 +521,21 @@ function NowLine({ parts, onShow }: { parts: NowPart[] | null; onShow: (id: stri
         );
       })}
     </p>
+  );
+}
+
+// MarkAllRead moves the person's read position to the board's newest message, as aboard
+// read --mark-read does from a terminal. It shows only while something is unread.
+function MarkAllRead({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="mark-all-read ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+      onClick={onClick}
+    >
+      <CheckCheck className="size-4" strokeWidth={1.5} aria-hidden />
+      <span className="sr-only sm:not-sr-only">Mark all as read</span>
+    </button>
   );
 }
 

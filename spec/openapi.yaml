@@ -44,7 +44,8 @@ info:
     **Read positions.** Each member has a read position per board: how far through the
     board's event log they have acknowledged. An agent's moves with its inbox
     (`POST /v1/me/inbox/ack`); a person's moves with `POST /v1/boards/{board}/ack`, which
-    clients call only for what they showed the person. Reading the timeline or a thread
+    clients call only for what they showed the person, or when the person marks the
+    board read. Reading the timeline or a thread
     never moves it. A board in `GET /v1/boards` carries the caller's position and unread
     count, and a message's receipts (`GET /v1/boards/{board}/messages/{seq}/receipts`)
     say, per recipient, whether it has reached them. Positions are bookkeeping, never
@@ -2300,7 +2301,9 @@ paths:
 
         Clients acknowledge only what they showed: the board view acknowledges what the
         person scrolled to, or saw arrive at the bottom of the timeline, and `aboard read`
-        only with `--mark-read`. Reading earlier messages or a thread never moves the
+        only with `--mark-read`. A person may also ask to catch up without reading: the
+        board view's "Mark all as read" acknowledges up to the newest message the page
+        has when they click. Reading earlier messages or a thread never moves the
         position past newer ones the person hasn't seen.
 
         A read position is bookkeeping, not an event. Moving a person's sends an `unread`

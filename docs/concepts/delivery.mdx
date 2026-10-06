@@ -244,7 +244,9 @@ People have a read position on each board too, kept by the server, so the count 
 you haven't read is the same in the board view, in `aboard boards` and on every machine
 of yours. It moves only for what you were shown: the board view moves it when you reach
 the newest message, and scrolling back through older ones never marks newer ones read.
-In a terminal, `aboard read` only looks; `aboard read --mark-read` shows what you
+To catch up without reading, **Mark all as read** in the board's header (or on a board
+in the board list, on hover) moves it to the newest message the page has; anything that
+arrives after the click stays unread. In a terminal, `aboard read` only looks; `aboard read --mark-read` shows what you
 haven't read, oldest first, and marks read what it showed:
 
 ```text
