@@ -501,7 +501,7 @@ func helpText(templates string) []commandHelp {
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
-				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the local server."},
+				{"--server", "", "Invite a person to the server: the one this directory's .aboard names, else the one server this machine is connected to, else the local server."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -754,11 +754,24 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "serve", Group: groupInternal,
-			Summary: "Run the local server in the foreground",
-			Usage:   []string{"aboard serve"},
+			Summary: "Run the local server, or a team server, in the foreground",
+			Usage:   []string{"aboard serve", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE]"},
 			Description: "Runs the local server in the foreground until it is stopped. " +
-				"aboard up and other commands start it in the background this way; use aboard up instead.",
-			SeeAlso: []string{"up", "down"},
+				"aboard up and other commands start it in the background this way; use aboard up instead. " +
+				"With --team it runs a team server behind a proxy that ends HTTPS, such as a container behind an ingress. " +
+				"Each of its flags can come from a variable instead: ABOARD_PUBLIC_URL, ABOARD_DATA, ABOARD_LISTEN and ABOARD_ADMIN. " +
+				"Its first start makes the first admin and writes their key to admin-key in the data folder; pipe that file into aboard login on your own machine, then delete it.",
+			Flags: []helpFlag{
+				{"--team", "", "Run a team server instead of the local one."},
+				{"--public-url", "URL", "With --team: the https address people use, such as https://aboard.example.com. Only requests for its host are answered."},
+				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own. Never a network file system."},
+				{"--listen", "ADDR", "With --team: the address to listen on. Default: 0.0.0.0:7400."},
+				{"--admin", "HANDLE", "With --team: the first admin's handle, used on the first start only. Default: admin."},
+			},
+			Examples: []helpExample{
+				{"aboard serve --team --public-url https://aboard.example.com --data /data", "Run a team server for aboard.example.com"},
+			},
+			SeeAlso: []string{"up", "down", "login"},
 		},
 		{
 			Name: "hook", Group: groupInternal,

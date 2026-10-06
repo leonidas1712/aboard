@@ -156,6 +156,16 @@ func runServerInvite(ctx context.Context, a *app, ttl time.Duration) error {
 		return err
 	} else if ok && p.Server.URL != "" {
 		srv = p.Server
+	} else {
+		// A machine signed in to one server and nothing else, such as a team server's
+		// first admin right after aboard login, invites to that server.
+		logins, err := a.readServerLogins()
+		if err != nil {
+			return err
+		}
+		if len(logins.Servers) == 1 {
+			srv = a.serverRefFor(logins.Servers[0].URL)
+		}
 	}
 	var started bool
 	if srv.URL == a.localServer().URL {
