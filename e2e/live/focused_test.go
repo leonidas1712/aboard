@@ -111,6 +111,7 @@ func TestReplyWakesOnlyTheAsker(t *testing.T) {
 				p.waitIdle(2 * time.Minute)
 			}
 		}
+		l.waitPresence("third", "idle", 30*time.Second)
 		thirdStates := l.watchPresence("third")
 
 		start := time.Now()
