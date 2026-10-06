@@ -345,6 +345,10 @@ doesn't exist, so no model ran (the suite's driver comes from this):
 - Its terminal title (`#{pane_title}`) is `π > <folder>` while it waits for the person,
   an animated spinner in place of `>` while a turn runs, and `!` while it waits for an
   answer. The prompt box is the last line starting `╰─`; typed text shows there.
+- A tmux client under `LC_ALL=C` prints the stored idle title as `_ > <folder>`.
+  `tmux -u` preserves its UTF-8 `π` in both the readiness check and title artifacts;
+  the busy/attention title checks still apply. A scratch tmux regression proves this
+  without starting a harness or model.
 - Ctrl-C twice within a moment quits; one Ctrl-C a second apart doesn't.
 - Without a usable model omp picked a local model it found on the machine, so the suite
   always passes `--model`.
