@@ -141,7 +141,7 @@ func TestCreationDoesNotReplayThroughAReplacementDaemon(t *testing.T) {
 	if len(list.JSON200.Boards) != 1 {
 		t.Fatalf("uncertain creation crossed daemon scope and created %d boards", len(list.JSON200.Boards))
 	}
-	members, err := client.ListMembersWithResponse(ctx, list.JSON200.Boards[0].Name)
+	members, err := client.ListMembersWithResponse(ctx, list.JSON200.Boards[0].Name, nil)
 	if err != nil || members.JSON200 == nil {
 		t.Fatalf("couldn't read created members: %v", err)
 	}
