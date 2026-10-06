@@ -124,6 +124,13 @@ func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error)
 		if err != nil {
 			return Human{}, nil, err
 		}
+		b, err := tx.BoardByID(m.BoardID)
+		if errors.Is(err, ErrNotFound) || (err == nil && lifecycleOf(b) == LifecycleDeleted) {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		if err != nil {
+			return Human{}, nil, err
+		}
 	}
 	person, err := tx.HumanByID(p.personID())
 	if errors.Is(err, ErrNotFound) || (err == nil && person.RemovedAt != nil) {
@@ -211,6 +218,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 			m, err := tx.MemberByTokenDigest(digest)
 			if err != nil {
 				return err
+			}
+			b, err := tx.BoardByID(m.BoardID)
+			if err != nil {
+				return err
+			}
+			if lifecycleOf(b) == LifecycleDeleted {
+				return ErrNotFound
 			}
 			if h, err := tx.HumanByID(m.HumanID); err != nil || h.RemovedAt != nil {
 				if err != nil && !errors.Is(err, ErrNotFound) {

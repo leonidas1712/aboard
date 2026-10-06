@@ -170,11 +170,23 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	if err != nil {
 		return Update{}, err
 	}
+	ids := make([]string, 0, len(heads))
+	for _, h := range heads {
+		ids = append(ids, h.BoardID)
+	}
+	presence, reads, positions, seats, err := f.s.presenceOn(ctx, ids, f.p)
+	if err != nil {
+		return Update{}, err
+	}
 	var u Update
 	current := make(map[string]int64, len(heads))
-	ids := make([]string, 0, len(heads))
 	names := make(map[string]string, len(heads))
+	ids = ids[:0]
 	for _, h := range heads {
+		// The second transaction rechecks access before exposing names or counts.
+		if _, authorized := positions[h.BoardID]; !authorized {
+			continue
+		}
 		current[h.BoardID] = h.Seq
 		ids = append(ids, h.BoardID)
 		names[h.BoardID] = h.Board
@@ -189,10 +201,6 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	f.sent = current
 
-	presence, reads, positions, seats, err := f.s.presenceOn(ctx, ids, f.p)
-	if err != nil {
-		return Update{}, err
-	}
 	for _, id := range ids {
 		if pos, ok := positions[id]; ok {
 			if before, known := f.positions[id]; !known || before != pos {

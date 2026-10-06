@@ -247,9 +247,9 @@ func TestDeletionPreservesHistoryAndNameButEndsOnlyThatBoardsAccess(t *testing.T
 		wantCode(t, "deleted "+name, read(ctx, w, w.sam), "board_not_found")
 	}
 	_, _, err = w.svc.Inbox(ctx, w.samAgent, 0, 0, 10)
-	wantCode(t, "deleted seat inbox", err, "board_not_found")
+	wantCode(t, "deleted seat inbox", err, "unauthorized")
 	_, err = w.svc.WhoAmI(ctx, w.samAgent)
-	wantCode(t, "deleted seat metadata", err, "board_not_found")
+	wantCode(t, "deleted seat metadata", err, "unauthorized")
 	_, err = w.svc.RestoreBoard(ctx, w.maya, w.board)
 	wantCode(t, "deleted cannot restore", err, "board_not_found")
 	if _, _, err = w.svc.Inbox(ctx, siblingAgent, 0, 0, 10); err != nil {
@@ -445,4 +445,123 @@ func TestArchivedPairingCodeDoesNotGrantAnonymousLifecycleMetadata(t *testing.T)
 	wantCode(t, "anonymous pairing code", err, "join_code_invalid")
 	_, err = w.svc.Join(ctx, w.sam, board.JoinInput{Code: code.Code})
 	wantCode(t, "someone else's pairing code", err, "join_code_not_yours")
+}
+
+func TestDeletedSeatCredentialEndsWhileSiblingAndPersonRemain(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	sibling, err := w.svc.CreateBoard(ctx, w.sam, board.NewBoard{Template: "general"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j, err := w.svc.Join(ctx, w.sam, board.JoinInput{Board: sibling.Board.Name, Role: "member"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := w.svc.Join(ctx, w.sam, board.JoinInput{Board: w.board, Role: "member", Name: "old-token-test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveLifecycleBoard(t, w)
+	if _, err = w.svc.DeleteBoard(ctx, w.maya, w.board); err != nil {
+		t.Fatal(err)
+	}
+	_, err = w.svc.Authenticate(ctx, old.Token)
+	wantCode(t, "deleted credential", err, "unauthorized")
+	if _, err = w.svc.Authenticate(ctx, j.Token); err != nil {
+		t.Fatalf("sibling token: %v", err)
+	}
+	if _, err = w.svc.GetBoard(ctx, w.sam, sibling.Board.Name); err != nil {
+		t.Fatalf("person key: %v", err)
+	}
+}
+
+func TestDeletionBetweenHeadAndPresenceReadsNeverReturnsDeletedMetadata(t *testing.T) {
+	for _, seen := range []bool{false, true} {
+		t.Run(map[bool]string{false: "first observation", true: "already observed"}[seen], func(t *testing.T) {
+			ctx := context.Background()
+			w := newTeamWorld(t)
+			before := lifecycleBoard(t, w)
+			sibling, err := w.svc.CreateBoard(ctx, w.sam, board.NewBoard{Template: "general"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			feed, err := w.svc.FollowHeads(w.sam)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if seen {
+				if _, err = feed.Start(ctx); err != nil {
+					t.Fatal(err)
+				}
+			}
+			archiveLifecycleBoard(t, w)
+			waiting, release := w.gate.armAfter(1)
+			type result struct {
+				u   board.Update
+				err error
+			}
+			done := make(chan result, 1)
+			go func() { u, err := feed.Start(ctx); done <- result{u, err} }()
+			<-waiting
+			if _, err = w.svc.DeleteBoard(ctx, w.maya, w.board); err != nil {
+				t.Fatal(err)
+			}
+			close(release)
+			got := <-done
+			if got.err != nil {
+				t.Fatal(got.err)
+			}
+			for _, h := range got.u.Heads {
+				if h.BoardID == before.ID {
+					t.Fatal("returned deleted board name/head")
+				}
+			}
+			for _, u := range got.u.Unread {
+				if u.BoardID == before.ID {
+					t.Fatal("returned deleted unread count")
+				}
+			}
+			if seen && (len(got.u.Unavailable) != 1 || got.u.Unavailable[0].BoardID != before.ID) {
+				t.Fatalf("prior observation hint: %+v", got.u)
+			}
+			if !seen && len(got.u.Unavailable) != 0 {
+				t.Fatalf("new observation leaked ID: %+v", got.u)
+			}
+			if _, err = w.svc.GetBoard(ctx, w.sam, sibling.Board.Name); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestGuestLifecycleOnlyDisclosesItsInvitedBoard(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	guestCode, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Guest: "guest-lifecycle", Role: "member"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: guestCode.Code, KeyName: "guest-phone"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest := w.auth(ctx, t, joined.KeyToken)
+	foreign, err := w.svc.CreateBoard(ctx, w.sam, board.NewBoard{Template: "general"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, selector := range []string{foreign.Board.Name, foreign.Board.ID, "no-such-board", "brd_no_such_board"} {
+		_, err = w.svc.ArchiveBoard(ctx, guest, selector)
+		wantCode(t, selector, err, "board_not_found")
+	}
+	if _, err = w.svc.SetVisibility(ctx, w.sam, foreign.Board.Name, board.BoardPrivate, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, selector := range []string{foreign.Board.Name, foreign.Board.ID} {
+		_, err = w.svc.ArchiveBoard(ctx, guest, selector)
+		wantCode(t, "private "+selector, err, "board_not_found")
+	}
+	_, err = w.svc.ArchiveBoard(ctx, guest, w.board)
+	wantCode(t, "invited board", err, "guest_not_allowed")
 }
