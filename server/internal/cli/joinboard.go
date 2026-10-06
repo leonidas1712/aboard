@@ -32,8 +32,8 @@ func sessionParam(key delivery.SessionKey, inSession bool) *string {
 }
 
 // boardServer is the server join --board and boards act on: the server of the session's
-// seats, else --server, else the one this directory's .aboard names, else the one
-// server this machine is connected to, else the local server. A machine connected to
+// seats, else --server, else the one this directory's .aboard names, else this
+// machine's default server, else the one server this machine is connected to, else the local server. A machine connected to
 // several names one with --server.
 func (a *app) boardServer(ctx context.Context, flag, sessionServer string) (serverRef, error) {
 	if sessionServer != "" && flag == "" {
@@ -49,9 +49,15 @@ func (a *app) boardServer(ctx context.Context, flag, sessionServer string) (serv
 			if err != nil {
 				return serverRef{}, err
 			}
-			switch len(logins.Servers) {
-			case 0:
-			case 1:
+			_, def, err := a.knownServers()
+			if err != nil {
+				return serverRef{}, err
+			}
+			switch {
+			case def != nil:
+				flag = def.URL
+			case len(logins.Servers) == 0:
+			case len(logins.Servers) == 1:
 				flag = logins.Servers[0].URL
 			default:
 				choices := make([]string, 0, len(logins.Servers))
@@ -65,7 +71,7 @@ func (a *app) boardServer(ctx context.Context, flag, sessionServer string) (serv
 			}
 		}
 	}
-	srv, _, err := a.keysServer(ctx, flag)
+	srv, _, err := a.personServer(ctx, flag)
 	return srv, err
 }
 

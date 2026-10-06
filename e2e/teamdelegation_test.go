@@ -197,7 +197,7 @@ func assertRemovedSeatHasNoAccess(t *testing.T, tm *team, board, token string) {
 			input = map[string]any{"body": "removed seat must not post"}
 		}
 		status, body := tm.call(method, "/v1/boards/"+board+"/messages", token, input)
-		if status != http.StatusNotFound || errorCode(t, body) != "board_not_found" {
+		if status != http.StatusForbidden || errorCode(t, body) != "agent_removed" {
 			t.Fatalf("removed seat %s access: status %d, error %v", method, status, body["error"])
 		}
 	}

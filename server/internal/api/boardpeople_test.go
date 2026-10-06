@@ -82,6 +82,7 @@ func TestAPrivateBoardLooksLikeNoBoardToOutsiders(t *testing.T) {
 		{"POST", "/v1/boards/%s/join-codes"},
 		{"PATCH", "/v1/boards/%s"},
 		{"PUT", "/v1/boards/%s/members/claude/delivery"},
+		{"DELETE", "/v1/boards/%s/members/claude"},
 	}
 	bodies := map[string]any{
 		"/v1/boards/%s/messages":                map[string]any{"body": "hi"},

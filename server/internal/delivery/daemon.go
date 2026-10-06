@@ -77,7 +77,9 @@ type Daemon struct {
 	turned            map[SessionKey]bool
 	problems          map[AgentKey]string
 	extensionProblems map[SessionKey]bool
-	generations       map[AgentKey]uint64
+	// handoffProblems holds the sessions whose handoffs fail to prepare.
+	handoffProblems map[SessionKey]bool
+	generations     map[AgentKey]uint64
 	// modes holds each agent's delivery mode as the journal keeps it: one set on this
 	// machine, or the last one read from its server. An agent not in it has the default.
 	modes map[AgentKey]Mode
@@ -1068,6 +1070,9 @@ func (d *Daemon) status(ctx context.Context) Response {
 	for a, s := range d.owners {
 		if d.extensionProblems[s.key] {
 			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonExtensionOutdated})
+		}
+		if d.handoffProblems[s.key] {
+			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonHandoffFailed})
 		}
 		st.Bindings = append(st.Bindings, BindingStatus{Agent: d.refs[a], Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
 	}

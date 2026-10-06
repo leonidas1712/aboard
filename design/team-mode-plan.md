@@ -58,7 +58,7 @@ Status on 2026-10-06, checked against merged work.
 | 2. Access keys and identity | All: keys, `login`, `connect`, `approve`, browser sessions (#82, #86, #91, #92) | |
 | 3. Members, roles and guests | All: roles, removing a person, guest codes, pairing and guest codes split (#96) | |
 | 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88); archive, restore and delete in the API, CLI and board view (#117) | |
-| 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c), bots, project labels |
+| 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c: API, CLI and record in review in #131; the board view's Remove next), bots, project labels |
 | 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the person's CLI inbox across boards |
 | 7. A server for a team | Team server, secure bootstrap and backup before the atomic migration batch (#118) | Load test, version-skew check |
 | After: deploying | Public HTTPS configuration, container and deployment recipes (#118); release pipeline and install script (#120) | Deployment proof and the two-machine test |
@@ -253,7 +253,7 @@ from `aboard boards` never authorizes a join: the join is checked again.
    older ones, and an omp batch mixing owner and other agents' messages never delivering
    the others as an owner aside. The smallest slice that removes codes for a
    team's own sessions.
-2. **5b. Agents start work for their person.** Building (D203). `aboard pair --new` through the
+2. **5b. Agents start work for their person.** Building (D205). `aboard pair --new` through the
    delegation (the person is creator and owner); agents adding teammates on open boards,
    and on private ones only where the owner allowed it.
 3. **5c. Removing agents.** Seat ids in swarm records (the daemon's moved to 5a), then

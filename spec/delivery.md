@@ -369,6 +369,13 @@ payload, but no rotation metadata is added to the text. A retry does not run fai
 selection again for an existing handoff. No body or token is stored. Preparation
 failure hands nothing and advances no read position; partial preparation is not a
 valid handoff. Messages omitted for space have no received evidence.
+A preparation that fails is logged once and tried again with backoff (2 seconds,
+doubling to 5 minutes); until one succeeds, each seat bound to the session shows the
+agent problem `handoff_failed` in `aboard status` and `aboard doctor`. A session the
+journal kept from a daemon that recorded no boot (a build before combined handoffs) is
+given a local boot the first time a handoff is prepared for it, as a session whose hooks
+send none is when it binds; the session's next real boot replaces it as any new boot
+does.
 
 The manifest is immutable. Re-rendering may reuse its id only when the payload hash
 and every manifest field match. A change in content, formatting, membership, class,
@@ -1272,6 +1279,7 @@ harness reports whether its hooks are trusted, so doctor can't check that step.
 | `server_unreachable` | A server with bound agents doesn't answer | Check the server or the network |
 | `login_missing` | No human login for a server with bound agents | `aboard connect` |
 | `delivery_attention` | Deliveries stopped after repeated failures | Per delivery, from its reason |
+| `handoff_failed` | The daemon couldn't prepare a handoff for the agent's session and is trying again with backoff; the daemon log has the error | Run `aboard resume` in that session, or start a new session and `aboard join` |
 | `board_gone` | An agent's board answers `board_not_found` to it: the board was deleted or is hidden from its person, or the agent was removed from it (as it is for good when its person is removed from or leaves the board). The daemon reads nothing more for that agent | Join again with a new agent (`aboard join`) if the person still belongs on the board |
 | `delivery_skipped` | Messages too large for automatic delivery | Read them with `aboard read` |
 | `delivery_stalled` | A delivery handed to an idle session that started no turn within 10 seconds (warning); it isn't sent again | Look at the session; read the message there with `aboard read` |

@@ -228,8 +228,9 @@ type Tx interface {
 	InsertMember(m Member) error
 	// SetMemberStatus sets a member's status: StatusActive, StatusLeft or StatusRemoved.
 	SetMemberStatus(memberID, status string) error
-	// RemoveAgent marks an agent removed at a time, by RemovedByPerson, RemovedByOwner or
-	// RemovedByAdmin.
+	// RemoveAgent ends an agent's seat at a time, by RemovedByPerson, RemovedByOwner,
+	// RemovedByAdmin or RemovedBySelf. The seat reads back as StatusRemoved, or
+	// StatusLeft for RemovedBySelf, with RemovedAt and RemovedBy set.
 	RemoveAgent(memberID, at, by string) error
 	// SetAgentToken replaces an agent's token, so every earlier token stops working, and
 	// the access key the new one stops with.

@@ -38,6 +38,8 @@ const (
 	BoardVisibilityChanged = "board.visibility_changed"
 	// AgentDeliveryChanged is an agent's person changing its delivery mode.
 	AgentDeliveryChanged = "agent.delivery_changed"
+	AgentRemoved         = "agent.removed"
+	AgentLeft            = "agent.left"
 )
 
 // Actor is who caused an event, taken from the authenticated token.

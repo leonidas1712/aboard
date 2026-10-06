@@ -122,10 +122,15 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				writeError(w, o.Log, err)
 				return
 			}
+			saved.Body, err = withheldNames(r.Context(), o.Service, r.Method, r.URL.Path, saved)
+			if err != nil {
+				writeError(w, o.Log, err)
+				return
+			}
 			w.Header().Set("Content-Type", saved.ContentType)
 			w.Header().Set("Idempotent-Replayed", "true")
 			w.WriteHeader(saved.Status)
-			_, _ = w.Write(saved.Body)
+			_, _ = w.Write(saved.Body) //nolint:gosec // a JSON answer this server stored, sent as application/json
 			return
 		case found:
 			writeError(w, o.Log, apierr.New(http.StatusUnprocessableEntity, "idempotency_conflict",
@@ -221,6 +226,9 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 			}
 			in.AddPeople, in.Handle = true, add.Handle
 		}
+		if len(parts) == 5 && parts[3] == "members" && method == http.MethodDelete {
+			in.AgentRemoval = true
+		}
 		if len(parts) == 4 && (parts[3] == "archive" || parts[3] == "restore" || parts[3] == "delete") {
 			in.Lifecycle = parts[3]
 			in.DeleteDone = parts[3] == "delete" && saved.Status == http.StatusOK
@@ -238,10 +246,66 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		in.MessageID = parts[2]
 	case path == "/v1/me/inbox/ack" || path == "/v1/me/presence":
 		in.OwnSeat = true
+	case path == "/v1/agents/prune":
+		// The answer names only the caller's own agents, or for an admin's prune across
+		// the server what it removed: the caller's credential and role are checked again.
+		var requested struct {
+			All bool `json:"all"`
+		}
+		_ = json.Unmarshal(request, &requested)
+		in.PruneAll = requested.All
+	case path == "/v1/me/leave":
+		// The answer is about the caller's own seat, which ended with it.
+		return nil
 	default:
 		return nil
 	}
 	return svc.CheckBoardReplay(ctx, principal(ctx), in)
+}
+
+// withheldNames returns a stored answer to an agent removal or a prune as it may be
+// sent again: the board and agent names of every board the caller can no longer see
+// are withheld, as they would be in a new answer. Every other answer is sent as stored.
+func withheldNames(ctx context.Context, svc *board.Service, method, path string, saved SavedResponse) ([]byte, error) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	removal := method == http.MethodDelete && len(parts) == 5 && parts[1] == "boards" && parts[3] == "members"
+	if saved.Status != http.StatusOK || (path != "/v1/agents/prune" && !removal) {
+		return saved.Body, nil
+	}
+	var answer map[string]any
+	if err := json.Unmarshal(saved.Body, &answer); err != nil {
+		return nil, fmt.Errorf("decode the stored answer: %w", err)
+	}
+	rows := []map[string]any{answer}
+	if !removal {
+		rows = nil
+		list, _ := answer["agents"].([]any)
+		for _, v := range list {
+			if m, ok := v.(map[string]any); ok {
+				rows = append(rows, m)
+			}
+		}
+	}
+	var ids []string
+	for _, m := range rows {
+		if id, ok := m["board_id"].(string); ok {
+			ids = append(ids, id)
+		}
+	}
+	hidden, err := svc.HiddenBoards(ctx, principal(ctx), ids)
+	if err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, m := range rows {
+		if id, _ := m["board_id"].(string); hidden[id] && (m["board"] != nil || m["name"] != nil) {
+			m["board"], m["name"], changed = nil, nil, true
+		}
+	}
+	if !changed {
+		return saved.Body, nil
+	}
+	return json.Marshal(answer)
 }
 
 // recorder passes a response through while keeping a copy of it.
