@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"net"
 )
 
@@ -22,9 +23,22 @@ type Adapter interface {
 	Hand(ctx context.Context, h Handover) (confirmed bool, err error)
 }
 
+// DeliveryClass is derived from every admitted message, never from rendered text.
+type DeliveryClass string
+
+const (
+	ClassOwnerOnly      DeliveryClass = "owner_only"
+	ClassMixed          DeliveryClass = "mixed"
+	CapabilityHandoffV1               = "handoff-v1"
+)
+
+var ErrExtensionOutdated = errors.New("the extension does not support combined handoffs")
+
 // Handover is one bundle for one session.
 type Handover struct {
 	SessionID string
+	HandoffID string
+	Class     DeliveryClass
 	// ID is the first delivery the bundle carries, which a harness extension names when
 	// it confirms the bundle.
 	ID     int64
@@ -43,6 +57,12 @@ type Waiter interface {
 	// Release tells a hook to exit without a bundle. An extension's connection stays
 	// open, so it is told nothing.
 	Release()
+}
+
+// HandoffWaiter accepts an immutable combined handoff or an explicitly classified
+// legacy delivery. Existing one-seat waiters need only implement Waiter.
+type HandoffWaiter interface {
+	DeliverHandoff(context.Context, Handover) error
 }
 
 // Server is one Aboard server, reached with this machine's logins.

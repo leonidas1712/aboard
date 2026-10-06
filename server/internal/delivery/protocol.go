@@ -118,7 +118,9 @@ type Request struct {
 	// Seqs are the messages an OpClaim records as received.
 	Seqs []int `json:"seqs,omitempty"`
 	// ID is the delivery an extension's OpReceived confirms.
-	ID int64 `json:"id,omitempty"`
+	ID           int64    `json:"id,omitempty"`
+	HandoffID    string   `json:"handoff_id,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
 	// Cwd, HarnessVersion and ExtensionVersion describe an extension's session in its
 	// OpHello, for the daemon's log and aboard doctor.
 	Cwd              string `json:"cwd,omitempty"`
@@ -147,7 +149,10 @@ type Response struct {
 	Bundle string `json:"bundle,omitempty"`
 	// ID is the delivery an EventDeliver on an extension connection carries, which the
 	// extension names when it confirms it.
-	ID int64 `json:"id,omitempty"`
+	ID            int64         `json:"id,omitempty"`
+	HandoffID     string        `json:"handoff_id,omitempty"`
+	DeliveryClass DeliveryClass `json:"delivery_class,omitempty"`
+	Capabilities  []string      `json:"capabilities,omitempty"`
 	// Notice names waiting messages without their content, in answer to OpBoundary.
 	Notice string     `json:"notice,omitempty"`
 	Boot   string     `json:"boot,omitempty"`

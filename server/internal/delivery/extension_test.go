@@ -322,3 +322,23 @@ func sameShape(t *testing.T, what string, want map[string]any, got delivery.Resp
 		t.Errorf("%s: the daemon answered %s; the spec shows fields %v and event %v", what, raw, keys(want), want["event"])
 	}
 }
+
+func TestExtensionNegotiatesOnlyHandoffCapability(t *testing.T) {
+	r := newRig(t)
+	var hello delivery.Request
+	if err := json.Unmarshal([]byte(`{"harness":"omp","session":"o1","boot":"b1","capabilities":["unknown","handoff-v1"]}`), &hello); err != nil {
+		t.Fatal(err)
+	}
+	_, welcome := r.connect(hello)
+	raw, err := json.Marshal(welcome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body map[string]any
+	if err = json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := body["capabilities"].([]any); len(got) != 1 || got[0] != "handoff-v1" {
+		t.Fatalf("negotiated capabilities: %s", raw)
+	}
+}
