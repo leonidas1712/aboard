@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
@@ -50,12 +51,23 @@ func (a *app) asker() *asker {
 
 // run asks one question.
 func (k *asker) run(field huh.Field) error {
+	interrupted := false
+	// Interrupt closes Bubble Tea's input reader without joining its read loop.
+	// Quit waits for that loop; remember the signal so no answer is applied.
+	filter := tea.WithFilter(func(_ tea.Model, msg tea.Msg) tea.Msg {
+		if _, ok := msg.(tea.InterruptMsg); ok {
+			interrupted = true
+			return tea.QuitMsg{}
+		}
+		return msg
+	})
 	err := huh.NewForm(huh.NewGroup(field)).
+		WithProgramOptions(filter).
 		WithInput(k.in).WithOutput(k.out).
 		WithTheme(huh.ThemeFunc(huh.ThemeBase16)).
 		WithAccessible(k.accessible).WithWidth(k.width).
 		Run()
-	if errors.Is(err, huh.ErrUserAborted) {
+	if interrupted || errors.Is(err, huh.ErrUserAborted) {
 		return errAborted
 	}
 	if err != nil {
