@@ -9,8 +9,9 @@
 //
 // Known limit: a stream event sent before the person left a board that arrives only
 // after they rejoined it looks the same as a new one, since neither carries anything
-// that says which membership it belongs to. Telling them apart needs an epoch from the
-// server, so such an event can still set the count until the next fresh read.
+// that says which membership it belongs to. Its read position and unread count are
+// bookkeeping from an old membership that can't be classified as such; telling the two
+// apart needs an epoch from the server.
 
 import type { Board } from "./api";
 
