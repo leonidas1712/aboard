@@ -2349,12 +2349,32 @@ $defs:
       For a private board the first line ends "private: only the people on it see it."
       The second line is there only when linked; otherwise the last line's board add
       ends with --board <name>. The notice line is there whenever policy_notice is.
+      When the directory stays linked to a board on another server (--server named a
+      different one), the second line says so instead, and every command in the
+      guidance names the new board's server:
+        This directory stays linked to general on http://127.0.0.1:7400, so board commands for payments need --server https://team.example.com.
+        Next: from an agent's session, run aboard join --board payments --server https://team.example.com; to bring a person onto it, aboard board add @handle --board payments --server https://team.example.com
+      board policy, add, remove, leave, owner and visibility take --server URL (one this
+      machine holds a key for) with --board, acting on that board on that server instead
+      of the one this directory's .aboard names.
     type: object
-    required: [server, board, linked, policy_notice, join_command]
+    required: [server, board, linked, stays_linked, policy_notice, join_command]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       board: { $ref: openapi.yaml#/components/schemas/Board }
       linked: { type: boolean, description: Whether this directory was linked to the new board. }
+      stays_linked:
+        description: |
+          The board on another server this directory stays linked to, when it is linked
+          to one; null when the directory was linked to the new board or to a board on
+          the same server.
+        oneOf:
+          - type: "null"
+          - type: object
+            required: [server, board]
+            properties:
+              server: { $ref: "#/$defs/ServerRef" }
+              board: { type: string }
       policy_notice: { $ref: "#/$defs/PolicyNotice" }
       join_command:
         type: string
