@@ -76,13 +76,10 @@ http://127.0.0.1:* | http://localhost:* | http://127.0.0.1/* | http://localhost/
 *) fail "ABOARD_DOWNLOAD_URL must start with https:// (got $base)." ;;
 esac
 
-if command -v curl >/dev/null 2>&1; then
-	download() { curl -fsSL --proto "=$proto" --proto-redir "=$proto" --retry 2 -o "$2" "$1"; }
-elif command -v wget >/dev/null 2>&1; then
-	download() { wget -q -O "$2" "$1"; }
-else
-	fail "downloading needs curl or wget; install one and run this again."
-fi
+# Only curl: it can refuse a redirect from https to http (--proto-redir), which some
+# wget builds follow.
+command -v curl >/dev/null 2>&1 || fail "downloading needs curl; install it and run this again."
+download() { curl -fsSL --proto "=$proto" --proto-redir "=$proto" --retry 2 -o "$2" "$1"; }
 fetch() {
 	download "$1" "$2" || fail "couldn't download $1. Check your connection and run this again."
 }
