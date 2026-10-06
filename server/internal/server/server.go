@@ -81,13 +81,20 @@ type PublicURL struct {
 // written to.
 const AdminKeyFile = "admin-key"
 
-// ParsePublicURL checks a team server's public URL: https, a host, and no user, path,
-// query or fragment. The default port is dropped, as browsers drop it from Origin and
+// ParsePublicURL checks a team server's public URL: https, a host, a port from 1 to
+// 65535 if any, and no user, path (not even /), query or fragment. The default port is dropped, as browsers drop it from Origin and
 // Host.
 func ParsePublicURL(s string) (PublicURL, error) {
+	bad := fmt.Errorf("%q is not an https address such as https://team.example.com, with no path, not even /, and a port from 1 to 65535 if any", s)
 	u, err := url.Parse(strings.TrimSpace(s))
-	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || strings.Trim(u.Path, "/") != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || strings.HasSuffix(u.Host, ":") {
-		return PublicURL{}, fmt.Errorf("%q is not an https address such as https://team.example.com, with no path", s)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Path != "" || u.RawPath != "" ||
+		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" || strings.HasSuffix(u.Host, ":") {
+		return PublicURL{}, bad
+	}
+	if p := u.Port(); p != "" {
+		if n, err := strconv.Atoi(p); err != nil || n < 1 || n > 65535 || strconv.Itoa(n) != p {
+			return PublicURL{}, bad
+		}
 	}
 	host := strings.ToLower(u.Host)
 	if u.Port() == "443" {

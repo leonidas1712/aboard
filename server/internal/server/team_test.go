@@ -26,12 +26,12 @@ import (
 func TestParsePublicURL(t *testing.T) {
 	for in, want := range map[string]PublicURL{
 		"https://team.example.com":       {Origin: "https://team.example.com", Host: "team.example.com"},
-		"https://Team.Example.com/":      {Origin: "https://team.example.com", Host: "team.example.com"},
+		"https://Team.Example.com":       {Origin: "https://team.example.com", Host: "team.example.com"},
 		"https://team.example.com:443":   {Origin: "https://team.example.com", Host: "team.example.com"},
 		"https://team.example.com:8443":  {Origin: "https://team.example.com:8443", Host: "team.example.com:8443"},
 		"https://10.0.0.5:9000":          {Origin: "https://10.0.0.5:9000", Host: "10.0.0.5:9000"},
 		"https://[2001:db8::1]:443":      {Origin: "https://[2001:db8::1]", Host: "[2001:db8::1]"},
-		"https://[2001:db8::1]:8443/":    {Origin: "https://[2001:db8::1]:8443", Host: "[2001:db8::1]:8443"},
+		"https://[2001:db8::1]:8443":     {Origin: "https://[2001:db8::1]:8443", Host: "[2001:db8::1]:8443"},
 		"https://aboard.internal.test:1": {Origin: "https://aboard.internal.test:1", Host: "aboard.internal.test:1"},
 	} {
 		got, err := ParsePublicURL(in)
@@ -42,6 +42,9 @@ func TestParsePublicURL(t *testing.T) {
 	for _, in := range []string{
 		"", "team.example.com", "http://team.example.com", "https://", "https://team.example.com/aboard",
 		"https://team.example.com?x=1", "https://team.example.com#x", "https://user@team.example.com", "https://team.example.com:",
+		"https://team.example.com/", "https://team.example.com//", "https://team.example.com/?", "https://team.example.com:0",
+		"https://team.example.com:65536", "https://team.example.com:99999999999", "https://team.example.com:+443", "https://[::1",
+		"https://team.example.com:443:443", "https:team.example.com",
 	} {
 		if got, err := ParsePublicURL(in); err == nil {
 			t.Errorf("ParsePublicURL(%q) = %+v, want an error", in, got)

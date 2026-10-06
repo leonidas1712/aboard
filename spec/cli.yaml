@@ -89,7 +89,7 @@
 #   [--listen ADDR] [--admin HANDLE]` runs in the foreground, with no --json; each flag
 #   may instead come from ABOARD_PUBLIC_URL, ABOARD_DATA, ABOARD_LISTEN and ABOARD_ADMIN,
 #   read only with --team, a flag winning. --listen defaults to 0.0.0.0:7400 and --admin
-#   to admin. A public URL that isn't https, or has a path, query or user, fails with
+#   to admin. A public URL that isn't https, or has a path (even /), a query, a user or a port outside 1 to 65535, fails with
 #   invalid_request (exit 2), as does a missing --public-url or --data. It writes JSON log
 #   lines to stderr; on the first start of an empty database it creates the first admin
 #   and writes their access key to DIR/admin-key (mode 0600, never replaced) and logs
