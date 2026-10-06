@@ -48,8 +48,8 @@ func (s *Service) Heads(ctx context.Context, p Principal) ([]Head, error) {
 	return out, nil
 }
 
-// BoardUnavailable names only a board previously observed by this feed.
-type BoardUnavailable struct {
+// Unavailable names only a board previously observed by this feed.
+type Unavailable struct {
 	BoardID  string
 	MemberID *string
 }
@@ -87,7 +87,7 @@ func (s *Service) FollowHeads(p Principal) (*HeadFeed, error) {
 // changed, the human's own agents whose read position moved, and the human's own read
 // position or unread count where either changed.
 type Update struct {
-	Unavailable []BoardUnavailable
+	Unavailable []Unavailable
 	Heads       []Head
 	Presence    []PresenceChange
 	Reads       []ReadChange
@@ -184,7 +184,7 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 	}
 	for id := range f.sent {
 		if _, ok := current[id]; !ok {
-			u.Unavailable = append(u.Unavailable, BoardUnavailable{BoardID: id})
+			u.Unavailable = append(u.Unavailable, Unavailable{BoardID: id})
 		}
 	}
 	f.sent = current

@@ -264,9 +264,6 @@ func (s *Service) workingCode(tx ReadTx, code, now string) (JoinCode, error) {
 	if lifecycleOf(b) == LifecycleDeleted {
 		return JoinCode{}, joinCodeInvalid()
 	}
-	if err := requireActive(b); err != nil {
-		return JoinCode{}, err
-	}
 	return jc, nil
 }
 
@@ -504,6 +501,9 @@ func (s *Service) redeemGuestCode(tx Tx, jc JoinCode, guest Human, keyID *string
 	}
 	b, err := tx.BoardByID(jc.BoardID)
 	if err != nil {
+		return Joined{}, err
+	}
+	if err := requireActive(b); err != nil {
 		return Joined{}, err
 	}
 	me, err := s.guestOnBoard(tx, &b, guest, ptr(jc.ID), now)

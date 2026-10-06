@@ -37,7 +37,7 @@ func requireActive(b Board) error {
 		return apierr.BoardNotFound(b.Name)
 	}
 	if lifecycleOf(b) == LifecycleArchived {
-		return apierr.New(http.StatusConflict, "board_archived", "This board is archived and refuses new content and access grants.", "Ask its creator or a server admin to restore it: aboard board restore --board "+b.Name+".")
+		return apierr.New(http.StatusConflict, "board_archived", "This board is archived and refuses new content and access grants.", "Ask its creator while still on it, or a server admin, to restore it: aboard board restore --board "+b.Name+".")
 	}
 	return nil
 }
@@ -81,13 +81,13 @@ func (s *Service) lifecycleTarget(tx ReadTx, p Principal, selector string, allow
 		if _, _, err = seatOf(tx, *p.Agent); err != nil {
 			return Board{}, Member{}, Human{}, err
 		}
-	} else if !on && b.Visibility == BoardPrivate && !(person.Role == ServerAdmin && selector == b.ID) {
+	} else if !on && b.Visibility == BoardPrivate && (person.Role != ServerAdmin || selector != b.ID) {
 		return Board{}, Member{}, Human{}, apierr.BoardNotFound(selector)
 	}
 	if person.Role == ServerGuest {
 		return Board{}, Member{}, Human{}, guestNotAllowed("manage a board's lifecycle")
 	}
-	if !(on && me.ID == b.CreatedBy) && !(p.Agent == nil && person.Role == ServerAdmin) {
+	if (!on || me.ID != b.CreatedBy) && (p.Agent != nil || person.Role != ServerAdmin) {
 		return Board{}, Member{}, Human{}, creatorRequired()
 	}
 	return b, me, person, nil
@@ -146,7 +146,7 @@ func (s *Service) changeLifecycle(ctx context.Context, p Principal, selector, ta
 		actor := actorOf(me)
 		if p.Agent != nil {
 			actor = actorOf(*p.Agent)
-		} else if me.ID == "" {
+		} else if me.ID == "" || me.Status != StatusActive {
 			actor = events.Actor{Kind: "human", Name: ptr(person.Name)}
 		}
 		typ := events.BoardArchived
@@ -159,7 +159,7 @@ func (s *Service) changeLifecycle(ctx context.Context, p Principal, selector, ta
 		if _, err = s.append(tx, &b, typ, actor, s.clk.Now(), map[string]any{"person_id": person.ID, "before": before, "after": target}); err != nil {
 			return err
 		}
-		if err = tx.SetBoardLifecycle(b.ID, target); err != nil {
+		if err := tx.SetBoardLifecycle(b.ID, target); err != nil {
 			return err
 		}
 		members, err := tx.Members(b.ID)
@@ -171,7 +171,7 @@ func (s *Service) changeLifecycle(ctx context.Context, p Principal, selector, ta
 				people = append(people, m.HumanID)
 			}
 			if target == LifecycleDeleted && m.Kind == "agent" && m.Status == StatusActive {
-				if err = tx.SetMemberStatus(m.ID, StatusRemoved); err != nil {
+				if err := tx.SetMemberStatus(m.ID, StatusRemoved); err != nil {
 					return err
 				}
 			}
@@ -221,9 +221,6 @@ func (s *Service) filterListing(tx ReadTx, p Principal, out *Listing, filter str
 		state := lifecycleOf(b)
 		if state == LifecycleDeleted {
 			continue
-		}
-		if state == LifecycleArchived {
-			out.ArchivedCount++
 		}
 		if filter != "all" && state != filter {
 			continue

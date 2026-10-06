@@ -580,7 +580,10 @@ func (s *Service) WhoAmI(ctx context.Context, p Principal) (Me, error) {
 		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
 			return err
 		}
-		b, _, err := seatOf(tx, *p.Agent)
+		b, err := tx.BoardByID(p.Agent.BoardID)
+		if err == nil && lifecycleOf(b) == LifecycleDeleted {
+			return apierr.BoardNotFound(b.Name)
+		}
 		me.Board = b.Name
 		return err
 	})

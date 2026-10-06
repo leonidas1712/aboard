@@ -342,3 +342,107 @@ func TestContentWriteWaitingForTransactionSeesCommittedArchive(t *testing.T) {
 		t.Fatal("waiting post mutated archived record")
 	}
 }
+
+func TestLifecycleListingKeepsHiddenArchiveMetadataOutOfCounts(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	archiveLifecycleBoard(t, w)
+	member, err := w.svc.ListBoards(ctx, w.sam, false)
+	if err != nil || len(member.Boards) != 0 || member.ArchivedCount != 1 {
+		t.Fatalf("member active listing: %+v %v", member, err)
+	}
+	member, err = w.svc.ListBoards(ctx, w.maya, false, "archived")
+	if err != nil || len(member.Boards) != 1 || !member.Boards[0].CanRestore || !member.Boards[0].CanDelete || member.Boards[0].CanArchive {
+		t.Fatalf("creator archived listing: %+v %v", member, err)
+	}
+	admin, err := w.svc.ListBoards(ctx, w.alex, true, "archived")
+	if err != nil || admin.ArchivedCount != 0 || len(admin.Hidden) != 1 || admin.Hidden[0].Lifecycle != board.LifecycleArchived || !admin.Hidden[0].CanRestore || !admin.Hidden[0].CanDelete {
+		t.Fatalf("hidden housekeeping listing: %+v %v", admin, err)
+	}
+}
+
+func TestFormerBoardMemberAdminLifecycleActorDoesNotClaimMembership(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	if _, err := w.svc.AddPerson(ctx, w.maya, w.board, "alex"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.svc.RemovePerson(ctx, w.maya, w.board, "alex"); err != nil {
+		t.Fatal(err)
+	}
+	before := lifecycleBoard(t, w)
+	if _, err := w.svc.ArchiveBoard(ctx, w.alex, before.ID); err != nil {
+		t.Fatal(err)
+	}
+	err := w.gate.Store.Read(ctx, func(tx board.ReadTx) error {
+		events, err := tx.Events(before.ID, before.HeadSeq, 1)
+		if err != nil {
+			return err
+		}
+		if len(events) != 1 || events[0].Actor.MemberID != nil || events[0].Actor.Kind != "human" {
+			t.Fatalf("outside admin claimed membership: %+v", events)
+		}
+		member, err := tx.HumanMember(before.ID, w.alex.Human.ID)
+		if err != nil {
+			return err
+		}
+		if member.Status == board.StatusActive {
+			t.Fatal("housekeeping restored membership")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeletionFeedEndsOnlyPreviouslyObservedBoard(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	before := lifecycleBoard(t, w)
+	sibling, err := w.svc.CreateBoard(ctx, w.sam, board.NewBoard{Template: "general"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed, err := w.svc.FollowHeads(w.sam)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := feed.Start(ctx)
+	if err != nil || len(first.Heads) != 2 {
+		t.Fatalf("first: %+v %v", first, err)
+	}
+	archiveLifecycleBoard(t, w)
+	archived, _, err := feed.Next(ctx, make(chan time.Time))
+	if err != nil || len(archived.Unavailable) != 0 || len(archived.Heads) != 1 || archived.Heads[0].BoardID != before.ID {
+		t.Fatalf("archive feed: %+v %v", archived, err)
+	}
+	if _, err = w.svc.DeleteBoard(ctx, w.maya, w.board); err != nil {
+		t.Fatal(err)
+	}
+	gone, _, err := feed.Next(ctx, make(chan time.Time))
+	if err != nil || len(gone.Unavailable) != 1 || gone.Unavailable[0].BoardID != before.ID || gone.Unavailable[0].MemberID != nil {
+		t.Fatalf("delete feed: %+v %v", gone, err)
+	}
+	if _, err = w.svc.PostMessage(ctx, w.sam, sibling.Board.Name, board.NewMessage{Body: "sibling survives"}); err != nil {
+		t.Fatal(err)
+	}
+	live, _, err := feed.Next(ctx, make(chan time.Time))
+	if err != nil || len(live.Unavailable) != 0 || len(live.Heads) != 1 || live.Heads[0].BoardID != sibling.Board.ID {
+		t.Fatalf("sibling feed: %+v %v", live, err)
+	}
+}
+
+func TestArchivedPairingCodeDoesNotGrantAnonymousLifecycleMetadata(t *testing.T) {
+	ctx := context.Background()
+	w := newTeamWorld(t)
+	code, err := w.svc.CreateJoinCode(ctx, w.maya, w.board, board.JoinCodeInput{Role: "member"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveLifecycleBoard(t, w)
+	_, err = w.svc.GuestJoin(ctx, board.GuestJoinInput{Code: code.Code, KeyName: "visitor-laptop"})
+	wantCode(t, "anonymous pairing code", err, "join_code_invalid")
+	_, err = w.svc.Join(ctx, w.sam, board.JoinInput{Code: code.Code})
+	wantCode(t, "someone else's pairing code", err, "join_code_not_yours")
+}
