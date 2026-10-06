@@ -111,9 +111,11 @@
 #   visibility) (D203): --server, then the server this directory's .aboard names, then
 #   this machine's default server (aboard servers use), then the only server it knows.
 #   The servers it knows are the local server, once it has an owner login, and every
-#   server in servers.json. With several and no default, these commands fail with
-#   server_not_selected (details.choices lists their URLs, the local one included)
-#   before they send anything; the hint names --server and aboard servers use. With
+#   server in servers.json. A machine that knows its local server and has no saved
+#   default takes the local server as its default, so an upgrade never makes a working
+#   machine start refusing. A machine with no local server that knows several and has
+#   no default fails with server_not_selected (details.choices lists their URLs)
+#   before sending anything; the hint names --server and aboard servers use. With
 #   none, it is the local server, which they start if needed. Their text output names
 #   the server they acted on.
 # - Text output of agent commands names the board in one line: say ends with
@@ -934,8 +936,8 @@ $defs:
         description: |
           True when the server is now this machine's default server (D203). Adding a
           team's server never moves a machine off what it already uses. A machine that
-          has a default keeps it; one with no default that already uses its local server
-          (it has a local owner login) makes the local server its default, saved now. In
+          has a default keeps it, and one that uses its local server (it has a local
+          owner login) has the local server as its default unless it chose another. In
           both cases the text output ends with "Your default stays the local server; use
           --server <url> or aboard servers use <url> to switch." (naming the other
           default's URL when it isn't the local server). Only a machine with no default
@@ -1121,8 +1123,8 @@ $defs:
         description: |
           True when the server is now this machine's default server (D203). Adding a
           team's server never moves a machine off what it already uses. A machine that
-          has a default keeps it; one with no default that already uses its local server
-          (it has a local owner login) makes the local server its default, saved now. In
+          has a default keeps it, and one that uses its local server (it has a local
+          owner login) has the local server as its default unless it chose another. In
           both cases the text output ends with "Your default stays the local server; use
           --server <url> or aboard servers use <url> to switch." (naming the other
           default's URL when it isn't the local server). Only a machine with no default

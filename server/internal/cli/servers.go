@@ -48,8 +48,11 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 		}
 		known = append(known, knownServer{Name: l.URL, URL: l.URL, Handle: l.Handle})
 	}
+	// A machine that uses its local server and has no saved default, such as one that
+	// connected to a team's server before defaults existed, keeps acting on the local
+	// server: an upgrade never makes a working machine start refusing (D203).
 	want := logins.Default
-	if want == localServerName {
+	if want == localServerName || (want == "" && len(known) > 0 && known[0].Local) {
 		want = local.URL
 	}
 	var def *serverRef
@@ -230,8 +233,7 @@ func (a *app) setDefaultServer(srv serverRef) error {
 // offerDefault runs after this machine signs in to srv, and decides whether srv becomes
 // its default server (D203). Signing in to a team's server never moves a machine off
 // what it already uses: a machine with a default keeps it, and one that already uses
-// its local server keeps that as its default, saved now so its commands stay
-// unambiguous. Only on a machine with no default and no local server does srv become
+// its local server keeps that as its default (knownServers). Only on a machine with no default and no local server does srv become
 // the default. At a terminal, a machine whose default is another team's server is asked
 // whether to switch. It returns whether srv is the default now, and the text to add to
 // the command's output.
@@ -247,13 +249,7 @@ func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err erro
 	if def != nil && def.URL == srv.URL {
 		return true, "", nil
 	}
-	usesLocal := len(known) > 0 && known[0].Local
 	switch {
-	case def == nil && usesLocal:
-		if err := a.setDefaultServer(local); err != nil {
-			return false, "", err
-		}
-		def = &local
 	case def == nil:
 		if err := a.setDefaultServer(srv); err != nil {
 			return false, "", err

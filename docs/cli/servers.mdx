@@ -12,7 +12,7 @@ aboard servers use <url|local> [--json]
 
 Lists the servers this machine knows: its local server, once it has run, and every server it connected or logged in to, with the person it signs in as there. A \* marks the default server.
 
-Person commands (keys, people, board new, invite and the board commands a person runs) act on `--server` when it is given, else on the server this directory's .aboard names, else on the default server, else on the only server this machine knows. A machine that knows several servers and has no default refuses rather than guess, and names them.
+Person commands (keys, people, board new, invite and the board commands a person runs) act on `--server` when it is given, else on the server this directory's .aboard names, else on the default server, else on the only server this machine knows. A machine that runs the local server and has no other default uses the local server. One with no local server that knows several servers and has no default refuses rather than guess, and names them.
 
 servers use makes one the default; local names the local server. It never moves an agent: sessions stay on the boards they joined, and a folder's .aboard still chooses for that folder.
 

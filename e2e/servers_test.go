@@ -12,11 +12,11 @@ import (
 )
 
 // A machine that runs its own local server and then connects to a team's server keeps
-// the local server as its default, so its commands carry on as before and name the
-// server they acted on (issue #136). A machine that knows several servers with no
-// default, such as one that connected before defaults existed, never guesses: keys,
-// people, invite and board new refuse and name both servers. aboard servers lists them
-// and servers use picks the default.
+// the local server as its default, saved or not, so its commands carry on as before and
+// name the server they acted on (issue #136). A machine with no local server that knows
+// several servers and has no default never guesses: keys, people, invite and board new
+// refuse and name both servers. aboard servers lists them and servers use picks the
+// default.
 func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
@@ -48,38 +48,48 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 		t.Fatalf("login on a machine that uses its local server:\n%s", login)
 	}
 
-	// A machine that connected before defaults existed has none, and must choose.
+	// A machine that connected before defaults existed has none saved; it uses its local
+	// server, so that stays its default and nothing starts refusing.
 	forgetDefault(t, maya)
-	listed = maya.run("servers", "--json").json(t)
-	if field(t, listed, "default") != nil {
-		t.Fatalf("servers with the default forgotten: %v", listed)
+	if got := maya.run("servers", "--json").json(t); field(t, got, "default.url") != local {
+		t.Fatalf("servers with no saved default on a machine that uses its local server: %v", got)
 	}
-	text := maya.run("servers").stdout
-	if !strings.Contains(text, local) || !strings.Contains(text, tm.url()) || !strings.Contains(text, "No default server") {
+	if text := maya.run("keys", "create", "browser").stdout; !strings.HasPrefix(text, `Key "browser" for `+local+" (shown once") {
+		t.Fatalf("keys create with no saved default:\n%s", text)
+	}
+
+	// A machine with no local server, on two teams' servers and with no default, never
+	// guesses: keys, people, invite and board new refuse and name both servers.
+	other := newTeam(t)
+	sam := tm.person("sam")
+	sam.run("connect", other.invite())
+	forgetDefault(t, sam)
+	text := sam.run("servers").stdout
+	if !strings.Contains(text, other.url()) || !strings.Contains(text, tm.url()) || !strings.Contains(text, "No default server") {
 		t.Fatalf("servers:\n%s", text)
 	}
 	for _, args := range [][]string{
-		{"keys", "create", "browser"},
+		{"keys", "create", "phone"},
 		{"keys"},
 		{"people"},
 		{"invite", "--server"},
 		{"board", "new", "payments"},
 	} {
-		r := maya.runExit(append(args, "--json")...)
+		r := sam.runExit(append(args, "--json")...)
 		v := r.json(t)
 		if r.code != 1 || errorCode(t, v) != "server_not_selected" {
 			t.Fatalf("%v with two servers and no default:\n%s", args, r)
 		}
 		choices := field(t, v, "error.details.choices").([]any)
-		if !slices.Contains(choices, any(local)) || !slices.Contains(choices, any(tm.url())) ||
+		if !slices.Contains(choices, any(other.url())) || !slices.Contains(choices, any(tm.url())) ||
 			!strings.Contains(field(t, v, "error.hint").(string), "--server") {
 			t.Fatalf("%v: the refusal doesn't name both servers and --server: %v", args, v)
 		}
 	}
 
 	// --server chooses, and the output names the server.
-	created := maya.run("keys", "create", "browser", "--server", tm.url()).stdout
-	if !strings.HasPrefix(created, `Key "browser" for `+tm.url()+" (shown once") {
+	created := maya.run("keys", "create", "tablet", "--server", tm.url()).stdout
+	if !strings.HasPrefix(created, `Key "tablet" for `+tm.url()+" (shown once") {
 		t.Fatalf("keys create --server:\n%s", created)
 	}
 	for _, args := range [][]string{{"invite", "--server", tm.url(), "--json"}, {"invite", "--server=" + tm.url(), "--json"}} {
@@ -97,7 +107,7 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	// A default answers for the machine; --server and .aboard still win over it.
 	used := maya.run("servers", "use", tm.url(), "--json").json(t)
 	matchesCLISpec(t, "ServersUseOutput", used)
-	if field(t, used, "server.url") != tm.url() || field(t, used, "previous") != nil {
+	if field(t, used, "server.url") != tm.url() || field(t, used, "previous.url") != local {
 		t.Fatalf("servers use: %v", used)
 	}
 	if text := maya.run("keys", "create", "phone").stdout; !strings.Contains(text, " for "+tm.url()+" ") {

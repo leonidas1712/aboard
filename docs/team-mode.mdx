@@ -221,8 +221,9 @@ Change the default with: aboard servers use <url|local>
 Commands you run yourself, such as `aboard keys`, `aboard people`, `aboard board new`
 and `aboard invite`, act on `--server` when you give it, else on the server the folder's
 `.aboard` names, else on the default server, else on the only server the machine knows.
-A machine that knows several servers and has no default never guesses: the command
-stops, names the servers and asks you to choose. Choose for the whole machine with
+A machine that runs the local server and has no other default uses the local server. A
+machine with no local server that knows several servers and has no default never
+guesses: the command stops, names the servers and asks you to choose. Choose for the whole machine with
 `aboard servers use https://team.example.com` (or `aboard servers use local`), or for
 one command with `--server`. Each command names the server it acted on.
 
