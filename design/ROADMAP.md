@@ -206,6 +206,7 @@ engineering/release.md.
 | Item | Status | Decisions |
 | --- | --- | --- |
 | Pin CI actions to verified commit hashes and keep checkout credentials out of the working tree | review | |
+| Fix the owner-token startup readiness fixture and the sidebar recent-conversation ordering test without weakening assertions (#149, #146) | in progress | |
 | Keep the desktop board shell within the viewport, including sign-in notices, with scrolling inside the timeline and panels | review | |
 | Live tests driven headless where a harness offers a long-lived machine interface (omp `--mode rpc`, Claude Code stream-json, Codex's app server), after checking each runs Aboard's hooks and extensions exactly as its terminal session does; a smaller set stays in a real terminal for what only it proves (an idle session woken there, resume, start-up dialogs, `codex queue` into an open session), so headless passes never stand in for the real thing | next; low priority | D144 |
 | Request ids from the CLI through the server to the daemon's deliveries, in logs and error bodies | next | D150 |
