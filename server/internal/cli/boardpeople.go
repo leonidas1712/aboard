@@ -20,12 +20,28 @@ func (a *app) personClient(ctx context.Context, boardFlag, what, command string)
 	if err := a.refuseInSession(what, command+boardArg(a.namedBoard(boardFlag))); err != nil {
 		return target{}, nil, err
 	}
-	t, err := a.selectBoard(boardFlag)
+	t, err := a.personBoard(boardFlag)
 	if err != nil {
 		return target{}, nil, err
 	}
 	c, err := a.humanClient(ctx, t)
 	return t, c, err
+}
+
+// personBoard is the board a person's board command acts on: with --server, the board
+// --board names on that server; otherwise as selectBoard picks it.
+func (a *app) personBoard(boardFlag string) (target, error) {
+	if a.boardServerFlag == "" {
+		return a.selectBoard(boardFlag)
+	}
+	if boardFlag == "" {
+		return target{}, usageError("--server needs --board, naming a board on that server.", boardUsage)
+	}
+	srv, err := parseServerURL(a.boardServerFlag)
+	if err != nil {
+		return target{}, err
+	}
+	return target{server: a.serverRefFor(srv.URL), board: boardFlag, source: boardFromFlag}, nil
 }
 
 // agentSelected reports whether a command that can act as a person or as an agent acts

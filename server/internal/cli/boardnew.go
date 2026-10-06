@@ -8,6 +8,12 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
+// staysLinked is the board on another server a directory stays linked to.
+type staysLinked struct {
+	Server serverRef `json:"server"`
+	Board  string    `json:"board"`
+}
+
 // runBoardNew creates a board as the person, with their own key, on the server
 // personServer picks, and says how agents and people get onto it. No agent joins. A
 // directory linked to no board is linked to it. It is up to a person, so it refuses
@@ -44,15 +50,21 @@ func runBoardNew(ctx context.Context, a *app, name, title string, private bool, 
 	b := r.JSON201
 	// A directory linked to no board is linked to this one, as pair does, so the board
 	// commands that follow, run here, act on it. A linked directory keeps its board.
-	_, linked, err := a.readProject()
+	project, hasProject, err := a.readProject()
 	if err != nil {
 		return err
 	}
-	linked = !linked
+	linked := !hasProject
 	if linked {
 		if err := a.writeProject(projectFile{Server: srv, Board: b.Name}); err != nil {
 			return err
 		}
+	}
+	// A directory linked to a board on another server keeps it, so every command in the
+	// guidance names the new board's server.
+	var stays *staysLinked
+	if hasProject && project.Server.URL != "" && project.Server.URL != srv.URL {
+		stays = &staysLinked{Server: project.Server, Board: project.Board}
 	}
 	join := "aboard join --board " + b.Name
 	text := fmt.Sprintf("Created board %s on %s, open to everyone on the server.\n", b.Name, srv.URL)
@@ -60,9 +72,14 @@ func runBoardNew(ctx context.Context, a *app, name, title string, private bool, 
 		text = fmt.Sprintf("Created board %s on %s, private: only the people on it see it.\n", b.Name, srv.URL)
 	}
 	add := "aboard board add @handle"
-	if linked {
+	switch {
+	case linked:
 		text += "Linked this directory to " + b.Name + ", so board commands run here act on it.\n"
-	} else {
+	case stays != nil:
+		text += fmt.Sprintf("This directory stays linked to %s on %s, so board commands for %s need --server %s.\n", stays.Board, stays.Server.URL, b.Name, srv.URL)
+		join += " --server " + srv.URL
+		add += " --board " + b.Name + " --server " + srv.URL
+	default:
 		add += " --board " + b.Name
 	}
 	notice := noticeFor(b.Policy)
@@ -70,6 +87,6 @@ func runBoardNew(ctx context.Context, a *app, name, title string, private bool, 
 		text += notice.Message + "\n"
 	}
 	text += fmt.Sprintf("Next: from an agent's session, run %s; to bring a person onto it, %s\n", join, add)
-	a.emit(map[string]any{"server": srv, "board": b, "linked": linked, "policy_notice": notice, "join_command": join}, text)
+	a.emit(map[string]any{"server": srv, "board": b, "linked": linked, "stays_linked": stays, "policy_notice": notice, "join_command": join}, text)
 	return nil
 }

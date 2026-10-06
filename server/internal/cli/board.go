@@ -61,8 +61,16 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		}
 		return runBoardNew(ctx, a, pos[1], *newTitle, *private, *serverFlag)
 	}
-	if *newTitle != "" || *private || *serverFlag != "" {
-		return usageError("--title, --private and --server work only with new.", boardUsage)
+	if *newTitle != "" || *private {
+		return usageError("--title and --private work only with new.", boardUsage)
+	}
+	if *serverFlag != "" {
+		switch pos[0] {
+		case "policy", "add", "remove", "leave", "owner", "visibility":
+			a.boardServerFlag = *serverFlag
+		default:
+			return usageError("--server works only with new, policy, add, remove, leave, owner and visibility.", boardUsage)
+		}
 	}
 	onePerson := func() (string, error) {
 		if len(pos) != 2 || handleArg(pos[1]) == "" {
@@ -186,7 +194,7 @@ func runBoardPolicy(ctx context.Context, a *app, boardFlag, presetArg string) er
 	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(a.namedBoard(boardFlag))); err != nil {
 		return err
 	}
-	t, err := a.selectBoard(boardFlag)
+	t, err := a.personBoard(boardFlag)
 	if err != nil {
 		return err
 	}

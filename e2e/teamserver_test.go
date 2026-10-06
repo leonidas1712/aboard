@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -295,6 +296,42 @@ func TestATeamServerBehindAnHTTPSProxy(t *testing.T) {
 		t.Fatalf("board new in a linked directory:\n%s", other)
 	}
 	desktop.run("board", "add", "@alex", "--board", "maya-notes")
+
+	// A board made on the team server from a folder linked to a local board: the folder
+	// keeps its board, and the next steps name the team server, which the board
+	// commands take with --server.
+	laptop.run("pair")
+	local := field(t, laptop.run("status", "--json").json(t), "board").(string)
+	linkedBefore, err := os.ReadFile(filepath.Join(laptop.dir, ".aboard"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cross := laptop.run("board", "new", "maya-cross", "--server", s.url)
+	localURL := "http://" + laptop.addr
+	if want := "Created board maya-cross on " + s.url + ", open to everyone on the server.\n" +
+		"This directory stays linked to " + local + " on " + localURL + ", so board commands for maya-cross need --server " + s.url + ".\n" +
+		starterNoticeLine +
+		"Next: from an agent's session, run aboard join --board maya-cross --server " + s.url +
+		"; to bring a person onto it, aboard board add @handle --board maya-cross --server " + s.url + "\n"; cross.stdout != want {
+		t.Fatalf("board new across servers:\n%s\nwant:\n%s", cross, want)
+	}
+	crossJSON := laptop.run("board", "new", "maya-cross-2", "--server", s.url, "--json").json(t)
+	matchesCLISpec(t, "BoardNewOutput", crossJSON)
+	if crossJSON["linked"] != false || field(t, crossJSON, "stays_linked.board") != local || field(t, crossJSON, "stays_linked.server.url") != localURL ||
+		crossJSON["join_command"] != "aboard join --board maya-cross-2 --server "+s.url {
+		t.Fatalf("board new across servers --json: %v", crossJSON)
+	}
+	if after, _ := os.ReadFile(filepath.Join(laptop.dir, ".aboard")); !bytes.Equal(after, linkedBefore) {
+		t.Fatalf("the folder's link changed:\n%s\nwas:\n%s", after, linkedBefore)
+	}
+	laptop.run("board", "policy", "recommended", "--board", "maya-cross", "--server", s.url)
+	laptop.run("board", "add", "@alex", "--board", "maya-cross", "--server", s.url)
+	if status, v := s.call("GET", "/v1/boards/maya-cross/people", s.savedKey(alex), nil); status != http.StatusOK || !strings.Contains(fmt.Sprint(v), "alex") {
+		t.Fatalf("alex on maya-cross: %d %v", status, v)
+	}
+	if status, v := s.call("GET", "/v1/boards/maya-cross", s.savedKey(alex), nil); status != http.StatusOK || field(t, v, "policy.preset") != "recommended" {
+		t.Fatalf("maya-cross's policy: %d %v", status, v)
+	}
 	status, jc := s.call("POST", "/v1/boards/"+board+"/join-codes", s.savedKey(alex), map[string]any{"role": "member"})
 	if line, _ := jc["join_line"].(string); status != http.StatusCreated || !strings.Contains(line, " on "+host+" as member ") {
 		t.Fatalf("the join line doesn't name the public host: %d %v", status, jc)
