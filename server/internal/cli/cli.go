@@ -81,19 +81,19 @@ type app struct {
 	homeAddr string
 	// harnesses are the harnesses Aboard knows, once listed.
 	harnesses harness.Set
-	// timeout, when set, replaces requestTimeout for one request, and askLine replaces
-	// the terminal question for a line of text; tests use them to stand in for a slow
-	// person.
-	timeout time.Duration
-	askLine func(title string) (string, error)
+	// deadline, when set, replaces the timeout one request gets, and askLine replaces
+	// the terminal question for a line of text; tests use them to expire a request's
+	// time while a person is still typing.
+	deadline func(context.Context) (context.Context, context.CancelFunc)
+	askLine  func(title string) (string, error)
 }
 
-// requestTimeout returns how long one request may take.
-func (a *app) requestTimeout() time.Duration {
-	if a.timeout > 0 {
-		return a.timeout
+// requestContext returns the context for one request: ctx with requestTimeout.
+func (a *app) requestContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if a.deadline != nil {
+		return a.deadline(ctx)
 	}
-	return requestTimeout
+	return context.WithTimeout(ctx, requestTimeout)
 }
 
 // askText asks the person for a line of text at the terminal.

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
@@ -376,9 +375,31 @@ func TestBoardDeleteWaitsForASlowConfirmation(t *testing.T) {
 	e.stdin = "unused\n"
 	var out bytes.Buffer
 	a := e.app(&out, &out)
-	a.timeout = 50 * time.Millisecond
+	// Every request context the command makes is kept; while the person types, each one
+	// made so far runs out, as its deadline would on a slow person.
+	var (
+		mu      sync.Mutex
+		expire  []context.CancelFunc
+		expired []context.Context
+	)
+	a.deadline = func(ctx context.Context) (context.Context, context.CancelFunc) {
+		ctx, cancel := context.WithCancelCause(ctx)
+		mu.Lock()
+		defer mu.Unlock()
+		expire = append(expire, func() { cancel(context.DeadlineExceeded) })
+		expired = append(expired, ctx)
+		return ctx, func() { cancel(context.Canceled) }
+	}
 	a.askLine = func(string) (string, error) {
-		time.Sleep(4 * a.timeout) // longer than one request may take
+		mu.Lock()
+		defer mu.Unlock()
+		if len(expire) == 0 {
+			t.Fatal("no request was made before the question")
+		}
+		for i, run := range expire {
+			run()
+			<-expired[i].Done()
+		}
 		return "payments-design", nil
 	}
 	if err := runBoard(context.Background(), a, []string{"delete"}); err != nil {

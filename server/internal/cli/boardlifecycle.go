@@ -128,7 +128,7 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 	if !byID {
 		// Say an active board needs archiving before asking for its name. A board this
 		// person can't read is left to the server, which answers as for any other.
-		pctx, cancel := context.WithTimeout(ctx, a.requestTimeout())
+		pctx, cancel := a.requestContext(ctx)
 		b, err := c.board(pctx, t.board)
 		cancel()
 		if err == nil && (b.Lifecycle == nil || *b.Lifecycle != api.BoardLifecycleArchived) {
@@ -153,7 +153,7 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 			return err
 		}
 	}
-	dctx, cancel := context.WithTimeout(ctx, a.requestTimeout())
+	dctx, cancel := a.requestContext(ctx)
 	defer cancel()
 	r, err := c.api.DeleteBoardWithResponse(dctx, t.board, &api.DeleteBoardParams{})
 	if err != nil {
