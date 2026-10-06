@@ -61,6 +61,7 @@ func (s *testServer) privateBoard(maya string) string {
 // Every path to a private board a person isn't on answers exactly as for a board that
 // doesn't exist: same status, same code, and the same message with only the name in it.
 func TestAPrivateBoardLooksLikeNoBoardToOutsiders(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	name := s.privateBoard(maya)
@@ -124,6 +125,7 @@ func ptr[T any](v T) *T { return &v }
 // many people are on it, and nothing else; and can't add anyone to it, themselves
 // included. An admin's agent sees no more than any agent.
 func TestAnAdminSeesOnlyThatAPrivateBoardExists(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	name := s.privateBoard(maya)
@@ -170,6 +172,7 @@ func TestAnAdminSeesOnlyThatAPrivateBoardExists(t *testing.T) {
 // Anyone on a board adds people; only owners remove them, make owners or change the
 // visibility; the last owner can't leave; agents manage no one.
 func TestWhoMayChangeABoardsPeople(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam, kim := s.addHuman("maya"), s.addHuman("sam"), s.addHuman("kim")
 	name := s.privateBoard(maya)
@@ -222,6 +225,7 @@ func TestWhoMayChangeABoardsPeople(t *testing.T) {
 // hides it from everyone else; turning it open again shows how much becomes visible,
 // and anyone may then join and read its history.
 func TestTurningABoardOpenAndPrivate(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	ctx := context.Background()
@@ -327,6 +331,7 @@ func TestTurningABoardOpenAndPrivate(t *testing.T) {
 
 // Who may create boards is a server setting only an admin's own key changes.
 func TestTheBoardCreationSetting(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	ctx := context.Background()

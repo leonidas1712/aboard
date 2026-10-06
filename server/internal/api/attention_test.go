@@ -72,6 +72,7 @@ func (st *eventStream) unread() unreadEvent {
 // unread. It never moves back or past the head, their own messages never count, and
 // every stream of theirs hears of each move.
 func TestAPersonsReadPositionMovesOnlyWhenTheyAcknowledge(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, _ := s.pair("starter")
@@ -135,6 +136,7 @@ func TestAPersonsReadPositionMovesOnlyWhenTheyAcknowledge(t *testing.T) {
 // An agent's position on its board is its inbox's: the board's ack moves the same
 // position as the inbox's, and its unread count is what its inbox holds.
 func TestAnAgentsBoardAckIsItsInboxAck(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -173,6 +175,7 @@ func (s *testServer) receipts(token, boardName string, seq int) (all *api.Receip
 // the sender, never anyone removed since. An agent's message is received once its read
 // position passes it, a person's read once theirs does; a message to everyone has none.
 func TestReceiptsFollowTheRecipientsFixedAtPosting(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("starter")
@@ -258,6 +261,7 @@ func TestReceiptsFollowTheRecipientsFixedAtPosting(t *testing.T) {
 // open board is not_on_board, a message that isn't there or that an agent may not read
 // under addressed visibility is message_not_found, and a private board is not found.
 func TestReceiptsNeedTheBoardAndTheMessage(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, writer, reviewer := s.pair("recommended")

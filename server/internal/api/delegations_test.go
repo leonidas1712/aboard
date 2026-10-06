@@ -167,6 +167,7 @@ func noStore(t *testing.T, a answer) {
 // A delegation is made only with a person's own key, answers without being cached, and
 // its token starts abd_.
 func TestADelegationIsMadeOnlyWithAPersonsKey(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	a := s.delegation(maya, "maya-laptop")
@@ -187,6 +188,7 @@ func TestADelegationIsMadeOnlyWithAPersonsKey(t *testing.T) {
 // A delegation does exactly two things; everything else is forbidden, whatever the
 // person behind it may do.
 func TestADelegationOnlyListsBoardsAndJoins(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	board, agent, _ := s.pair("starter")
 	dlg := s.delegate(s.owner)
@@ -228,6 +230,7 @@ func TestADelegationOnlyListsBoardsAndJoins(t *testing.T) {
 // A delegation ends with its key, revoked or expired, with its person's removal from the
 // server, and when the same key makes another with the same name.
 func TestADelegationEndsWithItsKeyItsPersonAndItsReplacement(t *testing.T) {
+	t.Parallel()
 	t.Run("key revoked", func(t *testing.T) {
 		s := newTestServer(t)
 		maya := s.addHuman("maya")
@@ -311,6 +314,7 @@ func boardNames(a answer) map[string]map[string]any {
 // the person's own or hidden from them: an admin's lists no hidden boards, and a
 // guest's lists only the guest's boards.
 func TestADelegationListsTheBoardsItsPersonCanSee(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	open := s.openBoard(maya)
@@ -361,6 +365,7 @@ func TestADelegationListsTheBoardsItsPersonCanSee(t *testing.T) {
 // with the person as actor; a repeat from the same session reuses that seat with a new
 // token, stops the earlier one and records nothing.
 func TestADelegatedJoinMakesASeatAndReusesIt(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya := s.addHuman("maya")
 	board := s.openBoard(maya)
@@ -410,6 +415,7 @@ func TestADelegatedJoinMakesASeatAndReusesIt(t *testing.T) {
 // The seat lookup is keyed by the person: two people whose harnesses give the same
 // session string each get their own seat.
 func TestTwoPeopleWithTheSameSessionStringNeverShareASeat(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	board := s.openBoard(maya)
@@ -429,6 +435,7 @@ func TestTwoPeopleWithTheSameSessionStringNeverShareASeat(t *testing.T) {
 // A delegated join refuses, writing nothing, a board the person can't see, a guest's
 // own board, a code, and an incomplete request.
 func TestADelegatedJoinRefusesWhatThePersonCantDo(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	open := s.openBoard(maya)
@@ -461,6 +468,7 @@ func TestADelegatedJoinRefusesWhatThePersonCantDo(t *testing.T) {
 // On an open board the person isn't on, a delegated join adds them first, as a member;
 // a refusal after that undoes the addition too.
 func TestADelegatedJoinAddsThePersonToAnOpenBoardOrNothing(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	board := s.openBoard(maya)
@@ -502,6 +510,7 @@ func TestADelegatedJoinAddsThePersonToAnOpenBoardOrNothing(t *testing.T) {
 // A removed seat is never replaced by a delegated join: the session gets agent_removed
 // with who removed it and when, and nothing is written.
 func TestARemovedSeatIsNeverReplaced(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	board := s.openBoard(maya)
@@ -540,6 +549,7 @@ func TestARemovedSeatIsNeverReplaced(t *testing.T) {
 // A delegated join's answer is never kept for an Idempotency-Key: a repeat is a new
 // call, which finds the same seat with another new token.
 func TestADelegatedJoinIsNeverReplayed(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya := s.addHuman("maya")
 	board := s.openBoard(maya)
@@ -559,6 +569,7 @@ func TestADelegatedJoinIsNeverReplayed(t *testing.T) {
 // while it works, seat_token_replaced once a delegated join from the same session gave
 // the seat a new one, and the error a new call would get once the person lost the board.
 func TestAPersonsJoinReplayIsRechecked(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya := s.addHuman("maya")
 	board := s.openBoard(maya)
@@ -604,6 +615,7 @@ func TestAPersonsJoinReplayIsRechecked(t *testing.T) {
 // A replay never says anything about a board the caller can no longer see: removed
 // from a private board, the replay gets board_not_found, exactly as a new join would.
 func TestAReplayOnAHiddenBoardSaysNothingAboutTheSeat(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya := s.addHuman("maya")
 	private := s.privateBoard(s.owner)
@@ -628,6 +640,7 @@ func TestAReplayOnAHiddenBoardSaysNothingAboutTheSeat(t *testing.T) {
 // A guest code the first call used up still counts for its own repeat, as long as its
 // maker's authority holds.
 func TestAUsedGuestCodeStillCountsForItsOwnRepeat(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	first, second := s.openBoard(maya), s.openBoard(maya)
@@ -661,6 +674,7 @@ func TestAUsedGuestCodeStillCountsForItsOwnRepeat(t *testing.T) {
 // Joins for one session at once make one seat: whatever order they commit in, exactly
 // one is new, every answer names the same seat, and only the last token works.
 func TestSimultaneousDelegatedJoinsMakeOneSeat(t *testing.T) {
+	t.Parallel()
 	s := newJoinServer(t)
 	maya := s.addHuman("maya")
 	board := s.openBoard(maya)
@@ -695,6 +709,7 @@ func TestSimultaneousDelegatedJoinsMakeOneSeat(t *testing.T) {
 
 // The inbox and its acknowledgement name the seat by its member id.
 func TestTheInboxNamesItsSeat(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	board, writer, _ := s.pair("starter")
 	me := s.call("GET", "/v1/me", writer, nil, "")

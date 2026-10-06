@@ -68,6 +68,7 @@ func newThread(t *testing.T, s *testServer) thread {
 // A reply to a reply joins the thread of the reply it answers, so a thread is one level
 // deep, and its replies read oldest first from any message in it.
 func TestRepliesReadTheWholeThreadFromAnyMessageInIt(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	th := newThread(t, s)
@@ -131,6 +132,7 @@ func TestRepliesReadTheWholeThreadFromAnyMessageInIt(t *testing.T) {
 // counts only those; a reader that may not see the first message gets a thread without
 // it, and one that may not see the message asked for gets message_not_found.
 func TestThreadsShowOnlyWhatTheReaderMaySee(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	th := newThread(t, s)
@@ -170,6 +172,7 @@ func TestThreadsShowOnlyWhatTheReaderMaySee(t *testing.T) {
 
 // With wait, reading a thread holds until a reply arrives.
 func TestRepliesWaitForTheNextReply(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	th := newThread(t, s)

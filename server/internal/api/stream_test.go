@@ -172,6 +172,7 @@ func (s *testServer) boardHead(token, name string) head {
 }
 
 func TestStreamStartsWithTheHeadOfEveryBoardTheHumanIsOn(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	paired, _, _ := s.pair("starter")
@@ -195,6 +196,7 @@ func TestStreamStartsWithTheHeadOfEveryBoardTheHumanIsOn(t *testing.T) {
 }
 
 func TestStreamSendsAHeadWhenAMessageIsPosted(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	boardName, writer, _ := s.pair("starter")
 	st := s.openStream(s.owner)
@@ -212,6 +214,7 @@ func TestStreamSendsAHeadWhenAMessageIsPosted(t *testing.T) {
 }
 
 func TestStreamPicksUpBoardsTheHumanJoinsAfterConnecting(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	ctx := context.Background()
 	boardName, _, _ := s.pair("starter")
@@ -233,6 +236,7 @@ func TestStreamPicksUpBoardsTheHumanJoinsAfterConnecting(t *testing.T) {
 }
 
 func TestStreamSendsAKeepaliveEvery25Seconds(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.pair("starter")
 	st := s.openStream(s.owner)
@@ -244,6 +248,7 @@ func TestStreamSendsAKeepaliveEvery25Seconds(t *testing.T) {
 }
 
 func TestStreamNeedsAHumanToken(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	_, writer, _ := s.pair("starter")
 	for _, tc := range []struct {
@@ -278,6 +283,7 @@ type rawResponse struct {
 func (r *rawResponse) StatusCode() int { return r.Status }
 
 func TestStreamEndsWhenTheClientDisconnects(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.pair("starter")
 	st := s.openStream(s.owner)
@@ -300,6 +306,7 @@ func TestStreamEndsWhenTheClientDisconnects(t *testing.T) {
 }
 
 func TestStreamEndsWhenTheServerShutsDown(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	s.pair("starter")
 	st := s.openStream(s.owner)

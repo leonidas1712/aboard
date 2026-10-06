@@ -62,6 +62,7 @@ func (s *testServer) refuseMachine(token, code string) *api.RefuseMachineRequest
 // where she is signed in, and the new machine collects a key of its own, once. The key
 // is hers, independent of the key that approved it: revoking that one leaves it working.
 func TestApprovingAMachineGivesItAnIndependentKey(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	code, secret := s.startMachine("maya", "maya-desktop")
@@ -104,6 +105,7 @@ func TestApprovingAMachineGivesItAnIndependentKey(t *testing.T) {
 // guessed secret is taken for the collection secret, and the code itself isn't secret
 // enough to look like one.
 func TestTheShortCodeAloneCantCollect(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	code, secret := s.startMachine("alex", "alex-desktop")
 	mustStatus(t, s.approveMachine(s.owner, code), nil, 200)
@@ -118,6 +120,7 @@ func TestTheShortCodeAloneCantCollect(t *testing.T) {
 // request for a handle nobody has starts like any other and can never be approved, so
 // starting one doesn't reveal which handles exist.
 func TestOnlyTheNamedPersonApprovesAMachine(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya, sam := s.addHuman("maya"), s.addHuman("sam")
 	code, secret := s.startMachine("maya", "maya-desktop")
@@ -152,6 +155,7 @@ func TestOnlyTheNamedPersonApprovesAMachine(t *testing.T) {
 // Only a person's own key looks up, approves or refuses a machine: never an agent's
 // token, a browser, or no token at all. A refused attempt changes nothing.
 func TestOnlyAPersonsOwnKeyDecidesAMachine(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	_, agentToken, _ := s.pair("starter")
 	browser := s.browserToken(s.owner)
@@ -168,6 +172,7 @@ func TestOnlyAPersonsOwnKeyDecidesAMachine(t *testing.T) {
 
 // A refused request gives no key, and its code stops working.
 func TestARefusedMachineGetsNoKey(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	code, secret := s.startMachine("alex", "alex-desktop")
 	r := s.refuseMachine(s.owner, code)
@@ -182,6 +187,7 @@ func TestARefusedMachineGetsNoKey(t *testing.T) {
 // A request ends after five minutes, approved or not: its code stops working and its
 // key can't be collected.
 func TestAMachineRequestExpires(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	pending, pendingSecret := s.startMachine("alex", "one")
 	approved, approvedSecret := s.startMachine("alex", "two")
@@ -196,6 +202,7 @@ func TestAMachineRequestExpires(t *testing.T) {
 // An approval is only as good as the key that made it: if that key is revoked before
 // the machine collects, the machine gets nothing.
 func TestAnApprovalEndsWithTheKeyThatMadeIt(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	maya := s.addHuman("maya")
 	_, spare := s.newKey(maya, "spare")
@@ -208,6 +215,7 @@ func TestAnApprovalEndsWithTheKeyThatMadeIt(t *testing.T) {
 // A machine may ask for its key only so many times before its request ends, and an
 // ended request can't be approved.
 func TestCollectingIsBounded(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	code, secret := s.startMachine("alex", "alex-desktop")
 	for range board.MachineRequestMaxPolls {
@@ -222,6 +230,7 @@ func TestCollectingIsBounded(t *testing.T) {
 // across the server. Each limit refuses with 429 and Retry-After, and lifts after a
 // minute.
 func TestMachineAttemptsAreLimited(t *testing.T) {
+	t.Parallel()
 	type attempt func(s *testServer, maya, sam string) response
 	guess := func(who func(maya, sam string) string) attempt {
 		return func(s *testServer, maya, sam string) response { return s.lookupMachine(who(maya, sam), "AAA-AAA") }

@@ -12,6 +12,7 @@ func fakeClock() *clock.Fake { return clock.NewFake(time.Date(2026, 10, 1, 16, 0
 // The attempt limit counts every attempt within a minute, and starts afresh with the
 // next minute.
 func TestAttemptLimitCountsEachMinuteOnItsOwn(t *testing.T) {
+	t.Parallel()
 	clk := fakeClock()
 	l := newRateLimiter(clk, 2)
 	for i := range 2 {
@@ -38,6 +39,7 @@ func TestAttemptLimitCountsEachMinuteOnItsOwn(t *testing.T) {
 // The failure limit counts a failure in the minute it failed in, never in an earlier
 // one, and checking it counts nothing.
 func TestFailureLimitCountsFailuresInTheMinuteTheyHappen(t *testing.T) {
+	t.Parallel()
 	clk := fakeClock()
 	l := newRateLimiter(clk, 1)
 	for range 5 {
@@ -63,6 +65,7 @@ func TestFailureLimitCountsFailuresInTheMinuteTheyHappen(t *testing.T) {
 // take back a failure counted in the next. A success counts nothing toward the failure
 // limit, so there is nothing to take back.
 func TestASuccessFinishingInTheNextMinuteKeepsItsFailures(t *testing.T) {
+	t.Parallel()
 	clk := fakeClock()
 	limits := signInLimits{
 		failed:   newLimiters(clk, Limits{PerAddr: 1, Server: 100}),
@@ -85,6 +88,7 @@ func TestASuccessFinishingInTheNextMinuteKeepsItsFailures(t *testing.T) {
 // Successes never reach the failure limit, but the higher attempt limit still bounds
 // them.
 func TestSuccessfulSignInsMeetOnlyTheAttemptLimit(t *testing.T) {
+	t.Parallel()
 	clk := fakeClock()
 	limits := signInLimits{
 		failed:   newLimiters(clk, Limits{PerAddr: 1, Server: 1}),

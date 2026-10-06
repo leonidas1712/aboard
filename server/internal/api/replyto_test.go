@@ -31,6 +31,7 @@ func targets(m api.Message) []string {
 // sender may see, the author of the message it answers first, never to everyone; an
 // explicit target overrides it, and a thread with no one else in it is refused.
 func TestReplyWithoutTargetsGoesToTheThread(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	th := newThread(t, s)
 
@@ -69,6 +70,7 @@ func TestReplyWithoutTargetsGoesToTheThread(t *testing.T) {
 
 // A message that replies to nothing has no reply_to_from.
 func TestMessageThatRepliesToNothingHasNoReplyToFrom(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	th := newThread(t, s)
 	if th.root.ReplyToFrom != nil {

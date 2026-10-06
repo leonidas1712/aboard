@@ -43,6 +43,7 @@ func wantCode(t *testing.T, r response, status int, code string) {
 
 // An invite works until it expires, and makes one member, never an admin.
 func TestServerInviteExpires(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	kept, lapsed := s.invite(s.owner, 120), s.invite(s.owner, 60)
 	mustStatus(t, kept, nil, 201)
@@ -63,6 +64,7 @@ func TestServerInviteExpires(t *testing.T) {
 
 // A browser, even an admin's, can't make an invite: only a person's own access key can.
 func TestBrowserCantInvite(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	wantCode(t, s.invite(s.browserToken(s.owner), 0), 403, "human_token_required")
 }
@@ -70,6 +72,7 @@ func TestBrowserCantInvite(t *testing.T) {
 // Attempts to redeem invites are limited per client address and across the server, so
 // guessing is bounded however many addresses it comes from.
 func TestConnectAttemptsAreLimited(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name         string
 		perAddr, all int
@@ -95,6 +98,7 @@ func TestConnectAttemptsAreLimited(t *testing.T) {
 
 // A handle must be a plain name.
 func TestConnectRefusesAnInvalidHandle(t *testing.T) {
+	t.Parallel()
 	s := newTestServer(t)
 	inv := s.invite(s.owner, 0)
 	wantCode(t, s.connect(inv.JSON201.Invite, "Maya Chen"), 422, "handle_invalid")
@@ -104,6 +108,7 @@ func TestConnectRefusesAnInvalidHandle(t *testing.T) {
 // A revoked or expired access key stops working, and so does everything it started: its
 // browser logins and its agents' tokens. Other people's keys keep working.
 func TestAKeyEndsWhatItStarted(t *testing.T) {
+	t.Parallel()
 	for _, change := range []string{
 		"UPDATE access_keys SET revoked_at = '2026-10-01T16:00:00.000Z' WHERE human_id = (SELECT id FROM humans WHERE name = 'alex')",
 		"UPDATE access_keys SET expires_at = '2026-10-01T16:00:00.000Z' WHERE human_id = (SELECT id FROM humans WHERE name = 'alex')",
