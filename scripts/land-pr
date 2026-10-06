@@ -29,9 +29,11 @@
 #      make live-affected, which needs harness logins and so can't run in CI, and
 #      merges only if it passes. While CI runs, the live tests run beside it.
 #   5. Push the branch, merge the PR with a merge commit at exactly the checked commit,
-#      and confirm GitHub reports it MERGED. If GitHub refuses because main moved, start
+#      and confirm GitHub reports it MERGED. Right before each attempt, and after a
+#      refused one, fetch main: if the head no longer contains it, don't merge; start
 #      again from step 3, so the new main is merged and the new head checked (at most
-#      three rounds); if main didn't move, retry the merge.
+#      three rounds, then exit 4 with nothing merged). If main didn't move, a refused
+#      merge is retried.
 #   6. Only after a confirmed merge: remove the worktree and local branch if this script
 #      created them, and delete the branch on GitHub.
 #
@@ -405,26 +407,34 @@ git push -q origin "HEAD:refs/heads/$branch" ||
 	fail 4 "can't push $branch; if someone else pushed to it, run scripts/land-pr $pr again. Nothing was merged or cleaned up"
 say "Pushed: $branch at $(git rev-parse --short HEAD)"
 
+# again_if_main_moved starts over when origin's main has a commit the checked head
+# lacks, merging the new main and checking the new head, so this script never merges a
+# head that wasn't checked with all of main. It runs before every merge attempt, since
+# GitHub may accept a merge of a stale head, and after a refused one. It fails closed:
+# if main can't be fetched, or keeps moving, nothing merges.
+again_if_main_moved() {
+	git fetch -q origin main ||
+		fail 4 "can't fetch main from origin to check the head still contains it, so nothing was merged; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
+	git merge-base --is-ancestor origin/main "$head_sha" && return 0
+	round=${LAND_PR_ROUND:-1}
+	[ "$round" -lt "$max_rounds" ] ||
+		fail 4 "main moved during each of $max_rounds tries to land PR #$pr, so nothing was merged; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
+	say "Main moved to $(git rev-parse --short origin/main) while landing; starting again to merge it and check the new head ($((round + 1)) of $max_rounds)"
+	# shellcheck disable=SC2086 # args are options and a number, no spaces inside
+	LAND_PR_ROUND=$((round + 1)) exec "$self" $args
+}
+
 delay=${LAND_PR_RETRY_DELAY:-5}
 attempt=1
 merged=no
 while [ "$attempt" -le "$merge_attempts" ]; do
+	again_if_main_moved
 	out=$(gh pr merge "$pr" --merge --match-head-commit "$head_sha" 2>&1) || true
 	if [ "$(gh pr view "$pr" --json state --jq .state 2>/dev/null)" = MERGED ]; then
 		merged=yes
 		break
 	fi
-	# If main moved, the checked commit no longer has all of main: start over, merging
-	# the new main and checking the new head, rather than merging what wasn't checked.
-	git fetch -q origin main || fail 4 "can't fetch main from origin to see whether it moved; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
-	if ! git merge-base --is-ancestor origin/main HEAD; then
-		round=${LAND_PR_ROUND:-1}
-		[ "$round" -lt "$max_rounds" ] ||
-			fail 4 "main moved during each of $max_rounds tries to land PR #$pr; $branch is pushed and $wt is kept. Run scripts/land-pr $pr again"
-		say "Main moved to $(git rev-parse --short origin/main) while landing; starting again to merge it and check the new head ($((round + 1)) of $max_rounds)"
-		# shellcheck disable=SC2086 # args are options and a number, no spaces inside
-		LAND_PR_ROUND=$((round + 1)) exec "$self" $args
-	fi
+	again_if_main_moved
 	case $out in
 	*"ase branch was modified"*)
 		say "GitHub says the base branch was modified; trying again in ${delay}s ($attempt of $merge_attempts)"

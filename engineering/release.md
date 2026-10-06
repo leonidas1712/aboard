@@ -219,10 +219,12 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
    only if it passes. Without `--live`, it notes a change to delivery, setup or upgrades,
    which must pass `make live` before merging.
 5. It pushes, merges with `gh pr merge --merge --match-head-commit <the checked
-   commit>`, and confirms GitHub reports the PR merged. If GitHub refuses and `main`
-   has moved, the checked commit no longer contains `main`, so it starts again from
-   step 2: it merges the new `main` and waits for CI on the new head (at most three
-   rounds, then exit 4). If `main` hasn't moved, it retries the merge.
+   commit>`, and confirms GitHub reports the PR merged. Right before each attempt, and
+   after a refused one, it fetches `main` and checks the head still contains it, since
+   GitHub accepts a stale head unless `main` requires up-to-date branches. If `main`
+   has moved, it doesn't merge: it starts again from step 2, merging the new `main` and
+   waiting for CI on the new head (at most three rounds, then exit 4 with nothing
+   merged). If `main` hasn't moved, a refused merge is retried.
 6. Only then does it remove what it created (the temporary worktree and local branch)
    and delete the branch on GitHub. A failure at any step leaves everything in place
    and says what to do next.
