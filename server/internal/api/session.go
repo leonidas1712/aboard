@@ -28,8 +28,13 @@ type sessionCookie struct {
 // __Host-aboard_session and Secure, so browsers send it only over HTTPS and only to this
 // exact host. A loopback address over plain HTTP, as the local server runs, can't keep a
 // Secure cookie, so it gets aboard_session_<port>: browsers share cookies between the
-// ports of one host, and the port keeps two local servers from sharing one.
-func cookieFor(r *http.Request) sessionCookie {
+// ports of one host, and the port keeps two local servers from sharing one. A team
+// server, with publicOrigin set, always uses the secure cookie and its public origin:
+// HTTPS ends at its proxy, so the request itself arrives over plain HTTP.
+func cookieFor(r *http.Request, publicOrigin string) sessionCookie {
+	if publicOrigin != "" {
+		return sessionCookie{name: "__Host-aboard_session", secure: true, origin: publicOrigin}
+	}
 	host := strings.ToLower(r.Host)
 	if r.TLS == nil && loopback(host) {
 		name := "aboard_session"

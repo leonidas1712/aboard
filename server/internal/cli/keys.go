@@ -55,6 +55,29 @@ func (a *app) keysServer(ctx context.Context, flag string) (serverRef, bool, err
 	return srv, started, err
 }
 
+// personServer is the server a person command acts on when it may be a team server:
+// --server, else the one this directory's .aboard names, else the one server this
+// machine is connected to when there is exactly one, else the local server, which it
+// starts if needed. It reports whether it started the local server.
+func (a *app) personServer(ctx context.Context, flag string) (serverRef, bool, error) {
+	if flag == "" {
+		p, ok, err := a.readProject()
+		if err != nil {
+			return serverRef{}, false, err
+		}
+		if !ok || p.Server.URL == "" {
+			logins, err := a.readServerLogins()
+			if err != nil {
+				return serverRef{}, false, err
+			}
+			if len(logins.Servers) == 1 {
+				flag = logins.Servers[0].URL
+			}
+		}
+	}
+	return a.keysServer(ctx, flag)
+}
+
 // keysClient returns a client for srv that sends the key this machine keeps for it.
 func (a *app) keysClient(ctx context.Context, srv serverRef) (*client, error) {
 	token, err := a.readOwnerToken(srv)

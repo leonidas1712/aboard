@@ -264,9 +264,30 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 // already existed. Keys moved over from before keys had names get machine's name too.
 // It never makes a second admin.
 func (s *Service) BootstrapOwner(ctx context.Context, name, machine string) (string, error) {
-	var token string
+	token, err := s.NewKeySecret()
+	if err != nil {
+		return "", err
+	}
+	created, err := s.BootstrapAdmin(ctx, name, machine, token)
+	if err != nil || !created {
+		return "", err
+	}
+	return token, nil
+}
+
+// NewKeySecret returns a new access key's secret, which BootstrapAdmin can store.
+func (s *Service) NewKeySecret() (string, error) {
+	return s.gen.Token(strings.TrimSuffix(accessKeyPrefix, "_"))
+}
+
+// BootstrapAdmin makes the server's first person, its admin, with a first access key
+// named keyName whose secret is secret, if the server has no person yet, and reports
+// whether it did. The check and the person are one transaction, so it never makes a
+// second admin. Keys moved over from before keys had names get keyName too.
+func (s *Service) BootstrapAdmin(ctx context.Context, name, keyName, secret string) (bool, error) {
+	created := false
 	err := s.st.Write(ctx, func(tx Tx) error {
-		if err := tx.NameUnnamedKeys(machine); err != nil {
+		if err := tx.NameUnnamedKeys(keyName); err != nil {
 			return err
 		}
 		n, err := tx.HumanCount()
@@ -281,37 +302,58 @@ func (s *Service) BootstrapOwner(ctx context.Context, name, machine string) (str
 		if err := tx.InsertHuman(h); err != nil {
 			return err
 		}
-		// The local server's own key doesn't expire: it is kept beside the database it
+		// The first admin's key doesn't expire: it is kept beside the database it
 		// unlocks, so whoever can read it can read the database too.
-		token, _, err = s.newKey(tx, h.ID, machine, now, nil, nil)
-		return err
+		if _, err = s.storeKey(tx, h.ID, keyName, now, nil, nil, secret); err != nil {
+			return err
+		}
+		created = true
+		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("create local owner: %w", err)
+		return false, fmt.Errorf("create the first admin: %w", err)
 	}
-	return token, nil
+	return created, nil
+}
+
+// HasPeople reports whether the server has ever had a person.
+func (s *Service) HasPeople(ctx context.Context) (bool, error) {
+	var n int
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		var err error
+		n, err = tx.HumanCount()
+		return err
+	})
+	return n > 0, err
 }
 
 // newKey stores a new access key for a person and returns its secret, which exists only
 // here. It expires at expires (never when nil), or, with idle set, that long after its
 // last use.
 func (s *Service) newKey(tx Tx, humanID, name string, now time.Time, expires *string, idle *time.Duration) (string, AccessKey, error) {
-	token, err := s.gen.Token(strings.TrimSuffix(accessKeyPrefix, "_"))
+	token, err := s.NewKeySecret()
 	if err != nil {
 		return "", AccessKey{}, err
 	}
+	k, err := s.storeKey(tx, humanID, name, now, expires, idle, token)
+	return token, k, err
+}
+
+// storeKey stores an access key with the secret token, keeping only its digest.
+func (s *Service) storeKey(tx Tx, humanID, name string, now time.Time, expires *string, idle *time.Duration, token string) (AccessKey, error) {
 	k := AccessKey{HumanID: humanID, Name: name, Digest: ids.Digest(s.key, token), CreatedAt: stamp(now), ExpiresAt: expires}
 	if idle != nil {
 		k.ExpiresAt = ptr(stamp(now.Add(*idle)))
 		k.IdleSeconds = ptr(int64(idle.Seconds()))
 	}
+	var err error
 	if k.ID, err = s.gen.ID("key", now); err != nil {
-		return "", AccessKey{}, err
+		return AccessKey{}, err
 	}
 	if err := tx.InsertAccessKey(k); err != nil {
-		return "", AccessKey{}, fmt.Errorf("insert access key: %w", err)
+		return AccessKey{}, fmt.Errorf("insert access key: %w", err)
 	}
-	return token, k, nil
+	return k, nil
 }
 
 // NewServerInvite is a created server invite. Secret is only available at creation.

@@ -18,23 +18,48 @@ tracks the work.
   *Today:* `make install` builds and installs from source with the UI, and `make dev`
   builds `./.bin/aboard` as a dev build (`0.1.0+dev.<commit>`) that never replaces an
   installed one.
-- **Built by one automated job.** Pushing a version tag runs GoReleaser in CI, which
-  builds every platform, writes a `checksums.txt`, signs it, generates a software bill
-  of materials (SBOM) per archive, and publishes them with the release. Nothing is
-  built or uploaded by hand. *To build.*
-- **Signed.** The checksums file is signed with Sigstore's cosign using the release
-  job's identity, so anyone can check a download came from this repository's release
-  job. macOS binaries are also signed and notarized, so Gatekeeper accepts them.
-  People run Aboard with agents acting on their machines; what they install must be
-  checkable. *To build.*
+- **Built by one automated job.** Pushing a version tag runs GoReleaser in CI
+  (`.github/workflows/release.yml` with `.goreleaser.yaml`), which builds every
+  platform, writes a `checksums.txt`, signs it, generates a software bill of materials
+  (SBOM) per archive, and publishes them with the release. Each archive,
+  `aboard_<version>_<os>_<arch>.tar.gz`, holds `aboard`, the shipped launchers
+  (`aboard-launcher-<name>`), `LICENSE` and `README.md`, as plain files with no folder.
+  Nothing is built or uploaded by hand. *Today:* the job and `make release-snapshot`,
+  which builds every archive into `dist/` and publishes nothing; no release is
+  published yet.
+- **Signed.** The checksums file is signed with Sigstore's cosign, keyless, under the
+  release job's GitHub identity: the bundle `checksums.txt.sigstore.json` holds a
+  certificate naming `https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v<version>`,
+  issued through `https://token.actions.githubusercontent.com`. Anyone can check a
+  download came from this repository's release job on that tag. The server image is
+  signed the same way. People run aboard with agents acting on their machines; what
+  they install must be checkable. *Today*, with the release job.
+- **macOS signing and notarization: not done, by decision.** aboard has no Apple
+  Developer account, so its macOS binaries are neither signed with a Developer ID nor
+  notarized. What that means:
+  - The install script downloads with curl and `aboard upgrade` with its own HTTP
+    client; neither marks files with macOS's quarantine attribute, and Gatekeeper only
+    assesses quarantined files, so these installs run without a prompt. (This is how curl and Gatekeeper
+    behave today; the release checklist confirms it on a clean Mac each release.)
+  - An archive downloaded with a browser is quarantined, so macOS blocks `aboard` the
+    first time it runs. The person can allow it in System Settings → Privacy &
+    Security ("Open Anyway"), or install with the script instead.
+  - Integrity doesn't rest on Apple's signature: the cosign-signed checksums tie every
+    archive to this repository's release job.
+  - Once an account exists, the release job signs and notarizes with GoReleaser's
+    `notarize` section. It will need these repository secrets: `MACOS_SIGN_P12` (the
+    Developer ID Application certificate, base64), `MACOS_SIGN_PASSWORD`,
+    `MACOS_NOTARY_KEY` (an App Store Connect API key, base64), `MACOS_NOTARY_KEY_ID`
+    and `MACOS_NOTARY_ISSUER_ID`. A Homebrew cask then no longer needs to clear the
+    quarantine attribute.
 
 ## Install paths
 
 | Path | For | Today |
 | --- | --- | --- |
-| `curl -fsSL <install URL> \| sh` | Anyone on macOS or Linux | To build. The script picks the platform's archive, verifies it against the signed checksums, installs `aboard` to `~/.local/bin` (or a directory given with `ABOARD_INSTALL_DIR`) and says if that directory isn't on the `PATH`. |
-| `brew install <tap>/aboard` | macOS and Linux with Homebrew | To build. A tap the release job updates. |
-| A container image | Team servers | To build. Runs `aboard serve` with its data on a mounted volume. |
+| `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh \| sh` | Anyone on macOS or Linux | Yes, once a release is published (`scripts/install.sh`, attached to every release). The script picks the platform's archive, checks the checksums' signature when cosign is installed (and prints the command otherwise), verifies the archive against them, refuses an archive with anything but plain files, installs `aboard` and the launchers to `~/.local/bin` (or `ABOARD_INSTALL_DIR`) by renaming each into place, and says if that folder isn't on the `PATH`. `ABOARD_VERSION` picks a version. `e2e/installscript_test.go` runs it against a fake release server. |
+| `brew install leonidas1712/aboard/aboard` | macOS and Linux with Homebrew | Configured but off. To turn it on: create the public repository `leonidas1712/homebrew-aboard`; add a fine-grained token with contents write on that repository only as the secret `HOMEBREW_TAP_TOKEN`; pass it to the release step's environment; set `skip_upload: false` under `homebrew_casks` in `.goreleaser.yaml`; and, while the macOS binaries aren't notarized, add a post-install hook that clears the quarantine attribute Homebrew sets on casks. |
+| `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It is built from `Dockerfile.release`, which copies the release binary from the build context's `$TARGETPLATFORM/aboard` into the same image the root `Dockerfile` builds from source: alpine, user 10001, `aboard serve --team` with its data in `/data/aboard` on a volume at `/data`. Building it from source instead: `docker build --build-arg VERSION=… .` with the root `Dockerfile`. |
 | `make install` | Building from source | Yes. Needs Go and Node. |
 
 All of them install the same binary. The skill published for `npx skills` is generated
@@ -47,18 +72,25 @@ session that is already running.
 
 | What | How it updates | Rule | Today |
 | --- | --- | --- | --- |
-| The binary (CLI, daemon, local server) | A package manager, the install script, or `aboard upgrade` | Never installed silently. A command in a terminal says once a day that a newer release exists. A running daemon or local server from an older build is replaced by the first newer command or hook that reaches it. | Replacement: yes. Notice and `aboard upgrade`: to build |
+| The binary (CLI, daemon, local server) | A package manager, the install script, or `aboard upgrade` | Never installed silently. A command in a terminal says once a day that a newer release exists. A running daemon or local server from an older build is replaced by the first newer command or hook that reaches it. | Yes: replacement, the notice and `aboard upgrade` (`e2e/selfupgrade_test.go`) |
 | Files installed into harnesses (the skill, hook entries, allow rules) | `aboard init --yes` | Hooks run the installed binary by its path, so a new binary takes effect without rewriting them. `aboard doctor` reports a file that differs from what this build would write; the install manifest tells an outdated file from one the person edited. | Yes |
-| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, after a backup of the database. A binary older than its data refuses to start. | Forward-only and refusal: yes. Backup: to build, in the team step |
+| Team servers | A new binary or image, then a restart | Migrations run forward only, on start, in one transaction after a backup of the database. A binary older than its data refuses to start. | Yes |
 
 ### No silent installs
 
 Aboard never downloads and runs new code on its own. The update notice is one line on
 standard error, shown only to a person in a terminal: never in `--json` output, in
 hooks or inside a harness session, and not at all with `ABOARD_NO_UPDATE_CHECK=1`. It
-checks for a release at most once a day. `aboard upgrade` installs the latest release
-the way it was first installed (it defers to Homebrew for a Homebrew install), then
-runs `aboard init --yes` to update the skill and hooks in place.
+checks for a release at most once a day, alongside the command and for at most two
+seconds, reading the latest release's `checksums.txt`, and keeps the result in
+`update-check.json` in the state folder. A dev build never checks. `aboard upgrade`
+installs a release over an install-script install, checked as the script checks it,
+and then runs the new binary's `aboard init --yes` for the harnesses the install
+manifest records, to update the skill and hooks in place. For a Homebrew install or a
+source build it changes nothing and names the command to use (`brew upgrade aboard`,
+or `git pull` and `make install`). Every check comes before anything is replaced; a
+refresh that fails after the swap exits 1 with `upgrade_setup_failed` and says to run
+`aboard init --yes`, then `aboard doctor`.
 
 ### Installed files are compared by content, not stamped
 
@@ -98,11 +130,16 @@ The database schema is a sequence of numbered SQL migrations embedded in the bin
 no down migrations: going back means restoring a backup. Data written by a newer
 schema is refused with `data_newer`, so an older binary never misreads it.
 
-Before applying any migration, the server copies the database with SQLite's online
-backup to `backups/aboard-<schema>-<time>.db` next to it and keeps the last three. A
-failed migration leaves the original untouched and says where the backup is. The local
-server does the same; it is a team server with one person. *To build, in the team
-step.*
+Before applying any migration, the server copies the database with `VACUUM INTO` (a
+consistent copy taken while it is open) to `backups/aboard-<time>-schema-<n>.db` next
+to it and keeps the newest three. The folder is created owner-only, and one that is a
+link, a file or open to others stops the start before anything is copied; each copy is
+created owner-only before SQLite writes it. Every pending migration then runs in one
+transaction, so a failed upgrade leaves the database as it was and the error names the
+copy. Going back after an upgrade that worked means stopping the server, putting a copy
+in place of `aboard.db` (and removing `aboard.db-wal` and `aboard.db-shm`), and starting
+the older binary. The local server does the same; it is a team server with one person
+(D184, D199). *Today.*
 
 Every released schema keeps a fixture database, and a test migrates each one forward
 ([testing.md](testing.md#practices)).
@@ -142,7 +179,9 @@ else. Until then, every release is stable.
 messages and then edited for readers: **Added**, **Changed**, **Fixed**, and
 **Contract changes**. Contract changes lists every change under `/spec`, each saying
 what changed, who is affected (CLI scripts, API clients, delivery daemons, harness
-adapters) and whether it is additive. *To build, with the first release.*
+adapters) and whether it is additive. *Today:* `CHANGELOG.md` with an Unreleased
+section; the release job publishes a version's section as its release notes, and
+refuses a release (not a prerelease) whose section is missing.
 
 ## Landing a pull request
 
@@ -179,14 +218,78 @@ GitHub, and the local run becomes a first check rather than the gate. *To build.
 
 ## Cutting a release
 
+### Once, before the first release
+
+These are repository settings, made by the maintainer:
+
+1. **The `release` environment** (Settings → Environments → New environment
+   `release`): add the maintainer as a required reviewer, and limit deployment to tags
+   matching `v*`. The release job is the only job with write permissions, and it waits
+   for that approval.
+2. **Protect version tags** (Settings → Rules → New tag ruleset, target `v*`): only the
+   maintainer may create, update or delete them, so nobody else can start a release.
+3. **Workflow permissions** (Settings → Actions → General): keep the default
+   `GITHUB_TOKEN` read-only; the release job asks for `contents`, `id-token` and
+   `packages` write itself.
+4. **The image**: after the first release, set the `aboard` package on GHCR to public
+   (Packages → aboard → Package settings → Change visibility), so team servers can pull
+   it without logging in.
+5. **The image's two Dockerfiles stay alike**: `Dockerfile.release` (the release
+   binaries) and the root `Dockerfile` (a build from source) must set the same user,
+   volume, environment and entrypoint; change both together.
+
+No secrets are needed: signing is keyless, with the job's own GitHub identity, and the
+release and image are published with the job's `GITHUB_TOKEN`.
+
+### A dry run, publishing nothing
+
+Run the `release` workflow by hand (Actions → release → Run workflow, on `main`). It
+runs the checks and builds every archive, SBOM and the image without publishing or
+signing, with read-only permissions. Locally, `make release-snapshot` builds the
+archives into `dist/` the same way.
+
+### A release candidate, end to end
+
+Before the first release, and before any release that changes the pipeline, cut a
+release candidate. A tag with a suffix, such as `v0.1.0-rc.1`, is published as a GitHub
+prerelease: it never becomes "latest", so the install script, `aboard upgrade` and the
+image's `latest` tag skip it.
+
+1. On `main`, with `version` in `server/internal/cli/build.go` at `0.1.0`:
+   `git tag v0.1.0-rc.1 && git push origin v0.1.0-rc.1`.
+2. Approve the `release` environment when the job asks. The job runs the checks, then
+   builds, signs and publishes the prerelease with its archives, `checksums.txt`, its
+   bundle, the SBOMs and `install.sh`, and pushes `ghcr.io/leonidas1712/aboard:0.1.0-rc.1`.
+3. Check the signature from any machine with cosign, in a folder with the prerelease's
+   `checksums.txt` and `checksums.txt.sigstore.json`:
+   `cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.0-rc.1 --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt`.
+4. On a clean macOS machine and a clean Linux machine, install the candidate with the
+   prerelease's own script:
+   `curl -fsSL https://github.com/leonidas1712/aboard/releases/download/v0.1.0-rc.1/install.sh | ABOARD_VERSION=v0.1.0-rc.1 sh`,
+   then run the quickstart. A candidate is always installed by its version: the
+   `releases/latest/download` address never points at a prerelease, so the one-line
+   install in the docs works only once `v0.1.0` itself is published. Land the docs that
+   lead with it together with that release.
+5. `docker pull ghcr.io/leonidas1712/aboard:0.1.0-rc.1`, run it with a volume, and open
+   the board view.
+6. If anything fails, fix it on `main` and cut `v0.1.0-rc.2`. Delete a failed
+   candidate's prerelease and image if you like; its tag can stay.
+
+### The release
+
 1. `make check` and `make web-check` pass on `main`.
 2. `make live` passes on a machine with Claude Code and Codex logged in
    ([e2e/live/PROOFS.md](../e2e/live/PROOFS.md)), and the steps by hand in
    [e2e/RELEASE_CHECKLIST.md](../e2e/RELEASE_CHECKLIST.md) are checked in a sandbox.
-3. The changelog's section for the version is written, including contract changes.
-4. Bump `version` in `server/internal/cli/build.go`, commit, and push a `vX.Y.Z` tag.
-   The release job builds, signs and publishes everything.
-5. Install from the published script on a clean machine and run the quickstart.
+3. `CHANGELOG.md` has a section for the version (`## 0.1.0`, moved from Unreleased),
+   including contract changes. The release job publishes it as the release notes, and
+   refuses a release without one.
+4. `version` in `server/internal/cli/build.go` is the version; the job refuses a tag
+   that doesn't match it (a candidate's suffix aside). Bump it in a pull request if
+   needed.
+5. `git tag vX.Y.Z && git push origin vX.Y.Z`, and approve the `release` environment.
+6. Install from the published script on a clean machine and run the quickstart; on a
+   machine with the previous release, run `aboard upgrade`.
 
 After launch, a nightly job runs the live suite against the latest Claude Code and
 Codex releases, so a harness update that breaks delivery shows up before a person

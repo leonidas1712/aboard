@@ -38,19 +38,40 @@ func (a *app) namedBoard(boardFlag string) string {
 // boardUsage is the usage of "aboard board", which acts on a board's settings.
 var boardUsage = usageOf("board")
 
-// runBoard runs "aboard board policy <preset>", which switches a board's policy preset,
+// runBoard creates a board with "aboard board new", switches its policy preset with
+// "aboard board policy <preset>",
 // "aboard board title <text>", which changes its title, and the commands for a board's
-// people, visibility and lifecycle. Those that change policy, people or visibility, and
+// people, visibility and lifecycle. Creation, changes to policy, people or visibility, and
 // delete, use the human login, so they refuse inside a harness session; an agent may set
 // the title for its owner, list a board's people, and archive or restore its own board.
 func runBoard(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("board")
 	boardFlag := fs.String("board", "", "the board to change")
-	as := fs.String("as", "", "the agent that sets the title, for its owner")
+	as := fs.String("as", "", "title, people, archive and restore only: act as this agent")
 	yes := fs.Bool("yes", false, "visibility and delete only: go ahead without asking")
+	newTitle := fs.String("title", "", "new only: the new board's title")
+	private := fs.Bool("private", false, "new only: make the new board private")
+	serverFlag := fs.String("server", "", "new, policy, add, remove, leave, owner and visibility only: the board's server")
 	pos, err := a.parse(fs, args, boardUsage, 1, -1)
 	if err != nil {
 		return err
+	}
+	if pos[0] == "new" {
+		if len(pos) != 2 || *as != "" || *boardFlag != "" || *yes {
+			return usageError("Name the new board, and only that: aboard board new payments [--title T] [--private] [--server URL].", boardUsage)
+		}
+		return runBoardNew(ctx, a, pos[1], *newTitle, *private, *serverFlag)
+	}
+	if *newTitle != "" || *private {
+		return usageError("--title and --private work only with new.", boardUsage)
+	}
+	if *serverFlag != "" {
+		switch pos[0] {
+		case "policy", "add", "remove", "leave", "owner", "visibility":
+			a.boardServerFlag = *serverFlag
+		default:
+			return usageError("--server works only with new, policy, add, remove, leave, owner and visibility.", boardUsage)
+		}
 	}
 	onePerson := func() (string, error) {
 		if len(pos) != 2 || handleArg(pos[1]) == "" {
@@ -129,7 +150,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		}
 		return runBoardTitle(ctx, a, *boardFlag, *as, strings.Join(pos[1:], " "))
 	}
-	return usageError(fmt.Sprintf("%q is not a board command; use people, add, remove, leave, owner, visibility, policy, title, archive, restore or delete.", pos[0]), boardUsage)
+	return usageError(fmt.Sprintf("%q is not a board command; use new, people, add, remove, leave, owner, visibility, policy, title, archive, restore or delete.", pos[0]), boardUsage)
 }
 
 // runBoardTitle changes a board's title; an empty title removes it. When an agent is
@@ -189,10 +210,10 @@ func runBoardPolicy(ctx context.Context, a *app, boardFlag, presetArg string) er
 	if preset != "starter" && preset != "recommended" {
 		return usageError(fmt.Sprintf("%q is not a policy preset; use starter or recommended.", presetArg), boardUsage)
 	}
-	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+string(preset)+boardArg(a.namedBoard(boardFlag))); err != nil {
+	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+commandWord(string(preset))+a.boardFlags(boardFlag)); err != nil {
 		return err
 	}
-	t, err := a.selectBoard(boardFlag)
+	t, err := a.personBoard(boardFlag)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Prints a version's release notes: its section of CHANGELOG.md ("## 0.2.0" or
+# "## [0.2.0]"), without the heading. A prerelease (0.2.0-rc.1) without a section of
+# its own gets the Unreleased section. The release job publishes the output.
+#
+#   scripts/release-notes <version> [changelog]
+#
+# Exit codes: 0 printed the notes, 1 the changelog has no section for the version.
+
+set -eu
+
+version=${1:?usage: scripts/release-notes <version> [changelog]}
+version=${version#v}
+changelog=${2:-CHANGELOG.md}
+
+section() {
+	awk -v v="$1" '/^## / { on = ($2 == v || $2 == "[" v "]"); next } on { print }' "$changelog"
+}
+
+notes=$(section "$version")
+case "$version" in
+*-*) printf '%s' "$notes" | grep -q '[^[:space:]]' || notes=$(section Unreleased) ;;
+esac
+if ! printf '%s' "$notes" | grep -q '[^[:space:]]'; then
+	echo "release-notes: $changelog has no section for $version; add \"## $version\" with the release's changes." >&2
+	exit 1
+fi
+printf '%s\n' "$notes"

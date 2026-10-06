@@ -223,6 +223,8 @@ func newEnv(t *testing.T) *env {
 		"FAKE_CODEX_THREADS=" + filepath.Join(home, "fake-codex-threads.json"),
 		"ABOARD_HOME=" + filepath.Join(home, "aboard"),
 		"ABOARD_LOCAL_ADDR=" + e.addr,
+		// No test reaches GitHub for the update notice; the notice's own tests turn it on.
+		"ABOARD_NO_UPDATE_CHECK=1",
 		exitWithVar + "=" + strconv.Itoa(os.Getpid()),
 	}
 	t.Cleanup(e.stopServer)

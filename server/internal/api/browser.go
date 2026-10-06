@@ -47,16 +47,21 @@ func (h *handlers) EndBrowserTokens(ctx context.Context, _ EndBrowserTokensReque
 
 // checkHost refuses requests whose Host header isn't one of hosts, so a web page that
 // points its own domain name at this address (DNS rebinding) can't reach the server
-// through the browser. An empty hosts list allows every host.
-func checkHost(log *slog.Logger, hosts []string, next http.Handler) http.Handler {
+// through the browser. An empty hosts list allows every host. The hint names
+// publicOrigin when there is one.
+func checkHost(log *slog.Logger, hosts []string, publicOrigin string, next http.Handler) http.Handler {
 	if len(hosts) == 0 {
 		return next
+	}
+	open := "http://" + hosts[0]
+	if publicOrigin != "" {
+		open = publicOrigin
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !slices.Contains(hosts, strings.ToLower(r.Host)) {
 			writeError(w, log, apierr.New(http.StatusMisdirectedRequest, "host_not_allowed",
 				"This server only answers requests addressed to "+strings.Join(hosts, " or ")+".",
-				"Open http://"+hosts[0]+"/ instead."))
+				"Open "+open+"/ instead."))
 			return
 		}
 		next.ServeHTTP(w, r)

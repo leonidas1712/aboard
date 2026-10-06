@@ -57,6 +57,11 @@ type Options struct {
 	Shutdown context.Context
 	// Hosts are the Host headers the server answers; empty allows every host.
 	Hosts []string
+	// PublicOrigin is a team server's public URL, such as https://team.example.com, when
+	// HTTPS ends at a proxy in front of it. It then decides the browser cookie and the
+	// Origin a cookie's write needs, whatever the request's own scheme and headers say.
+	// Empty on the local server, where they follow the request.
+	PublicOrigin string
 	// UI holds the web UI's built files, served at /. Nil serves a page saying the UI
 	// wasn't built.
 	UI fs.FS
@@ -112,7 +117,7 @@ func NewHandler(o Options) (http.Handler, error) {
 	outer := http.NewServeMux()
 	outer.Handle("/v1/", apiHeaders(apiChain))
 	outer.Handle("/", ui)
-	return recoverPanics(o.Log, securityHeaders(checkHost(o.Log, o.Hosts, outer))), nil
+	return recoverPanics(o.Log, securityHeaders(checkHost(o.Log, o.Hosts, o.PublicOrigin, outer))), nil
 }
 
 func notFound(r *http.Request) *apierr.Error {
@@ -164,7 +169,7 @@ func recoverPanics(log *slog.Logger, next http.Handler) http.Handler {
 // server.
 func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machines machineLimits, signIns signInLimits, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie := cookieFor(r)
+		cookie := cookieFor(r, o.PublicOrigin)
 		host, _, _ := net.SplitHostPort(r.RemoteAddr)
 		codes := false
 		if r.Method == http.MethodPost {

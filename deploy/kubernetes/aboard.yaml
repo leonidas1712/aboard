@@ -1,0 +1,138 @@
+# An aboard team server in a Kubernetes cluster: one replica, its SQLite
+# database on a block-storage volume, and an ingress or gateway in front that ends HTTPS.
+# docs/team-server.mdx walks through it.
+#
+# Before applying, replace:
+#   aboard.example.com        the host people reach the server at, in all three places
+#   ghcr.io/OWNER/aboard:TAG  the image you built from the repository's Dockerfile
+#   storageClassName          a class backed by block storage, never NFS or another
+#                             network file system: SQLite needs its locks to hold
+#
+#   kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aboard-data
+  labels: { app.kubernetes.io/name: aboard }
+spec:
+  accessModes: [ReadWriteOnce]
+  # storageClassName: your-block-storage-class
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aboard
+  labels: { app.kubernetes.io/name: aboard }
+spec:
+  # One server per database. Recreate stops the old pod before the new one starts, so
+  # two never open the database at once during an upgrade.
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app.kubernetes.io/name: aboard }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: aboard }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      # Long enough for open requests to finish; the server stops within 5 seconds.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: aboard
+          image: ghcr.io/OWNER/aboard:TAG
+          env:
+            - name: ABOARD_PUBLIC_URL
+              value: https://aboard.example.com
+            - name: ABOARD_ADMIN
+              value: admin # the first admin's handle, used on the first start only
+          ports:
+            - name: http
+              containerPort: 7400
+          # The server answers only its public host, so the probes send it.
+          readinessProbe:
+            httpGet:
+              path: /v1/info
+              port: http
+              httpHeaders: [{ name: Host, value: aboard.example.com }]
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /v1/info
+              port: http
+              httpHeaders: [{ name: Host, value: aboard.example.com }]
+            periodSeconds: 20
+            failureThreshold: 3
+          # A start runs pending migrations after a backup; give it time on a large
+          # database before the liveness probe counts.
+          startupProbe:
+            httpGet:
+              path: /v1/info
+              port: http
+              httpHeaders: [{ name: Host, value: aboard.example.com }]
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp # SQLite's temporary files, with the root file system read-only
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: aboard-data
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aboard
+  labels: { app.kubernetes.io/name: aboard }
+spec:
+  selector: { app.kubernetes.io/name: aboard }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# An Ingress that ends HTTPS and keeps the Host header, as ingress controllers do by
+# default. Set the class and the certificate's Secret for your cluster, or use a
+# Gateway API HTTPRoute instead. The event stream (GET /v1/stream) and long waits for
+# messages (up to 10 minutes) need a read timeout of at least 11 minutes, set the way
+# your controller takes it.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aboard
+  labels: { app.kubernetes.io/name: aboard }
+spec:
+  # ingressClassName: your-ingress-class
+  tls:
+    - hosts: [aboard.example.com]
+      secretName: aboard-tls
+  rules:
+    - host: aboard.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aboard
+                port: { name: http }

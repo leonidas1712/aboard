@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/clock"
@@ -70,7 +72,7 @@ func TestMigratingKeepsTheThreeNewestBackups(t *testing.T) {
 
 	for range 4 {
 		clk.Advance(time.Second)
-		if err := st.backup(ctx, 11); err != nil {
+		if _, err := st.backup(ctx, 11); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -114,6 +116,107 @@ func TestUpgradeTiesAgentsAndBrowsersToTheFirstKey(t *testing.T) {
 	}
 	if role != "admin" || keys != 1 || untiedAgents != 0 || untiedBrowsers != 0 {
 		t.Fatalf("after the upgrade: role %s, %d keys, %d agents and %d browser logins not tied to the key", role, keys, untiedAgents, untiedBrowsers)
+	}
+}
+
+// openWith migrates the database at path with files as its migrations, in place of the
+// embedded ones.
+func openWith(t *testing.T, path string, files fs.FS) error {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Store{db: db, clk: clock.NewFake(time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC)), path: path}
+	defer func() { _ = s.Close() }()
+	return s.migrate(context.Background(), files)
+}
+
+// withBroken returns the embedded migrations and two more after them: one that works and
+// one that fails.
+func withBroken(t *testing.T) fstest.MapFS {
+	t.Helper()
+	files := fstest.MapFS{}
+	names, err := fs.Glob(migrations, "migrations/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		body, err := migrations.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[name] = &fstest.MapFile{Data: body}
+	}
+	latest := migrationNumber(names[len(names)-1])
+	files[fmt.Sprintf("migrations/%04d_works.sql", latest+1)] = &fstest.MapFile{Data: []byte("CREATE TABLE upgrade_marker (id INTEGER PRIMARY KEY);")}
+	files[fmt.Sprintf("migrations/%04d_fails.sql", latest+2)] = &fstest.MapFile{Data: []byte("SELECT * FROM no_such_table;")}
+	return files
+}
+
+// An upgrade whose last migration fails leaves the database exactly as it was, the
+// upgrade's earlier migrations included, and the error names the copy made before it.
+func TestAFailedUpgradeLeavesTheDatabaseAsItWas(t *testing.T) {
+	path := copyFixture(t)
+	err := openWith(t, path, withBroken(t))
+	if err == nil {
+		t.Fatal("the broken upgrade succeeded")
+	}
+	backups, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "backups", "*.db"))
+	if len(backups) != 1 || !strings.Contains(err.Error(), backups[0]) || !strings.Contains(err.Error(), "the database is unchanged, at schema 10") {
+		t.Fatalf("the error doesn't name the backup %v: %v", backups, err)
+	}
+	if v := schemaVersion(t, path); v != 10 {
+		t.Fatalf("the database is at schema %d after a failed upgrade, want 10", v)
+	}
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var n int
+	if err := db.QueryRowContext(context.Background(), "SELECT count(*) FROM sqlite_master WHERE name IN ('upgrade_marker', 'access_keys')").Scan(&n); err != nil || n != 0 {
+		t.Fatalf("tables from the failed upgrade: %d %v", n, err)
+	}
+	if info, err := os.Stat(backups[0]); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("backup: %v %v", info, err)
+	}
+	if info, err := os.Stat(filepath.Dir(backups[0])); err != nil || info.Mode().Perm() != 0o700 {
+		t.Fatalf("backup folder: %v %v", info, err)
+	}
+}
+
+// A backups folder others can open, or one that is a link or a file, stops the upgrade
+// before anything is copied or changed.
+func TestAnUnsafeBackupFolderStopsTheUpgrade(t *testing.T) {
+	for name, prepare := range map[string]func(dir string) error{
+		"open to others": func(dir string) error { return os.Mkdir(dir, 0o755) }, //nolint:gosec // the unsafe folder under test
+		"a link": func(dir string) error {
+			target := filepath.Join(filepath.Dir(dir), "elsewhere")
+			if err := os.Mkdir(target, 0o700); err != nil {
+				return err
+			}
+			return os.Symlink(target, dir)
+		},
+		"a file": func(dir string) error { return os.WriteFile(dir, nil, 0o600) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := copyFixture(t)
+			dir := filepath.Join(filepath.Dir(path), "backups")
+			if err := prepare(dir); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Open(context.Background(), path, clock.Real{})
+			if err == nil || !strings.Contains(err.Error(), dir) {
+				t.Fatalf("opened with an unsafe backup folder: %v", err)
+			}
+			if v := schemaVersion(t, path); v != 10 {
+				t.Fatalf("the database is at schema %d, want 10", v)
+			}
+			if copies, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "*", "*.db")); len(copies) != 0 {
+				t.Fatalf("copies were made: %v", copies)
+			}
+		})
 	}
 }
 

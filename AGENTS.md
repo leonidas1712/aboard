@@ -135,6 +135,7 @@ PRODUCT.md, DESIGN.md  design records used for UI work (with .impeccable/design.
 /lab        aboard-lab (Python): aboard-bench and experiment helpers, public API only
 /examples   short programs on the CLI or SDKs, each tested by /e2e; benchmark scenarios
 /e2e        quickstart tests that run the docs' commands on a fresh machine
+/deploy     recipes for running a team server (kubernetes/); the image is the root Dockerfile
 ```
 
 ## Stack

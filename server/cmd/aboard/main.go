@@ -10,5 +10,9 @@ import (
 )
 
 func main() {
+	// A file that can't be read leaves the system's roots alone; a server whose
+	// certificate needed it then fails its TLS check, which says so. Hooks and every
+	// other command keep working.
+	_ = cli.TrustCertFile(os.Getenv)
 	os.Exit(cli.Run(context.Background(), os.Args[1:], cli.OSEnv()))
 }

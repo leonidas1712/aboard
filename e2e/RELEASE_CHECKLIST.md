@@ -93,10 +93,14 @@ sandbox:
 The page's `aboard` commands and their checks are **automated**, `TestInstallPageCommands`;
 removing Aboard is covered by the tests in `e2e/uninstall_test.go`.
 
+- [ ] On a clean macOS machine and a clean Linux machine (or container) without Go or Node, with cosign installed: the page's `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh` installs `aboard` and `aboard-launcher-herdr` into `~/.local/bin`, says the signature was checked, says `~/.local/bin` isn't on the `PATH` when it isn't, and `aboard version --json` shows the release's version. On macOS, `aboard` runs without a Gatekeeper prompt (`xattr ~/.local/bin/aboard` lists no `com.apple.quarantine`). Without cosign, the script prints the `cosign verify-blob` command, and running it in a folder with the release's `checksums.txt` and `checksums.txt.sigstore.json` prints `Verified OK`; with `--certificate-identity` changed to another tag, it fails. With `ABOARD_VERSION` set to the previous release, it installs that one. The script's refusals are **automated**, `e2e/installscript_test.go`, against a fake release server.
+- [ ] `docker pull ghcr.io/leonidas1712/aboard:<version>` works on linux/amd64 and linux/arm64, `cosign verify ghcr.io/leonidas1712/aboard:<version> --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v<version> --certificate-oidc-issuer https://token.actions.githubusercontent.com` passes, and the container serves the board view.
 - [ ] On a clean machine with Go and Node, the page's "From source" steps (`git clone`, `make install`) install `aboard`, and `aboard version --json` shows the checkout's commit.
 - [ ] On a machine with real Claude Code and Codex set up by `aboard init --yes --allow-commands`, plus a hook and a permission of your own in `~/.claude/settings.json` and a hook of your own in `~/.codex/hooks.json`: `aboard uninstall` removes only Aboard's entries and files, both harnesses still start and run your own hooks, and neither asks about Aboard's hooks again. Then the printed `rm <path>` removes the binary, and an open session carries on without errors from the missing hooks.
 
 ## Upgrading ([docs/install.mdx](../docs/install.mdx#update), [spec/delivery.md](../spec/delivery.md#upgrades))
+
+- [ ] On a machine where the install script installed the previous release, set up with `aboard init --yes`: a command in a terminal says once that the new release is available; `aboard upgrade` says the signature was checked (with cosign installed), upgrades `aboard` and `aboard-launcher-herdr` in `~/.local/bin`, refreshes the skill and hooks, and `aboard doctor` is green. A second `aboard upgrade` says there is nothing to upgrade. Inside a Claude Code session, `aboard upgrade` refuses and names the command for the person. **Automated** against a fake release server, `e2e/selfupgrade_test.go`; the real release and cosign, by hand.
 
 On a machine set up with the previous release, with a Claude Code session and a Codex
 session paired and idle (their stop hooks waiting):
@@ -117,6 +121,24 @@ Run with a binary from `make install` (or a release).
 - [ ] With the system set to dark mode, the UI is dark and every text stays readable; back in light mode, it is light.
 - [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
 - [ ] After `aboard down` and `aboard up`, reloading the UI still shows the board, logged in. After `aboard logout --browsers`, reloading it says the browser isn't logged in and to run `aboard open`.
+
+## Team server ([docs/team-server.mdx](../docs/team-server.mdx))
+
+The server's side is covered by e2e: `aboard serve --team` behind an HTTPS proxy, the
+admin key file piped into `aboard login`, `aboard people --server`, `aboard invite
+--server`, `aboard connect` with a link and by approval, `aboard board new` (and `TestBoardNewOnTheLocalServerAndInASession`), `aboard board policy recommended` and `aboard board add` in the linked folder, and agents on a board
+exchanging a message (`TestATeamServerBehindAnHTTPSProxy`); a bad configuration
+(`TestServeTeamRefusesABadConfiguration`); one transaction for every migration, and the
+backup (`server/internal/store/sqlite/backup_test.go`). The image and the cluster are
+checked by hand, on a disposable cluster with an ingress that ends HTTPS:
+
+- [ ] `docker build --build-arg VERSION=<version> -t aboard:<version> .` builds; `docker run --rm aboard:<version> --help` shows `aboard serve` help; `docker run --rm --entrypoint aboard aboard:<version> version` prints `<version>`; the image runs as uid 10001.
+- [ ] `docker run -v aboard-data:/data -p 7400:7400 -e ABOARD_PUBLIC_URL=https://<host> aboard:<version>` starts, logs `first admin created` with the key file and not the key, and `curl -H 'Host: <host>' localhost:7400/v1/info` says `"mode":"team"`; with any other Host it answers 421.
+- [ ] `kubectl create namespace aboard` and `kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml` (host, image and storage class replaced) bring the pod to ready, the probes passing with the public Host.
+- [ ] `kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://<host>` signs in; `kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key` removes the file; `aboard people --server https://<host>` lists the admin.
+- [ ] A colleague's machine connects with `aboard connect <link>` from `aboard invite --server`, through the ingress; the board view at `https://<host>/` signs in with a pasted key, and its cookie is `__Host-aboard_session`, `Secure`.
+- [ ] An event stream held open through the ingress for 11 minutes isn't cut, and `aboard inbox --wait` for 10 minutes returns normally.
+- [ ] `kubectl set image -n aboard deploy/aboard aboard=<newer image>` replaces the pod (never two at once), and a newer schema leaves a copy in `/data/aboard/backups`; the restore steps on the page bring the older image back with the copy's data.
 
 ## The docs site ([docs/README-site.md](../docs/README-site.md))
 

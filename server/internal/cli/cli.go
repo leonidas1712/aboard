@@ -67,6 +67,10 @@ func isTerminal(f *os.File) bool {
 type app struct {
 	env  Env
 	json bool
+	// boardServerFlag is the --server of a person's board command (policy, add, remove,
+	// leave, owner, visibility): the server of the board --board names, in place of the
+	// one this directory's .aboard names. Empty when not given.
+	boardServerFlag string
 	// started is when the command started.
 	started time.Time
 	// daemonChecked and localChecked are set once this command has checked the running
@@ -138,6 +142,7 @@ func commands() []command {
 		{"init", runInit},
 		{"doctor", runDoctor},
 		{"uninstall", runUninstall},
+		{"upgrade", runUpgrade},
 		{"version", runVersion},
 		{"help", runHelp},
 		{"serve", runServe},
@@ -179,7 +184,10 @@ func Run(ctx context.Context, args []string, env Env) int {
 		if !slices.Contains(noLaunchClaim, c.name) {
 			a.claimLaunch(ctx)
 		}
-		return a.report(c.run(ctx, a, args[1:]))
+		notice := a.startUpdateCheck(ctx, c.name)
+		code := a.report(c.run(ctx, a, args[1:]))
+		notice()
+		return code
 	}
 	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")
 	e.Hint = "Run aboard help to see the commands."
