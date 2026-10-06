@@ -89,7 +89,7 @@ Making the board open, raising roles or editing policy, title or charter require
 restore first. No archived transition can add a person or issue a new seat or code.
 
 The creator, while still on the board, and server admins may archive, restore and
-delete. An agent archives or restores only its own board for its creator-person,
+delete. An agent archives or restores only its own board for the person who created the board,
 while that person is still on it, never with an admin's reach and never deletes.
 A different board owner is not the creator. An outside admin is not added to a
 private board by a lifecycle action: the event actor has `kind: "human"`,

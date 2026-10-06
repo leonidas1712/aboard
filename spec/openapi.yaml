@@ -12,8 +12,8 @@ info:
 
     **Board lifecycle.** A board is active until archived. An archive remains readable
     with the same membership and visibility checks. It refuses new messages, reactions,
-    titles, charter edits, membership, seats and join codes (and new tasks, notes and
-    files where supported). Read positions, presence, delivery modes, removing people,
+    titles, charter edits, membership, seats and join codes. Read positions, presence,
+    delivery modes, removing people,
     leaving, revoking codes, making the board private, restoring and deleting still work.
     Making it open, raising board roles, and any policy, charter or title edit require
     restoring first, even when the proposed policy would be more restrictive. These
@@ -176,12 +176,12 @@ info:
     otherwise the repeat gets the error a new call would get now. Each endpoint says which
     rule it follows.
 
-    A cached response containing board data is read only after rechecking the current
-    credential, access and lifecycle in a read transaction before returning the body.
+    A cached response containing board data is returned only after rechecking the current
+    credential, access and lifecycle in a read transaction.
     This includes cached board creation (the id in its result identifies the board),
     and cached refusals whose messages or hints contain board information. An immutable
-    saved response may be loaded first; the current authority check must still run in
-    that transaction. Deleted or inaccessible boards never return cached creation,
+    saved response may be loaded beforehand; the current authority check must still
+    run in the read transaction. Deleted or inaccessible boards never return cached creation,
     message, reaction, membership or join bodies. An archived
     board may return already committed content the caller can still read; this appends
     no event and grants no new access. Join replay also checks the seat and lifecycle;
@@ -1294,7 +1294,7 @@ paths:
       summary: Archive a board
       description: |
         The creator, while still on the board, or a server admin freezes an active board.
-        An agent may do this only on its own board for its creator-person, while that
+        An agent may do this only on its own board for the person who created the board, while that
         person is still on it. A different board owner is not the creator; an admin's
         agent never inherits the admin's housekeeping reach.
 
@@ -1346,7 +1346,7 @@ paths:
       summary: Restore a board
       description: |
         The same authority as archive: the creator while still on the board, or a
-        server admin; an agent only on its own board for its creator-person while that
+        server admin; an agent only on its own board for the person who created the board while that
         person is still on it. Makes an archived board active again. New content and
         joins are allowed under the current policy and access rules; codes work only if
         they are still valid. No removed membership, ended seat or canceled code revives.
@@ -2450,8 +2450,9 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
 
-  # ---------- threads ----------
         "409": { $ref: "#/components/responses/Error" }
+
+  # ---------- threads ----------
 
   /v1/boards/{board}/threads:
     parameters:

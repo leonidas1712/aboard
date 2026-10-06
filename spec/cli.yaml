@@ -2142,7 +2142,7 @@ $defs:
       Active boards are the default. --archived lists only archived boards; --all still
       changes visibility scope, not lifecycle, so --archived --all includes the server
       admin's hidden archived-board metadata without names or titles. Deleted boards
-      are never listed. A lifecycle field, absent on older servers, means active.
+      are never listed. An absent lifecycle field means active.
 
       The boards on the server this directory's .aboard names, else the local server.
       In a terminal, with the person's login: the boards they are on, each with their
@@ -2241,7 +2241,7 @@ $defs:
       Archive or restore uses the person's credential in a terminal, or the acting
       agent's own seat credential with --as, ABOARD_AGENT or a harness session. Only the
       creator while still on the board, or a server admin, may act. An agent may archive
-      or restore only its own board for its creator-person while that person is on it;
+      or restore only its own board for the person who created the board while that person is on it;
       it never inherits admin reach. In a multi-seat session, --board is required and
       every refusal occurs before a person's stored key can be used as fallback.
 
@@ -2274,7 +2274,7 @@ $defs:
         type: string
         description: The name or id selected locally or explicitly supplied; never a hidden private name discovered by the server.
       id: { $ref: openapi.yaml#/components/schemas/BoardID }
-      lifecycle: { $ref: openapi.yaml#/components/schemas/BoardLifecycle }
+      lifecycle: { $ref: openapi.yaml#/components/schemas/LifecycleState }
       changed: { type: boolean }
 
   # ---------- aboard board people ----------
