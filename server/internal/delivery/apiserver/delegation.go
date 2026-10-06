@@ -33,9 +33,9 @@ type Delegated struct {
 
 // NewDelegated returns the server at url, reached through a delegation named name
 // (the machine's name).
-func NewDelegated(url, name string, tokens Tokens) *Delegated {
+func NewDelegated(serverURL, name string, tokens Tokens) *Delegated {
 	return &Delegated{
-		url: strings.TrimRight(url, "/"), name: name, tokens: tokens,
+		url: strings.TrimRight(serverURL, "/"), name: name, tokens: tokens,
 		http: &http.Client{Timeout: 30 * time.Second, CheckRedirect: noRedirects},
 	}
 }
