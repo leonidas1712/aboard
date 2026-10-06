@@ -246,7 +246,7 @@ func TestControlSpecExtensionExamplesPlayAgainstTheDaemon(t *testing.T) {
 	if !found {
 		t.Fatal("spec/control.md has no section on the extension connection")
 	}
-	section := string(after)
+	section, _, _ := strings.Cut(string(after), "### Combined handoffs")
 	var lines []string
 	for _, m := range regexp.MustCompile("(?s)```json\n(.*?)```").FindAllStringSubmatch(section, -1) {
 		lines = append(lines, strings.Split(strings.TrimSpace(m[1]), "\n")...)
@@ -296,6 +296,8 @@ func TestControlSpecExtensionExamplesPlayAgainstTheDaemon(t *testing.T) {
 	got := e.next()
 	var wantDeliver map[string]any
 	_ = json.Unmarshal([]byte(inline["deliver"]), &wantDeliver)
+	// The legacy id stays intact; trusted classification is additive on the wire.
+	wantDeliver["delivery_class"] = "mixed"
 	sameShape(t, "deliver", wantDeliver, got)
 	e.send(delivery.Request{Op: delivery.OpReceived, ID: got.ID})
 	play("goodbye")

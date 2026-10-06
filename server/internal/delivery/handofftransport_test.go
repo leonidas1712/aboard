@@ -11,8 +11,8 @@ import (
 
 func TestCombinedWireUsesItsExactHandoffConfirmation(t *testing.T) {
 	server, client := net.Pipe()
-	defer server.Close()
-	defer client.Close()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
 	c := &extConn{conn: server, took: map[int64]bool{}, handoffs: map[string]bool{}, supportsHandoffs: true, signal: make(chan struct{}, 1), gone: make(chan struct{})}
 	id := "hnd_0123456789abcdef0123456789abcdef"
 	done := make(chan error, 1)
@@ -56,5 +56,32 @@ func TestCombinedTransportRequiresCurrentNegotiatedCapability(t *testing.T) {
 		if err := c.DeliverHandoff(context.Background(), Handover{HandoffID: "hnd_0123456789abcdef0123456789abcdef"}); !errors.Is(err, ErrExtensionOutdated) {
 			t.Fatalf("old extension: %v", err)
 		}
+	}
+}
+
+func TestOldExtensionHelloKeepsExistingSeatsAndConnection(t *testing.T) {
+	server, client := net.Pipe()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
+	old := &extConn{supportsHandoffs: true, gone: make(chan struct{})}
+	c := &extConn{conn: server, registered: make(chan bool, 1), gone: make(chan struct{})}
+	a := AgentRef{Server: "server", Board: "a", MemberID: "mem_a"}
+	b := AgentRef{Server: "server", Board: "b", MemberID: "mem_b"}
+	s := &session{ext: old, agents: map[AgentKey]*agentState{a.Key(): newAgentState(a, false), b.Key(): newAgentState(b, false)}}
+	done := make(chan struct{})
+	go func() { s.onHello(context.Background(), Request{}, c); close(done) }()
+	var frame Response
+	if err := ReadFrame(bufio.NewReader(client), &frame); err != nil {
+		t.Fatal(err)
+	}
+	if frame.Error == nil || frame.Error.Code != "extension_outdated" {
+		t.Fatalf("old hello: %+v", frame)
+	}
+	<-done
+	if <-c.registered {
+		t.Fatal("old extension registered")
+	}
+	if s.ext != old || len(s.agents) != 2 {
+		t.Fatal("refused hello changed bindings or connection")
 	}
 }

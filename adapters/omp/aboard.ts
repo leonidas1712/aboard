@@ -376,7 +376,7 @@ class Link {
 				log("the daemon released this connection: another one serves the session", { session: this.#session });
 				this.#stopped = true;
 				this.#connected = false;
-		this.#handoffs = false;
+				this.#handoffs = false;
 				this.#sock = undefined;
 				sock.end();
 				return;

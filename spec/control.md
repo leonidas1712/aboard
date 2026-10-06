@@ -716,9 +716,11 @@ row, even when the combined payload contains only one board's messages.
 - A one-seat session keeps today's legacy `id` and confirmation semantics, and its
   user-facing delivery text stays byte for byte unchanged. Negotiation may add fields
   to internal JSON frames. A new extension
-  receiving that legacy format treats its class as unknown: if the session becomes
-  busy before adding it, it uses a follow-up rather than examining the body. Its
-  explicit tool-boundary owner path is unchanged.
+  receiving that legacy format without an explicit `delivery_class` treats its class
+  as unknown: if the session becomes busy before adding it, it uses a follow-up
+  rather than examining the body. A trusted daemon may add `delivery_class` to a
+  legacy frame; only explicit `owner_only` permits an aside. Its explicit
+  tool-boundary owner path is unchanged.
 - An extension lacking this capability can continue serving one seat. An operation
   that would give its session a second seat refuses with `extension_outdated`, before
   any server join or credential rotation, credential-file save or journal bind.
