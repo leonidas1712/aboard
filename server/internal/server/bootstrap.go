@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/rules"
 )
@@ -101,6 +102,12 @@ func finishBootstrap(ctx context.Context, svc *board.Service, dataDir string, lo
 		return fmt.Errorf("read the first admin's pending key: %w", err)
 	}
 	p, err := svc.Authenticate(ctx, strings.TrimSpace(string(raw)))
+	// Only a key the server says doesn't work is from a start that stopped before the
+	// admin was made. Any other failure, such as a database error or a cancelled start,
+	// says nothing about the key, so it stays for the next start.
+	if e, ok := apierr.As(err); err != nil && (!ok || e.Code != "unauthorized") {
+		return fmt.Errorf("check the first admin's pending key in %s: %w", pendingPath, err)
+	}
 	if err != nil || p.Human == nil || p.Human.Role != board.ServerAdmin || p.Browser || p.Agent != nil {
 		if err := os.Remove(pendingPath); err != nil {
 			return fmt.Errorf("remove the unused pending key %s: %w", pendingPath, err)
