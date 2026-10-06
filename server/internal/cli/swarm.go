@@ -768,7 +768,7 @@ func (a *app) upAgent(ctx context.Context, in upInput) (swarmUpAgent, error) {
 	// The seat: created once, with the person's login, and kept across runs.
 	seatCreated := false
 	if _, ok := in.creds.find(in.srv.URL, in.board, spec.Name); !recorded && !ok {
-		if m, exists := in.members[spec.Name]; exists && m.Status == api.Active {
+		if m, exists := in.members[spec.Name]; exists && m.Status == api.MemberStatusActive {
 			e := newError("agent_seat_elsewhere",
 				fmt.Sprintf("Board %s already has an agent called %s, and this machine holds no credential for it.", in.board, spec.Name),
 				"Give the agent another name in the board file, or start it on the machine that joined it.")

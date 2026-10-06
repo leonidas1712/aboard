@@ -230,21 +230,32 @@ func (s *Server) Follow(ctx context.Context, connected func(), head func(deliver
 	connected()
 	silence := time.AfterFunc(streamSilence, cancel)
 	defer silence.Stop()
+	observed := map[string]string{}
 	return readEvents(resp.Body, func() { silence.Reset(streamSilence) }, func(event, data string) {
 		var h struct {
 			Board    string `json:"board"`
+			BoardID  string `json:"board_id"`
 			Seq      int    `json:"seq"`
 			Agent    string `json:"agent"`
 			MemberID string `json:"member_id"`
 			ReadUpTo int    `json:"read_up_to"`
 		}
-		if json.Unmarshal([]byte(data), &h) != nil || h.Board == "" {
+		if json.Unmarshal([]byte(data), &h) != nil {
 			return
 		}
 		switch {
-		case event == "head":
+		case event == "board_unavailable":
+			// The id was observed on this connection. A normal head refresh rereads
+			// current seat tokens; the hint itself changes no delivery or cursor state.
+			if board := observed[h.BoardID]; board != "" {
+				head(delivery.Head{Board: board})
+			}
+		case event == "head" && h.Board != "":
+			if h.BoardID != "" {
+				observed[h.BoardID] = h.Board
+			}
 			head(delivery.Head{Board: h.Board, Seq: h.Seq})
-		case event == "read" && h.Agent != "":
+		case event == "read" && h.Board != "" && h.Agent != "":
 			head(delivery.Head{Board: h.Board, Read: &delivery.ReadPosition{Agent: h.Agent, MemberID: h.MemberID, UpTo: h.ReadUpTo}})
 		}
 	})

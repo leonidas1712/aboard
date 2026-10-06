@@ -57,9 +57,10 @@ type Props = {
   onMention: (target: string) => void;
   /** waiting holds the ids of questions waiting for the person's reply. */
   waiting: Set<string>;
-  onReply: (m: Message) => void;
+  /** onReply and onReact are absent on a read-only board, which then offers neither. */
+  onReply?: (m: Message) => void;
   /** onReact adds or takes back the person's reaction to a message. */
-  onReact: OnReact;
+  onReact?: OnReact;
   /** me is the person's name, so their own reactions read "You". */
   me: string | null;
   /** onToggle opens or closes a thread, by its first message's id. */
@@ -262,7 +263,7 @@ export function Timeline({
                       identity={identity(x.m.from)}
                       mentions={mentions}
                       waiting={waiting.has(x.m.id)}
-                      onReply={() => onReply(x.m)}
+                      onReply={onReply && (() => onReply(x.m))}
                       onReact={onReact}
                       me={me}
                       onShow={onShow}
@@ -460,8 +461,8 @@ function MessageEntry({
   identity: number;
   mentions: Mentions;
   waiting: boolean;
-  onReply: () => void;
-  onReact: OnReact;
+  onReply?: () => void;
+  onReact?: OnReact;
   me: string | null;
   onShow: (id: string) => void;
   receipts: ReceiptsAt;
@@ -486,7 +487,7 @@ function MessageEntry({
       ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ")
       : undefined;
   const outlined = standsAlone(m) && !answer;
-  const replyButton = !waiting && (
+  const replyButton = !waiting && onReply && (
     <button
       type="button"
       onClick={onReply}
@@ -496,9 +497,9 @@ function MessageEntry({
       Reply
     </button>
   );
-  const actions = (
+  const actions = (onReact || replyButton) && (
     <span className="flex shrink-0 items-center gap-0.5 self-center">
-      <ReactButton m={m} onReact={onReact} label={self ? "your message" : m.from.name} />
+      {onReact && <ReactButton m={m} onReact={onReact} label={self ? "your message" : m.from.name} />}
       {replyButton}
     </span>
   );
@@ -579,11 +580,11 @@ function MessageEntry({
         </p>
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
-        {grouped && <div className="absolute top-0 right-2.5">{actions}</div>}
+        {grouped && actions && <div className="absolute top-0 right-2.5">{actions}</div>}
         {waiting && (
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
             <p>{m.from.name} is waiting for your reply.</p>
-            <Button onClick={onReply}>Reply</Button>
+            {onReply && <Button onClick={onReply}>Reply</Button>}
           </div>
         )}
       </div>
@@ -622,8 +623,8 @@ function ThreadBlock({
   identity: (from: MemberRef) => number;
   mentions: Mentions;
   waitingIds: Set<string>;
-  onReply: (m: Message) => void;
-  onReact: OnReact;
+  onReply?: (m: Message) => void;
+  onReact?: OnReact;
   me: string | null;
   onToggle: (root: string, open: boolean) => void;
   onShow: (id: string) => void;
@@ -676,7 +677,7 @@ function ThreadBlock({
       {!open && thread.waiting && (
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
           <p>{thread.waiting.from.name} is waiting for your reply in this thread.</p>
-          <Button onClick={() => onReply(thread.waiting!)}>Reply</Button>
+          {onReply && <Button onClick={() => onReply(thread.waiting!)}>Reply</Button>}
         </div>
       )}
       {open && (
@@ -695,7 +696,7 @@ function ThreadBlock({
                   identity={identity(r.from)}
                   mentions={mentions}
                   waiting={waitingIds.has(r.id)}
-                  onReply={() => onReply(r)}
+                  onReply={onReply && (() => onReply(r))}
                   onReact={onReact}
                   me={me}
                   onShow={onShow}
@@ -710,7 +711,7 @@ function ThreadBlock({
               );
             })}
           </ol>
-          {!thread.filtered && (
+          {!thread.filtered && onReply && (
             <button
               type="button"
               className="thread-reply -ml-1.5 min-h-9 rounded-control px-1.5 text-meta text-link hover:underline"

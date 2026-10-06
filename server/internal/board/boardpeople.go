@@ -110,6 +110,9 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		if b, me, on, err = s.see(tx, p, boardName); err != nil {
 			return err
 		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
 		if person, err := caller(tx, p, stamp(s.clk.Now())); err != nil || person.Role == ServerGuest {
 			if err != nil {
 				return err
@@ -415,6 +418,9 @@ func (s *Service) MakeOwner(ctx context.Context, p Principal, boardName, handle 
 		if b, me, err = s.access(tx, p, boardName); err != nil {
 			return err
 		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
 		if err := requireOwner(tx, b, me, "make someone an owner"); err != nil {
 			return err
 		}
@@ -486,6 +492,11 @@ func (s *Service) SetVisibility(ctx context.Context, p Principal, boardName, vis
 			return err
 		}
 		b = b2
+		if visibility == BoardOpen {
+			if err := requireActive(b); err != nil {
+				return err
+			}
+		}
 		if err := requireOwner(tx, b, me, "turn it open or private"); err != nil {
 			return err
 		}

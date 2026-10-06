@@ -196,7 +196,7 @@ func TestSwarmRefusesARenamedRecordedSeatBeforeAnyJoin(t *testing.T) {
 			}
 			members := map[string]api.Member{}
 			if tc.replacement {
-				members["writer"] = api.Member{Id: "mem_other_owner", Name: "writer", Kind: api.MemberKindAgent, Status: api.Active}
+				members["writer"] = api.Member{Id: "mem_other_owner", Name: "writer", Kind: api.MemberKindAgent, Status: api.MemberStatusActive}
 			}
 			in := upInput{
 				c: c, srv: serverRef{URL: srv.URL}, board: "docs", swarm: "s", file: swarmFile{dir: t.TempDir()},
@@ -336,7 +336,7 @@ esac
 	in := upInput{
 		c: c, srv: serverRef{URL: srv.URL}, board: "docs", swarm: "s", file: swarmFile{dir: t.TempDir()},
 		spec: swarmSpec{Name: "renamed", Harness: "codex", Launcher: "seat-test"}, rec: rec, creds: creds, tickets: launchtickets.Dir(p.launches()),
-		members: map[string]api.Member{"writer": {Id: "mem_replacement", Name: "writer", Status: api.Active}, "renamed": {Id: "mem_original", Name: "renamed", Status: api.Active}},
+		members: map[string]api.Member{"writer": {Id: "mem_replacement", Name: "writer", Status: api.MemberStatusActive}, "renamed": {Id: "mem_original", Name: "renamed", Status: api.MemberStatusActive}},
 	}
 	if _, err := a.upAgent(t.Context(), in); err == nil || asError(err).Code != "agent_not_selected" || !strings.Contains(asError(err).Hint, "aboard swarm down writer --swarm s") {
 		t.Fatalf("running renamed handle was not refused with working recovery: %v", err)

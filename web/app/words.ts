@@ -294,6 +294,10 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
       const after = d.after as string | null;
       return after ? `${who} titled the board “${after}”` : `${who} removed the board's title`;
     }
+    case "board.archived":
+      return `${who} archived the board`;
+    case "board.restored":
+      return `${who} restored the board`;
     case "agent.delivery_changed":
       return `${who} set ${String(d.name ?? "")}'s delivery mode to ${String(d.after ?? "")}`;
     default:

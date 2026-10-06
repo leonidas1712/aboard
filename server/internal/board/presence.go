@@ -137,6 +137,13 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			return err
 		}
 		for _, id := range boardIDs {
+			b, err := tx.BoardByID(id)
+			if errors.Is(err, ErrNotFound) || (err == nil && lifecycleOf(b) == LifecycleDeleted) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
 			// The person may have left the board since its heads were read; then they
 			// learn nothing more of it.
 			me, err := tx.HumanMember(id, humanID)

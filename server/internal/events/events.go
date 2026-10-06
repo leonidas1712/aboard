@@ -17,6 +17,9 @@ var GenesisHash = "sha256:" + strings.Repeat("0", 64)
 // Event types written to the log.
 const (
 	BoardCreated       = "board.created"
+	BoardArchived      = "board.archived"
+	BoardRestored      = "board.restored"
+	BoardDeleted       = "board.deleted"
 	BoardPolicyChanged = "board.policy_changed"
 	BoardTitled        = "board.titled"
 	MemberJoined       = "member.joined"

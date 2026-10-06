@@ -17,10 +17,11 @@ import (
 // Seats is how the daemon reaches a server through the machine's delegation, and where
 // it keeps the tokens of the seats it is given.
 type Seats interface {
-	// Boards lists the boards the person can see on server. ErrLoginMissing means this
-	// machine has no key for it; ErrServerUnreachable and ErrServerOutdated as for Join;
-	// a server's refusal is a *WireError, passed on as it is.
-	Boards(ctx context.Context, server string) ([]SeatBoard, error)
+	// Boards lists the boards the person can see on server, filtered by lifecycle
+	// (active, archived or all; empty means the server's default, active). ErrLoginMissing
+	// means this machine has no key for it; ErrServerUnreachable and ErrServerOutdated
+	// as for Join; a server's refusal is a *WireError, passed on as it is.
+	Boards(ctx context.Context, server, lifecycle string) (SeatBoards, error)
 	// Join asks server for the session's seat on a board. Errors are as for Boards; a
 	// lost answer is ErrServerUnreachable, never a seat.
 	Join(ctx context.Context, server string, req SeatRequest) (SeatGrant, error)
@@ -35,6 +36,13 @@ type Seats interface {
 type SeatBoard struct {
 	Name  string
 	Board json.RawMessage
+}
+
+// SeatBoards is what a delegation lists: the boards, and the server's count of archived
+// boards in the same scope, nil when the server sent none.
+type SeatBoards struct {
+	Boards        []SeatBoard
+	ArchivedCount *int
 }
 
 // SeatRequest is a delegated join: the board, and optionally the role and name; Harness
@@ -130,10 +138,17 @@ func (d *Daemon) serveBoards(ctx context.Context, req Request) Response {
 	if server == "" {
 		return errorResponse("invalid_request", "A boards request needs a server.", "Send the server the session's person is connected to.")
 	}
-	boards, err := d.cfg.Seats.Boards(ctx, server)
+	switch req.Lifecycle {
+	case "", "active", "archived", "all":
+	default:
+		return errorResponse("invalid_request", "A boards request's lifecycle is active, archived or all, not "+req.Lifecycle+".",
+			"Leave lifecycle out for active boards, or send archived or all.")
+	}
+	list, err := d.cfg.Seats.Boards(ctx, server, req.Lifecycle)
 	if err != nil {
 		return seatsError(server, err)
 	}
+	boards := list.Boards
 	seats := map[string]SeatRef{}
 	for _, a := range agents {
 		if a.Server != server {
@@ -143,7 +158,7 @@ func (d *Daemon) serveBoards(ctx context.Context, req Request) Response {
 		seat.MemberID, _ = d.cfg.Seats.SeatID(a)
 		seats[a.Board] = seat
 	}
-	out := Response{V: ProtocolVersion, Server: server, Boards: []json.RawMessage{}}
+	out := Response{V: ProtocolVersion, Server: server, Boards: []json.RawMessage{}, ArchivedCount: list.ArchivedCount}
 	for _, b := range boards {
 		raw := b.Board
 		if seat, ok := seats[b.Name]; ok {

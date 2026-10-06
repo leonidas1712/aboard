@@ -135,6 +135,9 @@ type Request struct {
 	// Server is the server an OpBoards lists boards on; empty means the server of the
 	// session's seats.
 	Server string `json:"server,omitempty"`
+	// Lifecycle filters an OpBoards list: active (the default when empty), archived or
+	// all. It never widens what the delegation may list.
+	Lifecycle string `json:"lifecycle,omitempty"`
 	// Role is the role an OpJoin joins as; empty means member.
 	Role string `json:"role,omitempty"`
 }
@@ -194,7 +197,10 @@ type Response struct {
 	// see on that server, each the API's Board with seat, the session's seat on it.
 	Server string            `json:"server,omitempty"`
 	Boards []json.RawMessage `json:"boards,omitempty"`
-	Error  *WireError        `json:"error,omitempty"`
+	// ArchivedCount, in answer to OpBoards, is the server's count of archived boards in
+	// the delegation's list scope; nil when the server sent none, which is not zero.
+	ArchivedCount *int       `json:"archived_count,omitempty"`
+	Error         *WireError `json:"error,omitempty"`
 }
 
 // SeatRef names a seat: an agent on one board, keyed by its server and member id. Board

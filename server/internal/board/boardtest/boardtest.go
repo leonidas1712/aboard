@@ -628,7 +628,7 @@ func boardRoundTripsEveryField(t *testing.T, st board.Store) {
 				{Permission: rules.ClaimTasks, TaskTypes: []string{"review", "triage"}},
 			}},
 		},
-		Policy: policy, HeadSeq: 0, HeadHash: events.GenesisHash, CreatedAt: at, CreatedBy: "mem_review", Visibility: board.BoardPrivate,
+		Policy: policy, HeadSeq: 0, HeadHash: events.GenesisHash, CreatedAt: at, CreatedBy: "mem_review", Visibility: board.BoardPrivate, Lifecycle: board.LifecycleActive,
 	}
 	write(t, st, func(tx board.Tx) error {
 		if err := tx.InsertHuman(human("hum_alex")); err != nil {
