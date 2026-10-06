@@ -61,6 +61,9 @@ server later serves a different hash at that `seq`.
 | `joincode.created` | `POST /boards/{board}/join-codes` | `join_code_id`, `role`, `expires_at`; for a guest code also `kind: "guest"` and `guest` (the handle it lets in), and `guest_id` (an existing guest's permanent person id at issuance, null for a new guest). Never the code or its digest. |
 | `joincode.revoked` | `DELETE /boards/{board}/join-codes/{id}`; also after `person.removed`, `person.left` and `board.visibility_changed` (to private), for each join code those stop | `join_code_id` |
 | `message.posted` | `POST /boards/{board}/messages` | `message_id`, `to`, `body` (after redaction), `reply_to`, `urgent`, `expects_reply`, `redactions`, `mentions` (see [Mentions](#mentions)), and `recipients` for a message not to `all` (see below) |
+| `board.archived` | `POST /boards/{board}/archive`, only when active. The actor is the authenticated person or their agent. | `person_id` (the authenticated person's permanent id, or the agent's person's id), `before: "active"`, `after: "archived"` |
+| `board.restored` | `POST /boards/{board}/restore`, only when archived. The actor is the authenticated person or their agent. | `person_id`, `before: "archived"`, `after: "active"` |
+| `board.deleted` | `POST /boards/{board}/delete`, only when archived. The actor is the authenticated person. | `person_id`, `before: "archived"`, `after: "deleted"` |
 | `board.policy_changed` | `PATCH /boards/{board}` with `policy`. Admins only. | `before`, `after` (full policies), `preset_applied` (or null) |
 | `board.titled` | `PATCH /boards/{board}` with a `title` different from the current one. Admins, or an agent whose owner is an admin (the actor is then the agent, with its owner). | `before`, `after` (the titles; null for no title) |
 | `reaction.added` | `PUT /messages/{message}/reactions/{reaction}`, when the member hadn't already reacted with that emoji. The actor is who reacted. | `message_id`, `name` (`thumbsup`, `check`, `eyes`, `heart`, `tada` or `question`), `emoji` (👍 ✅ 👀 ❤️ 🎉 ❓) |
@@ -71,6 +74,49 @@ server later serves a different hash at that `seq`.
 | `person.made_owner` | `POST /boards/{board}/owners`, for someone not already an owner. The actor is the owner who did it. Also right after a `person.removed` with `from_server` that took the board's last owner, for the person on the board longest who isn't a guest, with a `system` actor. | `member_id`, `person_id`, `name`, and for the second case `reason: "owner_removed_from_server"` |
 | `board.visibility_changed` | `POST /boards/{board}/visibility` without `dry_run`, to a visibility the board didn't have. Owners only. | `before`, `after` (`open` or `private`), `reveals` (for private to open: `messages` and `files` the board held; null otherwise) |
 | `agent.delivery_changed` | `PUT /boards/{board}/members/{member}/delivery`, to a mode the agent didn't have. Only the agent's person; the actor is that person. | `member_id` (the agent's seat), `name`, `before`, `after` (`focused`, `all`, `humans` or `off`) |
+
+## Board lifecycle
+
+A board without a lifecycle event is active. `board.archived` freezes new content
+and joins without changing who may read the existing record. `board.restored` makes
+it active again without reviving removed people, ended seats or canceled codes.
+An archive does not revoke working pairing or guest codes; while archived, they
+cannot be redeemed, and after restore their normal expiry and authority checks apply.
+Archiving never extends a code's expiry. Read positions and presence remain
+bookkeeping on an archive. Removal, leave, revocation, making the board private,
+restore, delete and existing seats' delivery modes still use their normal authority.
+Making the board open, raising roles or editing policy, title or charter requires
+restore first. No archived transition can add a person or issue a new seat or code.
+
+The creator, while still on the board, and server admins may archive, restore and
+delete. An agent archives or restores only its own board for its creator-person,
+while that person is still on it, never with an admin's reach and never deletes.
+A different board owner is not the creator. An outside admin is not added to a
+private board by a lifecycle action: the event actor has `kind: "human"`,
+`member_id: null` and their name frozen at the operation. Every lifecycle event's
+`person_id` records permanent attribution, including the person an agent acts for;
+handle reuse never substitutes another person. The actor still comes only from the
+credential. No new actor envelope fields or hash rules are needed.
+
+Each real transition appends one lifecycle event and changes the read model in the
+same transaction. Archive on an archive, restore on an active board and idempotent
+replays append no duplicate event. Lifecycle receipts are results of their committed
+operation, not current-state snapshots. Delete from an active board is refused.
+
+`board.deleted` leaves the record, ids, hashes, read positions and reserved name
+intact, but no API path returns the deleted board or its content. The board's seats
+and codes end; person keys, browser sessions and other boards' seats do not. There
+is no restore from deleted. A saved successful deletion receipt is the sole
+idempotent replay exception to the tombstone's 404, and only for the same credential
+after a fresh check of its person's current lifecycle authority. Other cached board
+bodies, including creation results and refusals with board-derived hints, still
+require current read access and return 404 after deletion.
+
+The `board_unavailable` stream notice is not a record event. It carries only a board
+id already shown on that person's stream, with an optional member id belonging to
+that person, and never a name, title or reason. It is a refresh hint; current access
+checked with a seat's own token decides whether that seat has ended. A delayed
+notice cannot end a new authorized seat, and other boards continue on the stream.
 
 A person who leaves or is removed takes their agents with them, for good: from then on their
 agents' tokens get 404 on the board, even if the person is added back (they join again

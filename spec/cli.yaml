@@ -2139,6 +2139,11 @@ $defs:
   # ---------- aboard boards ----------
   BoardsOutput:
     description: |
+      Active boards are the default. --archived lists only archived boards; --all still
+      changes visibility scope, not lifecycle, so --archived --all includes the server
+      admin's hidden archived-board metadata without names or titles. Deleted boards
+      are never listed. A lifecycle field, absent on older servers, means active.
+
       The boards on the server this directory's .aboard names, else the local server.
       In a terminal, with the person's login: the boards they are on, each with their
       role, how many people and agents it has, and whether it is this directory's board
@@ -2177,6 +2182,10 @@ $defs:
         type: string
         description: In a session, listing through the machine's delegation, the session as <harness>:<id>. Absent otherwise.
       all: { type: boolean }
+      lifecycle:
+        type: string
+        enum: [active, archived]
+        description: The lifecycle filter selected by the command; active by default, archived with --archived. Absent on older clients.
       boards:
         type: array
         items:
@@ -2186,6 +2195,10 @@ $defs:
             name: { type: string }
             title: { type: [string, "null"] }
             visibility: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
+            lifecycle:
+              type: string
+              enum: [active, archived]
+              description: Active if absent. Archived rows are shown only with --archived.
             on_board: { type: boolean }
             role:
               description: The person's role on the board; null for a board they aren't on, and for an agent.
@@ -2210,9 +2223,59 @@ $defs:
             seat:
               type: [string, "null"]
               description: In a session, listing through the machine's delegation, the session's seat on this board (the agent's name), or null. Absent otherwise.
+      archived_count:
+        type: integer
+        minimum: 0
+        description: |
+          The API's count of archived ordinary Board representations in this credential's
+          current list scope before lifecycle filtering, never hidden_boards admin
+          metadata. When nonzero, ordinary text output hints at aboard boards --archived.
+          Absent on older clients.
       hidden_boards:
         type: array
         items: { $ref: openapi.yaml#/components/schemas/HiddenBoard }
+
+  # ---------- aboard board archive|restore|delete ----------
+  BoardLifecycleOutput:
+    description: |
+      Archive or restore uses the person's credential in a terminal, or the acting
+      agent's own seat credential with --as, ABOARD_AGENT or a harness session. Only the
+      creator while still on the board, or a server admin, may act. An agent may archive
+      or restore only its own board for its creator-person while that person is on it;
+      it never inherits admin reach. In a multi-seat session, --board is required and
+      every refusal occurs before a person's stored key can be used as fallback.
+
+      Delete is person-only: with --as, ABOARD_AGENT or a harness session it refuses with
+      human_command_in_session and gives the person the command. It works only on an
+      archived board (board_not_archived otherwise). In an interactive terminal it asks
+      for the selected name to confirm that access ends while the record remains. For
+      an unreadable private board, the admin types its selected immutable id instead;
+      the command never resolves its private name. Elsewhere, including
+      with --json, --yes is required (confirmation_required otherwise). No count or
+      title is fetched for a private board the admin cannot read.
+
+      --board accepts a name, or the immutable brd_ id a server admin sees in
+      hidden_boards. Outside-admin housekeeping uses that id and reveals no private
+      name. The usual .aboard/default selection applies to a person's named boards;
+      agent selection stays on the agent's own board. Only the selector supplied or
+      already known locally is echoed in board; no private name is resolved for output.
+
+      Archive and restore repeat without an event when already at that lifecycle
+      (changed false). Deleted boards answer board_not_found, apart from the same
+      currently authorized credential's successful deletion idempotency replay.
+      The response is a committed operation receipt, not a current-state snapshot.
+      Errors include board_creator_required, guest_not_allowed, board_archived,
+      board_not_archived and board_not_found.
+    type: object
+    required: [server, board, id, lifecycle, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board:
+        type: string
+        description: The name or id selected locally or explicitly supplied; never a hidden private name discovered by the server.
+      id: { $ref: openapi.yaml#/components/schemas/BoardID }
+      lifecycle: { $ref: openapi.yaml#/components/schemas/BoardLifecycle }
+      changed: { type: boolean }
 
   # ---------- aboard board people ----------
   BoardPeopleOutput:

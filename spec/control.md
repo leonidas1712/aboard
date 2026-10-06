@@ -77,6 +77,7 @@ optional; each operation says which it reads.
 | `wake` | boolean | A prompt that is the bundle a waiting hook just woke the session with, not a later event |
 | `started` | string | When the hook's or command's process started (RFC 3339) |
 | `agent` | object | An agent: `{"server","board","name","member_id"}` (see "Seats"). On `join`, the board to join: `server` and `board`, with `name` the name asked for, if any |
+| `lifecycle` | string | On `boards`: `active` (default), `archived` or `all`; filters lifecycle without extending the delegation's access |
 | `role` | string | On `join`: the role to join as; `member` when left out |
 | `mode` | string | A delivery mode to set: `focused`, `all`, `humans` or `off` (`auto`, the earlier name of `all`, is accepted and saved as `all`) |
 | `revision` | integer | With `mode`: the mode is the one the agent's server now holds, at this revision (delivery.md, "Where the mode is held") |
@@ -114,6 +115,7 @@ on a connection that stays open.
 | `member` | object | On `join`: the seat, as the API's `Member` |
 | `boards` | array of objects | On `boards`: the boards the session's person can see, each the API's `Board` with `seat`, the session's seat there (an agent), when it has one |
 | `server` | string | On `boards`: the server they are on |
+| `archived_count` | integer | On `boards`: optional count of archived ordinary API Board representations in this delegation's list scope before lifecycle filtering; never hidden admin metadata |
 | `multi_seat` | boolean | In `status`: this daemon binds several seats to a session (see "Several seats") |
 | `reopened` | boolean | The session had closed and started again with the same id |
 | `lost` | agent | The agent the session filled until another session resumed it |
@@ -267,12 +269,24 @@ through its delegation for that server ("The machine's delegation"), and marks t
 session's seat on each. It answers only for a session it has registered or its harness
 adapter confirms, as for `agents`, and never for a subagent.
 
+`lifecycle` has the API list filter: absent means `active`; `archived` returns only
+archives, and `all` returns active boards and archives. It never adds hidden admin
+metadata or extends the delegation's scope. Each Board carries the API's optional
+`lifecycle`, `can_archive`, `can_restore` and `can_delete` fields; clients treat an
+absent lifecycle as active and absent capabilities as false. The response forwards
+`archived_count` when supplied by the API, for the CLI's archived-list hint.
+
 ```json
 {"v":1,"op":"boards","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","server":"https://team.example.com"}
 {"v":1,"server":"https://team.example.com","boards":[{"name":"payments-design","visibility":"open","on_board":true,"people_count":3,"agent_count":3,"seat":{"server":"https://team.example.com","board":"payments-design","name":"claude","member_id":"mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W"}},{"name":"incident-42","visibility":"private","on_board":true,"people_count":2,"agent_count":1}]}
 ```
 
 (Each board abbreviated: it is a whole `Board`.)
+
+`aboard boards --archived` sends `lifecycle: "archived"` through this operation,
+including when it runs inside an agent session. CLI `--all` retains its separate
+admin-visibility meaning and is refused for agents; it never becomes this lifecycle
+filter. Missing `archived_count` means no count was supplied, not proof of zero archives.
 
 ### `join`: give this session a seat on a board
 
