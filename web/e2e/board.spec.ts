@@ -1018,6 +1018,11 @@ for (const theme of ["light", "dark"] as const) {
     const newer = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Sidebar recent", "--json"));
     const a: string = older.board.name;
     const b: string = newer.board.name;
+    // Empty boards can share a creation timestamp; establish conversation activity.
+    aboard("say", "--as", "writer", "--board", b, "Start the recent conversation.");
+    const earlier = await api(ownerKey(), "GET", `/v1/boards/${a}`);
+    const recent = await api(ownerKey(), "GET", `/v1/boards/${b}`);
+    expect(Date.parse(String(recent.last_message_at))).toBeGreaterThan(Date.parse(String(earlier.created_at)));
     const open = JSON.parse(aboard("open", "--board", b, "--json"));
     await openLink(page, open.url);
     const nav = page.getByRole("navigation", { name: "Boards" });

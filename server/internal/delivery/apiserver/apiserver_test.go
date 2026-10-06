@@ -4,13 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,6 +58,7 @@ func localServer(t *testing.T) (url, owner string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
+		defer close(done)
 		done <- server.Run(ctx, server.Options{
 			Listener: l, DataDir: filepath.Join(dir, "data"), OwnerName: "alex",
 			OwnerTokenPath: filepath.Join(dir, "owner-token"), Version: "test",
@@ -66,25 +70,13 @@ func localServer(t *testing.T) (url, owner string) {
 		<-done
 	})
 	url = "http://" + addr
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		raw, err := os.ReadFile(filepath.Clean(filepath.Join(dir, "owner-token")))
-		if err == nil {
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, url+"/v1/info", http.NoBody)
-			if resp, err := http.DefaultClient.Do(req); err == nil {
-				_ = resp.Body.Close()
-				return url, strings.TrimSpace(string(raw))
-			}
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("the test server didn't start")
-		}
-		select {
-		case err := <-done:
-			t.Fatalf("the test server stopped: %v", err)
-		case <-time.After(20 * time.Millisecond):
-		}
+	ready, stopWaiting := context.WithTimeout(ctx, 10*time.Second)
+	defer stopWaiting()
+	owner, err = awaitOwnerReady(ready, url, filepath.Join(dir, "owner-token"), done)
+	if err != nil {
+		t.Fatal(err)
 	}
+	return url, owner
 }
 
 func apiClient(t *testing.T, url, token string) *api.ClientWithResponses {
@@ -269,5 +261,80 @@ func TestReadEventsParsesTheStream(t *testing.T) {
 	}
 	if lines != 13 {
 		t.Fatalf("saw %d lines, want 13", lines)
+	}
+}
+
+// awaitOwnerReady waits for bootstrap to publish a credential usable by the server.
+func awaitOwnerReady(ctx context.Context, url, path string, stopped <-chan error) (string, error) {
+	for {
+		raw, err := os.ReadFile(filepath.Clean(path))
+		if err == nil {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url+"/v1/me", http.NoBody)
+			if err != nil {
+				return "", err
+			}
+			candidate := strings.TrimSpace(string(raw))
+			req.Header.Set("Authorization", "Bearer "+candidate)
+			if resp, err := http.DefaultClient.Do(req); err == nil {
+				_ = resp.Body.Close()
+				if resp.StatusCode == http.StatusOK && candidate != "" {
+					return candidate, nil
+				}
+			}
+		}
+		select {
+		case err := <-stopped:
+			if err != nil {
+				return "", fmt.Errorf("the test server stopped: %w", err)
+			}
+			return "", errors.New("the test server stopped")
+		case <-ctx.Done():
+			return "", fmt.Errorf("the test server didn't become ready: %w", ctx.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+}
+
+func TestOwnerReadinessDoesNotReturnAnIncompleteBootstrapCredential(t *testing.T) {
+	for _, initial := range []string{"", "fixture"} {
+		t.Run(fmt.Sprintf("initial-bytes-%d", len(initial)), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "owner-token")
+			if err := os.WriteFile(path, []byte(initial), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			const complete = "fixture-owner-token"
+			var once sync.Once
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// The read before this first request necessarily saw incomplete file bytes.
+				// Publish the completed bootstrap only when that stale read has been observed.
+				once.Do(func() {
+					if err := os.WriteFile(path, []byte(complete), 0o600); err != nil {
+						t.Error(err)
+					}
+				})
+				if r.URL.Path == "/v1/info" {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				if r.URL.Path != "/v1/me" {
+					t.Errorf("unexpected readiness route %s", r.URL.Path)
+				}
+				if r.Header.Get("Authorization") != "Bearer "+complete {
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer srv.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			got, err := awaitOwnerReady(ctx, srv.URL, path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != complete {
+				t.Fatalf("readiness returned %d incomplete credential bytes", len(got))
+			}
+		})
 	}
 }
