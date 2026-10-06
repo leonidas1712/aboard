@@ -41,9 +41,6 @@ writes, spelled the same way.
 Every connection's first message carries `v`, the protocol version. This page is
 version **1**.
 
-Examples in `json-planned` blocks are contract ahead of the daemon (team slice 5a). The
-spec test skips them; each becomes a `json` block when the daemon speaks it.
-
 - The daemon answers a first message whose `v` isn't its own with
   `daemon_protocol_mismatch` and closes the connection:
 
@@ -235,17 +232,16 @@ session to resume its agent.
 
 ### `bind`: an agent takes the session
 
-Sent by `aboard pair`, `join` and `resume` run in a session. A session holds one agent;
-`previous` names the one it moved away from. A harness whose delivery waits for an idle
+Sent by `aboard pair`, `join` and `resume` run in a session. A session holds one seat
+per board; `previous` names a seat replaced on the same board. A harness whose delivery waits for an idle
 hook must have registered first; one whose harness confirms on handing (Codex) can be
 bound from any command run in the session.
 
-Precisely, as built and until multi-seat binding is on ("Several seats" below):
-binding an agent the session already holds changes nothing and answers no `previous`;
-binding any other agent ends every other binding the session has, on the same board or
-another, and answers the one it ended as `previous`; binding an agent another session
-holds moves the agent to this session, and that session is left with no agent. The
-journal holds at most one binding per session (its migration 004). A client may send
+Binding an agent the session already holds changes nothing and answers no `previous`.
+Binding another agent on the same board replaces that board's seat; a seat on another
+board is added without ending its siblings. Binding an agent another session holds
+moves only that agent. All seats in a session must use one server ("Several seats"
+below). A client may send
 the seat's `member_id` in `agent`; a daemon that keys seats by it finds it itself when
 it is left out, and checks one that is sent against the seat's own token ("Seats").
 
@@ -322,8 +318,8 @@ committed but its answer never arrived (the connection dropped): the join answer
 join for the same person, session and board finds the same seat through the server's
 lookup and recovers it with a new token, never a second seat.
 
-```json-planned
-{"v":1,"op":"join","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","agent":{"server":"https://team.example.com","board":"payments-design"}}
+```json
+{"v":1,"op":"join","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","agent":{"server":"https://team.example.com","board":"payments-design","name":""}}
 {"v":1,"joined":{"server":"https://team.example.com","board":"payments-design","name":"claude","member_id":"mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W"},"board":{"name":"payments-design"},"member":{"id":"mem_01JB8Z3K7Q4M2N5P6R8S9T0V1W","name":"claude"},"mode":"focused"}
 ```
 
@@ -426,17 +422,12 @@ board, all on one server. Each seat is an agent with its own name, history, read
 position, delivery mode and waiting messages; the session holds the turn state (the
 harness connection, busy or idle, its boot, the one handoff in flight).
 
-**Gating.** It is built in three lanes: seats keyed by `member_id` (lane 1); the CLI's
-`board_ambiguous` and several seats in `status` and `inbox` (lane 2); and the combined
-delivery to a session with several seats (lane 3). Lane 1 may land first. Until lanes 2
-and 3 have both landed, **no operation and no command creates a second live binding
-for a session**: `bind`, `join`, `register` with a launch ticket and a resumed
-session's rebinding all keep the one-seat rule stated under `bind` (a new seat replaces
-the session's other binding, answered as `previous`), and the journal keeps its
-one-binding-per-session index. Multi-seat binding is switched on in one build, the one
-that has both lanes, never by a setting; that build's `status` answers
-`"multi_seat":true`, and its `bind`, `join` and `agents` answers carry `seats`. One-seat
-behaviour, output and delivery text stay byte for byte as they are, before and after.
+**Compatibility.** Older builds without `multi_seat:true` keep one binding per
+session: a new binding replaces the previous one, even across boards. The current
+build's `status` answers `"multi_seat":true`, and its `bind`, `join` and `agents`
+answers carry `seats`. This is a build capability, never a setting. One-seat output
+and delivery text stay unchanged; the live extension requirement for pairing and code
+joins is described under "Combined handoffs".
 
 **Once on.** Binding a seat on a board where the session holds none adds it and keeps
 the others; binding a seat on a board where the session holds another replaces only
