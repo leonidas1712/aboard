@@ -3844,8 +3844,7 @@ components:
       properties:
         agents_add_people:
           type: boolean
-          default: true
-          description: Server-wide permission for eligible agent seats to add people; false overrides every board's setting. Missing means true.
+          description: Server-wide permission for eligible agent seats to add people; false overrides every board's setting. Omitted means unchanged.
         board_creation: { $ref: "#/components/schemas/BoardCreation" }
     UpdateBoardRequest:
       type: object
