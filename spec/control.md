@@ -396,13 +396,19 @@ bind different servers or bypass the extension capability check. Creating anothe
 never moves, revokes or clears an existing seat, its inbox or acknowledgements.
 
 **Retrying creation.** The client generates one key for the requested creation and
-retains it through bounded transport retries, with the same options. When a server
-answer is lost, the daemon returns `server_unreachable`, saves no guessed credential
-and binds nothing. A failed credential save returns `internal` and binds nothing. A
-repeat with that same credential, key and body asks the server again: while its replay
-is authorized within 24 hours, it returns the same board, seat and still-working token,
-without another event or token rotation. It is not `join`'s rotating-token recovery.
-The daemon never creates a fresh board automatically after an uncertain result.
+makes one `create_board` control call. Inside that invocation, the daemon may retry
+server transport failures a bounded number of times with the same captured delegation,
+key and body. It never refreshes the credential for that creation. While a replay is
+authorized within 24 hours, the server returns the same board, seat and still-working
+token, without another event or token rotation. It is not `join`'s rotating-token recovery.
+
+If the daemon's answer is lost or it exits, the client stops: it must not reconnect to
+or start another daemon and resend the creation. A replacement daemon has no proof of
+the original delegation scope. When server retries cannot recover an answer, the daemon
+returns `server_unreachable`, saves no guessed credential and binds nothing. A failed
+credential save returns `internal` and binds nothing. The caller discovers the board
+and deliberately joins it before considering another creation. The daemon never
+creates a fresh board automatically after an uncertain result.
 
 An expired response is a new operation at the API. When the caller cannot recover a
 working replay, it must stop: retain the key for a deliberate retry, or discover the
