@@ -241,7 +241,7 @@ type Status struct {
 	// Stalled are deliveries handed to an idle session that started no turn within
 	// StallAfter, reason no_turn_started. They aren't handed again.
 	Stalled []StatusItem `json:"stalled"`
-	// MultiSeat says this daemon binds several seats to a session; it doesn't yet.
+	// MultiSeat says this daemon can bind several board seats to one session.
 	MultiSeat bool            `json:"multi_seat,omitempty"`
 	Agents    []AgentProblem  `json:"agents"`
 	Bindings  []BindingStatus `json:"bindings"`

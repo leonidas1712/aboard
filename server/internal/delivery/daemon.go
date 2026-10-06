@@ -999,6 +999,7 @@ func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: Eve
 // status reports the daemon's state for aboard doctor.
 func (d *Daemon) status(ctx context.Context) Response {
 	st := &Status{
+		MultiSeat: multiSeatEnabled,
 		PID: d.cfg.PID, Build: d.cfg.Build, OpenSessions: d.openCount(), Servers: []ServerStatus{},
 		Attention: []StatusItem{}, Skipped: []StatusItem{}, Stalled: []StatusItem{}, Agents: []AgentProblem{}, Bindings: []BindingStatus{},
 	}
