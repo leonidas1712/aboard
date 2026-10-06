@@ -54,7 +54,7 @@ func (s *session) compositionOptions(limit int) composeOptions {
 	return composeOptions{MultiSeat: len(s.agents) > 1, First: s.firstSeat, WholeLimit: limit}
 }
 
-func handoffClass(parts []offer) DeliveryClass {
+func handoffClass(parts []offer) Class {
 	count := 0
 	for _, p := range parts {
 		for _, m := range p.msgs {

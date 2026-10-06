@@ -316,7 +316,7 @@ type HandoffManifest struct {
 	ID          string
 	Session     SessionKey
 	Boot        string
-	Class       DeliveryClass
+	Class       Class
 	PayloadHash string
 	Parts       []HandoffPart
 	CreatedAt   time.Time

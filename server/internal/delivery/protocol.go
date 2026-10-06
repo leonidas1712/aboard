@@ -149,10 +149,10 @@ type Response struct {
 	Bundle string `json:"bundle,omitempty"`
 	// ID is the delivery an EventDeliver on an extension connection carries, which the
 	// extension names when it confirms it.
-	ID            int64         `json:"id,omitempty"`
-	HandoffID     string        `json:"handoff_id,omitempty"`
-	DeliveryClass DeliveryClass `json:"delivery_class,omitempty"`
-	Capabilities  []string      `json:"capabilities,omitempty"`
+	ID            int64    `json:"id,omitempty"`
+	HandoffID     string   `json:"handoff_id,omitempty"`
+	DeliveryClass Class    `json:"delivery_class,omitempty"`
+	Capabilities  []string `json:"capabilities,omitempty"`
 	// Notice names waiting messages without their content, in answer to OpBoundary.
 	Notice string     `json:"notice,omitempty"`
 	Boot   string     `json:"boot,omitempty"`

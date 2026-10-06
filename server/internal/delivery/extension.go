@@ -120,6 +120,7 @@ type extConn struct {
 }
 
 var _ Waiter = (*extConn)(nil)
+
 var _ HandoffWaiter = (*extConn)(nil)
 
 // write sends one frame, giving up after waiterWriteTimeout so an extension that stopped

@@ -5,6 +5,7 @@ import "context"
 // The second binding stays disabled until combined delivery and routing are verified.
 const multiSeatEnabled = false
 
+// ReasonExtensionOutdated identifies a session whose extension needs updating.
 const ReasonExtensionOutdated = "extension_outdated"
 
 func (d *Daemon) bindingPreflight(ctx context.Context, key SessionKey, agent AgentRef) Response {

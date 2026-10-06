@@ -62,6 +62,7 @@ func (f *joinEntrySeats) Join(ctx context.Context, server string, req delivery.S
 
 func TestExtensionLostDuringJoinDoesNotSaveOrBindTheGrant(t *testing.T) {
 	r, f := seatsRig(t)
+	_ = r.status()
 	r.stop()
 	gated := &joinEntrySeats{fakeSeats: f, entered: make(chan struct{}), release: make(chan struct{})}
 	r.seats = gated

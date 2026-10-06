@@ -24,22 +24,24 @@ type Adapter interface {
 	Hand(ctx context.Context, h Handover) (confirmed bool, err error)
 }
 
-// DeliveryClass is derived from every admitted message, never from rendered text.
-type DeliveryClass string
+// Class is derived from every admitted message, never from rendered text.
+type Class string
 
+// Handoff classes distinguish owner-only payloads from mixed or unknown ones.
 const (
-	ClassOwnerOnly      DeliveryClass = "owner_only"
-	ClassMixed          DeliveryClass = "mixed"
-	CapabilityHandoffV1               = "handoff-v1"
+	ClassOwnerOnly      Class = "owner_only"
+	ClassMixed          Class = "mixed"
+	CapabilityHandoffV1       = "handoff-v1"
 )
 
+// ErrExtensionOutdated means the connected extension cannot receive combined handoffs.
 var ErrExtensionOutdated = errors.New("the extension does not support combined handoffs")
 
 // Handover is one bundle for one session.
 type Handover struct {
 	SessionID string
 	HandoffID string
-	Class     DeliveryClass
+	Class     Class
 	// ID is the first delivery the bundle carries, which a harness extension names when
 	// it confirms the bundle.
 	ID     int64
