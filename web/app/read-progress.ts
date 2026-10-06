@@ -9,7 +9,10 @@
 
 import type { Board } from "./api";
 
-type Pair = { gen: number; read_up_to: number | undefined; unread: number | undefined };
+// A pair is off when the newest fresh read said the person isn't on the board: it holds
+// no bookkeeping, and only a fresh read that started later, with the person on the
+// board again, starts it afresh.
+type Pair = { gen: number; read_up_to: number | undefined; unread: number | undefined; off?: boolean };
 
 export class ReadProgress {
   private gen = 0;
@@ -27,10 +30,12 @@ export class ReadProgress {
    * generation, since a read started late can still see an old position, and an event
    * can arrive late. At the same read_up_to the newer generation's unread is taken, as a
    * new message raises it without moving the position. The kept generation is the
-   * newest seen.
+   * newest seen. While the person isn't on the board, nothing is noted: an event or an
+   * acknowledgement from before they left can't bring it back.
    */
   note(id: string, gen: number, read_up_to: number | undefined, unread: number | undefined): void {
     const kept = this.pairs.get(id);
+    if (kept?.off) return;
     if (!kept) {
       this.pairs.set(id, { gen, read_up_to, unread });
       return;
@@ -44,11 +49,27 @@ export class ReadProgress {
     }
   }
 
-  /** board returns b, read at generation gen, with the newest pair kept for it. */
+  /**
+   * board returns b, a fresh read that started at generation gen, with the newest pair
+   * kept for it. When b says the person isn't on the board (on_board false, or no read
+   * position), the board's bookkeeping is cleared and b shows none. When the person is
+   * on it again, a read that started after the one that cleared it starts afresh, with
+   * nothing kept from before.
+   */
   board(b: Board, gen: number): Board {
-    this.note(b.id, gen, b.read_up_to, b.unread);
-    const kept = this.pairs.get(b.id)!;
-    return { ...b, read_up_to: kept.read_up_to, unread: kept.unread };
+    const kept = this.pairs.get(b.id);
+    if (!b.on_board || b.read_up_to === undefined) {
+      if (!kept?.off || gen > kept.gen) this.pairs.set(b.id, { gen, read_up_to: undefined, unread: undefined, off: true });
+      return { ...b, read_up_to: undefined, unread: undefined };
+    }
+    if (kept?.off) {
+      if (gen < kept.gen) return { ...b, read_up_to: undefined, unread: undefined };
+      this.pairs.set(b.id, { gen, read_up_to: b.read_up_to, unread: b.unread });
+    } else {
+      this.note(b.id, gen, b.read_up_to, b.unread);
+    }
+    const now = this.pairs.get(b.id)!;
+    return { ...b, read_up_to: now.read_up_to, unread: now.unread };
   }
 
   /**
@@ -67,6 +88,7 @@ export class ReadProgress {
   /** apply puts the newest kept pair on b, if there is one, without noting anything. */
   apply(b: Board): Board {
     const kept = this.pairs.get(b.id);
+    if (kept?.off) return { ...b, read_up_to: undefined, unread: undefined };
     return kept ? { ...b, read_up_to: kept.read_up_to, unread: kept.unread } : b;
   }
 }

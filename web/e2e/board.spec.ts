@@ -1757,3 +1757,56 @@ test("a stream event delayed from before an acknowledgement never moves the read
   await frames(page);
   await expect(link.locator(".unread-count")).toHaveCount(0);
 });
+
+test("leaving a board clears its read count, a late event can't bring it back, and rejoining starts afresh", async ({ page }) => {
+  const pat = await person("pat");
+  const alexKey = ownerKey();
+  // pat's open board, with alex on it and one message alex hasn't read.
+  const made = await api(pat, "POST", "/v1/boards", { template: "general", title: "Pat's open board" });
+  const board = { name: made.name as string, id: made.id as string };
+  await api(pat, "POST", `/v1/boards/${board.name}/people`, { handle: "alex" });
+  await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "Before alex left.", to: ["all"] });
+  const before = await api(alexKey, "GET", `/v1/boards/${board.name}`);
+  const here = await newBoard("Leave check here");
+
+  // The page's board lists also show open boards alex isn't on (all=true), as the
+  // server gives them: on_board false, with no read position or unread count.
+  await page.route(
+    (url) => url.pathname === "/v1/boards",
+    (route) => {
+      const url = new URL(route.request().url());
+      url.searchParams.set("all", "true");
+      return route.continue({ url: url.toString() });
+    },
+  );
+  const events = await holdEvents(page);
+  await openLink(page, JSON.parse(aboard("open", "--board", here.name, "--json")).url);
+  const link = page.getByRole("navigation", { name: "Boards" }).locator(`a[href="/?board=${board.name}"]`);
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+
+  // alex leaves; the list read after it still shows the open board, without bookkeeping.
+  await api(alexKey, "POST", `/v1/boards/${board.name}/leave`, {});
+  const fresh = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await events.send("board_unavailable", { board_id: board.id });
+  const listed = (await (await fresh).json()) as { boards: { id: string; on_board: boolean; unread?: number }[] };
+  const row = listed.boards.find((b) => b.id === board.id);
+  expect(row?.on_board).toBe(false);
+  expect(row?.unread).toBeUndefined();
+  await expect(link).toBeVisible();
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // An unread event from before the leave, arriving late, changes nothing.
+  await events.send("unread", { board: board.name, board_id: board.id, read_up_to: before.read_up_to, unread: 1 });
+  await frames(page);
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+
+  // alex comes back and pat writes again: the fresh list's bookkeeping shows.
+  await api(alexKey, "POST", `/v1/boards/${board.name}/people`, { handle: "alex" });
+  await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "After alex came back.", to: ["all"] });
+  const now = unreadOn(board.name);
+  expect(now).toBeGreaterThan(0);
+  const again = page.waitForResponse((r) => new URL(r.url()).pathname === "/v1/boards");
+  await events.send("board_unavailable", { board_id: board.id });
+  await (await again).finished();
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText(String(now));
+});
