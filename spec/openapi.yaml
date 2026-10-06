@@ -1168,6 +1168,11 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+        "404":
+          description: A cached creation replay's board is deleted or no longer accessible to the current credential.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
     get:
