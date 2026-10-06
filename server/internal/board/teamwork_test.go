@@ -40,7 +40,7 @@ func TestAgentAddChecksCurrentAuthorityWhenItsWriteStarts(t *testing.T) {
 				_, err = w.svc.UpdateBoard(ctx, w.maya, w.board, board.Change{AgentsAddPeople: &no})
 			case "owner removed":
 				_, err = w.svc.RemovePerson(ctx, w.maya, w.board, "sam")
-				code = "board_not_found"
+				code = "agent_removed"
 			case "parent expiry":
 				w.clk.Advance(91 * 24 * time.Hour)
 				code = "unauthorized"
