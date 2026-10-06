@@ -116,3 +116,10 @@ export function play(on: boolean) {
     if (state.step >= scenario.steps.length - 1) play(false);
   }, 4000);
 }
+
+// A page opened with play=1 (Play pressed on the last step starts over from step 1)
+// resumes playing once it loads.
+if (state.playing) {
+  state = { ...state, playing: false };
+  setTimeout(() => play(true), 0);
+}
