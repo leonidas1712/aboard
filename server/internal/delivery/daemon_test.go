@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,8 +24,8 @@ import (
 const serverURL = "http://127.0.0.1:7400"
 
 var (
-	reviewer = delivery.AgentRef{Server: serverURL, Board: "docs", Name: "reviewer"}
-	planner  = delivery.AgentRef{Server: serverURL, Board: "plans", Name: "planner"}
+	reviewer = delivery.AgentRef{Server: serverURL, Board: "docs", Name: "reviewer", MemberID: "mem_reviewer"}
+	planner  = delivery.AgentRef{Server: serverURL, Board: "plans", Name: "planner", MemberID: "mem_planner"}
 )
 
 // within bounds every wait in these tests; nothing should come close to it.
@@ -646,11 +647,13 @@ func TestUnconfirmedBundleGoesToTheNextSessionForTheAgent(t *testing.T) {
 	}
 }
 
-// A session fills one seat at a time. Binding it to another agent ends the old binding:
+// Replacing a seat on the same board ends its old binding:
 // nothing more is delivered for the old agent here, and the bundle handed for it but not
 // confirmed goes to whichever session binds it next. The move survives a restart.
 func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
 	r := newRig(t)
+	replacement := planner
+	replacement.Board = reviewer.Board
 	r.register("s1", "b1")
 	if prev := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &reviewer}).Previous; prev != nil {
 		t.Fatalf("a session with no agent moved from %+v", prev)
@@ -658,22 +661,22 @@ func TestBindingAnotherAgentMovesTheSession(t *testing.T) {
 	r.post(reviewer, "handed before the move", false)
 	r.wait("s1", "b1", false).bundle()
 
-	resp := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &planner})
+	resp := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &replacement})
 	if resp.Previous == nil || *resp.Previous != reviewer {
 		t.Fatalf("binding another agent should name the one it replaced, got %+v", resp.Previous)
 	}
-	again := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &planner})
+	again := r.ok(delivery.Request{Op: delivery.OpBind, Harness: "claude-code", Session: "s1", Agent: &replacement})
 	if again.Previous != nil {
 		t.Fatalf("binding the same agent again moved from %+v", again.Previous)
 	}
 	r.restart()
 	r.post(reviewer, "for the old seat", false)
-	r.post(planner, "for the new seat", false)
+	r.post(replacement, "for the new seat", false)
 	b := r.wait("s1", "b1", false).bundle()
 	if !strings.Contains(b, "for the new seat") || strings.Contains(b, "for the old seat") || strings.Contains(b, "handed before the move") {
 		t.Fatalf("the moved session got:\n%s", b)
 	}
-	if got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "s1"}).Agents; len(got) != 1 || got[0] != planner {
+	if got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "s1"}).Agents; len(got) != 1 || got[0] != replacement {
 		t.Fatalf("agents bound to the moved session: %+v", got)
 	}
 	if got := r.server.Cursor(reviewer); got != 0 {
@@ -763,6 +766,8 @@ func TestAgentWhoseBoardIsGoneStopsForGood(t *testing.T) {
 // nothing more is sent for it, even when the session moves on or closes.
 func TestPresenceRefusedForAGoneBoardStopsTheAgent(t *testing.T) {
 	r := newRig(t)
+	replacement := planner
+	replacement.Board = reviewer.Board
 	r.register("s1", "b1")
 	r.bind("claude-code", "s1", reviewer)
 	r.presence(reviewer, delivery.PresenceIdle)
@@ -777,11 +782,11 @@ func TestPresenceRefusedForAGoneBoardStopsTheAgent(t *testing.T) {
 	r.wait("s1", "b1", false)
 	r.hookCall(delivery.OpPrompt)
 	r.clock.Advance(delivery.PresenceRenew)
-	// Another session takes a different agent's place in s1, so reviewer leaves it.
-	r.bind("claude-code", "s1", planner)
-	r.post(planner, "for the planner", false)
-	if b := r.wait("s1", "b1", false).bundle(); !strings.Contains(b, "for the planner") {
-		t.Fatalf("planner's bundle:\n%s", b)
+	// A replacement on the same board leaves the refused seat stopped.
+	r.bind("claude-code", "s1", replacement)
+	r.post(replacement, "for the replacement", false)
+	if b := r.wait("s1", "b1", false).bundle(); !strings.Contains(b, "for the replacement") {
+		t.Fatalf("replacement's bundle:\n%s", b)
 	}
 	if after := r.server.Requests(reviewer); after != before {
 		t.Fatalf("%d more requests for the reviewer after its board was gone", after-before)
@@ -794,7 +799,7 @@ func TestAgentsListsWhatIsBoundToTheSession(t *testing.T) {
 	r.bind("claude-code", "s1", planner)
 	r.bind("claude-code", "s1", reviewer)
 	got := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "s1"}).Agents
-	if len(got) != 1 || got[0] != reviewer {
+	if len(got) != 2 || !slices.Contains(got, reviewer) || !slices.Contains(got, planner) {
 		t.Fatalf("agents %+v", got)
 	}
 	unknown := r.call(delivery.Request{Op: delivery.OpAgents, Harness: "claude-code", Session: "nope"})
