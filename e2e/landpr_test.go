@@ -54,10 +54,24 @@ type landPRRepo struct {
 
 // fakeGH answers the gh calls scripts/land-pr makes for PR 7 on branch feature. Its
 // first merge fails the way GitHub does when main moved underneath it; the next one
-// merges feature into the origin's main.
+// merges feature into the origin's main. gh run list answers with the lines of
+// $GH_STATE/runs in turn, as gh's --jq would print them, repeating the last one; with
+// no such file, the check workflow passed.
 const fakeGH = `#!/bin/sh
 set -eu
 case "$1 $2" in
+"run list")
+	echo "$*" >>"$GH_STATE/run-lists"
+	if [ ! -f "$GH_STATE/runs" ]; then
+		echo "https://example.test/runs/1 completed success"
+		exit 0
+	fi
+	head -n 1 "$GH_STATE/runs"
+	if [ "$(wc -l <"$GH_STATE/runs")" -gt 1 ]; then
+		tail -n +2 "$GH_STATE/runs" >"$GH_STATE/runs.next"
+		mv "$GH_STATE/runs.next" "$GH_STATE/runs"
+	fi
+	;;
 "pr view")
 	case "$*" in
 	*headRefName*) echo "$(cat "$GH_STATE/state") feature main false https://example.test/pr/7" ;;
@@ -124,6 +138,7 @@ func newLandPRRepo(t *testing.T) *landPRRepo {
 		"GH_STATE=" + r.ghState,
 		"ORIGIN=" + r.origin,
 		"LAND_PR_RETRY_DELAY=0",
+		"CI_STATUS_INTERVAL=0",
 	}
 	r.git(dir, "init", "-q", "--bare", "-b", "main", r.origin)
 	r.git(dir, "clone", "-q", r.origin, r.main)
@@ -214,10 +229,10 @@ func (r *landPRRepo) read(name string) string {
 	return string(b)
 }
 
-// scripts/land-pr merges main into the PR's branch in a worktree of its own, runs the
-// checks the change calls for, merges through a refused first attempt, and then removes
-// the worktree, the local branch and the remote branch, leaving the main checkout as
-// it was.
+// With --local, scripts/land-pr merges main into the PR's branch in a worktree of its
+// own, runs the checks the change calls for here, merges through a refused first
+// attempt, and then removes the worktree, the local branch and the remote branch,
+// leaving the main checkout as it was.
 func TestLandPRMergesAndCleansUp(t *testing.T) {
 	t.Parallel()
 	r := newLandPRRepo(t)
@@ -225,7 +240,7 @@ func TestLandPRMergesAndCleansUp(t *testing.T) {
 	r.moveMain("design/notes.md", "Notes\n")
 	before := r.git(r.main, "rev-parse", "HEAD")
 
-	plan, code := r.land("--dry-run", "7")
+	plan, code := r.land("--dry-run", "--local", "7")
 	if code != 0 {
 		t.Fatalf("dry run exited %d:\n%s", code, plan)
 	}
@@ -238,9 +253,12 @@ func TestLandPRMergesAndCleansUp(t *testing.T) {
 		t.Fatalf("dry run ran something: merges %q, make %q", r.read("merges"), r.read("make"))
 	}
 
-	out, code := r.land("7")
+	out, code := r.land("--local", "7")
 	if code != 0 {
 		t.Fatalf("land-pr exited %d:\n%s", code, out)
+	}
+	if r.read("run-lists") != "" {
+		t.Errorf("--local asked GitHub for CI runs: %q", r.read("run-lists"))
 	}
 	if got := strings.TrimSpace(r.read("make")); got != "fmt-check lint vet generate-check core-size harness-table-check test e2e" {
 		t.Errorf("make ran %q", got)
@@ -318,8 +336,8 @@ func TestLandPRKeepsAnExistingWorktree(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("land-pr exited %d:\n%s", code, out)
 	}
-	if !strings.Contains(out, "Checks: none") || r.read("make") != "" {
-		t.Errorf("ran checks for a design-only change:\n%s", out)
+	if r.read("make") != "" {
+		t.Errorf("ran checks here when CI had passed:\n%s", out)
 	}
 	if !strings.Contains(out, "Kept the worktree "+wt) {
 		t.Errorf("output doesn't say it kept %s:\n%s", wt, out)
@@ -366,5 +384,168 @@ func TestLandPRRunsTheLiveTestsWithLive(t *testing.T) {
 	}
 	if got := strings.Count(r.read("make"), "live-affected"); got != 2 {
 		t.Errorf("make live-affected ran %d times, want 2:\n%s", got, r.read("make"))
+	}
+}
+
+// By default CI is the gate: when the check workflow already passed on the branch's
+// head, nothing runs here and the PR merges at that exact commit.
+func TestLandPRMergesWhenCIPassedOnTheHead(t *testing.T) {
+	t.Parallel()
+	r := newLandPRRepo(t)
+	r.branch("server/internal/cli/say.go", "package cli\n")
+	head := r.git(r.origin, "rev-parse", "feature")
+
+	plan, code := r.land("--dry-run", "7")
+	if code != 0 || !strings.Contains(plan, "Checks: the check workflow on GitHub") ||
+		!strings.Contains(plan, "CI: passed on the branch's head") {
+		t.Errorf("dry run exited %d without the CI plan:\n%s", code, plan)
+	}
+
+	out, code := r.land("7")
+	if code != 0 {
+		t.Fatalf("land-pr exited %d:\n%s", code, out)
+	}
+	if r.read("make") != "" {
+		t.Errorf("ran make when CI had passed: %q", r.read("make"))
+	}
+	if !strings.Contains(r.read("run-lists"), "--workflow check.yml --commit "+head) {
+		t.Errorf("didn't ask for the check workflow on %s: %q", head, r.read("run-lists"))
+	}
+	if !strings.Contains(r.read("merges"), "--match-head-commit "+head) {
+		t.Errorf("didn't merge at %s: %q", head, r.read("merges"))
+	}
+	if !strings.Contains(out, "CI: passed on") || !strings.Contains(out, "Merged: PR #7") {
+		t.Errorf("output doesn't say CI passed and the PR merged:\n%s", out)
+	}
+}
+
+// When main moved, the merge with main is a commit CI has never seen: land-pr pushes it,
+// waits while the run is missing and then running, and merges once it passes, at that
+// commit.
+func TestLandPRWaitsForCIOnTheMergedHead(t *testing.T) {
+	t.Parallel()
+	r := newLandPRRepo(t)
+	r.branch("docs/page.mdx", "A page\n")
+	r.moveMain("design/notes.md", "Notes\n")
+	r.write(filepath.Join(r.ghState, "runs"),
+		"missing\nmissing\nhttps://example.test/runs/2 in_progress \nhttps://example.test/runs/2 completed success\n")
+
+	out, code := r.land("7")
+	if code != 0 {
+		t.Fatalf("land-pr exited %d:\n%s", code, out)
+	}
+	if r.read("make") != "" {
+		t.Errorf("ran make in the CI path: %q", r.read("make"))
+	}
+	merged := r.git(r.origin, "rev-parse", "main^2")
+	if parents := strings.Fields(r.git(r.origin, "rev-list", "--parents", "-n", "1", merged)); len(parents) != 3 {
+		t.Errorf("the merged head %s isn't the merge with main: %v", merged, parents)
+	}
+	if got := strings.Count(r.read("run-lists"), "--commit "+merged); got != 4 {
+		t.Errorf("asked about %s %d times, want 4:\n%s", merged, got, r.read("run-lists"))
+	}
+	if !strings.Contains(r.read("merges"), "--match-head-commit "+merged) {
+		t.Errorf("didn't merge at %s: %q", merged, r.read("merges"))
+	}
+	for _, want := range []string{"for CI to run on", "CI: waiting up to 30 min", "CI: passed (https://example.test/runs/2)", "Merged: PR #7"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output doesn't say %q:\n%s", want, out)
+		}
+	}
+}
+
+// A check workflow run that failed on the head stops the landing before the merge,
+// names the run, and says what to do about a known flake.
+func TestLandPRStopsWhenCIFailed(t *testing.T) {
+	t.Parallel()
+	r := newLandPRRepo(t)
+	r.branch("server/internal/cli/say.go", "package cli\n")
+	r.write(filepath.Join(r.ghState, "runs"), "https://example.test/runs/3 completed failure\n")
+
+	out, code := r.land("7")
+	if code != 3 {
+		t.Fatalf("land-pr exited %d, want 3:\n%s", code, out)
+	}
+	for _, want := range []string{"ended with failure", "https://example.test/runs/3", "known flake", "gh run rerun --failed"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output doesn't say %q:\n%s", want, out)
+		}
+	}
+	if r.read("merges") != "" || r.read("make") != "" {
+		t.Errorf("merged or ran make after CI failed")
+	}
+}
+
+// CI that hasn't finished within LAND_PR_CI_WAIT stops with exit 6, the branch pushed
+// so a later run finds the result.
+func TestLandPRStopsWhenCIIsStillRunning(t *testing.T) {
+	t.Parallel()
+	r := newLandPRRepo(t)
+	r.branch("docs/page.mdx", "A page\n")
+	r.moveMain("design/notes.md", "Notes\n")
+	r.write(filepath.Join(r.ghState, "runs"), "https://example.test/runs/4 queued \n")
+	r.env = append(r.env, "LAND_PR_CI_WAIT=0")
+
+	out, code := r.land("7")
+	if code != 6 {
+		t.Fatalf("land-pr exited %d, want 6:\n%s", code, out)
+	}
+	if !strings.Contains(out, "CI hasn't finished") || r.read("merges") != "" {
+		t.Errorf("didn't stop for unfinished CI:\n%s", out)
+	}
+	wt := filepath.Join(r.main, ".claude", "worktrees", "land-pr-7")
+	if got, want := r.git(r.origin, "rev-parse", "feature"), r.git(wt, "rev-parse", "HEAD"); got != want {
+		t.Errorf("origin's feature is %s, want the merged head %s", got, want)
+	}
+}
+
+// scripts/ci-status reads the check workflow's newest run for a commit: its exit code
+// says passed, failed, missing or still running, and with --wait it waits for a run
+// that is still going.
+func TestCIStatus(t *testing.T) {
+	t.Parallel()
+	sha := strings.Repeat("ab", 20)
+	for _, tc := range []struct {
+		name, runs string
+		args       []string
+		code       int
+		want       string
+	}{
+		{"passed", "https://example.test/runs/1 completed success\n", nil, 0, "success https://example.test/runs/1"},
+		{"failed", "https://example.test/runs/1 completed failure\n", nil, 2, "failure https://example.test/runs/1"},
+		{"cancelled", "https://example.test/runs/1 completed cancelled\n", nil, 2, "cancelled https://example.test/runs/1"},
+		{"no run", "missing\n", []string{"--wait", "60"}, 3, "missing -"},
+		{"still running", "https://example.test/runs/1 in_progress \n", nil, 4, "pending https://example.test/runs/1"},
+		{
+			"waits for the run", "https://example.test/runs/1 queued \nhttps://example.test/runs/1 in_progress \nhttps://example.test/runs/1 completed success\n",
+			[]string{"--wait", "60"},
+			0, "success https://example.test/runs/1",
+		},
+		{
+			"waits for the run to start", "missing\nhttps://example.test/runs/1 completed failure\n",
+			[]string{"--wait", "60", "--expect"},
+			2, "failure https://example.test/runs/1",
+		},
+	} {
+		r := newLandPRRepo(t)
+		r.write(filepath.Join(r.ghState, "runs"), tc.runs)
+		cmd := exec.Command(filepath.Join(r.repoRoot(), "scripts", "ci-status"), append(tc.args, sha)...) //nolint:gosec // the script under test
+		cmd.Env = r.env
+		var stdout strings.Builder
+		cmd.Stdout = &stdout
+		err := cmd.Run()
+		code := 0
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			code = exit.ExitCode()
+		} else if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if code != tc.code || strings.TrimSpace(stdout.String()) != tc.want {
+			t.Errorf("%s: exit %d and %q, want %d and %q", tc.name, code, stdout.String(), tc.code, tc.want)
+		}
+	}
+	if err := exec.Command(filepath.Join("..", "scripts", "ci-status"), "abc123").Run(); err == nil {
+		t.Errorf("ci-status accepted a short commit id")
 	}
 }

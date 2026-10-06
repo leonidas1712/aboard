@@ -4,17 +4,35 @@
 # the install script, and the server image on GHCR. engineering/release.md says how to
 # cut a release.
 #
-# Run by hand (workflow_dispatch), it is a dry run: the same checks and a snapshot build
-# of everything, with read-only permissions, publishing nothing.
+# It runs no tests: its gate is that the check workflow passed on the exact commit
+# being released. When CI is red, the maintainer can still release by running this
+# workflow by hand on the tag with override_ci and a reason, which go into the release
+# notes; the release environment's approval still applies.
+#
+# Run by hand without a tag, it is a dry run: the same gate and a snapshot build of
+# everything, with read-only permissions, publishing nothing.
 name: release
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "The v* tag to publish. Run the workflow on that tag too. Leave empty for a dry run, which publishes nothing."
+        type: string
+        default: ""
+      override_ci:
+        description: "Go ahead although the check workflow didn't pass on the commit (needs a reason)"
+        type: boolean
+        default: false
+      reason:
+        description: "Why, with override_ci: it goes into the job summary and the release notes"
+        type: string
+        default: ""
 
-# Every job starts read-only; only the release job, which runs only for a pushed tag,
-# gets more.
+# Every job starts read-only; only the release job, which runs only for a v* tag, gets
+# more.
 permissions:
   contents: read
 
@@ -23,44 +41,125 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The fast checks, since merges are gated by local checks rather than CI.
+  # The gate: what to publish, the tag against the source's version, and CI's result on
+  # the exact commit. No test suites; CI ran them on this commit already.
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read # the check workflow's runs
+    outputs:
+      tag: ${{ steps.what.outputs.tag }}
+      overridden: ${{ steps.ci.outputs.overridden }}
+      ci_note: ${{ steps.ci.outputs.note }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: go.mod
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install tmux
-        run: command -v tmux || { sudo apt-get update && sudo apt-get install -y tmux; }
-      - name: Check the tag matches the source's version
-        if: github.event_name == 'push'
+      - name: What this run publishes
+        id: what
         env:
-          TAG: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          OVERRIDE: ${{ inputs.override_ci }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          case $EVENT in
+          push) tag=$REF_NAME ;;
+          workflow_dispatch) tag=$INPUT_TAG ;;
+          *) echo "::error::The release workflow runs only for a pushed tag or by hand, not for $EVENT."; exit 1 ;;
+          esac
+          if [ -n "$tag" ]; then
+            case $tag in
+            v*) ;;
+            *) echo "::error::Only v* tags are released; $tag isn't one."; exit 1 ;;
+            esac
+            # The signature names the ref the workflow ran on, and the install script
+            # checks it is the tag; the release environment also allows only v* tags.
+            if [ "$REF" != "refs/tags/$tag" ]; then
+              echo "::error::To publish $tag, run the workflow on the tag itself: gh workflow run release.yml --ref $tag -f tag=$tag (this run is on $REF)."
+              exit 1
+            fi
+          fi
+          if [ "$OVERRIDE" = true ] && [ -z "$(printf '%s' "$REASON" | tr -d '[:space:]')" ]; then
+            echo "::error::override_ci needs a reason: say why the release goes ahead with CI not green."
+            exit 1
+          fi
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          if [ -n "$tag" ]; then
+            echo "Publishing $tag." >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "A dry run: nothing is published." >>"$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Check the tag matches the source's version
+        if: steps.what.outputs.tag != ''
+        env:
+          TAG: ${{ steps.what.outputs.tag }}
         run: |
           source_version="$(sed -n 's/^var version = "\(.*\)"$/\1/p' server/internal/cli/build.go)"
           tag_version="${TAG#v}"
           case "$tag_version" in
           "$source_version" | "$source_version"-*) ;;
-          *) echo "The tag $TAG doesn't match version $source_version in server/internal/cli/build.go"; exit 1 ;;
+          *) echo "::error::The tag $TAG doesn't match version $source_version in server/internal/cli/build.go"; exit 1 ;;
           esac
-      - name: make fmt-check vet test e2e
-        run: make fmt-check vet test e2e
-      - name: make web
-        run: make web
+      # Waits up to 20 minutes for a run still going. A commit with no run fails at once:
+      # it never went through a pull request or main.
+      - name: Check CI passed on this commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.what.outputs.tag }}
+          OVERRIDE: ${{ inputs.override_ci }}
+          REASON: ${{ inputs.reason }}
+          CI_STATUS_INTERVAL: "30"
+        run: |
+          sha=$(git rev-parse HEAD)
+          status=0
+          result=$(scripts/ci-status --wait 1200 "$sha") || status=$?
+          url=${result#* }
+          case $status in
+          0)
+            echo "The check workflow passed on $sha: $url" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "overridden=false" >>"$GITHUB_OUTPUT"
+            exit 0
+            ;;
+          2) why="The check workflow ended with ${result%% *} on $sha: $url" ;;
+          3) why="The check workflow has no run on $sha; a commit gets one when it is pushed to a pull request or to main" ;;
+          4) why="The check workflow was still running on $sha after 20 minutes: $url" ;;
+          *) why="Couldn't read the check workflow's runs on $sha" ;;
+          esac
+          if [ "$OVERRIDE" = true ]; then
+            echo "::warning::$why. Going ahead, overridden by the maintainer: $(printf '%s' "$REASON" | tr '\n' ' ')"
+            {
+              echo "**CI overridden.** $why."
+              echo
+              echo "Reason: $REASON"
+            } >>"$GITHUB_STEP_SUMMARY"
+            echo "overridden=true" >>"$GITHUB_OUTPUT"
+            echo "note=$why." >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ref=${TAG:-<tag>}
+          echo "::error::$why. Fix it and tag a commit where CI passed, or rerun a known flake's failed jobs (gh run rerun --failed <run id>) and run this workflow again. To release anyway, the maintainer runs: gh workflow run release.yml --ref $ref -f tag=$ref -f override_ci=true -f reason=\"<why>\""
+          exit 1
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      # A compile, so even an overridden release can't publish code that doesn't build.
+      - name: go build
+        run: go build ./...
 
-  # A pushed tag: build, sign and publish.
+  # A v* tag: build, sign and publish.
   release:
     needs: checks
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      needs.checks.outputs.tag != '' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # Protection rules on this environment (required reviewers, tags only) are set in the
@@ -97,17 +196,34 @@ jobs:
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
       - name: Release notes from CHANGELOG.md
         env:
-          TAG: ${{ github.ref_name }}
-        run: scripts/release-notes "$TAG" >"$RUNNER_TEMP/notes.md"
+          TAG: ${{ needs.checks.outputs.tag }}
+          OVERRIDDEN: ${{ needs.checks.outputs.overridden }}
+          CI_NOTE: ${{ needs.checks.outputs.ci_note }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          scripts/release-notes "$TAG" >"$RUNNER_TEMP/notes.md"
+          if [ "$OVERRIDDEN" = true ]; then
+            {
+              echo
+              echo "---"
+              echo
+              echo "**Released with CI overridden by the maintainer.** $CI_NOTE"
+              echo
+              echo "Reason: $REASON"
+            } | tee -a "$RUNNER_TEMP/notes.md" >>"$GITHUB_STEP_SUMMARY"
+          fi
       - name: make release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The tag to release, when another tag (a candidate's) is on the same commit.
+          GORELEASER_CURRENT_TAG: ${{ needs.checks.outputs.tag }}
         run: make release RELEASE_NOTES="$RUNNER_TEMP/notes.md"
 
-  # Run by hand: the snapshot build of every archive and the image, nothing published.
+  # Run by hand without a tag: the snapshot build of every archive and the image,
+  # nothing published.
   dry-run:
     needs: checks
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && needs.checks.outputs.tag == ''
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

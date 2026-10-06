@@ -1,10 +1,11 @@
 #!/bin/sh
-# Lands a pull request with local checks as the merge gate: brings the PR's branch up to
-# date with main, runs the checks its changes call for, pushes, merges the PR on GitHub
-# and cleans up what it set up. It never switches branches, pulls or commits in the main
-# checkout.
+# Lands a pull request once its checks pass: brings the PR's branch up to date with main,
+# makes sure GitHub's check workflow passed on the exact commit it will merge (or runs
+# the checks here with --local), runs the live tests CI can't run when asked, merges the
+# PR on GitHub and cleans up what it set up. It never switches branches, pulls or commits
+# in the main checkout.
 #
-#   scripts/land-pr [--dry-run] [--live] <pr-number>
+#   scripts/land-pr [--dry-run] [--live] [--local] <pr-number>
 #   scripts/land-pr --classify < changed-paths
 #
 # Steps:
@@ -14,14 +15,19 @@
 #   2. Use the worktree that already has that branch checked out, or create a temporary
 #      one at .claude/worktrees/land-pr-<number> in the main checkout.
 #   3. Merge origin/main into the branch. On a conflict, stop and name the files.
-#   4. Run checks by what changed against origin/main:
+#   4. The checks. By default CI is the gate: if the check workflow (check.yml, every
+#      job) already passed on the branch's head after step 3, nothing runs here. If it
+#      has no result for that commit yet, the script pushes it and waits for CI, up to
+#      LAND_PR_CI_WAIT seconds; a run that fails stops the landing. With --local, the
+#      script runs the checks here instead, by what changed against origin/main:
 #        only design/ or engineering/   no code checks
 #        anything else                  make fmt-check lint vet generate-check core-size
 #                                       harness-table-check test e2e
 #        web/ too                       make web-check as well
 #      A change to delivery, setup or upgrades also gets a note that make live must pass
 #      before merging. With --live, the script runs make live-affected, which needs
-#      harness logins, and merges only if it passes.
+#      harness logins and so can't run in CI, and merges only if it passes. While CI
+#      runs, the live tests run beside it.
 #   5. Push the branch, merge the PR with a merge commit (retrying while GitHub says the
 #      base branch was modified), and confirm GitHub reports it MERGED.
 #   6. Only after a confirmed merge: remove the worktree and local branch if this script
@@ -31,29 +37,34 @@
 #
 #   --dry-run    print the plan (worktree, predicted conflicts, checks) and change
 #                nothing except fetching from origin
-#   --live       also run make live-affected after the checks, and merge only if it
-#                passes
-#   --classify   read changed paths on standard input and print the checks they call
-#                for, one line per item ("make <targets>", "live-note"), then exit
+#   --live       also run make live-affected, and merge only if it passes
+#   --local      run the checks here rather than relying on CI
+#   --classify   read changed paths on standard input and print the checks --local runs
+#                for them, one line per item ("make <targets>", "live-note"), then exit
 #
 # Exit codes:
 #
 #   0  merged and cleaned up (or the dry-run plan or classification was printed)
 #   1  usage error, a missing tool, or a PR or worktree this script won't touch
 #   2  merging main into the branch conflicted; the merge is left in the worktree
-#   3  a check failed; the log's path is printed
+#   3  a check failed, here or in CI; the log's path or the run's address is printed
 #   4  pushing or merging failed; nothing was cleaned up
 #   5  merged, but some cleanup failed; what is left is printed
+#   6  CI hadn't finished on the branch's head within LAND_PR_CI_WAIT; the branch is
+#      pushed, so run the script again later
 #
 # Environment:
 #
 #   LAND_PR_MERGE_TRAILER  a line added at the end of the merge-main commit message,
 #                          such as a Co-Authored-By trailer
 #   LAND_PR_RETRY_DELAY    seconds between merge attempts (default 5)
+#   LAND_PR_CI_WAIT        seconds to wait for CI on the branch's head (default 1800)
+#   CI_STATUS_INTERVAL     seconds between looks at CI while waiting (default 30)
 set -eu
 
 code_checks="fmt-check lint vet generate-check core-size harness-table-check test e2e"
 merge_attempts=5
+ci_status="$(cd "$(dirname "$0")" && pwd)/ci-status"
 
 say() { printf '%s\n' "$*"; }
 fail() {
@@ -64,7 +75,7 @@ fail() {
 }
 
 usage() {
-	say "usage: scripts/land-pr [--dry-run] [--live] <pr-number>" >&2
+	say "usage: scripts/land-pr [--dry-run] [--live] [--local] <pr-number>" >&2
 	say "       scripts/land-pr --classify < changed-paths" >&2
 	exit 1
 }
@@ -117,7 +128,10 @@ classify() {
 explain() {
 	plan=$1
 	make_line=$(printf '%s\n' "$plan" | grep '^make ' || true)
-	if [ -z "$make_line" ]; then
+	if [ "$mode" = ci ]; then
+		say "Checks: the check workflow on GitHub, which must pass on the exact commit this"
+		say "  merges; nothing runs here (--local runs the checks here instead)."
+	elif [ -z "$make_line" ]; then
 		say "Checks: none, because the branch changes only design/ and engineering/ (or nothing)."
 	else
 		why="the branch changes files outside design/ and engineering/"
@@ -129,18 +143,24 @@ explain() {
 	fi
 	if printf '%s\n' "$plan" | grep -q '^live-note$'; then
 		say "Note: this changes delivery, setup or upgrades. The definition of done needs"
-		say "  make live (or make live-affected) to pass before merging; this script doesn't"
-		say "  run it or check it."
+		if [ "$live" = yes ]; then
+			say "  make live to pass before merging; --live runs make live-affected here."
+		else
+			say "  make live (or make live-affected) to pass before merging, which CI can't"
+			say "  run; this script runs it only with --live."
+		fi
 	fi
 }
 
 dry_run=no
 live=no
+mode=ci
 pr=
 while [ $# -gt 0 ]; do
 	case $1 in
 	--dry-run) dry_run=yes ;;
 	--live) live=yes ;;
+	--local) mode=local ;;
 	--classify)
 		[ $# -eq 1 ] || usage
 		classify
@@ -220,8 +240,21 @@ if [ "$dry_run" = yes ]; then
 	fi
 	plan=$(git diff --name-only "origin/main...$head_ref" | classify)
 	explain "$plan"
+	if [ "$mode" = ci ]; then
+		if git merge-base --is-ancestor origin/main "$head_ref"; then
+			ci_out=$("$ci_status" "$(git rev-parse "$head_ref")" 2>/dev/null) || true
+			case $ci_out in
+			success*) say "CI: passed on the branch's head (${ci_out#* }); a real run merges without waiting." ;;
+			missing* | pending*) say "CI: no result on the branch's head yet; a real run pushes it and waits for CI." ;;
+			'') say "CI: can't read the check workflow's runs with gh; a real run would stop there." ;;
+			*) say "CI: ${ci_out%% *} on the branch's head (${ci_out#* }); a real run stops there." ;;
+			esac
+		else
+			say "CI: a real run pushes the merge with main and waits for CI on it."
+		fi
+	fi
 	if [ "$live" = yes ]; then
-		say "Live: a real run runs make live-affected after the checks, and merges only if it passes."
+		say "Live: a real run runs make live-affected, and merges only if it passes."
 	fi
 	say "Then: push $branch, gh pr merge $pr --merge, confirm MERGED, clean up, delete origin/$branch."
 	say "Dry run: nothing changed."
@@ -288,21 +321,46 @@ else
 	say "Main: merged origin/main into $branch"
 fi
 
+# ci_failed stops the landing for a check workflow run that didn't pass.
+ci_failed() {
+	say "CI: the check workflow ended with ${1%% *} on $(git rev-parse --short HEAD): ${1#* }" >&2
+	fail 3 "if the change caused it, fix it in $wt, commit, and run scripts/land-pr $pr again. If the same test fails on unchanged main, it's a known flake (engineering/testing.md): rerun the failed jobs (gh run rerun --failed <run id>) and run this again"
+}
+
 # Run the checks.
 plan=$(git diff --name-only origin/main...HEAD | classify)
 explain "$plan"
-make_line=$(printf '%s\n' "$plan" | grep '^make ' || true)
-if [ -n "$make_line" ]; then
-	log="${TMPDIR:-/tmp}"
-	log="${log%/}/land-pr-$pr.log"
-	say "Running: $make_line (in $wt; output in $log)"
-	# shellcheck disable=SC2086 # make_line is "make" and target names, no spaces inside
-	if ! $make_line >"$log" 2>&1; then
-		say "Checks failed. Lines that look like the failure:" >&2
-		grep -E -- '--- FAIL|^FAIL|Error|error:|\*\*\*' "$log" | head -20 | sed 's/^/  /' >&2 || true
-		fail 3 "fix the failure in $wt, commit, and run scripts/land-pr $pr again; full output in $log"
+head_sha=$(git rev-parse HEAD)
+ci_wait=no
+if [ "$mode" = ci ]; then
+	ci_code=0
+	ci_out=$("$ci_status" "$head_sha") || ci_code=$?
+	case $ci_code in
+	0) say "CI: passed on $(git rev-parse --short HEAD) (${ci_out#* })" ;;
+	2) ci_failed "$ci_out" ;;
+	3 | 4)
+		# Start CI on this exact commit now, so it runs beside the live tests.
+		git push -q origin "HEAD:refs/heads/$branch" ||
+			fail 4 "can't push $branch for CI to run on; if someone else pushed to it, run scripts/land-pr $pr again. Nothing was merged or cleaned up"
+		say "Pushed: $branch at $(git rev-parse --short HEAD), for CI to run on"
+		ci_wait=yes
+		;;
+	*) fail 1 "can't read the check workflow's runs with gh (above); check gh auth status, or run the checks here with --local" ;;
+	esac
+else
+	make_line=$(printf '%s\n' "$plan" | grep '^make ' || true)
+	if [ -n "$make_line" ]; then
+		log="${TMPDIR:-/tmp}"
+		log="${log%/}/land-pr-$pr.log"
+		say "Running: $make_line (in $wt; output in $log)"
+		# shellcheck disable=SC2086 # make_line is "make" and target names, no spaces inside
+		if ! $make_line >"$log" 2>&1; then
+			say "Checks failed. Lines that look like the failure:" >&2
+			grep -E -- '--- FAIL|^FAIL|Error|error:|\*\*\*' "$log" | head -20 | sed 's/^/  /' >&2 || true
+			fail 3 "fix the failure in $wt, commit, and run scripts/land-pr --local $pr again; full output in $log"
+		fi
+		say "Checks passed."
 	fi
-	say "Checks passed."
 fi
 if [ "$live" = yes ]; then
 	live_log="${TMPDIR:-/tmp}"
@@ -315,9 +373,20 @@ if [ "$live" = yes ]; then
 	fi
 	say "Live tests passed."
 fi
+if [ "$ci_wait" = yes ]; then
+	ci_limit=${LAND_PR_CI_WAIT:-1800}
+	say "CI: waiting up to $((ci_limit / 60)) min for the check workflow on $(git rev-parse --short HEAD)"
+	ci_code=0
+	ci_out=$("$ci_status" --wait "$ci_limit" --expect "$head_sha") || ci_code=$?
+	case $ci_code in
+	0) say "CI: passed (${ci_out#* })" ;;
+	2) ci_failed "$ci_out" ;;
+	3 | 4) fail 6 "CI hasn't finished on $(git rev-parse --short HEAD) after $((ci_limit / 60)) min (${ci_out#* }); $branch is pushed, so run scripts/land-pr $pr again later" ;;
+	*) fail 1 "can't read the check workflow's runs with gh (above); check gh auth status, or run the checks here with --local" ;;
+	esac
+fi
 
 # Push and merge.
-head_sha=$(git rev-parse HEAD)
 git push -q origin "HEAD:refs/heads/$branch" ||
 	fail 4 "can't push $branch; if someone else pushed to it, run scripts/land-pr $pr again. Nothing was merged or cleaned up"
 say "Pushed: $branch at $(git rev-parse --short HEAD)"

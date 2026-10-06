@@ -1,0 +1,115 @@
+#!/bin/sh
+# Says whether the check workflow (.github/workflows/check.yml) passed on one commit.
+# It looks at the workflow's newest run for that exact commit, which passes only when
+# every job in it passed. The release workflow uses it as its gate, and scripts/land-pr
+# uses it on the head it is about to merge.
+#
+#   scripts/ci-status [--wait <seconds>] [--expect] <commit-sha>
+#
+# It prints one line, "<result> <run url>". The result is "success", the conclusion of a
+# run that didn't pass (failure, cancelled, timed_out, ...), "pending" for a run still
+# going when the wait ran out, or "missing" (with "-" for the address) when the commit
+# has no run.
+#
+# Options:
+#
+#   --wait <seconds>  wait up to this long while the run is queued or running (default 0)
+#   --expect          the commit was just pushed, so its run is on its way: wait for the
+#                     run to appear as well, within the same time
+#
+# Exit codes:
+#
+#   0  the run passed
+#   1  usage error, or gh couldn't list the runs
+#   2  the run finished without passing
+#   3  the commit has no run
+#   4  the run was still going when the wait ran out
+#
+# Environment:
+#
+#   CI_STATUS_WORKFLOW  the workflow file to look at (default check.yml)
+#   CI_STATUS_INTERVAL  seconds between looks while waiting (default 30)
+#   GH_REPO             the repository (owner/name), when not run in a clone of it
+set -eu
+
+say() { printf '%s\n' "$*"; }
+usage() {
+	say "usage: scripts/ci-status [--wait <seconds>] [--expect] <commit-sha>" >&2
+	exit 1
+}
+
+wait_for=0
+expect=no
+sha=
+while [ $# -gt 0 ]; do
+	case $1 in
+	--wait)
+		[ $# -ge 2 ] || usage
+		wait_for=$2
+		shift
+		;;
+	--expect) expect=yes ;;
+	-h | --help) usage ;;
+	-*) usage ;;
+	*)
+		[ -z "$sha" ] || usage
+		sha=$1
+		;;
+	esac
+	shift
+done
+case $wait_for in
+'' | *[!0-9]*) usage ;;
+esac
+# GitHub matches runs by the full commit id only.
+case $sha in
+*[!0-9a-f]*) usage ;;
+esac
+[ ${#sha} -eq 40 ] || usage
+
+workflow=${CI_STATUS_WORKFLOW:-check.yml}
+interval=${CI_STATUS_INTERVAL:-30}
+command -v gh >/dev/null 2>&1 || {
+	say "ci-status: gh isn't installed; install GitHub's CLI and run gh auth login" >&2
+	exit 1
+}
+
+start=$(date +%s)
+while :; do
+	line=$(gh run list --workflow "$workflow" --commit "$sha" --limit 1 \
+		--json url,status,conclusion \
+		--jq 'if length == 0 then "missing" else .[0] | "\(.url) \(.status) \(.conclusion)" end') || {
+		say "ci-status: can't list the $workflow runs for $sha with gh; check gh auth status" >&2
+		exit 1
+	}
+	if [ "$line" = missing ]; then
+		url=- status=missing conclusion=
+	else
+		# shellcheck disable=SC2086 # the fields have no spaces
+		set -- $line
+		url=$1 status=$2 conclusion=${3:-}
+	fi
+	if [ "$status" = completed ]; then
+		if [ "$conclusion" = success ]; then
+			say "success $url"
+			exit 0
+		fi
+		say "${conclusion:-unknown} $url"
+		exit 2
+	fi
+	elapsed=$(($(date +%s) - start))
+	if [ "$elapsed" -ge "$wait_for" ] || { [ "$status" = missing ] && [ "$expect" = no ]; }; then
+		if [ "$status" = missing ]; then
+			say "missing -"
+			exit 3
+		fi
+		say "pending $url"
+		exit 4
+	fi
+	if [ "$status" = missing ]; then
+		say "ci-status: no $workflow run for $sha yet; looking again in ${interval}s" >&2
+	else
+		say "ci-status: $workflow is $status on $sha ($url); looking again in ${interval}s" >&2
+	fi
+	sleep "$interval"
+done

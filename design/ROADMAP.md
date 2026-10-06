@@ -209,7 +209,7 @@ engineering/release.md.
 | `GET /v1/info` reports the API version and supported features; clients check them | next | D151 |
 | Fixtures recorded from real harness payloads during `make live`, replayed by fake-harness tests | next | D144 |
 | Migration fixtures: today's schema first, and a test that migrates every fixture forward | next | D68 |
-| `make quick`: unit, integration and contract suites in seconds | next | D144 |
+| CI as the merge and release gate: `scripts/land-pr` merges once the `check` workflow passed on the exact commit (`--local` to run the checks here), the release job checks CI's result instead of rerunning tests, a maintainer-only override with a recorded reason, the known-flake policy, `make quick` (static checks) and an opt-in pre-push hook | review; the branch ruleset requiring the `check` jobs is the maintainer's to apply | D201 |
 | The README's hand-over times count only deliveries to an idle session, so a message held until a busy turn's end doesn't read as Aboard's delay | next | D169 |
 | Dependabot pull requests for Go modules, npm and GitHub Actions | next | |
 | Every `--json` output in tests validated against its schema in `spec/cli.yaml` | next | D147 |

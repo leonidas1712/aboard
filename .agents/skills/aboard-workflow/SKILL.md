@@ -72,7 +72,10 @@ whether it needs approval. Open a docs-only pull request.
 
 The full checklist is in [Building a slice](references/building-a-slice.md). In short:
 contracts first, failing tests first, one worktree per lane, a second agent reviews for
-security, land with `scripts/land-pr`, live tests when delivery or setup changes.
+security, `make quick` before asking for review or landing, land with `scripts/land-pr`
+once CI passes, live tests when delivery or setup changes. A test that fails on
+unchanged `main` is a known flake: file it, fix it in its own pull request, never skip
+or loosen it, and don't let it block unrelated work (engineering/testing.md).
 
 ## 5. Docs and public copy
 

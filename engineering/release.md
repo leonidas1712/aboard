@@ -188,33 +188,52 @@ refuses a release (not a prerelease) whose section is missing.
 What we want: nothing reaches `main` without passing the checks its change calls for,
 and landing a PR is one command that a person, a session or an agent runs the same way.
 
-GitHub Actions doesn't run the checks today, so local checks are the merge gate, and
-`scripts/land-pr <number>` applies them:
+CI is the merge gate: the `check` workflow (`.github/workflows/check.yml`: `make check`
+on Linux and macOS, the web UI and the docs site) must pass on the exact commit that
+merges. Only what CI can't run happens on a person's machine: `make live`, which needs
+harness logins. Before asking for review or landing, run `make quick` (format, lint,
+vet, generated code and the core's size, in about a minute); it catches most of what
+would fail CI without waiting for it. `scripts/install-hooks` installs a git pre-push
+hook that runs it on every push, if you want that (opt-in; `scripts/install-hooks
+--remove` takes it out, and `git push --no-verify` skips it once).
+
+`scripts/land-pr <number>` lands a PR:
 
 1. It finds the PR's branch with `gh`, and uses the worktree that already has it
    checked out or creates one at `.claude/worktrees/land-pr-<number>`. It never
    switches branches, pulls or commits in the main checkout.
 2. It merges `origin/main` into the branch, and stops on a conflict, naming the files
    and leaving the merge in the worktree to resolve.
-3. It runs the checks for what changed against `origin/main`: none for a change to only
-   `design/` or `engineering/`; otherwise `make fmt-check lint vet generate-check
-   core-size harness-table-check test e2e`, plus `make web-check` when `web/` changed.
-   It says what it runs and why.
-4. It pushes, merges with `gh pr merge --merge` (retrying while GitHub says the base
-   branch was modified), and confirms GitHub reports the PR merged.
-5. Only then does it remove what it created (the temporary worktree and local branch)
+3. It asks GitHub for the `check` workflow's result on the branch's head after that
+   merge, the exact commit it will merge (`scripts/ci-status`, which reads the
+   workflow's newest run for that commit; a run passes only when every job in it
+   passed):
+   - **passed**: nothing runs here;
+   - **failed**: it stops with exit 3 and the run's address. If the same test fails on
+     unchanged `main`, it is a known flake ([testing.md](testing.md#flaky-tests)):
+     rerun the failed jobs (`gh run rerun --failed <run id>`) and land again;
+   - **no result yet** (main moved, so the merge is a new commit, or CI is still
+     running): it pushes the branch so CI runs on that commit, and waits for it, up to
+     30 minutes (`LAND_PR_CI_WAIT`, in seconds). If CI hasn't finished by then, it
+     stops with exit 6; the branch is pushed, so run it again later.
+4. With `--live`, it runs `make live-affected` (beside CI, while it waits), and merges
+   only if it passes. Without `--live`, it notes a change to delivery, setup or upgrades,
+   which must pass `make live` before merging.
+5. It pushes, merges with `gh pr merge --merge --match-head-commit <the checked
+   commit>` (retrying while GitHub says the base branch was modified), and confirms
+   GitHub reports the PR merged.
+6. Only then does it remove what it created (the temporary worktree and local branch)
    and delete the branch on GitHub. A failure at any step leaves everything in place
    and says what to do next.
 
-`--dry-run` prints the plan, including any conflict with `main`, and changes nothing.
-It notes when a change touches delivery, setup or upgrades, which must pass `make live`
-before merging. `--live` runs `make live-affected` after the checks, which needs harness
-logins, and merges only if it passes; without it, the script doesn't run the live tests. The script's header
-lists its exit codes, and `e2e/landpr_test.go` runs it against a local repository
-with a fake `gh`.
-
-Once GitHub Actions runs the checks again, the script merges only after they pass on
-GitHub, and the local run becomes a first check rather than the gate. *To build.*
+`--local` runs the checks here instead of asking CI, by what changed against
+`origin/main`: none for a change to only `design/` or `engineering/`; otherwise `make
+fmt-check lint vet generate-check core-size harness-table-check test e2e`, plus `make
+web-check` when `web/` changed. It's for when GitHub can't run CI; once `main` requires
+the `check` workflow's jobs (below), GitHub still refuses the merge until CI passes.
+`--dry-run` prints the plan, including any conflict with `main` and CI's result so far,
+and changes nothing. The script's header lists its exit codes, and
+`e2e/landpr_test.go` runs it against a local repository with a fake `gh`.
 
 ## Cutting a release
 
@@ -225,28 +244,75 @@ These are repository settings, made by the maintainer:
 1. **The `release` environment** (Settings → Environments → New environment
    `release`): add the maintainer as a required reviewer, and limit deployment to tags
    matching `v*`. The release job is the only job with write permissions, and it waits
-   for that approval.
+   for that approval, whether a tag push or a run by hand started it, so only the
+   maintainer can publish, with or without the CI override below.
 2. **Protect version tags** (Settings → Rules → New tag ruleset, target `v*`): only the
    maintainer may create, update or delete them, so nobody else can start a release.
-3. **Workflow permissions** (Settings → Actions → General): keep the default
+3. **Require CI on `main`** (Settings → Rules → New branch ruleset, target the default
+   branch): require status checks to pass before merging, with the `check` workflow's
+   jobs `check (ubuntu-latest)`, `check (macos-latest)`, `web` and `docs`. This is what
+   makes CI the merge gate for everyone, not only for `scripts/land-pr`.
+4. **Workflow permissions** (Settings → Actions → General): keep the default
    `GITHUB_TOKEN` read-only; the release job asks for `contents`, `id-token` and
-   `packages` write itself.
-4. **The image**: after the first release, set the `aboard` package on GHCR to public
+   `packages` write itself, and the gate job only `actions: read`, to read the `check`
+   workflow's runs.
+5. **The image**: after the first release, set the `aboard` package on GHCR to public
    (Packages → aboard → Package settings → Change visibility), so team servers can pull
    it without logging in.
-5. **The image's two Dockerfiles stay alike**: `Dockerfile.release` (the release
+6. **The image's two Dockerfiles stay alike**: `Dockerfile.release` (the release
    binaries) and the root `Dockerfile` (a build from source) must set the same user,
    volume, environment and entrypoint; change both together.
 
 No secrets are needed: signing is keyless, with the job's own GitHub identity, and the
 release and image are published with the job's `GITHUB_TOKEN`.
 
+### What the release workflow checks
+
+The release workflow runs no test suites: CI ran them on the commit already, and a
+flaky test there should never decide whether a release can go out. Its first job, the
+gate, checks with read-only permissions that:
+
+- the run is for a `v*` tag pushed to the repository, or a run by hand on that tag
+  (never a pull request);
+- the tag matches `version` in `server/internal/cli/build.go` (a candidate's suffix
+  aside);
+- the `check` workflow passed on the tag's exact commit. `scripts/ci-status` asks
+  GitHub for the workflow's newest run on that commit (`gh run list --workflow
+  check.yml --commit <sha>`), which passes only when every job in it passed. A run still
+  going is waited for, up to 20 minutes; a commit with no run fails at once, since it
+  never went through a pull request or `main`;
+- the code builds (`go build ./...`).
+
+If CI didn't pass, the release stops before anything is built, naming the run and the
+override. Fix the cause and tag a commit where CI passed, or, for a known flake
+([testing.md](testing.md#flaky-tests)), rerun the run's failed jobs (`gh run rerun
+--failed <run id>`) and then rerun the release workflow.
+
+### Releasing with CI red (the override)
+
+When the maintainer decides a release goes out although CI isn't green, for example
+because a known flake is failing and its fix is on the way, they run the release
+workflow by hand on the tag:
+
+```sh
+gh workflow run release.yml --ref v0.1.1 -f tag=v0.1.1 -f override_ci=true \
+  -f reason="<the known flake and its issue>; every other job passed"
+```
+
+(or Actions → release → Run workflow, choosing the tag under "Use workflow from" and
+filling in the same fields). The run must be on the tag itself: the signature names
+the ref the workflow ran on, the install script and `aboard upgrade` check that it is
+the tag, and the `release` environment allows only `v*` tags. A reason is required.
+The gate records the failing run and the reason in the job summary, the release notes
+end with them, and the `release` environment still waits for the maintainer's
+approval. The tag must be one whose `release.yml` has these inputs.
+
 ### A dry run, publishing nothing
 
-Run the `release` workflow by hand (Actions → release → Run workflow, on `main`). It
-runs the checks and builds every archive, SBOM and the image without publishing or
-signing, with read-only permissions. Locally, `make release-snapshot` builds the
-archives into `dist/` the same way.
+Run the `release` workflow by hand with no tag (Actions → release → Run workflow, on
+`main`). It runs the gate on that commit and builds every archive, SBOM and the image
+without publishing or signing, with read-only permissions. Locally, `make
+release-snapshot` builds the archives into `dist/` the same way.
 
 ### A release candidate, end to end
 
@@ -257,8 +323,8 @@ image's `latest` tag skip it.
 
 1. On `main`, with `version` in `server/internal/cli/build.go` at `0.1.0`:
    `git tag v0.1.0-rc.1 && git push origin v0.1.0-rc.1`.
-2. Approve the `release` environment when the job asks. The job runs the checks, then
-   builds, signs and publishes the prerelease with its archives, `checksums.txt`, its
+2. Approve the `release` environment when the job asks. The gate checks CI passed on
+   the tagged commit, then the job builds, signs and publishes the prerelease with its archives, `checksums.txt`, its
    bundle, the SBOMs and `install.sh`, and pushes `ghcr.io/leonidas1712/aboard:0.1.0-rc.1`.
 3. Check the signature from any machine with cosign, in a folder with the prerelease's
    `checksums.txt` and `checksums.txt.sigstore.json`:
@@ -277,7 +343,9 @@ image's `latest` tag skip it.
 
 ### The release
 
-1. `make check` and `make web-check` pass on `main`.
+1. The `check` workflow passed on the commit of `main` you'll tag (the commit's checks
+   on GitHub). The release job checks this itself and stops if not; see the override
+   above for a known flake.
 2. `make live` passes on a machine with Claude Code and Codex logged in
    ([e2e/live/PROOFS.md](../e2e/live/PROOFS.md)), and the steps by hand in
    [e2e/RELEASE_CHECKLIST.md](../e2e/RELEASE_CHECKLIST.md) are checked in a sandbox.
