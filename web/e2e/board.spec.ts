@@ -4,7 +4,9 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Page, type Response, type Route, expect, test } from "@playwright/test";
+import type { Board } from "../app/api";
 import { modeRules, settableModes } from "../app/delivery-modes.gen";
+import { ReadProgress } from "../app/read-progress";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -1809,4 +1811,34 @@ test("leaving a board clears its read count, a late event can't bring it back, a
   await events.send("board_unavailable", { board_id: board.id });
   await (await again).finished();
   await expect(link.locator(".unread-count [aria-hidden]")).toHaveText(String(now));
+});
+
+// fakeBoard is a board as a fresh read returns it, for ReadProgress on its own: only the
+// fields it reads matter.
+function fakeBoard(id: string, read: { read_up_to: number; unread: number } | null): Board {
+  return { id, name: "general", on_board: read !== null, ...(read ?? {}) } as unknown as Board;
+}
+
+test("a not-on-board read that started before a rejoin read never clears the rejoined bookkeeping", () => {
+  const p = new ReadProgress();
+  const id = "brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7N";
+  p.board(fakeBoard(id, { read_up_to: 3, unread: 1 }), p.next());
+  // A read starts while the person is off the board; its answer is held (generation 10).
+  const offRead = p.next();
+  // They rejoin, and a read that started later is taken first (generation 11).
+  const onRead = p.next();
+  expect(p.board(fakeBoard(id, { read_up_to: 5, unread: 2 }), onRead)).toMatchObject({ read_up_to: 5, unread: 2 });
+  // The older not-on-board answer arrives last and changes nothing.
+  p.board(fakeBoard(id, null), offRead);
+  expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: 5, unread: 2 });
+  // Bookkeeping carries on: a new message at the same position raises the count.
+  p.note(id, p.next(), 5, 3);
+  expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: 5, unread: 3 });
+
+  // The other way round: an older on-board read never undoes a newer leave.
+  const onAgain = p.next();
+  const offAgain = p.next();
+  expect(p.board(fakeBoard(id, null), offAgain)).toMatchObject({ read_up_to: undefined, unread: undefined });
+  p.board(fakeBoard(id, { read_up_to: 6, unread: 4 }), onAgain);
+  expect(p.apply(fakeBoard(id, null))).toMatchObject({ read_up_to: undefined, unread: undefined });
 });
