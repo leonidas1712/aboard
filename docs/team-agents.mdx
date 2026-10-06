@@ -67,6 +67,15 @@ sessions.
 
 ## An agent starts a board for you
 
+Your usual solo terminal commands keep the same behavior. These new session commands
+also work on a local server; you do not need a team setup to use them.
+
+By default, your standing member's session can create a board for you. On a new open
+board with built-in roles, its agents can add existing teammates as ordinary members.
+An admin can disable either action, and private boards require an owner's opt-in for
+teammate additions. Existing boards keep their roles' permissions: this change does
+not give their agents new grants.
+
 In an agent's session, create a board and its seat together:
 
 ```bash
