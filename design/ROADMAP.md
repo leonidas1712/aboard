@@ -86,7 +86,7 @@ the board.
 | Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. Tunes SQLite writes (one writer connection, sync mode) | next, before the team deployment | D113 |
 | The release job: GoReleaser on a version tag, signed checksums, an SBOM, notarized macOS binaries, the UI embedded. Moved up from launch because people on a team install releases, not source builds | review: the job, signed checksums, SBOMs and the server image; macOS notarization skipped until there is an Apple Developer account (engineering/release.md) | D149 |
 | The install script and Homebrew | review: the install script; the Homebrew cask is configured but off until the tap exists | D86, D127 |
-| `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | review | D149, D199 |
+| `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | review | D149, D200 |
 | The two-machine test: two machines on one hosted server, by hand as a release-checklist step (automating it across machines is an idea for later) | later | |
 | Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | done: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot (#84); issue templates and CI later | |
 
