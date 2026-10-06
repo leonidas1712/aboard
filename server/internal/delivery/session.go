@@ -162,6 +162,8 @@ type session struct {
 	nextRefresh int64
 	// gatherUntil is when the next bundle may be handed to a queueing harness.
 	gatherUntil time.Time
+	// prepareFailures counts the handoffs in a row that failed to prepare.
+	prepareFailures int
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
 	forward map[AgentKey]*session
@@ -1321,11 +1323,10 @@ func (s *session) tryDeliver(ctx context.Context) {
 	c.text = withNotes(notes, c.text)
 	handoff, handed, prepareErr := s.prepare(ctx, c, notes, c.text)
 	if prepareErr != nil {
-		s.d.log.Error("prepare handoff", "error", prepareErr)
-		s.gatherUntil = s.now().Add(QueueGather)
-		s.scheduleRetry()
+		s.gatherUntil = s.now().Add(s.prepareFailed("prepare handoff", prepareErr))
 		return
 	}
+	s.prepared()
 	var first int64
 	if len(handed) > 0 {
 		first = handed[0].ID
@@ -1658,9 +1659,10 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 		}
 		_, deliveries, err := s.prepare(ctx, c, midTurnFrame, payload)
 		if err != nil {
-			s.d.log.Error("prepare boundary handoff", "error", err)
+			s.prepareFailed("prepare boundary handoff", err)
 			return "", ""
 		}
+		s.prepared()
 		now := s.now()
 		for _, dl := range deliveries {
 			dl.AcceptedAt, dl.TurnStartedAt = now, now
@@ -1708,9 +1710,10 @@ func (s *session) atTurnStart(ctx context.Context) string {
 	}
 	_, deliveries, err := s.prepare(ctx, c, notes, withNotes(notes, c.text))
 	if err != nil {
-		s.d.log.Error("prepare turn-start handoff", "error", err)
+		s.prepareFailed("prepare turn-start handoff", err)
 		return notes
 	}
+	s.prepared()
 	now := s.now()
 	for _, dl := range deliveries {
 		dl.AcceptedAt, dl.TurnStartedAt = now, now
