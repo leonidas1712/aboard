@@ -42,6 +42,7 @@ export type Board = {
   unread?: number;
   /** needs_reply counts questions to this person without their own direct reply. */
   needs_reply?: number | null;
+  asks_to_me?: { blocking: number; going_with: number };
   /** lifecycle is archived for a read-only board; absent means active. */
   lifecycle?: Lifecycle;
   /** can_archive, can_restore and can_delete are what this person may do now; absent means no. */
@@ -163,6 +164,7 @@ export function setDelivery(board: string, agent: string, mode: SettableMode): P
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
 
 export type Message = {
+  board?: string;
   id: string;
   seq: number;
   at: string;
@@ -186,7 +188,24 @@ export type Message = {
   reactions: Reaction[];
   /** mentions are the members the text mentions, as the server resolved them when it was posted. */
   mentions: Mention[];
+  ask?: MessageAsk;
+  answer?: { ask_id: string; ask_seq: number; option: number | null; option_text?: string | null; withdrawn: boolean };
 };
+
+export type MessageAsk = {
+  to: MemberRef;
+  options: string[];
+  blocking: boolean;
+  going_with: string | null;
+  going_at: string | null;
+  task: string | null;
+  state: "open" | "answered" | "withdrawn" | "went_with";
+  answer_seq: number | null;
+  answer_option: number | null;
+  can_answer?: boolean;
+  can_withdraw?: boolean;
+};
+export type AskList = { asks: Message[]; more: boolean };
 
 /**
  * Mention is one member a message mentions: `text` is how it was written ("@codex" or

@@ -97,7 +97,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   }, [known, s.toMe, repliesTo]);
 
   const answer = useCallback(
-    (m: Message) => (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
+    (m: Message) => m.ask
+      ? (repliesTo.get(m.id) ?? []).find((r) => r.seq === m.ask!.answer_seq) ?? null
+      : (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
     [repliesTo],
   );
 
@@ -247,6 +249,29 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   useEffect(() => {
     if (pending && showMessage(pending)) setPending(null);
   }, [pending, entries]);
+
+  const linkedMessage = useRef<string | null>(null);
+  useEffect(() => {
+    if (s.messages === null) return;
+    const id = new URLSearchParams(window.location.search).get("message");
+    if (!id || linkedMessage.current === id) return;
+    linkedMessage.current = id;
+    s.loadMessage(id).then(() => setPending(id), setPostError);
+  }, [s.messages, s.loadMessage]);
+  useEffect(() => {
+    if (!pending) return;
+    const m = byId.get(pending);
+    if (m?.thread_root && prefs.open(m.thread_root) !== true) prefs.setOpen(m.thread_root, true);
+  }, [pending, byId, prefs]);
+
+  const linkedTask = useRef<string | null>(null);
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("task");
+    if (ref && linkedTask.current !== ref && tasks.some((t) => t.ref === ref)) {
+      linkedTask.current = ref;
+      openTask(ref);
+    }
+  }, [tasks, openTask]);
 
   const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
