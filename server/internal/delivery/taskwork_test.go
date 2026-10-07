@@ -24,7 +24,7 @@ func TestRegisterTaskContextDoesNotWakeOrAcknowledge(t *testing.T) {
 	r.register("s1", "b1")
 	r.bind("claude-code", "s1", reviewer)
 	got := r.ok(delivery.Request{Op: delivery.OpRegister, Harness: "claude-code", Session: "s1", Boot: "b1", Source: "compact"})
-	if !strings.Contains(got.Note, "CHK-17 Review staging (owner)") || len(got.Note) > 600 {
+	if !strings.Contains(got.Note, `CHK-17 (task title: "Review staging"; owner)`) || len(got.Note) > 600 {
 		t.Fatalf("register note=%q", got.Note)
 	}
 	if len(r.claude.Handed("s1")) != 0 || r.server.Cursor(reviewer) != 0 {
