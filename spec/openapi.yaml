@@ -4072,6 +4072,7 @@ components:
         current_task:
           allOf: [{ $ref: "#/components/schemas/TaskRef" }]
           nullable: true
+          x-omitempty: false
           description: For an agent's token, its current task; null when it has none, and for a person. Absent from servers without tasks.
 
     # ---------- people ----------
@@ -5197,6 +5198,7 @@ components:
         current_task:
           allOf: [{ $ref: "#/components/schemas/TaskRef" }]
           nullable: true
+          x-omitempty: false
           description: The task the agent last started, opened or joined and hasn't finished or dropped. Null when none, and for people. Absent from servers without tasks.
     DeliveryMode:
       type: string

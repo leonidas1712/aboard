@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"testing"
 
@@ -91,4 +92,68 @@ func TestTaskReplayRequiresCurrentBoardMembership(t *testing.T) {
 	if code := errorCode(t, replayed, err, 403); code != "not_on_board" {
 		t.Fatalf("task replay after leave: %s", code)
 	}
+}
+
+func TestTaskCurrentIsExplicitNullBeforeAndAfterWork(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, writer, _ := s.pair("starter")
+	c := s.client(writer)
+	check := func(taskID string) {
+		t.Helper()
+		me, err := c.GetMeWithResponse(ctx)
+		mustStatus(t, me, err, 200)
+		var own map[string]json.RawMessage
+		if err := json.Unmarshal(me.Body, &own); err != nil {
+			t.Fatal(err)
+		}
+		checkCurrent := func(raw json.RawMessage) {
+			t.Helper()
+			if taskID == "" {
+				if string(raw) != "null" {
+					t.Fatalf("current_task = %s, want explicit null", raw)
+				}
+				return
+			}
+			var current api.TaskRef
+			if err := json.Unmarshal(raw, &current); err != nil {
+				t.Fatal(err)
+			}
+			if current.Id != taskID {
+				t.Fatalf("current_task ID = %q, want %q", current.Id, taskID)
+			}
+		}
+		checkCurrent(own["current_task"])
+		members, err := c.ListMembersWithResponse(ctx, name, nil)
+		mustStatus(t, members, err, 200)
+		var page struct {
+			Members []map[string]json.RawMessage `json:"members"`
+		}
+		if err := json.Unmarshal(members.Body, &page); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, member := range page.Members {
+			var id string
+			if err := json.Unmarshal(member["id"], &id); err != nil {
+				t.Fatal(err)
+			}
+			if id == me.JSON200.Id {
+				found = true
+				checkCurrent(member["current_task"])
+			}
+		}
+		if !found {
+			t.Fatal("acting agent missing from members")
+		}
+	}
+	check("")
+	start := true
+	started, err := c.CreateTaskWithResponse(ctx, name, nil, api.CreateTaskRequest{Title: "Check explicit current task", Start: &start})
+	mustStatus(t, started, err, 201)
+	check(started.JSON201.Id)
+	done, err := c.FinishTaskWithResponse(ctx, name, started.JSON201.Id, nil, api.FinishTaskRequest{Note: "Checked"})
+	mustStatus(t, done, err, 200)
+	check("")
 }
