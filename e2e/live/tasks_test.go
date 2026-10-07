@@ -56,18 +56,56 @@ func TestTaskWorkflowFromSkill(t *testing.T) {
 			}
 			l.ownerModeRequest(http.MethodGet, "/v1/boards/"+url.PathEscape(board)+"/messages?limit=200", "", &page)
 			for _, candidate := range page.Messages {
-				if candidate.From.ID == task.OpenedBy.ID && candidate.Body == progress {
+				if candidate.From.Name == names[0] && candidate.From.Kind == "agent" && candidate.Body == progress {
 					posted = candidate
 					break
 				}
 			}
 			return posted.ID != ""
 		})
-		if task.Ref == "" || task.OpenedBy.ID == "" || task.Owner == nil || task.Owner.ID != task.OpenedBy.ID || task.Owner.Name != names[0] || task.OpenedBy.Kind != "agent" || task.ClosedNote == nil || *task.ClosedNote != finalNote {
+		if task.Ref == "" || task.Owner == nil || task.Owner.Name != names[0] || task.Owner.Kind != "agent" || task.OpenedBy.Kind != "agent" || task.ClosedNote == nil || *task.ClosedNote != finalNote {
 			t.Fatalf("task's recorded owner or final note is wrong: id=%s owner=%+v opener=%+v state=%s closed_note=%v", task.ID, task.Owner, task.OpenedBy, task.State, task.ClosedNote)
 		}
-		if posted.From.Name != names[0] || len(posted.About) != 1 || posted.About[0].ID != task.ID || posted.About[0].Ref != task.Ref || posted.About[0].How != "current" {
+		if posted.From.Name != names[0] || posted.From.Kind != "agent" || len(posted.About) != 1 || posted.About[0].ID != task.ID || posted.About[0].Ref != task.Ref || posted.About[0].How != "current" {
 			t.Fatalf("message #%d has about=%+v; want only %s (%s), inferred from the sender's current task", posted.Seq, posted.About, task.ID, task.Ref)
+		}
+		// MemberRef intentionally has no permanent ID. The public record binds the
+		// task opener, its owner selection and the progress post to the same seat.
+		var createdID, startedID, postedID string
+		for after := 0; ; {
+			var page struct {
+				Events []struct {
+					Type  string `json:"type"`
+					Actor struct {
+						Kind     string `json:"kind"`
+						MemberID string `json:"member_id"`
+					} `json:"actor"`
+					Data struct {
+						TaskID    string `json:"task_id"`
+						MemberID  string `json:"member_id"`
+						MessageID string `json:"message_id"`
+					} `json:"data"`
+				} `json:"events"`
+				NextAfter int `json:"next_after"`
+			}
+			l.ownerModeRequest(http.MethodGet, fmt.Sprintf("/v1/boards/%s/events?limit=200&after=%d", url.PathEscape(board), after), "", &page)
+			for _, event := range page.Events {
+				switch {
+				case event.Type == "task.created" && event.Data.TaskID == task.ID && event.Actor.Kind == "agent":
+					createdID = event.Actor.MemberID
+				case event.Type == "task.started" && event.Data.TaskID == task.ID:
+					startedID = event.Data.MemberID
+				case event.Type == "message.posted" && event.Data.MessageID == posted.ID && event.Actor.Kind == "agent":
+					postedID = event.Actor.MemberID
+				}
+			}
+			if len(page.Events) == 0 || page.NextAfter <= after {
+				break
+			}
+			after = page.NextAfter
+		}
+		if createdID == "" || startedID != createdID || postedID != createdID {
+			t.Fatalf("task creation, owner selection and progress must bind to one permanent seat: created=%q started=%q posted=%q", createdID, startedID, postedID)
 		}
 		var members struct {
 			Members []struct {
@@ -78,7 +116,7 @@ func TestTaskWorkflowFromSkill(t *testing.T) {
 		l.ownerModeRequest(http.MethodGet, "/v1/boards/"+url.PathEscape(board)+"/members", "", &members)
 		found := false
 		for _, member := range members.Members {
-			if member.ID == task.OpenedBy.ID {
+			if member.ID == createdID {
 				found = true
 				if string(member.CurrentTask) != "null" {
 					t.Fatalf("finished task remained current, or current_task was omitted: %s", member.CurrentTask)
@@ -86,7 +124,7 @@ func TestTaskWorkflowFromSkill(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Fatalf("task opener %s is missing from the board", task.OpenedBy.ID)
+			t.Fatalf("task opener %s is missing from the board", createdID)
 		}
 		first.waitIdle(2 * time.Minute)
 	})
@@ -94,7 +132,6 @@ func TestTaskWorkflowFromSkill(t *testing.T) {
 
 type (
 	nativeTaskMember struct {
-		ID   string `json:"id"`
 		Name string `json:"name"`
 		Kind string `json:"kind"`
 	}
