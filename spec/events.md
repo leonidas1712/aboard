@@ -145,6 +145,11 @@ its owner's permanent person id. The new member always has ordinary member acces
 Server, board and role gates, seat and owner membership, credentials and lifecycle
 are checked in the transaction. These fields are additive; older events omit them.
 
+A person learns they were added from this event, never from a message: `GET /v1/boards`
+gives them `added` (the event's `seq`, `at` and actor) while its actor isn't them, none
+of their agents has joined the board since, and their read position hasn't moved past
+it. It is a read of the record; nothing is written when it shows or clears.
+
 An agent's delivery mode, as its person set it, is a read model of its
 `agent.delivery_changed` events: the `after` of the latest, and that event's `seq` as the
 mode's revision; an agent with none is `focused` at revision 0. The mode its delivery

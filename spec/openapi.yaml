@@ -3829,6 +3829,25 @@ components:
           description: |
             How many working agents are on the board. Given to a machine's delegation for
             a board its person is on; absent otherwise.
+        added:
+          allOf: [{ $ref: "#/components/schemas/BoardAdded" }]
+          description: |
+            In `GET /v1/boards`, for a person on the board (with their own key, browser
+            or machine's delegation): someone else added them, and nothing of theirs has
+            followed yet. It is read from the record: the latest `person.added` for
+            them, when its actor isn't them, none of their agents has joined the board
+            since, and their read position hasn't moved past it. Never an event or a
+            message. Absent otherwise, and always for agents.
+    BoardAdded:
+      type: object
+      required: [seq, at, by]
+      description: The `person.added` that put the caller on the board.
+      properties:
+        seq: { $ref: "#/components/schemas/Seq" }
+        at: { $ref: "#/components/schemas/Timestamp" }
+        by:
+          allOf: [{ $ref: "#/components/schemas/Actor" }]
+          description: Who added them, as the event's actor records it; an agent's `owner` is its person's handle then.
     CreateBoardRequest:
       type: object
       additionalProperties: false

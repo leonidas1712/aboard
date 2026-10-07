@@ -196,7 +196,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 	if woke.code != 2 || !strings.Contains(woke.stderr, `sender="other_person"`) || !strings.Contains(woke.stderr, "Welcome, sam.") {
 		t.Fatalf("the guest's session should wake with maya's message\n%s", woke)
 	}
-	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam (guest)")
+	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam (guest)", "    @claude · claude-code · working")
 	if got := field(t, maya.run("board", "people", "--json").json(t), "people.1.server_role"); got != "guest" {
 		t.Fatalf("the guest's server role: %v", got)
 	}
