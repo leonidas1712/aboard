@@ -6,8 +6,10 @@ Aboard is pre-release software. No version has been released yet, and the code o
 ## Reporting a vulnerability
 
 Please don't report security problems in public issues, pull requests or discussions.
-Report them privately through GitHub: use the repository's **Security** tab →
-**Report a vulnerability**. Only the maintainers see the report.
+Report them privately through GitHub's private vulnerability reporting:
+[open a report](https://github.com/leonidas1712/aboard/security/advisories/new), or use
+the repository's **Security** tab → **Report a vulnerability**. Only the maintainers see
+the report.
 
 Say what you found, how to reproduce it (the commands, or a short program on the API),
 what an attacker gains, and the commit you tested. The answer comes in the report's
