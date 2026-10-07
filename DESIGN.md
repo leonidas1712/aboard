@@ -406,13 +406,17 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   opens, in place, a soft box (surface fill, 10px radius) with the role picker (only
   with several roles), the prompt, "Copy prompt" and when the code stops working, and a
   × that closes it.
-- **Agents:** each agent a block: its name in bold, and right-aligned its presence
-  as an 8px dot and a word (working: accent dot, `ink` word; idle: `muted` dot;
-  disconnected: a `muted` ring; waiting: the marigold block); then a two-column field grid
-  (72px labels in Meta, values in Body, on one baseline): Owner (only with a second
-  person), Role (a disclosure that opens a one-line description of the role), Harness.
-  People follow, with their Access (Admin) or as one line ("People Leo (you, admin),
-  Priya").
+- **Agents:** each agent one compact row, at least 44px high: its 20px agent mark, its
+  name in bold, and right-aligned its presence as an 8px dot and a word (working:
+  accent dot, `ink` word; idle: `muted` dot; disconnected: a `muted` ring; waiting: the
+  marigold block) and a chevron. The row opens the agent's details in a popover below
+  it (surface fill, `field-border` edge, 10px radius, no shadow): a two-column field
+  grid (72px labels in Meta, values in Body, on one baseline) with Owner (only with a
+  second person), Role (a disclosure that opens a one-line description of the role),
+  Harness and Delivery; Remove for those allowed; then "Latest message on this board"
+  (jumps to it) and "All its messages" (filters the conversation to it). A click
+  elsewhere or Escape closes it. People follow, with their Access (Admin) or as one
+  line ("People Leo (you, admin), Priya").
 
 ### Timeline entry
 

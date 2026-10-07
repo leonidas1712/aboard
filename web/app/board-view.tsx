@@ -510,6 +510,12 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               onPick={pick}
               reveal={reveal}
               onLifecycle={s.refresh}
+              identity={identity}
+              latest={(agent) => known.findLast((m) => m.from.kind === "agent" && m.from.name === agent) ?? null}
+              onShowMessage={(id) => {
+                setView("conversation");
+                onShow(id);
+              }}
             />
             </>}
           </SidePanel>

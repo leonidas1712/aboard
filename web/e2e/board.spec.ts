@@ -241,7 +241,14 @@ test("the board view shows the room live, posts as the person and verifies the r
   // Clicking a member in Who's here filters the timeline to them; the chip removes it.
   const writerSays = page.locator(".message", { hasText: "Draft is in notes.md." });
   const reviewerSays = page.locator(".message", { hasText: "Agreed, I'll sketch one." });
-  await crew.locator('[data-agent="reviewer"] .member-filter').click();
+  // An agent's row opens its details: role, harness, delivery, its latest message and
+  // all its messages.
+  await crew.locator('[data-agent="reviewer"] .agent-row').click();
+  const details = crew.getByRole("dialog", { name: "reviewer's details" });
+  await expect(details).toContainText("Role");
+  await expect(details.locator(".latest-message")).toContainText("Agreed, I'll sketch one.");
+  await details.getByRole("button", { name: "All its messages" }).click();
+  await expect(details).toBeHidden();
   await expect(page.getByRole("button", { name: "Remove filter: From reviewer" })).toBeVisible();
   await expect(writerSays).toHaveCount(0);
   await expect(reviewerSays).toBeVisible();
@@ -1224,9 +1231,14 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   await openLink(page, open.url);
   const panel = page.getByRole("complementary", { name: "Delivery check" });
   const writer = panel.locator('[data-agent="writer"]');
+  // details opens an agent's details in the board panel, unless they are open already.
+  const details = async (row: typeof writer) => {
+    if ((await row.locator(".agent-row").getAttribute("aria-expanded")) !== "true") await row.locator(".agent-row").click();
+  };
 
   // alex's own agent's mode is a menu; kim's agent shows its mode as a label only.
   const theirs = panel.locator(`[data-agent="${kimAgent}"]`);
+  await details(theirs);
   await expect(theirs.locator(".delivery-mode")).toHaveText("focused");
   await expect(theirs.locator(".delivery-mode")).toHaveAttribute("title", modeRules.focused);
   await expect(theirs.getByRole("button", { name: /^Delivery mode of/ })).toHaveCount(0);
@@ -1235,6 +1247,7 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
     await page.getByRole("button", { name: /^You are alex/ }).click();
     await page.getByRole("menuitemradio", { name: theme }).click();
     await page.keyboard.press("Escape");
+    await details(writer);
     await writer.getByRole("button", { name: "Delivery mode of writer: focused. Change it" }).click();
     // Each mode comes with the rule the agent is told, in the same words as the CLI's.
     const menu = page.locator(".delivery-modes");
@@ -2015,7 +2028,9 @@ test("a board owner removes another person's agent from the panel, and Show remo
   const item = panel.locator(`[data-agent="${agent}"]`);
   await expect(item).toBeVisible();
 
-  // Cancel changes nothing; Remove asks first, then removes the agent for good.
+  // Cancel changes nothing; Remove, in the agent's details, asks first, then removes the
+  // agent for good.
+  await item.locator(".agent-row").click();
   await item.getByRole("button", { name: `Remove ${agent}` }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText(`Remove ${agent}?`);
@@ -2098,7 +2113,7 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   const progress = page.getByRole("region", { name: "In progress", exact: true });
   await expect(progress).toContainText("Move payment intents to the v2 API");
   const shots = process.env.TASK_UI_SHOTS;
-  const capture = async (what: string) => {
+  const capture = async (what: string, prep: () => Promise<void> = async () => {}) => {
     if (!shots) return;
     for (const theme of ["Light", "Dark"]) {
       await page.setViewportSize({ width: 1440, height: 1000 });
@@ -2107,12 +2122,25 @@ test("task cards and the task panel show who is on each task, and Tell the team 
       await page.keyboard.press("Escape");
       for (const [device, size] of [["desktop", { width: 1440, height: 1000 }], ["mobile", { width: 390, height: 844 }]] as const) {
         await page.setViewportSize(size);
+        await prep();
         await page.screenshot({ path: `${shots}/${what}-${device}-${theme.toLowerCase()}.png`, fullPage: true, animations: "disabled" });
       }
     }
     await page.setViewportSize({ width: 1280, height: 720 });
   };
   await capture("tasks");
+
+  // The board panel lists agents as compact rows; a row opens the agent's details.
+  const writerRow = page.locator('[data-agent="writer"]');
+  const writerDetails = async () => {
+    if ((await writerRow.locator(".agent-row").getAttribute("aria-expanded")) !== "true") await writerRow.locator(".agent-row").click();
+    await writerRow.scrollIntoViewIfNeeded();
+  };
+  await writerDetails();
+  await expect(page.getByRole("dialog", { name: "writer's details" })).toContainText("No messages on this board yet.");
+  await capture("agent-details", writerDetails);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "writer's details" })).toHaveCount(0);
 
   // A card shows everyone on the task with their harness mark, owner first, and counts
   // its conversation only when there is one.

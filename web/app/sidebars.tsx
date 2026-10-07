@@ -17,14 +17,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type Member, addedBy, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type Member, type MemberRef, type Message, addedBy, isArchived, setDelivery } from "./api";
+import { AgentMark } from "./agent-mark";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
-import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
+import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, relativeTime, rules } from "./words";
 import { VisibilityControl } from "./visibility";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
@@ -172,10 +173,16 @@ type BoardPanelProps = {
   reveal: Reveal;
   /** onLifecycle reloads the board after it is archived or restored. */
   onLifecycle: () => void;
+  /** identity is a member's identity colour, for its mark. */
+  identity: (m: MemberRef) => number;
+  /** latest is an agent's newest loaded message on the board, for its details. */
+  latest: (agent: string) => Message | null;
+  /** onShowMessage shows a message in the conversation. */
+  onShowMessage: (id: string) => void;
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, identity, latest, onShowMessage }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
@@ -183,7 +190,7 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
       <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
         <div className="flex flex-col gap-4 pt-1">
           {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} />
+          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} identity={identity} latest={latest} onShowMessage={onShowMessage} />
           {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
         </div>
       </Section>
@@ -324,9 +331,12 @@ type WhosHereProps = {
   onPick: (name: string) => void;
   /** onRemoved reloads the board after the person removes an agent. */
   onRemoved: () => void;
+  identity: (m: MemberRef) => number;
+  latest: (agent: string) => Message | null;
+  onShowMessage: (id: string) => void;
 };
 
-function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHereProps) {
+function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity, latest, onShowMessage }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -338,7 +348,7 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHer
       ) : agents.length === 0 ? (
         <p>No agents yet.</p>
       ) : (
-        <ul className="flex flex-col gap-5" aria-label="Agents">
+        <ul className="flex flex-col gap-0.5" aria-label="Agents">
           {agents.map((a) => (
             <AgentItem
               key={a.id}
@@ -348,7 +358,10 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHer
               roleCharter={board?.roles[a.role ?? ""]?.charter}
               showOwner={showOwner}
               picked={from === a.name}
+              identity={identity(a)}
+              latest={latest(a.name)}
               onPick={() => onPick(a.name)}
+              onShowMessage={onShowMessage}
               onRemoved={onRemoved}
             />
           ))}
@@ -407,7 +420,10 @@ function AgentItem({
   roleCharter,
   showOwner,
   picked,
+  identity,
+  latest,
   onPick,
+  onShowMessage,
   onRemoved,
 }: {
   agent: Member;
@@ -419,22 +435,63 @@ function AgentItem({
   roleCharter?: string;
   showOwner: boolean;
   picked: boolean;
+  identity: number;
+  /** latest is the agent's newest message on this board that the page has loaded. */
+  latest: Message | null;
   onPick: () => void;
+  onShowMessage: (id: string) => void;
 }) {
   const presence = agent.presence ?? "no_session";
   const waiting = presence === "waiting";
-  const label = cn("text-meta", waiting ? "text-ink" : "text-muted");
+  const label = "text-meta text-muted";
   // The mode its person set, held by the server; a server that holds none shows what
   // the agent's delivery daemon reports applying.
   const held = agent.delivery_mode ?? null;
   const applied = agent.delivery ? appliedMode(agent.delivery) : null;
   const mode = held ?? applied;
+  const [open, setOpen] = useState(false);
+  const item = useRef<HTMLLIElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // The details close on a click elsewhere or on Escape, but not while a menu or dialog
+  // opened from them (the delivery menu, Remove's confirmation) is in use.
+  useEffect(() => {
+    if (!open) return;
+    const layer = (el: Element | null) => !!el?.closest('[role="menu"], [role="alertdialog"], [data-radix-popper-content-wrapper]');
+    const away = (e: PointerEvent) => {
+      const target = e.target as Element;
+      if (item.current?.contains(target) || layer(target)) return;
+      setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || layer(document.activeElement)) return;
+      setOpen(false);
+      trigger.current?.focus();
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
   return (
-    <li className={cn("agent transition-colors duration-200 ease-out", waiting && "-mx-3 rounded-box bg-attention px-3 py-2.5")} data-agent={agent.name}>
-      <div className="flex items-center justify-between gap-3">
-        <NameButton name={agent.name} picked={picked} onPick={onPick}>
+    <li ref={item} className={cn("agent relative transition-colors duration-200 ease-out", waiting && "-mx-2 rounded-box bg-attention px-2 py-1.5")} data-agent={agent.name}>
+      <button
+        ref={trigger}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(!open)}
+        title={`${agent.name}'s details`}
+        className={cn(
+          "agent-row -mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-control px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected",
+          open && "bg-selected",
+        )}
+      >
+        <AgentMark member={agent} identity={identity} size="sm" />
+        <span className={cn("agent-name min-w-0 flex-1 truncate font-bold", picked && "underline decoration-accent decoration-2 underline-offset-[5px]")}>
           {agent.name}
-        </NameButton>
+        </span>
         <span className="flex shrink-0 items-center gap-1.5">
           <span
             aria-hidden
@@ -445,62 +502,101 @@ function AgentItem({
           />
           <CrossFade value={presenceWords[presence]} className={cn("text-meta", presence === "working" || waiting ? "text-ink" : "text-muted")} />
         </span>
-      </div>
+        <ChevronRight className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")} strokeWidth={1.75} aria-hidden />
+      </button>
       {waiting && <p className="text-meta">Its session is waiting for you, such as a permission prompt.</p>}
-      <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
-        {showOwner && (
-          <>
-            <dt className={label}>Owner</dt>
-            <dd>{agent.owner}</dd>
-          </>
-        )}
-        <dt className={label}>Role</dt>
-        <dd>
-          <Collapsible>
-            <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px]">
-              {agent.role}
-              <ChevronDown
-                className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              <span className="sr-only">: what this role does</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="animate-fade-in">
-              <p className="mt-1 text-meta">{roleCharter?.trim() || "This role has no description."}</p>
-            </CollapsibleContent>
-          </Collapsible>
-        </dd>
-        {agent.harness && (
-          <>
-            <dt className={label}>Harness</dt>
-            <dd>{harnessName(agent.harness)}</dd>
-          </>
-        )}
-        {mode && (
-          <>
-            <dt className={label}>Delivery</dt>
-            <dd className="delivery">
-              {mine && held && board ? (
-                <DeliveryMenu board={board} agent={agent.name} mode={held} />
-              ) : (
-                <span className="delivery-mode" title={modeRules[mode]}>
-                  {mode}
-                </span>
-              )}
-              {held && applied && applied !== held && presence !== "no_session" && (
-                <p
-                  className="delivery-applied mt-1 text-meta text-muted"
-                  title="A delivery daemon from an older aboard keeps the mode on its own machine."
-                >
-                  Its delivery daemon still applies {applied}.
-                </p>
-              )}
+      {open && (
+        <div
+          role="dialog"
+          aria-label={`${agent.name}'s details`}
+          className="agent-popover absolute top-full right-0 left-0 z-20 mt-1 flex animate-fade-in flex-col gap-2 rounded-box border border-field-border bg-surface px-3.5 py-3"
+        >
+          <dl className="grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
+            {showOwner && (
+              <>
+                <dt className={label}>Owner</dt>
+                <dd>{agent.owner}</dd>
+              </>
+            )}
+            <dt className={label}>Role</dt>
+            <dd>
+              <Collapsible>
+                <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px]">
+                  {agent.role}
+                  <ChevronDown
+                    className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                  <span className="sr-only">: what this role does</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="animate-fade-in">
+                  <p className="mt-1 text-meta">{roleCharter?.trim() || "This role has no description."}</p>
+                </CollapsibleContent>
+              </Collapsible>
             </dd>
-          </>
-        )}
-      </dl>
-      {agent.can_remove === true && board && <RemoveAgent board={board} agent={agent} onRemoved={onRemoved} />}
+            {agent.harness && (
+              <>
+                <dt className={label}>Harness</dt>
+                <dd>{harnessName(agent.harness)}</dd>
+              </>
+            )}
+            {mode && (
+              <>
+                <dt className={label}>Delivery</dt>
+                <dd className="delivery">
+                  {mine && held && board ? (
+                    <DeliveryMenu board={board} agent={agent.name} mode={held} />
+                  ) : (
+                    <span className="delivery-mode" title={modeRules[mode]}>
+                      {mode}
+                    </span>
+                  )}
+                  {held && applied && applied !== held && presence !== "no_session" && (
+                    <p
+                      className="delivery-applied mt-1 text-meta text-muted"
+                      title="A delivery daemon from an older aboard keeps the mode on its own machine."
+                    >
+                      Its delivery daemon still applies {applied}.
+                    </p>
+                  )}
+                </dd>
+              </>
+            )}
+          </dl>
+          {agent.can_remove === true && board && <RemoveAgent board={board} agent={agent} onRemoved={onRemoved} />}
+          <div className="flex flex-col gap-1 border-t border-rule pt-2 text-meta">
+            {latest ? (
+              <button
+                type="button"
+                className="latest-message flex min-h-11 flex-col items-start text-left"
+                onClick={() => {
+                  setOpen(false);
+                  onShowMessage(latest.id);
+                }}
+              >
+                <span className="text-link underline decoration-1 underline-offset-[3px]">Latest message on this board</span>
+                <span className="line-clamp-2 text-muted">
+                  {relativeTime(latest.at, Date.now())}: {latest.body}
+                </span>
+              </button>
+            ) : (
+              <span className="text-muted">No messages on this board yet.</span>
+            )}
+            <button
+              type="button"
+              aria-pressed={picked}
+              onClick={() => {
+                setOpen(false);
+                onPick();
+              }}
+              className="member-filter min-h-11 self-start text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
+            >
+              {picked ? "Show everyone's messages" : "All its messages"}
+            </button>
+          </div>
+        </div>
+      )}
     </li>
   );
 }
