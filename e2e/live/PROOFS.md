@@ -131,6 +131,7 @@ measured on Claude Code 2.1.287 with its default model.
 | --- | --- | --- | --- |
 | `TestWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins and says hello (the baseline, recorded as `JoinsAndTalks`). Then a message to the idle first session is handed over within 2 seconds of the daemon's 2-second gather, its presence goes working and back to idle, and it answers on the board with no one typing. | Baseline, wakes when idle, presence | 6 |
 | `TestTaskWorkflowFromSkill` | Two native sessions pair through the quickstart's plain-language join flow. A work request, without CLI commands, has the first session use its installed skill to create and start a task, post a progress message, and finish it. The public API must retain the task's owner and final note, record that message's `about` with `how: current`, and report a null current task after completion. | Task records and automatic tagging | not measured |
+| `TestAttachedFileReachesTheHarness` | One native session joins a board. A person posts a pinned file version whose contents are absent from the message. The harness follows the delivered file-get hint and posts the exact bytes; the API retains the attachment reference. | Versioned file attachments | not measured |
 | `TestAskAnsweredInTheBoardViewWakesTheAsker` | A native session uses its installed skill to ask its person with options, then goes idle. Chromium answers through the real board view; the recorded option-2 decision must precede the agent's acknowledgment, without another owner prompt. Build the exported UI with `make web` and install Playwright Chromium first. With an isolated runner home, set `PLAYWRIGHT_BROWSERS_PATH` to the installed browser cache; profiles remain temporary. | Asks, browser answers, wake delivery | about 3 |
 | `TestPingPong` | One prompt starts the skill's wiring check to PING 3: six messages go back and forth between two sessions of the harness, taking turns, and the exchange stops. | Wakes when idle | 9 |
 | `TestPingPongAcrossHarnesses` | The same between two harnesses, once for each pair (`claude-code-with-codex`). | Wakes when idle | about 9 |
@@ -431,3 +432,4 @@ passed the same checks for Codex: idle wake through the queue, the exchange with
 Code, urgent at the next tool call once the hooks were trusted (after a fix: urgent
 messages wait for the next tool call while a turn runs, instead of going to the queue),
 restarts and doctor.
+
