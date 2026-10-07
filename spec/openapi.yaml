@@ -2954,10 +2954,13 @@ paths:
       description: |
         Makes the caller the task's owner, if nobody owns it, in one transaction: of two
         callers at once exactly one wins, and the other gets 409 `task_taken` naming the
-        owner. Starting a task the caller already owns changes nothing and writes no
-        event. For an agent it also becomes the agent's current task, and the agent's
-        line becomes "Working on" the task's title (source `task`). A done or cancelled
-        task is 409 `task_closed`. An agent needs `claim_tasks`. Writes `task.started`.
+        owner. For an agent it also becomes the agent's current task, and the agent's
+        line becomes "Working on" the task's title (source `task`). Starting a task the
+        agent already owns that isn't its current task makes it current again and writes
+        `task.started` with `reselected: true`, so every change of the current task is in
+        the record; starting the task that is already current, or a person starting a
+        task they own, changes nothing and writes no event. A done or cancelled task is
+        409 `task_closed`. An agent needs `claim_tasks`. Writes `task.started`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -2982,9 +2985,12 @@ paths:
       summary: Help on a task without taking it over
       description: |
         Adds the caller to the task's helpers (`with`). For an agent it becomes the
-        current task, so the agent's messages are about it. Joining again, or joining a
-        task the caller owns, changes nothing. A done or cancelled task is 409
-        `task_closed`. An agent needs `claim_tasks`. Writes `task.joined`.
+        current task, so the agent's messages are about it. Joining a task the agent
+        already helps on or owns that isn't its current task makes it current again and
+        writes `task.joined` with `reselected: true`; joining the task that is already
+        current, or a person joining one they help on or own, changes nothing and writes
+        no event. A done or cancelled task is 409 `task_closed`. An agent needs
+        `claim_tasks`. Writes `task.joined`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -5618,7 +5624,10 @@ components:
     BlockedOn:
       type: object
       required: [ask_id, ask_seq, to, since]
-      description: One open blocking ask about a task.
+      description: |
+        One open blocking ask about a task that the reader may read. An ask the reader
+        may not read (under `addressed` visibility, one addressed to others) is never
+        listed: it only counts in `Task.blocked_count`.
       properties:
         ask_id: { type: string }
         ask_seq: { $ref: "#/components/schemas/Seq" }
@@ -5627,7 +5636,7 @@ components:
         since: { $ref: "#/components/schemas/Timestamp" }
     Task:
       type: object
-      required: [id, ref, number, board, title, about, stands, state, owner, with, blocked, blocked_on, opened_by, opened_at, updated_at, message_count, thread_count]
+      required: [id, ref, number, board, title, about, stands, state, owner, with, blocked, blocked_count, blocked_on, opened_by, opened_at, updated_at, message_count, thread_count]
       properties:
         id: { $ref: "#/components/schemas/TaskID" }
         ref: { $ref: "#/components/schemas/TaskReference" }
@@ -5653,10 +5662,19 @@ components:
           items: { $ref: "#/components/schemas/MemberRef" }
         blocked:
           type: boolean
-          description: True while the task has an open blocking ask.
+          description: |
+            True while the task has an open blocking ask, whether or not the reader may
+            read it. A fact about the task every member sees; it names no ask, sender or
+            recipient.
+        blocked_count:
+          type: integer
+          minimum: 0
+          description: How many open blocking asks the task has, counting ones the reader may not read.
         blocked_on:
           type: array
-          description: The open blocking asks about the task, oldest first.
+          description: |
+            The open blocking asks about the task that the reader may read, oldest first.
+            Shorter than `blocked_count` when some are hidden from the reader.
           items: { $ref: "#/components/schemas/BlockedOn" }
         opened_by: { $ref: "#/components/schemas/MemberRef" }
         opened_at: { $ref: "#/components/schemas/Timestamp" }
@@ -6668,8 +6686,11 @@ components:
                 - type: object
                   required: [member_id, previous_owner]
                   properties:
-                    member_id: { type: string, description: The new owner. }
+                    member_id: { type: string, description: The owner. }
                     previous_owner: { type: string, nullable: true }
+                    reselected:
+                      type: boolean
+                      description: True when the member already owned the task and it only became the agent's current task again. Absent otherwise.
     TaskJoinedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -6683,6 +6704,9 @@ components:
                   required: [member_id]
                   properties:
                     member_id: { type: string }
+                    reselected:
+                      type: boolean
+                      description: True when the member already helped on or owned the task and it only became the agent's current task again. Absent otherwise.
     TaskUpdatedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"

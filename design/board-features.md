@@ -113,7 +113,11 @@ owner), `done` or `cancelled`. There is no "waiting", "claimed" or "blocked" sta
 
 - **Blocked is derived.** A task is Blocked while it has an open blocking ask (see
   [Asks](#asks-and-decisions)), and the board shows who it's waiting on. An agent never
-  sets it, so it can never forget to unset it.
+  sets it, so it can never forget to unset it. That a task is Blocked, and on how many
+  asks (`blocked`, `blocked_count`), is a fact about the task every member sees; which
+  asks, who asked and who was asked (`blocked_on`) list only the asks the reader may
+  read, so under `addressed` visibility a reader who can't see an ask sees
+  "Blocked (1 ask you can't see)" and never its recipient.
 - Starting a task claims it, so "claimed but not started" doesn't exist.
 
 **Fields.**
@@ -149,6 +153,10 @@ event, so every version and its author can be read back.
 **The current task.** Each agent has at most one current task: the one it last started,
 opened or joined, until it finishes or drops it. It is a read model of the record, so it
 survives the session: a new or resumed session for the same agent is still on CHK-17.
+Every change of it is an event, so it can be rebuilt: switching back to a task the agent
+already owns or helps on (A, then B, then A again) writes `task.started` or
+`task.joined` with `reselected: true`, and only a `start` or `join` of the task that is
+already current writes nothing.
 It drives three defaults: what messages are about, what an ask blocks, and what
 `task note` and `task done` act on.
 
@@ -541,8 +549,8 @@ fields in `data`, covered by `data_hash` like every payload (spec/events.md).
 | --- | --- | --- |
 | `board.task_prefix_set` | The first task on a board is made (just before its `task.created`, same transaction), or an owner changes the prefix | `before` (null the first time), `after` |
 | `task.created` | `POST …/tasks` | `task_id`, `ref`, `number`, `title`, `about` |
-| `task.started` | `…/start`, and `task new` that starts | `task_id`, `ref`, `member_id` (the new owner), `previous_owner` (null unless a person re-assigned it) |
-| `task.joined` | `…/join` | `task_id`, `ref`, `member_id` |
+| `task.started` | `…/start`, and `task new` that starts; also an owner making its own task current again | `task_id`, `ref`, `member_id` (the owner), `previous_owner` (null unless the task had another), `reselected` (true when the member already owned it and it only became current again) |
+| `task.joined` | `…/join`; also a helper making the task current again | `task_id`, `ref`, `member_id`, `reselected` (as for `task.started`) |
 | `task.updated` | `PATCH …/tasks/{task}` | `task_id`, `ref`, and any of `title`, `about`, `stands` (with `stands_version`) |
 | `task.done` | `…/done` | `task_id`, `ref`, `note`, `cancelled` |
 | `task.dropped` | `…/drop`, or a seat ending | `task_id`, `ref`, `member_id`, `as` (`owner` or `helper`), `reason`, `by` (`self`, `person`, `seat_ended`) |
@@ -561,7 +569,9 @@ fields in `data`, covered by `data_hash` like every payload (spec/events.md).
 **Visibility.** Task and file events are board content every member reads, like a
 title. Under `addressed` visibility, a message's `about`, `ask`, `answer` and `files`
 are withheld with the rest of its payload; the task's own counts then count only what
-the reader may see.
+the reader may see, and its `blocked_on` lists only the asks the reader may read (the
+bare fact `blocked` and `blocked_count` stay visible to every member, with no ask id,
+sender or recipient).
 
 **Not in the record:** lines, the current task's line, the state word, presence,
 read positions, freshness counts and nudges.

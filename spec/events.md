@@ -79,8 +79,8 @@ server later serves a different hash at that `seq`.
 | `agent.left` | `POST /v1/me/leave`: the agent removed its own seat. The actor is the agent. | as for `agent.removed`, with `removed_by: "self"` |
 | `board.task_prefix_set` | The board's first task is made (just before its `task.created`, in the same transaction), or `PATCH /boards/{board}` changes `task_prefix` | `before` (null the first time), `after` |
 | `task.created` | `POST /boards/{board}/tasks`. The actor opened it. | `task_id`, `ref` (`CHK-17`), `number`, `title`, `about` (null when not given) |
-| `task.started` | `POST …/tasks/{task}/start`, or creating a task with `start`, right after `task.created` | `task_id`, `ref`, `member_id` (the new owner), `previous_owner` (null unless the task had one) |
-| `task.joined` | `POST …/tasks/{task}/join` | `task_id`, `ref`, `member_id` |
+| `task.started` | `POST …/tasks/{task}/start`, or creating a task with `start`, right after `task.created`; also when an agent starts a task it already owns that isn't its current task (it becomes current again) | `task_id`, `ref`, `member_id` (the owner), `previous_owner` (null unless the task had another owner), `reselected` (true when the member already owned the task and it only became current again; absent otherwise) |
+| `task.joined` | `POST …/tasks/{task}/join`; also when a helper joins again a task that isn't its current task | `task_id`, `ref`, `member_id`, `reselected` (as for `task.started`) |
 | `task.updated` | `PATCH …/tasks/{task}` | `task_id`, `ref`, and only what changed of `title`, `about`, `stands` (Where it stands, with `stands_version`) |
 | `task.done` | `POST …/tasks/{task}/done` | `task_id`, `ref`, `note`, `cancelled` |
 | `task.dropped` | `POST …/tasks/{task}/drop`; also in the transaction that ends a seat (`agent.removed`, `agent.left`, `person.removed`, `person.left`), for each task the seat owned or helped on | `task_id`, `ref`, `member_id`, `as` (`owner` or `helper`), `reason`, `by` (`self`, `person`, `seat_ended`) |
@@ -260,9 +260,13 @@ How Aboard does it:
 is the `after` of its latest `board.task_prefix_set`. About and Where it stands are
 versioned by the events that wrote them: `task.created`'s `about` is About's first
 version, and each `task.updated` with `about` or `stands` is the next. An agent's
-**current task** is a read model too: the task of its latest `task.started`,
-`task.joined` or, through `start`, `task.created`, until a `task.done` or
-`task.dropped` for it.
+**current task** is a read model too: the task of its latest `task.started` or
+`task.joined`, until a `task.done` or `task.dropped` for that task. Every change of it
+is an event: making a task current again (A, then B, then A) writes `task.started` or
+`task.joined` with `reselected: true`, and only starting or joining the task that is
+already current writes nothing, so the current task at any `seq` can be rebuilt from
+the record alone. A person has no current task, so a person starting a task they
+already own writes nothing.
 
 **What a message is about.** `message.posted` records `about`, a list of
 `{id, ref, how}`, worked out in the posting transaction: the request's `about` as given;
@@ -279,6 +283,9 @@ about). **Answers** are replies: `message.posted` with `answer` (`ask_id`, `opti
 `withdrawn`). There are no ask events: an ask's state (open, answered, withdrawn, or
 went with its default) is worked out from the record when read, and a task is Blocked
 while an ask with `blocking` and its `task_id` has no answer and no withdrawal after it.
+That a task is Blocked, and how many such asks it has, is board content every member
+reads; which asks they are, and who asked whom, is read only by those who may read each
+ask's message.
 The latest answer is the ask's answer, the decision; earlier ones stay in the record.
 
 **Files.** A version's bytes are stored, under their digest, before the
