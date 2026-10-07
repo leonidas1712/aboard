@@ -2246,3 +2246,34 @@ test("My agents records an owner target and receipts for its current seats", asy
 });
 
 });
+
+test.describe("person rename", () => {
+  let oldEnv: typeof env;
+  let renameHome: string;
+  test.beforeAll(async () => {
+    oldEnv = env;
+    renameHome = mkdtempSync(join(tmpdir(), "aboard-web-rename-"));
+    env = { ...env, HOME: renameHome, XDG_CONFIG_HOME: join(renameHome, ".config"), XDG_DATA_HOME: join(renameHome, ".local", "share"), XDG_STATE_HOME: join(renameHome, ".local", "state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}` };
+  });
+  test.afterAll(() => {
+    try { aboard("down"); } finally { env = oldEnv; rmSync(renameHome, { recursive: true, force: true }); }
+  });
+  test("rename updates a loaded historical author and current account", async ({ page }) => {
+    const b = await newBoard("Rename history");
+    const key = ownerKey();
+    const peer = await person("rename-peer");
+    await api(key, "POST", `/v1/boards/${b.name}/people`, { handle: "rename-peer" });
+    await api(peer, "POST", `/v1/boards/${b.name}/messages`, { body: "Original @rename-peer mention stays", to: ["all"] });
+    await openLink(page, JSON.parse(aboard("open", "--board", b.name, "--json")).url);
+    await expect(page.getByText("Original @rename-peer mention stays", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "You are alex. Account and settings" })).toBeVisible();
+    await expect(page.locator(".timeline").getByText("rename-peer", { exact: true }).first()).toBeVisible();
+    await api(peer, "POST", "/v1/people/rename-peer/rename", { handle: "rename-sam" });
+    await expect(page.locator(".timeline").getByText("rename-sam", { exact: true }).first()).toBeVisible();
+    await api(key, "POST", "/v1/people/alex/rename", { handle: "leo" });
+    await expect(page.getByRole("button", { name: "You are leo. Account and settings" })).toBeVisible();
+    await expect(page.getByText("Original @rename-peer mention stays", { exact: true })).toBeVisible();
+    const timeline = page.locator(".timeline");
+    await expect(timeline.getByText("rename-sam", { exact: true }).first()).toBeVisible();
+  });
+});

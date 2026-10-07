@@ -186,6 +186,21 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case method == http.MethodPost && strings.HasPrefix(path, "/v1/people/") && strings.HasSuffix(path, "/rename"):
+		var result struct {
+			Person struct {
+				ID string `json:"id"`
+			} `json:"person"`
+		}
+		if saved.Status == http.StatusOK {
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			if result.Person.ID == "" {
+				return fmt.Errorf("stored rename has no person id")
+			}
+		}
+		return svc.CheckRenameReplay(ctx, principal(ctx), result.Person.ID)
 	case path == "/v1/boards" && method == http.MethodPost:
 		var requested struct {
 			Name string `json:"name"`

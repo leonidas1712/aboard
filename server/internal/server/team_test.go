@@ -87,7 +87,11 @@ func startTeam(t *testing.T, data string) *teamServer {
 
 // launchTeam runs a team server on data, as startTeam does, and returns why it didn't
 // start instead of failing the test. It is safe from several goroutines at once.
-func launchTeam(t *testing.T, data string) (*teamServer, error) {
+func launchTeam(t *testing.T, data string, adminNames ...string) (*teamServer, error) {
+	adminName := "Alex"
+	if len(adminNames) > 0 {
+		adminName = adminNames[0]
+	}
 	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -105,7 +109,7 @@ func launchTeam(t *testing.T, data string) (*teamServer, error) {
 		done <- Run(ctx, Options{
 			Addr: addr, DataDir: data, Version: "test",
 			Log:  slog.New(slog.NewJSONHandler(logs, nil)),
-			Team: &Team{PublicURL: pub, AdminName: "Alex"},
+			Team: &Team{PublicURL: pub, AdminName: adminName},
 		})
 	}()
 	s := &teamServer{t: t, addr: addr, data: data, log: logs}
@@ -349,5 +353,28 @@ func TestConcurrentFirstStartsShareOneIdentityAndAdmin(t *testing.T) {
 	resp, me := again.do("GET", "/v1/me", "team.example.com:8443", map[string]string{"Authorization": "Bearer " + key}, nil)
 	if resp.StatusCode != http.StatusOK || me["server_role"] != "admin" {
 		t.Fatalf("the admin key after a restart: %d %v", resp.StatusCode, me)
+	}
+}
+
+func TestDefaultFirstAdminWarnsOnlyOnCreation(t *testing.T) {
+	data := filepath.Join(t.TempDir(), "data")
+	if err := os.Mkdir(data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	first, err := launchTeam(t, data, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.stop()
+	if !strings.Contains(first.log.String(), "first admin uses the default handle") {
+		t.Fatal("missing default-handle warning")
+	}
+	second, err := launchTeam(t, data, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.stop()
+	if strings.Contains(second.log.String(), "first admin uses the default handle") {
+		t.Fatal("warning repeated on restart")
 	}
 }

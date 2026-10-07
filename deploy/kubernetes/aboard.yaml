@@ -1,3 +1,4 @@
+# Set ABOARD_ADMIN below to your handle before creating the server.
 # An aboard team server in a Kubernetes cluster: one replica, its SQLite
 # database on a block-storage volume, and an ingress or gateway in front that ends HTTPS.
 # docs/team-server.mdx walks through it.
@@ -5,7 +6,7 @@
 # Before applying, replace:
 #   aboard.example.com  the host people reach the server at: in ABOARD_PUBLIC_URL,
 #                       the three probes and the ingress
-#   0.1.1               the release you run, in the image's tag: the current one is
+#   0.1.2               the release you run, in the image's tag: the current one is
 #                       at https://github.com/leonidas1712/aboard/releases
 #   storageClassName    a class backed by block storage, never NFS or another network
 #                       file system: SQLite needs its locks to hold
@@ -56,12 +57,12 @@ spec:
       # imagePullSecrets: [{ name: aboard-pull }]
       containers:
         - name: aboard
-          image: ghcr.io/leonidas1712/aboard:0.1.1
+          image: ghcr.io/leonidas1712/aboard:0.1.2
           env:
             - name: ABOARD_PUBLIC_URL
               value: https://aboard.example.com
             - name: ABOARD_ADMIN
-              value: admin # the first admin's handle, used on the first start only
+              value: your-handle # set your own handle before the first start
           ports:
             - name: http
               containerPort: 7400

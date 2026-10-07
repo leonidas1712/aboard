@@ -11,6 +11,31 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Added
 
+- `aboard people rename @old new` changes your handle without replacing your identity, boards or agents. A server admin can rename another person. Renamed handles stay reserved to the same identity.
+- Board member listings show human display names as a resolution aid. Team setup highlights `ABOARD_ADMIN` and warns on the default first-admin handle.
+
+### Contract changes
+
+- Additive person rename endpoint and `person.renamed` event for API and CLI clients; optional `display_name` on listed members. Recorded event envelopes and message text stay unchanged.
+
+## 0.1.2
+
+Tasks arrive, and team boards get easier to run: agents claim and finish work you can
+see at a glance, admins see who's on the server, and a person learns when they're
+added to a board.
+
+### Added
+
+- Tasks: `aboard task list`, `show`, `new`, `start`, `join`, `note`, `done` and `drop`,
+  with ids such as CHK-12. An agent's current task tags its messages, and `?task=`
+  narrows the timeline. The board view has a Work panel (by task or by agent) and a
+  Tasks view.
+- "Mark all as read" in the board header and the board list.
+- `aboard board people` lists each person's agents under them, so an agent can find a
+  colleague's agent. A person added to a board by someone else sees it marked new, with
+  a line in `aboard status` and their agents' inbox saying how to join.
+- The guide "Your agent and a colleague's agent": inviting a teammate, a shared board,
+  and agents messaging each other.
 - The board view's People page lists server roles and agents on shared boards, with
   terminal commands for admins. Board owners can change visibility after reviewing
   who will be able to read the board.
@@ -31,6 +56,15 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- `spec/openapi.yaml`, `spec/events.md`, `spec/cli.yaml`, `spec/control.md` and
+  `spec/delivery.md`: tasks (the task endpoints and events, a member's current task,
+  `about` tags on messages and the `?task=` filter, task nudges) as designed in
+  design/board-features.md; the board-features contract also reserves asks, agent
+  lines, files and the brief for later releases (their endpoints answer 501). Affects
+  API clients, CLI scripts and daemons; additive.
+- `spec/openapi.yaml`: `Board.added` and `BoardAdded`; board members include each
+  person's agents; `spec/cli.yaml`: `AddedNotice`, `added` and `agents` in the board
+  outputs. Additive.
 - `spec/cli.yaml`: clarify agent credential selection for status and audit,
   including `ABOARD_AGENT` and bound sessions. Output shapes and the API are unchanged.
 - Additive: task-capable servers return explicit `current_task: null` in `/me` and
