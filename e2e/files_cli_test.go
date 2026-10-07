@@ -5,6 +5,7 @@ package e2e
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -74,4 +75,33 @@ func TestFileCLIUpdatesTheVersionFetchedToALocalPath(t *testing.T) {
 		t.Fatal("agent could run storage maintenance")
 	}
 	s.run("audit", "verify", "--json")
+}
+
+func TestFilesUseTheConfiguredDiskStore(t *testing.T) {
+	t.Parallel()
+	admin := newEnv(t)
+	root := filepath.Join(t.TempDir(), "configured-files")
+	admin.vars = append(admin.vars, "ABOARD_FILES=disk://"+root)
+	admin.run("up")
+	tm := &team{t: t, admin: admin}
+	board := tm.newBoard(admin, "open")
+	tm.link(admin, board)
+	local := filepath.Join(t.TempDir(), "payload.txt")
+	if err := os.WriteFile(local, []byte("configured bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	uploaded := admin.run("file", "put", local, "--json").json(t)
+	digest := field(t, uploaded, "file.latest.digest").(string)
+	hash := strings.TrimPrefix(digest, "sha256:")
+	data, err := os.ReadFile(filepath.Join(root, "sha256", hash[:2], hash[2:4], hash))
+	if err != nil || string(data) != "configured bytes" {
+		t.Fatalf("configured storage: %q, %v", data, err)
+	}
+	if _, err := os.Stat(filepath.Join(admin.dataDir(), "files")); !os.IsNotExist(err) {
+		t.Fatalf("default store created: %v", err)
+	}
+	checked := admin.run("storage", "check", "--json").json(t)
+	if field(t, checked, "checked") != float64(1) {
+		t.Fatal("check ignored configured store")
+	}
 }

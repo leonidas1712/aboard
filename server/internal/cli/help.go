@@ -397,7 +397,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
-			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--attach PATH] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise. owner:<handle> addresses that person’s current agents on the board. In a person’s terminal, --to mine posts as that person to their own agents; agent sessions must use owner:<handle>.\n\n" +
 				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
 				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
@@ -926,7 +926,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "serve", Group: groupInternal,
 			Summary: "Run the local server, or a team server, in the foreground",
-			Usage:   []string{"aboard serve", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE]"},
+			Usage:   []string{"aboard serve [--files disk:///PATH]", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE] [--files disk:///PATH]"},
 			Description: "Runs the local server in the foreground until it is stopped. " +
 				"aboard up and other commands start it in the background this way; use aboard up instead. " +
 				"With --team it runs a team server behind a proxy that ends HTTPS, such as a container behind an ingress. " +
