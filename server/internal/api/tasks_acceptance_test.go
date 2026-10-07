@@ -71,3 +71,24 @@ func TestTaskClaimHasOneOwnerAndSelectsTheirCurrentTask(t *testing.T) {
 		t.Fatalf("agents with the claimed task selected: %d, want 1", selected)
 	}
 }
+
+func TestTaskReplayRequiresCurrentBoardMembership(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	person := s.addHuman("sam")
+	added, err := s.client(s.owner).AddPersonWithResponse(ctx, name, nil, api.AddPersonRequest{Handle: "sam"})
+	mustStatus(t, added, err, 201)
+	c := s.client(person)
+	key := "task-before-leave"
+	body := api.CreateTaskRequest{Title: "A members-only task"}
+	created, err := c.CreateTaskWithResponse(ctx, name, &api.CreateTaskParams{IdempotencyKey: &key}, body)
+	mustStatus(t, created, err, 201)
+	left, err := c.LeaveBoardWithResponse(ctx, name, nil)
+	mustStatus(t, left, err, 200)
+	replayed, err := c.CreateTaskWithResponse(ctx, name, &api.CreateTaskParams{IdempotencyKey: &key}, body)
+	if code := errorCode(t, replayed, err, 403); code != "not_on_board" {
+		t.Fatalf("task replay after leave: %s", code)
+	}
+}

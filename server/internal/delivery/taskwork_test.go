@@ -17,6 +17,7 @@ type taskWorkServer struct {
 func (s taskWorkServer) TaskWork(context.Context, delivery.AgentRef) (*deliverytext.TaskWork, error) {
 	return s.work, nil
 }
+
 func TestRegisterTaskContextDoesNotWakeOrAcknowledge(t *testing.T) {
 	work := &deliverytext.TaskWork{Nudges: false, CurrentTask: &deliverytext.TaskContext{TaskRef: deliverytext.TaskRef{Ref: "CHK-17", Title: "Review staging"}, Owner: true}}
 	r := newRigWithServer(t, func(server delivery.Server) delivery.Server { return taskWorkServer{Server: server, work: work} })

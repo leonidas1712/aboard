@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 )
 
@@ -45,6 +46,7 @@ func (s *Service) TaskWork(ctx context.Context, p Principal) (AgentWork, error) 
 	})
 	return out, e
 }
+
 func (s *Service) taskWork(tx ReadTx, b Board, me Member) (AgentWork, error) {
 	out := AgentWork{Nudges: b.Policy.Nudges != "off"}
 	tasks, e := tx.Tasks(b.ID)
@@ -60,6 +62,9 @@ func (s *Service) taskWork(tx ReadTx, b Board, me Member) (AgentWork, error) {
 			}
 		}
 		if me.CurrentTask != nil && me.CurrentTask.ID == t.ID {
+			if e := projectTask(tx, b, me, &t); e != nil {
+				return out, e
+			}
 			out.CurrentTask = &WorkingTask{TaskRef: taskRef(t), Owner: t.Owner != nil && t.Owner.ID == me.ID, Stands: t.Stands}
 		}
 	}

@@ -56,6 +56,7 @@ func boundedText(s string, n int) string {
 	}
 	return s + "…"
 }
+
 func plainLine(s string) string {
 	return strings.Join(strings.FieldsFunc(EscapeBody(s), func(r rune) bool { return unicode.IsControl(r) || unicode.IsSpace(r) }), " ")
 }

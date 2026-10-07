@@ -230,8 +230,10 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardInsertColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle, agents_add_people, task_prefix"
-const boardColumns = boardInsertColumns + ", (SELECT count(*) FROM tasks WHERE tasks.board_id = boards.id AND tasks.state = 'open')"
+const (
+	boardInsertColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle, agents_add_people, task_prefix"
+	boardColumns       = boardInsertColumns + ", (SELECT count(*) FROM tasks WHERE tasks.board_id = boards.id AND tasks.state = 'open')"
+)
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board

@@ -13,6 +13,7 @@ import (
 // Replay identifies the data held by an immutable cached response. The adapter
 // supplies identifiers, never authority; the read transaction checks the caller again.
 type Replay struct {
+	Tasks bool
 	AddPeople  bool
 	Handle     string
 	Name       string
@@ -98,6 +99,10 @@ func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in Replay) 
 			return err
 		}
 		name := in.Name
+		if in.Tasks {
+			_, _, err := s.access(tx, p, name)
+			return err
+		}
 		if in.JoinCode != "" {
 			normal, _ := ids.NormalizeJoinCode(in.JoinCode)
 			code, err := tx.JoinCodeByDigest(ids.Digest(s.key, normal))

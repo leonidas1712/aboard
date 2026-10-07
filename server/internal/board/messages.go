@@ -165,6 +165,7 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 
 // Reading is a page of messages for one reader.
 type Reading struct {
+	Work     *AgentWork
 	Board    Board
 	Reader   Member
 	Messages []Message
@@ -301,7 +302,11 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if err := annotate(tx, b, me, msgs); err != nil {
 				return err
 			}
-			r = Reading{Board: b, Reader: me, Messages: msgs}
+			work, err := s.taskWork(tx, b, me)
+			if err != nil {
+				return err
+			}
+			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work}
 			return nil
 		})
 		if err != nil || len(r.Messages) > 0 || wait <= 0 {

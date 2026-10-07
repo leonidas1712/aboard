@@ -81,6 +81,7 @@ type TaskListing struct {
 func taskError(status int, code, message string) error {
 	return apierr.New(status, code, message, "Read the task with aboard task show, or list tasks with aboard task list.")
 }
+
 func taskPermission(b Board, me Member, permission string) error {
 	if me.Kind == "human" {
 		return nil
@@ -90,12 +91,14 @@ func taskPermission(b Board, me Member, permission string) error {
 	}
 	return apierr.New(http.StatusForbidden, "forbidden", "Your role needs "+permission+" to do this.", "Ask a person on the board to grant your role "+permission+".")
 }
+
 func taskTextValid(s string, max int, required bool) error {
 	if !utf8.ValidString(s) || utf8.RuneCountInString(s) > max || (required && strings.TrimSpace(s) == "") {
 		return invalid(fmt.Sprintf("Use text with %d characters or fewer.", max), "Supply nonempty text within the limit.")
 	}
 	return nil
 }
+
 func taskTitleValid(title string) error {
 	if e := taskTextValid(title, 120, true); e != nil {
 		return e
@@ -117,12 +120,14 @@ func taskPart(t Task, id string) string {
 	}
 	return ""
 }
+
 func taskClosed(t Task) error {
 	if t.State == "done" || t.State == "cancelled" {
 		return taskError(http.StatusConflict, "task_closed", "This task is already closed.")
 	}
 	return nil
 }
+
 func findTask(tx ReadTx, b Board, sel string) (Task, error) {
 	t, e := tx.TaskBySelector(b.ID, sel)
 	if errors.Is(e, ErrNotFound) {
@@ -212,6 +217,7 @@ func (s *Service) CreateTask(ctx context.Context, p Principal, name string, in N
 	s.notify.Changed(out.BoardID)
 	return out, nil
 }
+
 func autoTaskPrefix(name string) string {
 	var s strings.Builder
 	for _, r := range strings.ToUpper(name) {
@@ -256,6 +262,7 @@ func (s *Service) setTaskPrefix(tx Tx, b *Board, me Member, prefix string, now t
 	b.TaskPrefix = ptr(prefix)
 	return tx.SetTaskPrefix(b.ID, prefix)
 }
+
 func (s *Service) takeTask(tx Tx, b *Board, me Member, t *Task, join bool, now time.Time) error {
 	if e := taskClosed(*t); e != nil {
 		return e
@@ -313,6 +320,7 @@ func (s *Service) StartTask(ctx context.Context, p Principal, name, sel string) 
 func (s *Service) JoinTask(ctx context.Context, p Principal, name, sel string) (Task, error) {
 	return s.selectTask(ctx, p, name, sel, true)
 }
+
 func (s *Service) selectTask(ctx context.Context, p Principal, name, sel string, join bool) (Task, error) {
 	var out Task
 	e := s.writeAs(ctx, p, func(tx Tx) error {
@@ -524,6 +532,7 @@ func (s *Service) DropTask(ctx context.Context, p Principal, name, sel string, i
 	}
 	return out, e
 }
+
 func (s *Service) dropTask(tx Tx, b *Board, t *Task, member, reason, by string, actor events.Actor, now time.Time) error {
 	part := taskPart(*t, member)
 	if part == "" {
@@ -544,6 +553,7 @@ func (s *Service) dropTask(tx Tx, b *Board, t *Task, member, reason, by string, 
 	}
 	return tx.SaveTask(*t)
 }
+
 func (s *Service) dropSeatTasks(tx Tx, b *Board, member string, actor events.Actor, now time.Time) error {
 	tasks, e := tx.Tasks(b.ID)
 	if e != nil {

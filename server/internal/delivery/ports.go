@@ -3,9 +3,10 @@ package delivery
 import (
 	"context"
 	"errors"
-	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 	"net"
 	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // Adapter is how the daemon reaches one harness. A new harness is a new Adapter; it
