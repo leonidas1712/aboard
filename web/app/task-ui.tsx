@@ -218,7 +218,7 @@ function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) =>
       data-needs-you={needs || undefined}
       className={cn(
         "task-card relative flex flex-col gap-2.5 rounded-box px-3.5 py-3 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent",
-        needs ? "bg-attention text-ink" : cn("border border-rule hover:border-field-border hover:bg-selected", done ? "bg-transparent" : "bg-surface"),
+        needs ? "bg-attention text-ink" : cn("border border-rule hover:border-field-border hover:bg-hover", done ? "bg-transparent" : "bg-surface"),
       )}
     >
       <button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="card-open flex flex-col gap-0.5 text-left outline-none after:absolute after:inset-0 after:rounded-box after:content-['']">
@@ -423,7 +423,7 @@ function TellTheTeam({ board, task, to, suggestions, narrow, onPosted }: { board
     <p className="tell-to text-meta text-muted">To {label} · about {task}</p>
     {problem !== null && <Problem error={problem} />}
     <div className="flex flex-wrap items-center gap-2">
-      {suggestions.map((s) => <button key={s.label} type="button" onClick={() => { setText(s.text); setPicked(s.to); key.current = ""; }} className="min-h-11 rounded-control border border-rule px-3 text-meta transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-selected">{s.label}</button>)}
+      {suggestions.map((s) => <button key={s.label} type="button" onClick={() => { setText(s.text); setPicked(s.to); key.current = ""; }} className="min-h-11 rounded-control border border-rule px-3 text-meta transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover">{s.label}</button>)}
       <button type="submit" disabled={busy || !text.trim()} className="ml-auto min-h-11 rounded-control bg-ink px-5 font-bold text-on-ink transition-opacity duration-[140ms] ease-out disabled:opacity-60">Send</button>
     </div>
   </form>;

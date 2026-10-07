@@ -170,7 +170,7 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
   const cell = "py-3 pr-4 align-top max-md:inline max-md:p-0";
   const sep = <span className="text-muted md:hidden"> · </span>;
   return (
-    <tr className="board-row group relative border-b border-rule transition-colors duration-[140ms] ease-out hover:bg-selected max-md:block max-md:py-3">
+    <tr className="board-row group relative border-b border-rule transition-colors duration-[140ms] ease-out hover:bg-hover max-md:block max-md:py-3">
       <td className="py-3 pr-4 pl-2 align-top max-md:block max-md:p-0 max-md:pr-8">
         {/* The whole row is the link's target; the link itself is the board's title. */}
         <a href={href} className="font-bold text-ink no-underline after:absolute after:inset-0 after:content-['']">

@@ -42,7 +42,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   const others = active.filter((b) => attentionCount(b) === 0);
   return (
     <div className="flex flex-col gap-5">
-      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-selected", current === "" && "bg-selected")}>
+      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
         Inbox
         {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
       </a>
@@ -85,7 +85,7 @@ export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: num
     <Collapsible asChild open={open} onOpenChange={setOpen}>
       <section aria-label="Archived boards" className="archived-boards flex flex-col">
         <h3 className="text-meta font-bold text-muted">
-          <CollapsibleTrigger className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink">
+          <CollapsibleTrigger className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink">
             <ChevronRight
               className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
               strokeWidth={1.75}
@@ -114,8 +114,8 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
               href={`/?board=${encodeURIComponent(b.name)}`}
               aria-current={here ? "page" : undefined}
               className={cn(
-                "flex min-h-11 items-center gap-3 rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-selected",
-                here && "bg-selected",
+                "flex min-h-11 items-center gap-3 rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-hover",
+                here && "bg-selected hover:bg-selected",
               )}
             >
               <span className="flex min-w-0 flex-1 flex-col">
@@ -253,7 +253,7 @@ function Help({ topic, children }: { topic: string; children: ReactNode }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="help inline-flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+          className="help inline-flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
           aria-label={`About ${topic}`}
         >
           <CircleQuestionMark className="size-3.5" strokeWidth={1.75} aria-hidden />
@@ -291,7 +291,7 @@ function Section({ id, title, help, reveal, children }: { id: string; title: str
           <h3 id={id} className="min-w-0 flex-1 text-meta font-bold text-muted">
             <CollapsibleTrigger
               ref={trigger}
-              className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+              className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
             >
               <ChevronRight
                 className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
@@ -410,8 +410,8 @@ function NameButton({ name, picked, onPick, children }: { name: string; picked: 
       aria-pressed={picked}
       title={picked ? `Show everyone's messages` : `Show only ${name}'s messages`}
       className={cn(
-        "member-filter -mx-2 min-h-9 min-w-0 rounded-[6px] px-2 text-left font-bold break-all text-ink transition-colors duration-[140ms] ease-out hover:bg-selected",
-        picked && "bg-selected underline decoration-accent decoration-2 underline-offset-[5px]",
+        "member-filter -mx-2 min-h-9 min-w-0 rounded-[6px] px-2 text-left font-bold break-all text-ink transition-colors duration-[140ms] ease-out hover:bg-hover",
+        picked && "bg-selected hover:bg-selected underline decoration-accent decoration-2 underline-offset-[5px]",
       )}
     >
       {children}
@@ -492,8 +492,8 @@ function AgentItem({
         onClick={() => setOpen(!open)}
         title={`${agent.name}'s details`}
         className={cn(
-          "agent-row -mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-control px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected",
-          open && "bg-selected",
+          "agent-row -mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-control px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover",
+          open && "bg-selected hover:bg-selected",
         )}
       >
         <AgentMark member={agent} identity={identity} size="sm" />
@@ -517,7 +517,7 @@ function AgentItem({
         <div
           role="dialog"
           aria-label={`${agent.name}'s details`}
-          className="agent-popover absolute top-full right-0 left-0 z-20 mt-1 flex animate-fade-in flex-col gap-2 rounded-box border border-field-border bg-surface px-3.5 py-3"
+          className="agent-popover absolute top-full right-0 left-0 z-20 mt-1 flex animate-fade-in flex-col gap-2 rounded-box border border-field-border bg-surface px-3.5 py-3 shadow-float"
         >
           <dl className="grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
             {showOwner && (

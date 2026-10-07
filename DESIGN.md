@@ -183,7 +183,8 @@ separated by thin rules; colour is spent only where it means something.
 
 Density is moderate: one 15px typeface throughout, generous line height, labelled
 fields instead of badges, and sentences only where a sentence is the clearest form (the
-"Now:" line, the charter, the rules). Depth comes from tone and rules, never shadows.
+"Now:" line, the charter, the rules). Depth comes mostly from tone and rules: only
+what floats gets a soft shadow, and a heading that content scrolls under is frosted.
 Two themes, light and dark, come from the same token names.
 
 **Key Characteristics:**
@@ -191,7 +192,8 @@ Two themes, light and dark, come from the same token names.
 - One typeface, Atkinson Hyperlegible Next, for all UI text.
 - Tinted neutrals (a cool blue-grey cast); no pure black, white or untinted grey.
 - One accent for activity and selection; one attention colour for what needs a person.
-- Flat: 1px rules and tonal surfaces, no shadows.
+- Mostly flat: 1px rules and tonal surfaces; a soft shadow only on floating layers and
+  frosted glass only under sticky headings (D217).
 - Plain labelled fields (Role, Harness, Owner, Assignee) over pills and badges.
 - Short, ease-out motion that explains change and never bounces.
 
@@ -232,7 +234,9 @@ reserved for people.
   page, so the panels read as the frame and the conversation as the room. `muted` text
   on it keeps at least 6:1.
 - **Selected Mist** (`selected`, `selected-dark`): the fill of the selected item in a
-  list (the current board, "Needs you" in the inbox list).
+  list (the current board, "Needs you" in the inbox list). Hover uses `--hover`, the same
+  fill at 55%, so a row under the pointer never looks like the row the keys act on; a
+  selected row keeps its full fill on hover.
 - **On Ink** (`on-ink`, `on-ink-dark`): text on an ink-filled button.
 
 Light `field-border` is `#7A8A94`, about 3.5:1 against the surface, to meet the 3:1 WCAG
@@ -342,16 +346,30 @@ Fields are a two-column grid: a fixed label column (72 to 76px, `meta`) and the 
 
 ## Elevation & Depth
 
-Flat. There are no shadows anywhere. Depth comes from two tones (the page in
+Mostly flat, with a little depth where it explains something (D217, the maintainer's
+choice; it replaces the Flat Room Rule). Depth comes first from two tones (the page in
 `background`, things on it in `surface`) and 1px `rule` borders. A selected item gets
-the `selected` fill; something that needs a person gets the marigold fill. Nothing
-floats except true overlays (menus, dialogs), which use the surface colour and a rule
-border.
+the `selected` fill; something that needs a person gets the marigold fill. Cards, rows,
+boxes and panels stay flat.
+
+- **Floating layers** (popovers, menus, tooltips, dialogs, the keys sheet, the mention
+  list) keep their surface fill and rule border and add one soft shadow,
+  `--float-shadow` (Tailwind `shadow-float`): a 1px contact shadow and a wide, low blur
+  (light: 0 1px 2px at 7% and 0 12px 32px -10px at 22% of the ink; dark: the same shape
+  in a near-black, `#03080B`, at 40% and 70%). No other shadow exists.
+- **Frosted glass** (`.glass`, with `.glass-sidebar` or `.glass-page` for the tone) only
+  on a sticky heading that content scrolls under: the Inbox's group headings and a side
+  panel's header row. It is the tone it stands for at 78%, blurred 14px behind. Dialog
+  scrims (`.scrim`) tint the page with the shade (28% light, 55% dark) and blur it 2px.
+- **Fallbacks:** without `backdrop-filter`, or under `prefers-reduced-transparency:
+  reduce`, glass is the solid tone and scrims don't blur. Text on glass keeps the
+  contrast it has on the solid tone in every scheme.
 
 ### Named Rules
 
-**The Flat Room Rule.** If it seems to need a shadow, it needs a rule or a tone change
-instead.
+**The Floating Layer Rule.** Only what floats above the page gets a shadow, and only
+what content scrolls under gets glass. Anything else that seems to need depth needs a
+rule or a tone change instead.
 
 ## Shapes
 
@@ -410,7 +428,7 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   name in bold, and right-aligned its presence as an 8px dot and a word (working:
   accent dot, `ink` word; idle: `muted` dot; disconnected: a `muted` ring; waiting: the
   marigold block) and a chevron. The row opens the agent's details in a popover below
-  it (surface fill, `field-border` edge, 10px radius, no shadow): a two-column field
+  it (surface fill, `field-border` edge, 10px radius, the floating shadow): a two-column field
   grid (72px labels in Meta, values in Body, on one baseline) with Owner (only with a
   second person), Role (a disclosure that opens a one-line description of the role),
   Harness and Delivery; Remove for those allowed; then "Latest message on this board"
@@ -540,8 +558,8 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   drawn on a layer behind the field so the text itself stays the field's own. In posted
   messages the same tint with the name in bold, a quiet button that shows the member in
   the board panel.
-- **Mention list:** a true overlay above the field (surface, rule border, 8px radius, no
-  shadow), at most 22rem wide, rows 44px high: a 24px sender mark, the name in bold, and
+- **Mention list:** a true overlay above the field (surface, rule border, 8px radius, the
+  floating shadow), at most 22rem wide, rows 44px high: a 24px sender mark, the name in bold, and
   the harness (or "person", or the role's size) in Meta on the right; the chosen row on
   `selected`.
 - **Recipient chips:** recipients picked outside the text (a reply's defaults, the "To"
@@ -637,7 +655,7 @@ Motion is wanted where it explains a change; it is never decoration.
 - **Don't** use all-caps eyebrow labels.
 - **Don't** show avatars. The sender mark (an initial on an identity colour) is the one deliberate exception.
 - **Don't** show sequence numbers in the UI.
-- **Don't** add shadows.
+- **Don't** add shadows to anything that doesn't float, or glass as decoration.
 
 ## Team administration surfaces
 

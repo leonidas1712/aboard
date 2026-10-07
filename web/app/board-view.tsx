@@ -589,7 +589,7 @@ function MarkAllRead({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      className="mark-all-read ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+      className="mark-all-read ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
       onClick={onClick}
     >
       <CheckCheck className="size-4" strokeWidth={1.5} aria-hidden />
