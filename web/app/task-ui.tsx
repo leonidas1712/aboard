@@ -1,33 +1,49 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, Clock, MessagesSquare } from "lucide-react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { type Task, type TaskList, type TaskTag, ApiError, getTask, listTasks } from "./api";
+import { type AskList, type Member, type MemberRef, type Message, type Presence as PresenceState, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
+import { AgentMark } from "./agent-mark";
+import { AskAnswers } from "./ask-ui";
 import { Problem } from "./chrome";
-import { count, relativeTime } from "./words";
+import { count, harnessName, presenceWords, relativeTime } from "./words";
 
-const Tasks = createContext<{ tasks: Task[]; open: (ref: string) => void }>({ tasks: [], open: () => {} });
+type TaskRoom = {
+  tasks: Task[];
+  open: (ref: string) => void;
+  /** members, identity and me let the task views show each agent's mark, harness and presence. */
+  members: Member[];
+  identity: (m: MemberRef) => number;
+  me: string | null;
+  /** asks are the board's open asks the person may read, by id: what blocks each task. */
+  asks: Map<string, Message>;
+};
 
-export function TaskContext({ tasks, open, children }: { tasks: Task[]; open: (ref: string) => void; children: ReactNode }) {
-  return <Tasks.Provider value={{ tasks, open }}>{children}</Tasks.Provider>;
+const Tasks = createContext<TaskRoom>({ tasks: [], open: () => {}, members: [], identity: () => 1, me: null, asks: new Map() });
+
+export function TaskContext({ children, ...room }: TaskRoom & { children: ReactNode }) {
+  return <Tasks.Provider value={room}>{children}</Tasks.Provider>;
 }
 
 export function useTasks(board: string, activity: number, head: number | undefined, enabled: boolean) {
   const [list, setList] = useState<TaskList | null>(null);
+  const [asks, setAsks] = useState<Map<string, Message>>(new Map());
   const [error, setError] = useState<unknown>(null);
   const request = useRef(0);
   useEffect(() => {
     const generation = ++request.current;
-    if (!enabled) { setList(null); return; }
-    listTasks(board).then((value) => {
+    if (!enabled) { setList(null); setAsks(new Map()); return; }
+    // The asks that block tasks come with them, so a card can say who asked what.
+    listTasks(board).then(async (value) => {
+      const open = value.tasks.some((t) => t.blocked_on?.length) ? (await get<AskList>("/v1/asks", { board, state: "open", limit: 200 })).asks : [];
       if (generation !== request.current) return;
-      setList(value); setError(null);
-    }, (e) => { if (generation === request.current) { if (e instanceof ApiError && (e.status === 403 || e.status === 404)) setList(null); setError(e); } });
+      setList(value); setAsks(new Map(open.map((m) => [m.id, m]))); setError(null);
+    }).catch((e) => { if (generation === request.current) { if (e instanceof ApiError && (e.status === 403 || e.status === 404)) setList(null); setError(e); } });
     return () => { request.current++; };
   }, [board, activity, head, enabled]);
-  return { list, error };
+  return { list, asks, error };
 }
 
 export function taskState(t: Task): string {
@@ -52,37 +68,200 @@ export function TaskChips({ tags }: { tags: TaskTag[] | undefined }) {
   </span>;
 }
 
+// A task's state as one phrase, from the facts the API gives: an open blocking ask to
+// the person makes it "Waiting on you"; any other makes it Blocked.
+function waitsOnMe(t: Task, me: string | null): boolean {
+  return me !== null && (t.blocked_on ?? []).some((b) => b.to.kind === "human" && b.to.name === me);
+}
+function isLive(t: Task): boolean {
+  return t.state === "open" || t.state === "in_progress";
+}
+
+/** onTask is everyone on a task, owner first, then its helpers in the order they joined. */
+function onTask(t: Task): MemberRef[] {
+  return [...(t.owner ? [t.owner] : []), ...t.with.filter((m) => !(t.owner && m.name === t.owner.name && m.kind === t.owner.kind))];
+}
+
+/** Who is a member of the task with the details the board's member list adds: harness and presence. */
+function useWho() {
+  const { members, identity } = useContext(Tasks);
+  return (m: MemberRef) => {
+    const found = members.find((x) => x.name === m.name && x.kind === m.kind);
+    return { ref: m, harness: found?.harness ?? m.harness ?? null, presence: m.kind === "agent" ? (found?.presence ?? "no_session") : null, identity: identity(m) };
+  };
+}
+
+function Presence({ presence }: { presence: PresenceState }) {
+  return (
+    <span className={cn("presence inline-flex items-center gap-1.5 text-meta", presence === "working" || presence === "waiting" ? "text-ink" : "text-muted")}>
+      <span
+        aria-hidden
+        className={cn("size-2 shrink-0 rounded-full", presence === "working" ? "bg-accent" : presence === "no_session" ? "border border-muted" : presence === "waiting" ? "bg-ink" : "bg-muted")}
+      />
+      {presenceWords[presence]}
+    </span>
+  );
+}
+
+/** OwnerLabel is the word "owner" beside a task's owner; its tooltip says what it means. */
+function OwnerLabel({ task }: { task: Task }) {
+  const opener = task.opened_by.name !== task.owner?.name ? task.opened_by.name : null;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className="owner-label relative z-10 cursor-help text-meta underline decoration-dotted decoration-1 underline-offset-[3px]">
+          owner
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start">
+        Responsible for the task{opener && `; opened by ${opener}`}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function WorkTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
-  const active = tasks.filter((t) => t.state === "open" || t.state === "in_progress");
+  const who = useWho();
+  const active = tasks.filter(isLive);
   if (!active.length) return null;
-  return <div className="work flex flex-col gap-5" aria-label="Work by task">
-    {active.map((t) => <section key={t.id} aria-label={`Task ${t.ref}: ${t.title}`} className="flex flex-col gap-1.5">
+  return <div className="work flex flex-col gap-4" aria-label="Work by task">
+    {active.map((t) => <section key={t.id} aria-label={`Task ${t.ref}: ${t.title}`} className="flex flex-col gap-1">
       <h3><button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="group flex min-h-11 w-full items-baseline gap-2 text-left"><span className="shrink-0 text-meta text-muted tabular-nums">{t.ref}</span><span className="min-w-0 flex-1 font-bold group-hover:underline">{t.title}</span></button></h3>
-      <p className="text-meta text-muted">{taskState(t)}{t.owner && ` · ${t.owner.name} · owner`}{t.with.length > 0 && ` · with ${t.with.map((m) => m.name).join(", ")}`}</p>
-      {t.stands && <p className="text-meta line-clamp-2">{t.stands.text}</p>}
+      {onTask(t).length > 0 ? <ul className="flex flex-col gap-1.5">
+        {onTask(t).map((m, i) => {
+          const w = who(m);
+          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 items-center gap-2 text-meta">
+            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" />
+            <span className="truncate">{m.name}{i === 0 && t.owner && <span className="text-muted"> · owner</span>}</span>
+            {w.presence && <span className="ml-auto shrink-0"><Presence presence={w.presence} /></span>}
+          </li>;
+        })}
+      </ul> : <p className="text-meta text-muted">Not picked up</p>}
     </section>)}
   </div>;
 }
 
+/**
+ * TaskBoard lays the board's work out by what the person would act on: Needs you, In
+ * progress, Blocked, Not picked up, with the free agents beside the work nobody has
+ * taken. Done folds away. Needs you and Blocked come from open blocking asks, so they
+ * appear only when a task has one.
+ */
 export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
+  const { members, me } = useContext(Tasks);
   const [done, setDone] = useState(false);
-  const finished = tasks.filter((t) => t.state === "done" || t.state === "cancelled");
-  const card = (t: Task) => <li key={t.id}><button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className={cn("flex min-h-11 w-full flex-col gap-2 rounded-box border border-rule p-3.5 text-left transition-colors duration-[140ms] ease-out hover:border-field-border", t.state !== "done" && t.state !== "cancelled" && "bg-surface")}>
-    <span className="text-meta text-muted tabular-nums">{t.ref}</span><strong>{t.title}</strong><span className="text-meta text-muted">{t.owner ? `${t.owner.name} · owner` : "No owner yet"}{t.with.length > 0 && ` · with ${t.with.map((m) => m.name).join(", ")}`}</span>{t.stands && <span className="line-clamp-3 text-meta">{t.stands.text}</span>}<span className="text-meta text-muted">{count(t.message_count, "message", "messages")} · {count(t.thread_count, "thread", "threads")}</span>
-  </button></li>;
-  return <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-    <div className="grid gap-6 sm:grid-cols-2">
-      {(["in_progress", "open"] as const).map((state) => <section key={state} aria-label={state === "open" ? "Not picked up" : "In progress"}>
-        <h2 className="mb-3 font-bold">{state === "open" ? "Not picked up" : "In progress"} <span className="font-normal text-muted tabular-nums">{tasks.filter((t) => t.state === state).length}</span></h2>
-        <ul className="flex flex-col gap-2">{tasks.filter((t) => t.state === state).map(card)}</ul>
-        {!tasks.some((t) => t.state === state) && <p className="text-meta text-muted">None yet.</p>}
-      </section>)}
+  const live = tasks.filter(isLive);
+  const needs = live.filter((t) => waitsOnMe(t, me));
+  const blocked = live.filter((t) => t.blocked && !waitsOnMe(t, me));
+  const free = (t: Task) => !t.blocked;
+  const columns = [
+    { key: "needs", title: "Needs you", list: needs, always: false },
+    { key: "doing", title: "In progress", list: live.filter((t) => free(t) && t.state === "in_progress"), always: true },
+    { key: "blocked", title: "Blocked", list: blocked, always: false },
+    { key: "open", title: "Not picked up", list: live.filter((t) => free(t) && t.state === "open"), always: true },
+  ].filter((c) => c.always || c.list.length > 0);
+  const busy = new Set(live.flatMap((t) => onTask(t).map((m) => `${m.kind}:${m.name}`)));
+  const idle = members.filter((m) => m.kind === "agent" && (m.status ?? "active") === "active" && !busy.has(`agent:${m.name}`) && (m.presence === "idle" || m.presence === "no_session" || m.presence === null));
+  const finished = tasks.filter((t) => !isLive(t));
+  return <div className="task-view quiet-scroll min-h-0 flex-1 overflow-y-auto">
+    <div className="px-4 pt-4 pb-10 sm:px-6">
+      <div className="task-board grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:max-w-[calc(var(--cols)*320px)] lg:grid-cols-[repeat(var(--cols),minmax(0,1fr))]" style={{ "--cols": columns.length } as CSSProperties}>
+        {columns.map((c) => <section key={c.key} aria-label={c.title} className="task-column flex min-w-0 flex-col gap-2">
+          <h2 id={`tasks-${c.key}`} className="flex min-h-7 items-center gap-2 text-meta font-bold text-ink">
+            {c.key === "needs" ? <span className="rounded-[4px] bg-attention px-1.5">{c.title} <span className="tabular-nums">{c.list.length}</span></span> : <>
+              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", c.key === "doing" ? "border-2 border-accent" : c.key === "blocked" ? "bg-ink" : "border border-dashed border-muted")} />
+              {c.title}<span className="font-normal text-muted tabular-nums">{c.list.length}</span>
+            </>}
+          </h2>
+          <ul className="flex flex-col gap-2">{c.list.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={c.key === "needs"} /></li>)}</ul>
+          {c.list.length === 0 && <p className="text-meta text-muted">{c.key === "doing" ? "Nothing in progress." : "Every task has an owner."}</p>}
+          {c.key === "open" && idle.length > 0 && <div className="free-agents mt-2 flex flex-col gap-2 border-t border-rule pt-3">
+            <h3 className="text-meta font-bold text-muted">Free agents</h3>
+            <ul className="flex flex-col gap-2">{idle.map((a) => <FreeAgent key={a.id} agent={a} />)}</ul>
+          </div>}
+        </section>)}
+      </div>
+      {finished.length > 0 && <section aria-label="Done" className="mt-8 flex flex-col gap-2">
+        <button type="button" aria-expanded={done} onClick={() => setDone(!done)} className="min-h-11 self-start text-meta text-muted hover:text-ink hover:underline">{count(finished.length, "task", "tasks")} done or cancelled · {done ? "hide" : "show"}</button>
+        {done && <ul className="grid animate-fade-in gap-2 sm:grid-cols-2 lg:grid-cols-4">{finished.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={false} /></li>)}</ul>}
+      </section>}
     </div>
-    {finished.length > 0 && <section aria-label="Done" className="mt-6"><button type="button" aria-expanded={done} onClick={() => setDone(!done)} className="min-h-11 text-meta text-muted hover:text-ink">{count(finished.length, "task", "tasks")} done or cancelled · {done ? "hide" : "show"}</button>{done && <ul className="grid gap-2 sm:grid-cols-2">{finished.map(card)}</ul>}</section>}
   </div>;
 }
 
-export function TaskDetail({ board, reference, activity, back, narrow }: { board: string; reference: string; activity: number; back: () => void; narrow: (ref: string) => void }) {
+function FreeAgent({ agent }: { agent: Member }) {
+  const { identity } = useContext(Tasks);
+  return <li className="flex min-w-0 items-center gap-2" data-free-agent={agent.name}>
+    <AgentMark member={agent} identity={identity(agent)} />
+    <span className="min-w-0 flex-1 truncate">{agent.name}</span>
+    <Presence presence={agent.presence ?? "no_session"} />
+  </li>;
+}
+
+function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) => void; needs: boolean }) {
+  const who = useWho();
+  const { me, asks } = useContext(Tasks);
+  const done = !isLive(t);
+  const people = onTask(t);
+  const block = (needs ? t.blocked_on.find((b) => b.to.kind === "human" && b.to.name === me) : undefined) ?? t.blocked_on?.[0];
+  const ask = block ? asks.get(block.ask_id) : undefined;
+  const asked = ask ? `${ask.from.name} asked ${needs ? "you" : block!.to.name}: ${ask.body}` : null;
+  let line: ReactNode = null;
+  if (needs) line = <><span className="font-bold">Waiting on you: </span>{asked ?? "an ask to you blocks it"}</>;
+  else if (t.blocked) line = <><span className="font-bold text-ink">Blocked: </span>{asked ?? (block ? `an ask to ${block.to.name}` : "an open ask blocks it")}</>;
+  else if (t.state === "open") line = `No owner · opened by ${t.opened_by.name} ${relativeTime(t.opened_at, Date.now())}`;
+  return (
+    // One clickable card: the title's button stretches over the whole card, and the inner
+    // controls sit above it, so each keeps its own action and stays reachable.
+    <article
+      data-task={t.ref}
+      data-needs-you={needs || undefined}
+      className={cn(
+        "task-card relative flex flex-col gap-2.5 rounded-box px-3.5 py-3 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent",
+        needs ? "bg-attention text-ink" : cn("border border-rule hover:border-field-border hover:bg-selected", done ? "bg-transparent" : "bg-surface"),
+      )}
+    >
+      <button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="card-open flex flex-col gap-0.5 text-left outline-none after:absolute after:inset-0 after:rounded-box after:content-['']">
+        <span className={cn("text-meta tabular-nums", needs ? "text-ink" : "text-muted")}>{t.ref}{t.state === "cancelled" && " · cancelled"}</span>
+        <span className={cn("leading-snug", done ? "font-normal" : "font-bold")}>{t.title}</span>
+      </button>
+      {line && <p className={cn("task-block line-clamp-3 text-meta", needs ? "text-ink" : "text-muted")}>{line}</p>}
+      {people.length > 0 && <ul className={cn("flex flex-col gap-2 border-t pt-2.5", needs ? "border-ink/20" : "border-rule")}>
+        {people.map((m, i) => {
+          const w = who(m);
+          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 items-center gap-2" data-on-task={m.name}>
+            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} />
+            <span className="min-w-0 flex-1 truncate">{m.name}{i === 0 && t.owner && <span className={needs ? "" : "text-muted"}> · <OwnerLabel task={t} /></span>}</span>
+            {!done && w.presence && <Presence presence={w.presence} />}
+          </li>;
+        })}
+      </ul>}
+      <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 text-meta", needs ? "border-ink/20 text-ink" : "border-rule text-muted")}>
+        {t.message_count > 0 && <button type="button" onClick={() => open(t.ref)} className="task-threads relative z-10 inline-flex min-h-7 items-center gap-1 underline decoration-1 underline-offset-[3px] hover:text-ink">
+          <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />{t.message_count} in conversation
+        </button>}
+        <span className="ml-auto">{done && t.closed_at ? `closed ${relativeTime(t.closed_at, Date.now())}` : relativeTime(t.updated_at, Date.now())}</span>
+      </p>
+    </article>
+  );
+}
+
+// Where it stands turns muted, with a clock, once it hasn't been updated for this long.
+const staleAfter = 2 * 60 * 60 * 1000;
+
+/** Label is a task panel section's heading, with a tooltip saying what the section is. */
+function Label({ id, help, children }: { id: string; help: string; children: ReactNode }) {
+  return <Tooltip>
+    <TooltipTrigger asChild><h3 id={id} tabIndex={0} className="cursor-help self-start text-meta font-bold text-muted">{children}</h3></TooltipTrigger>
+    <TooltipContent side="top" align="start" className="max-w-[280px]">{help}</TooltipContent>
+  </Tooltip>;
+}
+
+export function TaskDetail({ board, reference, activity, back, narrow, pick, onPosted, readOnly }: {
+  board: string; reference: string; activity: number; back: () => void; narrow: (ref: string) => void; pick: (name: string) => void; onPosted: () => void; readOnly: boolean;
+}) {
+  const { me, asks } = useContext(Tasks);
+  const who = useWho();
   const [task, setTask] = useState<Task | null>(null);
   const [error, setError] = useState<unknown>(null);
   const top = useRef<HTMLElement>(null);
@@ -93,17 +272,161 @@ export function TaskDetail({ board, reference, activity, back, narrow }: { board
     return () => { live = false; };
   }, [board, reference, activity]);
   useEffect(() => { if (window.innerWidth < 1024) top.current?.scrollIntoView({ block: "start" }); }, [reference]);
-  return <section ref={top} aria-label={`Task ${reference}`} className="flex scroll-mt-2 flex-col gap-5">
+  const now = Date.now();
+  const t = task;
+  const needs = t ? waitsOnMe(t, me) : false;
+  const people = t ? onTask(t) : [];
+  const agentsOn = people.filter((m) => m.kind === "agent").map((m) => m.name);
+  const owner = t?.owner?.kind === "agent" ? t.owner.name : null;
+  const stale = t?.stands ? now - new Date(t.stands.at).getTime() > staleAfter && isLive(t) : false;
+  const suggestions: Suggestion[] = t ? [
+    owner ? { label: "Split", to: [owner], text: `${t.ref}: please split this into smaller tasks, each with an owner, and post them here.` } : null,
+    { label: "Reassign", to: owner ? [owner] : [], text: `${t.ref}: please hand this to someone free and tell them where it stands.` },
+    agentsOn.length > 0 ? { label: "Hold", to: agentsOn, text: `${t.ref}: hold here. Finish what you're on, then wait until I say go.` } : null,
+  ].filter((s): s is Suggestion => s !== null) : [];
+  const stateText = !t ? "" : needs ? "Waiting on you" : t.blocked ? "Blocked" : taskState(t);
+  return <section ref={top} aria-label={`Task ${reference}`} className="task-panel flex scroll-mt-2 flex-col gap-5">
     <button type="button" onClick={back} className="inline-flex min-h-11 items-center gap-1.5 self-start text-meta text-muted hover:text-ink"><ArrowLeft className="size-4" aria-hidden />Work</button>
     {error !== null && <Problem error={error} />}
-    {task ? <><div><p className="text-meta text-muted tabular-nums">{task.ref} · {taskState(task)}</p><h2 className="mt-1 font-bold">{task.title}</h2></div>
-      <section><h3 className="font-bold">About</h3><p className="mt-1 whitespace-pre-wrap break-words">{task.about?.text || "Nothing written yet."}</p></section>
-      <section><h3 className="font-bold">Where it stands</h3>{task.stands ? <><p className="mt-1 whitespace-pre-wrap break-words">{task.stands.text}</p><p className="mt-1 text-meta text-muted">by {task.stands.by.name} · {relativeTime(task.stands.at, Date.now())}{task.stands.messages_since !== undefined && ` · ${count(task.stands.messages_since, "message", "messages")} since`}</p></> : <p className="mt-1 text-meta text-muted">Nothing yet.</p>}</section>
-      <section><h3 className="font-bold">On this task</h3><p className="mt-1">{task.owner ? `${task.owner.name} · owner` : "Not picked up"}</p>{task.with.length > 0 && <p className="text-meta text-muted">With {task.with.map((m) => m.name).join(", ")}</p>}</section>
-      {task.closed_note && <section><h3 className="font-bold">Final note</h3><p className="mt-1 whitespace-pre-wrap break-words">{task.closed_note}</p></section>}
-      <section><h3 className="font-bold">Conversation</h3><p className="mt-1 text-meta text-muted">{count(task.message_count, "message", "messages")} · {count(task.thread_count, "thread", "threads")}</p><button type="button" onClick={() => narrow(task.ref)} className="min-h-11 text-accent hover:underline">Show conversation</button></section>
+    {t ? <>
+      <header className="flex flex-col gap-1">
+        <p className="text-meta text-muted tabular-nums">{t.ref}</p>
+        <h2 className="text-title font-bold text-balance">{t.title}</h2>
+        <p className="text-meta text-muted">opened by {t.opened_by.name === me ? "you" : t.opened_by.name} · {relativeTime(t.opened_at, now)}</p>
+        <p className="task-state flex flex-wrap items-center gap-x-1.5 text-meta">
+          {needs ? <span className="rounded-[4px] bg-attention px-1.5 text-ink">{stateText}</span> : <>
+            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", !isLive(t) ? "bg-muted" : t.blocked ? "bg-ink" : t.state === "open" ? "border border-dashed border-muted" : "border-2 border-accent")} />
+            <span className="text-muted">{stateText}</span>
+          </>}
+          {t.owner && <span className="text-muted">· <OwnerLabel task={t} /> {t.owner.name === me ? "you" : t.owner.name}</span>}
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-4">
+        <section aria-labelledby={`about-${t.id}`} className="flex flex-col gap-0.5">
+          <Label id={`about-${t.id}`} help="What the task is and why, written when it was opened. It rarely changes.">About</Label>
+          {t.about ? <>
+            <p className="whitespace-pre-wrap break-words"><TaskLinks text={t.about.text} /></p>
+            <p className="text-meta text-muted">by {t.about.by.name} · {relativeTime(t.about.at, now)}</p>
+          </> : <p className="text-meta text-muted">Nothing written yet.</p>}
+        </section>
+        <section aria-labelledby={`stands-${t.id}`} className="where-it-stands flex flex-col gap-0.5">
+          <Label id={`stands-${t.id}`} help="Where the task is now, in two or three lines. Its owner keeps it current, as the task's own brief.">Where it stands</Label>
+          {t.stands ? <>
+            <p className={cn("whitespace-pre-wrap break-words", stale && "text-muted")}><TaskLinks text={t.stands.text} /></p>
+            <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-muted" data-stale={stale || undefined}>
+              {stale && <Clock className="size-3" strokeWidth={2} aria-label="Not updated in a while" />}
+              by {t.stands.by.name} · {relativeTime(t.stands.at, now)}{t.stands.messages_since !== undefined && ` · ${count(t.stands.messages_since, "message", "messages")} since`}
+            </p>
+          </> : <p className="text-meta text-muted">Nothing yet.</p>}
+        </section>
+      </div>
+
+      {isLive(t) && t.blocked_on.map((b) => {
+        const ask = asks.get(b.ask_id);
+        const mine = b.to.kind === "human" && b.to.name === me;
+        return <section key={b.ask_id} aria-label="Open question" className={cn("open-question flex flex-col gap-1", mine && "-mx-3 rounded-box bg-attention px-3 py-3 text-ink")}>
+          <h3 className={cn("text-meta font-bold", !mine && "text-muted")}>{mine ? "Waiting on you" : `Blocked on ${b.to.name}`}</h3>
+          {ask ? <>
+            <p className="font-bold whitespace-pre-wrap break-words">{ask.body}</p>
+            <p className={cn("text-meta", !mine && "text-muted")}>{ask.from.name} asks {mine ? "you" : b.to.name} · {relativeTime(b.since, now)}</p>
+            {mine && <AskAnswers message={ask} board={board} readOnly={readOnly} onAnswered={onPosted} />}
+          </> : <p className="text-meta text-muted">An open ask to {b.to.name} since {relativeTime(b.since, now)}.</p>}
+        </section>;
+      })}
+      {t.blocked_count > t.blocked_on.length && <p className="text-meta text-muted">{count(t.blocked_count - t.blocked_on.length, "blocking ask", "blocking asks")} you can’t read.</p>}
+
+      {t.closed_note && <section aria-labelledby={`final-${t.id}`} className="flex flex-col gap-0.5"><h3 id={`final-${t.id}`} className="text-meta font-bold text-muted">Final note</h3><p className="whitespace-pre-wrap break-words"><TaskLinks text={t.closed_note} /></p></section>}
+
+      {t.message_count > 0 && <section aria-labelledby={`conversation-${t.id}`} className="flex flex-col gap-1">
+        <h3 id={`conversation-${t.id}`} className="text-meta font-bold text-muted">Conversation · <span className="tabular-nums">{t.message_count}</span></h3>
+        <p className="text-meta text-muted">{count(t.message_count, "message", "messages")} about {t.ref}{t.thread_count > 0 && `, in ${count(t.thread_count, "thread", "threads")}`}</p>
+        <button type="button" onClick={() => narrow(t.ref)} className="min-h-11 self-start text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline">Show only {t.ref} in the conversation</button>
+      </section>}
+
+      {people.length > 0 && <section aria-labelledby={`on-${t.id}`} className="on-it flex flex-col gap-1.5">
+        <h3 id={`on-${t.id}`} className="text-meta font-bold text-muted">On it</h3>
+        <ul className="flex flex-col gap-1">
+          {people.map((m) => {
+            const w = who(m);
+            return <li key={`${m.kind}:${m.name}`} className="flex min-h-11 min-w-0 items-center gap-2.5" data-on-task={m.name}>
+              <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} />
+              <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5">
+                <button type="button" onClick={() => pick(m.name)} title={`Show only ${m.name}'s messages`} className="truncate hover:underline">{m.name === me ? "you" : m.name}</button>
+                {t.owner && m.name === t.owner.name && m.kind === t.owner.kind && <span className="text-muted"><OwnerLabel task={t} /></span>}
+                {m.kind === "agent" && harnessName(w.harness) && <span className="text-meta text-muted">{harnessName(w.harness)}</span>}
+              </span>
+              {w.presence ? <Presence presence={w.presence} /> : <span className="text-meta text-muted">person</span>}
+            </li>;
+          })}
+        </ul>
+      </section>}
+
+      {isLive(t) && !readOnly && <TellTheTeam key={t.id} board={board} task={t.ref} to={agentsOn} suggestions={suggestions} narrow={narrow} onPosted={onPosted} />}
     </> : error === null && <p className="text-meta text-muted" role="status">Loading task…</p>}
   </section>;
+}
+
+type Suggestion = { label: string; to: string[]; text: string };
+
+/**
+ * TellTheTeam is a message to the agents on a task, as text the person reads and can
+ * change before it goes. Split, Reassign and Hold fill in a suggestion and pick who it
+ * goes to; Send posts an ordinary message about the task.
+ */
+function TellTheTeam({ board, task, to, suggestions, narrow, onPosted }: { board: string; task: string; to: string[]; suggestions: Suggestion[]; narrow: (ref: string) => void; onPosted: () => void }) {
+  // Everyone on the task, until a suggestion picks someone else; everyone with no one on it.
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const recipients = picked ?? to;
+  const [text, setText] = useState("");
+  const [sent, setSent] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<unknown>(null);
+  const key = useRef("");
+  const label = recipients.length ? recipients.join(", ") : "everyone";
+  if (sent) {
+    return <p className="tell-sent text-meta" role="status">
+      Sent to {sent}.{" "}
+      <button type="button" className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => narrow(task)}>Show it in the conversation</button>
+      {" · "}
+      <button type="button" className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => { setSent(null); setText(""); setPicked(null); }}>Write another</button>
+    </p>;
+  }
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    const body = text.trim();
+    if (!body || busy) return;
+    if (!key.current) key.current = crypto.randomUUID();
+    setBusy(true);
+    setProblem(null);
+    try {
+      await post<Message>(`/v1/boards/${encodeURIComponent(board)}/messages`, { body, to: recipients.length ? recipients.map((r) => `@${r}`) : ["all"], about: [task] }, key.current);
+      key.current = "";
+      setSent(label);
+      onPosted();
+    } catch (err) {
+      setProblem(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <form className="tell flex flex-col gap-2 border-t border-rule pt-4" onSubmit={send}>
+    <label htmlFor={`tell-${task}`} className="text-meta font-bold text-muted">Tell the team on {task}</label>
+    <textarea
+      id={`tell-${task}`}
+      value={text}
+      onChange={(e) => { setText(e.target.value); key.current = ""; }}
+      rows={3}
+      placeholder={`A message to ${label}`}
+      className="w-full resize-y rounded-control border border-field-border bg-surface px-3 py-2 text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-accent"
+    />
+    <p className="tell-to text-meta text-muted">To {label} · about {task}</p>
+    {problem !== null && <Problem error={problem} />}
+    <div className="flex flex-wrap items-center gap-2">
+      {suggestions.map((s) => <button key={s.label} type="button" onClick={() => { setText(s.text); setPicked(s.to); key.current = ""; }} className="min-h-11 rounded-control border border-rule px-3 text-meta transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-selected">{s.label}</button>)}
+      <button type="submit" disabled={busy || !text.trim()} className="ml-auto min-h-11 rounded-control bg-ink px-5 font-bold text-on-ink transition-opacity duration-[140ms] ease-out disabled:opacity-60">Send</button>
+    </div>
+  </form>;
 }
 
 export function TaskLinks({ text, tags }: { text: string; tags?: TaskTag[] }) {

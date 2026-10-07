@@ -194,7 +194,8 @@ What we want: nothing reaches `main` without passing the checks its change calls
 and landing a PR is one command that a person, a session or an agent runs the same way.
 
 CI is the merge gate: the `check` workflow (`.github/workflows/check.yml`: `make check`
-on Linux and macOS, the web UI and the docs site) must pass on the exact commit that
+on Linux, the web UI and the docs site; macOS runs only on pushes to `main`, since its
+runners can queue for an hour) must pass on the exact commit that
 merges. Only what CI can't run happens on a person's machine: `make live`, which needs
 harness logins. Before asking for review or landing, run `make quick` (format, lint,
 vet, generated code and the core's size, in about a minute); it catches most of what
@@ -281,7 +282,8 @@ These are repository settings, made by the maintainer:
    maintainer may create, update or delete them, so nobody else can start a release.
 3. **Require CI on `main`** (Settings → Rules → New branch ruleset, target the default
    branch): require status checks to pass before merging, with the `check` workflow's
-   jobs `check (ubuntu-latest)`, `check (macos-latest)`, `web` and `docs`, and require
+   jobs `check (ubuntu-latest)`, `web` and `docs` (not `check (macos-latest)`, which
+   runs only on `main`), and require
    branches to be up to date before merging (strict), so the commit CI passed is the
    one `main` becomes. This makes CI the merge gate for everyone, not only for
    `scripts/land-pr`.

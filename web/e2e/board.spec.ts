@@ -241,7 +241,14 @@ test("the board view shows the room live, posts as the person and verifies the r
   // Clicking a member in Who's here filters the timeline to them; the chip removes it.
   const writerSays = page.locator(".message", { hasText: "Draft is in notes.md." });
   const reviewerSays = page.locator(".message", { hasText: "Agreed, I'll sketch one." });
-  await crew.locator('[data-agent="reviewer"] .member-filter').click();
+  // An agent's row opens its details: role, harness, delivery, its latest message and
+  // all its messages.
+  await crew.locator('[data-agent="reviewer"] .agent-row').click();
+  const details = crew.getByRole("dialog", { name: "reviewer's details" });
+  await expect(details).toContainText("Role");
+  await expect(details.locator(".latest-message")).toContainText("Agreed, I'll sketch one.");
+  await details.getByRole("button", { name: "All its messages" }).click();
+  await expect(details).toBeHidden();
   await expect(page.getByRole("button", { name: "Remove filter: From reviewer" })).toBeVisible();
   await expect(writerSays).toHaveCount(0);
   await expect(reviewerSays).toBeVisible();
@@ -1224,9 +1231,14 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   await openLink(page, open.url);
   const panel = page.getByRole("complementary", { name: "Delivery check" });
   const writer = panel.locator('[data-agent="writer"]');
+  // details opens an agent's details in the board panel, unless they are open already.
+  const details = async (row: typeof writer) => {
+    if ((await row.locator(".agent-row").getAttribute("aria-expanded")) !== "true") await row.locator(".agent-row").click();
+  };
 
   // alex's own agent's mode is a menu; kim's agent shows its mode as a label only.
   const theirs = panel.locator(`[data-agent="${kimAgent}"]`);
+  await details(theirs);
   await expect(theirs.locator(".delivery-mode")).toHaveText("focused");
   await expect(theirs.locator(".delivery-mode")).toHaveAttribute("title", modeRules.focused);
   await expect(theirs.getByRole("button", { name: /^Delivery mode of/ })).toHaveCount(0);
@@ -1235,6 +1247,7 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
     await page.getByRole("button", { name: /^You are alex/ }).click();
     await page.getByRole("menuitemradio", { name: theme }).click();
     await page.keyboard.press("Escape");
+    await details(writer);
     await writer.getByRole("button", { name: "Delivery mode of writer: focused. Change it" }).click();
     // Each mode comes with the rule the agent is told, in the same words as the CLI's.
     const menu = page.locator(".delivery-modes");
@@ -1242,7 +1255,10 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
       await expect(menu.getByRole("menuitemradio", { name: new RegExp(`^${mode}`) })).toContainText(modeRules[mode]);
     }
     await expect(menu.getByRole("menuitemradio", { name: /^focused/ })).toHaveAttribute("aria-checked", "true");
+    // Escape closes the menu and leaves the details open.
     await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(writer.locator(".agent-row")).toHaveAttribute("aria-expanded", "true");
   }
 
   await writer.getByRole("button", { name: /^Delivery mode of writer/ }).click();
@@ -2015,7 +2031,9 @@ test("a board owner removes another person's agent from the panel, and Show remo
   const item = panel.locator(`[data-agent="${agent}"]`);
   await expect(item).toBeVisible();
 
-  // Cancel changes nothing; Remove asks first, then removes the agent for good.
+  // Cancel changes nothing; Remove, in the agent's details, asks first, then removes the
+  // agent for good.
+  await item.locator(".agent-row").click();
   await item.getByRole("button", { name: `Remove ${agent}` }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText(`Remove ${agent}?`);
@@ -2062,7 +2080,7 @@ test("tasks connect the Work panel, task view and conversation", async ({ page }
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
-  await detail.getByRole("button", { name: "Show conversation" }).click();
+  await detail.getByRole("button", { name: `Show only ${task.ref} in the conversation` }).click();
   await expect(page.getByText(`Narrowed to ${task.ref}`, { exact: false })).toBeVisible();
   await expect(page.getByText("The fresh setup needs a review.", { exact: true })).toBeVisible();
   await expect(page.getByText("An unrelated note.", { exact: true })).toHaveCount(0);
@@ -2070,6 +2088,153 @@ test("tasks connect the Work panel, task view and conversation", async ({ page }
   await expect(page.getByText("An unrelated note.", { exact: true })).toBeVisible();
 });
 
+
+test("task cards and the task panel show who is on each task, and Tell the team sends a task message", async ({ page }) => {
+  // Three agents: claude and codex with their harnesses, and writer with none. The
+  // server limits joins per address and the whole spec shares one, so a join that is
+  // turned away for that is tried again once the minute has passed.
+  const { name: board } = await newBoard("Task board");
+  const join = async (...args: string[]) => {
+    const line = JSON.parse(aboard("invite", "--board", board, "--json")).join_line;
+    await expect(() => aboard("join", line, ...args)).toPass({ timeout: 90_000, intervals: [5_000] });
+  };
+  await join("--name", "claude", "--harness", "claude-code");
+  await join("--name", "codex", "--harness", "codex");
+  await join("--name", "writer");
+  const tasks = `/v1/boards/${board}/tasks`;
+  const doing = await api(ownerKey(), "POST", tasks, { title: "Move payment intents to the v2 API", about: "The v1 endpoints close next month." });
+  const waiting = await api(ownerKey(), "POST", tasks, { title: "Document the v2 webhooks" });
+  const finished = await api(ownerKey(), "POST", tasks, { title: "Rotate the staging key" });
+  await api(agentToken("claude"), "POST", `${tasks}/${doing.ref}/start`, {});
+  await api(agentToken("codex"), "POST", `${tasks}/${doing.ref}/join`, {});
+  await api(agentToken("claude"), "PATCH", `${tasks}/${doing.ref}`, { stands: "Intents move over; refunds are next.", stands_base: 0 });
+  await api(agentToken("claude"), "POST", `/v1/boards/${board}/messages`, { body: "Refunds still call v1.", to: ["all"], about: [doing.ref] });
+  await api(ownerKey(), "POST", `${tasks}/${finished.ref}/done`, { note: "Rotated and revoked." });
+
+  await openLink(page, JSON.parse(aboard("open", "--board", board, "--json")).url);
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  const progress = page.getByRole("region", { name: "In progress", exact: true });
+  await expect(progress).toContainText("Move payment intents to the v2 API");
+  const shots = process.env.TASK_UI_SHOTS;
+  const capture = async (what: string, prep: () => Promise<void> = async () => {}) => {
+    if (!shots) return;
+    for (const theme of ["Light", "Dark"]) {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.getByRole("button", { name: /^You are alex/ }).click();
+      await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
+      await page.keyboard.press("Escape");
+      for (const [device, size] of [["desktop", { width: 1440, height: 1000 }], ["mobile", { width: 390, height: 844 }]] as const) {
+        await page.setViewportSize(size);
+        await prep();
+        await page.screenshot({ path: `${shots}/${what}-${device}-${theme.toLowerCase()}.png`, fullPage: true, animations: "disabled" });
+      }
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+  };
+  await capture("tasks");
+
+  // The board panel lists agents as compact rows; a row opens the agent's details.
+  const writerRow = page.locator('[data-agent="writer"]');
+  const writerDetails = async () => {
+    if ((await writerRow.locator(".agent-row").getAttribute("aria-expanded")) !== "true") await writerRow.locator(".agent-row").click();
+    await writerRow.scrollIntoViewIfNeeded();
+  };
+  await writerDetails();
+  await expect(page.getByRole("dialog", { name: "writer's details" })).toContainText("No messages on this board yet.");
+  await capture("agent-details", writerDetails);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "writer's details" })).toHaveCount(0);
+
+  // A card shows everyone on the task with their harness mark, owner first, and counts
+  // its conversation only when there is one.
+  const card = page.locator(`[data-task="${doing.ref}"]`);
+  await expect(card.locator('[data-on-task="claude"] [data-harness="claude-code"]')).toBeVisible();
+  await expect(card.locator('[data-on-task="codex"] [data-harness="codex"]')).toBeVisible();
+  await expect(card.locator('[data-on-task="claude"]')).toContainText("owner");
+  await expect(card).toContainText("1 in conversation");
+  const open = page.locator(`[data-task="${waiting.ref}"]`);
+  await expect(open).toContainText("No owner · opened by alex");
+  await expect(open).not.toContainText("in conversation");
+  await expect(page.getByRole("tabpanel")).not.toContainText("0 messages");
+  // writer is on no task, so it waits beside the work nobody has taken.
+  const notPicked = page.getByRole("region", { name: "Not picked up", exact: true });
+  await expect(notPicked.locator('[data-free-agent="writer"] [data-harness="other"]')).toBeVisible();
+  // Needs you and Blocked appear only with a task an open ask blocks.
+  await expect(page.getByRole("region", { name: "Needs you", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Blocked", exact: true })).toHaveCount(0);
+  await expect(page.locator(`[data-task="${finished.ref}"]`)).toHaveCount(0);
+  await page.getByRole("button", { name: "1 task done or cancelled · show" }).click();
+  await expect(page.locator(`[data-task="${finished.ref}"]`)).toContainText("Rotate the staging key");
+
+  // The panel: About, Where it stands with its byline, the conversation and who is on it.
+  await card.getByRole("button", { name: `Open task ${doing.ref}`, exact: true }).click();
+  const detail = page.getByRole("region", { name: `Task ${doing.ref}`, exact: true });
+  await expect(detail.getByRole("heading", { name: "About" })).toBeVisible();
+  await expect(detail).toContainText("The v1 endpoints close next month.");
+  await expect(detail.locator(".where-it-stands")).toContainText("Intents move over; refunds are next.");
+  await expect(detail.locator(".where-it-stands")).toContainText(/by claude · (just now|\d+ min ago) · 1 message since/);
+  await expect(detail.getByRole("heading", { name: "Conversation · 1" })).toBeVisible();
+  const onIt = detail.locator(".on-it");
+  await expect(onIt.locator('[data-on-task="claude"] [data-harness="claude-code"]')).toBeVisible();
+  await expect(onIt.locator('[data-on-task="claude"]')).toContainText("Claude Code");
+  await expect(onIt.locator('[data-on-task="codex"]')).toContainText(/working|idle|disconnected/);
+  await capture("task-panel");
+
+  // Hold fills in an ordinary message to the agents on the task, which can be edited;
+  // Send posts it about the task.
+  const tell = detail.locator(".tell");
+  await tell.getByRole("button", { name: "Hold", exact: true }).click();
+  await expect(tell.getByRole("textbox")).toHaveValue(`${doing.ref}: hold here. Finish what you're on, then wait until I say go.`);
+  await expect(tell.locator(".tell-to")).toHaveText(`To claude, codex · about ${doing.ref}`);
+  await tell.getByRole("textbox").fill(`${doing.ref}: hold here until the refunds review.`);
+  await tell.getByRole("button", { name: "Send" }).click();
+  await expect(detail.locator(".tell-sent")).toContainText("Sent to claude, codex.");
+  const posted = (await api(ownerKey(), "GET", `/v1/boards/${board}/messages?newest=true&limit=1`)).messages as { body: string; to: string[]; about: { ref: string }[] }[];
+  expect(posted[0].body).toBe(`${doing.ref}: hold here until the refunds review.`);
+  expect(posted[0].to.sort()).toEqual(["@claude", "@codex"]);
+  expect(posted[0].about.map((a) => a.ref)).toContain(doing.ref);
+  await detail.getByRole("button", { name: "Show it in the conversation" }).click();
+  await expect(page.getByText(`Narrowed to ${doing.ref}`, { exact: false })).toBeVisible();
+  await expect(page.getByText(`${doing.ref}: hold here until the refunds review.`, { exact: true })).toBeVisible();
+
+  // A task nobody is on offers no Hold or Split, and Reassign asks everyone.
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await open.getByRole("button", { name: `Open task ${waiting.ref}`, exact: true }).click();
+  const other = page.getByRole("region", { name: `Task ${waiting.ref}`, exact: true }).locator(".tell");
+  await expect(other.getByRole("button", { name: "Hold", exact: true })).toHaveCount(0);
+  await expect(other.getByRole("button", { name: "Split", exact: true })).toHaveCount(0);
+  await other.getByRole("button", { name: "Reassign", exact: true }).click();
+  await expect(other.locator(".tell-to")).toHaveText(`To everyone · about ${waiting.ref}`);
+
+  // A blocking ask from claude to codex puts the task under Blocked, with the question;
+  // codex's answer moves it back.
+  const messages = `/v1/boards/${board}/messages`;
+  const toCodex = await api(agentToken("claude"), "POST", messages, { body: "Refunds: keep v1 or move to v2?", to: ["@codex"], ask: { options: ["Keep v1", "Move to v2"] } });
+  const blocked = page.getByRole("region", { name: "Blocked", exact: true });
+  await expect(blocked.locator(`[data-task="${doing.ref}"] .task-block`)).toHaveText("Blocked: claude asked codex: Refunds: keep v1 or move to v2?");
+  await expect(progress.locator(`[data-task="${doing.ref}"]`)).toHaveCount(0);
+  await capture("tasks-blocked");
+  await api(agentToken("codex"), "POST", messages, { body: "Move to v2", reply_to: toCodex.id, answer: { option: 2 } });
+  await expect(progress.locator(`[data-task="${doing.ref}"]`)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Blocked", exact: true })).toHaveCount(0);
+
+  // One to alex puts it under Needs you; answering it in the task panel moves it back.
+  await api(agentToken("claude"), "POST", messages, { body: "Ship the v2 refunds today?", to: ["@alex"], ask: { options: ["Ship", "Hold"] } });
+  const needsYou = page.getByRole("region", { name: "Needs you", exact: true });
+  const needsCard = needsYou.locator(`[data-task="${doing.ref}"]`);
+  await expect(needsCard).toHaveAttribute("data-needs-you", "true");
+  await expect(needsCard.locator(".task-block")).toHaveText("Waiting on you: claude asked you: Ship the v2 refunds today?");
+  await capture("tasks-needs-you");
+  await needsCard.getByRole("button", { name: `Open task ${doing.ref}`, exact: true }).click();
+  const question = page.getByRole("region", { name: `Task ${doing.ref}`, exact: true }).getByRole("region", { name: "Open question" });
+  await expect(question).toContainText("Waiting on you");
+  await expect(question).toContainText("claude asks you");
+  await capture("task-panel-needs-you");
+  await question.getByRole("button", { name: "Answer with option 1: Ship", exact: true }).click();
+  await expect(progress.locator(`[data-task="${doing.ref}"]`)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Needs you", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: `Task ${doing.ref}`, exact: true }).getByRole("region", { name: "Open question" })).toHaveCount(0);
+});
 
 test("messages in a hidden conversation stay unread while the person looks at tasks", async ({ page }) => {
   const board = await newBoard("Hidden task conversation");
@@ -2079,7 +2244,7 @@ test("messages in a hidden conversation stay unread while the person looks at ta
   await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
   await page.getByRole("tab", { name: /^Tasks/ }).click();
   await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "A new note while you look at tasks.", to: ["all"], about: [task.ref] });
-  await expect(page.getByRole("tabpanel").getByText("1 message · 1 thread", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tabpanel").getByText("1 in conversation", { exact: true })).toBeVisible();
   expect(unreadOn(board.name)).toBe(1);
   await expect(page.getByRole("log", { name: "Timeline" })).toBeHidden();
   await page.getByRole("tab", { name: "Conversation", exact: true }).click();
