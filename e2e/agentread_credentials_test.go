@@ -211,4 +211,20 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 			}
 		})
 	}
+	t.Run("sandbox session diagnostics", func(t *testing.T) {
+		e.run("down")
+		mu.Lock()
+		ownerRequests, seatRequests = 0, 0
+		mu.Unlock()
+		r := e.exec(codexNoNetwork, "", "status", "--json")
+		if r.code != 0 {
+			t.Fatalf("sandbox status lost diagnostics: %s", r)
+		}
+		mu.Lock()
+		human, agent := ownerRequests, seatRequests
+		mu.Unlock()
+		if human != 0 || agent != 0 {
+			t.Fatalf("sandbox status made authenticated REST requests: person %d, seat %d", human, agent)
+		}
+	})
 }

@@ -119,7 +119,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 				return nil
 			}
 			t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag)
-			if err != nil {
+			if err != nil && asError(err).Code != "sandbox_blocks_network" {
 				return err
 			}
 			if found {
