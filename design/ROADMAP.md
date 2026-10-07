@@ -184,7 +184,7 @@ the board.
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
-| First-run guidance: `aboard skill` prints the instructions bundled with the installed binary without harness setup; guest invites distinguish the person from the agent name | building (#193) | |
+| First-run guidance: `aboard skill` prints the instructions bundled with the installed binary without harness setup; guest invites distinguish the person from the agent name | review (#209; first-run follow-up #193) | |
 | The skill maps everyday phrases to commands ("send alice…", "check my messages", "who's here") | next | |
 | `llms.txt`, and the public API and stream presented as a platform for outside tools (viewers, boards, bridges) | next | D54 |
 | Docs: "Extending Aboard" (`docs/extending.mdx`), one page on every extension point (launchers, harnesses, monitors, bots and bridges, the API), each with its contract, its check and a minimal example | done (#67) | D54, D75, D79, D105, D155 |
