@@ -143,6 +143,8 @@
   --mention: color-mix(in oklab, var(--accent) 16%, transparent);
   /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
+  /* A place to drop a file, while one is dragged over it: a trace of the accent. */
+  --drop: color-mix(in oklab, var(--accent) 8%, transparent);
 }
 
 /* A file is shown on a light page in every theme, so it reads as the agent's work and

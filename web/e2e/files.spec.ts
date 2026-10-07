@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Page, expect, test } from "@playwright/test";
+import { type Locator, type Page, expect, test } from "@playwright/test";
 
 // The Files view and the file panel, against a real server in an isolated home: agents
 // put files through the public API, and the page lists them, previews and downloads any
@@ -131,8 +131,8 @@ const v2 = "# API notes\n\nThe client retries **three times**.\n\n- Use `POST /v
 test("files appear live, open in the panel with every version, preview, and download each version's exact bytes", async ({ page }) => {
   const board = "files-room";
   await openBoard(page, board);
-  // A board with only a conversation shows no views to switch between.
-  await expect(page.getByRole("tablist", { name: "Board views" })).toHaveCount(0);
+  // Every board has a Files view, even before its first file.
+  await expect(page.getByRole("tab", { name: "Files 0" })).toBeVisible();
 
   const notes = await put(board, "notes/api.md", 0, v1);
   await expect(page.getByRole("tab", { name: "Files 1" })).toBeVisible();
@@ -263,18 +263,74 @@ test("the person uploads a new version against the one they saw, and a newer ver
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
-test("a board with tasks and no files says how files get there", async ({ page }) => {
+test("an empty board says how files get there, and the person uploads the first one with the button", async ({ page }) => {
   const board = "files-empty";
   await openBoard(page, board);
-  await fetch(`${base()}/v1/boards/${board}/tasks`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${seatToken(board)}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ title: "Write the API notes", start: true }),
-  });
   await page.getByRole("tab", { name: "Files 0" }).click();
-  await expect(page.getByRole("heading", { name: "No files on this board yet." })).toBeVisible();
-  await expect(page.getByRole("tabpanel", { name: /Files/ })).toContainText("aboard file put report.md");
-  await expect(page.getByRole("button", { name: "Upload a file" })).toBeVisible();
+  const view = page.getByRole("tabpanel", { name: /Files/ });
+  await expect(view.getByRole("heading", { name: "No files on this board yet." })).toBeVisible();
+  await expect(view).toContainText("aboard file put report.md");
+  const chooser = page.waitForEvent("filechooser");
+  await view.getByRole("button", { name: "Upload a file" }).click();
+  await (await chooser).setFiles({ name: "brief notes.md", mimeType: "text/markdown", buffer: Buffer.from("# First\n") });
+  await expect(view.getByLabel("Name on the board")).toHaveValue("brief-notes.md");
+  await view.getByRole("button", { name: "Upload", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Files 1" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "File brief-notes.md" })).toContainText("v1");
+  expect((await bytes(board, "brief-notes.md", 1)).toString()).toBe("# First\n");
+});
+
+// drag holds a file from this computer over target, as a browser does during a drag;
+// drop then lets it go.
+async function drag(page: Page, target: Locator, name: string, body: string) {
+  const data = await page.evaluateHandle(([n, b]) => {
+    const t = new DataTransfer();
+    t.items.add(new File([b], n, { type: "text/plain" }));
+    return t;
+  }, [name, body] as const);
+  await target.dispatchEvent("dragenter", { dataTransfer: data });
+  await target.dispatchEvent("dragover", { dataTransfer: data });
+  return { drop: () => target.dispatchEvent("drop", { dataTransfer: data }), leave: () => target.dispatchEvent("dragleave", { dataTransfer: data }) };
+}
+
+test("a file dropped on the Files view starts an upload, and one dropped on a file's panel becomes its next version", async ({ page }) => {
+  const board = "files-drop";
+  await openBoard(page, board);
+  await page.getByRole("tab", { name: "Files 0" }).click();
+  const view = page.getByRole("tabpanel", { name: /Files/ });
+
+  // While a file is held over the view, it shows where it will go; leaving clears it.
+  const zone = view.locator("[data-drop], .files-view").first();
+  let held = await drag(page, zone, "draft.txt", "Dropped words.\n");
+  await expect(page.locator(".drop-hint")).toContainText("Drop to upload it to this board");
+  await held.leave();
+  await expect(page.locator(".drop-hint")).toHaveCount(0);
+
+  held = await drag(page, zone, "draft.txt", "Dropped words.\n");
+  await held.drop();
+  await expect(page.locator(".drop-hint")).toHaveCount(0);
+  await expect(view.getByLabel("Name on the board")).toHaveValue("draft.txt");
+  await view.getByRole("button", { name: "Upload", exact: true }).click();
+  const panel = page.getByRole("region", { name: "File draft.txt" });
+  await expect(panel).toContainText("v1");
+  expect((await bytes(board, "draft.txt", 1)).toString()).toBe("Dropped words.\n");
+
+  // Dropped on the open file, it is written against the version on screen.
+  held = await drag(page, panel, "draft-2.txt", "Second words.\n");
+  await expect(page.locator(".drop-hint")).toContainText("Drop to upload it as v2");
+  await held.drop();
+  await expect(panel.getByRole("status").filter({ hasText: "Uploaded v2." })).toBeVisible();
+  expect(await latest(board, "draft.txt")).toMatchObject({ version: 2, by: { name: "alex", kind: "human" } });
+  expect((await bytes(board, "draft.txt", 2)).toString()).toBe("Second words.\n");
+
+  // A drop against a version someone has since replaced is refused, and nothing is stored.
+  await page.route(`**/v1/boards/${board}/files/*`, () => {});
+  await put(board, "draft.txt", 2, "The writer's v3.\n");
+  held = await drag(page, panel, "late.txt", "Too late.\n");
+  await held.drop();
+  await expect(panel.getByRole("alert")).toContainText("writer wrote v3");
+  expect((await bytes(board, "draft.txt", "latest")).toString()).toBe("The writer's v3.\n");
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 // Screenshots for review, only when FILES_SHOTS names a folder: the list and the panel,
@@ -285,6 +341,13 @@ test("screenshots of the Files view and the file panel", async ({ page }) => {
   mkdirSync(dir!, { recursive: true });
   const board = "files-shots";
   await openBoard(page, board);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("tab", { name: "Files 0" }).click();
+  await expect(page.getByRole("heading", { name: "No files on this board yet." })).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: join(dir!, "files-empty-light.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.screenshot({ animations: "disabled", path: join(dir!, "files-empty-dark.png") });
+  await page.emulateMedia({ colorScheme: "light" });
   const task = (await (
     await fetch(`${base()}/v1/boards/${board}/tasks`, {
       method: "POST",
@@ -307,6 +370,10 @@ test("screenshots of the Files view and the file panel", async ({ page }) => {
     if (await work.isVisible()) await work.click();
     await expect(page.locator('[data-file="status.md"]')).toBeVisible();
     await page.screenshot({ animations: "disabled", path: join(dir!, `files-list-${theme}.png`) });
+    const held = await drag(page, page.locator(".files-view"), "draft.md", "x");
+    await expect(page.locator(".drop-hint")).toBeVisible();
+    await page.screenshot({ animations: "disabled", path: join(dir!, `files-drop-${theme}.png`) });
+    await held.leave();
     await page.locator('[data-file="status.md"]').getByRole("button", { name: "status.md" }).click();
     await expect(page.getByLabel("Preview of status.md, v2")).toContainText("Retries back off");
     await page.mouse.move(0, 0);

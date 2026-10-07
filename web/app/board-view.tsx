@@ -45,10 +45,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const fileState = useFiles(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
   const files = fileState.list?.files ?? [];
   const [filePanel, setFilePanel] = useState<string | null>(null);
-  // The views beside the conversation appear with what they show: Tasks with the first
-  // task, Files with the first file. Files also shows once the board has tasks, so a
-  // person there can put the first file on the board.
-  const views: View[] = ["conversation", ...(tasks.length > 0 ? (["tasks"] as const) : []), ...(files.length > 0 || (tasks.length > 0 && fileState.list !== null) ? (["files"] as const) : [])];
+  // Tasks appears with the first task. Files is on every board whose server keeps files,
+  // so a person can always put a file on the board from here.
+  const views: View[] = ["conversation", ...(tasks.length > 0 ? (["tasks"] as const) : []), ...(fileState.list !== null ? (["files"] as const) : [])];
   const shownView: View = views.includes(view) ? view : "conversation";
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
   const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {

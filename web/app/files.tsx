@@ -6,8 +6,8 @@
 // names the version it replaces, and when someone else wrote a newer one first the
 // server stores nothing and the panel says who and when.
 
-import { ArrowLeft, Download, FileCode, FileImage, FileText, File as FileGeneric, Upload } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { ArrowLeft, Download, FileCode, FileImage, FileText, File as FileGeneric, Paperclip } from "lucide-react";
+import { type DragEvent, type FormEvent, type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   ApiError,
@@ -166,7 +166,78 @@ const shows: { key: Show; label: string }[] = [
   { key: "people", label: "From people" },
 ];
 
-/** FilesView is every file on the board, newest first, each one click from its panel. */
+/**
+ * useDrop makes an element a place to drop a file from this computer. over is true
+ * while a file is dragged over it; onFile gets the first file dropped and how many came.
+ */
+export function useDrop(enabled: boolean, onFile: (f: File, count: number) => void) {
+  const depth = useRef(0);
+  const [over, setOver] = useState(false);
+  const carriesFiles = (e: DragEvent) => enabled && Array.from(e.dataTransfer.types).includes("Files");
+  useEffect(() => {
+    if (!enabled) {
+      depth.current = 0;
+      setOver(false);
+    }
+  }, [enabled]);
+  const props = {
+    onDragEnter: (e: DragEvent) => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      depth.current++;
+      setOver(true);
+    },
+    onDragOver: (e: DragEvent) => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!carriesFiles(e)) return;
+      depth.current = Math.max(0, depth.current - 1);
+      if (depth.current === 0) setOver(false);
+    },
+    onDrop: (e: DragEvent) => {
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      depth.current = 0;
+      setOver(false);
+      const f = e.dataTransfer.files[0];
+      if (f) onFile(f, e.dataTransfer.files.length);
+    },
+  };
+  return { over, props };
+}
+
+/** DropHint is the calm outline and line of text shown while a file is dragged over a drop place. */
+function DropHint({ over, text }: { over: boolean; text: string }) {
+  if (!over) return null;
+  return (
+    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent bg-[var(--drop)] p-4 animate-fade-in">
+      <p className="inline-flex items-center gap-2 rounded-box border border-rule bg-surface px-4 py-3 font-bold text-ink">
+        <Paperclip className="size-4 text-accent" strokeWidth={1.75} aria-hidden />
+        {text}
+      </p>
+    </div>
+  );
+}
+
+/** Attach is the button that picks a file from this computer. */
+function Attach({ onClick, label, disabled }: { onClick: () => void; label: string; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="attach inline-flex min-h-11 items-center gap-2 rounded-control border border-ink px-3.5 font-medium text-ink transition-colors duration-[140ms] ease-out hover:bg-selected disabled:opacity-60"
+    >
+      <Paperclip className="size-4" strokeWidth={1.75} aria-hidden />
+      {label}
+    </button>
+  );
+}
+
+/** FilesView is every file on the board, newest first, each one click from its panel. A file dropped on it starts an upload. */
 export function FilesView({
   board,
   files,
@@ -191,6 +262,10 @@ export function FilesView({
   const now = useNow();
   const [show, setShow] = useState<Show>("all");
   const [sort, setSort] = useState<Sort>("newest");
+  const [picked, setPicked] = useState<{ file: File; extra: number; n: number } | null>(null);
+  const chooser = useRef<HTMLInputElement>(null);
+  const pick = (file: File, n: number) => setPicked((p) => ({ file, extra: n - 1, n: (p?.n ?? 0) + 1 }));
+  const drop = useDrop(canUpload, pick);
   const shown = files
     .filter((f) => (show === "maintained" ? f.maintained : show === "people" ? f.latest.by.kind === "human" : true))
     .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : b.latest.at.localeCompare(a.latest.at) || b.latest.seq - a.latest.seq));
@@ -199,59 +274,106 @@ export function FilesView({
       "min-h-11 rounded-control px-2.5 transition-colors duration-[140ms] ease-out",
       on ? "bg-selected font-bold text-ink" : "text-muted hover:text-ink",
     );
+  const choose = () => chooser.current?.click();
+  const form = picked && (
+    <NewFile
+      key={picked.n}
+      board={board}
+      picked={picked.file}
+      extra={picked.extra}
+      files={files}
+      open={open}
+      onDone={(f) => {
+        setPicked(null);
+        if (f) onUploaded(f);
+      }}
+      onChooseAnother={choose}
+    />
+  );
   return (
-    <div className="files-view quiet-scroll min-h-0 flex-1 overflow-y-auto animate-appear">
-      <div className="mx-auto w-full max-w-[848px] px-4 pt-2 pb-10 sm:px-6">
-        {files.length > 0 && (
-          <div className="mb-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-meta">
-            <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-1">
-              {shows.map((s) => (
-                <button key={s.key} type="button" aria-pressed={show === s.key} onClick={() => setShow(s.key)} className={control(show === s.key)}>
-                  {s.label}
+    <div className="relative flex min-h-0 flex-1 flex-col" data-drop={drop.over ? "over" : undefined} {...drop.props}>
+      <input
+        ref={chooser}
+        type="file"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) pick(f, e.target.files?.length ?? 1);
+          e.target.value = "";
+        }}
+      />
+      <DropHint over={drop.over} text="Drop to upload it to this board" />
+      <div className="files-view quiet-scroll min-h-0 flex-1 overflow-y-auto animate-appear">
+        <div className="mx-auto w-full max-w-[848px] px-4 pt-2 pb-10 sm:px-6">
+          {files.length > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-meta">
+              <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-1">
+                {shows.map((s) => (
+                  <button key={s.key} type="button" aria-pressed={show === s.key} onClick={() => setShow(s.key)} className={control(show === s.key)}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div role="group" aria-label="Sort" className="ml-auto flex items-center gap-1">
+                <button type="button" aria-pressed={sort === "newest"} onClick={() => setSort("newest")} className={control(sort === "newest")}>
+                  Newest first
                 </button>
+                <button type="button" aria-pressed={sort === "name"} onClick={() => setSort("name")} className={control(sort === "name")}>
+                  By name
+                </button>
+              </div>
+              {canUpload && (
+                <div className="sm:ml-2">
+                  <Attach onClick={choose} label="Upload a file" />
+                </div>
+              )}
+            </div>
+          )}
+          {files.length > 0 && form && <div className="pb-3">{form}</div>}
+          {files.length === 0 ? (
+            <NoFiles upload={canUpload ? (form ?? <Attach onClick={choose} label="Upload a file" />) : null} />
+          ) : (
+            <ul className="divide-y divide-rule border-y border-rule" aria-label="Files">
+              {shown.map((f) => (
+                <li key={f.id}>
+                  <FileRow f={f} selected={f.id === selected} open={open} identity={identity} me={me} now={now} />
+                </li>
               ))}
-            </div>
-            <div role="group" aria-label="Sort" className="ml-auto flex items-center gap-1">
-              <button type="button" aria-pressed={sort === "newest"} onClick={() => setSort("newest")} className={control(sort === "newest")}>
-                Newest first
+            </ul>
+          )}
+          {files.length > 0 && shown.length === 0 && (
+            <p className="py-6 text-muted">
+              No files match.{" "}
+              <button type="button" className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => setShow("all")}>
+                Show all files
               </button>
-              <button type="button" aria-pressed={sort === "name"} onClick={() => setSort("name")} className={control(sort === "name")}>
-                By name
-              </button>
-            </div>
-          </div>
-        )}
-        {canUpload && files.length > 0 && <NewFile board={board} files={files} open={open} onUploaded={onUploaded} first={false} />}
-        {files.length === 0 ? (
-          <>
-            <NoFiles />
-            {canUpload && <NewFile board={board} files={files} open={open} onUploaded={onUploaded} first />}
-          </>
-        ) : (
-          <ul className="divide-y divide-rule border-y border-rule" aria-label="Files">
-            {shown.map((f) => (
-              <li key={f.id}>
-                <FileRow f={f} selected={f.id === selected} open={open} identity={identity} me={me} now={now} />
-              </li>
-            ))}
-          </ul>
-        )}
-        {files.length > 0 && shown.length === 0 && <p className="py-6 text-muted">No files match. <button type="button" className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => setShow("all")}>Show all files</button></p>}
-        {more && <p className="pt-3 text-meta text-muted">Showing the first {files.length} files.</p>}
+            </p>
+          )}
+          {more && <p className="pt-3 text-meta text-muted">Showing the first {files.length} files.</p>}
+          {canUpload && files.length > 0 && <p className="pt-3 text-meta text-muted">Drop a file here to upload it, or drop one on an open file for its next version.</p>}
+        </div>
       </div>
     </div>
   );
 }
 
-function NoFiles() {
+function NoFiles({ upload }: { upload: ReactNode }) {
   return (
-    <div className="empty flex flex-col gap-2 py-8">
+    <div className="empty flex flex-col items-start gap-3 py-8">
       <h2 className="text-title font-bold">No files on this board yet.</h2>
       <p>
         Agents put files here from their sessions with <code>aboard file put report.md</code>, and post them with{" "}
         <code>aboard say --attach report.md</code>. Every write names the version it replaces, so no one&apos;s work is overwritten
         unseen.
       </p>
+      {upload && (
+        <>
+          <p>To add one yourself, upload it from this computer or drop it anywhere here.</p>
+          <div className="w-full">{upload}</div>
+        </>
+      )}
     </div>
   );
 }
@@ -331,26 +453,34 @@ function boardName(local: string): string {
   return cleaned || "file";
 }
 
-/** NewFile uploads a file from this computer as a new file on the board, never over one. */
-function NewFile({ board, files, open, onUploaded, first }: { board: string; files: BoardFile[]; open: (id: string) => void; onUploaded: (f: BoardFile) => void; first: boolean }) {
-  const input = useRef<HTMLInputElement>(null);
+/** NewFile names a picked file on the board and uploads it as a new file, never over one. */
+function NewFile({
+  board,
+  picked,
+  extra,
+  files,
+  open,
+  onDone,
+  onChooseAnother,
+}: {
+  board: string;
+  picked: File;
+  extra: number;
+  files: BoardFile[];
+  open: (id: string) => void;
+  onDone: (f: BoardFile | null) => void;
+  onChooseAnother: () => void;
+}) {
   const field = useId();
-  const [picked, setPicked] = useState<File | null>(null);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(() => boardName(picked.name));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ text: ReactNode; conflict: boolean } | null>(null);
   const now = useNow();
   const taken = files.find((f) => f.name === name);
   const valid = namePattern.test(name) && name.length <= 200;
-  const reset = () => {
-    setPicked(null);
-    setName("");
-    setProblem(null);
-    if (input.current) input.current.value = "";
-  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!picked || !valid || busy) return;
+    if (!valid || busy) return;
     if (picked.size > maxBytes) {
       setProblem({ text: "Files can be at most 50 MB. Nothing was uploaded.", conflict: false });
       return;
@@ -358,9 +488,7 @@ function NewFile({ board, files, open, onUploaded, first }: { board: string; fil
     setBusy(true);
     setProblem(null);
     try {
-      const f = await putFile(board, name, 0, picked);
-      reset();
-      onUploaded(f);
+      onDone(await putFile(board, name, 0, picked));
     } catch (err) {
       setProblem(uploadProblem(err, name, null, now));
     } finally {
@@ -368,80 +496,66 @@ function NewFile({ board, files, open, onUploaded, first }: { board: string; fil
     }
   };
   return (
-    <div className={cn("new-file", first ? "pb-8" : "pb-3")}>
-      <input
-        ref={input}
-        type="file"
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0] ?? null;
-          setPicked(f);
-          setProblem(null);
-          if (f) setName(boardName(f.name));
-        }}
-      />
-      {!picked ? (
-        <button
-          type="button"
-          onClick={() => input.current?.click()}
-          className={cn(
-            "inline-flex min-h-11 items-center gap-2 rounded-control border border-ink px-3.5 font-medium transition-colors duration-[140ms] ease-out hover:bg-selected",
-          )}
-        >
-          <Upload className="size-4" strokeWidth={1.5} aria-hidden />
-          Upload a file
+    <form onSubmit={submit} className="new-file flex flex-col gap-2 rounded-box border border-rule bg-surface p-3.5 animate-fade-in" aria-label="Upload a file">
+      <p className="flex flex-wrap items-center gap-x-2 text-meta text-muted">
+        <Paperclip className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+        <span className="break-all">
+          {picked.name} · {size(picked.size)}
+        </span>
+        <button type="button" onClick={onChooseAnother} className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline">
+          Choose another
         </button>
-      ) : (
-        <form onSubmit={submit} className="flex flex-col gap-2 rounded-box border border-rule bg-surface p-3.5" aria-label="Upload a file">
-          <p className="text-meta text-muted">
-            {picked.name} · {size(picked.size)}
-          </p>
-          <label htmlFor={field} className="font-bold">
-            Name on the board
-          </label>
-          <input
-            id={field}
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value.trim());
-              setProblem(null);
-            }}
-            spellCheck={false}
-            autoFocus
-            aria-describedby={`${field}-hint`}
-            aria-invalid={!valid || undefined}
-            className="min-h-11 rounded-control border border-field-border bg-surface px-3.5 text-ink"
-          />
-          <p id={`${field}-hint`} className="text-meta text-muted">
-            {!valid
-              ? "Use letters, digits, dots, dashes and underscores, with / between folders, such as notes/api.md."
-              : taken
-                ? `${name} is already on the board. Open it to upload a new version, or choose another name.`
-                : "A path such as notes/api.md puts it in a folder."}
-          </p>
-          {problem && (
-            <p role="alert" className="upload-problem rounded-control border border-field-border px-3 py-2">
-              {problem.text}
-            </p>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control bg-ink px-4 font-bold text-on-ink disabled:opacity-60">
-              {busy ? "Uploading…" : "Upload"}
-            </button>
-            {taken && (
-              <button type="button" onClick={() => { open(taken.id); reset(); }} className="min-h-11 rounded-control border border-ink px-3.5 font-medium hover:bg-selected">
-                Open {taken.name}
-              </button>
-            )}
-            <button type="button" onClick={reset} className="min-h-11 px-2 text-muted hover:text-ink">
-              Cancel
-            </button>
-          </div>
-        </form>
+      </p>
+      {extra > 0 && <p className="text-meta text-muted">Only the first file is uploaded. Drop the other {count(extra, "file", "files")} one at a time.</p>}
+      <label htmlFor={field} className="font-bold">
+        Name on the board
+      </label>
+      <input
+        id={field}
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value.trim());
+          setProblem(null);
+        }}
+        spellCheck={false}
+        autoFocus
+        aria-describedby={`${field}-hint`}
+        aria-invalid={!valid || undefined}
+        className="min-h-11 rounded-control border border-field-border bg-surface px-3.5 text-ink"
+      />
+      <p id={`${field}-hint`} className="text-meta text-muted">
+        {!valid
+          ? "Use letters, digits, dots, dashes and underscores, with / between folders, such as notes/api.md."
+          : taken
+            ? `${name} is already on the board. Open it to upload a new version, or choose another name.`
+            : "A path such as notes/api.md puts it in a folder."}
+      </p>
+      {problem && (
+        <p role="alert" className="upload-problem rounded-control border border-field-border px-3 py-2">
+          {problem.text}
+        </p>
       )}
-    </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control bg-ink px-4 font-bold text-on-ink disabled:opacity-60">
+          {busy ? "Uploading…" : "Upload"}
+        </button>
+        {taken && (
+          <button
+            type="button"
+            onClick={() => {
+              open(taken.id);
+              onDone(null);
+            }}
+            className="min-h-11 rounded-control border border-ink px-3.5 font-medium hover:bg-selected"
+          >
+            Open {taken.name}
+          </button>
+        )}
+        <button type="button" onClick={() => onDone(null)} className="min-h-11 px-2 text-muted hover:text-ink">
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -505,8 +619,21 @@ export function FilePanel({
   }, [id, named]);
 
   const shown = file ? (file.versions.find((v) => v.version === viewing) ?? file.latest) : null;
+  // A file dropped on the panel becomes the next version of the file, written against
+  // the latest version on screen at the drop.
+  const [incoming, setIncoming] = useState<Incoming | null>(null);
+  const drop = useDrop(canUpload && file !== null, (f) => {
+    if (file) setIncoming((p) => ({ file: f, base: file.latest.version, n: (p?.n ?? 0) + 1 }));
+  });
   return (
-    <section ref={top} aria-label={file ? `File ${file.name}` : "File"} className="file-panel flex scroll-mt-2 flex-col gap-4">
+    <section
+      ref={top}
+      aria-label={file ? `File ${file.name}` : "File"}
+      className="file-panel relative flex scroll-mt-2 flex-col gap-4"
+      data-drop={drop.over ? "over" : undefined}
+      {...drop.props}
+    >
+      {file && <DropHint over={drop.over} text={`Drop to upload it as v${file.latest.version + 1}`} />}
       <button type="button" onClick={back} className="inline-flex min-h-11 items-center gap-1.5 self-start text-meta text-muted hover:text-ink">
         <ArrowLeft className="size-4" aria-hidden />
         Work
@@ -567,7 +694,7 @@ export function FilePanel({
               </ul>
             </section>
           )}
-          {canUpload && <NewVersion board={board} file={file} me={me} onUploaded={(f) => { setViewing(null); setFile((old) => (old ? { ...old, ...f } : old)); setAgain((n) => n + 1); }} onConflict={() => setAgain((n) => n + 1)} />}
+          {canUpload && <NewVersion board={board} file={file} me={me} incoming={incoming} onUploaded={(f) => { setViewing(null); setFile((old) => (old ? { ...old, ...f } : old)); setAgain((n) => n + 1); }} onConflict={() => setAgain((n) => n + 1)} />}
         </>
       ) : (
         error === null && (
@@ -699,14 +826,30 @@ function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileV
  * version someone else wrote in the meantime is never overwritten: the server refuses,
  * stores nothing, and the panel says who wrote what.
  */
-function NewVersion({ board, file, me, onUploaded, onConflict }: { board: string; file: FileDetail; me: string | null; onUploaded: (f: BoardFile) => void; onConflict: () => void }) {
+type Incoming = { file: File; base: number; n: number };
+
+function NewVersion({
+  board,
+  file,
+  me,
+  incoming,
+  onUploaded,
+  onConflict,
+}: {
+  board: string;
+  file: FileDetail;
+  me: string | null;
+  incoming: Incoming | null;
+  onUploaded: (f: BoardFile) => void;
+  onConflict: () => void;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const base = useRef(file.latest.version);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ text: ReactNode; conflict: boolean } | null>(null);
   const [done, setDone] = useState<number | null>(null);
   const now = useNow();
-  const upload = async (picked: File) => {
+  const upload = async (picked: File, over: number) => {
     if (picked.size > maxBytes) {
       setProblem({ text: "Files can be at most 50 MB. Nothing was uploaded.", conflict: false });
       return;
@@ -715,7 +858,7 @@ function NewVersion({ board, file, me, onUploaded, onConflict }: { board: string
     setProblem(null);
     setDone(null);
     try {
-      const f = await putFile(board, file.name, base.current, picked);
+      const f = await putFile(board, file.name, over, picked);
       setDone(f.latest.version);
       onUploaded(f);
     } catch (err) {
@@ -727,6 +870,14 @@ function NewVersion({ board, file, me, onUploaded, onConflict }: { board: string
       if (input.current) input.current.value = "";
     }
   };
+  // A file dropped on the panel goes up once, against the version on screen at the drop.
+  const handled = useRef(0);
+  useEffect(() => {
+    if (!incoming || incoming.n === handled.current) return;
+    handled.current = incoming.n;
+    void upload(incoming.file, incoming.base);
+    // upload is recreated each render; the drop's own number decides when to run.
+  }, [incoming]);
   return (
     <section aria-label="Upload a new version" className="flex flex-col gap-2 border-t border-rule pt-4">
       <input
@@ -737,7 +888,7 @@ function NewVersion({ board, file, me, onUploaded, onConflict }: { board: string
         aria-hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void upload(f);
+          if (f) void upload(f, base.current);
         }}
       />
       <button
@@ -751,16 +902,17 @@ function NewVersion({ board, file, me, onUploaded, onConflict }: { board: string
         }}
         className="inline-flex min-h-11 items-center gap-2 self-start rounded-control border border-ink px-3.5 font-medium transition-colors duration-[140ms] ease-out hover:bg-selected disabled:opacity-60"
       >
-        <Upload className="size-4" strokeWidth={1.5} aria-hidden />
+        <Paperclip className="size-4" strokeWidth={1.75} aria-hidden />
         {busy ? "Uploading…" : `Upload a new version (after v${file.latest.version})`}
       </button>
+      <p className="text-meta text-muted">Or drop a file on this panel.</p>
       {done !== null && (
         <p role="status" className="text-meta text-muted">
           Uploaded v{done}.
         </p>
       )}
       {problem && (
-        <p role="alert" className={cn("upload-problem rounded-control px-3 py-2", "border border-field-border")}>
+        <p role="alert" className="upload-problem rounded-control border border-field-border px-3 py-2">
           {problem.text}
         </p>
       )}
