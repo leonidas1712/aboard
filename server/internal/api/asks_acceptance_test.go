@@ -221,3 +221,43 @@ func TestAskInboxAndIndependentBlockingAsks(t *testing.T) {
 		t.Fatalf("own asks waiting not counted: %+v", box.JSON200.Work)
 	}
 }
+
+func TestAskerCanWithdrawAfterAskedAgentEnds(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, writer, reviewer := s.pair("starter")
+	task, err := s.client(writer).CreateTaskWithResponse(ctx, name, nil, api.CreateTaskRequest{Title: "Retired recipient", Start: ptrTrue()})
+	mustStatus(t, task, err, 201)
+	asked, err := s.client(reviewer).GetMeWithResponse(ctx)
+	mustStatus(t, asked, err, 200)
+	posted, err := s.client(writer).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Decide before leaving", To: &[]string{"@" + asked.JSON200.Name}, Ask: &api.AskRequest{}})
+	mustStatus(t, posted, err, 201)
+	s.want(s.removeAgent(s.owner, name, asked.JSON200.Id, ""), 200, "")
+	own, err := s.client(writer).GetMeWithResponse(ctx)
+	mustStatus(t, own, err, 200)
+	withdrawn, err := s.client(writer).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Recipient left", To: &[]string{"@" + own.JSON200.Name}, ReplyTo: &posted.JSON201.Id, Answer: &api.AnswerRequest{Withdrawn: ptrTrue()}})
+	mustStatus(t, withdrawn, err, 201)
+	got, err := s.client(writer).GetTaskWithResponse(ctx, name, task.JSON201.Id)
+	mustStatus(t, got, err, 200)
+	if got.JSON200.Blocked {
+		t.Fatal("withdrawal after recipient left did not unblock")
+	}
+}
+
+func TestVisibleAnswerDoesNotDiscloseHiddenAskOptions(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, writer, reviewer := s.pair("recommended")
+	posted, err := s.client(writer).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Private question", Ask: &api.AskRequest{Options: &[]string{"a private option"}}})
+	mustStatus(t, posted, err, 201)
+	option := 1
+	answered, err := s.client(s.owner).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Decision made", To: &[]string{"@reviewer"}, ReplyTo: &posted.JSON201.Id, Answer: &api.AnswerRequest{Option: &option}})
+	mustStatus(t, answered, err, 201)
+	page, err := s.client(reviewer).ListMessagesWithResponse(ctx, name, nil)
+	mustStatus(t, page, err, 200)
+	if len(page.JSON200.Messages) != 1 || page.JSON200.Messages[0].Answer == nil || page.JSON200.Messages[0].Answer.OptionText != nil {
+		t.Fatalf("hidden option text leaked: %+v", page.JSON200.Messages)
+	}
+}
