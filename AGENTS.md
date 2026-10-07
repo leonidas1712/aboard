@@ -173,6 +173,7 @@ Read the relevant guide before writing that kind of thing; they override habit.
 - [engineering/go.md](engineering/go.md): how we write Go, and what `make check` runs.
 - [engineering/testing.md](engineering/testing.md): be intentional about tests: contract suites for every adapter, e2e and live tests for real features, unit tests only where they earn it; no mocks of our own code, no sleeps, no skipped flakes.
 - [engineering/release.md](engineering/release.md): packaging, signed releases, what updates and how, the version-skew policy.
+- [CONTRIBUTING.md](CONTRIBUTING.md#developing-with-a-sandbox): the daily dev loop with `make sandbox`: a build of your checkout beside your real install, agents started against it, what is isolated, logins per harness.
 - [spec/README.md](spec/README.md): the contracts, how each is versioned and checked, and the change checklist.
 - [engineering/writing.md](engineering/writing.md): comments, API text, errors, docs, commits.
 - [engineering/glossary.md](engineering/glossary.md): the product vocabulary; use it exactly.
