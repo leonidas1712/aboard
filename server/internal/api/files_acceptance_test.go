@@ -108,3 +108,28 @@ func TestFileReplayBindsNameAndBase(t *testing.T) {
 	changed, err := c.PutFileWithBodyWithResponse(ctx, name, &p, "application/octet-stream", strings.NewReader("same bytes"))
 	mustStatus(t, changed, err, 422)
 }
+
+func TestFileRenameAndRemovalKeepVersionsAndFreeThePath(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	f, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "old.txt"}, "application/octet-stream", strings.NewReader("kept"))
+	mustStatus(t, f, err, 201)
+	to := "notes/new.txt"
+	moved, err := c.UpdateFileWithResponse(ctx, name, f.JSON201.Id, nil, api.UpdateFileRequest{Name: &to})
+	mustStatus(t, moved, err, 200)
+	if moved.JSON200.Id != f.JSON201.Id || moved.JSON200.Latest.Version != 1 { t.Fatal("rename changed file identity or version") }
+	removed, err := c.RemoveFileWithResponse(ctx, name, f.JSON201.Id, nil)
+	mustStatus(t, removed, err, 200)
+	list, err := c.ListFilesWithResponse(ctx, name, nil)
+	mustStatus(t, list, err, 200)
+	if len(list.JSON200.Files) != 0 { t.Fatal("removed file is still listed") }
+	history, err := c.GetFileVersionWithResponse(ctx, name, f.JSON201.Id, "1")
+	mustStatus(t, history, err, 200)
+	if string(history.Body) != "kept" { t.Fatal("removal lost historical bytes") }
+	again, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: to}, "application/octet-stream", strings.NewReader("new identity"))
+	mustStatus(t, again, err, 201)
+	if again.JSON201.Id == f.JSON201.Id { t.Fatal("reused path revived old identity") }
+}
