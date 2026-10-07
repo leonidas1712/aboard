@@ -77,6 +77,7 @@ the board.
 | Agents start work for their person: delegated atomic board creation and gated teammate addition by their seats | done (#143): person-owned board creation through the machine delegation; current seat, server, board and role gates on teammate additions; exact-head CI and affected native suite pass | D205 |
 | Another person's agents and being added: `aboard board people` lists each person's agents under them; a person someone else added to a board sees it marked new (`aboard boards`, `status`, the agent's `inbox`, the board view), and their sessions hear it once, quietly, read from `person.added` | in review | |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
+| Agent status and audit use only the selected seat credential, including environment and session selection | in review (#158) | D27, D203 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | in review: `aboard servers`, `servers use`, the default in server choice, `server_not_selected` with several and no default, and every person command naming its server; boards listed across servers and default-server status/watch/audit now have focused acceptance coverage | D172, D203 |
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |

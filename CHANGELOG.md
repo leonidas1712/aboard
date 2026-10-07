@@ -23,8 +23,16 @@ publishes a version's section as its release notes. How releases are cut is in
   `--server URL` selects one. Human `status`, `watch` and `audit verify` use the
   machine's default server outside a linked folder.
 
+### Fixed
+
+- Agent-selected `status` and `audit verify` use only the selected seat's token
+  and board. Unknown agents refuse; an unbound session's status shows local
+  diagnostics without authenticated board reads.
+
 ### Contract changes
 
+- `spec/cli.yaml`: clarify agent credential selection for status and audit,
+  including `ABOARD_AGENT` and bound sessions. Output shapes and the API are unchanged.
 - Additive: task-capable servers return explicit `current_task: null` in `/me` and
   board members when there is no current task. API clients can distinguish this
   from an older server that has no task support.
