@@ -268,13 +268,33 @@ test("a save against a version someone replaced is refused, and the person's tex
   expect(await bytes(board, first.id, 3)).toBe(`${v2}3. Keep the flag on in EU\n`);
 });
 
-// watchFrameRequests records every request from any frame but the page's own.
-function watchFrameRequests(page: Page): string[] {
-  const seen: string[] = [];
-  page.on("request", (r) => {
-    if (r.frame() !== page.mainFrame()) seen.push(r.url());
+// probes watches every request the whole browser context makes, from the board view
+// itself and from every frame, and answers any request for a probe path on this server
+// without letting it through, counting it.
+async function probes(page: Page): Promise<{ all: string[]; api: string[] }> {
+  const all: string[] = [];
+  const api: string[] = [];
+  page.context().on("request", (r) => all.push(r.url()));
+  await page.context().route("**/v1/brief-probe/**", async (route) => {
+    api.push(route.request().url());
+    await route.fulfill({ status: 204 });
   });
-  return seen;
+  return { all, api };
+}
+
+// hostile is markup that names the outside server and this server's API in every way
+// markup can ask for a load.
+function hostile(out: string, tag: string): string {
+  return [`${out}/${tag}`, `/v1/brief-probe/${tag}`]
+    .map(
+      (at) => `<link rel="stylesheet" href="${at}/link"><link rel="preload" as="image" href="${at}/preload">
+<style>@import url("${at}/import"); .bg { background: url("${at}/css"); }</style>
+<img src="${at}/img"><img srcset="${at}/srcset 2x"><picture><source srcset="${at}/source"><img src="${at}/picture"></picture>
+<iframe src="${at}/iframe"></iframe><video poster="${at}/poster"></video><object data="${at}/object"></object><embed src="${at}/embed">
+<div class="bg" style="background-image: url('${at}/style')">bg</div><svg><image href="${at}/svg"></image></svg>
+<input type="image" src="${at}/input"><audio src="${at}/audio"></audio><table background="${at}/background"><tr><td>t</td></tr></table>`,
+    )
+    .join("\n");
 }
 
 async function counting(): Promise<{ url: string; hits: string[]; close: () => Promise<void> }> {
@@ -291,23 +311,47 @@ async function counting(): Promise<{ url: string; hits: string[]; close: () => P
   };
 }
 
-test("an HTML brief shows only in the sandbox, which runs no script and makes no request", async ({ page }) => {
+test("an HTML brief shows only in the sandbox, and neither its summary nor its preview makes any request", async ({ page }) => {
   refusalsExpected = true;
   const board = "brief-html";
   await openBoard(page, board);
   const outside = await counting();
-  const requests = watchFrameRequests(page);
+  const seen = await probes(page);
   const out = outside.url;
-  const html = `<html><head><link rel="stylesheet" href="${out}/style.css"><meta http-equiv="refresh" content="0; url=${out}/refresh">
-<style>h1 { color: rgb(160, 40, 40); } body { background: url(${out}/bg.png); }</style></head>
-<body><h1>Status</h1><p id="state">Staging is on v2.</p><img src="${out}/pixel.png">
+  // Any request from the page, the board view's own included, to the outside server or a probe path.
+  const probed = () => seen.all.filter((u) => u.startsWith(out) || u.includes("brief-probe"));
+  const none = async () => {
+    // Let anything that slipped through arrive, then check that nothing did.
+    await page.evaluate(() => new Promise((done) => setTimeout(done, 800)));
+    expect(probed()).toEqual([]);
+    expect(seen.api).toEqual([]);
+    expect(outside.hits).toEqual([]);
+  };
+
+  // Controls: each counter counts a request made on purpose, so the zeros below mean none was made.
+  await fetch(`${out}/control`);
+  expect(outside.hits).toEqual(["/control"]);
+  await page.evaluate(() => fetch("/v1/brief-probe/control"));
+  expect(seen.api).toHaveLength(1);
+  expect(probed()).toHaveLength(1);
+  outside.hits.length = 0;
+  seen.api.length = 0;
+  seen.all.length = 0;
+
+  const html = `<html><head><meta http-equiv="refresh" content="0; url=${out}/refresh">${hostile(out, "head")}
+<style>h1 { color: rgb(160, 40, 40); }</style></head>
+<body><h1>Status</h1><p id="state">Staging is on v2.</p>${hostile(out, "body")}
 <a id="away" href="${out}/away" target="_top">away</a>
-<script>document.getElementById("state").textContent = "script ran"; fetch("${out}/fetch");</script></body></html>`;
+<script>document.getElementById("state").textContent = "script ran"; fetch("${out}/fetch"); fetch("/v1/brief-probe/script");</script></body></html>`;
   await putBrief(board, "brief.html", html);
 
+  // Closed, the summary is read from the markup in the board view itself.
   const brief = page.getByRole("region", { name: "Brief" });
   await expect(brief.locator(".brief-byline")).toContainText("brief.html v1 by writer");
   await expect(brief.locator(".brief-summary")).toHaveText("Staging is on v2.");
+  await none();
+
+  // Open, the brief shows in the sandbox.
   await brief.getByRole("button", { name: "Show full brief" }).click();
   const iframe = brief.locator('iframe[title="The brief, brief.html v1"]');
   await expect(iframe).toHaveAttribute("sandbox", "");
@@ -316,21 +360,17 @@ test("an HTML brief shows only in the sandbox, which runs no script and makes no
   await expect(frame.locator("h1")).toHaveCSS("color", "rgb(160, 40, 40)");
   await expect(frame.locator("#state")).toHaveText("Staging is on v2.");
   await frame.locator("#away").click();
-  await page.evaluate(() => new Promise((done) => setTimeout(done, 500)));
-  expect(requests).toEqual([]);
-  expect(outside.hits).toEqual([]);
+  await none();
 
   // Editing HTML is the source in the same box, previewed in the same sandbox.
   await brief.getByRole("button", { name: "Edit" }).click();
   const text = page.getByLabel("The brief, in HTML");
   await expect(text).toHaveValue(html);
-  await text.fill(`<h1>Status</h1><p>Production on Friday.</p><img src="${out}/edit.png"><script>fetch("${out}/edit")</script>`);
+  await text.fill(`<h1>Status</h1><p>Production on Friday.</p>${hostile(out, "edit")}<script>fetch("${out}/edit")</script>`);
   await brief.getByText("Preview", { exact: true }).click();
   const preview = page.frameLocator('iframe[title="Preview of the brief"]');
   await expect(preview.getByText("Production on Friday.")).toBeVisible();
-  await page.evaluate(() => new Promise((done) => setTimeout(done, 500)));
-  expect(requests).toEqual([]);
-  expect(outside.hits).toEqual([]);
+  await none();
   await outside.close();
 });
 
