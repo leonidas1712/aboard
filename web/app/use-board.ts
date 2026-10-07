@@ -28,14 +28,14 @@ const EVENT_PAGE = 200;
 export type RecordCheck = { state: "checking" } | { state: "verified"; count: number } | { state: "failed"; problem: Problem };
 
 /** Filter narrows the timeline with the API's own filters, so paging stays correct. */
-export type Filter = { from?: string; role?: string; toMe?: boolean };
+export type Filter = { from?: string; role?: string; toMe?: boolean; task?: string };
 
 export function filterActive(f: Filter): boolean {
-  return !!(f.from || f.role || f.toMe);
+  return !!(f.from || f.role || f.toMe || f.task);
 }
 
 function filterQuery(f: Filter) {
-  return { from: f.from, role: f.role, to_me: f.toMe };
+  return { from: f.from, role: f.role, to_me: f.toMe, task: f.task };
 }
 
 export type BoardState = {

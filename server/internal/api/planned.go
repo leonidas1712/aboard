@@ -15,38 +15,6 @@ func notProvided(what string) error {
 		"Use a server whose GET /v1/info lists the feature.")
 }
 
-func (h *handlers) ListTasks(context.Context, ListTasksRequestObject) (ListTasksResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) CreateTask(context.Context, CreateTaskRequestObject) (CreateTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) GetTask(context.Context, GetTaskRequestObject) (GetTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) UpdateTask(context.Context, UpdateTaskRequestObject) (UpdateTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) StartTask(context.Context, StartTaskRequestObject) (StartTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) JoinTask(context.Context, JoinTaskRequestObject) (JoinTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) FinishTask(context.Context, FinishTaskRequestObject) (FinishTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
-func (h *handlers) DropTask(context.Context, DropTaskRequestObject) (DropTaskResponseObject, error) {
-	return nil, notProvided("tasks")
-}
-
 func (h *handlers) ListAsks(context.Context, ListAsksRequestObject) (ListAsksResponseObject, error) {
 	return nil, notProvided("asks")
 }

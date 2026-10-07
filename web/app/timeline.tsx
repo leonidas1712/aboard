@@ -4,6 +4,8 @@
 // the newest entry, holds still while you read further up, and offers a way back down.
 // Messages from one sender in a row are grouped under one header, the way chats do.
 
+import { TaskChips, TaskLinks } from "./task-ui";
+
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -551,6 +553,7 @@ function MessageEntry({
               <Kind m={m} nested={nested} />
               <ArrowRight className="mx-1 inline size-3.5 -translate-y-px text-muted" strokeWidth={1.5} aria-label="to" />
               <span>{recipients(m.to)}</span>
+              {!threaded && !nested && <span className="ml-2 inline-flex"><TaskChips tags={m.about} /></span>}
               {m.urgent && <span className="ml-2 text-meta text-muted">Urgent</span>}
               {m.expects_reply &&
                 (answer ? (
@@ -569,6 +572,7 @@ function MessageEntry({
             <Time at={m.at} now={now} />
           </div>
         )}
+        {grouped && !threaded && !nested && m.about?.length ? <div className="pt-0.5"><TaskChips tags={m.about} /></div> : null}
         {m.reply_to !== null && quoted && (
           <p className="flex items-center gap-1.5 text-meta text-muted" title={quote ?? undefined}>
             {grouped && <Reply className="size-3.5 shrink-0 text-accent" strokeWidth={1.75} aria-label="Reply" />}
@@ -655,6 +659,7 @@ function ThreadBlock({
   );
   return (
     <li className="thread pr-2.5 pb-2 pl-[54px] max-sm:pl-[42px]" data-thread={root.id}>
+      <TaskChips tags={[...(root.about ?? []), ...thread.replies.flatMap((m) => m.about ?? [])]} />
       {thread.filtered ? (
         <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
       ) : (
@@ -748,7 +753,7 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
         {s.text}
       </button>
     ) : (
-      <Fragment key={i}>{s.text}</Fragment>
+      <Fragment key={i}><TaskLinks text={s.text} tags={m.about} /></Fragment>
     ),
   );
 }

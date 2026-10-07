@@ -118,6 +118,7 @@ const (
 
 // Policy is what the server enforces on a board.
 type Policy struct {
+	Nudges     string `json:"nudges"`
 	Preset     string `json:"preset"`
 	Visibility string `json:"visibility"`
 	Broadcast  string `json:"broadcast"`
@@ -128,11 +129,10 @@ type Policy struct {
 	Overrides   []string `json:"overrides"`
 }
 
-// UnmarshalJSON reads a policy, taking a missing show_harness as true: policies stored
-// before the key existed showed harnesses.
+// UnmarshalJSON defaults missing show_harness to true and nudges to on.
 func (p *Policy) UnmarshalJSON(b []byte) error {
 	type plain Policy
-	out := plain{ShowHarness: true}
+	out := plain{ShowHarness: true, Nudges: "on"}
 	if err := json.Unmarshal(b, &out); err != nil {
 		return err
 	}
@@ -143,6 +143,7 @@ func (p *Policy) UnmarshalJSON(b []byte) error {
 // PolicyChange is a request to change a board's policy: an optional preset, then
 // optional individual keys on top of it.
 type PolicyChange struct {
+	Nudges     string `json:"nudges,omitempty" yaml:"nudges"`
 	Preset     string `json:"preset,omitempty" yaml:"preset"`
 	Visibility string `json:"visibility,omitempty" yaml:"visibility"`
 	Broadcast  string `json:"broadcast,omitempty" yaml:"broadcast"`
@@ -155,9 +156,9 @@ type PolicyChange struct {
 func Preset(name string) (Policy, error) {
 	switch name {
 	case Starter:
-		return Policy{Preset: Starter, Visibility: VisibilityOpen, Broadcast: Everyone, Urgent: Everyone, ShowHarness: true, Overrides: []string{}}, nil
+		return Policy{Preset: Starter, Visibility: VisibilityOpen, Broadcast: Everyone, Urgent: Everyone, ShowHarness: true, Nudges: "on", Overrides: []string{}}, nil
 	case Recommended:
-		return Policy{Preset: Recommended, Visibility: VisibilityAddressed, Broadcast: Granted, Urgent: Granted, ShowHarness: true, Overrides: []string{}}, nil
+		return Policy{Preset: Recommended, Visibility: VisibilityAddressed, Broadcast: Granted, Urgent: Granted, ShowHarness: true, Nudges: "on", Overrides: []string{}}, nil
 	}
 	return Policy{}, fmt.Errorf("unknown preset %q; allowed: starter, recommended", name)
 }
@@ -176,6 +177,9 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 	}
 	if c.Preset == "" {
 		out.Visibility, out.Broadcast, out.Urgent, out.ShowHarness = p.Visibility, p.Broadcast, p.Urgent, p.ShowHarness
+		if p.Nudges != "" {
+			out.Nudges = p.Nudges
+		}
 	}
 	if c.ShowHarness != nil {
 		out.ShowHarness = *c.ShowHarness
@@ -199,12 +203,16 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 	if err := set("urgent", c.Urgent, []string{Everyone, Granted}, &out.Urgent); err != nil {
 		return Policy{}, err
 	}
+	if err := set("nudges", c.Nudges, []string{"on", "off"}, &out.Nudges); err != nil {
+		return Policy{}, err
+	}
 	preset, _ := Preset(out.Preset)
 	out.Overrides = []string{}
 	for _, k := range []struct{ key, got, want string }{
 		{"visibility", out.Visibility, preset.Visibility},
 		{"broadcast", out.Broadcast, preset.Broadcast},
 		{"urgent", out.Urgent, preset.Urgent},
+		{"nudges", out.Nudges, preset.Nudges},
 	} {
 		if k.got != k.want {
 			out.Overrides = append(out.Overrides, k.key)

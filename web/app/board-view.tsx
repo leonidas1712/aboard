@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
+import { TaskBoard, TaskContext, TaskDetail, WorkTasks, useTasks } from "./task-ui";
 import { Composer } from "./composer";
 import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
@@ -33,6 +34,10 @@ const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
 export default function BoardView({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
+  const [view, setView] = useState<"conversation" | "tasks">("conversation");
+  const [taskPanel, setTaskPanel] = useState<string | null>(null);
+  const taskState = useTasks(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
+  const tasks = taskState.list?.tasks ?? [];
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
   const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {
     width: leftPanel.initial,
@@ -44,6 +49,10 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   });
   const left = clampSize(leftPref, leftPanel);
   const right = clampSize(rightPref, rightPanel);
+  const openTask = useCallback((ref: string) => {
+    setTaskPanel(ref);
+    setRight({ ...rightPref, collapsed: false });
+  }, [rightPref, setRight]);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [stick, setStick] = useState(0);
   const [postError, setPostError] = useState<unknown>(null);
@@ -200,7 +209,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const presented = useRef(new Set<number>());
   const onSeen = useCallback(
     (seq: number) => {
-      if (filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
+      if ((view === "tasks" && tasks.length > 0) || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
       presented.current.add(seq);
       const from = s.readFrom;
       const unread = (s.messages ?? []).filter((m) => m.seq > from);
@@ -212,7 +221,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       }
       if (through > s.readFrom) ack(through);
     },
-    [filter, ack, s.messages, s.readFrom, s.firstUnread],
+    [view, tasks.length, filter, ack, s.messages, s.readFrom, s.firstUnread],
   );
   const receiptsAt = useMemo(() => ({ board: name, activity: s.activity }), [name, s.activity]);
 
@@ -274,6 +283,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // show opens the board panel, if hidden, at one of its sections.
   const show = useCallback(
     (section: string) => {
+      setTaskPanel(null);
       if (right.collapsed) setRight({ ...right, collapsed: false });
       setReveal((r) => ({ section, n: (r?.n ?? 0) + 1 }));
     },
@@ -361,6 +371,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
 
   return (
+    <TaskContext tasks={tasks} open={openTask}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header
@@ -412,6 +423,13 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 </div>
               )}
             </div>
+            {tasks.length > 0 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
+              {(["conversation", "tasks"] as const).map((v) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={view === v} tabIndex={view === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? "conversation" : e.key === "End" ? "tasks" : v === "conversation" ? "tasks" : "conversation"; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", view === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink")}>{v === "conversation" ? "Conversation" : `Tasks ${tasks.length}`}</button>)}
+            </div>}
+            {taskState.list?.more && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
+            {taskState.error !== null && <div className={column}><Problem error={taskState.error} /></div>}
+            <div id="view-conversation" role={tasks.length > 0 ? "tabpanel" : undefined} aria-labelledby={tasks.length > 0 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", view === "conversation" || tasks.length === 0 ? "flex" : "hidden")}>
+            {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-accent hover:underline">Show everything</button></p>}
             {loading ? (
               <div className={cn(column, "min-h-0 flex-1")}>
                 <Loading />
@@ -466,17 +484,21 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 />
               )}
             </div>
+            </div>
+            {view === "tasks" && tasks.length > 0 && <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col"><TaskBoard tasks={tasks} open={openTask} /></div>}
           </main>
 
           <SidePanel
             side="right"
-            title={s.board ? boardLabel(s.board) : name}
+            title={tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name}
             label="board panel"
             size={right}
             setSize={setRight}
             limits={rightPanel}
             className="order-2 lg:order-none"
           >
+            {taskPanel ? <TaskDetail board={name} reference={taskPanel} activity={s.activity} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} /> : <>
+            <WorkTasks tasks={tasks} open={openTask} />
             <BoardPanel
               board={s.board}
               members={s.members}
@@ -489,10 +511,12 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               reveal={reveal}
               onLifecycle={s.refresh}
             />
+            </>}
           </SidePanel>
         </div>
       </div>
     </TooltipProvider>
+    </TaskContext>
   );
 }
 

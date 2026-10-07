@@ -219,6 +219,9 @@ func (s *Service) endSeat(tx Tx, b *Board, agent Member, by string, actor events
 	if err != nil {
 		return RemovedAgent{}, err
 	}
+	if err := s.dropSeatTasks(tx, b, agent.ID, actor, now); err != nil {
+		return RemovedAgent{}, err
+	}
 	if err := tx.RemoveAgent(agent.ID, stamp(now), by); err != nil {
 		return RemovedAgent{}, err
 	}

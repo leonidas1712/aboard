@@ -226,3 +226,38 @@ func TestCanManage(t *testing.T) {
 		}
 	}
 }
+
+func TestNudgesPolicyDefaultsAndChanges(t *testing.T) {
+	var legacy Policy
+	if e := json.Unmarshal([]byte(`{"preset":"starter","visibility":"open","broadcast":"everyone","urgent":"everyone"}`), &legacy); e != nil {
+		t.Fatal(e)
+	}
+	if legacy.Nudges != "on" {
+		t.Fatalf("legacy=%+v", legacy)
+	}
+	off, e := legacy.Apply(PolicyChange{Nudges: "off"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if off.Nudges != "off" || !slices.Contains(off.Overrides, "nudges") {
+		t.Fatalf("off=%+v", off)
+	}
+	hidden := false
+	kept, e := off.Apply(PolicyChange{ShowHarness: &hidden})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if kept.Nudges != "off" {
+		t.Fatal("unrelated change reset nudges")
+	}
+	on, e := off.Apply(PolicyChange{Preset: Recommended})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if on.Nudges != "on" || slices.Contains(on.Overrides, "nudges") {
+		t.Fatalf("preset=%+v", on)
+	}
+	if _, e = off.Apply(PolicyChange{Nudges: "sometimes"}); e == nil {
+		t.Fatal("invalid policy accepted")
+	}
+}
