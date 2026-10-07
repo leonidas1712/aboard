@@ -643,13 +643,17 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .built { padding-top: 16px; border-top: 1px solid var(--line); font-size: clamp(1.1rem, 1rem + 0.5vw, 1.35rem); font-weight: 500; letter-spacing: -0.02em; line-height: 1.45; }
 .built span { display: block; margin-top: 10px; font-size: 15px; font-weight: 400; letter-spacing: 0; color: var(--muted); }
 
-.verify { margin-top: 64px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
-@media (min-width: 860px) { .verify { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 24px 26px; } }
-.verify h3 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
-.verify p { margin-top: 4px; color: var(--muted); font-size: 15px; max-width: 46em; }
-.verify-out { grid-column: 1 / -1; font-family: var(--mono); font-size: 12.5px; padding: 12px 14px; border-radius: 10px; background: var(--term); color: var(--term-ink); min-height: 44px; display: flex; align-items: center; overflow-x: auto; white-space: nowrap; }
-.verify-out::before { content: "$ "; color: var(--term-muted); white-space: pre; }
-.verify-out:empty::after { content: "aboard audit verify   # this page"; color: var(--term-muted); }
+.verify { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); display: grid; gap: 10px; justify-items: start; }
+.verify p { font-size: 14px; color: var(--muted); }
+.verify-btn {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-control); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 13.5px; font-weight: 500; cursor: pointer;
+  transition: border-color 140ms var(--ease);
+}
+.verify-btn:hover { border-color: var(--ink); }
+.verify-out { justify-self: stretch; font-family: var(--mono); font-size: 12px; padding: 9px 12px; border-radius: 8px; background: var(--term); color: var(--term-ink); overflow-x: auto; white-space: nowrap; }
+.verify-out:empty { display: none; }
 .verify-out[data-state="ok"]::before { content: "✓ "; color: var(--accent); }
 .verify-out[data-state="broken"]::before { content: "✗ "; color: var(--accent); }
 
