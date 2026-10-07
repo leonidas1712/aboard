@@ -51,6 +51,11 @@ info:
     say, per recipient, whether it has reached them. Positions are bookkeeping, never
     events.
 
+    **Client version.** The CLI sends `User-Agent: aboard/<version>` on API requests.
+    This optional metadata tells the server the caller's build version; it grants no
+    authority and never changes whether a request is accepted. The server's build
+    version is reported by `GET /v1/info`.
+
     **Auth.** Every request except `GET /v1/info`, `POST /v1/browser-sessions`,
     `POST /v1/login-codes/preview`, `POST /v1/browser-tokens`, `POST /v1/connect`,
     `POST /v1/guest-join`, `POST /v1/machine-requests` and
