@@ -160,3 +160,19 @@ test("only the server-authorized reader gets answer controls", async ({ page }) 
   await expect(page.getByRole("button", { name: /^Answer with option/ })).toHaveCount(0);
   expect((await currentAsk(ask.id)).state).toBe("open");
 });
+
+test("Worth a look derives an old blocker from the real task and ask", async ({ page }) => {
+  const board = "asks-worth-a-look";
+  await openBoard(page, board);
+  const invite = await api(ownerToken(), "POST", "/v1/invites", {});
+  await api("", "POST", "/v1/connect", { invite: invite.invite, handle: "jacob", key_name: "web-fixture" });
+  await api(ownerToken(), "POST", `/v1/boards/${board}/people`, { handle: "jacob" });
+  const task = await api(seatToken(board), "POST", `/v1/boards/${board}/tasks`, { title: "A decision waiting on Jacob", start: true });
+  await api(seatToken(board), "POST", `/v1/boards/${board}/messages`, { body: "Jacob should pick the release", to: ["@jacob"], ask: { options: ["Ship", "Hold"] } });
+  await page.clock.setFixedTime(new Date(Date.now() + 3 * 3_600_000 + 60_000));
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  const notice = page.getByRole("list", { name: "Worth a look", exact: true }).getByRole("link", { name: new RegExp(`${task.ref} blocked on jacob for 3h`) });
+  await expect(notice).toBeVisible();
+  await notice.click();
+  await expect(page.getByRole("heading", { name: "A decision waiting on Jacob", exact: true })).toBeVisible();
+});
