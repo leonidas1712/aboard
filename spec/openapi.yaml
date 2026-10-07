@@ -3320,6 +3320,7 @@ paths:
       operationId: putFile
       summary: Add a file, or a new version of one
       description: |
+        Idempotency binds the query parameters as well as the unchanged upload bytes.
         Streams the request body as the bytes of a new version of the file at `name` (a
         path such as `notes/api.md`), stored unchanged and named by their SHA-256. The
         write is conditional on `base`, the version it replaces. Without `base` (or with
