@@ -23,7 +23,7 @@ export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
+.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean
 
 ## check: format check, lint, vet, generated code, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check harness-table-check docs-check test e2e extension-test vuln
@@ -208,9 +208,21 @@ dev:
 		-o $(BIN)/aboard ./server/cmd/aboard; \
 	echo "Built $(BIN)/aboard $(DEV_VERSION)$${tags:+ with the web UI}"
 
-## sandbox: open a shell to test this checkout by hand, isolated from your own setup (NAME=<name>)
-sandbox: dev
+# The web UI is rebuilt when a source file is newer than the last build, so a sandbox
+# always embeds the current UI. A first build installs the packages (make web).
+WEB_SOURCES = $(shell find web/app web/components web/lib web/public web/package.json web/package-lock.json web/next.config.mjs -type f 2>/dev/null)
+
+web/out/.built: $(WEB_SOURCES)
+	@if [ -d web/node_modules ]; then cd web && $(WEB_ENV) npm run build; else $(MAKE) --no-print-directory web; fi
+	@touch $@
+
+## sandbox: open a shell to test this checkout by hand, isolated from your own setup (NAME=<name>); on an existing sandbox, opens another shell in it
+sandbox: web/out/.built dev
 	@scripts/sandbox open "$(NAME)"
+
+## sandbox-update: rebuild, then restart a sandbox's server and daemon on the new build, keeping its data (NAME=<name>)
+sandbox-update: web/out/.built dev
+	@scripts/sandbox update "$(NAME)"
 
 ## sandbox-clean: stop a sandbox's server and daemon and remove it (NAME=<name>)
 sandbox-clean:
