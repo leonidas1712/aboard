@@ -96,6 +96,7 @@
               "cli/servers",
               "cli/people",
               "cli/logout",
+              "cli/task",
               "cli/say",
               "cli/inbox",
               "cli/read",

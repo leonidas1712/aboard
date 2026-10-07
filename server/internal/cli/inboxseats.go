@@ -27,14 +27,16 @@ type inboxSeatsOutput struct {
 
 // inboxSeat is one seat's part of the inbox.
 type inboxSeat struct {
-	Server    string       `json:"server"`
-	Board     string       `json:"board"`
-	Agent     string       `json:"agent"`
-	MemberID  string       `json:"member_id"`
-	Messages  []cliMessage `json:"messages"`
-	AckedUpTo *int         `json:"acked_up_to"`
-	More      bool         `json:"more"`
-	Wrapped   []string     `json:"wrapped"`
+	Server    string               `json:"server"`
+	Board     string               `json:"board"`
+	Agent     string               `json:"agent"`
+	MemberID  string               `json:"member_id"`
+	Messages  []cliMessage         `json:"messages"`
+	AckedUpTo *int                 `json:"acked_up_to"`
+	More      bool                 `json:"more"`
+	Wrapped   []string             `json:"wrapped"`
+	Work      *api.AgentWork       `json:"work,omitempty"`
+	Nudges    []deliverytext.Nudge `json:"nudges"`
 
 	msgs []api.Message
 	// reader and read are the seat's client and every message its read returned,
@@ -109,6 +111,8 @@ func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds c
 		if in.MemberId != nil {
 			seat.MemberID = *in.MemberId
 		}
+		seat.Work = in.Work
+		seat.Nudges = a.taskNudges(ctx, r.c, r.ref, in, "inbox", true)
 		var tms []deliverytext.Message
 		for _, m := range msgs {
 			seat.Wrapped = append(seat.Wrapped, deliveryText(m))
@@ -198,9 +202,10 @@ func inboxSeatsText(out inboxSeatsOutput) string {
 		}
 		if len(s.msgs) == 0 {
 			fmt.Fprintf(&b, "%s · no new messages\n", s.Board)
+			b.WriteString(nudgesText(s.Nudges))
 			continue
 		}
-		fmt.Fprintf(&b, "%s · %d new\n%s\n", s.Board, len(s.msgs), strings.Join(s.Wrapped, "\n\n"))
+		fmt.Fprintf(&b, "%s · %d new\n%s%s\n", s.Board, len(s.msgs), nudgesText(s.Nudges), strings.Join(s.Wrapped, "\n\n"))
 	}
 	if out.Unavailable > 0 {
 		fmt.Fprintf(&b, "%s couldn't be read; aboard status says which.\n", counted(out.Unavailable, "seat"))

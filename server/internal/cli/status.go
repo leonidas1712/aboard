@@ -72,8 +72,10 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Subagent            *subagentOf `json:"subagent"`
 		// Seats and SeatsUsage are set only in a session with several seats, with
 		// neither --board nor --as; one seat or none leaves them out.
-		Seats      []seatRow `json:"seats,omitempty"`
-		SeatsUsage []string  `json:"seats_usage,omitempty"`
+		Work       *api.AgentWork       `json:"work,omitempty"`
+		Nudges     []deliverytext.Nudge `json:"nudges,omitempty"`
+		Seats      []seatRow            `json:"seats,omitempty"`
+		SeatsUsage []string             `json:"seats_usage,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -237,6 +239,16 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(subLine)
 	text.WriteString(boardLines.String())
+	if known && out.Agent != nil {
+		if c, err := a.client(ctx, t.server, cred.Token, requestTimeout); err == nil {
+			in := c.taskInbox(ctx)
+			if in != nil {
+				out.Work = in.Work
+			}
+			out.Nudges = a.taskNudges(ctx, c, delivery.AgentRef{Server: t.server.URL, Board: t.board, MemberID: cred.MemberID}, in, "status", *boardFlag != "")
+			text.WriteString(nudgesText(out.Nudges))
+		}
+	}
 	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil
 }
