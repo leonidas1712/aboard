@@ -7,7 +7,7 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { type Board, type Member, follow, get, isArchived } from "./api";
+import { type Board, type Member, addedBy, follow, get, isArchived } from "./api";
 import { ArchivedGroup } from "./sidebars";
 import { Account } from "./account";
 import { Header, Problem, VisibilityLabel } from "./chrome";
@@ -203,6 +203,7 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
         <span className="md:hidden">{count(b.message_count ?? 0, "message", "messages")}</span>
         <span className="max-md:hidden">{b.message_count ?? 0}</span>
         {(b.unread ?? 0) > 0 && <span className="unread ml-2 font-bold text-ink">{b.unread} unread</span>}
+        {b.added && <span className="added ml-2 text-muted">new, added by {addedBy(b.added)}</span>}
       </td>
       <td className={cell}>
         {sep}

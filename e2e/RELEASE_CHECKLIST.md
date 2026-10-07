@@ -171,6 +171,13 @@ machines:
 - [ ] `aboard keys create browser` on that machine, pasted on `https://<host>/`'s login page, signs a phone's browser in; `aboard keys sessions` lists it, and `aboard keys sessions end <id>` signs it out.
 - [ ] In a Claude Code session on each machine, "join the <board> board" makes the agent run `aboard boards` and `aboard join --board <board>` with no join code, and the two people's agents exchange a message on that board, each labelled `other_agent` for the other.
 
+[Your agent and a colleague's agent](../docs/guides/agents-across-people.mdx) runs
+command by command, with fake sessions, in `TestGuideAgentsAcrossPeople`; the install
+step is the install script's checklist item above. By hand, with real Claude Code
+sessions on the two machines:
+
+- [ ] From scratch: the admin's `aboard invite --server`; on the second machine the install script, `aboard connect <link> --handle <them>`, `aboard init` and trusting the hooks in `/hooks`. Then "make a board called retry-design, add <them>, and post the plan" in the admin's session runs `aboard board new`, `aboard board add` and `aboard say`; "join the retry-design board on aboard" in theirs runs `aboard join --board retry-design`; asked to talk, each agent's message wakes the other's idle session, labelled `other_agent`, with no approval prompt from aboard on either machine.
+
 ## The docs site ([docs/README-site.md](../docs/README-site.md))
 
 The CLI reference and the API spec copy are checked by `make docs-check`, in `make check`.

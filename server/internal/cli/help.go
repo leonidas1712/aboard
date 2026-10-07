@@ -587,7 +587,7 @@ func helpText(templates string) []commandHelp {
 				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
 				"title may be set by an agent for its owner, when the owner is an admin of the board: with --as or ABOARD_AGENT, or inside an agent's session, it acts as that agent, on its board, and the record names the agent. " +
 				"Elsewhere it uses your own login.\n\n" +
-				"people lists the people on the board, each an owner or a member. " +
+				"people lists the people on the board, each an owner or a member, with their agents on it underneath (name, harness, presence), so you can find another person's agent and address it. " +
 				"add puts a person on this server onto the board as a member, by handle. An agent may add a standing teammate when the server, board and its role allow it; it uses its own token. On an open board a person may add themselves, as @me, to join it. " +
 				"agents-add-people on or off changes the board gate, as a person who owns the board. Enabling it on a private board asks first, since people added by agents can read the whole history and files. " +
 				"remove takes a person and their agents off the board, and owner makes someone an owner; both are for the board's owners. " +

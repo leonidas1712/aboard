@@ -100,6 +100,9 @@ type ReadTx interface {
 	JoinCodeByDigest(digest string) (JoinCode, error)
 	// JoinCodeByID finds a join code by id.
 	JoinCodeByID(id string) (JoinCode, error)
+	// PersonAdded finds the latest person.added event for a person's member on a board,
+	// with its seq, time and actor.
+	PersonAdded(boardID, memberID string) (events.Event, error)
 	// Events returns up to limit of a board's events after seq, oldest first.
 	Events(boardID string, after int64, limit int) ([]events.Event, error)
 	// Timeline returns up to q.Limit of the board's messages that reader may see and that
