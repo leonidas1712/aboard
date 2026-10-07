@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
+	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
 func TestTaskClaimReselectAndSeatEnd(t *testing.T) {
@@ -241,5 +242,41 @@ func TestTaskHelpersAndTextAuthority(t *testing.T) {
 	}
 	if _, e = w.svc.JoinTask(ctx, w.samAgent, w.board, a.Ref); e == nil {
 		t.Fatal("closed task accepted helper")
+	}
+}
+
+func TestTaskWorkReadsFreshSelectionAndPolicy(t *testing.T) {
+	w := newTeamWorld(t)
+	ctx := context.Background()
+	a, e := w.svc.CreateTask(ctx, w.samAgent, w.board, board.NewTask{Title: "selected", Start: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := w.svc.CreateTask(ctx, w.maya, w.board, board.NewTask{Title: "available"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	work, e := w.svc.TaskWork(ctx, w.samAgent)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if work.CurrentTask == nil || work.CurrentTask.ID != a.ID || !work.CurrentTask.Owner || work.OpenTasks != 1 || work.OldestOpen.ID != b.ID || !work.Nudges {
+		t.Fatalf("work=%+v", work)
+	}
+	if _, e = w.svc.UpdateBoard(ctx, w.maya, w.board, board.Change{Policy: &rules.PolicyChange{Nudges: "off"}}); e != nil {
+		t.Fatal(e)
+	}
+	work, e = w.svc.TaskWork(ctx, w.samAgent)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if work.Nudges || work.CurrentTask == nil {
+		t.Fatalf("policy hid state: %+v", work)
+	}
+	if _, e = w.svc.RemoveAgent(ctx, w.maya, w.board, w.samAgent.Agent.Name); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = w.svc.TaskWork(ctx, w.samAgent); e == nil {
+		t.Fatal("removed seat read task work")
 	}
 }

@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"errors"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 	"net"
 	"time"
 )
@@ -84,6 +85,12 @@ type Server interface {
 	// SetPresence reports what the agent's session is doing, and the agent's delivery
 	// mode, so senders can tell when a message will reach it.
 	SetPresence(ctx context.Context, agent AgentRef, p Presence, mode Mode) error
+}
+
+// TaskWorkServer reads task context with the seat's inbox; older servers omit it.
+// It never acknowledges messages or changes task state.
+type TaskWorkServer interface {
+	TaskWork(ctx context.Context, agent AgentRef) (*deliverytext.TaskWork, error)
 }
 
 // Journal records sessions, bindings and every delivery durably. It never stores

@@ -122,40 +122,74 @@ func statusError(what string, status int, body []byte) error {
 	return fmt.Errorf("%s: %s", what, detail)
 }
 
-// Inbox returns the agent's unread messages, oldest first, its read position and its
-// delivery mode as the server holds it; mode is nil from a server that doesn't hold
-// delivery modes.
-func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, mode *delivery.HeldMode, err error) {
+func (s *Server) inbox(ctx context.Context, agent delivery.AgentRef) (*api.Inbox, error) {
 	token, err := s.tokens.AgentToken(agent)
 	if err != nil {
-		return nil, 0, nil, err
+		return nil, err
 	}
 	c, err := s.client(token)
 	if err != nil {
-		return nil, 0, nil, err
+		return nil, err
 	}
 	limit := inboxPage
 	r, err := c.GetInboxWithResponse(ctx, &api.GetInboxParams{Limit: &limit})
 	if err != nil {
-		return nil, 0, nil, fmt.Errorf("read inbox of %s on %s: %w", agent.Name, agent.Board, err)
+		return nil, fmt.Errorf("read inbox of %s on %s: %w", agent.Name, agent.Board, err)
 	}
 	if r.JSON200 == nil {
-		return nil, 0, nil, statusError("read inbox of "+agent.Name+" on "+agent.Board, r.StatusCode(), r.Body)
+		return nil, statusError("read inbox of "+agent.Name+" on "+agent.Board, r.StatusCode(), r.Body)
 	}
 	if r.JSON200.Board != agent.Board || (agent.MemberID != "" && r.JSON200.MemberId != nil && *r.JSON200.MemberId != agent.MemberID) {
-		return nil, 0, nil, fmt.Errorf("%w: inbox response identifies a different seat", delivery.ErrUnauthorized)
+		return nil, fmt.Errorf("%w: inbox response identifies a different seat", delivery.ErrUnauthorized)
 	}
-	msgs = make([]delivery.Message, 0, len(r.JSON200.Messages))
-	for _, m := range r.JSON200.Messages {
+	return r.JSON200, nil
+}
+
+// Inbox returns the agent's unread messages, oldest first, its read position and its
+// delivery mode as the server holds it; mode is nil from a server that doesn't hold
+// delivery modes.
+func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []delivery.Message, cursor int, mode *delivery.HeldMode, err error) {
+	in, err := s.inbox(ctx, agent)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	msgs = make([]delivery.Message, 0, len(in.Messages))
+	for _, m := range in.Messages {
 		msgs = append(msgs, TextMessage(m))
 	}
-	if in := r.JSON200; in.DeliveryMode != nil {
+	if in.DeliveryMode != nil {
 		mode = &delivery.HeldMode{Mode: delivery.Mode(*in.DeliveryMode)}
 		if in.DeliveryRevision != nil {
 			mode.Revision = int64(*in.DeliveryRevision)
 		}
 	}
-	return msgs, r.JSON200.Cursor, mode, nil
+	return msgs, in.Cursor, mode, nil
+}
+
+// TaskWork reads only the task facts returned by the seat's inbox.
+func (s *Server) TaskWork(ctx context.Context, agent delivery.AgentRef) (*deliverytext.TaskWork, error) {
+	in, err := s.inbox(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
+	if in.Work == nil {
+		return nil, nil
+	}
+	w := in.Work
+	out := &deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges}
+	if w.OldestOpen != nil {
+		out.OldestOpen = &deliverytext.TaskRef{ID: w.OldestOpen.Id, Ref: w.OldestOpen.Ref, Title: w.OldestOpen.Title}
+	}
+	if t := w.CurrentTask; t != nil {
+		out.CurrentTask = &deliverytext.TaskContext{TaskRef: deliverytext.TaskRef{ID: t.Id, Ref: t.Ref, Title: t.Title}, Owner: t.Owner}
+		if t.Stands != nil {
+			out.CurrentTask.Stands = &deliverytext.TaskStands{Text: t.Stands.Text, At: t.Stands.At, Version: t.Stands.Version}
+			if t.Stands.MessagesSince != nil {
+				out.CurrentTask.Stands.MessagesSince = *t.Stands.MessagesSince
+			}
+		}
+	}
+	return out, nil
 }
 
 // Ack moves the agent's read position up to upTo.
@@ -324,6 +358,11 @@ func TextMessage(m api.Message) deliverytext.Message {
 	}
 	if m.ReplyToFrom != nil {
 		t.ReplyToFrom = *m.ReplyToFrom
+	}
+	if m.About != nil {
+		for _, tag := range *m.About {
+			t.About = append(t.About, tag.Ref)
+		}
 	}
 	for _, to := range m.To {
 		t.To = append(t.To, string(to))
