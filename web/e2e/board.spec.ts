@@ -2106,6 +2106,10 @@ test("People shows shared boards and terminal-only server administration", async
   await api(key, "POST", "/v1/join", { board: b.name, role: "member" });
   const unshared = await api(key, "POST", "/v1/boards", { template: "general", title: "Not a shared room" });
   await api(key, "POST", "/v1/join", { board: unshared.name, role: "member" });
+  const hidden = await api(key, "POST", "/v1/boards", { template: "general", title: "Private admin must not discover", visibility: "private" });
+  const hiddenSeat = await api(key, "POST", "/v1/join", { board: hidden.name, role: "member" });
+  const boardReads: string[] = [];
+  page.on("request", (r) => { if (r.url().includes("/v1/boards/")) boardReads.push(r.url()); });
   await openLink(page, JSON.parse(aboard("open", "--json")).url);
   await page.getByRole("button", { name: /^You are alex/ }).click();
   await page.getByRole("menuitem", { name: "People", exact: true }).click();
@@ -2115,6 +2119,10 @@ test("People shows shared boards and terminal-only server administration", async
   await expect(row).toContainText("People shared room");
   await expect(row.getByRole("cell").nth(2)).toHaveText("Agents on shared boards: 1");
   await expect(row).not.toContainText("Not a shared room");
+  await expect(page.locator("body")).not.toContainText(String(hidden.title));
+  await expect(page.locator("body")).not.toContainText(String(hidden.name));
+  await expect(page.locator("body")).not.toContainText((hiddenSeat.agent as { name: string }).name);
+  expect(boardReads.some((url) => url.includes(`/v1/boards/${hidden.name}/`))).toBe(false);
   await expect(page.getByRole("columnheader", { name: "Agents on shared boards" })).toBeVisible();
   await expect(page.getByText("Last active", { exact: true })).toHaveCount(0);
   let writes = 0;
