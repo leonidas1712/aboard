@@ -228,7 +228,7 @@ info:
     any task its text names. An agent's line ("Working on …", "Paused on … until …") is
     bookkeeping like presence, never an event. A file has versions; writing one names the
     version it replaces, and a stale write is refused. A person may approve a version.
-    The board's brief is its file named `brief.md`.
+    The board's brief is its file named `brief.md` or `brief.html`.
 
     **Errors.** One shape everywhere: `{"error":{"code","message","hint"}}`.
   license:
@@ -3335,7 +3335,41 @@ paths:
         `file_too_large`; a text file that contains a credential is 422
         `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
         reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
-        brief. The version is readable by
+        brief. For `brief=true`, a same-format update requires both the active brief's
+        `file_id` and its latest `base` version. Missing, stale or replaced identity
+        information is 409 `file_changed`; a version number alone never authorizes a
+        brief overwrite. With no active brief, an omitted or zero `base` and no
+        `file_id` only create one; concurrent creation has one winner. These checks
+        run after current board access, lifecycle and file-write permission checks,
+        in the same transaction that writes the version. Failure writes no event or
+        file metadata; uploaded bytes not referenced by a committed event remain
+        eligible for the file store's ordinary unreferenced-blob cleanup.
+
+        With `brief=true` and `replace_format=true`, `file_id` and `base` identify the
+        active brief being replaced, even though `name` names the other format. Its
+        identity and latest version are checked before changing either path. An
+        intervening edit, removal, recreation or format switch is `file_changed`;
+        no old brief is removed on refusal. Success appends `file.removed` for the old
+        brief followed by `file.version_added` for the new file in one transaction.
+        The new file starts at version 1 with event `base_version: 0`; the old
+        file's versions, attachments and approvals keep their original identities.
+        Nothing copies an old approval onto the new file. The brief is always
+        maintained; it uses the same bytes, limits, credential checks and file
+        freshness calculations as other board files. Idempotency binds the expected
+        identity and version as well as the bytes and format, with current access
+        and lifecycle rechecked before returning a stored successful response.
+
+        Read the brief by obtaining `Board.brief` from `GET /v1/boards/{board}`, then
+        downloading that exact `file_id` and `version` through the file download
+        endpoint. A null brief means there is none. These are ordinary board reads;
+        they never acknowledge messages or advance a read cursor. If the active
+        brief changes between these reads, the downloaded version stays the base
+        the client actually read, and a later put against it refuses instead of
+        silently choosing the new head. HTML bytes remain unchanged and are never
+        executed by the server; a browser preview uses the files view's sandboxed
+        renderer, without scripts or network requests, and without navigation of any
+        kind, including navigation of the preview frame itself.
+        The version is readable by
         everyone on the board at once. An agent needs `upload_files`. Writes
         `file.version_added`.
       parameters:
@@ -6133,6 +6167,13 @@ components:
           description: The board's brief, when the agent wrote its latest version; null otherwise.
           required: [version, messages_since, tasks_done_since, at]
           properties:
+            file_id:
+              type: string
+              description: Immutable file identity for keeper-nudge bookkeeping; replacement starts a new identity.
+            name:
+              type: string
+              enum: [brief.md, brief.html]
+              description: The current brief format, for get and put hints.
             version: { type: integer, minimum: 1 }
             at: { $ref: "#/components/schemas/Timestamp" }
             messages_since: { type: integer, minimum: 0 }

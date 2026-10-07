@@ -3638,7 +3638,8 @@ $defs:
       that version and immutable file id, so a changed, removed or replaced file fails with file_changed instead
       of being overwritten. With --json and standard output (-), it returns this metadata
       instead of raw bytes. What is remembered is kept in files.json in the state folder,
-      per seat or person, board, file and absolute path; --base N overrides it. get
+      per issuer server, immutable board id, seat or person id, immutable file id
+      and absolute path; --base N overrides the version, never the remembered identity. get
       replaces an existing local file only when it holds what the CLI last wrote or put
       there; otherwise it refuses and names --force. Text output:
         Wrote notes/api.md v5 (2.1 kB) from checkout-v2 to ./api.md. Put it back with: aboard file put api.md
@@ -3675,7 +3676,9 @@ $defs:
       The board's brief (its file brief.md or brief.html; a board has one) with its
       freshness, then its text (HTML is printed as its source). With no brief,
       file_not_found, whose hint says how to write one
-      (aboard brief put <a .md or .html file>). Text output starts:
+      (aboard brief put <a .md or .html file>). Uses the selected board's brief file id
+      and version, then the ordinary authenticated file download. It does not mark
+      messages read. HTML is source text here, never executed. Text output starts:
         checkout-v2 · brief.md v6 by claude-2 · 2 h ago · since then 41 messages, 3 tasks done, 1 answer
     type: object
     required: [board, brief, text]
@@ -3693,13 +3696,26 @@ $defs:
       or HTML; pass a .md or .html file." It names the version aboard brief get wrote to
       that path as the one it replaces (or --base N); with no brief yet it creates one,
       and with a brief but no version remembered for the path it fails with file_changed
-      naming the latest version and aboard brief get. People and agents use the same
+      naming the latest version and aboard brief get. Every update also sends the
+      remembered immutable file id; --base alone cannot authorize a blind overwrite.
+      The first put, with no existing brief, only creates; concurrent first puts have
+      one winner. An existing brief changed, removed or replaced since get refuses
+      with file_changed and keeps the local edits intact. Writing to stdout with get
+      does not remember a local edit base. Agent commands use only their seat's
+      credential and selected board; a person's login is never a fallback.
+      People and agents use the same
       commands; there is no editor command (people can also use the board view's Edit).
       aboard file put to brief.md or brief.html is refused (brief_path_reserved). Writing the
       other format while one exists fails with brief_exists (exit 1), whose hint names
       --replace-format, aboard file rm and aboard file mv; with --replace-format the old
       file is taken off the board and the new one added in one transaction, its history
-      staying in the record. Text output:
+      staying in the record. The remembered file id and version identify the old
+      format, not the new destination. Get the old brief to a local path with the
+      desired extension, edit it, then put that same path with --replace-format;
+      for example, get /tmp/status.html while the board has brief.md, then put
+      /tmp/status.html --replace-format. A concurrent old-format edit or format switch
+      refuses without removing either file. The replacement is a new file at v1,
+      with no approval inherited from the old one. Text output:
         Put the brief of checkout-v2 as brief.md v7 (replaces v6).
         Put the brief of checkout-v2 as brief.html v1, replacing brief.md (its 7 versions stay in the record).
     type: object
