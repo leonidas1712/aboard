@@ -70,7 +70,7 @@ the board.
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done (#94, #112, #115): stopped state and bindings use immutable seat ids | D187, D190 |
 | Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | done (#128): expiry checked in the read transaction; expired answers replaced on reuse and purged at server startup and hourly. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
-| People page with shared-board agent counts and terminal admin handoffs; owner-only board visibility confirmation | in review (#177) | existing APIs; global person activity/counts remain a later contract item |
+| People page with shared-board agent counts and terminal admin handoffs; owner-only board visibility confirmation | done (#177) | existing APIs; global person activity/counts remain a later contract item |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
 | An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers; one session on several boards | done (#108, #112, #115): separate seats, combined delivery, independent acknowledgements, board-qualified replies, aggregate inbox and status, and `board_ambiguous`; code, e2e and the full affected native suite pass | D172, D196, D197 |
@@ -199,6 +199,7 @@ the board.
 | MCP server: `aboard mcp` over stdio, and the remote endpoint on team servers | later | D67, D109 |
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
 | `aboard swarm up`, `ps`, `down` from the board file's `agents` section | done (#61) | D61, D105, D178 |
+| Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | in review (issue #175) | test-only fixture ordering; product resume rules unchanged |
 | Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | done (#61, #64, #70) | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |
