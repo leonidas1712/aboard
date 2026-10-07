@@ -28,11 +28,11 @@ func (s *session) taskStartNote(ctx context.Context, note string) string {
 		if e != nil || work == nil {
 			continue
 		}
-		context := s.textContext(ref)
+		textContext := s.textContext(ref)
 		if len(refs) > 1 {
-			context.BoardQualified = true
+			textContext.BoardQualified = true
 		}
-		text := deliverytext.ReorientTask(*work, s.now(), ref.Board, context)
+		text := deliverytext.ReorientTask(*work, s.now(), ref.Board, textContext)
 		if text == "" {
 			continue
 		}
