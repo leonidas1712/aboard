@@ -131,6 +131,7 @@ export function displayName(m: MemberRef, showOwner: boolean): string {
 export function recipient(t: string): string {
   if (t === "all") return "everyone";
   if (t.startsWith("@")) return t.slice(1);
+  if (t.startsWith("owner:")) return `${t.slice(6)}’s agents`;
   if (t.startsWith("role:")) return `role ${t.slice(5)}`;
   return t;
 }

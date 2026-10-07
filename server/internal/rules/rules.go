@@ -256,18 +256,21 @@ func CanManage(person, agent Member) bool {
 
 // Target kinds in a message's `to` list.
 const (
-	TargetAll  = "all"
-	TargetName = "name"
-	TargetRole = "role"
+	TargetAll   = "all"
+	TargetName  = "name"
+	TargetRole  = "role"
+	TargetOwner = "owner"
 )
 
-// ParseTarget splits "all", "@name" or "role:R" into its kind and value.
+// ParseTarget splits all, @name, role:R or owner:handle into its kind and value.
 func ParseTarget(t string) (kind, value string, ok bool) {
 	switch {
 	case t == "all":
 		return TargetAll, "", true
 	case strings.HasPrefix(t, "@") && len(t) > 1:
 		return TargetName, t[1:], true
+	case strings.HasPrefix(t, "owner:") && len(t) > 6:
+		return TargetOwner, t[6:], true
 	case strings.HasPrefix(t, "role:") && len(t) > 5:
 		return TargetRole, t[5:], true
 	}
@@ -290,9 +293,18 @@ func AddressedTo(to []string, m Member) bool {
 
 // CanRead reports whether reader may read a message from senderID to `to` on a board
 // with policy p. Humans read everything; under addressed visibility, agents read only
-// what they sent or what was addressed to them.
-func CanRead(p Policy, to []string, senderID string, reader Member) bool {
-	return p.Visibility == VisibilityOpen || reader.IsHuman() || reader.ID == senderID || AddressedTo(to, reader)
+// what they sent or what was addressed to them. Owner targets use recorded IDs.
+func CanRead(p Policy, to []string, senderID string, reader Member, recorded ...[]string) bool {
+	ownerRecipient := false
+	if len(recorded) > 0 && slices.Contains(recorded[0], reader.ID) {
+		for _, target := range to {
+			if strings.HasPrefix(target, "owner:") {
+				ownerRecipient = true
+				break
+			}
+		}
+	}
+	return ownerRecipient || p.Visibility == VisibilityOpen || reader.IsHuman() || reader.ID == senderID || AddressedTo(to, reader)
 }
 
 // Refusal says which permission a post lacks.

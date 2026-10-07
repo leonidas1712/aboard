@@ -39,7 +39,7 @@ func resolveTaskTags(tx ReadTx, b Board, me Member, in NewMessage) ([]TaskTag, e
 		if err != nil {
 			return nil, err
 		}
-		if !readsAll(b, me) && !rules.CanRead(b.Policy, orig.To, orig.SenderID, me.Rules()) {
+		if !readsAll(b, me) && !rules.CanRead(b.Policy, orig.To, orig.SenderID, me.Rules(), orig.Recipients) {
 			break
 		}
 		for _, tag := range orig.About {

@@ -1199,7 +1199,12 @@ func (p *pane) keys(keys ...string) {
 // a paste.
 func (p *pane) typeInto(text string) {
 	p.l.t.Helper()
-	p.tmuxRun("send-keys", "-t", p.target(), "-l", text)
+	input := text
+	if p.harness == "codex" {
+		// Pasting keeps @handles literal instead of accepting Codex's autocomplete.
+		input = "\x1b[200~" + text + "\x1b[201~"
+	}
+	p.tmuxRun("send-keys", "-t", p.target(), "-l", input)
 	prefix := text
 	if len(prefix) > 30 {
 		prefix = prefix[:30]

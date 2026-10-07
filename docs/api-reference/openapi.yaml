@@ -2223,7 +2223,13 @@ paths:
       operationId: postMessage
       summary: Post a message
       description: |
-        Posting to `@name` or `role:R` needs `post`. Posting to `all` needs the
+        Posting to `@name`, `role:R` or `owner:handle` needs `post`.
+        An owner target names a person currently on this board and resolves in the post
+        transaction to their active agent seats, excluding the sender. `to` keeps the
+        owner target; recorded recipient member IDs fix its addressed visibility, inbox
+        and receipts. Later agent seats are not retroactively addressed. An owner with
+        no active agents is a valid empty target. Guests may use owner targets only
+        within their own board, under the same post and visibility rules. Posting to `all` needs the
         `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
         post. Secrets in `body` are redacted before the event is written. Returns as soon
         as the message is stored; delivery happens separately.
@@ -3785,8 +3791,8 @@ components:
       example: reviewer
     Target:
       type: string
-      pattern: "^(all|@[a-z0-9][a-z0-9-]{0,39}|role:[a-z][a-z0-9-]{0,31})$"
-      description: "`all`, `@name`, or `role:R`. New kinds may be added; clients must not reject unknown ones."
+      pattern: "^(all|@[a-z0-9][a-z0-9-]{0,39}|role:[a-z][a-z0-9-]{0,31}|owner:[a-z0-9]+(-[a-z0-9]+)*)$"
+      description: "`all`, `@name`, `role:R`, or `owner:handle`. New kinds may be added; clients must not reject unknown ones."
       example: "@reviewer"
     BoardTitle:
       type: string
@@ -6509,7 +6515,8 @@ components:
                     The member ids (`mem_…`, a member's `id` on this board; not handles,
                     person ids or tokens) the message was addressed to when it was posted:
                     each member named in `to` with `@name`, and each member who held a
-                    `role:R` target's role then, without the sender. Only `to` decides
+                    `role:R` target's role then, and the active agent seats of an
+                    `owner:handle` target's person then, without the sender. Only `to` decides
                     them: someone only mentioned in the body is not a recipient. Absent
                     for a message to `all`, and from events written before recipients
                     were recorded.

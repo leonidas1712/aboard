@@ -586,7 +586,7 @@ is `focused`. There is no default per board or per machine.
 in `focused` mode, when any of these holds:
 
 - a person sent it (the agent's owner or anyone else);
-- it is addressed to the agent by name or to its role: its `to` isn't `all` (an inbox
+- it is addressed to the agent by name, to its role, or by a recorded owner target: its `to` isn't `all` (an inbox
   holds only messages addressed to the agent, its role or everyone, and messages that
   mention it with `wakes` true);
 - it mentions the agent (`@name` or `@role:R` in the text) and that mention has `wakes`
@@ -1452,3 +1452,7 @@ names the test for each, and keeps the rest as steps checked by hand:
 
 Automated tests cover the rest with a fake harness: an adapter that records bundles and
 can be told to fail, be busy, or crash between steps.
+
+Owner targets use the member IDs recorded when posted. Each addressed agent wakes
+under its current delivery mode. A message from its own person keeps the existing
+owner treatment at the next tool boundary; an owner target grants no extra authority.

@@ -2223,6 +2223,28 @@ test("visibility ignores a preview for the previous access state", async ({ page
   await held.fulfill({ json: { board: b.name, before: "private", after: "open", changed: true, dry_run: true, reveals: { messages: 0, files: 0 }, join_codes_canceled: 0 } });
   await expect(page.getByRole("button", { name: "Make open", exact: true })).toBeEnabled();
 });
+
+test("My agents records an owner target and receipts for its current seats", async ({ page }) => {
+  const b = await newBoard("Owner target room");
+  const key = ownerKey();
+  const one = await api(key, "POST", "/v1/join", { board: b.name, role: "member", name: "owner-one" });
+  const two = await api(key, "POST", "/v1/join", { board: b.name, role: "member", name: "owner-two" });
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.goto(`${base()}/?board=${b.name}`);
+  await page.getByRole("button", { name: "Recipients: everyone. Change", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: "My agents", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.getByLabel("Message alex’s agents", { exact: true }).fill("To both my seats");
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.locator("main")).toContainText("alex’s agents");
+  const messages = await api(key, "GET", `/v1/boards/${b.name}/messages`);
+  const posted = (messages.messages as { to: string[]; seq: number; body: string }[]).find((m) => m.body === "To both my seats");
+  expect(posted?.to).toEqual(["owner:alex"]);
+  const receipt = await api(key, "GET", `/v1/boards/${b.name}/messages/${posted?.seq}/receipts`);
+  const recipients = receipt.recipients as { member: { name: string } }[];
+  expect(recipients.map((r) => r.member.name).sort()).toEqual([(one.agent as {name: string}).name, (two.agent as {name: string}).name].sort());
+});
+
 });
 
 test.describe("person rename", () => {

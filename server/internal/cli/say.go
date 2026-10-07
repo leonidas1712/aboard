@@ -87,11 +87,33 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 	if err != nil || r.JSON200 == nil {
 		return nil
 	}
+	var ownerRecipients []string
+	otherTargets := []api.Target{}
+	hasOwner := false
+	for _, target := range m.To {
+		if strings.HasPrefix(target, "owner:") {
+			hasOwner = true
+		} else {
+			otherTargets = append(otherTargets, target)
+		}
+	}
+	if hasOwner {
+		recorded, err := c.api.GetReceiptsWithResponse(ctx, m.Board, m.Seq)
+		if err != nil || recorded.JSON200 == nil {
+			return nil
+		}
+		for _, receipt := range recorded.JSON200.Recipients {
+			ownerRecipients = append(ownerRecipients, receipt.Member.Name)
+		}
+	}
 	out := []recipientNote{}
 	text := textMessage(*m)
 	for _, mem := range r.JSON200.Members {
 		mention := mentionOf(m, mem.Name)
 		addressed := addressedTo(m.To, mem)
+		if hasOwner && !slices.Contains(ownerRecipients, mem.Name) && (len(otherTargets) == 0 || !addressedTo(otherTargets, mem)) {
+			addressed = false
+		}
 		if mem.Name == m.From.Name || (!addressed && mention == nil) {
 			continue
 		}
@@ -139,6 +161,8 @@ func addressedTo(to []api.Target, mem api.Member) bool {
 	for _, t := range to {
 		switch {
 		case t == "all", t == "@"+mem.Name:
+			return true
+		case mem.Kind == api.MemberKindAgent && mem.Owner != nil && t == "owner:"+*mem.Owner:
 			return true
 		case mem.Role != nil && t == "role:"+*mem.Role:
 			return true

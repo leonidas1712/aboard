@@ -177,7 +177,10 @@ withheld from a reader who may not see the message it is on, as the message's ow
 `recipients` in `message.posted` records whom a message was addressed to at the moment
 it was posted, as member ids (`mem_…`, a member's `id`; never handles or person ids):
 each member `to` names with `@name`, and each member who held the role of a `role:R`
-target then, never the sender. Only `to` decides them: a member only mentioned in the
+target then, and every active agent owned by the board person named by an
+`owner:handle` target then, never the sender. `to` keeps `owner:handle`; the
+recorded member IDs fix its addressing as well as receipts, so later-joining agents
+are not included. Only `to` decides them: a member only mentioned in the
 body is not a recipient and has no receipt. It fixes the message's receipts,
 so someone who takes the role later never becomes a recipient. A message to `all` has
 no `recipients`, and neither do events written before they were recorded; for those a
