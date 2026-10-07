@@ -1,0 +1,115 @@
+/* Colour schemes beyond light and dark, for the UI lab. Each is a full set of the
+   DESIGN.md tokens on the same variable names, so every component follows. A theme
+   applies as data-theme on <html>, chosen from the account menu or the lab panel;
+   "Same as this computer" keeps following the system light or dark.
+   lab/contrast.mjs checks each one against WCAG AA. */
+
+/* Ember: a warm dark, for late evenings. */
+:root[data-theme="ember"] {
+  color-scheme: dark;
+  --background: #16110e;
+  --surface: #211a16;
+  --ink: #f1e7dc;
+  --muted: #bcab9c;
+  --rule: #3b302a;
+  --field-border: #7a6858;
+  --selected: #31261f;
+  --sidebar: #110d0b;
+  --accent: #7fc1cf;
+  --link: #a6d6e1;
+  --attention: #4a3812;
+  --on-ink: #16110e;
+  --id-1-bg: #563432;
+  --id-1-fg: #fdd0cc;
+  --id-2-bg: #553a29;
+  --id-2-fg: #fad6bf;
+  --id-3-bg: #3f4326;
+  --id-3-fg: #dde3bb;
+  --id-4-bg: #2e4632;
+  --id-4-fg: #c6e8cb;
+  --id-5-bg: #214641;
+  --id-5-fg: #b7e8e0;
+  --id-6-bg: #3b3d57;
+  --id-6-fg: #d6daff;
+  --id-7-bg: #473951;
+  --id-7-fg: #e9d5f8;
+  --id-8-bg: #513546;
+  --id-8-fg: #f8d0e5;
+}
+
+/* Tide: a deep sea-green dark, the distinctive one. */
+:root[data-theme="tide"] {
+  color-scheme: dark;
+  --background: #08191a;
+  --surface: #0e2526;
+  --ink: #e0f1ed;
+  --muted: #9cbfb8;
+  --rule: #1f3e3c;
+  --field-border: #4d7a73;
+  --selected: #163432;
+  --sidebar: #051213;
+  --accent: #6fd6c4;
+  --link: #95e4d6;
+  --attention: #43391a;
+  --on-ink: #08191a;
+  --id-1-bg: #4f3536;
+  --id-1-fg: #fdcdcc;
+  --id-2-bg: #4d3829;
+  --id-2-fg: #fad1bb;
+  --id-3-bg: #3a4126;
+  --id-3-fg: #d9e0b7;
+  --id-4-bg: #284633;
+  --id-4-fg: #c2e6c8;
+  --id-5-bg: #1a4a45;
+  --id-5-fg: #b3e7df;
+  --id-6-bg: #343c57;
+  --id-6-fg: #d3d8ff;
+  --id-7-bg: #413850;
+  --id-7-fg: #e6d1f7;
+  --id-8-bg: #4b3445;
+  --id-8-fg: #f7cde3;
+}
+
+/* High contrast: a dark with the strongest text, edges and focus, for low vision or
+   bright rooms. Muted text stays above 7:1; rules and edges above 3:1. */
+:root[data-theme="contrast"] {
+  color-scheme: dark;
+  --background: #05080a;
+  --surface: #0c1216;
+  --ink: #f6fafc;
+  --muted: #d3dde3;
+  --rule: #6f8290;
+  --field-border: #b2c2cc;
+  --selected: #223240;
+  --sidebar: #020405;
+  --accent: #7fcbff;
+  --link: #a9ddff;
+  --attention: #5c4500;
+  --on-ink: #05080a;
+  --id-1-bg: #6a2b2b;
+  --id-1-fg: #ffe3e1;
+  --id-2-bg: #6a3a1c;
+  --id-2-fg: #ffe5d4;
+  --id-3-bg: #4b5214;
+  --id-3-fg: #f0f5d2;
+  --id-4-bg: #1f5a30;
+  --id-4-fg: #dcf7e1;
+  --id-5-bg: #035c53;
+  --id-5-fg: #d6fbf5;
+  --id-6-bg: #3c4290;
+  --id-6-fg: #e6e9ff;
+  --id-7-bg: #5e3c7a;
+  --id-7-fg: #f3e6ff;
+  --id-8-bg: #74325a;
+  --id-8-fg: #ffe1f0;
+}
+
+/* Every scheme here is dark, so it takes the dark depth (D217). */
+:root[data-theme="ember"],
+:root[data-theme="tide"],
+:root[data-theme="contrast"] {
+  --shade: #03080b;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
+    0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
+}

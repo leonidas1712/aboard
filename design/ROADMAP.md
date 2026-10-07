@@ -127,7 +127,7 @@ the board.
 | --- | --- | --- |
 | The board features, designed in [board-features.md](board-features.md) with their contracts; built in five slices below | review (design PR) | D206–D213 |
 | Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | done, #170 | D206, D207, D210 |
-| Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | review, #180 | D208, D210 |
+| Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | done, #180 | D208, D210 |
 | Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
 | Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | later | D211, D212 |
 | Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | later | D213 |
@@ -233,6 +233,7 @@ engineering/release.md.
 | Dependabot pull requests for Go modules, npm and GitHub Actions | next | |
 | Every `--json` output in tests validated against its schema in `spec/cli.yaml` | next | D147 |
 | Accessibility checks (axe) in the Playwright test, in both themes | next | |
+| The UI lab (`make lab`, web/lab): the real board view against an in-memory fake of the API, with scenarios over time steps, to try features before their contract; never in the embedded UI (`make web-lab-check`). Mocks (round 3, after the designer mockup): the Inbox of asks across boards, the board with its brief and a Conversation | Tasks switch, one side panel for Work, a task or a file, task ids, asks with buttons, back-by times (web/lab/DIRECTION.md) | in review | |
 | A cleanup pass every few weeks: dead code, near-duplicate helpers, weak tests | next, repeating | D144 |
 
 ## After launch

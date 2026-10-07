@@ -3,6 +3,7 @@
 // Who you are, at the right of the top bar: your mark and name, opening a menu with
 // who you are on this board, which server this is, and this browser's settings.
 
+import { lab } from "aboard-lab";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -20,14 +21,15 @@ import { usePref } from "./prefs";
 import { SenderMark } from "./timeline";
 import { personIdentity } from "./words";
 
-export type Theme = "system" | "light" | "dark";
+/** Theme is "system", "light", "dark", or a scheme the UI lab offers (lab-seam.ts). */
+export type Theme = "system" | "light" | "dark" | (string & {});
 
 /** useTheme is the theme this browser chose, applied to the page. */
 export function useTheme(): [Theme, (t: Theme) => void] {
   const [theme, setTheme] = usePref<Theme>("aboard.theme", "system");
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === "light" || theme === "dark") root.dataset.theme = theme;
+    if (theme !== "system") root.dataset.theme = theme;
     else delete root.dataset.theme;
   }, [theme]);
   return [theme, setTheme];
@@ -96,6 +98,11 @@ export function Account({ admin, onSignOut, person }: Props) {
           <DropdownMenuRadioItem value="system">Same as this computer</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+          {lab?.themes?.map((t) => (
+            <DropdownMenuRadioItem key={t.id} value={t.id}>
+              {t.label}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
