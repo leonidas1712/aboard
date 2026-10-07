@@ -46,6 +46,10 @@ func (t *tx) InsertMessage(m board.Message) error {
 	if err != nil {
 		return fmt.Errorf("encode task tags: %w", err)
 	}
+	files, err := json.Marshal(m.Files)
+	if err != nil {
+		return err
+	}
 	ask, err := json.Marshal(m.Ask)
 	if err != nil {
 		return err
@@ -54,8 +58,8 @@ func (t *tx) InsertMessage(m board.Message) error {
 	if err != nil {
 		return err
 	}
-	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json, recipients_json, mentions_json, about_json, ask_json, answer_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red), recipients, string(men), string(about), string(ask), string(answer)); err != nil {
+	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json, recipients_json, mentions_json, about_json, ask_json, answer_json, files_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red), recipients, string(men), string(about), string(ask), string(answer), string(files)); err != nil {
 		return err
 	}
 	return t.exec("UPDATE boards SET message_count = message_count + 1, last_message_at = ? WHERE id = ?", m.At, m.BoardID)
@@ -64,7 +68,7 @@ func (t *tx) InsertMessage(m board.Message) error {
 const messageSelect = `SELECT m.id, m.board_id, m.seq, m.at, m.sender_id, m.to_json, m.body, m.reply_to,
 	m.urgent, m.expects_reply, m.redactions_json, m.mentions_json, s.name, s.kind, s.role, s.owner, s.human_id, s.harness, r.seq,
 	m.thread_root, tr.seq, rs.name, m.recipients_json,
-	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent'), m.about_json, m.ask_json, m.answer_json
+	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent'), m.about_json, m.ask_json, m.answer_json, m.files_json
 	FROM messages m JOIN members s ON s.id = m.sender_id LEFT JOIN messages r ON r.id = m.reply_to
 	LEFT JOIN members rs ON rs.id = r.sender_id LEFT JOIN messages tr ON tr.id = m.thread_root`
 
@@ -87,11 +91,14 @@ func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 	var out []board.Message
 	for rows.Next() {
 		var m board.Message
-		var to, red, men, about, ask, answer string
+		var to, red, men, about, ask, answer, files string
 		var recipients *string
 		if err := rows.Scan(&m.ID, &m.BoardID, &m.Seq, &m.At, &m.SenderID, &to, &m.Body, &m.ReplyTo,
 			&m.Urgent, &m.ExpectsReply, &red, &men, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq,
-			&m.ThreadRoot, &m.ThreadRootSeq, &m.ReplyToFrom, &recipients, &m.AgentOwners, &about, &ask, &answer); err != nil {
+			&m.ThreadRoot, &m.ThreadRootSeq, &m.ReplyToFrom, &recipients, &m.AgentOwners, &about, &ask, &answer, &files); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(files), &m.Files); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(ask), &m.Ask); err != nil {

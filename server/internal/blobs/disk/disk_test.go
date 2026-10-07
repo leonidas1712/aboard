@@ -81,3 +81,25 @@ func TestDiskRefusesUnsafeExistingDirectories(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenExistingDoesNotCreateDirectories(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "missing")
+	if s, err := disk.OpenExisting(root); err == nil {
+		_ = s.Close()
+		t.Fatal("missing root accepted")
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("inspection created root: %v", err)
+	}
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s, err := disk.OpenExisting(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	if _, err := os.Stat(filepath.Join(root, "tmp")); !os.IsNotExist(err) {
+		t.Fatalf("inspection created tmp: %v", err)
+	}
+}

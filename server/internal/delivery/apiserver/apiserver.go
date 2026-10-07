@@ -382,6 +382,11 @@ func TextMessage(m api.Message) deliverytext.Message {
 			t.About = append(t.About, tag.Ref)
 		}
 	}
+	if m.Files != nil {
+		for _, file := range *m.Files {
+			t.Files = append(t.Files, deliverytext.File{ID: file.Id, Name: file.Name, Version: file.Version})
+		}
+	}
 	for _, to := range m.To {
 		t.To = append(t.To, string(to))
 	}

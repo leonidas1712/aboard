@@ -39,6 +39,8 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	use := usageOf("say")
 	fs := a.flags("say")
 	var to listFlag
+	var attach listFlag
+	fs.Var(&attach, "attach", "a local file to put on the board and attach")
 	fs.Var(&to, "to", "who to address: all, @name, role:R, owner:handle or mine (person only); comma-separated or repeated")
 	task := fs.String("task", "", "the task this message is about")
 	noTask := fs.Bool("no-task", false, "do not inherit a task from your current task or the thread")
@@ -157,6 +159,17 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
+	}
+	if len(attach) > 0 {
+		files := []api.FileVersionSelector{}
+		for _, local := range attach {
+			item, err := a.uploadLocalFile(ctx, t, c, local, api.PutFileParams{})
+			if err != nil {
+				return err
+			}
+			files = append(files, api.FileVersionSelector{File: item.Id, Version: &item.Latest.Version})
+		}
+		req.Files = &files
 	}
 	if *option != 0 {
 		if err := c.requireAsks(ctx); err != nil {
