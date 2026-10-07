@@ -33,7 +33,8 @@ type Principal struct {
 	Human *Human
 	Agent *Member
 	// Delegation is a machine's delegation, which acts for its person only to list their
-	// boards (ListBoards) and to give a session a seat (JoinSession); everything else
+	// boards (ListBoards), give a session a seat (Join), and create a board with its
+	// session seat (CreateDelegatedBoard); everything else
 	// refuses it.
 	Delegation *Delegation
 	// Browser is set for a browser token, which acts as its human with the human's
@@ -138,6 +139,12 @@ func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error)
 	}
 	if err != nil {
 		return Human{}, nil, err
+	}
+	if p.Agent != nil {
+		// A removed seat's token is refused on every path, saying so.
+		if err := endedSeat(tx, *p.Agent); err != nil {
+			return Human{}, nil, err
+		}
 	}
 	end, err := keyState(tx, p, now)
 	return person, end, err
@@ -479,6 +486,11 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 				return err
 			}
 			return inviteInvalid()
+		}
+		if _, err := tx.ReservedHandle(in.Handle); err == nil {
+			return HandleTaken(in.Handle)
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
 		}
 		if _, err := tx.HumanByName(in.Handle); err == nil {
 			return apierr.New(http.StatusConflict, "handle_taken",

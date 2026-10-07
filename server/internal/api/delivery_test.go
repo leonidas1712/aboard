@@ -25,7 +25,7 @@ func (s *testServer) setDelivery(token, boardName, agent, mode string) *api.SetD
 // memberNamed returns a board's member as the holder of token lists it.
 func (s *testServer) memberNamed(token, boardName, name string) api.Member {
 	s.t.Helper()
-	r, err := s.client(token).ListMembersWithResponse(context.Background(), boardName)
+	r, err := s.client(token).ListMembersWithResponse(context.Background(), boardName, nil)
 	mustStatus(s.t, r, err, 200)
 	for _, m := range r.JSON200.Members {
 		if m.Name == name {

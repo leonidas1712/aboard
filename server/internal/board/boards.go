@@ -18,6 +18,7 @@ import (
 
 // View is a board with the member who created it, as one caller sees it.
 type View struct {
+	AsksToMe                          *AskCounts
 	CanArchive, CanRestore, CanDelete bool
 	Board                             Board
 	Creator                           Member
@@ -33,6 +34,9 @@ type View struct {
 	// are on the board, and, where its person is on it, how many working agents.
 	PeopleCount *int
 	AgentCount  *int
+	// Added is, for a person on the board, the person.added that someone else put them
+	// on it with, while it is still new to them (addedBy); nil otherwise.
+	Added *events.Event
 }
 
 // ShowsCounts reports whether p may see how many messages the board holds: people read
@@ -59,19 +63,44 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	if err := requireHuman(p); err != nil {
 		return View{}, err
 	}
-	title, err := cleanTitle(in.Title)
+	prepared, err := prepareBoard(in)
 	if err != nil {
 		return View{}, err
+	}
+	var view View
+	err = s.writeAs(ctx, p, func(tx Tx) error {
+		person, err := caller(tx, p, stamp(s.clk.Now()))
+		if err != nil {
+			return err
+		}
+		if err := mayCreateBoards(tx, person); err != nil {
+			return err
+		}
+		view, err = s.createBoard(tx, person, in, prepared, s.clk.Now(), nil)
+		return err
+	})
+	if err != nil {
+		return View{}, err
+	}
+	s.notify.Changed(view.Board.ID)
+	s.notify.Changed(boardsOfKey(p.Human.ID))
+	return view, nil
+}
+
+func prepareBoard(in NewBoard) (Board, error) {
+	title, err := cleanTitle(in.Title)
+	if err != nil {
+		return Board{}, err
 	}
 	var tf boardfile.File
 	if in.Template != "" {
 		tf, err = boardfile.Template(in.Template)
 		if errors.Is(err, boardfile.ErrNoTemplate) {
-			return View{}, apierr.New(http.StatusUnprocessableEntity, "template_not_found", err.Error(),
+			return Board{}, apierr.New(http.StatusUnprocessableEntity, "template_not_found", err.Error(),
 				"Use one of the templates listed in this message.")
 		}
 		if err != nil {
-			return View{}, err
+			return Board{}, err
 		}
 	}
 	charter := tf.Charter
@@ -95,98 +124,91 @@ func (s *Service) CreateBoard(ctx context.Context, p Principal, in NewBoard) (Vi
 	starter, _ := rules.Preset(rules.Starter)
 	policy, err := starter.Apply(change)
 	if err != nil {
-		return View{}, invalid(err.Error(), "Use the starter or recommended preset.")
+		return Board{}, invalid(err.Error(), "Use the starter or recommended preset.")
 	}
 	visibility := in.Visibility
 	if visibility == "" {
 		visibility = BoardOpen
 	}
 	if visibility != BoardOpen && visibility != BoardPrivate {
-		return View{}, invalid(fmt.Sprintf("%q is not a board visibility.", visibility), "Use open or private.")
+		return Board{}, invalid(fmt.Sprintf("%q is not a board visibility.", visibility), "Use open or private.")
 	}
 
-	var view View
-	err = s.writeAs(ctx, p, func(tx Tx) error {
-		if err := mayCreateBoards(tx, p); err != nil {
-			return err
+	return Board{Title: title, Charter: charter, Roles: roles, Policy: policy, Visibility: visibility, AgentsAddPeople: visibility == BoardOpen}, nil
+}
+
+func (s *Service) createBoard(tx Tx, person Human, in NewBoard, prepared Board, now time.Time, extra map[string]any) (View, error) {
+	name := in.Name
+	if name != "" {
+		taken, err := tx.BoardNameTaken(name)
+		if err != nil {
+			return View{}, err
 		}
-		name := in.Name
-		if name != "" {
-			taken, err := tx.BoardNameTaken(name)
+		if taken {
+			return View{}, apierr.New(http.StatusConflict, "board_name_taken", fmt.Sprintf("A board named %q already exists.", name),
+				"Choose another name, or leave the name out to get a free one.")
+		}
+	} else {
+		base := in.Template
+		if base == "" {
+			base = "board"
+		}
+		var lookupErr error
+		name = rules.AllocateName(base, func(n string) bool {
+			taken, err := tx.BoardNameTaken(n)
 			if err != nil {
-				return err
+				lookupErr = err
 			}
-			if taken {
-				return apierr.New(http.StatusConflict, "board_name_taken", fmt.Sprintf("A board named %q already exists.", name),
-					"Choose another name, or leave the name out to get a free one.")
-			}
-		} else {
-			base := in.Template
-			if base == "" {
-				base = "board"
-			}
-			var lookupErr error
-			name = rules.AllocateName(base, func(n string) bool {
-				taken, err := tx.BoardNameTaken(n)
-				if err != nil {
-					lookupErr = err
-				}
-				return taken
-			})
-			if lookupErr != nil {
-				return lookupErr
-			}
+			return taken
+		})
+		if lookupErr != nil {
+			return View{}, lookupErr
 		}
-		now := s.clk.Now()
-		boardID, err := s.gen.ID("brd", now)
-		if err != nil {
-			return err
-		}
-		memberID, err := s.gen.ID("mem", now)
-		if err != nil {
-			return err
-		}
-		var template *string
-		if in.Template != "" {
-			template = ptr(in.Template)
-		}
-		b := Board{
-			ID: boardID, Name: name, Title: title, Template: template, Charter: charter, Roles: roles, Policy: policy,
-			HeadHash: events.GenesisHash, CreatedAt: stamp(now), CreatedBy: memberID, Visibility: visibility,
-		}
-		if err := tx.InsertBoard(b); err != nil {
-			return fmt.Errorf("insert board: %w", err)
-		}
-		creator := Member{
-			ID: memberID, BoardID: boardID, Name: p.Human.Name, Kind: "human", HumanID: p.Human.ID,
-			Access: rules.AccessAdmin, Status: "active", JoinedAt: stamp(now),
-		}
-		created := map[string]any{
-			"board_id": b.ID, "name": b.Name, "template": b.Template, "charter": b.Charter, "roles": b.Roles, "policy": b.Policy,
-		}
-		if title != nil {
-			created["title"] = *title
-		}
-		// An open board's event is unchanged from before boards had a visibility.
-		if visibility == BoardPrivate {
-			created["visibility"] = visibility
-		}
-		if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, created); err != nil {
-			return err
-		}
-		if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now, nil); err != nil {
-			return err
-		}
-		b.Lifecycle = LifecycleActive
-		view = View{Board: b, Creator: creator, OnBoard: true, CanArchive: true}
-		return nil
-	})
+	}
+	boardID, err := s.gen.ID("brd", now)
 	if err != nil {
 		return View{}, err
 	}
-	s.notify.Changed(view.Board.ID)
-	s.notify.Changed(boardsOfKey(p.Human.ID))
-	return view, nil
+	memberID, err := s.gen.ID("mem", now)
+	if err != nil {
+		return View{}, err
+	}
+	var template *string
+	if in.Template != "" {
+		template = ptr(in.Template)
+	}
+	b := Board{
+		ID: boardID, Name: name, Title: prepared.Title, Template: template, Charter: prepared.Charter, Roles: prepared.Roles, Policy: prepared.Policy,
+		HeadHash: events.GenesisHash, CreatedAt: stamp(now), CreatedBy: memberID, Visibility: prepared.Visibility, AgentsAddPeople: prepared.AgentsAddPeople,
+	}
+	if err := tx.InsertBoard(b); err != nil {
+		return View{}, fmt.Errorf("insert board: %w", err)
+	}
+	creator := Member{
+		ID: memberID, BoardID: boardID, Name: person.Name, Kind: "human", HumanID: person.ID,
+		Access: rules.AccessAdmin, Status: "active", JoinedAt: stamp(now),
+	}
+	created := map[string]any{
+		"board_id": b.ID, "name": b.Name, "template": b.Template, "charter": b.Charter, "roles": b.Roles, "policy": b.Policy, "agents_add_people": b.AgentsAddPeople,
+	}
+	if prepared.Title != nil {
+		created["title"] = *prepared.Title
+	}
+	// Absence of visibility in older events means the board was open.
+	if prepared.Visibility == BoardPrivate {
+		created["visibility"] = prepared.Visibility
+	}
+	for key, value := range extra {
+		created[key] = value
+	}
+	if _, err := s.append(tx, &b, events.BoardCreated, actorOf(creator), now, created); err != nil {
+		return View{}, err
+	}
+	if err := s.addMember(tx, &b, creator, actorOf(creator), nil, now, nil); err != nil {
+		return View{}, err
+	}
+	b.Lifecycle = LifecycleActive
+	return View{Board: b, Creator: creator, OnBoard: true, CanArchive: true}, nil
 }
 
 // addMember stores a member and appends its member.joined event.
@@ -306,11 +328,16 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 					return err
 				}
 				v.Position = &pos
-				needs, err := tx.CountNeedsReply(m)
+				if err := s.attentionOf(tx, b, m, &v); err != nil {
+					return err
+				}
+				members, err := tx.Members(b.ID)
 				if err != nil {
 					return err
 				}
-				v.NeedsReply = &needs
+				if v.Added, err = addedBy(tx, b, m, members); err != nil {
+					return err
+				}
 			}
 			out.Boards = append(out.Boards, v)
 		}
@@ -355,11 +382,7 @@ func hiddenOf(tx ReadTx, b Board) (HiddenBoard, error) {
 
 // mayCreateBoards refuses a guest, and anyone but an admin when the server lets only its
 // admins create boards, reading both inside the transaction that creates the board.
-func mayCreateBoards(tx ReadTx, p Principal) error {
-	me, err := tx.HumanByID(p.Human.ID)
-	if err != nil {
-		return err
-	}
+func mayCreateBoards(tx ReadTx, me Human) error {
 	if me.Role == ServerGuest {
 		return guestNotAllowed("create boards")
 	}
@@ -411,11 +434,9 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 			}
 			v.Position = &pos
 			if me.Kind == "human" {
-				needs, err := tx.CountNeedsReply(me)
-				if err != nil {
+				if err := s.attentionOf(tx, b, me, &v); err != nil {
 					return err
 				}
-				v.NeedsReply = &needs
 			}
 		}
 		return nil
@@ -425,9 +446,28 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 
 // Members lists a board's members, each agent with its current presence.
 func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Member, error) {
-	var out []Member
+	l, err := s.ListMembers(ctx, p, name, false)
+	return l.Members, err
+}
+
+// MemberList is a board's members as one caller reads them: CanRemove says, by member
+// id, which agents the caller may remove now.
+type MemberList struct {
+	Members   []Member
+	CanRemove map[string]bool
+}
+
+// ListMembers returns the people and agents on the board now, each agent with its
+// current presence, and with removed also the agents whose seats ended. For a person,
+// it says which agents they may remove.
+func (s *Service) ListMembers(ctx context.Context, p Principal, name string, removed bool) (MemberList, error) {
+	out := MemberList{CanRemove: map[string]bool{}}
 	err := s.st.Read(ctx, func(tx ReadTx) error {
-		b, _, err := s.access(tx, p, name)
+		b, me, err := s.access(tx, p, name)
+		if err != nil {
+			return err
+		}
+		person, err := caller(tx, p, stamp(s.clk.Now()))
 		if err != nil {
 			return err
 		}
@@ -435,14 +475,26 @@ func (s *Service) Members(ctx context.Context, p Principal, name string) ([]Memb
 		if err != nil {
 			return err
 		}
-		out = present(all)
+		out.Members = present(all)
 		now := s.clk.Now()
-		for i := range out {
-			out[i].Presence = out[i].CurrentPresence(now)
+		for i, m := range out.Members {
+			out.Members[i].Presence = m.CurrentPresence(now)
+			if m.Kind == "agent" && p.Human != nil {
+				_, err := removerOf(tx, b, me, person, m)
+				out.CanRemove[m.ID] = err == nil
+			}
+		}
+		if removed {
+			for _, m := range all {
+				if m.Kind == "agent" && m.Status != StatusActive {
+					m.Presence = Presence{}
+					out.Members = append(out.Members, m)
+				}
+			}
 		}
 		if p.Agent != nil && !b.Policy.ShowHarness {
-			for i := range out {
-				out[i].Harness = nil
+			for i := range out.Members {
+				out.Members[i].Harness = nil
 			}
 		}
 		return nil
@@ -469,22 +521,28 @@ func cleanTitle(title string) (*string, error) {
 	return &title, nil
 }
 
-// Change is what an admin changes on a board. Nil fields stay as they are.
+// Change is what a board owner changes. Nil fields stay as they are.
 type Change struct {
+	TaskPrefix      *string
+	AgentsAddPeople *bool
 	// Title is the new title; an empty string removes it.
 	Title  *string
 	Policy *rules.PolicyChange
 }
 
-// UpdateBoard changes a board's title, policy or both. Only the board's admins may.
+// UpdateBoard changes a board's title, task prefix, policy or teammate-add gate. Only its owners
+// change the gate; an archived board still permits disabling it.
 // Each change appends its own event; a title that doesn't change appends nothing.
 func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, change Change) (View, error) {
-	// An agent may change only the title, acting for its owner; the policy, like
+	// An agent may change the title or task prefix for its owner; the policy, like
 	// membership and roles, stays with people.
-	if change.Policy != nil || change.Title == nil {
+	if change.Policy != nil || change.AgentsAddPeople != nil || change.Title == nil && change.TaskPrefix == nil {
 		if err := requireHuman(p); err != nil {
 			return View{}, err
 		}
+	}
+	if change.TaskPrefix != nil && !taskPrefixPattern.MatchString(*change.TaskPrefix) {
+		return View{}, invalid("A task prefix is 2 to 6 capital letters and digits, starting with a letter.", "Use a prefix such as CHK.")
 	}
 	var title *string
 	if change.Title != nil {
@@ -499,8 +557,11 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		if err != nil {
 			return err
 		}
-		if err := requireActive(b); err != nil {
-			return err
+		gateOnlyOff := change.AgentsAddPeople != nil && !*change.AgentsAddPeople && change.Title == nil && change.Policy == nil && change.TaskPrefix == nil
+		if !gateOnlyOff {
+			if err := requireActive(b); err != nil {
+				return err
+			}
 		}
 		what := "change its policy"
 		if change.Policy == nil {
@@ -514,10 +575,28 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		if err != nil {
 			return err
 		}
-		if err := requireAdmin(tx, b, forWhom, what); err != nil {
+		if change.AgentsAddPeople != nil {
+			if err := requireOwner(tx, b, me, "change whether agents may add people"); err != nil {
+				return err
+			}
+		} else if err := requireAdmin(tx, b, forWhom, what); err != nil {
 			return err
 		}
 		now := s.clk.Now()
+		if change.TaskPrefix != nil {
+			if err := s.setTaskPrefix(tx, &b, me, *change.TaskPrefix, now); err != nil {
+				return err
+			}
+		}
+		if change.AgentsAddPeople != nil && b.AgentsAddPeople != *change.AgentsAddPeople {
+			if err := tx.SetBoardAgentsAddPeople(b.ID, *change.AgentsAddPeople); err != nil {
+				return err
+			}
+			b.AgentsAddPeople = *change.AgentsAddPeople
+			if _, err := s.append(tx, &b, events.BoardAgentsAddPeopleChanged, actorOf(me), now, map[string]any{"agents_add_people": b.AgentsAddPeople}); err != nil {
+				return err
+			}
+		}
 		if change.Title != nil && deref(title) != deref(b.Title) {
 			if _, err := s.append(tx, &b, events.BoardTitled, actorOf(me), now, map[string]any{
 				"before": b.Title, "after": title,
@@ -563,10 +642,11 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 
 // Me is who a token acts as. Board is set for an agent.
 type Me struct {
-	Human   *Human
-	Agent   *Member
-	Board   string
-	Browser bool
+	CurrentTask *TaskRef
+	Human       *Human
+	Agent       *Member
+	Board       string
+	Browser     bool
 }
 
 // WhoAmI returns who the caller is: a person (through their login or a browser), or an
@@ -585,6 +665,14 @@ func (s *Service) WhoAmI(ctx context.Context, p Principal) (Me, error) {
 			return apierr.BoardNotFound(b.Name)
 		}
 		me.Board = b.Name
+		if err == nil {
+			fresh, e := tx.MemberByID(p.Agent.ID)
+			if e != nil {
+				return e
+			}
+			me.Agent = &fresh
+			me.CurrentTask = fresh.CurrentTask
+		}
 		return err
 	})
 	return me, err

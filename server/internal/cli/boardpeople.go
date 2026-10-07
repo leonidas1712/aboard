@@ -57,10 +57,10 @@ func (a *app) serverArg() string {
 }
 
 // personBoard is the board a person's board command acts on: with --server, the board
-// --board names on that server; otherwise as selectBoard picks it.
+// --board names on that server; otherwise as humanBoard picks it.
 func (a *app) personBoard(boardFlag string) (target, error) {
 	if a.boardServerFlag == "" {
-		return a.selectBoard(boardFlag)
+		return a.humanBoard(boardFlag)
 	}
 	if boardFlag == "" {
 		return target{}, usageError("--server needs --board, naming a board on that server.", boardUsage)
@@ -96,7 +96,7 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.selectBoard(boardFlag); err != nil {
+		if t, err = a.humanBoard(boardFlag); err != nil {
 			return err
 		}
 		c, err = a.humanClient(ctx, t)
@@ -113,28 +113,80 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 	if r.JSON200 == nil {
 		return apiError(r.StatusCode(), r.Body)
 	}
-	out := r.JSON200
+	out := boardPeopleOutput{Board: r.JSON200.Board, Visibility: r.JSON200.Visibility, People: []personWithAgents{}}
+	// The agents come from the member list, read with the same credential: a caller who
+	// may list a board's people but not its members (a person outside an open board)
+	// sees no agents.
+	var members []api.Member
+	if m, err := c.api.ListMembersWithResponse(ctx, t.board, nil); err != nil {
+		return c.unreachable(err)
+	} else if m.JSON200 != nil {
+		members = m.JSON200.Members
+	}
 	noun := "people"
-	if len(out.People) == 1 {
+	if len(r.JSON200.People) == 1 {
 		noun = "person"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s · %s · %d %s\n", out.Board, out.Visibility, len(out.People), noun)
-	for _, p := range out.People {
+	fmt.Fprintf(&b, "%s · %s · %d %s\n", out.Board, out.Visibility, len(r.JSON200.People), noun)
+	for _, p := range r.JSON200.People {
 		line := "  " + p.Name
+		if p.DisplayName != nil && *p.DisplayName != "" {
+			line = "  @" + p.Name + " (" + *p.DisplayName + ")"
+		}
 		if p.BoardRole == api.BoardRoleOwner {
 			line += " (owner)"
 		}
 		if p.ServerRole == api.ServerRoleGuest {
 			line += " (guest)"
 		}
-		if p.DisplayName != nil {
-			line += " · " + *p.DisplayName
-		}
+
 		b.WriteString(line + "\n")
+		row := personWithAgents{BoardPerson: p}
+		if members != nil {
+			row.Agents = []personAgent{}
+			for _, m := range members {
+				if m.Kind != api.MemberKindAgent || m.OwnerId == nil || *m.OwnerId != p.Id {
+					continue
+				}
+				ag := personAgent{Name: m.Name, Harness: m.Harness}
+				parts := []string{"@" + m.Name}
+				if m.Harness != nil {
+					parts = append(parts, *m.Harness)
+				}
+				if m.Presence != nil {
+					s := string(*m.Presence)
+					ag.Presence = &s
+					parts = append(parts, presenceText(s))
+				}
+				row.Agents = append(row.Agents, ag)
+				b.WriteString("    " + strings.Join(parts, " · ") + "\n")
+			}
+		}
+		out.People = append(out.People, row)
 	}
 	a.emit(out, b.String())
 	return nil
+}
+
+// boardPeopleOutput is aboard board people's --json output (cli.yaml, BoardPeopleOutput).
+type boardPeopleOutput struct {
+	Board      api.BoardName       `json:"board"`
+	Visibility api.BoardVisibility `json:"visibility"`
+	People     []personWithAgents  `json:"people"`
+}
+
+// personWithAgents is one person on the board with their agents on it; Agents is nil
+// when the caller can't read the board's members.
+type personWithAgents struct {
+	api.BoardPerson
+	Agents []personAgent `json:"agents"`
+}
+
+type personAgent struct {
+	Name     string  `json:"name"`
+	Harness  *string `json:"harness"`
+	Presence *string `json:"presence"`
 }
 
 // boardPersonOutput is the --json output of the commands that change one person on a
@@ -144,9 +196,44 @@ type boardPersonOutput struct {
 	Person api.BoardPerson `json:"person"`
 }
 
-// runBoardAdd adds a person on the server to a board, with the person's own login.
-func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
-	t, c, err := a.personClient(ctx, boardFlag, "Adding people to a board", "aboard board add "+commandWord("@"+handle))
+func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) error {
+	var t target
+	var c *client
+	var err error
+	byAgent, byOwner := "", ""
+	if a.agentSelected(as) {
+		var cred agentCredential
+		t, cred, err = a.agentTarget(ctx, boardFlag, as)
+		if err == nil && a.boardServerFlag != "" {
+			selected, parseErr := parseServerURL(a.boardServerFlag)
+			if parseErr != nil {
+				return parseErr
+			}
+			if selected.URL != t.server.URL {
+				return newError("agent_not_selected", "The selected agent's board is on "+t.server.URL+", not "+selected.URL+".", "Use --server "+commandWord(t.server.URL)+" for this seat, or select a seat on the other server.")
+			}
+		}
+		if err == nil {
+			c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
+		}
+		if err == nil {
+			rctx, cancel := a.requestContext(ctx)
+			me, e := c.api.GetMeWithResponse(rctx)
+			cancel()
+			if e != nil {
+				return c.unreachable(e)
+			}
+			if me.JSON200 == nil {
+				return apiError(me.StatusCode(), me.Body)
+			}
+			byAgent, byOwner = cred.Name, deref(me.JSON200.Owner)
+			if handle == "me" {
+				handle = byOwner
+			}
+		}
+	} else {
+		t, c, err = a.personClient(ctx, boardFlag, "Adding people to a board", "aboard board add "+commandWord("@"+handle))
+	}
 	if err != nil {
 		return err
 	}
@@ -168,9 +255,28 @@ func runBoardAdd(ctx context.Context, a *app, boardFlag, handle string) error {
 		return c.unreachable(err)
 	}
 	if r.JSON201 == nil {
-		return apiError(r.StatusCode(), r.Body)
+		refusal := apiError(r.StatusCode(), r.Body)
+		if byAgent != "" {
+			var e *Error
+			if errors.As(refusal, &e) {
+				switch e.Code {
+				case "add_people_not_allowed", "agent_session_required", "guest_not_allowed", "person_is_guest":
+					e.Hint = "Your person runs aboard board add " + commandWord("@"+handle) + " --board " + commandWord(t.board) + " --server " + commandWord(t.server.URL) + " in a terminal."
+				}
+			}
+		}
+		return refusal
 	}
-	a.emit(boardPersonOutput{t.board, *r.JSON201}, fmt.Sprintf("Added %s to %s.\n", handle, t.board))
+	text := fmt.Sprintf("Added %s to %s.\n", handle, t.board)
+	if byAgent != "" {
+		text = fmt.Sprintf("Added %s to %s (by %s, for %s).\n", handle, t.board, byAgent, byOwner)
+	}
+	a.emit(struct {
+		Board   string          `json:"board"`
+		Person  api.BoardPerson `json:"person"`
+		ByAgent *string         `json:"by_agent,omitempty"`
+		ByOwner *string         `json:"by_owner,omitempty"`
+	}{t.board, *r.JSON201, optional(byAgent), optional(byOwner)}, text)
 	return nil
 }
 

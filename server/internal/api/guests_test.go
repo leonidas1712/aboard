@@ -109,7 +109,7 @@ func TestAGuestJoinsWithNoTokenAndSeesOneBoard(t *testing.T) {
 	if last.Handle != "kim" || last.ServerRole != api.ServerRoleGuest || last.BoardRole != api.BoardRoleMember {
 		t.Fatalf("the board's people: %s", bodyOf(onBoard))
 	}
-	members, err := s.client(s.owner).ListMembersWithResponse(ctx, boardName)
+	members, err := s.client(s.owner).ListMembersWithResponse(ctx, boardName, nil)
 	mustStatus(t, members, err, 200)
 	for _, m := range members.JSON200.Members {
 		switch {

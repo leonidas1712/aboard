@@ -173,9 +173,7 @@ func kitEnv(t *testing.T, p support.Profile) *env {
 		if err := os.MkdirAll(bin, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(bin, p.Command), []byte("#!/bin/sh\necho "+v+"\n"), 0o755); err != nil { //nolint:gosec // a test program
-			t.Fatal(err)
-		}
+		writeProgram(t, filepath.Join(bin, p.Command), []byte("#!/bin/sh\necho "+v+"\n"))
 		for i, kv := range e.vars {
 			if path, ok := strings.CutPrefix(kv, "PATH="); ok {
 				e.vars[i] = "PATH=" + bin + string(os.PathListSeparator) + path
@@ -589,9 +587,7 @@ func kitVersions(t *testing.T, p support.Profile) {
 			if err := os.MkdirAll(bin, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(bin, p.Command), []byte("#!/bin/sh\necho '"+c.prints+" ("+p.Name+")'\n"), 0o755); err != nil { //nolint:gosec // a test program
-				t.Fatal(err)
-			}
+			writeProgram(t, filepath.Join(bin, p.Command), []byte("#!/bin/sh\necho '"+c.prints+" ("+p.Name+")'\n"))
 			for i, kv := range e.vars {
 				if path, ok := strings.CutPrefix(kv, "PATH="); ok {
 					e.vars[i] = "PATH=" + bin + string(os.PathListSeparator) + path

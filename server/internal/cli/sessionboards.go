@@ -56,6 +56,7 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 		}
 		row := boardsRow{
 			Name: b.Name, Title: b.Title, Visibility: b.Visibility, Lifecycle: b.Lifecycle, OnBoard: b.OnBoard, Agents: b.AgentCount,
+			Added:   addedOf(b),
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 			Seat:    &seatName{},
 		}
@@ -132,6 +133,8 @@ func sessionBoardsText(rows []boardsRow, archived bool) string {
 		switch {
 		case r.Seat != nil && r.Seat.name != nil:
 			cols = append(cols, "you're "+*r.Seat.name+" here")
+		case r.OnBoard && r.Added != nil:
+			cols = append(cols, "new, added by "+r.Added.by()+"; join with "+r.Added.Join)
 		case r.OnBoard:
 			cols = append(cols, "you're on it")
 		case archived:

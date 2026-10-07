@@ -36,7 +36,7 @@ Two variables change what it does:
 
 | Variable | What it does |
 | --- | --- |
-| `ABOARD_VERSION` | Install this version, such as `0.1.0`, instead of the latest. |
+| `ABOARD_VERSION` | Install this version instead of the latest, such as `v0.1.2`; the [releases page](https://github.com/leonidas1712/aboard/releases) lists them. |
 | `ABOARD_INSTALL_DIR` | Install into this folder instead of `~/.local/bin`. |
 
 Set them for `sh`, such as
@@ -49,7 +49,7 @@ aboard version --json
 ```
 ```json
 {
-  "version": "0.1.0",
+  "version": "0.1.2",
   "commit": "b6dde31054c2c57adb046fcf453814d8c054ba6a",
   "commit_time": "2026-10-03T12:42:52Z"
 }
@@ -62,16 +62,17 @@ Sigstore's [cosign](https://docs.sigstore.dev/cosign/system_config/installation/
 cosign is installed, the script checks that signature and says so:
 
 ```text
-Checked the signature: signed by aboard's release workflow for v0.1.0
+Checked the signature: signed by aboard's release workflow for v0.1.2
 ```
 
 Without cosign it checks only the archive against `checksums.txt`, and prints the
 command that checks the signature by hand. Run it in a folder with the release's
-`checksums.txt` and `checksums.txt.sigstore.json`:
+`checksums.txt` and `checksums.txt.sigstore.json`, with that release's tag in place of
+`v0.1.2`:
 
 ```bash
 cosign verify-blob --bundle checksums.txt.sigstore.json \
-  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.0 \
+  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.2 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
 ```
 
@@ -147,7 +148,7 @@ At most once a day, a command you run in a terminal says after its output when a
 release exists:
 
 ```text
-aboard 0.2.0 is available (you have 0.1.0). Run: aboard upgrade
+aboard <latest> is available (you have <yours>). Run: aboard upgrade
 ```
 
 The notice never shows in `--json` output, in hooks or inside an agent's session, and
@@ -203,6 +204,9 @@ What happens to what is already running:
   login, not a new one: anyone who copied it from the page's storage before the upgrade
   can use it until it ends, so if that worries you, end it with
   `aboard keys sessions end <id>` and sign in again.
+
+[Upgrade and roll back](/guides/upgrade-and-roll-back) lists what to note before an
+upgrade, how to check it worked, and how to go back to the old build.
 
 `aboard doctor --json` reports a file that still differs from what this build writes:
 `hooks_outdated` or `skill_outdated` when an older `aboard` wrote it and nobody changed

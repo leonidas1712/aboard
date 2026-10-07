@@ -42,13 +42,31 @@ export type Board = {
   unread?: number;
   /** needs_reply counts questions to this person without their own direct reply. */
   needs_reply?: number | null;
+  asks_to_me?: { blocking: number; going_with: number };
   /** lifecycle is archived for a read-only board; absent means active. */
   lifecycle?: Lifecycle;
   /** can_archive, can_restore and can_delete are what this person may do now; absent means no. */
   can_archive?: boolean;
   can_restore?: boolean;
   can_delete?: boolean;
+  task_prefix?: string | null;
+  tasks_open?: number;
+  /** added is set while someone else's add of this person to the board is new to them: no agent of theirs has joined since and they haven't read past it. */
+  added?: BoardAdded;
 };
+
+/** BoardAdded is the person.added event that put the reader on a board. */
+export type BoardAdded = {
+  seq: number;
+  at: string;
+  by: { kind: "agent" | "human" | "system"; member_id: string | null; name: string | null; owner: string | null };
+};
+
+/** addedBy says who added the reader: "leo", or "leo's agent claude". */
+export function addedBy(a: BoardAdded): string {
+  const name = a.by.name ?? "someone";
+  return a.by.kind === "agent" && a.by.owner ? `${a.by.owner}'s agent ${name}` : name;
+}
 
 export type Lifecycle = "active" | "archived";
 
@@ -80,7 +98,16 @@ export type ReadEvent = { board: string; agent: string; read_up_to: number };
 export type Visibility = "open" | "private";
 
 /** Me is who the browser's token acts as: always a person for a browser. */
-export type Me = { id: string; kind: "human" | "agent"; name: string; board: string | null; owner: string | null; browser: boolean };
+export type Me = {
+  id: string;
+  kind: "human" | "agent";
+  name: string;
+  board: string | null;
+  owner: string | null;
+  browser: boolean;
+  /** server_role is the person's role on the server; null for an agent. */
+  server_role?: "admin" | "member" | "guest" | null;
+};
 
 export type Presence = "working" | "idle" | "waiting" | "no_session";
 
@@ -88,6 +115,7 @@ export type Presence = "working" | "idle" | "waiting" | "no_session";
 export type DeliveryMode = "focused" | "all" | "humans" | "off" | "auto";
 
 export type Member = MemberRef & {
+  display_name?: string;
   id: string;
   harness: string | null;
   access: "admin" | "member" | null;
@@ -103,7 +131,28 @@ export type Member = MemberRef & {
   /** delivery_mode is the agent's delivery mode as its person set it, held by the server; null for people. */
   delivery_mode?: SettableMode | null;
   delivery_revision?: number | null;
+  /** status is active for a member on the board now; removed or left for an agent whose seat ended. */
+  status?: "active" | "removed" | "left";
+  /** removed_at and removed_by are set for an agent whose seat ended. */
+  removed_at?: string;
+  removed_by?: RemovedBy;
+  /** can_remove says this person may remove the agent now; absent means no. */
+  can_remove?: boolean;
 };
+
+/** RemovedBy is who ended an agent's seat: its person, a board owner, a server admin, or itself. */
+export type RemovedBy = "person" | "board_owner" | "admin" | "self";
+
+/** removeAgent removes an agent from a board for good; its messages stay. */
+export function removeAgent(board: string, agent: string): Promise<unknown> {
+  return send("DELETE", `/v1/boards/${encodeURIComponent(board)}/members/${encodeURIComponent(agent)}`);
+}
+
+/** removedAgents lists the agents whose seats on a board ended. */
+export async function removedAgents(board: string): Promise<Member[]> {
+  const r = await get<{ members: Member[] }>(`/v1/boards/${encodeURIComponent(board)}/members`, { removed: true });
+  return r.members.filter((m) => m.kind === "agent" && m.status !== undefined && m.status !== "active");
+}
 
 /** DeliverySetting is an agent's delivery mode after a person sets it. */
 export type DeliverySetting = { board: string; agent: string; mode: SettableMode; revision: number; changed: boolean };
@@ -116,12 +165,14 @@ export function setDelivery(board: string, agent: string, mode: SettableMode): P
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
 
 export type Message = {
+  board?: string;
   id: string;
   seq: number;
   at: string;
   from: MemberRef;
   to: string[];
   body: string;
+  about?: TaskTag[];
   reply_to: string | null;
   reply_to_seq: number | null;
   /** thread_root is the first message of the reply's thread; null for a message that replies to nothing. */
@@ -138,7 +189,24 @@ export type Message = {
   reactions: Reaction[];
   /** mentions are the members the text mentions, as the server resolved them when it was posted. */
   mentions: Mention[];
+  ask?: MessageAsk;
+  answer?: { ask_id: string; ask_seq: number; option: number | null; option_text?: string | null; withdrawn: boolean };
 };
+
+export type MessageAsk = {
+  to: MemberRef;
+  options: string[];
+  blocking: boolean;
+  going_with: string | null;
+  going_at: string | null;
+  task: string | null;
+  state: "open" | "answered" | "withdrawn" | "went_with";
+  answer_seq: number | null;
+  answer_option: number | null;
+  can_answer?: boolean;
+  can_withdraw?: boolean;
+};
+export type AskList = { asks: Message[]; more: boolean };
 
 /**
  * Mention is one member a message mentions: `text` is how it was written ("@codex" or
@@ -580,4 +648,26 @@ async function readEvents(body: ReadableStream<Uint8Array>, onChunk: () => void,
       }
     }
   }
+}
+
+export type TaskTag = { id: string; ref: string; how: "given" | "thread" | "current" | "named" };
+export type TaskText = { text: string; by: MemberRef; at: string; version: number; messages_since?: number };
+export type Task = {
+  id: string; ref: string; number: number; board: string; title: string;
+  about: TaskText | null; stands: TaskText | null;
+  state: "open" | "in_progress" | "done" | "cancelled";
+  owner: MemberRef | null; with: MemberRef[];
+  blocked: boolean; blocked_count: number;
+  blocked_on: { ask_id: string; ask_seq: number; to: MemberRef; since: string }[];
+  opened_by: MemberRef; opened_at: string; updated_at: string;
+  closed_at?: string | null; closed_note?: string | null;
+  message_count: number; thread_count: number;
+};
+export type TaskList = { board: string; tasks: Task[]; counts: Record<Task["state"] | "blocked", number>; more: boolean };
+
+export function listTasks(board: string): Promise<TaskList> {
+  return get(`/v1/boards/${encodeURIComponent(board)}/tasks`, { state: "all", limit: 200 });
+}
+export function getTask(board: string, task: string): Promise<Task> {
+  return get(`/v1/boards/${encodeURIComponent(board)}/tasks/${encodeURIComponent(task)}`);
 }

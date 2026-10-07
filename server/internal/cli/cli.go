@@ -126,7 +126,10 @@ func commands() []command {
 		{"login", runLogin},
 		{"keys", runKeys},
 		{"people", runPeople},
+		{"servers", runServers},
 		{"say", runSay},
+		{"task", runTask},
+		{"ask", runAsk},
 		{"inbox", runInbox},
 		{"read", runRead},
 		{"react", runReact},
@@ -136,6 +139,8 @@ func commands() []command {
 		{"status", runStatus},
 		{"delivery", runDelivery},
 		{"board", runBoard},
+		{"agent", runAgent},
+		{"leave", runLeave},
 		{"boards", runBoards},
 		{"audit", runAudit},
 		{"resume", runResume},
@@ -190,6 +195,9 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return code
 	}
 	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")
+	if args[0] == "tasks" {
+		e.Hint = "Run aboard task list."
+	}
 	e.Hint = "Run aboard help to see the commands."
 	return a.report(e)
 }
@@ -219,10 +227,16 @@ func isJSONFlag(arg string) bool {
 // errCheckFailed means a check ran, failed and already printed its result.
 var errCheckFailed = errors.New("check failed")
 
+// errReportedFailure means an error result has already been printed.
+var errReportedFailure = errors.New("reported failure")
+
 // report prints err, if any, and returns the exit code.
 func (a *app) report(err error) int {
 	if err == nil {
 		return exitOK
+	}
+	if errors.Is(err, errReportedFailure) {
+		return exitError
 	}
 	if errors.Is(err, errCheckFailed) {
 		return exitChecked

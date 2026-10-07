@@ -3,13 +3,16 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // cliMessage is a message in the CLI's --json output: the API's message without its
@@ -36,19 +39,40 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	use := usageOf("say")
 	fs := a.flags("say")
 	var to listFlag
-	fs.Var(&to, "to", "who to address: all, @name or role:R; comma-separated or repeated")
+	fs.Var(&to, "to", "who to address: all, @name, role:R, owner:handle or mine (person only); comma-separated or repeated")
+	task := fs.String("task", "", "the task this message is about")
+	noTask := fs.Bool("no-task", false, "do not inherit a task from your current task or the thread")
 	reply := fs.String("reply", "", "the message this replies to: msg_…, 6, #6 or board-name#6")
 	urgent := fs.Bool("urgent", false, "mark the message urgent: first in each recipient's next delivery")
 	expectReply := fs.Bool("expect-reply", false, "ask the recipients to reply")
 	waitFor := fs.Int("wait-reply", 0, "ask for a reply and wait up to this many seconds for it")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board to post on")
-	pos, err := a.parse(fs, args, use, 1, -1)
+	option := fs.Int("option", 0, "answer the ask with this numbered option")
+	pos, err := a.parse(fs, args, use, 0, -1)
 	if err != nil {
 		return err
 	}
+	optionGiven := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "option" {
+			optionGiven = true
+		}
+	})
+	if *waitFor < 0 || *waitFor > 3600 {
+		return usageError("--wait-reply takes from 1 to 3600 seconds.", use)
+	}
+	if *task != "" && *noTask {
+		return usageError("Use only one of --task and --no-task.", use)
+	}
+	if optionGiven && (*reply == "" || *option < 1 || *option > 4) {
+		return usageError("--option takes 1 to 4 and needs --reply.", use)
+	}
+	if *option != 0 && !a.agentSelected(*as) {
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor)
+	}
 	body := strings.Join(pos, " ")
-	if strings.TrimSpace(body) == "" {
+	if strings.TrimSpace(body) == "" && *option == 0 {
 		return usageError("The message text is empty.", use)
 	}
 	if *waitFor < 0 || *waitFor > 3600 {
@@ -63,7 +87,39 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
+	mine := slices.Contains([]string(to), "mine")
+	var t target
+	var cred agentCredential
+	if mine {
+		if a.agentSelected(*as) {
+			return newError("human_command_in_session", "Only a person may use --to mine.", "An agent uses --to owner:<handle> with its own seat.")
+		}
+		if t, err = a.humanBoard(*boardFlag); err != nil {
+			return err
+		}
+		if cred.Token, err = a.readOwnerToken(t.server); err != nil {
+			return err
+		}
+		personClient, err := a.client(ctx, t.server, cred.Token, requestTimeout)
+		if err != nil {
+			return err
+		}
+		person, err := personClient.api.GetMeWithResponse(ctx)
+		if err != nil {
+			return personClient.unreachable(err)
+		}
+		if person.JSON200 == nil {
+			return apiError(person.StatusCode(), person.Body)
+		}
+		cred.Name = person.JSON200.Name
+		for i, target := range to {
+			if target == "mine" {
+				to[i] = "owner:" + cred.Name
+			}
+		}
+	} else {
+		t, cred, err = a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+	}
 	if err != nil {
 		return err
 	}
@@ -71,6 +127,16 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	defer cancel()
 
 	req := api.PostMessageRequest{Body: body}
+	if *task != "" {
+		req.About = ptrTo([]api.TaskSelector{*task})
+	} else if *noTask {
+		req.About = ptrTo([]api.TaskSelector{})
+	}
+	if *task != "" || *noTask {
+		if err := cTaskFeature(ctx, a, t, cred); err != nil {
+			return err
+		}
+	}
 	if len(to) > 0 {
 		targets := []string(to)
 		req.To = &targets
@@ -92,6 +158,18 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if *option != 0 {
+		if err := c.requireAsks(ctx); err != nil {
+			return err
+		}
+		req.Answer = &api.AnswerRequest{Option: option}
+		if strings.TrimSpace(req.Body) == "" {
+			req.Body, err = askOptionBody(ctx, c, t.board, *req.ReplyTo, *option)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	r, err := c.api.PostMessageWithResponse(ctx, t.board, &api.PostMessageParams{}, req)
 	if err != nil {
 		return c.unreachable(err)
@@ -101,9 +179,21 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	}
 	m := r.JSON201
 	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
-	unread, recipients := a.unreadAfterSay(ctx, c, agent), recipientsOf(ctx, c, m)
+	var unread *unreadNote
+	if !mine {
+		unread = a.unreadAfterSay(ctx, c, agent)
+	}
+	recipients := recipientsOf(ctx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
-	text := fmt.Sprintf("Sent #%d to %s on %s\n", m.Seq, targetsText(m.To), m.Board) + unreadText(m.Board, unread) + recipientsText(recipients)
+	text := fmt.Sprintf("Sent #%d to %s on %s", m.Seq, targetsText(m.To), m.Board)
+	if m.About != nil && len(*m.About) > 0 {
+		refs := []string{}
+		for _, tag := range *m.About {
+			refs = append(refs, tag.Ref)
+		}
+		text += " · about " + strings.Join(refs, ", ")
+	}
+	text += "\n" + unreadText(m.Board, unread) + recipientsText(recipients)
 	if w := out.Warning; w != nil {
 		text += a.out().warn("Warning ("+w.Code+"): "+w.Message+" "+w.Hint) + "\n"
 	}
@@ -126,16 +216,21 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		}
 		text += waitedText(m, *waitFor, w)
 	}
+	if !mine {
+		out.Nudges = a.taskNudges(ctx, c, agent, c.taskInbox(ctx), "say", *boardFlag != "", m)
+	}
+	text += nudgesText(out.Nudges)
 	a.emit(out, text)
 	return nil
 }
 
 // sayOutput is aboard say's --json output (SayOutput in spec/cli.yaml).
 type sayOutput struct {
-	Message    cliMessage      `json:"message"`
-	Unread     *unreadNote     `json:"unread"`
-	Recipients []recipientNote `json:"recipients"`
-	Warning    *sayWarning     `json:"warning"`
+	Message    cliMessage           `json:"message"`
+	Unread     *unreadNote          `json:"unread"`
+	Recipients []recipientNote      `json:"recipients"`
+	Warning    *sayWarning          `json:"warning"`
+	Nudges     []deliverytext.Nudge `json:"nudges"`
 	// The rest are set only with --wait-reply.
 	Outcome       *string       `json:"outcome,omitempty"`
 	Reply         **cliMessage  `json:"reply,omitempty"`
@@ -228,15 +323,26 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		bundle = &b
 		text = fmt.Sprintf("%s · %d new\n", in.Board, len(msgs)) + strings.Join(wrapped, "\n\n") + "\n"
 	}
+	nudges := a.taskNudges(ctx, c, ref, in, "inbox", *boardFlag != "")
+	text += nudgesText(nudges)
+	// In a session, the boards its person was added to that are still new to them.
+	var added []addedNotice
+	if key, ok := a.sessionKey(); ok {
+		_, added = a.sessionAdded(ctx, key)
+		text += addedText(added)
+	}
 	a.emit(struct {
-		Board     string       `json:"board"`
-		Agent     string       `json:"agent"`
-		Messages  []cliMessage `json:"messages"`
-		AckedUpTo *int         `json:"acked_up_to"`
-		More      bool         `json:"more"`
-		Wrapped   []string     `json:"wrapped"`
-		Bundle    *string      `json:"bundle"`
-	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle}, text)
+		Board     string               `json:"board"`
+		Agent     string               `json:"agent"`
+		Messages  []cliMessage         `json:"messages"`
+		AckedUpTo *int                 `json:"acked_up_to"`
+		More      bool                 `json:"more"`
+		Wrapped   []string             `json:"wrapped"`
+		Bundle    *string              `json:"bundle"`
+		Added     []addedNotice        `json:"added,omitempty"`
+		Work      *api.AgentWork       `json:"work,omitempty"`
+		Nudges    []deliverytext.Nudge `json:"nudges"`
+	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle, added, in.Work, nudges}, text)
 	return nil
 }
 
@@ -286,14 +392,17 @@ const defaultReadLimit = 50
 // readFilter is what aboard read and aboard watch pass to the timeline API besides the
 // window: which messages match, and how many to show.
 type readFilter struct {
-	from, role string
-	toMe       bool
-	limit      int
+	from, role, task string
+	toMe             bool
+	limit            int
 }
 
 // params returns the API parameters for the filter; the caller adds the window.
 func (f readFilter) params() api.ListMessagesParams {
 	var p api.ListMessagesParams
+	if f.task != "" {
+		p.Task = &f.task
+	}
 	if f.from != "" {
 		p.From = &f.from
 	}
@@ -312,6 +421,7 @@ func (f readFilter) params() api.ListMessagesParams {
 // runRead prints the board's timeline as the agent sees it, without acknowledging.
 func runRead(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("read")
+	task := fs.String("task", "", "only messages about this task")
 	after := fs.Int("after", 0, "show the oldest messages after this sequence number")
 	before := fs.Int("before", 0, "show the newest messages before this sequence number")
 	around := fs.Int("around", 0, "show messages around this sequence number")
@@ -328,6 +438,9 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	boardFlag := fs.String("board", "", "the board")
 	if _, err := a.parse(fs, args, readUsage, 0, 0); err != nil {
 		return err
+	}
+	if *task != "" && (*markRead || *receipts != "" || *thread != "" || *threads) {
+		return usageError("--task filters timeline messages; use it without --mark-read, --receipts, --thread or --threads.", readUsage)
 	}
 	if *after < 0 || *before < 0 || *around < 0 || *limit < 0 {
 		return usageError("--after, --before, --around and --limit can't be negative.", readUsage)
@@ -360,14 +473,19 @@ func runRead(ctx context.Context, a *app, args []string) error {
 		}
 		return runReadMarked(ctx, a, *boardFlag, *limit)
 	}
-	f := readFilter{from: strings.TrimPrefix(*from, "@"), role: *role, toMe: *toMe, limit: *limit}
-	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
+	f := readFilter{from: strings.TrimPrefix(*from, "@"), role: *role, toMe: *toMe, limit: *limit, task: *task}
+	t, cred, err := a.agentTaskTarget(ctx, *boardFlag, *as, *task)
 	if err != nil {
 		return err
 	}
 	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
+	}
+	if *task != "" {
+		if err := c.requireTasks(ctx); err != nil {
+			return err
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
@@ -394,7 +512,7 @@ func runRead(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 
-	filtered := f.from != "" || f.role != "" || f.toMe || *after > 0 || *before > 0 || *around > 0
+	filtered := f.task != "" || f.from != "" || f.role != "" || f.toMe || *after > 0 || *before > 0 || *around > 0
 	text := page.Board + " · no messages yet\n"
 	if filtered {
 		text = page.Board + " · no messages\n"
@@ -529,6 +647,9 @@ func readPage(ctx context.Context, c *client, board string, f readFilter, after,
 // hint runs as shown.
 func readHintArgs(f readFilter, as, board string) string {
 	var b strings.Builder
+	if f.task != "" {
+		b.WriteString(" --task " + commandWord(f.task))
+	}
 	if f.from != "" {
 		b.WriteString(" --from @" + f.from)
 	}

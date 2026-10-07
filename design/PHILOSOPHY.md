@@ -162,9 +162,9 @@ extension for it without a human translating.
 
 How Aboard does it:
 
-- **The core has a size budget.** The README states the core's size in lines and
-  approximate tokens, and `make check` fails if the core grows past its budget. Raising
-  the budget is a decision, recorded with its reason.
+- **The core is judged by its design, not its length.** Every addition passes the
+  primitives test: it needs atomicity, permissions, ordering or trust, or it stays outside
+  the core (D215).
 - **Contracts are the documentation.** The OpenAPI spec, the event types, the CLI's
   JSON shapes and the board file schema are hand-written and complete, so an agent can
   build a client from them alone.

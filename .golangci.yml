@@ -48,6 +48,8 @@ linters:
         - shadow
     misspell:
       locale: US
+      ignore-rules:
+        - cancelled
     revive:
       rules:
         # Exported identifiers and every package must have doc comments.

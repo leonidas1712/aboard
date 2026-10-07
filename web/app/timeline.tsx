@@ -5,6 +5,9 @@
 // Messages from one sender in a row are grouped under one header, the way chats do.
 
 import { lab } from "aboard-lab";
+import { TaskChips, TaskLinks } from "./task-ui";
+import { AskAnswers } from "./ask-ui";
+
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -489,7 +492,7 @@ function MessageEntry({
     m.from.kind === "agent"
       ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ")
       : undefined;
-  const outlined = standsAlone(m) && !answer;
+  const outlined = standsAlone(m) && !answer && (!m.ask || m.ask.state === "open");
   const replyButton = !waiting && onReply && (
     <button
       type="button"
@@ -554,6 +557,7 @@ function MessageEntry({
               <Kind m={m} nested={nested} />
               <ArrowRight className="mx-1 inline size-3.5 -translate-y-px text-muted" strokeWidth={1.5} aria-label="to" />
               <span>{recipients(m.to)}</span>
+              {!threaded && !nested && <span className="ml-2 inline-flex"><TaskChips tags={m.about} /></span>}
               {m.urgent && <span className="ml-2 text-meta text-muted">Urgent</span>}
               {m.expects_reply &&
                 (answer ? (
@@ -573,6 +577,7 @@ function MessageEntry({
             <Time at={m.at} now={now} />
           </div>
         )}
+        {grouped && !threaded && !nested && m.about?.length ? <div className="pt-0.5"><TaskChips tags={m.about} /></div> : null}
         {m.reply_to !== null && quoted && (
           <p className="flex items-center gap-1.5 text-meta text-muted" title={quote ?? undefined}>
             {grouped && <Reply className="size-3.5 shrink-0 text-accent" strokeWidth={1.75} aria-label="Reply" />}
@@ -584,6 +589,7 @@ function MessageEntry({
           <Body m={m} mentions={mentions} />
         </p>
         {lab?.MessageFooter && receipts && <lab.MessageFooter board={receipts.board} message={m} />}
+        {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
         {grouped && actions && <div className="absolute top-0 right-2.5">{actions}</div>}
@@ -680,6 +686,7 @@ function ThreadBlock({
   );
   return (
     <li className="thread pr-2.5 pb-2 pl-[54px] max-sm:pl-[42px]" data-thread={root.id}>
+      <TaskChips tags={[...(root.about ?? []), ...thread.replies.flatMap((m) => m.about ?? [])]} />
       {lab?.ThreadMeta && receipts ? (
         // Only the UI lab adds to this row (lab-seam.ts).
         <div className="flex flex-wrap items-center gap-x-2">
@@ -765,7 +772,7 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
     ) : lab?.Text ? (
       <lab.Text key={i} text={s.text} />
     ) : (
-      <Fragment key={i}>{s.text}</Fragment>
+      <Fragment key={i}><TaskLinks text={s.text} tags={m.about} /></Fragment>
     ),
   );
 }

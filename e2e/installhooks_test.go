@@ -64,9 +64,7 @@ func TestInstallHooksAddsAndRemovesThePrePushHook(t *testing.T) {
 	}
 
 	mine := "#!/bin/sh\necho mine\n"
-	if err := os.WriteFile(hook, []byte(mine), 0o755); err != nil { //nolint:gosec // a hook git runs
-		t.Fatal(err)
-	}
+	writeProgram(t, hook, []byte(mine))
 	if out, err := run(script); err == nil || !strings.Contains(out, "isn't one this script wrote") {
 		t.Errorf("replaced someone else's hook: %v\n%s", err, out)
 	}

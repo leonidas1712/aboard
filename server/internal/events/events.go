@@ -16,18 +16,26 @@ var GenesisHash = "sha256:" + strings.Repeat("0", 64)
 
 // Event types written to the log.
 const (
-	BoardCreated       = "board.created"
-	BoardArchived      = "board.archived"
-	BoardRestored      = "board.restored"
-	BoardDeleted       = "board.deleted"
-	BoardPolicyChanged = "board.policy_changed"
-	BoardTitled        = "board.titled"
-	MemberJoined       = "member.joined"
-	JoinCodeCreated    = "joincode.created"
-	JoinCodeRevoked    = "joincode.revoked"
-	MessagePosted      = "message.posted"
-	ReactionAdded      = "reaction.added"
-	ReactionRemoved    = "reaction.removed"
+	BoardTaskPrefixSet          = "board.task_prefix_set"
+	TaskCreated                 = "task.created"
+	TaskStarted                 = "task.started"
+	TaskJoined                  = "task.joined"
+	TaskUpdated                 = "task.updated"
+	TaskDone                    = "task.done"
+	TaskDropped                 = "task.dropped"
+	BoardCreated                = "board.created"
+	BoardArchived               = "board.archived"
+	BoardRestored               = "board.restored"
+	BoardDeleted                = "board.deleted"
+	BoardPolicyChanged          = "board.policy_changed"
+	BoardTitled                 = "board.titled"
+	BoardAgentsAddPeopleChanged = "board.agents_add_people_changed"
+	MemberJoined                = "member.joined"
+	JoinCodeCreated             = "joincode.created"
+	JoinCodeRevoked             = "joincode.revoked"
+	MessagePosted               = "message.posted"
+	ReactionAdded               = "reaction.added"
+	ReactionRemoved             = "reaction.removed"
 	// People coming onto a board, leaving it and becoming its owners, and the board
 	// turning open or private.
 	PersonAdded            = "person.added"
@@ -37,6 +45,8 @@ const (
 	BoardVisibilityChanged = "board.visibility_changed"
 	// AgentDeliveryChanged is an agent's person changing its delivery mode.
 	AgentDeliveryChanged = "agent.delivery_changed"
+	AgentRemoved         = "agent.removed"
+	AgentLeft            = "agent.left"
 )
 
 // Actor is who caused an event, taken from the authenticated token.

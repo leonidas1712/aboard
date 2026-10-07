@@ -17,7 +17,7 @@ import (
 // for delivery, setup and upgrades.
 func TestLandPRClassify(t *testing.T) {
 	t.Parallel()
-	code := "make fmt-check lint vet generate-check core-size harness-table-check test e2e"
+	code := "make fmt-check lint vet generate-check harness-table-check test e2e"
 	for _, tc := range []struct {
 		name, paths, want string
 	}{
@@ -161,9 +161,7 @@ func newLandPRRepo(t *testing.T) *landPRRepo {
 		}
 	}
 	for name, body := range map[string]string{"gh": fakeGH, "make": fakeMake} {
-		if err := os.WriteFile(filepath.Join(r.fakes, name), []byte(body), 0o755); err != nil { //nolint:gosec // a fake command the script runs
-			t.Fatal(err)
-		}
+		writeProgram(t, filepath.Join(r.fakes, name), []byte(body))
 	}
 	r.write(filepath.Join(r.ghState, "state"), "OPEN\n")
 	r.env = []string{
@@ -298,7 +296,7 @@ func TestLandPRMergesAndCleansUp(t *testing.T) {
 	if r.read("run-lists") != "" {
 		t.Errorf("--local asked GitHub for CI runs: %q", r.read("run-lists"))
 	}
-	if got := strings.TrimSpace(r.read("make")); got != "fmt-check lint vet generate-check core-size harness-table-check test e2e" {
+	if got := strings.TrimSpace(r.read("make")); got != "fmt-check lint vet generate-check harness-table-check test e2e" {
 		t.Errorf("make ran %q", got)
 	}
 	if got := strings.Count(r.read("merges"), "\n"); got != 2 {

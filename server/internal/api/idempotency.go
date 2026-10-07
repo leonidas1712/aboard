@@ -36,6 +36,23 @@ type SavedResponse struct {
 	Body        []byte
 }
 
+// creationRequestHash keeps the incoming bytes before validation applies defaults.
+func creationRequestHash(o Options, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/delegations/boards" {
+			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+			if err != nil {
+				writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body could not be read.", "Send the request again."))
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
+			r = r.WithContext(context.WithValue(r.Context(), requestHashKey{}, hex.EncodeToString(sum[:])))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // idempotent replays the saved response when a write is retried with the same
 // Idempotency-Key and body, and refuses the same key with a different body. Responses
 // are saved per caller unless the server failed (5xx), so a retry after a crash runs
@@ -45,6 +62,7 @@ type SavedResponse struct {
 // written to disk: those writes ignore the key. A join with a person's key or a code
 // keeps its replay, since each makes a new agent, but its stored answer is returned only
 // after the service rechecks that the caller may still have it.
+// Delegated board creation uses its transactional receipt instead of this cache.
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
@@ -56,6 +74,8 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
+			// Creation keeps its answer in the board transaction, with one expiry.
+			r.URL.Path == "/v1/delegations/boards" ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)
@@ -76,8 +96,13 @@ func idempotent(o Options, next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
 		reqHash := hex.EncodeToString(sum[:])
+		if rawHash, ok := r.Context().Value(requestHashKey{}).(string); ok {
+			reqHash = rawHash
+		}
+		ctx := context.WithValue(r.Context(), requestHashKey{}, reqHash)
+		r = r.WithContext(ctx)
 
-		saved, found, err := o.Responses.SavedResponse(r.Context(), scope, key)
+		saved, found, err := o.Responses.SavedResponse(ctx, scope, key)
 		switch {
 		case err != nil:
 			writeError(w, o.Log, err)
@@ -86,19 +111,24 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			if r.URL.Path == "/v1/join" {
 				// A stored join answer holds the agent's token: it is returned only
 				// while the caller may still have it.
-				if err := checkJoinReplay(r.Context(), o.Service, body, saved); err != nil {
+				if err := checkJoinReplay(ctx, o.Service, body, saved); err != nil {
 					writeError(w, o.Log, err)
 					return
 				}
 				w.Header().Set("Cache-Control", "no-store")
-			} else if err := checkBoardReplay(r.Context(), o.Service, r.Method, r.URL.Path, body, saved); err != nil {
+			} else if err := checkBoardReplay(ctx, o.Service, r.Method, r.URL.Path, body, saved); err != nil {
+				writeError(w, o.Log, err)
+				return
+			}
+			saved.Body, err = withheldNames(ctx, o.Service, r.Method, r.URL.Path, saved)
+			if err != nil {
 				writeError(w, o.Log, err)
 				return
 			}
 			w.Header().Set("Content-Type", saved.ContentType)
 			w.Header().Set("Idempotent-Replayed", "true")
 			w.WriteHeader(saved.Status)
-			_, _ = w.Write(saved.Body)
+			_, _ = w.Write(saved.Body) //nolint:gosec // a JSON answer this server stored, sent as application/json
 			return
 		case found:
 			writeError(w, o.Log, apierr.New(http.StatusUnprocessableEntity, "idempotency_conflict",
@@ -111,7 +141,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 		if rec.status >= 500 {
 			return
 		}
-		err = o.Responses.SaveResponse(r.Context(), scope, key, SavedResponse{
+		err = o.Responses.SaveResponse(ctx, scope, key, SavedResponse{
 			RequestHash: reqHash, Status: rec.status, ContentType: rec.Header().Get("Content-Type"), Body: rec.body.Bytes(),
 		})
 		if err != nil {
@@ -156,6 +186,21 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case method == http.MethodPost && strings.HasPrefix(path, "/v1/people/") && strings.HasSuffix(path, "/rename"):
+		var result struct {
+			Person struct {
+				ID string `json:"id"`
+			} `json:"person"`
+		}
+		if saved.Status == http.StatusOK {
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			if result.Person.ID == "" {
+				return fmt.Errorf("stored rename has no person id")
+			}
+		}
+		return svc.CheckRenameReplay(ctx, principal(ctx), result.Person.ID)
 	case path == "/v1/boards" && method == http.MethodPost:
 		var requested struct {
 			Name string `json:"name"`
@@ -185,6 +230,19 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		}
 	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
 		in.Name = parts[2]
+		in.Tasks = len(parts) >= 4 && parts[3] == "tasks"
+		if len(parts) == 4 && parts[3] == "people" && method == http.MethodPost {
+			var add struct {
+				Handle string `json:"handle"`
+			}
+			if err := json.Unmarshal(request, &add); err != nil {
+				return err
+			}
+			in.AddPeople, in.Handle = true, add.Handle
+		}
+		if len(parts) == 5 && parts[3] == "members" && method == http.MethodDelete {
+			in.AgentRemoval = true
+		}
 		if len(parts) == 4 && (parts[3] == "archive" || parts[3] == "restore" || parts[3] == "delete") {
 			in.Lifecycle = parts[3]
 			in.DeleteDone = parts[3] == "delete" && saved.Status == http.StatusOK
@@ -202,10 +260,66 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		in.MessageID = parts[2]
 	case path == "/v1/me/inbox/ack" || path == "/v1/me/presence":
 		in.OwnSeat = true
+	case path == "/v1/agents/prune":
+		// The answer names only the caller's own agents, or for an admin's prune across
+		// the server what it removed: the caller's credential and role are checked again.
+		var requested struct {
+			All bool `json:"all"`
+		}
+		_ = json.Unmarshal(request, &requested)
+		in.PruneAll = requested.All
+	case path == "/v1/me/leave":
+		// The answer is about the caller's own seat, which ended with it.
+		return nil
 	default:
 		return nil
 	}
 	return svc.CheckBoardReplay(ctx, principal(ctx), in)
+}
+
+// withheldNames returns a stored answer to an agent removal or a prune as it may be
+// sent again: the board and agent names of every board the caller can no longer see
+// are withheld, as they would be in a new answer. Every other answer is sent as stored.
+func withheldNames(ctx context.Context, svc *board.Service, method, path string, saved SavedResponse) ([]byte, error) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	removal := method == http.MethodDelete && len(parts) == 5 && parts[1] == "boards" && parts[3] == "members"
+	if saved.Status != http.StatusOK || (path != "/v1/agents/prune" && !removal) {
+		return saved.Body, nil
+	}
+	var answer map[string]any
+	if err := json.Unmarshal(saved.Body, &answer); err != nil {
+		return nil, fmt.Errorf("decode the stored answer: %w", err)
+	}
+	rows := []map[string]any{answer}
+	if !removal {
+		rows = nil
+		list, _ := answer["agents"].([]any)
+		for _, v := range list {
+			if m, ok := v.(map[string]any); ok {
+				rows = append(rows, m)
+			}
+		}
+	}
+	var ids []string
+	for _, m := range rows {
+		if id, ok := m["board_id"].(string); ok {
+			ids = append(ids, id)
+		}
+	}
+	hidden, err := svc.HiddenBoards(ctx, principal(ctx), ids)
+	if err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, m := range rows {
+		if id, _ := m["board_id"].(string); hidden[id] && (m["board"] != nil || m["name"] != nil) {
+			m["board"], m["name"], changed = nil, nil, true
+		}
+	}
+	if !changed {
+		return saved.Body, nil
+	}
+	return json.Marshal(answer)
 }
 
 // recorder passes a response through while keeping a copy of it.

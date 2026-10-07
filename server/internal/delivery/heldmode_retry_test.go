@@ -2,7 +2,6 @@ package delivery_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -11,20 +10,9 @@ import (
 func TestFailedModeWriteRetriesTheSameServerRevision(t *testing.T) {
 	r := newRig(t)
 	r.setMode(reviewer, delivery.ModeAll)
-	db, err := sql.Open("sqlite", r.path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = db.Close() }()
 	ctx := context.Background()
-	for _, query := range []string{
-		`CREATE TRIGGER fail_mode_insert BEFORE INSERT ON modes BEGIN SELECT RAISE(FAIL, 'mode write refused'); END`,
-		`CREATE TRIGGER fail_mode_update BEFORE UPDATE ON modes BEGIN SELECT RAISE(FAIL, 'mode write refused'); END`,
-	} {
-		if _, err := db.ExecContext(ctx, query); err != nil {
-			t.Fatal(err)
-		}
-	}
+	journalTrigger(t, r, `CREATE TRIGGER fail_mode_insert BEFORE INSERT ON modes BEGIN SELECT RAISE(FAIL, 'mode write refused'); END`)
+	journalTrigger(t, r, `CREATE TRIGGER fail_mode_update BEFORE UPDATE ON modes BEGIN SELECT RAISE(FAIL, 'mode write refused'); END`)
 
 	r.register("s1", "b1")
 	r.bind("claude-code", "s1", reviewer)
@@ -34,11 +22,8 @@ func TestFailedModeWriteRetriesTheSameServerRevision(t *testing.T) {
 	if err != nil || modes[reviewer] != delivery.ModeAll {
 		t.Fatalf("failed write changed the journal: %v, %v", modes, err)
 	}
-	for _, query := range []string{`DROP TRIGGER fail_mode_insert`, `DROP TRIGGER fail_mode_update`} {
-		if _, err := db.ExecContext(ctx, query); err != nil {
-			t.Fatal(err)
-		}
-	}
+	journalTrigger(t, r, `DROP TRIGGER fail_mode_insert`)
+	journalTrigger(t, r, `DROP TRIGGER fail_mode_update`)
 
 	// A new message rereads the same mode and revision, without changing either.
 	r.post(reviewer, "the mode write can succeed now", false)

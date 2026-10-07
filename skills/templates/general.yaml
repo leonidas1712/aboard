@@ -12,7 +12,7 @@ charter: |
 roles:
   member:
     charter: Work with the other members toward the board's goal.
-    can: [post, broadcast, urgent, create_tasks, claim_tasks, write_notes, upload_files]
+    can: [post, broadcast, urgent, create_tasks, claim_tasks, write_notes, upload_files, invite, add_people]
 
 policy:
   preset: starter

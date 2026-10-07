@@ -14,11 +14,15 @@ type staysLinked struct {
 	Board  string    `json:"board"`
 }
 
-// runBoardNew creates a board as the person, with their own key, on the server
-// personServer picks, and says how agents and people get onto it. No agent joins. A
-// directory linked to no board is linked to it. It is up to a person, so it refuses
-// inside a harness session.
+// runBoardNew creates a board as a person in a terminal, or creates and binds its
+// agent seat atomically through the daemon in a harness session.
 func runBoardNew(ctx context.Context, a *app, name, title string, private bool, serverFlag string) error {
+	if key, inSession := a.sessionKey(); inSession {
+		return a.runSessionBoardNew(ctx, key, name, title, private, serverFlag)
+	}
+	if a.agentSelected("") {
+		return creationNeedsSession()
+	}
 	// The command handed to the person keeps every flag given, quoted for a shell.
 	command := "aboard board new " + commandWord(name)
 	if title != "" {

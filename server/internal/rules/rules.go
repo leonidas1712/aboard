@@ -22,11 +22,12 @@ const (
 	WriteNotes  = "write_notes"
 	UploadFiles = "upload_files"
 	Invite      = "invite"
+	AddPeople   = "add_people"
 	EditCharter = "edit_charter"
 )
 
 // Permissions lists every permission, in the order the board file schema gives them.
-var Permissions = []string{Post, Broadcast, Urgent, CreateTasks, ClaimTasks, WriteNotes, UploadFiles, Invite, EditCharter}
+var Permissions = []string{Post, Broadcast, Urgent, CreateTasks, ClaimTasks, WriteNotes, UploadFiles, Invite, AddPeople, EditCharter}
 
 // Grant is one entry in a role's `can` list: a permission, or claim_tasks limited to
 // some task types.
@@ -100,7 +101,7 @@ const MemberRole = "member"
 
 // DefaultMemberRole is the `member` role when a board doesn't define it.
 func DefaultMemberRole() Role {
-	return Role{Can: []Grant{{Permission: Post}, {Permission: CreateTasks}, {Permission: ClaimTasks}, {Permission: WriteNotes}, {Permission: UploadFiles}}}
+	return Role{Can: []Grant{{Permission: Post}, {Permission: CreateTasks}, {Permission: ClaimTasks}, {Permission: WriteNotes}, {Permission: UploadFiles}, {Permission: Invite}, {Permission: AddPeople}}}
 }
 
 // Policy values.
@@ -117,6 +118,7 @@ const (
 
 // Policy is what the server enforces on a board.
 type Policy struct {
+	Nudges     string `json:"nudges"`
 	Preset     string `json:"preset"`
 	Visibility string `json:"visibility"`
 	Broadcast  string `json:"broadcast"`
@@ -127,11 +129,10 @@ type Policy struct {
 	Overrides   []string `json:"overrides"`
 }
 
-// UnmarshalJSON reads a policy, taking a missing show_harness as true: policies stored
-// before the key existed showed harnesses.
+// UnmarshalJSON defaults missing show_harness to true and nudges to on.
 func (p *Policy) UnmarshalJSON(b []byte) error {
 	type plain Policy
-	out := plain{ShowHarness: true}
+	out := plain{ShowHarness: true, Nudges: "on"}
 	if err := json.Unmarshal(b, &out); err != nil {
 		return err
 	}
@@ -142,6 +143,7 @@ func (p *Policy) UnmarshalJSON(b []byte) error {
 // PolicyChange is a request to change a board's policy: an optional preset, then
 // optional individual keys on top of it.
 type PolicyChange struct {
+	Nudges     string `json:"nudges,omitempty" yaml:"nudges"`
 	Preset     string `json:"preset,omitempty" yaml:"preset"`
 	Visibility string `json:"visibility,omitempty" yaml:"visibility"`
 	Broadcast  string `json:"broadcast,omitempty" yaml:"broadcast"`
@@ -154,9 +156,9 @@ type PolicyChange struct {
 func Preset(name string) (Policy, error) {
 	switch name {
 	case Starter:
-		return Policy{Preset: Starter, Visibility: VisibilityOpen, Broadcast: Everyone, Urgent: Everyone, ShowHarness: true, Overrides: []string{}}, nil
+		return Policy{Preset: Starter, Visibility: VisibilityOpen, Broadcast: Everyone, Urgent: Everyone, ShowHarness: true, Nudges: "on", Overrides: []string{}}, nil
 	case Recommended:
-		return Policy{Preset: Recommended, Visibility: VisibilityAddressed, Broadcast: Granted, Urgent: Granted, ShowHarness: true, Overrides: []string{}}, nil
+		return Policy{Preset: Recommended, Visibility: VisibilityAddressed, Broadcast: Granted, Urgent: Granted, ShowHarness: true, Nudges: "on", Overrides: []string{}}, nil
 	}
 	return Policy{}, fmt.Errorf("unknown preset %q; allowed: starter, recommended", name)
 }
@@ -175,6 +177,9 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 	}
 	if c.Preset == "" {
 		out.Visibility, out.Broadcast, out.Urgent, out.ShowHarness = p.Visibility, p.Broadcast, p.Urgent, p.ShowHarness
+		if p.Nudges != "" {
+			out.Nudges = p.Nudges
+		}
 	}
 	if c.ShowHarness != nil {
 		out.ShowHarness = *c.ShowHarness
@@ -198,12 +203,16 @@ func (p Policy) Apply(c PolicyChange) (Policy, error) {
 	if err := set("urgent", c.Urgent, []string{Everyone, Granted}, &out.Urgent); err != nil {
 		return Policy{}, err
 	}
+	if err := set("nudges", c.Nudges, []string{"on", "off"}, &out.Nudges); err != nil {
+		return Policy{}, err
+	}
 	preset, _ := Preset(out.Preset)
 	out.Overrides = []string{}
 	for _, k := range []struct{ key, got, want string }{
 		{"visibility", out.Visibility, preset.Visibility},
 		{"broadcast", out.Broadcast, preset.Broadcast},
 		{"urgent", out.Urgent, preset.Urgent},
+		{"nudges", out.Nudges, preset.Nudges},
 	} {
 		if k.got != k.want {
 			out.Overrides = append(out.Overrides, k.key)
@@ -247,18 +256,21 @@ func CanManage(person, agent Member) bool {
 
 // Target kinds in a message's `to` list.
 const (
-	TargetAll  = "all"
-	TargetName = "name"
-	TargetRole = "role"
+	TargetAll   = "all"
+	TargetName  = "name"
+	TargetRole  = "role"
+	TargetOwner = "owner"
 )
 
-// ParseTarget splits "all", "@name" or "role:R" into its kind and value.
+// ParseTarget splits all, @name, role:R or owner:handle into its kind and value.
 func ParseTarget(t string) (kind, value string, ok bool) {
 	switch {
 	case t == "all":
 		return TargetAll, "", true
 	case strings.HasPrefix(t, "@") && len(t) > 1:
 		return TargetName, t[1:], true
+	case strings.HasPrefix(t, "owner:") && len(t) > 6:
+		return TargetOwner, t[6:], true
 	case strings.HasPrefix(t, "role:") && len(t) > 5:
 		return TargetRole, t[5:], true
 	}
@@ -281,9 +293,18 @@ func AddressedTo(to []string, m Member) bool {
 
 // CanRead reports whether reader may read a message from senderID to `to` on a board
 // with policy p. Humans read everything; under addressed visibility, agents read only
-// what they sent or what was addressed to them.
-func CanRead(p Policy, to []string, senderID string, reader Member) bool {
-	return p.Visibility == VisibilityOpen || reader.IsHuman() || reader.ID == senderID || AddressedTo(to, reader)
+// what they sent or what was addressed to them. Owner targets use recorded IDs.
+func CanRead(p Policy, to []string, senderID string, reader Member, recorded ...[]string) bool {
+	ownerRecipient := false
+	if len(recorded) > 0 && slices.Contains(recorded[0], reader.ID) {
+		for _, target := range to {
+			if strings.HasPrefix(target, "owner:") {
+				ownerRecipient = true
+				break
+			}
+		}
+	}
+	return ownerRecipient || p.Visibility == VisibilityOpen || reader.IsHuman() || reader.ID == senderID || AddressedTo(to, reader)
 }
 
 // Refusal says which permission a post lacks.

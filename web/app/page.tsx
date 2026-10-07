@@ -3,8 +3,10 @@
 import { lab } from "aboard-lab";
 import { useEffect, useState } from "react";
 import { type Session, type Started, signedOutEvent, start } from "./api";
+import People from "./people";
 import BoardList from "./board-list";
 import BoardView from "./board-view";
+import Inbox from "./inbox";
 import { Header, Problem } from "./chrome";
 import Login, { ConfirmSignIn, SignedInNotice } from "./login";
 
@@ -73,9 +75,11 @@ export default function Page() {
     setNotice(null);
     setStarted({ ...started, session: null });
   };
+  const peoplePage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "people";
+  const inboxPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox");
   const view = lab?.Place && lab.place?.() ? (
     <lab.Place onSignOut={onSignOut} />
-  ) : started.board ? (
+  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />

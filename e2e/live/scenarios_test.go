@@ -277,7 +277,7 @@ func TestRepliesReachPromptly(t *testing.T) {
 		reviewer.bind("reviewer")
 
 		start := time.Now()
-		reviewer.submit("Run the Aboard wiring check with @writer now.")
+		reviewer.submit("Run the Aboard skill's two-round PING/PONG wiring check with @writer now: send PING 1, wait for PONG 1, then send PING 2 and finish after PONG 2.")
 		for n := 1; n <= 2; n++ {
 			ping := l.waitMessage("reviewer", start, fmt.Sprintf("PING %d", n), 4*time.Minute)
 			pong := l.say("writer", "--reply", strconv.Itoa(ping.Seq), fmt.Sprintf("PONG %d", n))
@@ -470,14 +470,15 @@ func TestKilledSessionRedelivers(t *testing.T) {
 		l.pairCLI()
 		proj := l.project("project", d.p.Harness)
 		secs := slowSeconds(30)
-		writeSlowTask(t, proj, secs)
+		writeKilledTask(t, proj, secs)
+		t.Cleanup(func() { _ = stopKilledTask(proj, secs) })
 		first := d.start(l, "first", proj)
 		first.bind("writer")
 		open := l.openSessions()
 
 		job := l.say("reviewer", "--to", "@writer",
 			"Run `./"+slowTask+"` in the foreground, not as a background task, and wait for it. Then run: aboard say \"KILLTEST-DONE\".")
-		l.waitFor(2*time.Minute, "the woken session to run the slow task", func() bool { return pgrep(fmt.Sprintf("sleep %d", secs)) })
+		l.waitFor(2*time.Minute, "the woken session to run the slow task", func() bool { return killedTaskReady(proj, secs) })
 		if err := syscall.Kill(first.pid(), syscall.SIGKILL); err != nil {
 			t.Fatal(err)
 		}
@@ -489,7 +490,12 @@ func TestKilledSessionRedelivers(t *testing.T) {
 		if dur := time.Since(killed); dur > 6*time.Second {
 			t.Errorf("the daemon closed the killed session after %s; want within 5 seconds", dur)
 		}
-		_ = command(t.Context(), "pkill", "-x", "-f", fmt.Sprintf("sleep %d", secs)).Run()
+		if err := stopKilledTask(proj, secs); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(filepath.Join(proj, killedTaskPID)); err != nil {
+			t.Fatal(err)
+		}
 		if !slices.ContainsFunc(l.writerInbox(), func(m message) bool { return m.Seq == job.Seq }) {
 			t.Fatalf("message #%d was acknowledged though the session that woke for it was killed before confirming", job.Seq)
 		}

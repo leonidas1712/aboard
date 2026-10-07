@@ -39,7 +39,7 @@ func newUpgradeEnv(t *testing.T) *upgradeEnv {
 		"ABOARD_DOWNLOAD_URL="+r.url,
 		"PATH="+fakeBin+string(os.PathListSeparator)+withoutCommand(systemPath, "cosign"),
 	)
-	r.version = "0.1.0"
+	r.version = sourceVersion
 	r.publish(u.releaseEntries(readFile(t, binary)))
 	return u
 }
@@ -70,9 +70,7 @@ func (u *upgradeEnv) install(from, path string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		u.t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(readFile(u.t, from)), 0o755); err != nil { //nolint:gosec // an installed program
-		u.t.Fatal(err)
-	}
+	writeProgram(u.t, path, []byte(readFile(u.t, from)))
 }
 
 // fileSum returns the SHA-256 of the file at path.
@@ -119,7 +117,7 @@ func TestUpgradeInstallsTheReleaseAndRefreshesTheSetup(t *testing.T) {
 	matchesCLISpec(t, "UpgradeOutput", out)
 	launcher := filepath.Join(filepath.Dir(u.exe), "aboard-launcher-herdr")
 	for path, want := range map[string]any{
-		"upgraded": true, "from": oldVersion, "to": "0.1.0", "path": u.exe,
+		"upgraded": true, "from": oldVersion, "to": sourceVersion, "path": u.exe,
 		"signature_checked": false, "setup.refreshed": true,
 	} {
 		if got := field(t, out, path); got != want {
@@ -134,7 +132,7 @@ func TestUpgradeInstallsTheReleaseAndRefreshesTheSetup(t *testing.T) {
 	}
 
 	// The new binary is in place, and doctor finds the setup current for it.
-	if v := u.run("version", "--json").json(t); field(t, v, "version") != "0.1.0" {
+	if v := u.run("version", "--json").json(t); field(t, v, "version") != sourceVersion {
 		t.Fatalf("installed version: %v", v)
 	}
 	if got := readFile(t, launcher); got != "#!/bin/sh\necho herdr launcher\n" {
@@ -153,7 +151,7 @@ func TestUpgradeInstallsTheReleaseAndRefreshesTheSetup(t *testing.T) {
 	// Again: nothing to upgrade, and nothing downloaded but the latest checksums.
 	before := len(u.r.requests())
 	again := u.run("upgrade")
-	if again.stdout != "aboard 0.1.0 is already installed; nothing to upgrade.\n" {
+	if again.stdout != "aboard "+sourceVersion+" is already installed; nothing to upgrade.\n" {
 		t.Fatalf("upgrade again:\n%s", again)
 	}
 	if asked := u.r.requests()[before:]; !slices.Equal(asked, []string{"/releases/latest/download/checksums.txt"}) {
@@ -164,13 +162,13 @@ func TestUpgradeInstallsTheReleaseAndRefreshesTheSetup(t *testing.T) {
 func TestUpgradeChecksTheSignatureWithCosign(t *testing.T) {
 	t.Parallel()
 	u := newUpgradeEnv(t)
-	r := u.exec(u.cosign(strings.Replace(releaseIdentity, "v"+installVersion, "v0.1.0", 1)), "", "upgrade")
+	r := u.exec(u.cosign(strings.Replace(releaseIdentity, "v"+installVersion, "v"+sourceVersion, 1)), "", "upgrade")
 	if r.code != 0 {
 		t.Fatalf("upgrade:\n%s", r)
 	}
 	expectLines(t, r,
-		"Checked the signature: signed by aboard's release workflow for v0.1.0.",
-		"Upgraded aboard "+oldVersion+" to 0.1.0 at ~/.local/bin/aboard.",
+		"Checked the signature: signed by aboard's release workflow for v"+sourceVersion+".",
+		"Upgraded aboard "+oldVersion+" to "+sourceVersion+" at ~/.local/bin/aboard.",
 		"Installed ~/.local/bin/aboard-launcher-herdr.",
 		"Nothing to refresh: aboard init hasn't set up any harness for every project. Run aboard init to set one up.",
 		"Restart open sessions so they run the new aboard's skill.",
@@ -325,7 +323,7 @@ func TestUpgradeReportsASetupThatFailedAfterTheSwap(t *testing.T) {
 	u := newUpgradeEnv(t)
 	u.run("init", "--yes", "--harness", "claude-code")
 	// The release's aboard runs, but its init fails.
-	broken := "#!/bin/sh\ncase \"$1\" in\nversion) echo 'aboard 0.1.0' ;;\ninit) echo 'Error (internal): disk full' >&2; exit 1 ;;\nesac\n"
+	broken := "#!/bin/sh\ncase \"$1\" in\nversion) echo 'aboard " + sourceVersion + "' ;;\ninit) echo 'Error (internal): disk full' >&2; exit 1 ;;\nesac\n"
 	u.r.publish(u.releaseEntries(broken))
 
 	r := u.runExit("upgrade", "--json")
@@ -333,13 +331,13 @@ func TestUpgradeReportsASetupThatFailedAfterTheSwap(t *testing.T) {
 	if r.code != 1 || e["code"] != "upgrade_setup_failed" {
 		t.Fatalf("upgrade:\n%s", r)
 	}
-	if msg := e["message"].(string); !strings.Contains(msg, "aboard was upgraded from "+oldVersion+" to 0.1.0") || !strings.Contains(msg, "disk full") {
+	if msg := e["message"].(string); !strings.Contains(msg, "aboard was upgraded from "+oldVersion+" to "+sourceVersion) || !strings.Contains(msg, "disk full") {
 		t.Fatalf("message: %q", msg)
 	}
 	if hint := e["hint"].(string); !strings.Contains(hint, "aboard init --yes") || !strings.Contains(hint, "aboard doctor") {
 		t.Fatalf("hint: %q", hint)
 	}
-	if d := e["details"].(map[string]any); d["from"] != oldVersion || d["to"] != "0.1.0" {
+	if d := e["details"].(map[string]any); d["from"] != oldVersion || d["to"] != sourceVersion {
 		t.Fatalf("details: %v", d)
 	}
 	if readFile(t, u.exe) != broken {
@@ -349,7 +347,7 @@ func TestUpgradeReportsASetupThatFailedAfterTheSwap(t *testing.T) {
 	// The same in text.
 	u.install(oldBinary, u.exe)
 	text := u.runExit("upgrade")
-	if text.code != 1 || !strings.Contains(text.stderr, "Error (upgrade_setup_failed): aboard was upgraded from "+oldVersion+" to 0.1.0, but refreshing the skill and hooks failed") ||
+	if text.code != 1 || !strings.Contains(text.stderr, "Error (upgrade_setup_failed): aboard was upgraded from "+oldVersion+" to "+sourceVersion+", but refreshing the skill and hooks failed") ||
 		!strings.Contains(text.stderr, "Hint: Run aboard init --yes to refresh them, then aboard doctor to check.") {
 		t.Fatalf("upgrade in text:\n%s", text)
 	}
@@ -369,13 +367,13 @@ func TestUpdateNotice(t *testing.T) {
 	e := newEnv(t)
 	r := newInstallRelease(t) // the latest release is installVersion, newer than this aboard
 	on := []string{"ABOARD_NO_UPDATE_CHECK=", "ABOARD_DOWNLOAD_URL=" + r.url}
-	notice := "aboard " + installVersion + " is available (you have 0.1.0). Run: aboard upgrade"
+	notice := "aboard " + installVersion + " is available (you have " + sourceVersion + "). Run: aboard upgrade"
 
 	term := e.startTerminal(on, "version")
 	if code := term.exit(); code != 0 {
 		t.Fatalf("exit %d:\n%s", code, term.text())
 	}
-	if got := term.text(); !strings.HasPrefix(got, "aboard 0.1.0") || !strings.Contains(got, notice) || strings.Index(got, notice) < strings.Index(got, "aboard 0.1.0") {
+	if got := term.text(); !strings.HasPrefix(got, "aboard "+sourceVersion) || !strings.Contains(got, notice) || strings.Index(got, notice) < strings.Index(got, "aboard "+sourceVersion) {
 		t.Fatalf("version in a terminal:\n%q", got)
 	}
 	var cache struct {

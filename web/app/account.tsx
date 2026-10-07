@@ -36,14 +36,17 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 }
 
 type Props = {
+  person?: Me | null;
   /** admin is true when the person is an admin of this board and another person is on it. */
   admin?: boolean;
   /** onSignOut runs once this browser has signed out. */
   onSignOut: () => void;
 };
 
-export function Account({ admin, onSignOut }: Props) {
-  const [me, setMe] = useState<Me | null>(null);
+export function Account({ admin, onSignOut, person }: Props) {
+  const [loadedMe, setMe] = useState<Me | null>(null);
+  const me = person ?? loadedMe;
+  const [showPeople, setShowPeople] = useState(false);
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
   const signedIn = session();
@@ -51,7 +54,8 @@ export function Account({ admin, onSignOut }: Props) {
   const [signOutProblem, setSignOutProblem] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    get<Me>("/v1/me").then((m) => live && setMe(m), () => {});
+    get<Me>("/v1/me").then((m) => { if (live) { setMe(m); if (m.server_role === "admin") setShowPeople(true); } }, () => {});
+    get<{ people: unknown[] }>("/v1/people").then((r) => { if (live && r.people.length > 1) setShowPeople(true); }, () => {});
     get<{ mode: "local" | "team" }>("/v1/info").then((i) => live && setMode(i.mode), () => {});
     return () => {
       live = false;
@@ -88,6 +92,7 @@ export function Account({ admin, onSignOut }: Props) {
           )}
         </dl>
         <DropdownMenuSeparator />
+        {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
           <DropdownMenuRadioItem value="system">Same as this computer</DropdownMenuRadioItem>

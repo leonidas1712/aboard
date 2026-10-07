@@ -624,8 +624,21 @@ func TestSwarmUpStartsFreshWhenAResumeFails(t *testing.T) {
 func TestSwarmUpResumeDoesNotReplayTheFirstPrompt(t *testing.T) {
 	t.Parallel()
 	s := newSwarmEnv(t)
-	s.writeBoardFile("board: replay\nagents:\n  - {name: claude, harness: claude-code, prompt: \"Do only this. run: aboard say FIRST-TURN\"}\n")
+	s.writeBoardFile("board: replay\nagents:\n  - {name: claude, harness: claude-code, prompt: \"Do only this.\\nrun: aboard say FIRST-TURN\"}\n")
 	s.run("swarm", "up", "--json")
+	firstTurns := func() int {
+		count := 0
+		for _, raw := range s.getAsOwner("/v1/boards/replay/messages")["messages"].([]any) {
+			message := raw.(map[string]any)
+			if message["body"] == "FIRST-TURN" && field(t, message, "from.name") == "claude" {
+				count++
+			}
+		}
+		return count
+	}
+	// Binding precedes the first prompt. Wait for its write before stopping a
+	// conversation that this test expects the harness to save and resume.
+	eventually(t, 10*time.Second, "the first prompt to run", func() bool { return firstTurns() == 1 })
 	s.run("swarm", "down")
 	s.postAsOwnerTo("replay", "@claude", "WAITED-FOR-YOU")
 	ag := agentsByName(t, s.run("swarm", "up", "--json").json(t))["claude"]
@@ -641,6 +654,9 @@ func TestSwarmUpResumeDoesNotReplayTheFirstPrompt(t *testing.T) {
 		raw, _ := os.ReadFile(s.log + ".context-" + last.Session)
 		return strings.Contains(string(raw), "WAITED-FOR-YOU")
 	})
+	if count := firstTurns(); count != 1 {
+		t.Fatalf("the first prompt ran %d times; want exactly once", count)
+	}
 }
 
 // A resumed Codex thread runs no session-start hook (Codex 0.160): it reports in with

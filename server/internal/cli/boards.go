@@ -25,6 +25,8 @@ type boardsRow struct {
 	// Seat is, when listing through the machine's delegation from a session, the
 	// session's seat on the board (its agent's name) or nil.
 	Seat *seatName `json:"seat,omitempty"`
+	// Added is set while someone else's add of the person is new to them.
+	Added *addedNotice `json:"added,omitempty"`
 }
 
 // seatName wraps a seat's name so a row can say "no seat" (null) apart from leaving
@@ -42,9 +44,13 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	all := fs.Bool("all", false, "also list open boards you aren't on, and for an admin, private boards you aren't on")
 	archived := fs.Bool("archived", false, "list only archived boards")
 	as := fs.String("as", "", "list this agent's board")
+	serverFlag := fs.String("server", "", "list boards on this server only")
 	boardFlag := fs.String("board", "", "the agent's board, when its name is used on several")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
+	}
+	if *serverFlag != "" && a.agentSelected(*as) {
+		return usageError("--server selects a person's server; agents stay on their own server.", use)
 	}
 	var (
 		srv   serverRef
@@ -78,45 +84,39 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 		if *boardFlag != "" {
 			return usageError("--board picks an agent's board, so it works only with --as.", use)
 		}
-		srv = a.localServer()
-		if linked && project.Server.URL != "" {
-			srv = project.Server
-		}
-		if srv.URL == a.localServer().URL {
-			if _, err := a.ensureLocal(ctx); err != nil {
-				return err
-			}
-		}
-		token, err := a.readOwnerToken(srv)
-		if err != nil {
-			return err
-		}
-		if c, err = a.client(ctx, srv, token, requestTimeout); err != nil {
-			return err
-		}
+		return a.humanBoards(ctx, project, linked, *serverFlag, *all, *archived)
 	}
+	g, err := a.boardsGroup(ctx, srv, c, agent, project, linked, *all, *archived)
+	if err != nil {
+		return err
+	}
+	a.emit(g, boardsText(srv, agent, *all, *archived, g.Boards, g.Hidden)+archivedHint(*archived, *all, g.ArchivedCount))
+	return nil
+}
+
+func (a *app) boardsGroup(ctx context.Context, srv serverRef, c *client, agent *string, project projectFile, linked, all, archived bool) (boardsOutput, error) {
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	params := &api.ListBoardsParams{All: all}
-	if *archived {
+	params := &api.ListBoardsParams{All: &all}
+	if archived {
 		l := api.ListBoardsParamsLifecycleArchived
 		params.Lifecycle = &l
 	}
 	r, err := c.api.ListBoardsWithResponse(ctx, params)
 	if err != nil {
-		return c.unreachable(err)
+		return boardsOutput{}, c.unreachable(err)
 	}
 	if r.JSON200 == nil {
-		return apiError(r.StatusCode(), r.Body)
+		return boardsOutput{}, apiError(r.StatusCode(), r.Body)
 	}
 	me := ""
 	if agent == nil {
 		m, err := c.api.GetMeWithResponse(ctx)
 		if err != nil {
-			return c.unreachable(err)
+			return boardsOutput{}, c.unreachable(err)
 		}
 		if m.JSON200 == nil {
-			return apiError(m.StatusCode(), m.Body)
+			return boardsOutput{}, apiError(m.StatusCode(), m.Body)
 		}
 		me = m.JSON200.Name
 	}
@@ -124,14 +124,15 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	for _, b := range r.JSON200.Boards {
 		row := boardsRow{
 			Name: b.Name, Title: b.Title, Visibility: b.Visibility, Lifecycle: b.Lifecycle, OnBoard: b.OnBoard, Unread: b.Unread,
+			Added:   addedOf(b),
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 		}
 		p, err := c.api.ListPeopleWithResponse(ctx, b.Name)
 		if err != nil {
-			return c.unreachable(err)
+			return boardsOutput{}, c.unreachable(err)
 		}
 		if p.JSON200 == nil {
-			return apiError(p.StatusCode(), p.Body)
+			return boardsOutput{}, apiError(p.StatusCode(), p.Body)
 		}
 		row.People = len(p.JSON200.People)
 		for _, person := range p.JSON200.People {
@@ -141,12 +142,12 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 			}
 		}
 		if b.OnBoard {
-			m, err := c.api.ListMembersWithResponse(ctx, b.Name)
+			m, err := c.api.ListMembersWithResponse(ctx, b.Name, nil)
 			if err != nil {
-				return c.unreachable(err)
+				return boardsOutput{}, c.unreachable(err)
 			}
 			if m.JSON200 == nil {
-				return apiError(m.StatusCode(), m.Body)
+				return boardsOutput{}, apiError(m.StatusCode(), m.Body)
 			}
 			n := 0
 			for _, x := range m.JSON200.Members {
@@ -162,17 +163,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	if r.JSON200.HiddenBoards != nil {
 		hidden = *r.JSON200.HiddenBoards
 	}
-	a.emit(struct {
-		Server        serverRef         `json:"server"`
-		As            *string           `json:"as"`
-		All           bool              `json:"all"`
-		Lifecycle     string            `json:"lifecycle"`
-		Boards        []boardsRow       `json:"boards"`
-		ArchivedCount *int              `json:"archived_count,omitempty"`
-		Hidden        []api.HiddenBoard `json:"hidden_boards"`
-	}{srv, agent, *all, listLifecycle(*archived), rows, r.JSON200.ArchivedCount, hidden},
-		boardsText(srv, agent, *all, *archived, rows, hidden)+archivedHint(*archived, *all, r.JSON200.ArchivedCount))
-	return nil
+	return boardsOutput{Server: srv, As: agent, All: all, Lifecycle: listLifecycle(archived), Boards: rows, ArchivedCount: r.JSON200.ArchivedCount, Hidden: hidden}, nil
 }
 
 // listLifecycle is the lifecycle aboard boards lists, for its --json output.
@@ -241,6 +232,9 @@ func boardsText(srv serverRef, agent *string, all, archived bool, rows []boardsR
 		if r.Unread != nil && *r.Unread > 0 {
 			parts = append(parts, fmt.Sprintf("%d unread", *r.Unread))
 		}
+		if r.Added != nil {
+			parts = append(parts, "new, added by "+r.Added.by())
+		}
 		if r.Default {
 			parts = append(parts, "default")
 		}
@@ -261,3 +255,105 @@ func boardsText(srv serverRef, agent *string, all, archived bool, rows []boardsR
 
 // peopleCount says how many people: "1 person", "3 people".
 func peopleCount(n int) string { return fmt.Sprintf("%d %s", n, plural(n, "person", "people")) }
+
+// boardsOutput keeps the single-server result while adding groups for a machine-wide list.
+type boardsOutput struct {
+	Server        serverRef         `json:"server"`
+	As            *string           `json:"as"`
+	All           bool              `json:"all"`
+	Lifecycle     string            `json:"lifecycle"`
+	Boards        []boardsRow       `json:"boards"`
+	ArchivedCount *int              `json:"archived_count,omitempty"`
+	Hidden        []api.HiddenBoard `json:"hidden_boards"`
+	Error         *boardsFailure    `json:"error,omitempty"`
+	Servers       []boardsOutput    `json:"servers,omitempty"`
+}
+
+type boardsFailure struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Hint    string `json:"hint"`
+}
+
+func (a *app) humanBoards(ctx context.Context, project projectFile, linked bool, flag string, all, archived bool) error {
+	known, def, err := a.knownServers()
+	if err != nil {
+		return err
+	}
+	if flag = strings.TrimSuffix(strings.TrimSpace(flag), "/"); flag == localServerName {
+		flag = a.localServer().URL
+	}
+	if flag != "" {
+		known = []knownServer{{Name: a.serverRefFor(flag).Name, URL: a.serverRefFor(flag).URL}}
+	} else if len(known) == 0 {
+		known = []knownServer{{Name: a.localServer().Name, URL: a.localServer().URL}}
+	}
+	groups := make([]boardsOutput, 0, len(known))
+	var text strings.Builder
+	var firstError error
+	successes, primary := 0, 0
+	for i, k := range known {
+		srv := k.ref()
+		g, err := a.humanBoardsGroup(ctx, srv, project, linked, all, archived)
+		if err != nil {
+			if len(known) == 1 {
+				return err
+			}
+			if firstError == nil {
+				firstError = err
+			}
+			e := asError(err)
+			g = boardsOutput{Server: srv, All: all, Lifecycle: listLifecycle(archived), Boards: []boardsRow{}, Hidden: []api.HiddenBoard{}, Error: &boardsFailure{Code: e.Code, Message: e.Message, Hint: e.Hint}}
+			fmt.Fprintf(&text, "Boards on %s: unavailable (%s).\nHint: %s\n", srv.URL, e.Code, e.Hint)
+		} else {
+			successes++
+			groupText := boardsText(srv, nil, all, archived, g.Boards, g.Hidden)
+			if len(known) > 1 || flag != "" {
+				groupText = strings.ReplaceAll(groupText, "join with aboard board add @me --board ", "join with aboard board add @me --server "+commandWord(srv.URL)+" --board ")
+			}
+			text.WriteString(groupText)
+			hint := archivedHint(archived, all, g.ArchivedCount)
+			if len(known) > 1 || flag != "" {
+				hint = strings.ReplaceAll(hint, "aboard boards --archived", "aboard boards --archived --server "+commandWord(srv.URL))
+			}
+			text.WriteString(hint)
+		}
+		if def != nil && def.URL == srv.URL {
+			primary = i
+		}
+		groups = append(groups, g)
+	}
+	if linked {
+		for i, g := range groups {
+			if g.Server.URL == project.Server.URL {
+				primary = i
+			}
+		}
+	}
+	out := groups[primary]
+	if len(groups) > 1 {
+		out.Servers = groups
+	}
+	a.emit(out, text.String())
+	if successes == 0 && firstError != nil {
+		return errReportedFailure
+	}
+	return nil
+}
+
+func (a *app) humanBoardsGroup(ctx context.Context, srv serverRef, project projectFile, linked, all, archived bool) (boardsOutput, error) {
+	if srv.URL == a.localServer().URL {
+		if _, err := a.ensureLocal(ctx); err != nil {
+			return boardsOutput{}, err
+		}
+	}
+	token, err := a.readOwnerToken(srv)
+	if err != nil {
+		return boardsOutput{}, err
+	}
+	c, err := a.client(ctx, srv, token, requestTimeout)
+	if err != nil {
+		return boardsOutput{}, err
+	}
+	return a.boardsGroup(ctx, srv, c, nil, project, linked, all, archived)
+}

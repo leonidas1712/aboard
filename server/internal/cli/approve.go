@@ -103,8 +103,9 @@ func runApprove(ctx context.Context, a *app, args []string) error {
 }
 
 // approveServer is the server aboard approve acts on: --server, else the one this
-// directory's .aboard names, else the one server this machine is connected to, else
-// the local server. A machine connected to several servers names one with --server.
+// directory's .aboard names, else this machine's default server, else the one server
+// this machine is connected to, else the local server. A machine connected to several
+// servers names one with --server.
 func (a *app) approveServer(ctx context.Context, flag string) (serverRef, error) {
 	if flag == "" {
 		p, ok, err := a.readProject()
@@ -116,9 +117,15 @@ func (a *app) approveServer(ctx context.Context, flag string) (serverRef, error)
 			if err != nil {
 				return serverRef{}, err
 			}
-			switch len(logins.Servers) {
-			case 0:
-			case 1:
+			_, def, err := a.knownServers()
+			if err != nil {
+				return serverRef{}, err
+			}
+			switch {
+			case def != nil:
+				flag = def.URL
+			case len(logins.Servers) == 0:
+			case len(logins.Servers) == 1:
 				flag = logins.Servers[0].URL
 			default:
 				choices := make([]string, 0, len(logins.Servers))
@@ -132,6 +139,6 @@ func (a *app) approveServer(ctx context.Context, flag string) (serverRef, error)
 			}
 		}
 	}
-	srv, _, err := a.keysServer(ctx, flag)
+	srv, _, err := a.personServer(ctx, flag)
 	return srv, err
 }

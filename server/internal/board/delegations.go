@@ -17,8 +17,8 @@ import (
 // A machine's delegation lets the program that runs a person's agents on a machine (the
 // delivery daemon) find and join that person's boards for the sessions it runs, without
 // any agent holding the person's key. It is made with one of the person's own access
-// keys and does exactly two things, within the person's current access: list the boards
-// they can see, and give a session it vouches for a seat on one of them. It ends with
+// keys and acts within the person's current access: list the boards they can see,
+// give a vouched session a seat, or create a board with that session's seat. It ends with
 // its key, with its person's removal from the server, and when the same key makes
 // another with the same name.
 
@@ -31,11 +31,10 @@ func delegationRevoked() *apierr.Error {
 		"Your person runs aboard login or aboard connect on this machine, then you run the command again.")
 }
 
-// delegationForbidden refuses a delegation everything but listing boards and joining a
-// session.
+// delegationForbidden refuses operations outside the delegation's explicit scope.
 func delegationForbidden() *apierr.Error {
 	return apierr.New(http.StatusForbidden, "forbidden",
-		"A machine's delegation only lists its person's boards and joins sessions to them.",
+		"A machine's delegation only lists its person's boards, joins sessions and creates boards with session seats.",
 		"Use the person's own access key or the agent's token for anything else.")
 }
 
@@ -202,6 +201,9 @@ func (s *Service) delegatedBoards(ctx context.Context, p Principal, filter strin
 				case m.HumanID == person.ID:
 					people++
 					v.OnBoard = true
+					if v.Added, err = addedBy(tx, b, m, members); err != nil {
+						return err
+					}
 				default:
 					people++
 				}
@@ -221,7 +223,7 @@ func agentRemoved(seat Member, board string) *apierr.Error {
 	e := apierr.New(http.StatusForbidden, "agent_removed",
 		fmt.Sprintf("This session's agent %s on board %s was removed, and joining again never makes a replacement.", seat.Name, board),
 		"A new agent on that board needs its person to allow it: they run aboard join --board "+board+" in a terminal, or add an agent in the board view.")
-	e.Details = map[string]any{"agent": seat.Name, "removed_at": seat.RemovedAt, "removed_by": seat.RemovedBy}
+	e.Details = map[string]any{"agent": seat.Name, "board": board, "removed_at": seat.RemovedAt, "removed_by": seat.RemovedBy}
 	return e
 }
 

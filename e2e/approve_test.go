@@ -319,9 +319,13 @@ func TestConnectByApprovalRefusesWhatItCantDo(t *testing.T) {
 		t.Fatalf("connecting a machine already connected:\n%s", r)
 	}
 
-	// A machine connected to two servers is asked which one a code is for.
+	// A machine connected to two servers keeps the first as its default; with no
+	// default and no local server, it is asked which one a code is for.
 	other := newTeam(t)
-	maya.run("connect", other.invite())
+	if text := maya.run("connect", other.invite()).stdout; !strings.Contains(text, "Your default stays "+tm.url()+";") {
+		t.Fatalf("connecting a second team's server:\n%s", text)
+	}
+	forgetDefault(t, maya)
 	r := maya.runExit("approve", "AAA-AAA", "--yes", "--json")
 	if r.code != 1 || errorCode(t, r.json(t)) != "server_not_selected" {
 		t.Fatalf("approve with two servers:\n%s", r)

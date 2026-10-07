@@ -35,7 +35,7 @@
         "groups": [
           {
             "group": "Try it",
-            "pages": ["introduction", "where-aboard-fits", "quickstart", "install"]
+            "pages": ["introduction", "where-aboard-fits", "quickstart", "install", "guides/upgrade-and-roll-back"]
           },
           {
             "group": "How it works",
@@ -49,7 +49,7 @@
           },
           {
             "group": "Teams",
-            "pages": ["team-mode", "team-agents", "team-server"]
+            "pages": ["team-mode", "team-agents", "guides/agents-across-people", "team-server"]
           },
           {
             "group": "Control and safety",
@@ -93,8 +93,11 @@
               "cli/approve",
               "cli/login",
               "cli/keys",
+              "cli/servers",
               "cli/people",
               "cli/logout",
+              "cli/ask",
+              "cli/task",
               "cli/say",
               "cli/inbox",
               "cli/read",
@@ -104,6 +107,8 @@
               "cli/invite",
               "cli/delivery",
               "cli/board",
+              "cli/agent",
+              "cli/leave",
               "cli/boards",
               "cli/audit",
               "cli/resume",

@@ -31,9 +31,11 @@ func (l *handoffLog) contains(text string) bool {
 	return strings.Contains(l.text, text)
 }
 
+// journalTrigger runs a statement on the daemon's journal over a connection of its own.
+// It waits for the lock as the journal does, since the running daemon writes there too.
 func journalTrigger(t *testing.T, r *rig, statement string) {
 	t.Helper()
-	db, err := sql.Open("sqlite", r.path)
+	db, err := sql.Open("sqlite", "file:"+r.path+"?_pragma=busy_timeout(10000)")
 	if err != nil {
 		t.Fatal(err)
 	}

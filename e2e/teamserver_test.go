@@ -191,9 +191,8 @@ func TestServeTeamRefusesABadConfiguration(t *testing.T) {
 // starterNoticeLine is the starter policy notice, as a command prints it.
 const starterNoticeLine = "Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended\n"
 
-// board new makes a board on the local server too, when the machine is connected to no
-// other; a taken name is refused; and inside an agent's session it refuses, handing the
-// command to the person.
+// board new uses the local server when the machine has no other server. In a session
+// it creates the person's board and an ordinary seat for that session.
 func TestBoardNewOnTheLocalServerAndInASession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -210,9 +209,19 @@ func TestBoardNewOnTheLocalServerAndInASession(t *testing.T) {
 		t.Fatalf("board new without a name:\n%s", r)
 	}
 	s := e.claudeSession("s-board-new")
-	r := s.runExit("board", "new", "agent-made", "--json")
-	if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" || !strings.Contains(r.stdout, "aboard board new agent-made") {
-		t.Fatalf("board new in a session:\n%s", r)
+	created := s.run("board", "new", "agent-made", "--json").json(t)
+	matchesCLISpec(t, "BoardNewOutput", created)
+	if field(t, created, "board.name") != "agent-made" || field(t, created, "board.created_by.kind") != "human" ||
+		field(t, created, "board.created_by.name") != "alex" || field(t, created, "agent.owner") != "alex" || field(t, created, "agent.role") != "member" {
+		t.Fatal("session creation did not keep the person as creator with an ordinary agent seat")
+	}
+	tm := &team{t: t, admin: e}
+	creatorID := workAssertOwnership(t, tm, e, created)
+	status, events := tm.call("GET", "/v1/boards/agent-made/events", tm.key(e), nil)
+	workStatus(t, status, http.StatusOK, events)
+	first := events["events"].([]any)[0].(map[string]any)
+	if first["type"] != "board.created" || field(t, first, "actor.member_id") != creatorID {
+		t.Fatal("session creation did not record the person's permanent member id as actor")
 	}
 }
 
@@ -229,16 +238,11 @@ func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
 		want string
 	}{
 		{[]string{"board", "policy", "recommended", "--board", "pay", "--server", srv}, "aboard board policy recommended --board pay --server https://team.example.com"},
-		{[]string{"board", "add", "@maya", "--board", "pay", "--server", srv}, "aboard board add @maya --board pay --server https://team.example.com"},
+		{[]string{"board", "agents-add-people", "off", "--board", "pay", "--server", srv}, "aboard board agents-add-people off --board pay --server https://team.example.com"},
 		{[]string{"board", "remove", "@maya", "--board", "pay", "--server", srv}, "aboard board remove @maya --board pay --server https://team.example.com"},
 		{[]string{"board", "leave", "--board", "pay", "--server", srv}, "aboard board leave --board pay --server https://team.example.com"},
 		{[]string{"board", "owner", "@maya", "--board", "pay", "--server", srv}, "aboard board owner @maya --board pay --server https://team.example.com"},
 		{[]string{"board", "visibility", "open", "--yes", "--board", "pay", "--server", srv}, "aboard board visibility open --board pay --server https://team.example.com"},
-		{
-			[]string{"board", "new", "pay", "--title", "Payments 'retry' design", "--private", "--server", srv},
-			`aboard board new pay --title 'Payments '\''retry'\'' design' --private --server https://team.example.com`,
-		},
-		{[]string{"board", "new", "pay"}, "aboard board new pay"},
 	} {
 		r := s.runExit(append(c.args, "--json")...)
 		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {

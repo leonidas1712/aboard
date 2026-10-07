@@ -7,7 +7,7 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { type Board, type Member, follow, get, isArchived } from "./api";
+import { type Board, type Member, addedBy, follow, get, isArchived } from "./api";
 import { ArchivedGroup } from "./sidebars";
 import { Account } from "./account";
 import { Header, Problem, VisibilityLabel } from "./chrome";
@@ -104,6 +104,7 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
       <Header account={<Account onSignOut={onSignOut} />} />
       <main className="mx-auto w-full max-w-[960px] px-4 py-8 sm:px-6">
         <h1 className="mb-4 text-headline font-bold">Your boards</h1>
+        <a href="/?inbox" className="mb-5 inline-flex min-h-11 items-center gap-2 font-bold">Inbox{boards && boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 text-meta text-ink">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}</a>
         {error !== null && <Problem error={error} />}
         {boards === null && error === null && (
           <div className="h-20 rounded-box bg-selected motion-safe:animate-pulse" role="status" aria-label="Loading your boards" />
@@ -203,6 +204,7 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
         <span className="md:hidden">{count(b.message_count ?? 0, "message", "messages")}</span>
         <span className="max-md:hidden">{b.message_count ?? 0}</span>
         {(b.unread ?? 0) > 0 && <span className="unread ml-2 font-bold text-ink">{b.unread} unread</span>}
+        {b.added && <span className="added ml-2 text-muted">new, added by {addedBy(b.added)}</span>}
       </td>
       <td className={cell}>
         {sep}

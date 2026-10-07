@@ -337,6 +337,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
                 {mentioned.length > 0 && <span className="text-meta text-muted">Remove the mentions first</span>}
               </span>
             </DropdownMenuCheckboxItem>
+            {me && agents.some((a) => a.owner === me) && menuItem(`owner:${me}`, "My agents")}
             {agents.length > 0 && (
               <>
                 <DropdownMenuSeparator />

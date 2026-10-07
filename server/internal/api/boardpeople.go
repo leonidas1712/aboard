@@ -91,12 +91,12 @@ func (h *handlers) GetSettings(ctx context.Context, _ GetSettingsRequestObject) 
 	if err != nil {
 		return nil, err
 	}
-	return GetSettings200JSONResponse{BoardCreation: BoardCreation(st.BoardCreation)}, nil
+	return GetSettings200JSONResponse{BoardCreation: BoardCreation(st.BoardCreation), AgentsAddPeople: st.AgentsAddPeople}, nil
 }
 
 // UpdateSettings changes the server's settings, for an admin's own access key.
 func (h *handlers) UpdateSettings(ctx context.Context, req UpdateSettingsRequestObject) (UpdateSettingsResponseObject, error) {
-	var change board.Settings
+	change := board.Settings{AgentsAddPeople: req.Body.AgentsAddPeople}
 	if req.Body.BoardCreation != nil {
 		change.BoardCreation = string(*req.Body.BoardCreation)
 	}
@@ -104,5 +104,5 @@ func (h *handlers) UpdateSettings(ctx context.Context, req UpdateSettingsRequest
 	if err != nil {
 		return nil, err
 	}
-	return UpdateSettings200JSONResponse{BoardCreation: BoardCreation(st.BoardCreation)}, nil
+	return UpdateSettings200JSONResponse{BoardCreation: BoardCreation(st.BoardCreation), AgentsAddPeople: st.AgentsAddPeople}, nil
 }

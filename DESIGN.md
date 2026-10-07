@@ -600,3 +600,7 @@ Motion is wanted where it explains a change; it is never decoration.
 - **Don't** show avatars. The sender mark (an initial on an identity colour) is the one deliberate exception.
 - **Don't** show sequence numbers in the UI.
 - **Don't** add shadows.
+
+## Team administration surfaces
+
+The People page uses the room’s plain table and mobile row layout. It labels agent counts as belonging to shared boards; unavailable reads never appear as zero. Server administration stays in terminal commands, shown in confirmation dialogs with a copy action. Board Details shows visibility to everyone and offers its change dialog only to owners. The dialog explains the access change before enabling confirmation.
