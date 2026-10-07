@@ -37,9 +37,9 @@
 #   (payments-design#6, msg_…) never chooses the seat. boards, status and inbox cover
 #   every seat. With one seat or none, every command's output and behaviour is byte for
 #   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react, task, ask, working, paused, file except approve, brief)
-#   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
+#   never fall back to the human login; human commands (board policy and watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
-#   and logout always use it. board title, board people, board add and boards act as an agent when
+#   and logout always use it. status, audit verify, board title, board people, board add and boards act as an agent when
 #   one is selected by --as, ABOARD_AGENT or the session, for its owner, and never use the
 #   human login then. read --receipts does the same: as the selected agent when there is
 #   one, otherwise with the human login. read --mark-read always reads as the person, with
@@ -2226,7 +2226,12 @@ $defs:
   StatusOutput:
     description: |
       Which board and agent commands run here would use, and where each came from, and
-      whether the server and the delivery daemon are running. With --launch, run in a
+      whether the server and the delivery daemon are running. With --as, ABOARD_AGENT,
+      or a bound harness session, board metadata is read with that seat's own token;
+      the person's login is never a fallback. An unknown explicit agent returns
+      agent_not_selected. An unbound session shows local diagnostics without any
+      authenticated board read. A terminal with no agent selected uses its own login.
+      With --launch, run in a
       session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
       first hands the ticket in, so the session takes its seat; a ticket already taken
       (by the session's prompt hook) changes nothing, and a malformed one is a usage
@@ -3033,7 +3038,11 @@ $defs:
     description: |
       Exit 0 when ok, 3 when the chain fails, 1 if verification couldn't run.
       It runs inside a harness session too: its output is counts, sequence numbers and
-      hashes, never message content.
+      hashes, never message content. --as, then ABOARD_AGENT, then the harness session
+      select the acting seat and its board, using only its token. An unknown named
+      agent or an unbound session returns agent_not_selected, never the person's
+      login. A session with several seats needs --board (board_ambiguous otherwise).
+      A terminal with no agent selected uses its own login and usual human board choice.
     type: object
     required: [board, ok, events_checked, data_withheld, head, first_bad, pinned_head]
     properties:

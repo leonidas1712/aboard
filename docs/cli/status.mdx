@@ -9,7 +9,7 @@ description: "Show the server, daemon, setup, board and agent in use."
 aboard status [--as AGENT] [--board NAME] [--launch TICKET] [--json]
 ```
 
-Shows whether the local server and the delivery daemon run, which agents' deliveries the daemon stopped and why (such as an agent that can't reach its board any more), where aboard init installed hooks, which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, and the board's policy.
+Shows whether the local server and the delivery daemon run, which agents' deliveries the daemon stopped and why (such as an agent that can't reach its board any more), where aboard init installed hooks, which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, and the board's policy. With `--as`, ABOARD_AGENT or a bound session, it reads metadata with that seat's token, never your login. An unknown named agent refuses; a session with no seat shows local diagnostics without reading board metadata.
 
 It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.
 
