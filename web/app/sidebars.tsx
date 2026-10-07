@@ -351,19 +351,6 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity,
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
   const showOwner = owners.size > 1;
-  const item = (a: Member) => (
-    <AgentItem
-      key={a.id}
-      agent={a}
-      board={board?.name}
-      mine={meId !== null && a.owner_id === meId}
-      roleCharter={board?.roles[a.role ?? ""]?.charter}
-      showOwner={showOwner}
-      picked={from === a.name}
-      onPick={() => onPick(a.name)}
-      onRemoved={onRemoved}
-    />
-  );
   return (
     <div className="flex flex-col gap-6">
       {members === null ? (
