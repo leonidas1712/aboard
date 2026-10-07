@@ -209,11 +209,12 @@ dev:
 	echo "Built $(BIN)/aboard $(DEV_VERSION)$${tags:+ with the web UI}"
 
 # The web UI is rebuilt when a source file is newer than the last build, so a sandbox
-# always embeds the current UI. A first build installs the packages (make web).
+# always embeds the current UI. The packages are installed again (make web) when they
+# are missing or older than package-lock.json, as after a pull that changed them.
 WEB_SOURCES = $(shell find web/app web/components web/lib web/public web/package.json web/package-lock.json web/next.config.mjs -type f 2>/dev/null)
 
 web/out/.built: $(WEB_SOURCES)
-	@if [ -d web/node_modules ]; then cd web && $(WEB_ENV) npm run build; else $(MAKE) --no-print-directory web; fi
+	@if [ web/node_modules/.package-lock.json -nt web/package-lock.json ]; then cd web && $(WEB_ENV) npm run build; else $(MAKE) --no-print-directory web; fi
 	@touch $@
 
 ## sandbox: open a shell to test this checkout by hand, isolated from your own setup (NAME=<name>); on an existing sandbox, opens another shell in it

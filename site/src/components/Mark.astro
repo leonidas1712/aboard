@@ -1,0 +1,16 @@
+---
+// aboard's mark: a room holding two lines of conversation, the later one in the accent.
+// Drawn from brand.css tokens (--mark-reply is the accent) so it follows light and dark.
+interface Props {
+  class?: string;
+  inverse?: boolean;
+}
+const { class: className, inverse = false } = Astro.props;
+const room = inverse ? "var(--ink)" : "var(--surface)";
+const line = inverse ? "var(--on-ink)" : "var(--ink)";
+---
+<svg class={className} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+  <rect x="2" y="2" width="28" height="28" rx="7" fill={room} stroke={line} stroke-width="4" />
+  <rect x="8" y="10" width="10" height="4" rx="2" fill={line} />
+  <rect x="14" y="18" width="10" height="4" rx="2" fill="var(--mark-reply)" />
+</svg>
