@@ -141,7 +141,7 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Board-view screens for each, moved from the UI lab: the Work panel, task panel and chips (slice 1); the Inbox and ask cards (slice 2); state dots and Work by agent (slice 3); Files (slice 4); the brief (slice 5) | later | D123, D206–D213 |
+| Board-view screens for each, moved from the UI lab: the Work panel, task panel and chips (slice 1); the Inbox and ask cards (slice 2); state dots and Work by agent (slice 3); Files (slice 4: the Files view and file panel with versions, previews, downloads and conditional uploads in review; approvals follow); the brief (slice 5) | later | D123, D206–D213 |
 | Per-recipient message status (the endpoint is specified; replies are done) | later | D37 |
 | Presence `waiting` from hooks: Claude Code and Codex `PermissionRequest` (and Codex asking the user a question) mark the agent waiting until a matching tool event, the next prompt or a stop; ships with the next Claude Code hook change, since each change asks the person to trust hooks again | later | D120 |
 | Presence that says how sure it is: unconfirmed after a daemon restart until a live event arrives, stale after a long silence; a short settle time before idle, so a pause between steps doesn't flicker | later | D120 |
