@@ -111,6 +111,21 @@ session paired and idle (their stop hooks waiting):
 - [ ] A message sent while the Claude Code session was busy during the upgrade is delivered when its turn ends.
 - [ ] `scripts/upgrade-rehearsal <previous release tag>` passes: the steps of [docs/guides/upgrade-and-roll-back.mdx](../docs/guides/upgrade-and-roll-back.mdx), from the install script through signing in to a team server to going back to the old build and its backup, on an isolated machine with eight agents in fake Claude Code and Codex sessions. **Automated**, `TestUpgradeFromAnOlderBuild`, which runs only through the script.
 
+## Tasks, asks and files ([docs/guides/tasks.mdx](../docs/guides/tasks.mdx), [docs/guides/asks-and-inbox.mdx](../docs/guides/asks-and-inbox.mdx), [docs/guides/files.mdx](../docs/guides/files.mdx))
+
+The commands these pages show are covered by e2e tests: `TestAskCLIRecordsDecisionAndUnblocksCurrentTask` and
+`TestAskCLIListsWithdrawsAndDoesNotBlockGoingWith` (`ask`, `--option`, `--going-with`, `--at`, `--withdraw`, `--open`),
+`tasks_test.go` and `tasklist_active_test.go` (`task new`, `start`, `join`, `note --base`, `done`, `--cancelled`, `drop`,
+`list --mine --all`), and `TestFileCLIUpdatesTheVersionFetchedToALocalPath` (`file put`, `get`, `show`, `list`, `mv`, `rm`,
+`say --attach`). The Inbox keys, the Tasks columns, uploads, drag and drop and the HTML preview are covered by the board
+view's Playwright suite (`make web-e2e`: `web/e2e/asks.spec.ts`, `web/e2e/files.spec.ts` and the tasks tests in
+`web/e2e/board.spec.ts`). By hand, in a sandbox:
+
+- [ ] `aboard file put api.md --as a` as agent `a`, then `aboard file put api.md --as b` as agent `b` that never fetched it, is refused with `file_exists` and the hint to get the file first; after `a` puts a v2, `b`'s put of a stale `get` is refused with `file_changed`. Nothing is overwritten.
+- [ ] `aboard file get api.md --version 1` writes the first version; a local file changed since the last `get` is kept unless `--force` is passed. `file put --maintained`, `--media-type text/markdown` and `file list --mine` and `--task ID` behave as `aboard help file` says.
+- [ ] `aboard task new "…" --about "…" --no-start` opens a task nobody owns; `aboard task list --done` lists finished tasks after `task done`.
+- [ ] With a real Claude Code and a real Codex session on one board, a session told "ask me whether to proceed, with two options" runs `aboard ask` in two lines with options, ends its turn, and is woken by the answer from the Inbox (`aboard open`, then the `1` key); the task shows Blocked while the ask is open and clears after.
+
 ## Web UI ([README.md](../README.md#quick-start), [docs/safety.mdx](../docs/safety.mdx))
 
 Run with a binary from `make install` (or a release).
