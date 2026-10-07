@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
+	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
@@ -81,6 +82,15 @@ type wireBoard struct {
 	// PeopleCount and AgentCount are given to a machine's delegation only.
 	PeopleCount *int `json:"people_count,omitempty"`
 	AgentCount  *int `json:"agent_count,omitempty"`
+	// Added is given to a person on the board while someone else's add is new to them.
+	Added *wireAdded `json:"added,omitempty"`
+}
+
+// wireAdded is the person.added that put the caller on a board.
+type wireAdded struct {
+	Seq int64        `json:"seq"`
+	At  string       `json:"at"`
+	By  events.Actor `json:"by"`
 }
 
 type wireMessage struct {
@@ -182,6 +192,9 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
 	}
 	w.PeopleCount, w.AgentCount = v.PeopleCount, v.AgentCount
+	if v.Added != nil {
+		w.Added = &wireAdded{Seq: v.Added.Seq, At: v.Added.At, By: v.Added.Actor}
+	}
 	return withPosition(w, v)
 }
 

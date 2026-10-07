@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type Member, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type Member, addedBy, isArchived, setDelivery } from "./api";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
@@ -125,6 +125,11 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
                 <span className="unread-count shrink-0 text-meta text-muted tabular-nums" title={`${b.unread} unread`}>
                   <span aria-hidden>{b.unread}</span>
                   <span className="sr-only">, {b.unread} unread</span>
+                </span>
+              )}
+              {b.added && (b.unread ?? 0) === 0 && (
+                <span className="added-new shrink-0 text-meta text-muted" title={`Added by ${addedBy(b.added)}`}>
+                  new<span className="sr-only">, added by {addedBy(b.added)}</span>
                 </span>
               )}
             </a>

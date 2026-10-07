@@ -113,14 +113,23 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 	if r.JSON200 == nil {
 		return apiError(r.StatusCode(), r.Body)
 	}
-	out := r.JSON200
+	out := boardPeopleOutput{Board: r.JSON200.Board, Visibility: r.JSON200.Visibility, People: []personWithAgents{}}
+	// The agents come from the member list, read with the same credential: a caller who
+	// may list a board's people but not its members (a person outside an open board)
+	// sees no agents.
+	var members []api.Member
+	if m, err := c.api.ListMembersWithResponse(ctx, t.board, nil); err != nil {
+		return c.unreachable(err)
+	} else if m.JSON200 != nil {
+		members = m.JSON200.Members
+	}
 	noun := "people"
-	if len(out.People) == 1 {
+	if len(r.JSON200.People) == 1 {
 		noun = "person"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s · %s · %d %s\n", out.Board, out.Visibility, len(out.People), noun)
-	for _, p := range out.People {
+	fmt.Fprintf(&b, "%s · %s · %d %s\n", out.Board, out.Visibility, len(r.JSON200.People), noun)
+	for _, p := range r.JSON200.People {
 		line := "  " + p.Name
 		if p.BoardRole == api.BoardRoleOwner {
 			line += " (owner)"
@@ -132,9 +141,51 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 			line += " · " + *p.DisplayName
 		}
 		b.WriteString(line + "\n")
+		row := personWithAgents{BoardPerson: p}
+		if members != nil {
+			row.Agents = []personAgent{}
+			for _, m := range members {
+				if m.Kind != api.MemberKindAgent || m.OwnerId == nil || *m.OwnerId != p.Id {
+					continue
+				}
+				ag := personAgent{Name: m.Name, Harness: m.Harness}
+				parts := []string{"@" + m.Name}
+				if m.Harness != nil {
+					parts = append(parts, *m.Harness)
+				}
+				if m.Presence != nil {
+					s := string(*m.Presence)
+					ag.Presence = &s
+					parts = append(parts, presenceText(s))
+				}
+				row.Agents = append(row.Agents, ag)
+				b.WriteString("    " + strings.Join(parts, " · ") + "\n")
+			}
+		}
+		out.People = append(out.People, row)
 	}
 	a.emit(out, b.String())
 	return nil
+}
+
+// boardPeopleOutput is aboard board people's --json output (cli.yaml, BoardPeopleOutput).
+type boardPeopleOutput struct {
+	Board      api.BoardName       `json:"board"`
+	Visibility api.BoardVisibility `json:"visibility"`
+	People     []personWithAgents  `json:"people"`
+}
+
+// personWithAgents is one person on the board with their agents on it; Agents is nil
+// when the caller can't read the board's members.
+type personWithAgents struct {
+	api.BoardPerson
+	Agents []personAgent `json:"agents"`
+}
+
+type personAgent struct {
+	Name     string  `json:"name"`
+	Harness  *string `json:"harness"`
+	Presence *string `json:"presence"`
 }
 
 // boardPersonOutput is the --json output of the commands that change one person on a

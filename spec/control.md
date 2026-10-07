@@ -97,6 +97,7 @@ optional; each operation says which it reads.
 | `extension_version` | string | The extension's own version |
 | `subagent` | string | The harness's id for the subagent a hello comes from |
 | `launch` | string | A launch ticket, from `ABOARD_LAUNCH` or the session's first prompt, on `register` or `hello` (see "Launch tickets") |
+| `plan` | object | On `plan`: the item in progress in the harness's todo or plan list, `{"text","done","total"}` (see "`plan`") |
 
 A **response** goes from the daemon to a client: the answer to a request, or an event
 on a connection that stays open.
@@ -111,6 +112,7 @@ on a connection that stays open.
 | `delivery_class` | string | On a negotiated combined `deliver`: `owner_only` or `mixed`, computed by the daemon from all messages in the payload |
 | `capabilities` | array of strings | On `welcome`: the extension capabilities this connection negotiated. On `agents`: capabilities of the session's current live extension; absent means none are established |
 | `notice` | string | The waiting notice: names waiting messages without their content |
+| `nudge` | string | On `turn_start` and `boundary`: Aboard's own reminder lines for the agent (a late pause, a stale line, a stale brief), which the caller adds before `bundle` and `notice`; never a sender's text (see "Reminders") |
 | `boot` | string | The session's boot id |
 | `agents` | array of agents | The agents bound to the session |
 | `seats` | array of seats | On `bind`, `join` and `agents` once multi-seat binding is on (see "Several seats"): every seat the session holds, each an agent with its `member_id`, `mode` and `unread` |
@@ -225,6 +227,42 @@ the same way.
 ```json
 {"v":1,"op":"boundary","harness":"codex","session":"019a0000-0000-7000-8000-000000000001","started":"2026-10-03T14:02:11.5Z"}
 {"v":1,"bundle":"<aboard-messages board=\"writer-reviewer\" count=\"1\">…</aboard-messages>","notice":"<aboard-notice board=\"writer-reviewer\" waiting=\"1\">1 waiting on writer-reviewer: #7 from writer (owner_agent); run aboard inbox when convenient</aboard-notice>"}
+```
+
+### `plan`: the harness's todo list moved
+
+Sent by a tool hook when the tool that just ran is the harness's own todo or plan list
+(the profile's `plan`: Claude Code's `TodoWrite`, reading the item whose `status` is
+`in_progress` and its `activeForm`), with that item's text and how many items are done.
+The daemon sets the line of the session's seat to "Working on: <text>" with source
+`plan` (`PUT /v1/me/line`, openapi.yaml), only when the text changed and at most once
+every 10 seconds per seat; an empty `text` (nothing in progress) leaves the line as it
+is. With several seats the line goes to the seat that started a task most recently,
+else to the only seat, else nowhere. The hook adds nothing to the turn and the answer
+carries nothing. A daemon without this operation answers `invalid_request`, which the
+hook ignores. Hooks fired inside a sub-agent send nothing.
+
+```json-planned
+{"v":1,"op":"plan","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","plan":{"text":"Rotating the key in the second config","done":2,"total":5}}
+{"v":1}
+```
+
+### Reminders
+
+`turn_start` and `boundary` answers may carry `nudge`: one or more lines of Aboard's own
+text for the agent, each at most 200 bytes, which the hook puts before the bundle and the
+notice in the same context. A reminder never wakes a session: it rides on a turn that is
+starting or running. At a tool boundary only `pause_late` is given, and it may be the
+only thing there; the others wait for a turn's start. The daemon builds them from the
+`work` it reads with the agent's inbox (openapi.yaml, `AgentWork`), says each once
+(design/board-features.md, "Nudges"), and sends none when the board's policy sets
+`nudges: off`. On `register`, the note that tells a session which agent it holds also
+names the agent's current task, Where it stands, its line and its open asks, at most 600
+bytes in all.
+
+```json-planned
+{"v":1,"op":"turn_start","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80"}
+{"v":1,"nudge":"Aboard: you said you were paused on CI run #4812 until 14:20; it's 14:31. Say where you are: aboard working \"…\", or aboard paused \"…\" --until <time>."}
 ```
 
 ### `end`: the session closed
