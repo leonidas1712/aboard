@@ -26,7 +26,7 @@ const (
 
 // noUpdateCheck are the commands that never check: the ones aboard and harnesses run
 // rather than a person, and upgrade, which checks anyway.
-var noUpdateCheck = []string{"hook", "daemon", "serve", "upgrade"}
+var noUpdateCheck = []string{"hook", "daemon", "serve", "upgrade", "skill"}
 
 // updateCheck is update-check.json in the state folder.
 type updateCheck struct {

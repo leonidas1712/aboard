@@ -906,6 +906,15 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"version", "init", "doctor"},
 		},
 		{
+			Name: "skill", Group: groupStart,
+			Summary:     "Print the agent instructions bundled with this binary",
+			Usage:       []string{"aboard skill [--json]"},
+			Description: "Prints the Markdown skill that matches this installed aboard. Read it before joining from a cloud or sandboxed session where you do not run aboard init. It needs no server, login or harness setup and changes no files. With --json, prints the binary's version and the same skill.",
+			Flags:       []helpFlag{flagJSON},
+			Examples:    []helpExample{{"aboard skill", "Read the instructions for this installed binary"}},
+			SeeAlso:     []string{"init", "version", "join"},
+		},
+		{
 			Name: "version", Group: groupMaintain,
 			Summary:     "Print aboard's version",
 			Usage:       []string{"aboard version [--json]"},

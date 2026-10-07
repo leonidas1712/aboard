@@ -121,6 +121,7 @@
               "cli/doctor",
               "cli/uninstall",
               "cli/upgrade",
+              "cli/skill",
               "cli/version",
               "cli/help"
             ]
