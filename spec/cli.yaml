@@ -2667,7 +2667,7 @@ $defs:
       agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
       <n> people", then one line per person: their name on the board, "(owner)" for an
       owner, "(guest)" for a guest of the server, and their display name when they have
-      one. Each person's server_role is in the JSON. Under each person, one line per
+      one, as `@admin (Leo Raghav)` for display-name resolution only. Each person's server_role is in the JSON. Under each person, one line per
       agent of theirs on the board now, so an agent can find another person's agent by
       its person and address it:
         retry-design · open · 2 people

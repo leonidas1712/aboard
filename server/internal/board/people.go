@@ -487,6 +487,11 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 			}
 			return inviteInvalid()
 		}
+		if _, err := tx.ReservedHandle(in.Handle); err == nil {
+			return HandleTaken(in.Handle)
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
 		if _, err := tx.HumanByName(in.Handle); err == nil {
 			return apierr.New(http.StatusConflict, "handle_taken",
 				fmt.Sprintf("Someone on this server is already called %s.", in.Handle),

@@ -70,6 +70,7 @@ the board.
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done (#94, #112, #115): stopped state and bindings use immutable seat ids | D187, D190 |
 | Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | done (#128): expiry checked in the read transaction; expired answers replaced on reuse and purged at server startup and hourly. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
+| Person handle rename and display-name resolution, preserving identity and reserving renamed handles; first-admin setup guidance | building | D216 |
 | People page with shared-board agent counts and terminal admin handoffs; owner-only board visibility confirmation | done (#177) | existing APIs; global person activity/counts remain a later contract item |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
@@ -396,5 +397,3 @@ that is already approved.
 | The skill says only Aboard writes delivered message blocks, so agents don't invent messages; live tests run cheap models by default, with `make live-smoke` checking each model answers first (#40) | |
 | Every process a test starts stops when the test process dies, including on SIGKILL (`ABOARD_EXIT_WITH_PID`, a watchdog per live lab) (#41) | D170 |
 | Each live lab gets a home folder of its own; omp's live start-up keeps its title from tmux (#45) | |
-
-Handle rename and display-name resolution: building; stable person ids, reserved renamed handles, terminal self/admin command, and first-admin setup guidance. Owner targets are paused until this priority fix lands.
