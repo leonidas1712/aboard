@@ -92,9 +92,9 @@ func taskPermission(b Board, me Member, permission string) error {
 	return apierr.New(http.StatusForbidden, "forbidden", "Your role needs "+permission+" to do this.", "Ask a person on the board to grant your role "+permission+".")
 }
 
-func taskTextValid(s string, max int, required bool) error {
-	if !utf8.ValidString(s) || utf8.RuneCountInString(s) > max || (required && strings.TrimSpace(s) == "") {
-		return invalid(fmt.Sprintf("Use text with %d characters or fewer.", max), "Supply nonempty text within the limit.")
+func taskTextValid(s string, limit int, required bool) error {
+	if !utf8.ValidString(s) || utf8.RuneCountInString(s) > limit || (required && strings.TrimSpace(s) == "") {
+		return invalid(fmt.Sprintf("Use text with %d characters or fewer.", limit), "Supply nonempty text within the limit.")
 	}
 	return nil
 }
@@ -150,14 +150,14 @@ func (s *Service) CreateTask(ctx context.Context, p Principal, name string, in N
 		if e != nil {
 			return e
 		}
-		if e = requireActive(b); e != nil {
+		if e := requireActive(b); e != nil {
 			return e
 		}
-		if e = taskPermission(b, me, rules.CreateTasks); e != nil {
+		if e := taskPermission(b, me, rules.CreateTasks); e != nil {
 			return e
 		}
 		if in.Start {
-			if e = taskPermission(b, me, rules.ClaimTasks); e != nil {
+			if e := taskPermission(b, me, rules.ClaimTasks); e != nil {
 				return e
 			}
 		}
@@ -174,7 +174,7 @@ func (s *Service) CreateTask(ctx context.Context, p Principal, name string, in N
 				}
 				owner, e := tx.TaskPrefixOwner(candidate)
 				if errors.Is(e, ErrNotFound) || e == nil && owner == b.ID {
-					if e = s.setTaskPrefix(tx, &b, me, candidate, now); e != nil {
+					if e := s.setTaskPrefix(tx, &b, me, candidate, now); e != nil {
 						return e
 					}
 					break
@@ -201,7 +201,7 @@ func (s *Service) CreateTask(ctx context.Context, p Principal, name string, in N
 		if _, e = s.append(tx, &b, events.TaskCreated, actorOf(me), now, map[string]any{"task_id": id, "ref": out.Ref, "number": number, "title": in.Title, "about": about}); e != nil {
 			return e
 		}
-		if e = tx.SaveTask(out); e != nil {
+		if e := tx.SaveTask(out); e != nil {
 			return e
 		}
 		if in.Start {
@@ -256,7 +256,7 @@ func (s *Service) setTaskPrefix(tx Tx, b *Board, me Member, prefix string, now t
 	if _, e = s.append(tx, b, events.BoardTaskPrefixSet, actorOf(me), now, map[string]any{"before": b.TaskPrefix, "after": prefix}); e != nil {
 		return e
 	}
-	if e = tx.ReserveTaskPrefix(b.ID, prefix); e != nil {
+	if e := tx.ReserveTaskPrefix(b.ID, prefix); e != nil {
 		return e
 	}
 	b.TaskPrefix = ptr(prefix)
@@ -328,7 +328,7 @@ func (s *Service) selectTask(ctx context.Context, p Principal, name, sel string,
 		if e != nil {
 			return e
 		}
-		if e = requireActive(b); e != nil {
+		if e := requireActive(b); e != nil {
 			return e
 		}
 		out, e = findTask(tx, b, sel)
@@ -373,14 +373,14 @@ func (s *Service) UpdateTask(ctx context.Context, p Principal, name, sel string,
 		if e != nil {
 			return e
 		}
-		if e = requireActive(b); e != nil {
+		if e := requireActive(b); e != nil {
 			return e
 		}
 		out, e = findTask(tx, b, sel)
 		if e != nil {
 			return e
 		}
-		if e = taskClosed(out); e != nil {
+		if e := taskClosed(out); e != nil {
 			return e
 		}
 		part := taskPart(out, me.ID)
@@ -446,14 +446,14 @@ func (s *Service) FinishTask(ctx context.Context, p Principal, name, sel string,
 		if e != nil {
 			return e
 		}
-		if e = requireActive(b); e != nil {
+		if e := requireActive(b); e != nil {
 			return e
 		}
 		out, e = findTask(tx, b, sel)
 		if e != nil {
 			return e
 		}
-		if e = taskClosed(out); e != nil {
+		if e := taskClosed(out); e != nil {
 			return e
 		}
 		if me.Kind != "human" && taskPart(out, me.ID) != "owner" {
@@ -470,7 +470,7 @@ func (s *Service) FinishTask(ctx context.Context, p Principal, name, sel string,
 		out.ClosedAt = ptr(stamp(now))
 		out.ClosedNote = ptr(in.Note)
 		out.UpdatedAt = stamp(now)
-		if e = tx.ClearTaskCurrent(out.ID); e != nil {
+		if e := tx.ClearTaskCurrent(out.ID); e != nil {
 			return e
 		}
 		if e := tx.SaveTask(out); e != nil {
@@ -495,14 +495,14 @@ func (s *Service) DropTask(ctx context.Context, p Principal, name, sel string, i
 		if e != nil {
 			return e
 		}
-		if e = requireActive(b); e != nil {
+		if e := requireActive(b); e != nil {
 			return e
 		}
 		out, e = findTask(tx, b, sel)
 		if e != nil {
 			return e
 		}
-		if e = taskClosed(out); e != nil {
+		if e := taskClosed(out); e != nil {
 			return e
 		}
 		target := me
@@ -561,7 +561,7 @@ func (s *Service) dropSeatTasks(tx Tx, b *Board, member string, actor events.Act
 	}
 	for _, t := range tasks {
 		if taskPart(t, member) != "" && taskClosed(t) == nil {
-			if e = s.dropTask(tx, b, &t, member, "Seat ended.", "seat_ended", actor, now); e != nil {
+			if e := s.dropTask(tx, b, &t, member, "Seat ended.", "seat_ended", actor, now); e != nil {
 				return e
 			}
 		}

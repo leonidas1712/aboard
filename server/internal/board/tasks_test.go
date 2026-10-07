@@ -280,3 +280,91 @@ func TestTaskWorkReadsFreshSelectionAndPolicy(t *testing.T) {
 		t.Fatal("removed seat read task work")
 	}
 }
+
+func TestTasklessPostRunUsesCurrentTaskAtPost(t *testing.T) {
+	w := newTeamWorld(t)
+	ctx := context.Background()
+	noTask := []string{}
+	post := func() {
+		t.Helper()
+		if _, e := w.svc.PostMessage(ctx, w.samAgent, w.board, board.NewMessage{Body: "status", About: &noTask}); e != nil {
+			t.Fatal(e)
+		}
+	}
+	count := func(want int) {
+		t.Helper()
+		work, e := w.svc.TaskWork(ctx, w.samAgent)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if work.PostsWithoutTask != want {
+			t.Fatalf("taskless run=%d want=%d", work.PostsWithoutTask, want)
+		}
+	}
+	post()
+	post()
+	post()
+	count(3)
+	a, e := w.svc.CreateTask(ctx, w.samAgent, w.board, board.NewTask{Title: "active", Start: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	post()
+	post()
+	post()
+	if _, e = w.svc.FinishTask(ctx, w.samAgent, w.board, a.Ref, board.TaskFinish{Note: "done"}); e != nil {
+		t.Fatal(e)
+	}
+	count(0)
+	post()
+	post()
+	count(2)
+	b, e := w.svc.CreateTask(ctx, w.samAgent, w.board, board.NewTask{Title: "other", Start: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = w.svc.DropTask(ctx, w.samAgent, w.board, b.Ref, board.TaskDrop{}); e != nil {
+		t.Fatal(e)
+	}
+	count(2)
+	post()
+	count(3)
+}
+
+func TestTasklessPostRunClearsOnAnotherActorDoneAndDrop(t *testing.T) {
+	for _, action := range []string{"owner done", "person drops helper"} {
+		t.Run(action, func(t *testing.T) {
+			w := newTeamWorld(t)
+			ctx := context.Background()
+			none := []string{}
+			a, e := w.svc.CreateTask(ctx, w.maya, w.board, board.NewTask{Title: "person owned", Start: true})
+			if e != nil {
+				t.Fatal(e)
+			}
+			if _, e = w.svc.JoinTask(ctx, w.samAgent, w.board, a.Ref); e != nil {
+				t.Fatal(e)
+			}
+			if _, e = w.svc.PostMessage(ctx, w.samAgent, w.board, board.NewMessage{Body: "while helping", About: &none}); e != nil {
+				t.Fatal(e)
+			}
+			if action == "owner done" {
+				_, e = w.svc.FinishTask(ctx, w.maya, w.board, a.Ref, board.TaskFinish{Note: "finished"})
+			} else {
+				_, e = w.svc.DropTask(ctx, w.maya, w.board, a.Ref, board.TaskDrop{Member: w.samAgent.Agent.Name})
+			}
+			if e != nil {
+				t.Fatal(e)
+			}
+			if _, e = w.svc.PostMessage(ctx, w.samAgent, w.board, board.NewMessage{Body: "no current task", About: &none}); e != nil {
+				t.Fatal(e)
+			}
+			work, e := w.svc.TaskWork(ctx, w.samAgent)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if work.CurrentTask != nil || work.PostsWithoutTask != 1 {
+				t.Fatalf("work=%+v", work)
+			}
+		})
+	}
+}

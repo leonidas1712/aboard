@@ -44,7 +44,7 @@ func (t *tx) scanTask(row interface{ Scan(...any) error }) (board.Task, error) {
 		out.Owner = &m
 	}
 	var ids []string
-	if e = json.Unmarshal([]byte(helpers), &ids); e != nil {
+	if e := json.Unmarshal([]byte(helpers), &ids); e != nil {
 		return out, e
 	}
 	out.Helpers = []board.Member{}
@@ -91,11 +91,11 @@ func (t *tx) Tasks(boardID string) ([]board.Task, error) {
 	if e != nil {
 		return nil, e
 	}
+	defer func() { _ = rows.Close() }()
 	var ids []string
 	for rows.Next() {
 		var id string
-		if e = rows.Scan(&id); e != nil {
-			_ = rows.Close()
+		if e := rows.Scan(&id); e != nil {
 			return nil, e
 		}
 		ids = append(ids, id)
