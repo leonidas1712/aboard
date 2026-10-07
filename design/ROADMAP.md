@@ -125,9 +125,11 @@ the board.
 | Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | next, once the design merges | D206, D207, D210 |
 | Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | later | D208, D210 |
 | Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
-| Slice 4, files: versions with a base check, maintained or one-off, links to tasks and messages, approvals tied to a version, the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | later | D211, D212 |
-| Slice 5, the brief: `brief.md` with freshness facts, `aboard brief`, the keeper's nudge, the join output naming it | later | D213 |
-| Notes, verified when citing a board file by hash | open question in board-features.md: retire before building? | D14 |
+| Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | later | D211, D212 |
+| Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | later | D213 |
+| Files, later: an automatic three-way merge for text files (a stale write whose changes don't overlap the newer version's is combined, using the version the writer read as the base, which each version already records; refused only on overlap), and edit claims with a lease ("editing status.html, ~10 min") shown in `file list` and the board view | later, after slice 4; needs approval | D211 |
+| Task ordering and dependencies, right after the slices: an order on tasks, and a task waiting on another (`task.linked`, `waits_on`), which shows it Blocked until that task is done; no scheduling | next after slice 5; needs its own design | D214 |
+| Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
 | A brief for agents when they join; showing the charter after joining | later; the brief (slice 5) is part of it | D40, D213 |
 | Template commands: `aboard template list`, `show`, `save`, `check`, `remove`; server-stored templates | later | D111 |
 

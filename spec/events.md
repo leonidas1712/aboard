@@ -88,6 +88,8 @@ server later serves a different hash at that `seq`.
 | `file.updated` | `PATCH /boards/{board}/files/{file}` | `file_id`, and only what changed of `maintained`, `about` |
 | `file.approved` | `PUT /boards/{board}/files/{file}/approval`, for a version the person hadn't approved. The actor is the person. | `file_id`, `version`, `digest` |
 | `file.approval_removed` | `DELETE /boards/{board}/files/{file}/approval`, when the person had an approval | `file_id`, `version` |
+| `file.removed` | `DELETE /boards/{board}/files/{file}`: the file leaves the board's list and its name is free; its versions stay in the record | `file_id`, `name` |
+| `file.renamed` | `PATCH /boards/{board}/files/{file}` with `name` | `file_id`, `before`, `after` |
 
 ## Board lifecycle
 
@@ -279,7 +281,7 @@ changes a message's `about` afterwards.
 
 **Asks** are messages: `message.posted` with `ask` (`to`, the member asked, by member
 id; `options`; `blocking`; `going_with`; `going_at`; `task_id`, the task it blocks or is
-about). **Answers** are replies: `message.posted` with `answer` (`ask_id`, `option`,
+about; `approval` for an ask to approve the message's `files`). **Answers** are replies: `message.posted` with `answer` (`ask_id`, `option`,
 `withdrawn`). There are no ask events: an ask's state (open, answered, withdrawn, or
 went with its default) is worked out from the record when read, and a task is Blocked
 while an ask with `blocking` and its `task_id` has no answer and no withdrawal after it.
@@ -290,7 +292,11 @@ The latest answer is the ask's answer, the decision; earlier ones stay in the re
 
 **Files.** A version's bytes are stored, under their digest, before the
 `file.version_added` that names them is written, so the record never names bytes the
-server doesn't have. A message's `files` names versions by `file_id`, `version` and
+server doesn't have. An ask with `approval: true` cites file versions in its message's
+`files`; a person's answer to it with `option` 1, from the person asked, is followed in
+the same transaction by one `file.approved` per cited version, with that person as
+actor. `file.removed` and `file.renamed` change only the name a file is listed under;
+nothing in the record is erased. A message's `files` names versions by `file_id`, `version` and
 `digest`. An approval names the digest it approved, so it can be checked against the
 bytes forever.
 
@@ -307,7 +313,9 @@ worked out when read, like presence and read positions.
 These names are reserved and must not be used for anything else:
 `member.left`, `member.revoked`, `member.access_changed`, `note.posted`, `flag.raised`,
 `board.paused`, `board.resumed`, `board.config_changed`, `monitor.flagged`, and any
-`task.*` or `file.*` type not listed above.
+`task.*` or `file.*` type not listed above. `task.linked` and `task.unlinked` are kept
+for dependencies between tasks (a task waiting on another). `note.posted` stays reserved
+though board notes are retired.
 
 ## Compatibility
 

@@ -2220,6 +2220,14 @@ paths:
 
         **Files.** `files` attaches versions of files already on the board; a version that
         doesn't exist is 404 `version_not_found`.
+
+        **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+        those file versions; it must go to a person (an agent recipient is 422
+        `ask_invalid`), and needs at least one file and at least one option. When the
+        person asked answers with `option` 1, the same transaction writes `file.approved`
+        for each cited version, with that person as actor; any other answer, or an answer
+        from the asker's person, approves nothing. Files are usable from the moment
+        they're written: an approval is an optional sign-off, never a gate.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3232,6 +3240,10 @@ paths:
         approval, if any.
       parameters:
         - $ref: "#/components/parameters/TaskFilter"
+        - name: mine
+          in: query
+          description: Only files the caller wrote a version of.
+          schema: { type: boolean, default: false }
         - $ref: "#/components/parameters/Limit"
       responses:
         "200":
@@ -3248,13 +3260,20 @@ paths:
       operationId: putFile
       summary: Add a file, or a new version of one
       description: |
-        Streams the request body as the bytes of a new version of the file `name`, stored
-        unchanged and named by their SHA-256. `base` is the version this one replaces: 0
-        for a new file. A `base` that isn't the file's latest version (including 0 for a
-        file that exists) is 409 `file_changed`, with the latest version and who wrote it
-        in `details`, and nothing is stored. More than the board's limit (50 MB) is 413
+        Streams the request body as the bytes of a new version of the file at `name` (a
+        path such as `notes/api.md`), stored unchanged and named by their SHA-256. The
+        write is conditional on `base`, the version it replaces. Without `base` (or with
+        0) it only creates: a path that already holds a file is 409 `file_exists`. A
+        `base` that isn't the file's latest version is 409 `file_changed`. Both carry
+        `details` `{version, by, at}` (the current version, its writer and when), and
+        nothing is stored. Top-level `brief.md` and `brief.html` need `brief=true` (409
+        `brief_path_reserved` otherwise). More than the board's limit (50 MB) is 413
         `file_too_large`; a text file that contains a credential is 422
-        `file_has_secret`. An agent needs `upload_files`. Writes `file.version_added`.
+        `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
+        reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
+        brief. The version is readable by
+        everyone on the board at once. An agent needs `upload_files`. Writes
+        `file.version_added`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - name: name
@@ -3263,9 +3282,17 @@ paths:
           schema: { $ref: "#/components/schemas/FileName" }
         - name: base
           in: query
-          required: true
-          description: The version this one replaces; 0 for a new file.
+          description: |
+            The version this one replaces. Left out, or 0, the write only creates: a path
+            that already holds a file is 409 `file_exists`.
           schema: { type: integer, minimum: 0 }
+        - name: brief
+          in: query
+          description: |
+            Required to write top-level `brief.md` or `brief.html`, the board's brief
+            (`aboard brief put` sends it); without it a write to either is 409
+            `brief_path_reserved`.
+          schema: { type: boolean, default: false }
         - name: maintained
           in: query
           description: Whether the file is kept current (the brief, a status page). Kept from the previous version when left out; false for a new file.
@@ -3279,6 +3306,13 @@ paths:
             type: array
             maxItems: 8
             items: { type: string }
+        - name: replace_format
+          in: query
+          description: |
+            Only for `brief.md` or `brief.html`: when the board's brief is the other one,
+            take it off the board (`file.removed`) and add this one, in one transaction.
+            Without it that case is 409 `brief_exists`.
+          schema: { type: boolean, default: false }
         - name: media_type
           in: query
           description: The bytes' media type, such as `text/markdown`. Worked out from the name when left out.
@@ -3325,13 +3359,37 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+    delete:
+      tags: [files]
+      operationId: removeFile
+      summary: Take a file off the board
+      description: |
+        Takes the file off the board's list and frees its name. Its versions, approvals
+        and bytes stay in the record, readable by its id (`fil_…`) and from the messages
+        that attached them; nothing is erased. An agent needs `upload_files`. Writes
+        `file.removed`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: The file as it was when taken off
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardFile" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
     patch:
       tags: [files]
       operationId: updateFile
-      summary: Mark a file maintained or one-off, or change its tasks
+      summary: Rename a file, mark it maintained or one-off, or change its tasks
       description: |
-        Changes `maintained` or `about` without a new version. An agent needs
-        `upload_files`. Writes `file.updated`.
+        Changes `maintained` or `about` without a new version (writes `file.updated`), or
+        renames the file with `name` (writes `file.renamed`); versions and approvals keep
+        with it. A path another file on the board has is 409 `file_name_taken`; renaming
+        to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+        written with `brief=true` on `putFile`). An agent needs `upload_files`.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -3391,8 +3449,10 @@ paths:
       operationId: approveFile
       summary: Approve a version of a file, as a person
       description: |
-        Records the caller's approval of one version, tied to its digest. A person's own
-        statement: an agent token gets 403 `human_token_required`. A person has at most
+        Records the caller's approval of one version, tied to its digest. Any person on
+        the board may approve, as their own statement; an agent token gets 403
+        `human_token_required` (an agent asks for approval with an approval ask; see
+        `postMessage`). The version is usable whether or not anyone approves it. A person has at most
         one approval per file; approving another version replaces it. A later version
         never inherits it: the file reads "approved v3 · 2 changes since". Approving the
         version already approved changes nothing. Writes `file.approved`.
@@ -3632,8 +3692,8 @@ components:
       name: file
       in: path
       required: true
-      description: The file's name on the board, or its id (`fil_…`).
-      schema: { type: string, pattern: "^([A-Za-z0-9][A-Za-z0-9._-]{0,99}|fil_[0-9A-HJKMNP-TV-Z]{26})$" }
+      description: The file's path on the board, with `/` written `%2F`, or its id (`fil_…`).
+      schema: { type: string, maxLength: 200 }
 
   responses:
     Error:
@@ -3782,6 +3842,10 @@ components:
                 - file_too_large
                 - file_has_secret
                 - version_not_found
+                - file_name_taken
+                - brief_exists
+                - file_exists
+                - brief_path_reserved
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             details:
@@ -4583,7 +4647,7 @@ components:
         brief:
           allOf: [{ $ref: "#/components/schemas/BriefSummary" }]
           nullable: true
-          description: The board's brief (its file `brief.md`) with its freshness; null when the board has none. Present for someone on the board on a server with files.
+          description: The board's brief (its file `brief.md` or `brief.html`) with its freshness; null when the board has none. Present for someone on the board on a server with files.
     CreateBoardRequest:
       type: object
       additionalProperties: false
@@ -5776,6 +5840,12 @@ components:
         going_at:
           allOf: [{ $ref: "#/components/schemas/Timestamp" }]
           description: When the asker goes ahead with `going_with`; now when left out.
+        approval:
+          type: boolean
+          default: false
+          description: |
+            Asks a person to approve the file versions in the message's `files`; option 1
+            means approve. See `postMessage`.
     AnswerRequest:
       type: object
       additionalProperties: false
@@ -5800,6 +5870,9 @@ components:
       type: object
       required: [to, options, blocking, going_with, going_at, task, state, answer_seq, answer_option]
       properties:
+        approval:
+          type: boolean
+          description: True for an approval ask, whose option 1 approves the message's `files`. Absent otherwise.
         to: { $ref: "#/components/schemas/MemberRef" }
         options:
           type: array
@@ -5956,8 +6029,13 @@ components:
     # ---------- files ----------
     FileName:
       type: string
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"
-      description: A file's name on its board, unique there. `brief.md` is the board's brief.
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
+      maxLength: 200
+      description: |
+        A file's path on its board, unique there: names separated by `/`, each starting
+        with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+        (at most one of them), written only as the brief. In a URL path a `/` inside it is
+        written `%2F`.
       example: brief.md
     Digest:
       type: string
@@ -6077,6 +6155,9 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
+        name:
+          allOf: [{ $ref: "#/components/schemas/FileName" }]
+          description: A new name for the file.
         maintained: { type: boolean }
         about:
           type: array
@@ -6092,6 +6173,10 @@ components:
       type: object
       required: [file_id, version, by, at, freshness]
       properties:
+        name:
+          type: string
+          enum: [brief.md, brief.html]
+          description: Which of the two the board's brief is. HTML is shown only in a sandboxed preview.
         file_id: { type: string }
         version: { type: integer, minimum: 1 }
         by: { $ref: "#/components/schemas/MemberRef" }
@@ -6157,6 +6242,8 @@ components:
         - $ref: "#/components/schemas/FileUpdatedEvent"
         - $ref: "#/components/schemas/FileApprovedEvent"
         - $ref: "#/components/schemas/FileApprovalRemovedEvent"
+        - $ref: "#/components/schemas/FileRemovedEvent"
+        - $ref: "#/components/schemas/FileRenamedEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -6192,6 +6279,8 @@ components:
           file.updated: "#/components/schemas/FileUpdatedEvent"
           file.approved: "#/components/schemas/FileApprovedEvent"
           file.approval_removed: "#/components/schemas/FileApprovalRemovedEvent"
+          file.removed: "#/components/schemas/FileRemovedEvent"
+          file.renamed: "#/components/schemas/FileRenamedEvent"
     BoardCreatedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"
@@ -6359,6 +6448,9 @@ components:
                     going_with: { type: string, nullable: true }
                     going_at: { type: string, format: date-time, nullable: true }
                     task_id: { type: string, nullable: true }
+                    approval:
+                      type: boolean
+                      description: True for an approval ask; absent otherwise.
                 answer:
                   type: object
                   description: Present for a reply that answers or withdraws the ask it replies to.
@@ -6826,6 +6918,33 @@ components:
                   required: [version]
                   properties:
                     version: { type: integer, minimum: 1 }
+    FileRemovedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [file.removed] }
+            data:
+              allOf:
+                - $ref: "#/components/schemas/FileEventData"
+                - type: object
+                  required: [name]
+                  properties:
+                    name: { $ref: "#/components/schemas/FileName" }
+    FileRenamedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [file.renamed] }
+            data:
+              allOf:
+                - $ref: "#/components/schemas/FileEventData"
+                - type: object
+                  required: [before, after]
+                  properties:
+                    before: { $ref: "#/components/schemas/FileName" }
+                    after: { $ref: "#/components/schemas/FileName" }
     BoardUnavailableEvent:
       type: object
       additionalProperties: false

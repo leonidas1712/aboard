@@ -79,6 +79,10 @@ func (h *handlers) GetFile(context.Context, GetFileRequestObject) (GetFileRespon
 	return nil, notProvided("files")
 }
 
+func (h *handlers) RemoveFile(context.Context, RemoveFileRequestObject) (RemoveFileResponseObject, error) {
+	return nil, notProvided("files")
+}
+
 func (h *handlers) UpdateFile(context.Context, UpdateFileRequestObject) (UpdateFileResponseObject, error) {
 	return nil, notProvided("files")
 }

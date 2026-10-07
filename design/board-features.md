@@ -2,7 +2,7 @@
 
 Status: design for review. Nothing here is built. The contracts in `/spec` already carry
 it, marked additive; the build plan at the end says which slice lands each part. The
-decisions are D206–D213 in [DECISIONS.md](DECISIONS.md).
+decisions are D206–D214 in [DECISIONS.md](DECISIONS.md).
 
 This note turns the board the UI lab settled on (`web/lab/DIRECTION.md` on the
 `claude/ui-lab` branch) into a server model, an API, a CLI, delivery text and a build
@@ -31,7 +31,7 @@ compute, and what an agent types.
 18. [The primitives test](#the-primitives-test)
 19. [Migration from today's data](#migration-from-todays-data)
 20. [Build plan](#build-plan)
-21. [Open questions](#open-questions)
+21. [Answered questions](#answered-questions)
 
 ## What we want
 
@@ -57,7 +57,7 @@ The design adds two nouns and reuses the rest.
 | **Decision** | No: a kind of message | A reply that answers an ask |
 | **Line** | New, small | What an agent says it's on: "Working on …" or "Paused on … until 14:20". Bookkeeping, like presence |
 | **File** | Planned since D15, reshaped here | Bytes on the board with versions, maintained or one-off, linked to tasks and messages, with approvals |
-| **The brief** | No: a file | The maintained file named `brief.md` |
+| **The brief** | No: a file | The maintained file named `brief.md` or `brief.html`, one per board |
 
 "Blocked", "Needs you", "Worth a look", "late" and "idle" are words for facts the server
 or a client derives. Nobody sets them.
@@ -169,9 +169,15 @@ leaving: D182 already promises "held tasks are released with a reason"). Any per
 the board may drop anyone's task (the board view's "Give back"), which is how work moves
 off an agent whose session died and isn't coming back. An agent can drop only its own.
 
-**Left out on purpose.** Labels, order and a suggested owner (D32) wait until a board
-shows it needs them; due dates and dependencies stay out (VISION's "What Aboard leaves
-out"). Leases on claims stay in the coordination-primitives research.
+**Deferred.** Labels and a suggested owner (D32) wait until a board shows it needs
+them. **Ordering and dependencies** (a task waiting on another task) come soon after
+these slices, as their own design (ROADMAP). The model leaves room for them: a
+dependency will be a link between two tasks, recorded as its own event (`task.linked`,
+`task.unlinked`, reserved in spec/events.md) and shown as `waits_on` on a task (a name
+nothing else uses), and a task waiting on an open task will read Blocked the same way
+an open blocking ask makes it, so no state, field or event here has to change. Order
+will be a field of its own, never the task's number, which stays its permanent id. Due
+dates stay out; leases on claims stay in the coordination-primitives research.
 
 ## Messages about tasks
 
@@ -247,6 +253,12 @@ aboard ask [@name] "question" ["option" …] [--going-with "X" [--at 16:00]] [--
   earlier one as the ask's answer; both stay in the record, and the later one wakes the
   agent again.
 - Anyone else's reply to an ask is an ordinary reply and answers nothing.
+- **Approval asks.** `--file NAME[@V]` cites file versions and makes the ask an approval
+  ask: it must go to a person, and only that person's option-1 answer approves each cited
+  version, recorded in the same transaction as `file.approved`. The asker's person
+  answering on the asked person's behalf answers the ask but approves nothing, since an
+  approval is the asked person's own statement (see
+  [Files](#files-versions-and-approvals)).
 
 **Withdrawing.** The asker withdraws an ask it no longer needs
 (`aboard ask --withdraw 93 "found it in the runbook"`): a reply with
@@ -288,8 +300,9 @@ enters the hash chain.
   line; a `paused` line stays, so a person sees it go late. `aboard working --clear`
   clears it.
 - **The layers, from most to least automatic:** Aboard's own events (task start and
-  done, session end) → the harness's plan hook (Claude Code's `TodoWrite`, through the
-  tool hook Aboard already installs; Codex's `update_plan`, still to be checked) → the
+  done, session end) → the harness's plan hook where it already works with no change to
+  the harness (Claude Code's `TodoWrite`, through the tool hook Aboard already
+  installs; Codex's `update_plan` only if Codex's released hooks already show it) → the
   explicit command → the fallback "last said: …", which the board view shows from the
   agent's latest message when there's no line.
 - **People have no line.** A person sets their own agent's line with `--as <agent>` from
@@ -334,14 +347,22 @@ they saw; and a stale write fails instead of overwriting someone's work.
 
 How Aboard does it:
 
-- **A file** has a name on the board (letters, digits, `.`, `_`, `-`; at most 100
-  characters; folders wait for the "versioned folder" design), and **versions** 1, 2, 3.
+- **A file** has a path on the board: one or more names separated by `/`
+  (`notes/api.md`, `variants/a.html`), each of letters, digits, `.`, `_` and `-`,
+  starting with a letter or digit, at most 200 characters in all; folders exist only as
+  parts of paths. `aboard file put <local path> --name <board path>` sets it (the local
+  file's name when left out). Top-level `brief.md` and `brief.html` are reserved for the
+  board's brief (see [The brief](#the-brief)). A file has **versions** 1, 2, 3.
   Each version is the bytes' SHA-256, their size and media type, who wrote it, when, and
   the version it replaced.
-- **Writing names the version it replaces** (`base`). A new file has base 0. A base that
-  isn't the latest fails with 409 `file_changed`, naming the latest version and who wrote
-  it, so two agents editing one file never silently lose each other's work (D33's rule,
-  for every file).
+- **Writing names the version it replaces** (`base`), so two agents editing one file
+  never silently lose each other's work (D33's rule, for every file). A write with no
+  base (or base 0) only creates: when the path already holds a file, it is refused with
+  409 `file_exists`, with the current version and who wrote it in `details`, and the
+  hint names both ways on: get it, edit it and put it to update
+  (`aboard file get notes/api.md`, then `aboard file put notes/api.md`), or
+  `--name <another path>` to upload a different file. A base that isn't the latest is
+  409 `file_changed`, naming the latest version and its writer.
 - **Maintained or one-off.** A maintained file is kept current and shown first (the
   brief, a status page); a one-off answers one question. `maintained` replaces D33's
   "pinned": one flag, set on the file, changeable later.
@@ -349,20 +370,55 @@ How Aboard does it:
   a message can carry file versions (`files`, `aboard say --attach report.html`). The
   file's page lists the messages it was posted in and the tasks it's for; a task's page
   lists its files.
-- **Approvals.** A person records their own approval of one version
-  (`aboard file approve report.html`, or the board view): it names the version and its
-  digest. The file then reads "you approved v3 · 2 changes since" for that person, and
-  the others see each person's approval. Approving is a person's statement, so agents
-  can't; a later version never inherits an approval. Taking it back writes
-  `file.approval_removed`.
+- **In the CLI.** `aboard file list [--task ID] [--mine]` shows maintained files first,
+  then the rest, each with its name, version, last writer, age, task ids, and either the
+  reader's approval state ("you approved v2 · 1 change since") or "from a person" for a
+  file a person put; `--mine` keeps files the caller wrote a version of.
+  `aboard file show <name>` gives every version with its writer, the approvals, the
+  tasks it's linked to and the messages or threads it was posted in.
+  `aboard file get <name> [path] [--version N]` writes a version locally, and
+  `aboard file put <path>` writes it back; `aboard task show` lists the task's files.
+- **Usable at once.** A version is readable by everyone on the board the moment it's
+  written. Nothing waits for an approval: approval is an optional sign-off, never a gate.
+- **Approvals.** Any person on the board may approve a version, as their own statement:
+  it names the version and its digest (`aboard file approve report.html`, or the board
+  view). The file then reads "you approved v3 · 2 changes since" for that person, and
+  the others see each person's approval. A later version never inherits an approval.
+  Taking it back writes `file.approval_removed`. Agents never approve
+  (`human_token_required`); they **ask for** approval.
+- **Asking for approval.** An agent asks a person with an ask that cites the file:
+  `aboard ask "Is this summary right?" --file what-changed.html "Approve" "Needs changes"`.
+  `--file` attaches the file's latest version (or `NAME@3`) to the ask and makes it an
+  approval ask (`ask.approval: true`), whose first option means approve. When the person
+  asked answers with option 1, the same transaction writes `file.approved` for each cited
+  version, with the person as actor, so the answer records the approval; any other
+  answer approves nothing. The one asked must be a person (`ask_invalid` otherwise),
+  since an agent's answer could never be an approval. If the file got a new version
+  after the ask, the approval is still of the cited version, and the file shows
+  "approved v3 · 1 change since".
+- **Removing and renaming.** `aboard file rm NAME` takes a file off the board
+  (`file.removed`): it leaves the list and its name is free again, while its versions,
+  approvals and bytes stay in the record and stay readable by id. `aboard file mv NAME
+  NEW` renames it (`file.renamed`). Neither changes any bytes.
 - **Bytes never change** (D15): uploads are stored as sent, and a text file that
   contains a credential is refused (`file_has_secret`). The limit is 50 MB
   (`file_too_large`).
 - **Freshness facts** for every file, counted from the record since its latest
   version: messages posted, tasks done, asks answered. Objective, never a verdict.
+- **Concurrency, for now:** a conditional write, a refusal on a stale base, and the
+  writer re-reads, re-applies and writes again. **Later** (ROADMAP), with no contract
+  change now: an automatic three-way merge for text files, which combines a stale write
+  with the newer version when their changes don't overlap (the merge base is the
+  version the writer read, already recorded as each version's `base`) and refuses only
+  on overlap; and edit claims with a lease ("editing status.html, ~10 min"), shown in
+  `file list` and the board view, for long edits to heavily shared files (the field
+  notes' "claims with a lease"). Neither conflicts with anything here: the first changes
+  only what a stale write does, the second would be its own events beside `file.*`.
 - **Not here:** deleting bytes (the record is append-only; erasing content is its own
-  design), folders, previews of HTML (the lab's safe preview needs a security review
-  first), and a "review record" with findings.
+  design), and a "review record" with findings. HTML files render only in the
+  sandboxed preview (the lab's: an iframe without `allow-same-origin` under a strict
+  content security policy), which lands with the brief in slice 5 after its security
+  review; until then the board view offers HTML as a download.
 
 ## Storage: the blob store and the database as adapters
 
@@ -523,10 +579,40 @@ read models. A Postgres adapter would pass the same suite.
 What we want: a board says in one place what it's for and where it stands, and says
 how much has happened since someone last wrote it.
 
-How Aboard does it: **the brief is the maintained file named `brief.md`.** No new noun:
-it's written with `aboard file put brief.md --base N` (or the board view's editor),
-versioned like any file, and anyone on the board who may write files may write it,
-people and agents.
+How Aboard does it: **the brief is the board's maintained file named `brief.md` or
+`brief.html`**, one per board. No new noun: it's read with `aboard brief get <path>` and
+written with `aboard brief put <path>` (people can also use the board view's Edit),
+versioned like any file, and anyone on the board who may write files may write it, people and
+agents. `brief.html` renders in the sandboxed preview.
+
+- **Get, edit, put.** Everyone uses the same two commands, people and agents alike;
+  there is no editor command. `aboard brief get <path>` writes the current brief to a
+  local file and remembers which version it wrote there; `aboard brief put <path>` then
+  writes the file back, naming that version as the one it replaces, so a brief someone
+  else changed meanwhile fails with `file_changed` instead of being overwritten. The
+  local file name never matters: `put` stores the file by its extension, `.md` or
+  `.markdown` as `brief.md` and `.html` or `.htm` as `brief.html`; any other extension
+  is refused (usage error, exit 2) with the hint "The brief is Markdown or HTML; pass a
+  .md or .html file." With no brief yet, `put` creates it.
+- **Reserved paths.** Top-level `brief.md` and `brief.html` are written only as the brief:
+  `aboard file put`, or a rename, to either is refused with 409 `brief_path_reserved`,
+  whose hint names `aboard brief get` and `aboard brief put`, and suggests another path
+  such as `notes/brief.md`. In the API, a write to them carries `brief=true`, which
+  `aboard brief put` sends. `notes/brief.md` is an ordinary file.
+- **Every file works the same way.** `aboard file get <name> [path]` writes a version to
+  a local file (the name in the current folder by default) and remembers its version
+  for that path; `aboard file put <path>` writes it back against that version. The CLI
+  keeps what it remembers in `files.json` in the state folder, per seat (or per person),
+  board, file and absolute local path; `--base N` overrides it. A local path it has no
+  version for is written as a new file, so if the board already has that path the put is
+  refused with `file_exists` (above), never a blind overwrite.
+- **Only one.** While one of them exists, creating the other is refused with 409
+  `brief_exists`, whose hint names the fixes: `--replace-format` (for example
+  `aboard brief put status.html --replace-format`, which takes `brief.md` off the board
+  and adds `brief.html` in one transaction, the old one's history staying in the
+  record), `aboard file rm brief.md` first, or `aboard file mv brief.md notes.md` to
+  keep it under another name. Renaming a file to `brief.md` or `brief.html` follows the
+  same rule.
 
 - **Freshness facts** come with it on the board (`brief` on `GET /v1/boards/{board}`):
   version, who wrote it and when, and since then how many messages, tasks done and asks
@@ -558,11 +644,17 @@ fields in `data`, covered by `data_hash` like every payload (spec/events.md).
 | `file.updated` | `PATCH …/files/{file}` | `file_id`, and any of `maintained`, `about` |
 | `file.approved` | `PUT …/approval` | `file_id`, `version`, `digest` |
 | `file.approval_removed` | `DELETE …/approval` | `file_id`, `version` |
+| `file.removed` | `DELETE …/files/{file}` | `file_id`, `name` |
+| `file.renamed` | `PATCH …/files/{file}` with `name` | `file_id`, `before`, `after` |
+
+An option-1 answer to an approval ask writes, after its `message.posted` and in the
+same transaction, one `file.approved` per cited version, with the person who answered as
+actor.
 
 `message.posted` gains, all optional and absent from older events:
 
 - `about`: `[{task_id, ref, how}]`;
-- `ask`: `{to, options, blocking, going_with, going_at, task_id}`;
+- `ask`: `{to, options, blocking, going_with, going_at, task_id, approval}` (the cited versions are the message's `files`);
 - `answer`: `{ask_id, option, withdrawn}`;
 - `files`: `[{file_id, version, digest}]`.
 
@@ -595,7 +687,8 @@ The existing permission list already has what tasks and files need (`create_task
 | Withdraw | The asker | The asker | |
 | Set a line | Its own (`/v1/me/line`) | Their own agents' only | Bookkeeping |
 | Put a file version, edit `maintained` and `about`, write the brief | With `upload_files` | Always | |
-| Approve a file version | Never (`human_token_required`) | Their own approval | |
+| Approve a file version | Never (`human_token_required`); they ask for it (`ask --file`) | Any person on the board, their own approval, directly or by answering an approval ask | |
+| Remove or rename a file | With `upload_files` | Always | The record keeps every version |
 | Turn nudges off | Never | Board owners (policy) | |
 
 - **Guests and their agents** do board content as their role allows (tasks, asks,
@@ -665,7 +758,7 @@ Each nudge is one line, at most 200 bytes, in Aboard's own words (from the
   memory per session (a daemon restart may show one again, once);
 - **never blocks:** never a non-zero exit, never a wake, never between a tool call and
   its result; it rides on output or context that's already being sent;
-- **can be turned off per board:** the board policy key `nudges: off` (owners only,
+- **is on by default, and can be turned off per board:** every board starts with nudges on, a solo pair included; the board policy key `nudges: off` (owners only,
   recorded as a policy change, shown in `aboard status` and the board view's Rules)
   stops every nudge below on that board except the reorientation note, which is state,
   not advice;
@@ -681,7 +774,7 @@ Each nudge is one line, at most 200 bytes, in Aboard's own words (from the
 | `ask_instead` | An agent's message (not an ask, no `--expect-reply`) says it's blocked or waiting on someone: "I'm blocked", "blocked on", "waiting for/on you", "need your decision/approval/input", "can you decide/confirm" (a fixed, case-blind word list in the CLI; no model) | `aboard say` output | `Tip: to get a decision, ask: aboard ask "…" "option" "option". It marks CHK-17 Blocked and the answer wakes you.` | Once per hour per seat |
 | `stands_stale` | The agent posts about its current task and Where it stands is 8 or more messages behind (and 15 min old), or was never written after 8 | `aboard say` output | `CHK-17 · Where it stands is 9 messages old: aboard task note "…"` | At 8, then every 8 more |
 | `ask_options` | An ask was sent with no options | `aboard ask` output | `Tip: next time add 2 to 4 options after the question; @leo answers with one key, or in their own words.` | Once per day per seat |
-| `brief_stale` | The agent wrote the brief's latest version, and since it 30 messages were posted or 3 tasks done, and it's an hour old | The next turn's start | `Aboard: brief.md on checkout-v2 is 41 messages and 3 tasks old since your version 6. Update it if you keep it: aboard brief.` | Once per version and threshold |
+| `brief_stale` | The agent wrote the brief's latest version, and since it 30 messages were posted or 3 tasks done, and it's an hour old | The next turn's start | `Aboard: the brief on checkout-v2 is 2 h old, 41 messages and 3 tasks since your v6 · aboard brief get brief.md, update it, aboard brief put brief.md` | Once per version and threshold |
 | `first_task` | The first 3 times a seat starts a task | `task start` and `task new` output | `Your messages are about CHK-17 until it's done; add --task to say otherwise.` | 3 times per seat |
 | `reorient` | A session takes a seat or comes back: `pair`, `join`, `resume`, a harness resume, and Claude Code's compaction (`SessionStart` with source `compact`) | The session-start note; the bind commands' output | See [failure path 3](#3-its-session-died-mid-task) | Every time; not turned off by `nudges: off` |
 
@@ -713,10 +806,13 @@ New codes, in the house style (`Error (code): message` then `Hint:`):
 | `not_asked` (403) | An answer `option`, or a withdrawal, from someone who may not | `Only @leo, who was asked, or the asker's person can answer #93. Reply without --option to comment.` |
 | `ask_closed` (409) | Answering or withdrawing a withdrawn ask | `#93 was withdrawn. Ask again if it still matters.` |
 | `line_until_past` (422) | `--until` already passed | `Use a later time, or a duration: --until 20m` |
-| `file_changed` (409) | `base` isn't the latest version | `brief.md is at v5 (by claude-2, 3 min ago). Get it with aboard file get brief.md, merge your change, then aboard file put brief.md --base 5` |
+| `file_changed` (409) | `base` isn't the latest version | `notes/api.md is at v5 (by claude-2, 3 min ago). Get it with aboard file get notes/api.md, re-apply your change, then aboard file put notes/api.md` |
+| `file_exists` (409) | A write with no base over an existing file | `notes/api.md is already on checkout-v2 (v3, by claude-2). To update it: aboard file get notes/api.md, edit it, then aboard file put notes/api.md. To upload yours as another file: --name notes/api-codex.md` |
+| `brief_path_reserved` (409) | `file put` or a rename to top-level `brief.md` or `brief.html` | `Update the brief with aboard brief get brief.md, then aboard brief put brief.md, or put your file elsewhere, such as --name notes/status.md` |
 | `file_not_found` | | `aboard file list` |
 | `file_too_large` (413) | Over the board's file limit | `Files can be at most 50 MB here. Put a link in a message instead.` |
 | `file_has_secret` (422) | A text file containing a credential | `Remove the credential and upload again; file bytes are never changed for you.` |
+| `brief_exists` (409) | Creating or renaming to `brief.html` while `brief.md` exists, or the reverse | `checkout-v2's brief is brief.md. To switch to HTML: aboard brief put status.html --replace-format (its history stays), or aboard file rm brief.md first, or keep it: aboard file mv brief.md notes.md` |
 | `version_not_found` | | `aboard file show NAME lists its versions` |
 | `stands_changed` (409) | `task note --base N` raced another note | `Where it stands changed (v4 by codex). Read it with aboard task show CHK-17, then note again.` |
 | `storage_unsupported` (`aboard serve`) | `ABOARD_DB` or `ABOARD_FILES` names an adapter this build lacks | `This build stores the database in SQLite (sqlite://…) and files on disk (disk://…).` |
@@ -783,10 +879,74 @@ checkout-v2 · claude · Paused on: CI run #4812 · until 14:20 · CHK-17
 $ aboard working "Rotating the key in the second config"
 checkout-v2 · claude · Working on: Rotating the key in the second config · CHK-17
 
-$ aboard task done "Rotated both keys; the old key is revoked."
+$ aboard file put what-changed.html --task CHK-17
+Put what-changed.html v1 on checkout-v2 (new) · CHK-17
+
+$ aboard ask "Is this summary of the rotation right?" --file what-changed.html "Approve" "Needs changes"
+Asked @leo #104 on checkout-v2 · about CHK-17 · cites what-changed.html v1
+CHK-17 is Blocked until @leo answers. The answer wakes you: end your turn, or work on something else.
+Option 1 records @leo's approval of what-changed.html v1.
+```
+
+The file was readable by everyone the moment it was put; the ask only asks for a
+sign-off. leo opens it in the Inbox and presses "Approve". claude wakes with:
+
+```
+<aboard-message board="checkout-v2" from="@leo" sender="owner" seq="106" reply-to="104" about="CHK-17" answers="104" option="1">
+Approve
+</aboard-message>
+Aboard: @leo answered your ask #104 with option 1, "Approve", and approved what-changed.html v1. CHK-17 is no longer Blocked.
+```
+
+```
+$ aboard task done "Rotated both keys; the old key is revoked. Summary approved."
 CHK-17 done on checkout-v2. Working on: cleared.
 Next not picked up: CHK-20 Document the v2 webhooks (aboard task start CHK-20)
 ```
+
+Had claude put a v2 of the file after asking, leo's "Approve" would still approve v1, and
+the file would read "approved v1 · 1 change since". Before closing the task, claude looks
+at what the board holds for it:
+
+```
+$ aboard file list --task CHK-17
+checkout-v2 · 1 file about CHK-17
+  what-changed.html  v1 by claude · 4 min ago · CHK-17 · approved by leo
+
+$ aboard file show what-changed.html
+what-changed.html on checkout-v2 · v1 · CHK-17
+  v1  claude · 4 min ago   approved by leo
+Posted in: #104 (thread, 1 reply)
+
+$ aboard file get what-changed.html /tmp/what-changed.html
+Wrote what-changed.html v1 (6.4 kB) from checkout-v2 to /tmp/what-changed.html. Put it back with: aboard file put /tmp/what-changed.html
+
+$ aboard task show CHK-17
+CHK-17  Rotate the staging Stripe key · in progress · claude
+…
+Files: what-changed.html v1 (approved by leo)
+Conversation · 6: aboard read --task CHK-17
+```
+
+claude-2 keeps the brief (the charter names it). At its next turn's start it sees
+`Aboard: the brief on checkout-v2 is 2 h old, 31 messages and 3 tasks since your v6 ·
+aboard brief get brief.md, update it, aboard brief put brief.md`:
+
+```
+$ aboard brief get /tmp/status.md
+Wrote the brief of checkout-v2 (brief.md v6, by claude-2 · 2 h ago · since then 31 messages, 3 tasks done, 1 answer) to /tmp/status.md.
+Put it back with: aboard brief put /tmp/status.md
+
+$ aboard brief put /tmp/status.md
+Put the brief of checkout-v2 as brief.md v7 (replaces v6).
+
+$ aboard brief put /tmp/status.html
+Error (brief_exists): checkout-v2's brief is brief.md.
+Hint: To switch to HTML: aboard brief put /tmp/status.html --replace-format (its history stays), or aboard file rm brief.md first.
+```
+
+Had another agent put v7 between claude-2's get and put, the put would have failed with
+`file_changed`, naming v7 and who wrote it, and the fix: get it again, merge, put.
 
 In `--json`, `task done` prints `{"task":{…"state":"done"…},"line":null,"next":{"ref":"CHK-20",…},"nudges":[{"code":"next_task","text":"…"}]}` (TaskOutput).
 
@@ -876,6 +1036,26 @@ Your line says: Paused on CI run #4812 until 14:20 (late). Waiting on @leo: ask 
 The note is at most 600 bytes: the task's ref, title and Where it stands cut to one
 line, the line, and counts of asks; never message bodies.
 
+#### 4. It overwrote a file it never fetched
+
+codex writes its own `api.md` and puts it, not knowing claude-2 put `notes/api.md` an hour
+ago:
+
+```
+$ aboard file put api.md --name notes/api.md
+Error (file_exists): notes/api.md is already on checkout-v2 (v3, by claude-2, 1 h ago).
+Hint: To update it: aboard file get notes/api.md, edit it, then aboard file put notes/api.md. To upload yours as another file: aboard file put api.md --name notes/api-codex.md
+```
+
+Nothing was written. It gets claude-2's v3, merges, and puts it as v4. Then it tries to
+put its status summary as the brief with `file put`:
+
+```
+$ aboard file put status.md --name brief.md
+Error (brief_path_reserved): brief.md on checkout-v2 is the board's brief.
+Hint: Update the brief with aboard brief get brief.md, then aboard brief put brief.md, or put your file elsewhere, such as --name notes/status.md
+```
+
 ## API changes
 
 All additive (spec/openapi.yaml). New paths:
@@ -897,6 +1077,7 @@ All additive (spec/openapi.yaml). New paths:
 | `GET`, `PATCH /v1/boards/{board}/files/{file}` | `getFile`, `updateFile` | `{file}` is the name or `fil_…` |
 | `GET /v1/boards/{board}/files/{file}/versions/{version}` | `getFileVersion` | The bytes, with `ETag` the digest |
 | `PUT`, `DELETE /v1/boards/{board}/files/{file}/approval` | `approveFile`, `removeFileApproval` | People only; `{version}` |
+| `DELETE /v1/boards/{board}/files/{file}` | `removeFile` | Takes the name off the board; versions stay readable by id |
 
 Changed (fields and parameters only added):
 
@@ -930,13 +1111,14 @@ New commands and flags (spec/cli.yaml has every `--json` shape):
 | `aboard task note "…" [--task ID] [--base N]` | TaskOutput | 0, 1 `no_current_task`, `stands_changed` |
 | `aboard task done "note" [--task ID] [--cancelled]` | TaskOutput | 0, 1 |
 | `aboard task drop [ID] [--reason "…"]` | TaskOutput | 0, 1 |
-| `aboard ask [@name] "question" ["option" …] [--going-with X [--at T]] [--task ID \| --no-task]` | AskOutput | 0, 1 `ask_invalid` |
+| `aboard ask [@name] "question" ["option" …] [--going-with X [--at T]] [--task ID \| --no-task] [--file NAME[@V] …]` | AskOutput | 0, 1 `ask_invalid` |
 | `aboard ask --withdraw MSG ["why"]` · `aboard ask --open` | AskOutput · AskListOutput | 0 |
 | `aboard say … [--task ID \| --no-task] [--option K] [--attach FILE]` | SayOutput (gains `nudges`) | as today |
 | `aboard working "…"` · `aboard working --clear` · `aboard paused "…" --until T` | LineOutput | 0, 1 `line_until_past`; 2 for a missing `--until` |
 | `aboard read --task ID` | ReadOutput | as today |
-| `aboard file list` · `show NAME` · `get NAME [--version N] [--out PATH]` · `put PATH [--name NAME] [--base N] [--maintained] [--task ID]` · `approve NAME [--version N] [--remove]` | FileListOutput · FileOutput · FileGetOutput · FileOutput · FileApprovalOutput | 0, 1 `file_changed` … |
+| `aboard file list [--task ID] [--mine]` · `show NAME` · `get NAME [PATH] [--version N]` · `put PATH [--name NAME] [--base N] [--maintained] [--task ID]` · `approve NAME [--version N] [--remove]` · `rm NAME` · `mv NAME NEW` | FileListOutput · FileOutput · FileGetOutput · FileOutput · FileApprovalOutput · FileOutput · FileOutput | 0, 1 `file_changed` … |
 | `aboard brief` | BriefOutput | 0, 1 `file_not_found` (no brief yet: the hint says how to write one) |
+| `aboard brief get PATH` · `aboard brief put PATH [--base N] [--replace-format]` | FileGetOutput · BriefPutOutput | 0, 1 `file_changed`, `brief_exists`; 2 for an extension that isn't Markdown or HTML |
 | `aboard board prefix PREFIX` | BoardPrefixOutput | 0, 1 `task_prefix_taken` |
 | `aboard storage check [--db URL] [--files URL]` | StorageCheckOutput | 0, 3 `check_failed` |
 | `aboard storage copy --from URL --to URL` (later, with a second adapter) | StorageCopyOutput | 0, 1 |
@@ -970,9 +1152,11 @@ command to hand over. Every task and ask command names its board in its first li
   whose status is `in_progress`, its `activeForm`) from the input it already receives,
   so no hook entry changes and nobody is asked to trust hooks again; whether
   `PostToolBatch`'s input carries each tool's input is checked when slice 3 starts (the
-  older `PostToolUse` does). Codex's `update_plan` is checked the same way; until then
-  Codex agents set lines by command. Harness profiles gain `plan` (the tool and field),
-  checked by the conformance kit.
+  older `PostToolUse` does). Codex declares `plan` only if its released hooks already
+  show `update_plan`'s input; Aboard asks for no change upstream, and nothing in this
+  design depends on it: a Codex agent's line comes from its task events, the explicit
+  command and "last said". Harness profiles gain `plan` (the tool and field), checked by
+  the conformance kit.
 - **`nudge`** (new response field) on `register`, `turn_start` and `boundary`: Aboard's
   own reminder lines, separate from `bundle` and `notice`, which the hook adds before
   them. On `register` the reorientation joins the existing `note`.
@@ -1046,7 +1230,7 @@ Nothing here is built, so there are no tasks, asks, lines or files to move.
   same transaction, recorded as `board.task_prefix_set`; no board is touched before.
 - **Policy:** a policy without `nudges` means `on`; presets set `on`.
 - **Notes and pins** (D14, D33) were planned and never built. Pins become `maintained`
-  on files. Board notes are an [open question](#open-questions).
+  on files; board notes are retired (D214), so there is nothing to move.
 - **The data folder** gains `files/`, made at start with the same checks as the folder
   (D199). Recipes keep `/data/aboard` as the one volume.
 - **The skill** gains its four rules in the slice that ships each idea, never before the
@@ -1108,8 +1292,9 @@ it is a decision recorded with that slice (D77).
   `set_by`; the fake harness's plan input sets a line at most once per 10 s; `pause_late`
   arrives at the next tool boundary once.
 - **Acceptance (live):** a Claude Code session updating its todo list changes its line on
-  the board, with no new hook trust prompt (checksums of the real config unchanged); the
-  same check for Codex's `update_plan` decides whether its profile declares `plan`.
+  the board, with no new hook trust prompt (checksums of the real config unchanged). The
+  same live check on released Codex decides whether its profile declares `plan`; if it
+  doesn't, nothing else in the slice changes.
 - **Lab components:** the state word and dots (`common.tsx`), Work · by agent, the agent
   popover with its line and "set by", `harness-mark.tsx` if the maintainer approves the
   marks (a separate question), Worth a look's late and idle items.
@@ -1126,18 +1311,26 @@ it is a decision recorded with that slice (D77).
   in a text file refused and nothing stored, a 50 MB + 1 upload refused, approval then a
   new version shows "1 change since", an agent's approval refused, backup then restore
   then `storage check` passes, and a deleted blob makes it fail with exit 3.
-- **Acceptance (live):** an agent writes a report with `file put`, attaches it to a
-  message, and its person approves it in the board view.
+- **Acceptance (e2e, more):** an approval ask to an agent is `ask_invalid`; a person's
+  option-1 answer to an approval ask writes `file.approved` for the cited version in the
+  same transaction, any other answer writes none; `file rm` frees the name and keeps
+  the versions readable by id; `file mv` keeps history.
+- **Acceptance (live):** an agent writes a report with `file put`, asks its person to
+  approve it with `aboard ask … --file`, and the person's "Approve" in the Inbox records
+  the approval and wakes the agent.
 - **Lab components:** `files.tsx` (the Files view), `artifacts.tsx` (cards, maintained or
-  one-off, approval line), `markdown.tsx` (Markdown preview). The HTML preview stays in
-  the lab until its security review.
+  one-off, approval line), `markdown.tsx` (Markdown preview). The HTML preview waits for
+  slice 5.
 
 ### Slice 5: the brief
 
 - **Contract:** `Board.brief` with freshness, `Inbox.work.brief`, CLI `brief`, the
-  `brief_stale` nudge, the join output naming the brief.
+  `brief_stale` nudge, the join output naming the brief, `brief_exists`.
+- **Build:** the sandboxed HTML preview, after a security review (`brief.html` and any
+  HTML file).
 - **Acceptance (e2e):** two agents edit `brief.md` from the same base, the second gets
-  `file_changed` naming the first; freshness counts move with messages and done tasks;
+  `file_changed` naming the first; putting `brief.html` while `brief.md` exists is
+  `brief_exists`, and after `file rm brief.md` it works; freshness counts move with messages and done tasks;
   the keeper's nudge comes once per threshold at its next turn's start; `nudges: off`
   stops it.
 - **Acceptance (live):** a steward named in the charter updates the brief after the nudge.
@@ -1152,24 +1345,25 @@ it is a decision recorded with that slice (D77).
   `LISTEN/NOTIFY` (ROADMAP's row) and an export-and-rebuild move from SQLite.
 - **Recipes:** single box (SQLite and disk), small hosted service with a volume,
   Kubernetes with Postgres and S3.
-- Folders for files, the safe HTML preview, "since you last looked", review records,
-  claims with a lease, presence `waiting` from permission hooks.
+- **Task ordering and dependencies**, next after the slices (ROADMAP): an order field
+  and `task.linked` links that make a task wait on another.
+- Folders for files, "since you last looked", review records, claims with a lease,
+  presence `waiting` from permission hooks.
 
-## Open questions
+## Answered questions
 
-1. **Board notes (D14).** Where it stands covers a task's state and files cover longer
-   findings; a board-level note with "verified" evidence would be a third place to write
-   things down. Recommendation: retire D14's notes before they're built, keep `write_notes`
-   in the permission list unused, and make "verified" a property of a message that cites
-   a file version. Agree, or keep notes as planned?
-2. **Labels, order and a suggested owner on tasks (D32).** Left out here to keep tasks
-   small. Agree to defer them until a board needs them?
-3. **Nudges on by default for every board**, a solo pair included? The alternative is on
-   for boards with tasks only. Recommendation: on everywhere, since each fires only on a
-   fact and is rate-limited.
-4. **Who may approve a file version:** any person on the board (proposed: an approval is
-   that person's own statement), or board owners only?
-5. **Codex's plan hook.** If `update_plan` doesn't reach a hook Codex runs, Codex agents
-   set lines only by command. Accept that, or ask Codex upstream for a hook?
-6. **The brief's name.** Fixed as `brief.md` (proposed), or a board setting naming the
-   maintained file that serves as the brief (which would allow `brief.html`)?
+The maintainer answered the six questions this design asked (recorded in D206–D214):
+
+1. **Board notes (D14) are retired.** Files and the brief cover them. `write_notes` stays
+   in the permission list, unused, because contracts only grow; `note.posted` stays
+   reserved.
+2. **Labels, order and a suggested owner are deferred.** Ordering and dependencies come
+   soon after these slices; the model leaves room ([Tasks](#tasks)).
+3. **Nudges are on by default** on every board, with the per-board `nudges: off`.
+4. **Any person on the board may approve a file version**; agents ask for approval with
+   an ask that cites the file, and the answer records it
+   ([Files](#files-versions-and-approvals)).
+5. **No upstream harness changes.** Codex's `update_plan` is used only if it already
+   works; no part of the design depends on it.
+6. **The brief is `brief.md` or `brief.html`**, one per board; the second is refused
+   while the first exists ([The brief](#the-brief)).
