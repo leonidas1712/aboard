@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"mime"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,11 @@ func TestFilesKeepConditionalVersionsAndExactBytes(t *testing.T) {
 		mustStatus(t, got, err, 200)
 		if string(got.Body) != want {
 			t.Fatalf("version %s bytes changed", version)
+		}
+
+		disposition, attrs, err := mime.ParseMediaType(got.HTTPResponse.Header.Get("Content-Disposition"))
+		if err != nil || disposition != "attachment" || attrs["filename"] != "storage.txt" {
+			t.Fatalf("download filename: %q, %v", got.HTTPResponse.Header.Get("Content-Disposition"), err)
 		}
 	}
 	detail, err := c.GetFileWithResponse(ctx, name, first.JSON201.Id)

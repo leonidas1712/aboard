@@ -1,5 +1,5 @@
 // Adapted from shadcn/ui (MIT, see NOTICE), restyled with Aboard's tokens: overlays use
-// the surface colour and a rule border, never a shadow.
+// the surface colour and a rule border, a soft shadow (D217).
 "use client";
 
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
@@ -21,7 +21,7 @@ export function DropdownMenuContent({ className, sideOffset = 6, ...props }: Com
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[14rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink animate-fade-in",
+          "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[14rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink shadow-float animate-fade-in",
           className,
         )}
         {...props}
@@ -87,7 +87,7 @@ export function DropdownMenuSubContent({ className, ...props }: ComponentProps<t
         sideOffset={4}
         collisionPadding={12}
         className={cn(
-          "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[12rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink animate-fade-in",
+          "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[12rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink shadow-float animate-fade-in",
           className,
         )}
         {...props}

@@ -77,7 +77,7 @@ export function ReceiptMark({ board, seq, activity }: { board: string; seq: numb
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="receipt-mark -ml-1 inline-flex h-6 items-center gap-1 rounded-[6px] px-1 text-meta text-muted transition-colors duration-[140ms] ease-out hover:bg-selected"
+            className="receipt-mark -ml-1 inline-flex h-6 items-center gap-1 rounded-[6px] px-1 text-meta text-muted transition-colors duration-[140ms] ease-out hover:bg-hover"
             data-done={summary.done || undefined}
             aria-label={`${summary.text}. ${details.join("; ")}`}
           >

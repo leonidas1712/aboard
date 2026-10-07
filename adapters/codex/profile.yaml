@@ -24,6 +24,8 @@ session_env: [CODEX_THREAD_ID]
 config_dir:
   env: CODEX_HOME
   default: .codex
+# Codex's login: the development sandbox links it, so Codex there starts logged in.
+login_files: [auth.json]
 
 # Codex finds skills in the project's .agents/skills, and reads the project's .codex
 # folder (hooks.json, rules/) only once the person trusts the project.

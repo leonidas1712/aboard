@@ -36,6 +36,10 @@ export function worthALook(facts: BoardFacts[], me: string, now: number): Notice
 export function orderedAsks(asks: Message[]): Message[] {
   return [...asks].filter((m) => m.ask?.state === "open").sort((a, b) => Number(b.ask!.blocking) - Number(a.ask!.blocking) || b.at.localeCompare(a.at) || a.id.localeCompare(b.id));
 }
+/** askSummary is an ask's first line: what the agent did, by the skill's convention. */
+export function askSummary(body: string): string {
+  return body.trim().split("\n", 1)[0];
+}
 export function askCount(board: Board): number {
   return (board.asks_to_me?.blocking ?? 0) + (board.asks_to_me?.going_with ?? 0);
 }

@@ -3502,6 +3502,9 @@ paths:
             ETag:
               description: The version's digest, `"sha256:…"`.
               schema: { type: string }
+            Content-Disposition:
+              description: Attachment with the file's leaf name as filename; non-ASCII names use RFC 5987 filename*.
+              schema: { type: string }
           content:
             "*/*":
               schema: { type: string, format: binary }

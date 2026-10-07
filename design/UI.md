@@ -379,6 +379,18 @@ A team-server screen: one list of what needs you across your boards on that serv
   grouped by board. Each has who's asking in words ("Priya's codex asks", "Your
   claude-api raised a concern"), the time, the request, Reply and at most one context
   action ("See the request"). A flag from your own agent uses the attention colour.
+- Asks come in two groups when both kinds exist, "Blocking" and "Going ahead unless you
+  say". A row is the ask's first line (by the skill's convention, what the agent did)
+  with its age on the right, then the board, the agent and "blocking" or "going with X
+  at 16:00". Only the selected row is bold.
+- Keys triage the list: J and K (or the arrows) move, 1 to 4 answer, E lets the agent
+  go ahead with what it proposed, R writes an answer (Esc leaves it, ⌘ or Ctrl+Enter
+  sends), L snoozes for an hour, Enter opens the ask on its board, and ? lists them all.
+  One table in `web/app/keys.ts` drives the handlers, the inline hints and the ? sheet.
+  Answering or snoozing opens the ask now in the same place, with "Sent to @agent: …"
+  above it for a moment.
+- Snoozing is kept by the browser only, and says so, until the API has a per-person
+  snooze.
 
 ## When each screen arrives
 

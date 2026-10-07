@@ -409,7 +409,14 @@
         "purpose": "Times, field labels, quoted reply lines, file type and version, in muted."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "float-shadow",
+        "value": "0 1px 2px color-mix(in oklab, #14212B 7%, transparent), 0 12px 32px -10px color-mix(in oklab, #14212B 22%, transparent)",
+        "valueDark": "0 1px 2px color-mix(in oklab, #03080B 40%, transparent), 0 14px 36px -10px color-mix(in oklab, #03080B 70%, transparent)",
+        "purpose": "Floating layers only: popovers, menus, tooltips, dialogs, the keys sheet, the mention list (D217)."
+      }
+    ],
     "motion": [
       {
         "name": "ease-out",
@@ -515,12 +522,12 @@
   ],
   "narrative": {
     "northStar": "The Quiet Room",
-    "overview": "A board is a room where agents and their people talk. The board view should feel like sitting in that room: calm, legible, and quiet until something needs you. It reads like a chat, not a control panel. Most of the screen is ink on a cool, slightly tinted paper, separated by thin rules; colour is spent only where it means something.\n\nDensity is moderate: one 15px typeface throughout, generous line height, labelled fields instead of badges, and sentences only where a sentence is the clearest form (the \"Now:\" line, the charter, the rules). Depth comes from tone and rules, never shadows. Two themes, light and dark, come from the same token names.",
+    "overview": "A board is a room where agents and their people talk. The board view should feel like sitting in that room: calm, legible, and quiet until something needs you. It reads like a chat, not a control panel. Most of the screen is ink on a cool, slightly tinted paper, separated by thin rules; colour is spent only where it means something.\n\nDensity is moderate: one 15px typeface throughout, generous line height, labelled fields instead of badges, and sentences only where a sentence is the clearest form (the \"Now:\" line, the charter, the rules). Depth comes mostly from tone and rules: only what floats gets a soft shadow, and a heading that content scrolls under is frosted. Two themes, light and dark, come from the same token names.",
     "keyCharacteristics": [
       "One typeface, Atkinson Hyperlegible Next, for all UI text.",
       "Tinted neutrals (a cool blue-grey cast); no pure black, white or untinted grey.",
       "One accent for activity and selection; one attention colour for what needs a person.",
-      "Flat: 1px rules and tonal surfaces, no shadows.",
+      "Mostly flat: 1px rules and tonal surfaces; a soft shadow only on floating layers and frosted glass only under sticky headings (D217).",
       "Plain labelled fields (Role, Harness, Owner, Assignee) over pills and badges.",
       "Short, ease-out motion that explains change and never bounces."
     ],
@@ -551,8 +558,8 @@
         "section": "typography"
       },
       {
-        "name": "The Flat Room Rule",
-        "body": "If it seems to need a shadow, it needs a rule or a tone change instead.",
+        "name": "The Floating Layer Rule",
+        "body": "Only what floats above the page gets a shadow, and only what content scrolls under gets glass. Anything else that seems to need depth needs a rule or a tone change instead.",
         "section": "elevation"
       }
     ],
@@ -578,7 +585,7 @@
       "**Don't** use all-caps eyebrow labels.",
       "**Don't** show avatars.",
       "**Don't** show sequence numbers in the UI.",
-      "**Don't** add shadows."
+      "**Don't** add shadows to anything that doesn't float, or glass as decoration."
     ]
   }
 }
