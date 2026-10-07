@@ -411,6 +411,12 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       onPick={pick}
       reveal={reveal}
       onLifecycle={s.refresh}
+      identity={identity}
+      latest={(agent) => known.findLast((m) => m.from.kind === "agent" && m.from.name === agent) ?? null}
+      onShowMessage={(id) => {
+        setView("conversation");
+        onShow(id);
+      }}
       agents={agents}
     />
   );
@@ -425,7 +431,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     );
 
   return (
-    <TaskContext tasks={tasks} open={openTask}>
+    <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me} asks={taskState.asks}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header
@@ -559,7 +565,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             {lab?.RightPanel ? (
               <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
             ) : taskPanel ? (
-              <TaskDetail board={name} reference={taskPanel} activity={s.activity} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} />
+              <TaskDetail board={name} reference={taskPanel} activity={s.activity} readOnly={readOnly} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} pick={(member) => { setFilter((f) => ({ ...f, from: member })); setView("conversation"); }} onPosted={() => { setStick((n) => n + 1); s.refresh(); }} />
             ) : (
               <>
                 <WorkTasks tasks={tasks} open={openTask} />
