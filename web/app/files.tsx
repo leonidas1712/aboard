@@ -803,14 +803,24 @@ const droppedAttributes = new Set(["href", "xlink:href", "action", "formaction",
  * written in the file and data: images stay.
  */
 export function previewable(html: string): string {
+  // A DOMParser document has no browsing context, so parsing runs and loads nothing; the
+  // e2e test counts every request from the page while a hostile file is parsed.
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll(droppedElements).forEach((el) => el.remove());
+  // Styles stay, but a stylesheet may name nothing to load: an @import goes, and a
+  // url() that isn't data: becomes an empty data: one.
+  const inert = (css: string) => css.replace(/@import[^;]*;?/gi, "").replace(/url\(\s*(['"]?)(?!\s*data:)[^)]*\)/gi, 'url("data:,")');
+  doc.querySelectorAll("style").forEach((el) => {
+    el.textContent = inert(el.textContent ?? "");
+  });
+  doc.querySelectorAll("[style]").forEach((el) => el.setAttribute("style", inert(el.getAttribute("style") ?? "")));
   doc.querySelectorAll("*").forEach((el) => {
     const link = el.getAttribute("href") ?? el.getAttribute("xlink:href");
     const src = el.getAttribute("src");
     for (const attr of [...el.attributes]) {
       const name = attr.name.toLowerCase();
       if (droppedAttributes.has(name) || name.startsWith("on") || name.endsWith(":href")) el.removeAttribute(attr.name);
+      else if (/url\(/i.test(attr.value)) el.setAttribute(attr.name, inert(attr.value));
     }
     if (src && el.localName === "img" && /^data:image\//i.test(src.trim())) el.setAttribute("src", src);
     if (link && el.localName === "a") el.setAttribute("title", link);

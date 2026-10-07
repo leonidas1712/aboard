@@ -432,8 +432,8 @@ test("an HTML file previews in a sandbox that runs no script, follows no link an
   const out = outside.url;
   const dot = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const html = `<html><head><base href="${out}/based/"><link rel="stylesheet" href="${out}/style.css">
-<style>h1 { color: rgb(160, 40, 40); } body { background: url(${out}/bg.png); }</style></head>
-<body><h1>Report</h1><p id="state">static</p>
+<style>@import url(${out}/imported.css); h1 { color: rgb(160, 40, 40); } body { background: url(${out}/bg.png); }</style></head>
+<body><h1>Report</h1><p id="state">static</p><div style="width: 10px; height: 10px; background-image: url(${out}/inline-style.png)"></div>
 <img id="inline" src="data:image/png;base64,${dot}"><img id="outside" src="${out}/pixel.png" srcset="${out}/pixel-2x.png 2x">
 <p><a id="self" href="/v1/info?preview-probe=self" target="_self">same frame</a>
 <a id="named" href="/v1/info?preview-probe=named" target="attacker">named window</a>
@@ -492,6 +492,45 @@ test("an HTML file previews in a sandbox that runs no script, follows no link an
   await outside.close();
 });
 
+test("parsing and rendering a hostile HTML preview makes no request from any frame, the board view's included", async ({ page }) => {
+  refusalsExpected = true;
+  const board = "files-html-parse";
+  await openBoard(page, board);
+  const outside = await counting();
+  const out = outside.url;
+  // Every request from the page or any frame in it that names a probe, wherever it goes.
+  const probes: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("preview-probe") || r.url().startsWith(out)) probes.push(`${r.frame() === page.mainFrame() ? "page" : "frame"} ${r.url()}`);
+  });
+  const same = (what: string) => `/v1/info?preview-probe=${what}`;
+  const html = `<html><head>
+<link rel="preload" as="image" href="${same("preload")}"><link rel="prefetch" href="${out}/prefetch"><link rel="stylesheet" href="${same("stylesheet")}"><link rel="icon" href="${out}/icon">
+</head><body><h1>Probes</h1>
+<img src="${same("img")}"><img src="${out}/img"><img srcset="${same("srcset")} 1x, ${out}/srcset 2x">
+<picture><source srcset="${same("source")}"><img src="${out}/picture"></picture>
+<iframe src="${same("iframe")}"></iframe><iframe src="${out}/iframe"></iframe>
+<video poster="${same("poster")}" src="${out}/video"></video><audio src="${same("audio")}"></audio>
+<object data="${same("object")}"></object><embed src="${out}/embed">
+<input type="image" src="${same("input")}"><table background="${out}/table"><tr><td>cell</td></tr></table>
+</body></html>`;
+  await put(board, "probes.html", 0, html);
+  // The tab's count arriving means the page has the list; only now does any probe count.
+  await expect(page.getByRole("tab", { name: "Files 1" })).toBeVisible();
+  const { frame } = await openPreview(page, "probes.html");
+  await expect(frame.getByRole("heading", { name: "Probes" })).toBeVisible();
+  await expect(frame.getByText("cell")).toBeVisible();
+  await page.evaluate(() => new Promise((done) => setTimeout(done, 1000)));
+  expect(probes).toEqual([]);
+  expect(outside.hits).toEqual([]);
+  // The control: a probe the board view itself loads is seen, so the zero above is real.
+  await page.evaluate((u) => {
+    new Image().src = u;
+  }, same("control"));
+  await expect.poll(() => probes).toEqual([`page ${base()}${same("control")}`]);
+  await outside.close();
+});
+
 // Screenshots for review, only when FILES_SHOTS names a folder: the list and the panel,
 // light and dark, wide and narrow.
 test("screenshots of the Files view and the file panel", async ({ page }) => {
@@ -520,7 +559,15 @@ test("screenshots of the Files view and the file panel", async ({ page }) => {
   await fetch(`${base()}/v1/boards/${board}/files?${qs}`, { method: "POST", headers: { Authorization: `Bearer ${seatToken(board)}`, "Content-Type": "application/octet-stream" }, body: status });
   await put(board, "notes/retry-policy.md", 0, "# Retry policy\n\nBack off exponentially, up to ten minutes.\n");
   await put(board, "exports/events.csv", 0, "id,type\n1,charge.succeeded\n2,charge.failed\n");
-  await put(board, "preview/landing.html", 0, "<h1>Landing</h1>");
+  await put(
+    board,
+    "preview/landing.html",
+    0,
+    `<style>body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; color: #1d2328; } h1 { font-size: 22px; margin: 0 0 8px; } .plans { display: flex; gap: 12px; } .plan { flex: 1; border: 1px solid #cbd3d6; border-radius: 10px; padding: 12px; background: #fff; } .plan strong { display: block; font-size: 18px; } a { color: #1f5a78; }</style>
+<h1>Webhooks, simpler</h1><p>Every event is signed, retried with back-off and visible in one log. <a href="https://example.com/docs">Read the guide</a>.</p>
+<div class="plans"><div class="plan"><strong>Starter</strong>3 endpoints · 7-day log</div><div class="plan"><strong>Team</strong>20 endpoints · 30-day log</div></div>
+<script>document.body.append("script ran")</script>`,
+  );
   for (const theme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: theme });
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -537,6 +584,13 @@ test("screenshots of the Files view and the file panel", async ({ page }) => {
     await expect(page.getByLabel("Preview of status.md, v2")).toContainText("Retries back off");
     await page.mouse.move(0, 0);
     await page.screenshot({ animations: "disabled", path: join(dir!, `files-panel-${theme}.png`) });
+    await page.getByRole("button", { name: "Work", exact: true }).click();
+    await page.locator('[data-file="preview/landing.html"]').getByRole("button", { name: "preview/landing.html" }).click();
+    await expect(page.frameLocator('iframe[title="Preview of preview/landing.html, v1"]').getByRole("heading", { name: "Webhooks, simpler" })).toBeVisible();
+    await page.mouse.move(0, 0);
+    await page.screenshot({ animations: "disabled", path: join(dir!, `files-html-${theme}.png`) });
+    await page.getByRole("button", { name: "Work", exact: true }).click();
+    await page.locator('[data-file="status.md"]').getByRole("button", { name: "status.md" }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("region", { name: "File status.md" }).scrollIntoViewIfNeeded();
     await page.screenshot({ animations: "disabled", path: join(dir!, `files-panel-phone-${theme}.png`) });
