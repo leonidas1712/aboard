@@ -146,6 +146,8 @@ test("Inbox keeps options readable in both themes and on a narrow screen", async
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+  // On a phone the list and the ask take turns (D219): reading one is a tap away.
+  await page.getByRole("group", { name: "Needs you asks" }).getByRole("button", { name: /A decision with enough words/ }).click();
   await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("inbox-mobile.png"), fullPage: true, animations: "disabled" });

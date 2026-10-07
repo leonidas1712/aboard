@@ -18,6 +18,7 @@ import (
 
 // View is a board with the member who created it, as one caller sees it.
 type View struct {
+	Brief                             *File
 	AsksToMe                          *AskCounts
 	CanArchive, CanRestore, CanDelete bool
 	Board                             Board
@@ -293,6 +294,11 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 			if err != nil {
 				return err
 			}
+			v.OnBoard = true
+			v.Brief, err = projectBrief(tx, b, me)
+			if err != nil {
+				return err
+			}
 			pos, err := positionOf(tx, me, readsAll(b, me))
 			v.Position = &pos
 			out.Boards = []View{v}
@@ -323,6 +329,10 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 			}
 			v.OnBoard = err == nil && m.Status == StatusActive
 			if v.OnBoard {
+				v.Brief, err = projectBrief(tx, b, m)
+				if err != nil {
+					return err
+				}
 				pos, err := positionOf(tx, m, readsAll(b, m))
 				if err != nil {
 					return err
@@ -428,6 +438,10 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 		}
 		v.OnBoard = on
 		if on {
+			v.Brief, err = projectBrief(tx, b, me)
+			if err != nil {
+				return err
+			}
 			pos, err := positionOf(tx, me, readsAll(b, me))
 			if err != nil {
 				return err
@@ -628,9 +642,14 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 			b.Policy = after
 		}
 		v, err = viewOf(tx, b)
-		if err == nil {
-			v.CanArchive, v.CanRestore, v.CanDelete, err = s.capabilities(tx, p, b)
+		if err != nil {
+			return err
 		}
+		v.Brief, err = projectBrief(tx, b, me)
+		if err != nil {
+			return err
+		}
+		v.CanArchive, v.CanRestore, v.CanDelete, err = s.capabilities(tx, p, b)
 		return err
 	})
 	if err != nil {

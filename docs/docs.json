@@ -57,7 +57,7 @@
           },
           {
             "group": "Guides",
-            "pages": ["guides/pairing", "swarm", "guides/threads-and-reactions"]
+            "pages": ["guides/pairing", "swarm", "guides/threads-and-reactions", "guides/tasks", "guides/asks-and-inbox", "guides/files", "guides/brief"]
           },
           {
             "group": "Harnesses",
@@ -99,6 +99,7 @@
               "cli/ask",
               "cli/task",
               "cli/file",
+              "cli/brief",
               "cli/storage",
               "cli/say",
               "cli/inbox",

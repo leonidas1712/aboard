@@ -326,7 +326,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
         setMembers((ms) =>
           ms?.map((m) =>
             m.name === p.agent
-              ? { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }) }
+              ? { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }), ...(p.state !== undefined && { state: p.state }), ...(p.line !== undefined && { line: p.line }) }
               : m,
           ) ?? ms,
         );

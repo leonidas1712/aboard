@@ -591,8 +591,8 @@ func (s *Service) GetTask(ctx context.Context, p Principal, name, sel string) (T
 
 // ListTasks orders open work before owned work, then closed tasks.
 func (s *Service) ListTasks(ctx context.Context, p Principal, name string, f TaskFilter) (TaskListing, error) {
-	if f.State != "" && !slices.Contains([]string{"all", "open", "in_progress", "done", "cancelled"}, f.State) {
-		return TaskListing{}, invalid("This task state isn't supported.", "Use open, in_progress, done, cancelled or all.")
+	if f.State != "" && !slices.Contains([]string{"active", "all", "open", "in_progress", "done", "cancelled"}, f.State) {
+		return TaskListing{}, invalid("This task state isn't supported.", "Use active, open, in_progress, done, cancelled or all.")
 	}
 	var out TaskListing
 	e := s.st.Read(ctx, func(tx ReadTx) error {
@@ -609,10 +609,10 @@ func (s *Service) ListTasks(ctx context.Context, p Principal, name string, f Tas
 		out.Tasks = []Task{}
 		for _, t := range all {
 			out.Counts[t.State]++
-			if !f.All && !f.Done && f.State == "" && (t.State == "done" || t.State == "cancelled") {
+			if (f.State == "active" || !f.All && !f.Done && f.State == "") && (t.State == "done" || t.State == "cancelled") {
 				continue
 			}
-			if f.State != "" && f.State != "all" && t.State != f.State {
+			if f.State != "" && f.State != "active" && f.State != "all" && t.State != f.State {
 				continue
 			}
 			if f.Owner != "" && (t.Owner == nil || t.Owner.ID != f.Owner && t.Owner.Name != f.Owner) {

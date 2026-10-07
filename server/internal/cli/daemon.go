@@ -109,9 +109,10 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	err = delivery.Run(ctx, delivery.Config{
-		Journal:      journal,
-		ResolveAgent: (daemonTokens{a: a}).ResolveAgent,
-		Adapters:     adapters,
+		AllowBriefNudge: a.allowBriefNudge,
+		Journal:         journal,
+		ResolveAgent:    (daemonTokens{a: a}).ResolveAgent,
+		Adapters:        adapters,
 		Connect: func(url string) delivery.Server {
 			return apiserver.New(url, daemonTokens{a: a}, a.env.Rand)
 		},
