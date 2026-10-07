@@ -147,7 +147,7 @@ jobs:
           ref=${TAG:-<tag>}
           echo "::error::$why. Fix it and tag a commit where CI passed, or rerun a known flake's failed jobs (gh run rerun --failed <run id>) and run this workflow again. To release anyway, the maintainer runs: gh workflow run release.yml --ref $ref -f tag=$ref -f override_ci=true -f reason=\"<why>\""
           exit 1
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       # A compile, so even an overridden release can't publish code that doesn't build.
@@ -175,7 +175,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -232,7 +232,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
