@@ -26,6 +26,13 @@ func Open(path string) (*Store, error) {
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return nil, err
 	}
+	return openRoot(path, true)
+}
+
+// OpenExisting opens a store for inspection without creating directories.
+func OpenExisting(path string) (*Store, error) { return openRoot(path, false) }
+
+func openRoot(path string, create bool) (*Store, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
@@ -37,9 +44,11 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureDirs(root, "tmp"); err != nil {
-		_ = root.Close()
-		return nil, err
+	if create {
+		if err := ensureDirs(root, "tmp"); err != nil {
+			_ = root.Close()
+			return nil, err
+		}
 	}
 	return &Store{root: root}, nil
 }

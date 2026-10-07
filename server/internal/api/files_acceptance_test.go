@@ -4,8 +4,10 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/board"
 )
 
 func TestFilesKeepConditionalVersionsAndExactBytes(t *testing.T) {
@@ -53,6 +55,45 @@ func TestFilesKeepConditionalVersionsAndExactBytes(t *testing.T) {
 	mustStatus(t, detail, err, 200)
 	if len(detail.JSON200.Versions) != 2 {
 		t.Fatal("history must retain both versions")
+	}
+}
+
+func TestBlobSweepRetainsReferencedHistoryAndRecentUploads(t *testing.T) {
+	t.Parallel()
+	var svc *board.Service
+	s := newTestServer(t, func(o *api.Options) { svc = o.Service })
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	file, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "retained.txt"}, "application/octet-stream", strings.NewReader("referenced"))
+	mustStatus(t, file, err, 201)
+	removed, err := c.RemoveFileWithResponse(ctx, name, file.JSON201.Id, nil)
+	mustStatus(t, removed, err, 200)
+	orphan, err := svc.Config().Blobs.Put(ctx, strings.NewReader("unreferenced"), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sweeper, ok := any(svc).(interface {
+		SweepBlobs(context.Context) (int, error)
+	})
+	if !ok {
+		t.Fatal("blob cleanup is not implemented")
+	}
+	if n, err := sweeper.SweepBlobs(ctx); err != nil || n != 0 {
+		t.Fatalf("recent upload swept: %d %v", n, err)
+	}
+	orphan, err = svc.Config().Blobs.Stat(ctx, orphan.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.clock.Advance(orphan.Modified.Sub(s.clock.Now()) + 25*time.Hour)
+	if n, err := sweeper.SweepBlobs(ctx); err != nil || n != 1 {
+		t.Fatalf("orphan sweep: %d %v", n, err)
+	}
+	history, err := c.GetFileVersionWithResponse(ctx, name, file.JSON201.Id, "1")
+	mustStatus(t, history, err, 200)
+	if string(history.Body) != "referenced" {
+		t.Fatal("referenced historical bytes lost")
 	}
 }
 
@@ -107,4 +148,67 @@ func TestFileReplayBindsNameAndBase(t *testing.T) {
 	p.Name = "two.txt"
 	changed, err := c.PutFileWithBodyWithResponse(ctx, name, &p, "application/octet-stream", strings.NewReader("same bytes"))
 	mustStatus(t, changed, err, 422)
+}
+
+func TestFileRenameAndRemovalKeepVersionsAndFreeThePath(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	f, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "old.txt"}, "application/octet-stream", strings.NewReader("kept"))
+	mustStatus(t, f, err, 201)
+	to := "notes/new.txt"
+	moved, err := c.UpdateFileWithResponse(ctx, name, f.JSON201.Id, nil, api.UpdateFileRequest{Name: &to})
+	mustStatus(t, moved, err, 200)
+	if moved.JSON200.Id != f.JSON201.Id || moved.JSON200.Latest.Version != 1 {
+		t.Fatal("rename changed file identity or version")
+	}
+	removed, err := c.RemoveFileWithResponse(ctx, name, f.JSON201.Id, nil)
+	mustStatus(t, removed, err, 200)
+	list, err := c.ListFilesWithResponse(ctx, name, nil)
+	mustStatus(t, list, err, 200)
+	if len(list.JSON200.Files) != 0 {
+		t.Fatal("removed file is still listed")
+	}
+	history, err := c.GetFileVersionWithResponse(ctx, name, f.JSON201.Id, "1")
+	mustStatus(t, history, err, 200)
+	if string(history.Body) != "kept" {
+		t.Fatal("removal lost historical bytes")
+	}
+	again, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: to}, "application/octet-stream", strings.NewReader("new identity"))
+	mustStatus(t, again, err, 201)
+	if again.JSON201.Id == f.JSON201.Id {
+		t.Fatal("reused path revived old identity")
+	}
+	base := 1
+	stale, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: to, Base: &base, FileId: &f.JSON201.Id}, "application/octet-stream", strings.NewReader("old editor"))
+	mustStatus(t, stale, err, 409)
+	if stale.JSON409.Error.Code != "file_changed" {
+		t.Fatal("replacement was not identity-fenced")
+	}
+}
+
+func TestMessageAttachmentsKeepTheVersionPosted(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	f, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "attached.txt"}, "application/octet-stream", strings.NewReader("original"))
+	mustStatus(t, f, err, 201)
+	refs := []api.FileVersionSelector{{File: f.JSON201.Id}}
+	m, err := c.PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Read this file", Files: &refs})
+	mustStatus(t, m, err, 201)
+	if m.JSON201.Files == nil || (*m.JSON201.Files)[0].Version != 1 {
+		t.Fatal("attachment was not resolved")
+	}
+	base := 1
+	newer, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "attached.txt", Base: &base}, "application/octet-stream", strings.NewReader("changed"))
+	mustStatus(t, newer, err, 201)
+	detail, err := c.GetFileWithResponse(ctx, name, f.JSON201.Id)
+	mustStatus(t, detail, err, 200)
+	if len(detail.JSON200.PostedIn) != 1 || detail.JSON200.PostedIn[0].Version != 1 {
+		t.Fatal("attachment drifted to a later version")
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
 
@@ -23,7 +24,7 @@ func fileOf(f board.File) map[string]any {
 }
 
 func (h *handlers) PutFile(ctx context.Context, req PutFileRequestObject) (PutFileResponseObject, error) {
-	in := board.NewFile{Name: req.Params.Name, Maintained: req.Params.Maintained, About: req.Params.About, Body: req.Body}
+	in := board.NewFile{FileID: req.Params.FileId, Name: req.Params.Name, Maintained: req.Params.Maintained, About: req.Params.About, Body: req.Body}
 	if req.Params.Base != nil {
 		in.Base = *req.Params.Base
 	}
@@ -67,7 +68,7 @@ func (h *handlers) GetFile(ctx context.Context, req GetFileRequestObject) (GetFi
 		vs = append(vs, fileVersionOf(f.Versions[i]))
 	}
 	out["versions"] = vs
-	out["posted_in"] = []any{}
+	out["posted_in"] = f.PostedIn
 	return convert[GetFile200JSONResponse](out)
 }
 
@@ -84,6 +85,25 @@ type fileDownload struct {
 	body            io.ReadCloser
 	size            int64
 	mediaType, etag string
+}
+
+func (h *handlers) RemoveFile(ctx context.Context, req RemoveFileRequestObject) (RemoveFileResponseObject, error) {
+	f, err := h.svc.ChangeFile(ctx, principal(ctx), req.Board, req.File, board.FileChange{}, true)
+	if err != nil {
+		return nil, err
+	}
+	return convert[RemoveFile200JSONResponse](fileOf(f))
+}
+
+func (h *handlers) UpdateFile(ctx context.Context, req UpdateFileRequestObject) (UpdateFileResponseObject, error) {
+	if req.Body == nil {
+		return nil, apierr.New(400, "invalid_request", "Name a file change.", "Send name, maintained or about.")
+	}
+	f, err := h.svc.ChangeFile(ctx, principal(ctx), req.Board, req.File, board.FileChange{Name: req.Body.Name, Maintained: req.Body.Maintained, About: req.Body.About}, false)
+	if err != nil {
+		return nil, err
+	}
+	return convert[UpdateFile200JSONResponse](fileOf(f))
 }
 
 func (d fileDownload) VisitGetFileVersionResponse(w http.ResponseWriter) error {

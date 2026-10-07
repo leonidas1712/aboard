@@ -46,6 +46,8 @@ type Options struct {
 	Listener net.Listener
 	// DataDir holds aboard.db, server.pid and server.log.
 	DataDir string
+	// FilesDir is the disk blob-store root; empty selects DataDir/files.
+	FilesDir string
 	// OwnerName is the local owner's login name, normalized into a member name.
 	OwnerName string
 	// MachineName names the owner's first access key, normalized like a member name.
@@ -156,7 +158,10 @@ func Run(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	blobs, err := disk.Open(filepath.Join(o.DataDir, "files"))
+	if o.FilesDir == "" {
+		o.FilesDir = filepath.Join(o.DataDir, "files")
+	}
+	blobs, err := disk.Open(o.FilesDir)
 	if err != nil {
 		return err
 	}
@@ -234,6 +239,7 @@ func Run(ctx context.Context, o Options) error {
 	o.Log.Info("serving", "addr", ln.Addr().String(), "server_id", serverID, "mode", cfg.Mode)
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return cleanResponses(ctx, st, o.Clock, o.Log) })
+	g.Go(func() error { return cleanBlobs(ctx, svc, o.Clock, o.Log) })
 	g.Go(func() error {
 		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serve: %w", err)

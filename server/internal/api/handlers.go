@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
@@ -304,24 +303,21 @@ func (h *handlers) GuestJoin(ctx context.Context, req GuestJoinRequestObject) (G
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {
 	in, err := convert[struct {
-		Ask          *board.NewAsk    `json:"ask"`
-		Answer       *board.NewAnswer `json:"answer"`
-		Files        json.RawMessage  `json:"files"`
-		About        *[]string        `json:"about"`
-		To           []string         `json:"to"`
-		Body         string           `json:"body"`
-		ReplyTo      *string          `json:"reply_to"`
-		Urgent       bool             `json:"urgent"`
-		ExpectsReply bool             `json:"expects_reply"`
+		Ask          *board.NewAsk        `json:"ask"`
+		Answer       *board.NewAnswer     `json:"answer"`
+		Files        []board.FileSelector `json:"files"`
+		About        *[]string            `json:"about"`
+		To           []string             `json:"to"`
+		Body         string               `json:"body"`
+		ReplyTo      *string              `json:"reply_to"`
+		Urgent       bool                 `json:"urgent"`
+		ExpectsReply bool                 `json:"expects_reply"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	if len(in.Files) > 0 && string(in.Files) != "null" && string(in.Files) != "[]" {
-		return nil, apierr.New(422, "ask_invalid", "File attachments are not supported by this server.", "Post without file attachments.")
-	}
 	p := principal(ctx)
-	m, err := h.svc.PostMessage(ctx, p, req.Board, board.NewMessage{Ask: in.Ask, Answer: in.Answer, About: in.About, To: in.To, Body: in.Body, ReplyTo: in.ReplyTo, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply})
+	m, err := h.svc.PostMessage(ctx, p, req.Board, board.NewMessage{Files: in.Files, Ask: in.Ask, Answer: in.Answer, About: in.About, To: in.To, Body: in.Body, ReplyTo: in.ReplyTo, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply})
 	if err != nil {
 		return nil, err
 	}

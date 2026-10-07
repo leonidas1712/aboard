@@ -20,7 +20,10 @@ type Store interface {
 // it doesn't exist.
 type ReadTx interface {
 	FileBySelector(boardID, selector string) (File, error)
+	FileByName(boardID, name string) (File, error)
 	Files(boardID string) ([]File, error)
+	// BlobVersions includes all historical versions, even removed files and deleted boards.
+	BlobVersions() ([]Blob, error)
 	// Asks returns immutable ask messages on one board.
 	Asks(boardID string) ([]Message, error)
 	// LatestAnswer returns the latest recorded answer or withdrawal.

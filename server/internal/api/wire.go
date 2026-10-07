@@ -99,6 +99,7 @@ type wireAdded struct {
 }
 
 type wireMessage struct {
+	Files         []board.FileRef   `json:"files,omitempty"`
 	Ask           any               `json:"ask,omitempty"`
 	Answer        any               `json:"answer,omitempty"`
 	About         []board.TaskTag   `json:"about"`
@@ -254,7 +255,8 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 		mentions = []board.Mention{}
 	}
 	return wireMessage{
-		Ask: askOf(m.Ask), Answer: answerOf(m.Answer),
+		Files: m.Files,
+		Ask:   askOf(m.Ask), Answer: answerOf(m.Answer),
 		About: m.About,
 		ID:    m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},

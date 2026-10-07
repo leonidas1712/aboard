@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
@@ -27,18 +28,101 @@ type FileVersion struct {
 	By                  Member
 }
 
+// SweepBlobs holds the write lock so a reused old blob cannot lose a concurrent reference.
+func (s *Service) SweepBlobs(ctx context.Context) (int, error) {
+	removed := 0
+	if s.cfg.Blobs == nil {
+		return 0, nil
+	}
+	err := s.st.Write(ctx, func(tx Tx) error {
+		versions, err := tx.BlobVersions()
+		if err != nil {
+			return err
+		}
+		referenced := map[string]bool{}
+		for _, v := range versions {
+			referenced[v.Digest] = true
+		}
+		cutoff := s.clk.Now().Add(-24 * time.Hour)
+		return s.cfg.Blobs.Walk(ctx, func(blob Blob) error {
+			if referenced[blob.Digest] || !blob.Modified.Before(cutoff) {
+				return nil
+			}
+			if err := s.cfg.Blobs.Delete(ctx, blob.Digest); err != nil {
+				return err
+			}
+			removed++
+			return nil
+		})
+	})
+	return removed, err
+}
+
 // File retains one board path and every version written to it.
 type File struct {
+	PostedIn                                    []FilePostedIn
 	MessagesSince, TasksDoneSince, AnswersSince int
 
 	ID, BoardID, Board, Name string
 	Maintained               bool
+	Removed                  bool
 	About                    []TaskRef
 	Versions                 []FileVersion
 }
 
+// FileSelector chooses a board-local file version at message commit time.
+type FileSelector struct {
+	File    string `json:"file"`
+	Version *int   `json:"version,omitempty"`
+}
+
+// FileRef pins immutable bytes in the message record.
+type FileRef struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Version int    `json:"version"`
+	Digest  string `json:"digest"`
+}
+
+// FilePostedIn identifies a visible message that attached a version.
+type FilePostedIn struct {
+	MessageID     string `json:"message_id"`
+	Seq           int64  `json:"seq"`
+	ThreadRootSeq *int64 `json:"thread_root_seq"`
+	Version       int    `json:"version"`
+}
+
+func resolveFileRefs(tx ReadTx, b Board, selectors []FileSelector) ([]FileRef, error) {
+	refs := []FileRef{}
+	for _, selector := range selectors {
+		f, err := tx.FileBySelector(b.ID, selector.File)
+		if errors.Is(err, ErrNotFound) {
+			return nil, fileError(404, "file_not_found", "The attachment is not on this board.")
+		}
+		if err != nil {
+			return nil, err
+		}
+		v := f.Versions[len(f.Versions)-1]
+		if selector.Version != nil {
+			found := false
+			for _, candidate := range f.Versions {
+				if candidate.Version == *selector.Version {
+					v, found = candidate, true
+					break
+				}
+			}
+			if !found {
+				return nil, fileError(404, "version_not_found", "That attachment version does not exist.")
+			}
+		}
+		refs = append(refs, FileRef{ID: f.ID, Name: f.Name, Version: v.Version, Digest: v.Digest})
+	}
+	return refs, nil
+}
+
 // NewFile carries upload bytes and the version the caller intends to replace.
 type NewFile struct {
+	FileID     *string
 	Name       string
 	Base       int
 	Maintained *bool
@@ -88,10 +172,13 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 		if me.Kind == "agent" && (me.Role == nil || !b.Roles[*me.Role].Has(rules.UploadFiles)) {
 			return fileError(403, "forbidden", "Your role cannot upload files.")
 		}
-		out, err = tx.FileBySelector(b.ID, in.Name)
+		out, err = tx.FileByName(b.ID, in.Name)
 		fresh := errors.Is(err, ErrNotFound)
 		if err != nil && !fresh {
 			return err
+		}
+		if in.FileID != nil && (fresh || out.ID != *in.FileID) {
+			return fileError(409, "file_changed", "The file was removed or replaced since you fetched it.")
 		}
 		latest := 0
 		if !fresh {
@@ -148,7 +235,7 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 		if len(body) > 50*1024*1024 {
 			return fileError(413, "file_too_large", "Files can be at most 50 MB.")
 		}
-		if utf8.Valid(body) && fileCredential.Match(body) {
+		if fileCredential.Match(body) {
 			return fileError(422, "file_has_secret", "The text file contains a credential.")
 		}
 		if _, _, err := mime.ParseMediaType(media); err != nil {
@@ -199,6 +286,25 @@ func (s *Service) GetFile(ctx context.Context, p Principal, name, selector strin
 }
 
 func projectFile(tx ReadTx, b Board, me Member, f *File) error {
+	f.PostedIn = []FilePostedIn{}
+	position := int64(0)
+	for {
+		messages, err := tx.Timeline(b.ID, me, readsAll(b, me), TimelineQuery{After: position, Limit: 200})
+		if err != nil {
+			return err
+		}
+		for _, msg := range messages {
+			position = msg.Seq
+			for _, ref := range msg.Files {
+				if ref.ID == f.ID {
+					f.PostedIn = append(f.PostedIn, FilePostedIn{MessageID: msg.ID, Seq: msg.Seq, ThreadRootSeq: msg.ThreadRootSeq, Version: ref.Version})
+				}
+			}
+		}
+		if len(messages) < 200 {
+			break
+		}
+	}
 	for i := range f.Versions {
 		m, err := tx.MemberByID(f.Versions[i].ByID)
 		if err != nil {
@@ -250,6 +356,97 @@ type FileFilter struct {
 	Task  string
 	Mine  bool
 	Limit int
+}
+
+// FileChange changes the live path or metadata without replacing any bytes.
+type FileChange struct {
+	Name       *string
+	Maintained *bool
+	About      *[]string
+}
+
+// ChangeFile and removal retain historical versions under the immutable file id.
+func (s *Service) ChangeFile(ctx context.Context, p Principal, name, selector string, in FileChange, remove bool) (File, error) {
+	var out File
+	if in.Name != nil {
+		if !validFileName(*in.Name) {
+			return out, fileError(400, "invalid_request", "Use a relative file path without traversal.")
+		}
+		if *in.Name == "brief.md" || *in.Name == "brief.html" {
+			return out, fileError(409, "brief_path_reserved", "The brief path is reserved.")
+		}
+	}
+	err := s.writeAs(ctx, p, func(tx Tx) error {
+		b, me, err := s.access(tx, p, name)
+		if err != nil {
+			return err
+		}
+		if err := requireActive(b); err != nil {
+			return err
+		}
+		if me.Kind == "agent" && (me.Role == nil || !b.Roles[*me.Role].Has(rules.UploadFiles)) {
+			return fileError(403, "forbidden", "Your role cannot change files.")
+		}
+		out, err = tx.FileBySelector(b.ID, selector)
+		if errors.Is(err, ErrNotFound) || out.Removed {
+			return fileError(404, "file_not_found", "The file is not on this board.")
+		}
+		if err != nil {
+			return err
+		}
+		now := s.clk.Now()
+		if remove {
+			if _, err := s.append(tx, &b, "file.removed", actorOf(me), now, map[string]any{"file_id": out.ID, "name": out.Name}); err != nil {
+				return err
+			}
+			out.Removed = true
+		} else {
+			if in.Name != nil && *in.Name != out.Name {
+				existing, err := tx.FileByName(b.ID, *in.Name)
+				if err == nil && existing.ID != out.ID {
+					return fileError(409, "file_name_taken", "Another file uses that path.")
+				}
+				if err != nil && !errors.Is(err, ErrNotFound) {
+					return err
+				}
+				if _, err := s.append(tx, &b, "file.renamed", actorOf(me), now, map[string]any{"file_id": out.ID, "before": out.Name, "after": *in.Name}); err != nil {
+					return err
+				}
+				out.Name = *in.Name
+			}
+			data := map[string]any{"file_id": out.ID}
+			if in.Maintained != nil {
+				out.Maintained = *in.Maintained
+				data["maintained"] = out.Maintained
+			}
+			if in.About != nil {
+				out.About = []TaskRef{}
+				ids := []string{}
+				for _, selector := range *in.About {
+					task, err := findTask(tx, b, selector)
+					if err != nil {
+						return err
+					}
+					out.About = append(out.About, taskRef(task))
+					ids = append(ids, task.ID)
+				}
+				data["about"] = ids
+			}
+			if len(data) > 1 {
+				if _, err := s.append(tx, &b, "file.updated", actorOf(me), now, data); err != nil {
+					return err
+				}
+			}
+		}
+		if err := tx.SaveFile(out); err != nil {
+			return err
+		}
+		return projectFile(tx, b, me, &out)
+	})
+	if err == nil {
+		s.notify.Changed(out.BoardID)
+	}
+	return out, err
 }
 
 // ListFiles projects the latest version and reader-visible freshness.

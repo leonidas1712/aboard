@@ -7,11 +7,25 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
+
+func TestFileReferencesReachDeliveryWithoutEmbeddingBytes(t *testing.T) {
+	refs := []api.FileRef{{Id: "fil_reference", Name: "notes/api.md", Version: 2, Digest: "sha256:digest"}}
+	m := TextMessage(api.Message{Board: "general", Body: "Please read the attachment", Files: &refs})
+	text := deliverytext.Format(m)
+	if !strings.Contains(text, "notes/api.md") || !strings.Contains(text, "--version 2") || !strings.Contains(text, "--board") {
+		t.Fatalf("attachment reference missing: %s", text)
+	}
+	if m.Body != "Please read the attachment" {
+		t.Fatal("message body changed")
+	}
+}
 
 func TestTaskWorkOnlyUsesTheExactSeatInbox(t *testing.T) {
 	for _, id := range []string{"mem_expected", "mem_other"} {
