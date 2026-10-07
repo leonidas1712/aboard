@@ -15,6 +15,7 @@ type WorkingTask struct {
 
 // AgentWork contains recorded task facts; reading it never changes work or cursors.
 type AgentWork struct {
+	Brief                 *File
 	AsksWaiting, AsksToIt int
 	CurrentTask           *WorkingTask
 	OpenTasks             int64
@@ -50,6 +51,13 @@ func (s *Service) TaskWork(ctx context.Context, p Principal) (AgentWork, error) 
 
 func (s *Service) taskWork(tx ReadTx, b Board, me Member) (AgentWork, error) {
 	out := AgentWork{Nudges: b.Policy.Nudges != "off"}
+	brief, e := projectBrief(tx, b, me)
+	if e != nil {
+		return out, e
+	}
+	if brief != nil && brief.Versions[len(brief.Versions)-1].ByID == me.ID {
+		out.Brief = brief
+	}
 	tasks, e := tx.Tasks(b.ID)
 	if e != nil {
 		return out, e
