@@ -1,0 +1,35 @@
+/* The lab's utilities. The real UI's stylesheet leaves web/lab out of its scan, so the
+   classes only the lab uses are made here, from the lab's own files, with the real UI's
+   theme. Only the lab build ever loads this file. */
+@reference "tailwindcss";
+@reference "../app/theme.css";
+@source "./";
+@tailwind utilities;
+
+/* The light page a file is shown on, so it reads as the agent's work, not the app. */
+:root {
+  --page: #f7f5f0;
+  --page-ink: #1d2328;
+}
+
+/* Add an agent is the Work panel's first and main action. */
+.lab-work button.add-agent {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
+}
+.lab-work button.add-agent:hover {
+  background: color-mix(in oklab, var(--ink) 88%, var(--background));
+}
+
+/* An ask in the conversation shows its own answers in the attention colour; the real
+   "waiting for your reply" box would say the same thing twice. */
+.message:has(.ask-answers) .rounded-box.bg-attention:not(.ask-answers) {
+  display: none;
+}
+
+/* An ask's text is its question: in the conversation it reads as a headline. */
+.message:has(.ask-detail-text) .body {
+  font-size: 17px;
+  font-weight: 700;
+}
