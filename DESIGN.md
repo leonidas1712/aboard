@@ -488,7 +488,7 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 - **Blocked on you:** the marigold fill with no border, all text in `ink`.
 - **Done:** no surface fill, only the rule border.
 - **Columns:** Needs you (marigold heading) and Blocked appear only while a task has an
-  open blocking ask; In progress and Not picked up always show, with the free agents
+  open blocking ask (the card names who asked whom and the question); In progress and Not picked up always show, with the free agents
   (idle or disconnected, on no task) under Not picked up. Done and cancelled fold
   below. Columns are at most 320px wide on a wide screen and stack on a phone.
 
@@ -509,6 +509,9 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 - **About** and **Where it stands**, each a Meta label with a tooltip, then the text and
   a byline ("by claude · 17 min ago · 4 messages since"). Where it stands turns
   `muted` with a clock once it is two hours old on a live task.
+- **Open question:** each open blocking ask on the task: its question, who asks whom,
+  and when. One to the person sits on marigold ("Waiting on you") with the numbered
+  answers; one to someone else reads "Blocked on codex" in `muted`.
 - **Conversation · N** (only when N is not zero) with "Show only CHK-12 in the
   conversation". **On it**: each member's mark, name, harness and presence.
 - **Tell the team:** a plain field and Send. Split, Reassign and Hold fill in an

@@ -4,8 +4,9 @@ import { ArrowLeft, Clock, MessagesSquare } from "lucide-react";
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { type Member, type MemberRef, type Message, type Presence as PresenceState, type Task, type TaskList, type TaskTag, ApiError, getTask, listTasks, post } from "./api";
+import { type AskList, type Member, type MemberRef, type Message, type Presence as PresenceState, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
 import { AgentMark } from "./agent-mark";
+import { AskAnswers } from "./ask-ui";
 import { Problem } from "./chrome";
 import { count, harnessName, presenceWords, relativeTime } from "./words";
 
@@ -16,9 +17,11 @@ type TaskRoom = {
   members: Member[];
   identity: (m: MemberRef) => number;
   me: string | null;
+  /** asks are the board's open asks the person may read, by id: what blocks each task. */
+  asks: Map<string, Message>;
 };
 
-const Tasks = createContext<TaskRoom>({ tasks: [], open: () => {}, members: [], identity: () => 1, me: null });
+const Tasks = createContext<TaskRoom>({ tasks: [], open: () => {}, members: [], identity: () => 1, me: null, asks: new Map() });
 
 export function TaskContext({ children, ...room }: TaskRoom & { children: ReactNode }) {
   return <Tasks.Provider value={room}>{children}</Tasks.Provider>;
@@ -26,18 +29,21 @@ export function TaskContext({ children, ...room }: TaskRoom & { children: ReactN
 
 export function useTasks(board: string, activity: number, head: number | undefined, enabled: boolean) {
   const [list, setList] = useState<TaskList | null>(null);
+  const [asks, setAsks] = useState<Map<string, Message>>(new Map());
   const [error, setError] = useState<unknown>(null);
   const request = useRef(0);
   useEffect(() => {
     const generation = ++request.current;
-    if (!enabled) { setList(null); return; }
-    listTasks(board).then((value) => {
+    if (!enabled) { setList(null); setAsks(new Map()); return; }
+    // The asks that block tasks come with them, so a card can say who asked what.
+    listTasks(board).then(async (value) => {
+      const open = value.tasks.some((t) => t.blocked_on?.length) ? (await get<AskList>("/v1/asks", { board, state: "open", limit: 200 })).asks : [];
       if (generation !== request.current) return;
-      setList(value); setError(null);
-    }, (e) => { if (generation === request.current) { if (e instanceof ApiError && (e.status === 403 || e.status === 404)) setList(null); setError(e); } });
+      setList(value); setAsks(new Map(open.map((m) => [m.id, m]))); setError(null);
+    }).catch((e) => { if (generation === request.current) { if (e instanceof ApiError && (e.status === 403 || e.status === 404)) setList(null); setError(e); } });
     return () => { request.current++; };
   }, [board, activity, head, enabled]);
-  return { list, error };
+  return { list, asks, error };
 }
 
 export function taskState(t: Task): string {
@@ -194,12 +200,15 @@ function FreeAgent({ agent }: { agent: Member }) {
 
 function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) => void; needs: boolean }) {
   const who = useWho();
+  const { me, asks } = useContext(Tasks);
   const done = !isLive(t);
   const people = onTask(t);
-  const ask = t.blocked_on?.[0];
+  const block = (needs ? t.blocked_on.find((b) => b.to.kind === "human" && b.to.name === me) : undefined) ?? t.blocked_on?.[0];
+  const ask = block ? asks.get(block.ask_id) : undefined;
+  const asked = ask ? `${ask.from.name} asked ${needs ? "you" : block!.to.name}: ${ask.body}` : null;
   let line: ReactNode = null;
-  if (needs) line = <><span className="font-bold">Waiting on you: </span>{ask?.from ? `${ask.from.name} asked you` : "an ask to you blocks it"}</>;
-  else if (t.blocked) line = <><span className="font-bold text-ink">Blocked: </span>{ask ? `${ask.from?.name ?? "someone"} asked ${ask.to.name}` : "an open ask blocks it"}</>;
+  if (needs) line = <><span className="font-bold">Waiting on you: </span>{asked ?? "an ask to you blocks it"}</>;
+  else if (t.blocked) line = <><span className="font-bold text-ink">Blocked: </span>{asked ?? (block ? `an ask to ${block.to.name}` : "an open ask blocks it")}</>;
   else if (t.state === "open") line = `No owner · opened by ${t.opened_by.name} ${relativeTime(t.opened_at, Date.now())}`;
   return (
     // One clickable card: the title's button stretches over the whole card, and the inner
@@ -216,7 +225,7 @@ function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) =>
         <span className={cn("text-meta tabular-nums", needs ? "text-ink" : "text-muted")}>{t.ref}{t.state === "cancelled" && " · cancelled"}</span>
         <span className={cn("leading-snug", done ? "font-normal" : "font-bold")}>{t.title}</span>
       </button>
-      {line && <p className={cn("text-meta", needs ? "text-ink" : "text-muted")}>{line}</p>}
+      {line && <p className={cn("task-block line-clamp-3 text-meta", needs ? "text-ink" : "text-muted")}>{line}</p>}
       {people.length > 0 && <ul className={cn("flex flex-col gap-2 border-t pt-2.5", needs ? "border-ink/20" : "border-rule")}>
         {people.map((m, i) => {
           const w = who(m);
@@ -251,7 +260,7 @@ function Label({ id, help, children }: { id: string; help: string; children: Rea
 export function TaskDetail({ board, reference, activity, back, narrow, pick, onPosted, readOnly }: {
   board: string; reference: string; activity: number; back: () => void; narrow: (ref: string) => void; pick: (name: string) => void; onPosted: () => void; readOnly: boolean;
 }) {
-  const { me } = useContext(Tasks);
+  const { me, asks } = useContext(Tasks);
   const who = useWho();
   const [task, setTask] = useState<Task | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -312,6 +321,20 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
           </> : <p className="text-meta text-muted">Nothing yet.</p>}
         </section>
       </div>
+
+      {isLive(t) && t.blocked_on.map((b) => {
+        const ask = asks.get(b.ask_id);
+        const mine = b.to.kind === "human" && b.to.name === me;
+        return <section key={b.ask_id} aria-label="Open question" className={cn("open-question flex flex-col gap-1", mine && "-mx-3 rounded-box bg-attention px-3 py-3 text-ink")}>
+          <h3 className={cn("text-meta font-bold", !mine && "text-muted")}>{mine ? "Waiting on you" : `Blocked on ${b.to.name}`}</h3>
+          {ask ? <>
+            <p className="font-bold whitespace-pre-wrap break-words">{ask.body}</p>
+            <p className={cn("text-meta", !mine && "text-muted")}>{ask.from.name} asks {mine ? "you" : b.to.name} · {relativeTime(b.since, now)}</p>
+            {mine && <AskAnswers message={ask} board={board} readOnly={readOnly} onAnswered={onPosted} />}
+          </> : <p className="text-meta text-muted">An open ask to {b.to.name} since {relativeTime(b.since, now)}.</p>}
+        </section>;
+      })}
+      {t.blocked_count > t.blocked_on.length && <p className="text-meta text-muted">{count(t.blocked_count - t.blocked_on.length, "blocking ask", "blocking asks")} you can’t read.</p>}
 
       {t.closed_note && <section aria-labelledby={`final-${t.id}`} className="flex flex-col gap-0.5"><h3 id={`final-${t.id}`} className="text-meta font-bold text-muted">Final note</h3><p className="whitespace-pre-wrap break-words"><TaskLinks text={t.closed_note} /></p></section>}
 

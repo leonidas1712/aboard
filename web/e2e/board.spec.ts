@@ -2202,6 +2202,35 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   await expect(other.getByRole("button", { name: "Split", exact: true })).toHaveCount(0);
   await other.getByRole("button", { name: "Reassign", exact: true }).click();
   await expect(other.locator(".tell-to")).toHaveText(`To everyone · about ${waiting.ref}`);
+
+  // A blocking ask from claude to codex puts the task under Blocked, with the question;
+  // codex's answer moves it back.
+  const messages = `/v1/boards/${board}/messages`;
+  const toCodex = await api(agentToken("claude"), "POST", messages, { body: "Refunds: keep v1 or move to v2?", to: ["@codex"], ask: { options: ["Keep v1", "Move to v2"] } });
+  const blocked = page.getByRole("region", { name: "Blocked", exact: true });
+  await expect(blocked.locator(`[data-task="${doing.ref}"] .task-block`)).toHaveText("Blocked: claude asked codex: Refunds: keep v1 or move to v2?");
+  await expect(progress.locator(`[data-task="${doing.ref}"]`)).toHaveCount(0);
+  await capture("tasks-blocked");
+  await api(agentToken("codex"), "POST", messages, { body: "Move to v2", reply_to: toCodex.id, answer: { option: 2 } });
+  await expect(progress.locator(`[data-task="${doing.ref}"]`)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Blocked", exact: true })).toHaveCount(0);
+
+  // One to alex puts it under Needs you; answering it in the task panel moves it back.
+  await api(agentToken("claude"), "POST", messages, { body: "Ship the v2 refunds today?", to: ["@alex"], ask: { options: ["Ship", "Hold"] } });
+  const needsYou = page.getByRole("region", { name: "Needs you", exact: true });
+  const needsCard = needsYou.locator(`[data-task="${doing.ref}"]`);
+  await expect(needsCard).toHaveAttribute("data-needs-you", "true");
+  await expect(needsCard.locator(".task-block")).toHaveText("Waiting on you: claude asked you: Ship the v2 refunds today?");
+  await capture("tasks-needs-you");
+  await needsCard.getByRole("button", { name: `Open task ${doing.ref}`, exact: true }).click();
+  const question = page.getByRole("region", { name: `Task ${doing.ref}`, exact: true }).getByRole("region", { name: "Open question" });
+  await expect(question).toContainText("Waiting on you");
+  await expect(question).toContainText("claude asks you");
+  await capture("task-panel-needs-you");
+  await question.getByRole("button", { name: "Answer with option 1: Ship", exact: true }).click();
+  await expect(progress.locator(`[data-task="${doing.ref}"]`)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Needs you", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: `Task ${doing.ref}`, exact: true }).getByRole("region", { name: "Open question" })).toHaveCount(0);
 });
 
 test("messages in a hidden conversation stay unread while the person looks at tasks", async ({ page }) => {

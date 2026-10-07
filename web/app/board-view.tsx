@@ -400,7 +400,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
 
   return (
-    <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me}>
+    <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me} asks={taskState.asks}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header
