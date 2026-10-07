@@ -1,0 +1,147 @@
+/*
+  aboard brand tokens: the palette, type and logo, light and dark.
+
+  This file is the one source for the brand. The website uses it today; the board view
+  (web/) is meant to adopt the same tokens, so the names follow the board view's own
+  (DESIGN.md: background, surface, sidebar, ink, muted, rule, field-border, selected,
+  accent, link, attention, on-ink, id-1…8), plus a few new ones marked "new".
+
+  Palette
+  - Neutrals are near-white and near-black with a faint olive cast; never pure #fff/#000.
+  - One signature accent per theme: green #7cdf64 in light, teal #14b8a6 in dark. It is a
+    fill under ink text (--on-accent; 11.4:1 on the green, 7.6:1 on the teal; white on
+    the teal would be 2.5:1, so ink is used in both themes). It marks what needs a person
+    (an ask, a "needs you" count), the primary button, the focus ring and text selection.
+    Everything else stays neutral.
+  - --accent-strong is the accent for lines and small text on the page: a darker green
+    in light (#2b7f1c, 5.1:1 on white, so it also passes as text), the teal itself in dark
+    (7.8:1 on the dark background). Use it for outlines, check icons and the focus ring.
+  - To recolour the brand, change --accent and --accent-strong in the light block and
+    --accent in the two dark blocks below.
+  - Identity colours id-1…8 tell senders apart and mean nothing else (unchanged from
+    the board view).
+
+  Type
+  - Geist for everything, Geist Mono for code, commands, hashes and small labels. Both
+    are self-hosted from /fonts (SIL Open Font License, OFL-geist.txt).
+  - Headings are 600 with tight tracking (-0.05em at display sizes); body is 400.
+
+  Logo
+  - The mark is a rounded room holding two lines of conversation: the earlier line in
+    ink, the later one in the accent (--mark-reply: #4cc038 in light, a step darker than
+    the fill so it holds up on white; the teal in dark). Files: /favicon.svg (adapts to
+    light and dark), /favicon-32.png, /icon-192.png, /icon-512.png, /apple-touch-icon.png,
+    and the Mark component (src/components/Mark.astro). The wordmark is "aboard" in
+    Geist 700, lowercase, tracking -0.03em.
+*/
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/geist-variable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/geist-mono-variable.woff2") format("woff2");
+}
+
+:root {
+  /* The signature accent, light theme. Dark theme values are in the blocks below. */
+  --accent: #7cdf64;
+  --accent-strong: #2b7f1c;  /* new: accent lines, check icons, focus ring; 5.1:1 on white */
+  --mark-reply: #4cc038;     /* new: the logo's second line */
+
+  --on-accent: #0f100d;                                           /* new: text on an accent fill */
+  --accent-soft: color-mix(in srgb, var(--accent) 30%, transparent); /* new: mentions, focus glow */
+  --attention: var(--accent);                                     /* what needs a person */
+
+  --font-sans: "Geist", ui-sans-serif, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius-control: 8px;
+  --radius-box: 12px;
+
+  color-scheme: light;
+  --background: #fafaf7;
+  --surface: #ffffff;
+  --sidebar: #f4f4ef;
+  --selected: #ecece5;
+  --ink: #0f100d;
+  --muted: #5c5e56;
+  --faint: #8a8c83;          /* new: times, placeholders, idle dots (not body text) */
+  --rule: #e3e3dc;
+  --field-border: #cfd0c8;
+  --link: var(--ink);        /* links are ink with an underline */
+  --on-ink: #fafaf7;
+
+  --id-1-bg: #fbd5d4; --id-1-fg: #743839;
+  --id-2-bg: #f8d8c7; --id-2-fg: #713e1e;
+  --id-3-bg: #dee3c4; --id-3-fg: #4c5212;
+  --id-4-bg: #cde8d1; --id-4-fg: #255a33;
+  --id-5-bg: #c2e9e3; --id-5-fg: #005c53;
+  --id-6-bg: #dadefc; --id-6-fg: #44477a;
+  --id-7-bg: #e8d8f5; --id-7-fg: #5b3f70;
+  --id-8-bg: #f5d5e6; --id-8-fg: #6d3958;
+
+  --float-shadow: 0 1px 2px rgb(15 16 13 / 0.07), 0 12px 32px -12px rgb(15 16 13 / 0.24);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --accent: #14b8a6;
+  --accent-strong: var(--accent);
+  --mark-reply: var(--accent);
+  --accent-soft: color-mix(in srgb, var(--accent) 28%, transparent);
+  --background: #0c0d0a;
+  --surface: #131410;
+  --sidebar: #10110d;
+  --selected: #1d1f19;
+  --ink: #edeee7;
+  --muted: #a0a298;
+  --faint: #74766d;
+  --rule: #22241e;
+  --field-border: #3a3c34;
+  --on-ink: #0c0d0a;
+  --id-1-bg: #523333; --id-1-fg: #fdcdcc;
+  --id-2-bg: #503627; --id-2-fg: #fad1bb;
+  --id-3-bg: #3c4024; --id-3-fg: #d9e0b7;
+  --id-4-bg: #2c4431; --id-4-fg: #c2e6c8;
+  --id-5-bg: #1e4540; --id-5-fg: #b3e7df;
+  --id-6-bg: #383b55; --id-6-fg: #d3d8ff;
+  --id-7-bg: #44374f; --id-7-fg: #e6d1f7;
+  --id-8-bg: #4e3343; --id-8-fg: #f7cde3;
+  --float-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 32px -12px rgb(0 0 0 / 0.8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --accent: #14b8a6;
+    --accent-strong: var(--accent);
+    --mark-reply: var(--accent);
+    --accent-soft: color-mix(in srgb, var(--accent) 28%, transparent);
+    --background: #0c0d0a;
+    --surface: #131410;
+    --sidebar: #10110d;
+    --selected: #1d1f19;
+    --ink: #edeee7;
+    --muted: #a0a298;
+    --faint: #74766d;
+    --rule: #22241e;
+    --field-border: #3a3c34;
+    --on-ink: #0c0d0a;
+    --id-1-bg: #523333; --id-1-fg: #fdcdcc;
+    --id-2-bg: #503627; --id-2-fg: #fad1bb;
+    --id-3-bg: #3c4024; --id-3-fg: #d9e0b7;
+    --id-4-bg: #2c4431; --id-4-fg: #c2e6c8;
+    --id-5-bg: #1e4540; --id-5-fg: #b3e7df;
+    --id-6-bg: #383b55; --id-6-fg: #d3d8ff;
+    --id-7-bg: #44374f; --id-7-fg: #e6d1f7;
+    --id-8-bg: #4e3343; --id-8-fg: #f7cde3;
+    --float-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 32px -12px rgb(0 0 0 / 0.8);
+  }
+}
