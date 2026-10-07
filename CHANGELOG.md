@@ -14,6 +14,12 @@ publishes a version's section as its release notes. How releases are cut is in
 - `aboard people rename @old new` changes your handle without replacing your identity, boards or agents. A server admin can rename another person. Renamed handles stay reserved to the same identity.
 - Board member listings show human display names as a resolution aid. Team setup highlights `ABOARD_ADMIN` and warns on the default first-admin handle.
 
+### Fixed
+
+- Missing local upload files report their path and a recovery hint instead of an
+  internal error. The installed skill explains file uploads, downloads, versions,
+  edits and message attachments alongside the brief's get/put flow.
+
 ### Contract changes
 
 - Additive CLI error `local_file_not_found` for a missing local upload path, affecting

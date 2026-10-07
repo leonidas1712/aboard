@@ -9,6 +9,38 @@ import (
 	"testing"
 )
 
+func TestMissingLocalUploadsNameThePathAndMakeNoWrite(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	board := tm.newBoard(tm.admin, "open")
+	tm.link(tm.admin, board)
+	s := tm.admin.claudeSession("s-missing-local-file")
+	s.run("join", "--board", board, "--server", tm.url(), "--json")
+	missing := filepath.Join(t.TempDir(), "missing report.md")
+	for _, args := range [][]string{
+		{"file", "put", missing},
+		{"brief", "put", missing},
+		{"say", "Read this file", "--attach", missing},
+	} {
+		r := s.runExit(append(args, "--json")...)
+		out := r.json(t)
+		if r.code != 1 || errorCode(t, out) != "local_file_not_found" {
+			t.Fatalf("missing upload: %v", r)
+		}
+		if !strings.Contains(field(t, out, "error.message").(string), missing) || !strings.Contains(field(t, out, "error.hint").(string), "Check the path") {
+			t.Fatalf("missing path or recovery hint: %v", out)
+		}
+	}
+	r := s.runExit("file", "put", missing)
+	if r.code != 1 || !strings.Contains(r.stderr, "local_file_not_found") || !strings.Contains(r.stderr, missing) || !strings.Contains(r.stderr, "Hint:") {
+		t.Fatalf("text refusal: %v", r)
+	}
+	listed := s.run("file", "list", "--json").json(t)
+	if len(field(t, listed, "files").([]any)) != 0 {
+		t.Fatal("missing uploads wrote a file")
+	}
+}
+
 func TestFileCLIUpdatesTheVersionFetchedToALocalPath(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
