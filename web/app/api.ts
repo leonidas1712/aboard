@@ -211,7 +211,8 @@ export type MessageAsk = {
   blocking: boolean;
   going_with: string | null;
   going_at: string | null;
-  task: string | null;
+  /** task is the task a blocking ask blocks, or a going-with ask is about. */
+  task: TaskRef | null;
   state: "open" | "answered" | "withdrawn" | "went_with";
   answer_seq: number | null;
   answer_option: number | null;

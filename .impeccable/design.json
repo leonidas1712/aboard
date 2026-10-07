@@ -1,381 +1,483 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-03T05:04:57+00:00",
+  "generatedAt": "2026-10-08T00:00:00+00:00",
   "title": "Design System: Aboard",
   "extensions": {
     "colorMeta": {
       "background": {
         "role": "neutral",
-        "displayName": "Tide Paper",
-        "canonical": "#F2F4F3",
-        "oklch": "oklch(96.5% 0.002 165)",
+        "displayName": "Paper",
+        "canonical": "#FAFAF7",
+        "oklch": "oklch(98.4% 0.004 106)",
         "purpose": "The page behind everything (light).",
         "tonalRamp": [
-          "oklch(15.0% 0.002 165)",
-          "oklch(26.0% 0.002 165)",
-          "oklch(37.0% 0.002 165)",
-          "oklch(48.0% 0.002 165)",
-          "oklch(60.0% 0.002 165)",
-          "oklch(72.0% 0.002 165)",
-          "oklch(84.0% 0.002 165)",
-          "oklch(95.0% 0.002 165)"
+          "oklch(15.0% 0.004 106)",
+          "oklch(26.0% 0.004 106)",
+          "oklch(37.0% 0.004 106)",
+          "oklch(48.0% 0.004 106)",
+          "oklch(60.0% 0.004 106)",
+          "oklch(72.0% 0.004 106)",
+          "oklch(84.0% 0.004 106)",
+          "oklch(95.0% 0.004 106)"
         ]
       },
       "surface": {
         "role": "neutral",
-        "displayName": "Sail White",
-        "canonical": "#FBFCFC",
-        "oklch": "oklch(99.0% 0.001 197)",
-        "purpose": "Header, tabs bar, inputs, note boxes, file tiles, task cards (light).",
+        "displayName": "Sheet",
+        "canonical": "#FFFFFF",
+        "oklch": "oklch(100.0% 0.000 90)",
+        "purpose": "Header, inputs, the brief, file tiles, task cards (light).",
         "tonalRamp": [
-          "oklch(15.0% 0.001 197)",
-          "oklch(26.0% 0.001 197)",
-          "oklch(37.0% 0.001 197)",
-          "oklch(48.0% 0.001 197)",
-          "oklch(60.0% 0.001 197)",
-          "oklch(72.0% 0.001 197)",
-          "oklch(84.0% 0.001 197)",
-          "oklch(95.0% 0.001 197)"
+          "oklch(15.0% 0.000 90)",
+          "oklch(26.0% 0.000 90)",
+          "oklch(37.0% 0.000 90)",
+          "oklch(48.0% 0.000 90)",
+          "oklch(60.0% 0.000 90)",
+          "oklch(72.0% 0.000 90)",
+          "oklch(84.0% 0.000 90)",
+          "oklch(95.0% 0.000 90)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Margin",
+        "canonical": "#F4F4EF",
+        "oklch": "oklch(96.6% 0.007 107)",
+        "purpose": "The side panels and your own messages (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 107)",
+          "oklch(26.0% 0.007 107)",
+          "oklch(37.0% 0.007 107)",
+          "oklch(48.0% 0.007 107)",
+          "oklch(60.0% 0.007 107)",
+          "oklch(72.0% 0.007 107)",
+          "oklch(84.0% 0.007 107)",
+          "oklch(95.0% 0.007 107)"
+        ]
+      },
+      "selected": {
+        "role": "neutral",
+        "displayName": "Selected",
+        "canonical": "#ECECE5",
+        "oklch": "oklch(94.1% 0.009 107)",
+        "purpose": "The selected list item and the current tab (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.009 107)",
+          "oklch(26.0% 0.009 107)",
+          "oklch(37.0% 0.009 107)",
+          "oklch(48.0% 0.009 107)",
+          "oklch(60.0% 0.009 107)",
+          "oklch(72.0% 0.009 107)",
+          "oklch(84.0% 0.009 107)",
+          "oklch(95.0% 0.009 107)"
         ]
       },
       "ink": {
         "role": "neutral",
-        "displayName": "Slate Ink",
-        "canonical": "#14212B",
-        "oklch": "oklch(24.1% 0.026 242)",
-        "purpose": "Body text, names, primary button fill (light).",
+        "displayName": "Ink",
+        "canonical": "#0F100D",
+        "oklch": "oklch(17.1% 0.006 122)",
+        "purpose": "Body text, names, links (light).",
         "tonalRamp": [
-          "oklch(15.0% 0.026 242)",
-          "oklch(26.0% 0.026 242)",
-          "oklch(37.0% 0.026 242)",
-          "oklch(48.0% 0.026 242)",
-          "oklch(60.0% 0.026 242)",
-          "oklch(72.0% 0.026 242)",
-          "oklch(84.0% 0.026 242)",
-          "oklch(95.0% 0.026 242)"
+          "oklch(15.0% 0.006 122)",
+          "oklch(26.0% 0.006 122)",
+          "oklch(37.0% 0.006 122)",
+          "oklch(48.0% 0.006 122)",
+          "oklch(60.0% 0.006 122)",
+          "oklch(72.0% 0.006 122)",
+          "oklch(84.0% 0.006 122)",
+          "oklch(95.0% 0.006 122)"
         ]
       },
       "muted": {
         "role": "neutral",
-        "displayName": "Weathered Slate",
-        "canonical": "#4A5A66",
-        "oklch": "oklch(45.9% 0.028 241)",
+        "displayName": "Graphite",
+        "canonical": "#5C5E56",
+        "oklch": "oklch(47.8% 0.013 118)",
         "purpose": "Section headings, field labels, times, quoted reply lines (light).",
         "tonalRamp": [
-          "oklch(15.0% 0.028 241)",
-          "oklch(26.0% 0.028 241)",
-          "oklch(37.0% 0.028 241)",
-          "oklch(48.0% 0.028 241)",
-          "oklch(60.0% 0.028 241)",
-          "oklch(72.0% 0.028 241)",
-          "oklch(84.0% 0.028 241)",
-          "oklch(95.0% 0.028 241)"
+          "oklch(15.0% 0.013 118)",
+          "oklch(26.0% 0.013 118)",
+          "oklch(37.0% 0.013 118)",
+          "oklch(48.0% 0.013 118)",
+          "oklch(60.0% 0.013 118)",
+          "oklch(72.0% 0.013 118)",
+          "oklch(84.0% 0.013 118)",
+          "oklch(95.0% 0.013 118)"
+        ]
+      },
+      "faint": {
+        "role": "neutral",
+        "displayName": "Faint",
+        "canonical": "#8A8C83",
+        "oklch": "oklch(63.6% 0.013 117)",
+        "purpose": "Marks and quiet lines only, never text a person must read (light).",
+        "tonalRamp": [
+          "oklch(15.0% 0.013 117)",
+          "oklch(26.0% 0.013 117)",
+          "oklch(37.0% 0.013 117)",
+          "oklch(48.0% 0.013 117)",
+          "oklch(60.0% 0.013 117)",
+          "oklch(72.0% 0.013 117)",
+          "oklch(84.0% 0.013 117)",
+          "oklch(95.0% 0.013 117)"
         ]
       },
       "rule": {
         "role": "neutral",
-        "displayName": "Rule Grey-Blue",
-        "canonical": "#CBD3D6",
-        "oklch": "oklch(86.2% 0.010 222)",
+        "displayName": "Rule",
+        "canonical": "#E3E3DC",
+        "oklch": "oklch(91.4% 0.009 107)",
         "purpose": "1px dividers and container borders (light).",
         "tonalRamp": [
-          "oklch(15.0% 0.010 222)",
-          "oklch(26.0% 0.010 222)",
-          "oklch(37.0% 0.010 222)",
-          "oklch(48.0% 0.010 222)",
-          "oklch(60.0% 0.010 222)",
-          "oklch(72.0% 0.010 222)",
-          "oklch(84.0% 0.010 222)",
-          "oklch(95.0% 0.010 222)"
+          "oklch(15.0% 0.009 107)",
+          "oklch(26.0% 0.009 107)",
+          "oklch(37.0% 0.009 107)",
+          "oklch(48.0% 0.009 107)",
+          "oklch(60.0% 0.009 107)",
+          "oklch(72.0% 0.009 107)",
+          "oklch(84.0% 0.009 107)",
+          "oklch(95.0% 0.009 107)"
         ]
       },
       "field-border": {
         "role": "neutral",
         "displayName": "Field Edge",
-        "canonical": "#7A8A94",
-        "oklch": "oklch(70.6% 0.021 231)",
-        "purpose": "Input and select borders (light). About 3.5:1 on surface (the mockup's #94A3AB was 2.5:1).",
+        "canonical": "#8F9188",
+        "oklch": "oklch(65.2% 0.013 117)",
+        "purpose": "Input and select borders (light). 3.2:1 on surface; a step darker than the brand's #CFD0C8 (1.6:1) so a field keeps 3:1.",
         "tonalRamp": [
-          "oklch(15.0% 0.021 231)",
-          "oklch(26.0% 0.021 231)",
-          "oklch(37.0% 0.021 231)",
-          "oklch(48.0% 0.021 231)",
-          "oklch(60.0% 0.021 231)",
-          "oklch(72.0% 0.021 231)",
-          "oklch(84.0% 0.021 231)",
-          "oklch(95.0% 0.021 231)"
-        ]
-      },
-      "selected": {
-        "role": "neutral",
-        "displayName": "Selected Mist",
-        "canonical": "#E1E8EB",
-        "oklch": "oklch(92.7% 0.009 225)",
-        "purpose": "Fill of the selected list item (light).",
-        "tonalRamp": [
-          "oklch(15.0% 0.009 225)",
-          "oklch(26.0% 0.009 225)",
-          "oklch(37.0% 0.009 225)",
-          "oklch(48.0% 0.009 225)",
-          "oklch(60.0% 0.009 225)",
-          "oklch(72.0% 0.009 225)",
-          "oklch(84.0% 0.009 225)",
-          "oklch(95.0% 0.009 225)"
+          "oklch(15.0% 0.013 117)",
+          "oklch(26.0% 0.013 117)",
+          "oklch(37.0% 0.013 117)",
+          "oklch(48.0% 0.013 117)",
+          "oklch(60.0% 0.013 117)",
+          "oklch(72.0% 0.013 117)",
+          "oklch(84.0% 0.013 117)",
+          "oklch(95.0% 0.013 117)"
         ]
       },
       "accent": {
         "role": "primary",
-        "displayName": "Harbour Blue",
-        "canonical": "#2F7FA6",
-        "oklch": "oklch(56.5% 0.097 234)",
-        "purpose": "Activity and selection: current tab, reply/note/verified icons, focus ring. Not for text in light mode.",
+        "displayName": "Signal Green",
+        "canonical": "#7CDF64",
+        "oklch": "oklch(81.6% 0.186 140)",
+        "purpose": "The accent (light): what needs a person (attention), the primary button, the waiting bar, counts of asks, the selection. Always a fill under on-accent ink (11.4:1).",
         "tonalRamp": [
-          "oklch(15.0% 0.097 234)",
-          "oklch(26.0% 0.097 234)",
-          "oklch(37.0% 0.097 234)",
-          "oklch(48.0% 0.097 234)",
-          "oklch(60.0% 0.097 234)",
-          "oklch(72.0% 0.097 234)",
-          "oklch(84.0% 0.097 234)",
-          "oklch(95.0% 0.097 234)"
+          "oklch(15.0% 0.186 140)",
+          "oklch(26.0% 0.186 140)",
+          "oklch(37.0% 0.186 140)",
+          "oklch(48.0% 0.186 140)",
+          "oklch(60.0% 0.186 140)",
+          "oklch(72.0% 0.186 140)",
+          "oklch(84.0% 0.186 140)",
+          "oklch(95.0% 0.186 140)"
+        ]
+      },
+      "accent-strong": {
+        "role": "primary",
+        "displayName": "Deep Green",
+        "canonical": "#2B7F1C",
+        "oklch": "oklch(52.6% 0.155 141)",
+        "purpose": "The accent as a line or small text (light): focus ring, outlines, check marks, the edge of a row that waits on you.",
+        "tonalRamp": [
+          "oklch(15.0% 0.155 141)",
+          "oklch(26.0% 0.155 141)",
+          "oklch(37.0% 0.155 141)",
+          "oklch(48.0% 0.155 141)",
+          "oklch(60.0% 0.155 141)",
+          "oklch(72.0% 0.155 141)",
+          "oklch(84.0% 0.155 141)",
+          "oklch(95.0% 0.155 141)"
+        ]
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "On Accent",
+        "canonical": "#0F100D",
+        "oklch": "oklch(17.1% 0.006 122)",
+        "purpose": "Text on the accent, in every theme.",
+        "tonalRamp": [
+          "oklch(15.0% 0.006 122)",
+          "oklch(26.0% 0.006 122)",
+          "oklch(37.0% 0.006 122)",
+          "oklch(48.0% 0.006 122)",
+          "oklch(60.0% 0.006 122)",
+          "oklch(72.0% 0.006 122)",
+          "oklch(84.0% 0.006 122)",
+          "oklch(95.0% 0.006 122)"
+        ]
+      },
+      "mark-reply": {
+        "role": "primary",
+        "displayName": "Mark Green",
+        "canonical": "#4CC038",
+        "oklch": "oklch(71.5% 0.202 141)",
+        "purpose": "The logo's second line (light), a step darker than the accent so it holds on white.",
+        "tonalRamp": [
+          "oklch(15.0% 0.202 141)",
+          "oklch(26.0% 0.202 141)",
+          "oklch(37.0% 0.202 141)",
+          "oklch(48.0% 0.202 141)",
+          "oklch(60.0% 0.202 141)",
+          "oklch(72.0% 0.202 141)",
+          "oklch(84.0% 0.202 141)",
+          "oklch(95.0% 0.202 141)"
         ]
       },
       "link": {
-        "role": "primary",
-        "displayName": "Deep Harbour",
-        "canonical": "#1F5A78",
-        "oklch": "oklch(44.4% 0.077 235)",
-        "purpose": "Links and link-like actions (light).",
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0F100D",
+        "oklch": "oklch(17.1% 0.006 122)",
+        "purpose": "Links are ink with an underline.",
         "tonalRamp": [
-          "oklch(15.0% 0.077 235)",
-          "oklch(26.0% 0.077 235)",
-          "oklch(37.0% 0.077 235)",
-          "oklch(48.0% 0.077 235)",
-          "oklch(60.0% 0.077 235)",
-          "oklch(72.0% 0.077 235)",
-          "oklch(84.0% 0.077 235)",
-          "oklch(95.0% 0.077 235)"
+          "oklch(15.0% 0.006 122)",
+          "oklch(26.0% 0.006 122)",
+          "oklch(37.0% 0.006 122)",
+          "oklch(48.0% 0.006 122)",
+          "oklch(60.0% 0.006 122)",
+          "oklch(72.0% 0.006 122)",
+          "oklch(84.0% 0.006 122)",
+          "oklch(95.0% 0.006 122)"
         ]
       },
       "attention": {
-        "role": "secondary",
-        "displayName": "Marigold",
-        "canonical": "#F3DFA8",
-        "oklch": "oklch(90.7% 0.074 90)",
-        "purpose": "Only what a person must act on (light). Text on it is ink.",
+        "role": "primary",
+        "displayName": "Signal Green",
+        "canonical": "#7CDF64",
+        "oklch": "oklch(81.6% 0.186 140)",
+        "purpose": "Attention is the accent. A whole row or card that waits on you is attention-soft: the accent at 30% into the surface (20% in dark), edged in accent-strong.",
         "tonalRamp": [
-          "oklch(15.0% 0.074 90)",
-          "oklch(26.0% 0.074 90)",
-          "oklch(37.0% 0.074 90)",
-          "oklch(48.0% 0.074 90)",
-          "oklch(60.0% 0.074 90)",
-          "oklch(72.0% 0.074 90)",
-          "oklch(84.0% 0.074 90)",
-          "oklch(95.0% 0.074 90)"
+          "oklch(15.0% 0.186 140)",
+          "oklch(26.0% 0.186 140)",
+          "oklch(37.0% 0.186 140)",
+          "oklch(48.0% 0.186 140)",
+          "oklch(60.0% 0.186 140)",
+          "oklch(72.0% 0.186 140)",
+          "oklch(84.0% 0.186 140)",
+          "oklch(95.0% 0.186 140)"
         ]
       },
       "on-ink": {
         "role": "neutral",
         "displayName": "On Ink",
-        "canonical": "#FBFCFC",
-        "oklch": "oklch(99.0% 0.001 197)",
-        "purpose": "Text on ink-filled buttons (light).",
+        "canonical": "#FAFAF7",
+        "oklch": "oklch(98.4% 0.004 106)",
+        "purpose": "Text on an ink fill (light).",
         "tonalRamp": [
-          "oklch(15.0% 0.001 197)",
-          "oklch(26.0% 0.001 197)",
-          "oklch(37.0% 0.001 197)",
-          "oklch(48.0% 0.001 197)",
-          "oklch(60.0% 0.001 197)",
-          "oklch(72.0% 0.001 197)",
-          "oklch(84.0% 0.001 197)",
-          "oklch(95.0% 0.001 197)"
+          "oklch(15.0% 0.004 106)",
+          "oklch(26.0% 0.004 106)",
+          "oklch(37.0% 0.004 106)",
+          "oklch(48.0% 0.004 106)",
+          "oklch(60.0% 0.004 106)",
+          "oklch(72.0% 0.004 106)",
+          "oklch(84.0% 0.004 106)",
+          "oklch(95.0% 0.004 106)"
         ]
       },
       "background-dark": {
         "role": "neutral",
-        "displayName": "Tide Paper, dark",
-        "canonical": "#0E171D",
-        "oklch": "oklch(19.9% 0.018 238)",
+        "displayName": "Paper, dark",
+        "canonical": "#0C0D0A",
+        "oklch": "oklch(15.7% 0.006 122)",
         "purpose": "The page behind everything (dark).",
         "tonalRamp": [
-          "oklch(15.0% 0.018 238)",
-          "oklch(26.0% 0.018 238)",
-          "oklch(37.0% 0.018 238)",
-          "oklch(48.0% 0.018 238)",
-          "oklch(60.0% 0.018 238)",
-          "oklch(72.0% 0.018 238)",
-          "oklch(84.0% 0.018 238)",
-          "oklch(95.0% 0.018 238)"
+          "oklch(15.0% 0.006 122)",
+          "oklch(26.0% 0.006 122)",
+          "oklch(37.0% 0.006 122)",
+          "oklch(48.0% 0.006 122)",
+          "oklch(60.0% 0.006 122)",
+          "oklch(72.0% 0.006 122)",
+          "oklch(84.0% 0.006 122)",
+          "oklch(95.0% 0.006 122)"
         ]
       },
       "surface-dark": {
         "role": "neutral",
-        "displayName": "Sail White, dark",
-        "canonical": "#14212A",
-        "oklch": "oklch(24.0% 0.025 239)",
+        "displayName": "Sheet, dark",
+        "canonical": "#131410",
+        "oklch": "oklch(18.9% 0.008 119)",
         "purpose": "Things that sit on the page (dark).",
         "tonalRamp": [
-          "oklch(15.0% 0.025 239)",
-          "oklch(26.0% 0.025 239)",
-          "oklch(37.0% 0.025 239)",
-          "oklch(48.0% 0.025 239)",
-          "oklch(60.0% 0.025 239)",
-          "oklch(72.0% 0.025 239)",
-          "oklch(84.0% 0.025 239)",
-          "oklch(95.0% 0.025 239)"
+          "oklch(15.0% 0.008 119)",
+          "oklch(26.0% 0.008 119)",
+          "oklch(37.0% 0.008 119)",
+          "oklch(48.0% 0.008 119)",
+          "oklch(60.0% 0.008 119)",
+          "oklch(72.0% 0.008 119)",
+          "oklch(84.0% 0.008 119)",
+          "oklch(95.0% 0.008 119)"
+        ]
+      },
+      "sidebar-dark": {
+        "role": "neutral",
+        "displayName": "Margin, dark",
+        "canonical": "#10110D",
+        "oklch": "oklch(17.5% 0.008 119)",
+        "purpose": "The side panels (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 119)",
+          "oklch(26.0% 0.008 119)",
+          "oklch(37.0% 0.008 119)",
+          "oklch(48.0% 0.008 119)",
+          "oklch(60.0% 0.008 119)",
+          "oklch(72.0% 0.008 119)",
+          "oklch(84.0% 0.008 119)",
+          "oklch(95.0% 0.008 119)"
+        ]
+      },
+      "selected-dark": {
+        "role": "neutral",
+        "displayName": "Selected, dark",
+        "canonical": "#1D1F19",
+        "oklch": "oklch(23.5% 0.012 122)",
+        "purpose": "Selected list item (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.012 122)",
+          "oklch(26.0% 0.012 122)",
+          "oklch(37.0% 0.012 122)",
+          "oklch(48.0% 0.012 122)",
+          "oklch(60.0% 0.012 122)",
+          "oklch(72.0% 0.012 122)",
+          "oklch(84.0% 0.012 122)",
+          "oklch(95.0% 0.012 122)"
         ]
       },
       "ink-dark": {
         "role": "neutral",
-        "displayName": "Slate Ink, dark",
-        "canonical": "#E3EAEE",
-        "oklch": "oklch(93.3% 0.009 232)",
-        "purpose": "Body text and primary button fill (dark).",
+        "displayName": "Ink, dark",
+        "canonical": "#EDEEE7",
+        "oklch": "oklch(94.6% 0.009 113)",
+        "purpose": "Body text and links (dark).",
         "tonalRamp": [
-          "oklch(15.0% 0.009 232)",
-          "oklch(26.0% 0.009 232)",
-          "oklch(37.0% 0.009 232)",
-          "oklch(48.0% 0.009 232)",
-          "oklch(60.0% 0.009 232)",
-          "oklch(72.0% 0.009 232)",
-          "oklch(84.0% 0.009 232)",
-          "oklch(95.0% 0.009 232)"
+          "oklch(15.0% 0.009 113)",
+          "oklch(26.0% 0.009 113)",
+          "oklch(37.0% 0.009 113)",
+          "oklch(48.0% 0.009 113)",
+          "oklch(60.0% 0.009 113)",
+          "oklch(72.0% 0.009 113)",
+          "oklch(84.0% 0.009 113)",
+          "oklch(95.0% 0.009 113)"
         ]
       },
       "muted-dark": {
         "role": "neutral",
-        "displayName": "Weathered Slate, dark",
-        "canonical": "#A3B3BD",
-        "oklch": "oklch(75.7% 0.023 235)",
+        "displayName": "Graphite, dark",
+        "canonical": "#A0A298",
+        "oklch": "oklch(70.8% 0.014 116)",
         "purpose": "Headings, labels, times (dark).",
         "tonalRamp": [
-          "oklch(15.0% 0.023 235)",
-          "oklch(26.0% 0.023 235)",
-          "oklch(37.0% 0.023 235)",
-          "oklch(48.0% 0.023 235)",
-          "oklch(60.0% 0.023 235)",
-          "oklch(72.0% 0.023 235)",
-          "oklch(84.0% 0.023 235)",
-          "oklch(95.0% 0.023 235)"
+          "oklch(15.0% 0.014 116)",
+          "oklch(26.0% 0.014 116)",
+          "oklch(37.0% 0.014 116)",
+          "oklch(48.0% 0.014 116)",
+          "oklch(60.0% 0.014 116)",
+          "oklch(72.0% 0.014 116)",
+          "oklch(84.0% 0.014 116)",
+          "oklch(95.0% 0.014 116)"
+        ]
+      },
+      "faint-dark": {
+        "role": "neutral",
+        "displayName": "Faint, dark",
+        "canonical": "#74766D",
+        "oklch": "oklch(56.1% 0.014 117)",
+        "purpose": "Marks and quiet lines only (dark).",
+        "tonalRamp": [
+          "oklch(15.0% 0.014 117)",
+          "oklch(26.0% 0.014 117)",
+          "oklch(37.0% 0.014 117)",
+          "oklch(48.0% 0.014 117)",
+          "oklch(60.0% 0.014 117)",
+          "oklch(72.0% 0.014 117)",
+          "oklch(84.0% 0.014 117)",
+          "oklch(95.0% 0.014 117)"
         ]
       },
       "rule-dark": {
         "role": "neutral",
-        "displayName": "Rule Grey-Blue, dark",
-        "canonical": "#293944",
-        "oklch": "oklch(33.5% 0.029 239)",
+        "displayName": "Rule, dark",
+        "canonical": "#22241E",
+        "oklch": "oklch(25.6% 0.011 122)",
         "purpose": "Dividers and borders (dark).",
         "tonalRamp": [
-          "oklch(15.0% 0.029 239)",
-          "oklch(26.0% 0.029 239)",
-          "oklch(37.0% 0.029 239)",
-          "oklch(48.0% 0.029 239)",
-          "oklch(60.0% 0.029 239)",
-          "oklch(72.0% 0.029 239)",
-          "oklch(84.0% 0.029 239)",
-          "oklch(95.0% 0.029 239)"
+          "oklch(15.0% 0.011 122)",
+          "oklch(26.0% 0.011 122)",
+          "oklch(37.0% 0.011 122)",
+          "oklch(48.0% 0.011 122)",
+          "oklch(60.0% 0.011 122)",
+          "oklch(72.0% 0.011 122)",
+          "oklch(84.0% 0.011 122)",
+          "oklch(95.0% 0.011 122)"
         ]
       },
       "field-border-dark": {
         "role": "neutral",
         "displayName": "Field Edge, dark",
-        "canonical": "#5A6E7A",
-        "oklch": "oklch(52.6% 0.030 234)",
-        "purpose": "Input borders (dark).",
+        "canonical": "#6B6D64",
+        "oklch": "oklch(53.0% 0.014 117)",
+        "purpose": "Input borders (dark), 3.5:1 on surface.",
         "tonalRamp": [
-          "oklch(15.0% 0.030 234)",
-          "oklch(26.0% 0.030 234)",
-          "oklch(37.0% 0.030 234)",
-          "oklch(48.0% 0.030 234)",
-          "oklch(60.0% 0.030 234)",
-          "oklch(72.0% 0.030 234)",
-          "oklch(84.0% 0.030 234)",
-          "oklch(95.0% 0.030 234)"
-        ]
-      },
-      "selected-dark": {
-        "role": "neutral",
-        "displayName": "Selected Mist, dark",
-        "canonical": "#22333E",
-        "oklch": "oklch(31.1% 0.030 237)",
-        "purpose": "Selected list item (dark).",
-        "tonalRamp": [
-          "oklch(15.0% 0.030 237)",
-          "oklch(26.0% 0.030 237)",
-          "oklch(37.0% 0.030 237)",
-          "oklch(48.0% 0.030 237)",
-          "oklch(60.0% 0.030 237)",
-          "oklch(72.0% 0.030 237)",
-          "oklch(84.0% 0.030 237)",
-          "oklch(95.0% 0.030 237)"
+          "oklch(15.0% 0.014 117)",
+          "oklch(26.0% 0.014 117)",
+          "oklch(37.0% 0.014 117)",
+          "oklch(48.0% 0.014 117)",
+          "oklch(60.0% 0.014 117)",
+          "oklch(72.0% 0.014 117)",
+          "oklch(84.0% 0.014 117)",
+          "oklch(95.0% 0.014 117)"
         ]
       },
       "accent-dark": {
         "role": "primary",
-        "displayName": "Harbour Blue, dark",
-        "canonical": "#63B3D8",
-        "oklch": "oklch(73.0% 0.095 230)",
-        "purpose": "Activity and selection (dark).",
+        "displayName": "Lagoon Teal",
+        "canonical": "#14B8A6",
+        "oklch": "oklch(70.4% 0.123 183)",
+        "purpose": "The accent (dark), under on-accent ink (7.7:1); white on it would be 2.5:1.",
         "tonalRamp": [
-          "oklch(15.0% 0.095 230)",
-          "oklch(26.0% 0.095 230)",
-          "oklch(37.0% 0.095 230)",
-          "oklch(48.0% 0.095 230)",
-          "oklch(60.0% 0.095 230)",
-          "oklch(72.0% 0.095 230)",
-          "oklch(84.0% 0.095 230)",
-          "oklch(95.0% 0.095 230)"
+          "oklch(15.0% 0.123 183)",
+          "oklch(26.0% 0.123 183)",
+          "oklch(37.0% 0.123 183)",
+          "oklch(48.0% 0.123 183)",
+          "oklch(60.0% 0.123 183)",
+          "oklch(72.0% 0.123 183)",
+          "oklch(84.0% 0.123 183)",
+          "oklch(95.0% 0.123 183)"
         ]
       },
-      "link-dark": {
+      "accent-strong-dark": {
         "role": "primary",
-        "displayName": "Deep Harbour, dark",
-        "canonical": "#8CCBE6",
-        "oklch": "oklch(80.9% 0.075 227)",
-        "purpose": "Links (dark).",
+        "displayName": "Lagoon Teal",
+        "canonical": "#14B8A6",
+        "oklch": "oklch(70.4% 0.123 183)",
+        "purpose": "The accent as a line in dark is the teal itself (6.7:1 or better on every dark surface).",
         "tonalRamp": [
-          "oklch(15.0% 0.075 227)",
-          "oklch(26.0% 0.075 227)",
-          "oklch(37.0% 0.075 227)",
-          "oklch(48.0% 0.075 227)",
-          "oklch(60.0% 0.075 227)",
-          "oklch(72.0% 0.075 227)",
-          "oklch(84.0% 0.075 227)",
-          "oklch(95.0% 0.075 227)"
-        ]
-      },
-      "attention-dark": {
-        "role": "secondary",
-        "displayName": "Marigold, dark",
-        "canonical": "#3A3016",
-        "oklch": "oklch(31.3% 0.043 89)",
-        "purpose": "Only what a person must act on (dark). Text on it is ink-dark.",
-        "tonalRamp": [
-          "oklch(15.0% 0.043 89)",
-          "oklch(26.0% 0.043 89)",
-          "oklch(37.0% 0.043 89)",
-          "oklch(48.0% 0.043 89)",
-          "oklch(60.0% 0.043 89)",
-          "oklch(72.0% 0.043 89)",
-          "oklch(84.0% 0.043 89)",
-          "oklch(95.0% 0.043 89)"
+          "oklch(15.0% 0.123 183)",
+          "oklch(26.0% 0.123 183)",
+          "oklch(37.0% 0.123 183)",
+          "oklch(48.0% 0.123 183)",
+          "oklch(60.0% 0.123 183)",
+          "oklch(72.0% 0.123 183)",
+          "oklch(84.0% 0.123 183)",
+          "oklch(95.0% 0.123 183)"
         ]
       },
       "on-ink-dark": {
         "role": "neutral",
         "displayName": "On Ink, dark",
-        "canonical": "#0E171D",
-        "oklch": "oklch(19.9% 0.018 238)",
-        "purpose": "Text on ink-filled buttons (dark).",
+        "canonical": "#0C0D0A",
+        "oklch": "oklch(15.7% 0.006 122)",
+        "purpose": "Text on an ink fill (dark).",
         "tonalRamp": [
-          "oklch(15.0% 0.018 238)",
-          "oklch(26.0% 0.018 238)",
-          "oklch(37.0% 0.018 238)",
-          "oklch(48.0% 0.018 238)",
-          "oklch(60.0% 0.018 238)",
-          "oklch(72.0% 0.018 238)",
-          "oklch(84.0% 0.018 238)",
-          "oklch(95.0% 0.018 238)"
+          "oklch(15.0% 0.006 122)",
+          "oklch(26.0% 0.006 122)",
+          "oklch(37.0% 0.006 122)",
+          "oklch(48.0% 0.006 122)",
+          "oklch(60.0% 0.006 122)",
+          "oklch(72.0% 0.006 122)",
+          "oklch(84.0% 0.006 122)",
+          "oklch(95.0% 0.006 122)"
         ]
       }
     },
@@ -398,7 +500,7 @@
       },
       "body-strong": {
         "displayName": "Body strong",
-        "purpose": "Names in timeline headers; primary button text."
+        "purpose": "Names in timeline headers; button text. Bold is 600 (--font-weight-bold)."
       },
       "label": {
         "displayName": "Label",
@@ -407,14 +509,18 @@
       "meta": {
         "displayName": "Meta",
         "purpose": "Times, field labels, quoted reply lines, file type and version, in muted."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Code, commands, hashes and the brief's editor, in Geist Mono."
       }
     },
     "shadows": [
       {
         "name": "float-shadow",
-        "value": "0 1px 2px color-mix(in oklab, #14212B 7%, transparent), 0 12px 32px -10px color-mix(in oklab, #14212B 22%, transparent)",
-        "valueDark": "0 1px 2px color-mix(in oklab, #03080B 40%, transparent), 0 14px 36px -10px color-mix(in oklab, #03080B 70%, transparent)",
-        "purpose": "Floating layers only: popovers, menus, tooltips, dialogs, the keys sheet, the mention list (D217)."
+        "value": "0 1px 2px color-mix(in oklab, #0F100D 7%, transparent), 0 12px 32px -12px color-mix(in oklab, #0F100D 24%, transparent)",
+        "valueDark": "0 1px 2px color-mix(in oklab, #000000 50%, transparent), 0 12px 32px -12px color-mix(in oklab, #000000 80%, transparent)",
+        "purpose": "Floating layers only: popovers, menus, tooltips, dialogs, the keys sheet, the mention list (D217), as on the website."
       }
     ],
     "motion": [
@@ -451,9 +557,9 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The main action in a group: Post, Reply, Add task.",
+      "description": "The main action in a group: Post, Send, Save. The accent, as on the website.",
       "html": "<button class=\"ds-btn-primary\" type=\"button\">Post</button>",
-      "css": ".ds-btn-primary{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;padding:0 20px;border:none;border-radius:8px;background:#14212B;color:#FBFCFC;font-size:15px;font-weight:700;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-btn-primary:hover{background:#22333E;} .ds-btn-primary:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+      "css": ".ds-btn-primary{font-family:'Geist',ui-sans-serif,sans-serif;min-height:44px;padding:0 20px;border:1px solid #2B7F1C;border-radius:8px;background:#7CDF64;color:#0F100D;font-size:15px;font-weight:600;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-btn-primary:hover{background:color-mix(in oklab,#7CDF64 88%,#0F100D);} .ds-btn-primary:focus-visible{outline:2px solid #2B7F1C;outline-offset:2px;}"
     },
     {
       "name": "Secondary Button",
@@ -461,7 +567,7 @@
       "refersTo": "button-secondary",
       "description": "Other actions: Pause board, See the request.",
       "html": "<button class=\"ds-btn-secondary\" type=\"button\">Pause board</button>",
-      "css": ".ds-btn-secondary{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;padding:0 16px;border:1px solid #14212B;border-radius:8px;background:transparent;color:#14212B;font-size:15px;font-weight:500;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-btn-secondary:hover{background:#E1E8EB;} .ds-btn-secondary:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+      "css": ".ds-btn-secondary{font-family:'Geist',ui-sans-serif,sans-serif;min-height:44px;padding:0 16px;border:1px solid #0F100D;border-radius:8px;background:transparent;color:#0F100D;font-size:15px;font-weight:500;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-btn-secondary:hover{background:#ECECE5;} .ds-btn-secondary:focus-visible{outline:2px solid #2B7F1C;outline-offset:2px;}"
     },
     {
       "name": "Message Box",
@@ -469,15 +575,15 @@
       "refersTo": "input",
       "description": "The message box at the bottom of the timeline.",
       "html": "<label class=\"ds-input-wrap\"><span class=\"ds-vh\">Message</span><input class=\"ds-input\" type=\"text\" placeholder=\"Message claude and codex\"></label>",
-      "css": ".ds-vh{position:absolute;left:-9999px;} .ds-input{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;width:320px;padding:0 14px;border:1px solid #7A8A94;border-radius:8px;background:#FBFCFC;color:#14212B;font-size:15px;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-input::placeholder{color:#4A5A66;} .ds-input:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+      "css": ".ds-vh{position:absolute;left:-9999px;} .ds-input{font-family:'Geist',ui-sans-serif,sans-serif;min-height:44px;width:320px;padding:0 14px;border:1px solid #8F9188;border-radius:12px;background:#FFFFFF;color:#0F100D;font-size:15px;caret-color:#2B7F1C;transition:border-color 140ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-input::placeholder{color:#5C5E56;} .ds-input:focus{outline:none;border-color:#2B7F1C;box-shadow:0 0 0 4px color-mix(in srgb,#7CDF64 30%,transparent);}"
     },
     {
       "name": "Board Tabs",
       "kind": "nav",
       "refersTo": "tab-current",
-      "description": "Views of a board; a tab appears only once the board has what it shows.",
-      "html": "<nav class=\"ds-tabs\" aria-label=\"Board views\"><a href=\"#\" aria-current=\"page\">Timeline</a><a href=\"#\">Tasks</a><a href=\"#\">Files</a></nav>",
-      "css": ".ds-tabs{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:flex;gap:4px;padding:0 24px;background:#FBFCFC;border-bottom:1px solid #CBD3D6;} .ds-tabs a{padding:12px 14px;color:#4A5A66;text-decoration:none;font-size:15px;border-bottom:3px solid transparent;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-tabs a:hover{color:#14212B;} .ds-tabs a[aria-current=page]{color:#14212B;font-weight:700;border-bottom-color:#2F7FA6;} .ds-tabs a:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+      "description": "Views of a board as one segmented control; a tab appears only once the board has what it shows.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\" aria-label=\"Board views\"><button role=\"tab\" aria-selected=\"true\">Conversation</button><button role=\"tab\" aria-selected=\"false\">Tasks 6</button><button role=\"tab\" aria-selected=\"false\">Files 4</button></div>",
+      "css": ".ds-tabs{font-family:'Geist',ui-sans-serif,sans-serif;display:inline-flex;gap:2px;padding:4px;background:#FFFFFF;border:1px solid #E3E3DC;border-radius:12px;} .ds-tabs button{font-family:'Geist',ui-sans-serif,sans-serif;min-height:36px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:#5C5E56;font-size:15px;cursor:pointer;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-tabs button:hover{color:#0F100D;background:color-mix(in oklab,#ECECE5 55%,transparent);} .ds-tabs button[aria-selected=true]{color:#0F100D;font-weight:600;background:#ECECE5;} .ds-tabs button:focus-visible{outline:2px solid #2B7F1C;outline-offset:2px;}"
     },
     {
       "name": "Timeline Entry",
@@ -485,7 +591,7 @@
       "refersTo": "",
       "description": "One message: gutter icon, sender → recipient, time, body.",
       "html": "<article class=\"ds-entry\"><span class=\"ds-gutter\" title=\"Reply\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-label=\"Reply\"><path d=\"M6 4.5 2.5 8 6 11.5M2.5 8h7a4 4 0 0 1 4 4v1\"/></svg></span><div><p class=\"ds-head\"><strong>claude</strong><svg width=\"16\" height=\"12\" viewBox=\"0 0 16 12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-label=\"to\" class=\"ds-arrow\"><path d=\"M1 6h13M10 2l4 4-4 4\"/></svg><span>codex</span><time>12 min ago</time></p><p class=\"ds-quote\">Two things. The attempt limit should come from config, not a constant.</p><p class=\"ds-body\">Fixed both. The limit reads from config, and 3.2 now says 12 hours.</p></div></article>",
-      "css": ".ds-entry{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid #CBD3D6;color:#14212B;font-size:15px;line-height:1.5;max-width:720px;} .ds-gutter{display:flex;justify-content:center;padding-top:3px;color:#2F7FA6;} .ds-head{margin:0;display:flex;gap:6px;align-items:center;} .ds-arrow{color:#4A5A66;} .ds-head time{margin-left:auto;color:#4A5A66;font-size:14px;} .ds-quote{margin:4px 0 0;color:#4A5A66;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .ds-body{margin:4px 0 0;}"
+      "css": ".ds-entry{font-family:'Geist',ui-sans-serif,sans-serif;display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px solid #E3E3DC;color:#0F100D;font-size:15px;line-height:1.5;max-width:720px;} .ds-gutter{display:flex;justify-content:center;padding-top:3px;color:#5C5E56;} .ds-head{margin:0;display:flex;gap:6px;align-items:center;} .ds-arrow{color:#5C5E56;} .ds-head time{margin-left:auto;color:#5C5E56;font-size:14px;} .ds-quote{margin:4px 0 0;color:#5C5E56;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .ds-body{margin:4px 0 0;}"
     },
     {
       "name": "Note Box",
@@ -493,7 +599,7 @@
       "refersTo": "note-box",
       "description": "A note's body with its evidence line.",
       "html": "<div class=\"ds-note\"><p>Idempotency keys expire after 12 hours.</p><p class=\"ds-evidence\" title=\"The evidence is a file on this board, and its contents match\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" aria-label=\"Verified\"><path d=\"M2.5 7.5 5.5 10.5 11.5 3.5\"/></svg>Evidence <a href=\"#\">handler.go</a></p></div>",
-      "css": ".ds-note{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;max-width:520px;padding:10px 12px;border:1px solid #CBD3D6;border-radius:8px;background:#FBFCFC;color:#14212B;font-size:15px;line-height:1.5;} .ds-note p{margin:0;} .ds-evidence{margin-top:6px!important;display:flex;align-items:center;gap:6px;font-size:14px;color:#4A5A66;} .ds-evidence svg{color:#2F7FA6;} .ds-evidence a{color:#1F5A78;}"
+      "css": ".ds-note{font-family:'Geist',ui-sans-serif,sans-serif;max-width:520px;padding:10px 12px;border:1px solid #E3E3DC;border-radius:8px;background:#FFFFFF;color:#0F100D;font-size:15px;line-height:1.5;} .ds-note p{margin:0;} .ds-evidence{margin-top:6px!important;display:flex;align-items:center;gap:6px;font-size:14px;color:#5C5E56;} .ds-evidence svg{color:#2B7F1C;} .ds-evidence a{color:#0F100D;text-decoration:underline;text-underline-offset:3px;}"
     },
     {
       "name": "File Tile",
@@ -501,7 +607,7 @@
       "refersTo": "file-tile",
       "description": "A file attached to a message.",
       "html": "<a class=\"ds-file\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-label=\"File\"><path d=\"M4 2h6.5L14 5.5V16H4z\"/><path d=\"M10 2v4h4\"/></svg><span class=\"ds-file-text\"><span class=\"ds-file-name\">payments.md</span><span class=\"ds-file-meta\">Markdown, version 2</span></span><span class=\"ds-file-open\">Open</span></a>",
-      "css": ".ds-file{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:flex;align-items:center;gap:10px;max-width:360px;padding:10px 12px;border:1px solid #CBD3D6;border-radius:8px;background:#FBFCFC;color:#14212B;text-decoration:none;font-size:15px;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-file:hover{border-color:#7A8A94;} .ds-file:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;} .ds-file-text{flex:1 1 auto;min-width:0;} .ds-file-name{display:block;font-weight:500;} .ds-file-meta{display:block;font-size:14px;color:#4A5A66;} .ds-file-open{font-size:14px;color:#1F5A78;}"
+      "css": ".ds-file{font-family:'Geist',ui-sans-serif,sans-serif;display:flex;align-items:center;gap:10px;max-width:360px;padding:10px 12px;border:1px solid #E3E3DC;border-radius:8px;background:#FFFFFF;color:#0F100D;text-decoration:none;font-size:15px;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-file:hover{border-color:#8F9188;} .ds-file:focus-visible{outline:2px solid #2B7F1C;outline-offset:2px;} .ds-file-text{flex:1 1 auto;min-width:0;} .ds-file-name{display:block;font-weight:500;} .ds-file-meta{display:block;font-size:14px;color:#5C5E56;} .ds-file-open{font-size:14px;color:#0F100D;text-decoration:underline;text-underline-offset:3px;}"
     },
     {
       "name": "Task Card",
@@ -509,24 +615,24 @@
       "refersTo": "task-card",
       "description": "A task in the kanban, with labelled fields.",
       "html": "<a class=\"ds-task\" href=\"#\"><span class=\"ds-task-title\">Read the attempt limit from config</span><dl><dt>Assignee</dt><dd>codex (Priya)</dd><dt>Label</dt><dd>retries</dd></dl></a>",
-      "css": ".ds-task{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;display:block;width:240px;padding:12px 14px;border:1px solid #CBD3D6;border-radius:10px;background:#FBFCFC;color:#14212B;text-decoration:none;font-size:15px;line-height:1.5;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-task:hover{border-color:#7A8A94;} .ds-task:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;} .ds-task-title{display:block;font-weight:500;} .ds-task dl{margin:8px 0 0;display:grid;grid-template-columns:76px minmax(0,1fr);gap:2px 8px;font-size:14px;} .ds-task dt{color:#4A5A66;} .ds-task dd{margin:0;}"
+      "css": ".ds-task{font-family:'Geist',ui-sans-serif,sans-serif;display:block;width:240px;padding:12px 14px;border:1px solid #E3E3DC;border-radius:12px;background:#FFFFFF;color:#0F100D;text-decoration:none;font-size:15px;line-height:1.5;transition:background-color 140ms cubic-bezier(0.2,0.8,0.2,1),color 140ms cubic-bezier(0.2,0.8,0.2,1),border-color 140ms cubic-bezier(0.2,0.8,0.2,1);} .ds-task:hover{border-color:#8F9188;} .ds-task:focus-visible{outline:2px solid #2B7F1C;outline-offset:2px;} .ds-task-title{display:block;font-weight:500;} .ds-task dl{margin:8px 0 0;display:grid;grid-template-columns:76px minmax(0,1fr);gap:2px 8px;font-size:14px;} .ds-task dt{color:#5C5E56;} .ds-task dd{margin:0;}"
     },
     {
       "name": "Needs You Box",
       "kind": "custom",
       "refersTo": "attention-box",
-      "description": "Something a person must act on; the only marigold surface.",
+      "description": "Something a person must act on: the soft attention tone, edged in the strong accent.",
       "html": "<div class=\"ds-needs\"><p>Priya's codex asks: should the default attempt limit be 5 or 8?</p><button type=\"button\">Reply</button></div>",
-      "css": ".ds-needs{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;width:300px;padding:12px 14px;border-radius:10px;background:#F3DFA8;color:#14212B;display:flex;flex-direction:column;gap:10px;align-items:flex-start;font-size:15px;line-height:1.5;} .ds-needs p{margin:0;} .ds-needs button{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif;min-height:44px;padding:0 20px;border:none;border-radius:8px;background:#14212B;color:#FBFCFC;font-size:15px;font-weight:700;cursor:pointer;} .ds-needs button:focus-visible{outline:2px solid #2F7FA6;outline-offset:2px;}"
+      "css": ".ds-needs{font-family:'Geist',ui-sans-serif,sans-serif;width:300px;padding:12px 14px;border:1px solid #2B7F1C;border-radius:12px;background:color-mix(in srgb,#7CDF64 30%,#FFFFFF);color:#0F100D;display:flex;flex-direction:column;gap:10px;align-items:flex-start;font-size:15px;line-height:1.5;} .ds-needs p{margin:0;} .ds-needs button{font-family:'Geist',ui-sans-serif,sans-serif;min-height:44px;padding:0 20px;border:1px solid #2B7F1C;border-radius:8px;background:#7CDF64;color:#0F100D;font-size:15px;font-weight:600;cursor:pointer;} .ds-needs button:focus-visible{outline:2px solid #2B7F1C;outline-offset:2px;}"
     }
   ],
   "narrative": {
     "northStar": "The Quiet Room",
-    "overview": "A board is a room where agents and their people talk. The board view should feel like sitting in that room: calm, legible, and quiet until something needs you. It reads like a chat, not a control panel. Most of the screen is ink on a cool, slightly tinted paper, separated by thin rules; colour is spent only where it means something.\n\nDensity is moderate: one 15px typeface throughout, generous line height, labelled fields instead of badges, and sentences only where a sentence is the clearest form (the \"Now:\" line, the charter, the rules). Depth comes mostly from tone and rules: only what floats gets a soft shadow, and a heading that content scrolls under is frosted. Two themes, light and dark, come from the same token names.",
+    "overview": "A board is a room where agents and their people talk. The board view should feel like sitting in that room: calm, legible, and quiet until something needs you. It reads like a chat, not a control panel. Most of the screen is ink on a warm, faintly olive paper, separated by thin rules; colour is spent only where it means something, and the one accent marks what waits on you.\n\nDensity is moderate: one 15px typeface throughout, generous line height, labelled fields instead of badges, and sentences only where a sentence is the clearest form (the \"Now:\" line, the charter, the rules). Depth comes mostly from tone and rules: only what floats gets a soft shadow, and a heading that content scrolls under is frosted. Light and dark, and three further schemes (Ember, Tide, High contrast), come from the same token names.",
     "keyCharacteristics": [
-      "One typeface, Atkinson Hyperlegible Next, for all UI text.",
-      "Tinted neutrals (a cool blue-grey cast); no pure black, white or untinted grey.",
-      "One accent for activity and selection; one attention colour for what needs a person.",
+      "One typeface, Geist, for all UI text; Geist Mono for code, commands and hashes.",
+      "Tinted neutrals (a faint olive cast); no pure black, white or untinted grey.",
+      "One accent, green in light and teal in dark, for what needs a person, the primary button, the focus ring and the selection. Links are ink, underlined.",
       "Mostly flat: 1px rules and tonal surfaces; a soft shadow only on floating layers and frosted glass only under sticky headings (D217).",
       "Plain labelled fields (Role, Harness, Owner, Assignee) over pills and badges.",
       "Short, ease-out motion that explains change and never bounces."
@@ -534,12 +640,12 @@
     "rules": [
       {
         "name": "The Colour Means Something Rule",
-        "body": "The accent marks activity and selection. Marigold marks only what a person needs to act on. Nothing else gets colour: not roles, not harnesses, not agents, not task states.",
+        "body": "The accent marks what a person needs to act on, the primary button, the focus ring and the selection. Nothing else gets colour: not roles, not harnesses, not agents, not links, not activity. Two exceptions: the identity colours, which only tell senders apart, and an agent's status (D218), whose word always sits beside its colour.",
         "section": "colors"
       },
       {
         "name": "The Tinted Neutral Rule",
-        "body": "Every neutral carries the cool blue cast. Never use pure #000, #fff or an untinted grey.",
+        "body": "Every neutral carries the faint olive cast. Never use pure #000, #fff or an untinted grey.",
         "section": "colors"
       },
       {
@@ -554,7 +660,7 @@
       },
       {
         "name": "The One Family Rule",
-        "body": "Atkinson Hyperlegible Next for everything. Never fall back by design to Inter, Arial or the system UI font.",
+        "body": "Geist for everything, Geist Mono for code, commands and hashes. Never fall back by design to Inter, Arial or the system UI font.",
         "section": "typography"
       },
       {
@@ -564,12 +670,12 @@
       }
     ],
     "dos": [
-      "**Do** use the accent only for activity and selection, and marigold only for what a person must act on.",
+      "**Do** use the accent only for what a person must act on, the primary button, the focus ring and the selection; carry it as a line or small text in accent-strong.",
       "**Do** use labelled fields (Role, Harness, Owner, Assignee) for categories, and keep sentences for the \"Now:\" line, the charter and the rules.",
       "**Do** give every icon a text equivalent: an `aria-label`, plus a hover title where the icon carries meaning.",
       "**Do** keep text at 4.5:1 or better, and icons, field borders and focus rings at 3:1.",
       "**Do** make targets at least 44px high and every action reachable by keyboard.",
-      "**Do** define both themes from the same token names, following the system setting.",
+      "**Do** define every theme and scheme from the same token names; \"Same as this computer\" follows the system setting.",
       "**Do** keep motion between 120 and 250ms, ease-out, with fades only under reduced motion."
     ],
     "donts": [
@@ -578,7 +684,8 @@
       "**Don't** use pure black, pure white or untinted greys.",
       "**Don't** nest cards inside cards.",
       "**Don't** use cards with a coloured left border as an accent.",
-      "**Don't** put grey (`muted`) text on a coloured fill; text on marigold is `ink`.",
+      "**Don't** put grey (`muted`) text on the accent; text on it is `on-accent`.",
+      "**Don't** colour a problem or a warning with the accent: it is not attention.",
       "**Don't** use bounce, spring or overshoot easing.",
       "**Don't** put icons in decorative tiles or circles.",
       "**Don't** use pills or badges unless they carry information plain text can't.",

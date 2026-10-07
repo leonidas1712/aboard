@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import type { MemberRef } from "@/app/api";
-import { SenderMark } from "@/app/timeline";
+import { SenderMark } from "@/app/agent-mark";
 import { cn } from "@/lib/utils";
 import { identitiesOf, identityOf, personIdentity, relativeTime } from "@/app/words";
 import type { ScenarioTask } from "../scenario";

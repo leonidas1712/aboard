@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type Member, type MemberRef, type Message, addedBy, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
 import { AgentMark } from "./agent-mark";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { attentionCount } from "./asks";
@@ -26,8 +26,8 @@ import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
-import { StatusDot } from "./status";
-import { useStatus } from "./task-ui";
+import { LineText, StatusDot } from "./status";
+import { TaskChips, useAgentTasks, useStatus } from "./task-ui";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, relativeTime, rules } from "./words";
 import { VisibilityControl } from "./visibility";
 
@@ -46,7 +46,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
     <div className="flex flex-col gap-5">
       <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
         Inbox
-        {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
+        {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
       </a>
       {needs.length > 0 && (
         <section aria-label="Needs you">
@@ -125,7 +125,7 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
                 {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
               {attentionCount(b) > 0 && (
-                <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-ink tabular-nums" title={count(attentionCount(b), "question needs your reply", "questions need your reply")}>
+                <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums" title={count(attentionCount(b), "question needs your reply", "questions need your reply")}>
                   <span aria-hidden>{attentionCount(b)}</span>
                   <span className="sr-only">, {count(attentionCount(b), "question needs your reply", "questions need your reply")}</span>
                 </span>
@@ -189,10 +189,12 @@ type BoardPanelProps = {
   onShowMessage: (id: string) => void;
   /** agents is false to leave out the agents and people, which the UI lab shows its own way. */
   agents?: boolean;
+  /** byAgent lists each agent with the tasks it is on, busy agents first (Work by agent). */
+  byAgent?: boolean;
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, identity, latest, onShowMessage, agents: showAgents = true }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, identity, latest, onShowMessage, agents: showAgents = true, byAgent = false }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
@@ -201,7 +203,7 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
         <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
           <div className="flex flex-col gap-4 pt-1">
             {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
-            <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} identity={identity} latest={latest} onShowMessage={onShowMessage} />
+            <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} identity={identity} latest={latest} onShowMessage={onShowMessage} byAgent={byAgent} />
             {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
           </div>
         </Section>
@@ -346,10 +348,14 @@ type WhosHereProps = {
   identity: (m: MemberRef) => number;
   latest: (agent: string) => Message | null;
   onShowMessage: (id: string) => void;
+  byAgent: boolean;
 };
 
-function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity, latest, onShowMessage }: WhosHereProps) {
-  const agents = (members ?? []).filter((m) => m.kind === "agent");
+function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity, latest, onShowMessage, byAgent }: WhosHereProps) {
+  const tasksOf = useAgentTasks();
+  const listed = (members ?? []).filter((m) => m.kind === "agent");
+  // By agent, the agents on a task come first, each keeping the order it joined in.
+  const agents = byAgent ? [...listed].sort((a, b) => Number(tasksOf(b.name).length > 0) - Number(tasksOf(a.name).length > 0)) : listed;
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
   const showOwner = owners.size > 1;
@@ -375,6 +381,7 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity,
               onPick={() => onPick(a.name)}
               onShowMessage={onShowMessage}
               onRemoved={onRemoved}
+              tasks={byAgent ? tasksOf(a.name) : undefined}
             />
           ))}
         </ul>
@@ -417,7 +424,7 @@ function NameButton({ name, picked, onPick, children }: { name: string; picked: 
       title={picked ? `Show everyone's messages` : `Show only ${name}'s messages`}
       className={cn(
         "member-filter -mx-2 min-h-9 pointer-coarse:min-h-11 min-w-0 rounded-[6px] px-2 text-left font-bold break-all text-ink transition-colors duration-[140ms] ease-out hover:bg-hover",
-        picked && "bg-selected hover:bg-selected underline decoration-accent decoration-2 underline-offset-[5px]",
+        picked && "bg-selected hover:bg-selected underline decoration-ink decoration-2 underline-offset-[5px]",
       )}
     >
       {children}
@@ -437,9 +444,12 @@ function AgentItem({
   onPick,
   onShowMessage,
   onRemoved,
+  tasks,
 }: {
   agent: Member;
   onRemoved: () => void;
+  /** tasks are the live tasks the agent is on, shown as chips under it (Work by agent). */
+  tasks?: Task[];
   /** board is the board's name, once it is loaded. */
   board?: string;
   /** mine is true for the person's own agent, whose delivery mode they may change. */
@@ -485,7 +495,7 @@ function AgentItem({
     };
   }, [open]);
   return (
-    <li ref={item} className={cn("agent relative transition-colors duration-200 ease-out", waiting && "-mx-2 rounded-box bg-attention px-2 py-1.5 [--mark-ring:var(--attention)]")} data-agent={agent.name} data-status={status.tone}>
+    <li ref={item} className={cn("agent relative transition-colors duration-200 ease-out", waiting && "-mx-2 rounded-box bg-attention-soft px-2 py-1.5")} data-agent={agent.name} data-status={status.tone}>
       <button
         ref={trigger}
         type="button"
@@ -499,7 +509,7 @@ function AgentItem({
         )}
       >
         <AgentMark member={agent} identity={identity} size="sm" status={status.tone} />
-        <span className={cn("agent-name min-w-0 flex-1 truncate font-bold", picked && "underline decoration-accent decoration-2 underline-offset-[5px]")}>
+        <span className={cn("agent-name min-w-0 flex-1 truncate font-bold", picked && "underline decoration-ink decoration-2 underline-offset-[5px]")}>
           {agent.name}
         </span>
         <span className="flex min-w-0 shrink items-center" title={status.sentence}>
@@ -508,7 +518,13 @@ function AgentItem({
         </span>
         <ChevronRight className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")} strokeWidth={1.75} aria-hidden />
       </button>
+      <LineText line={agent.line} late={agent.state === "late"} className="-mt-1 pb-1 pl-7" />
       {agent.presence === "waiting" && <p className="text-meta">Its session is waiting for a person, such as at a permission prompt.</p>}
+      {tasks && (
+        <p className="agent-tasks flex flex-wrap items-baseline gap-1 pb-1.5 pl-7">
+          {tasks.length > 0 ? <TaskChips tags={tasks.map((t) => ({ id: t.id, ref: t.ref, how: "given" }))} /> : <span className="text-meta text-muted">on no task</span>}
+        </p>
+      )}
       {open && (
         <div
           role="dialog"

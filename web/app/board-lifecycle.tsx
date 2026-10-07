@@ -150,7 +150,7 @@ function DeleteDialog({ board }: { board: Board }) {
           }}
         >
           <AlertDialogTitle>Delete {board.name}?</AlertDialogTitle>
-          <AlertDialogDescription className="rounded-box bg-attention px-3.5 py-3 text-ink">
+          <AlertDialogDescription className="rounded-box border border-field-border bg-selected px-3.5 py-3 text-ink">
             Nobody can open it again. Its record is kept.
           </AlertDialogDescription>
           <label htmlFor={field} className="text-meta font-bold text-ink">

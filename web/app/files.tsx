@@ -28,7 +28,7 @@ import { Problem } from "./chrome";
 import { Markdown } from "./markdown";
 import { StatusDot } from "./status";
 import { TaskChips, useAgentStatus } from "./task-ui";
-import { SenderMark } from "./timeline";
+import { SenderMark } from "./agent-mark";
 import { count, exactTime, relativeTime } from "./words";
 
 /** The most a board takes in one file (spec/openapi.yaml, putFile). */
@@ -222,9 +222,9 @@ export function useDrop(enabled: boolean, onFile: (f: File, count: number) => vo
 function DropHint({ over, text }: { over: boolean; text: string }) {
   if (!over) return null;
   return (
-    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent bg-[var(--drop)] p-4 animate-fade-in">
+    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent-strong bg-[var(--drop)] p-4 animate-fade-in">
       <p className="inline-flex items-center gap-2 rounded-box border border-rule bg-surface px-4 py-3 font-bold text-ink">
-        <Paperclip className="size-4 text-accent" strokeWidth={1.75} aria-hidden />
+        <Paperclip className="size-4 text-accent-strong" strokeWidth={1.75} aria-hidden />
         {text}
       </p>
     </div>
@@ -401,7 +401,7 @@ function FileRow({ f, selected, open, identity, me, now }: { f: BoardFile; selec
             type="button"
             onClick={() => open(f.id)}
             aria-current={selected ? "true" : undefined}
-            className="min-w-0 truncate text-left font-bold break-all after:absolute after:inset-0 after:content-[''] group-hover:underline focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-accent"
+            className="min-w-0 truncate text-left font-bold break-all after:absolute after:inset-0 after:content-[''] group-hover:underline focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-accent-strong"
           >
             {f.name}
           </button>
@@ -553,7 +553,7 @@ function NewFile({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control bg-ink px-4 font-bold text-on-ink disabled:opacity-60">
+        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control border border-accent-strong bg-accent px-4 font-bold text-on-accent disabled:opacity-60">
           {busy ? "Uploading…" : "Upload"}
         </button>
         {taken && (

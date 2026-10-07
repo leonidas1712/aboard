@@ -135,7 +135,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
             left ? "-right-1.5" : "-left-1.5",
           )}
         >
-          <span className="mx-auto block h-full w-0.5 bg-transparent transition-colors duration-[140ms] ease-out group-hover:bg-accent group-focus-visible:bg-accent" />
+          <span className="mx-auto block h-full w-0.5 bg-transparent transition-colors duration-[140ms] ease-out group-hover:bg-accent-strong group-focus-visible:bg-accent-strong" />
         </div>
       )}
     </aside>

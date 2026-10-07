@@ -73,7 +73,7 @@ test("a numbered timeline option sends its words and option as a real reply", as
   await openBoard(page, board);
   const task = await api(seatToken(board), "POST", `/v1/boards/${board}/tasks`, { title: "Prepare the release", start: true });
   const ask = await makeAsk(board, "Ready to ship the change?");
-  await expect(page.getByRole("heading", { name: "Work · by task", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Group the work" }).getByRole("button", { name: "by task", pressed: true })).toBeVisible();
   await expect.poll(async () => (await api(ownerToken(), "GET", `/v1/boards/${board}/tasks/${task.ref}`)).blocked).toBe(true);
   await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true }).click();

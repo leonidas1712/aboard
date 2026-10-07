@@ -41,7 +41,7 @@ export function Mark({ className }: { className?: string }) {
     <svg viewBox="0 0 32 32" className={className} aria-hidden focusable="false">
       <rect x="2" y="2" width="28" height="28" rx="7" strokeWidth="4" className="fill-surface stroke-ink" />
       <rect x="8" y="10" width="10" height="4" rx="2" className="fill-ink" />
-      <rect x="14" y="18" width="10" height="4" rx="2" className="fill-accent" />
+      <rect x="14" y="18" width="10" height="4" rx="2" className="fill-[var(--mark-reply)]" />
     </svg>
   );
 }
@@ -83,7 +83,7 @@ export function Header({ board, title, starter, visibility, shared = false, acco
     <header className="glass sticky top-0 z-30 shrink-0 border-b border-rule pt-[env(safe-area-inset-top)]">
       <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] sm:min-h-16 sm:gap-x-5 sm:px-5 sm:py-2.5">
         {lead}
-        <a href="/" className="flex min-h-11 items-center gap-2 text-[17px] font-bold text-ink no-underline">
+        <a href="/" className="wordmark flex min-h-11 items-center gap-2 text-[18px] font-[700] tracking-[-0.03em] text-ink no-underline">
           <Mark className="size-[22px]" />
           <span className={cn(board && "max-sm:sr-only")}>aboard</span>
         </a>
@@ -164,7 +164,7 @@ export function Problem({ error }: { error: unknown }) {
     );
   }
   return (
-    <div role="alert" className="problem rounded-box bg-attention px-4 py-3 text-ink">
+    <div role="alert" className="problem rounded-box border border-field-border bg-selected px-4 py-3 text-ink">
       <p className="font-bold">{what}</p>
       {next && <p>{next}</p>}
     </div>

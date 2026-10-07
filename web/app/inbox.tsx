@@ -15,7 +15,7 @@ import { keyLabel, pressed, typing } from "./keys";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { usePref } from "./prefs";
 import { BoardNav } from "./sidebars";
-import { SenderMark } from "./timeline";
+import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 
 export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
@@ -144,7 +144,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const selected = wide && m.id === current?.id;
     const ask = m.ask!;
     return <li key={m.id}><button type="button" data-ask={m.id} onClick={() => read(m)} aria-current={selected ? "true" : undefined} className={cn("grid min-h-14 w-full grid-cols-[28px_minmax(0,1fr)] items-start gap-x-2.5 rounded-control px-2.5 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover active:bg-selected", selected && "bg-selected hover:bg-selected")}>
-      <SenderMark name={m.from.name} kind={m.from.kind} identity={identityOf(`${m.from.kind}:${m.from.name}`)} className="mt-0.5 size-7" />
+      <SenderMark name={m.from.name} kind={m.from.kind} harness={m.from.harness} identity={identityOf(`${m.from.kind}:${m.from.name}`)} className="mt-0.5 size-7" />
       <span className="flex min-w-0 flex-col">
         <span className="flex min-w-0 items-baseline gap-3"><span className={cn("min-w-0 flex-1 truncate", selected && "font-bold")}>{askSummary(m.body)}</span><span className="shrink-0 text-meta text-muted tabular-nums">{age(m.at, now)}</span></span>
         <span className="truncate text-meta text-muted">{boardTitle(m.board)} · {m.from.name} · {ask.blocking ? "blocking" : `going with ${ask.going_with}${ask.going_at ? ` at ${clockTime(ask.going_at)}` : ""}`}</span>
@@ -189,10 +189,10 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
         {current ? <article className="flex max-w-[640px] flex-col gap-4" key={current.id}>
-          <p className="text-meta text-muted"><a href={boardHref} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task}`}</p>
+          <p className="text-meta text-muted"><a href={boardHref} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);
-            return <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><SenderMark name={current.from.name} kind={current.from.kind} identity={identityOf(`${current.from.kind}:${current.from.name}`)} /><strong>{current.from.name}</strong><span className="text-meta text-muted">{current.from.owner && `(${current.from.owner}'s agent) `}asks you · {relativeTime(current.at, now)}</span>{status && <StatusWord status={status} dot className="asker-status" />}</p>;
+            return <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><SenderMark name={current.from.name} kind={current.from.kind} harness={current.from.harness} identity={identityOf(`${current.from.kind}:${current.from.name}`)} /><strong>{current.from.name}</strong><span className="text-meta text-muted">{current.from.owner && `(${current.from.owner}'s agent) `}asks you · {relativeTime(current.at, now)}</span>{status && <StatusWord status={status} dot className="asker-status" />}</p>;
           })()}
           <div className="flex flex-col gap-2"><h2 className="text-headline font-bold break-words">{askSummary(current.body)}</h2>{rest && <p className="text-now whitespace-pre-wrap break-words">{rest}</p>}</div>
           <AskAnswers message={current} board={current.board!} keyboard onAnswered={answered} />

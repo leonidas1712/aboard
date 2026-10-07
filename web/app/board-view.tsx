@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
-import { TaskBoard, TaskContext, TaskDetail, WorkTasks, useTasks } from "./task-ui";
+import { TaskBoard, TaskContext, TaskDetail, type WorkBy, WorkTasks, WorkTitle, useTasks } from "./task-ui";
 import { FilePanel, FilesView, useFiles } from "./files";
 import { Brief } from "./brief";
 import { Composer } from "./composer";
@@ -20,6 +20,7 @@ import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
+import { HarnessProvider } from "./agent-mark";
 import { attentionCount } from "./asks";
 import { Sheet, useWide } from "./sheet";
 import { usePref } from "./prefs";
@@ -55,6 +56,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // A sheet's Back names the view under it.
   const backTo = shownView === "files" ? "Files" : shownView === "tasks" ? "Tasks" : "Conversation";
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
+  // The Work panel groups the board by task or by agent; each browser remembers which.
+  const [workBy, setWorkBy] = usePref<WorkBy>("aboard.workBy", "task");
   const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {
     width: leftPanel.initial,
     collapsed: false,
@@ -148,6 +151,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     (from: MemberRef) => colours.get(`${from.kind}:${from.name}`) ?? identityOf(`${from.kind}:${from.name}`),
     [colours],
   );
+  // Each agent's harness, for its mark where a reference doesn't carry one (a file's author).
+  const harnesses = useMemo(() => new Map((s.members ?? []).filter((m) => m.kind === "agent").map((m) => [m.name, m.harness])), [s.members]);
 
   // A reply counts as new until the person has seen it: after the newest reply they saw
   // in its thread, else after the last message they saw on the board, else after what
@@ -429,7 +434,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // An archived board takes nothing new: no message box, no replies, no reactions.
   const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
-  const panel = (agents: boolean) => (
+  const panel = (agents: boolean, byAgent = false) => (
     <BoardPanel
       board={s.board}
       members={s.members}
@@ -449,6 +454,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
         onShow(id);
       }}
       agents={agents}
+      byAgent={byAgent}
     />
   );
   const boardsNav = (
@@ -456,7 +462,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       {lab?.Nav ? <lab.Nav current={name} boards={s.boards} /> : <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />}
     </nav>
   );
-  const rightTitle = lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name;
+  // Work, grouped by task or by agent, once the board has a task; before that, the board.
+  const rightTitle = lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : filePanel ? "File" : taskPanel ? "Task" : tasks.length > 0 ? <WorkTitle by={workBy} setBy={setWorkBy} /> : s.board ? boardLabel(s.board) : name;
   const boardPanel = lab?.RightPanel ? (
     // Only the UI lab draws the board panel its own way (lab-seam.ts).
     <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
@@ -490,8 +497,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     />
   ) : (
     <>
-      <WorkTasks tasks={tasks} open={openTask} />
-      {panel(true)}
+      {workBy === "task" && <WorkTasks tasks={tasks} open={openTask} />}
+      {panel(true, workBy === "agent" && tasks.length > 0)}
     </>
   );
   // On a phone, the buttons in the header that open the two sheets. Each carries a
@@ -511,6 +518,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     );
 
   return (
+    <HarnessProvider value={harnesses}>
     <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me} asks={taskState.asks}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -572,19 +580,19 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               )}
               {/* The server leaves brief out when the board has none, so a server that keeps files and sends no brief means "no brief yet". */}
               {!loading && s.board && !lab?.Centre && (
-                <Brief board={name} brief={s.board.brief ?? (fileState.list !== null ? null : undefined)} me={me} canEdit={s.me?.kind === "human" && !readOnly} onChanged={s.refresh} openHistory={openFile} />
+                <Brief board={name} brief={s.board.brief ?? (fileState.list !== null ? null : undefined)} me={me} canEdit={s.me?.kind === "human" && !readOnly} onChanged={s.refresh} openHistory={openFile} identity={identity} />
               )}
             </div>
             {centre(
               <>
-            {views.length > 1 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
-              {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", shownView === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
-            </div>}
+            {views.length > 1 && <div className={`${column} shrink-0 pb-2`}><div role="tablist" aria-label="Board views" className="board-views inline-flex max-w-full gap-0.5 overflow-x-auto rounded-box border border-rule bg-surface p-1">
+              {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-9 shrink-0 rounded-control px-3 transition-colors duration-[140ms] ease-out pointer-coarse:min-h-11", shownView === v ? "bg-selected font-bold text-ink" : "text-muted hover:bg-hover hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
+            </div></div>}
             {taskState.list?.more && shownView === "tasks" && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
             {taskState.error !== null && <div className={column}><Problem error={taskState.error} /></div>}
             {fileState.error !== null && <div className={column}><Problem error={fileState.error} /></div>}
             <div id="view-conversation" role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", shownView === "conversation" ? "flex" : "hidden")}>
-            {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-accent hover:underline">Show everything</button></p>}
+            {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline">Show everything</button></p>}
             {loading ? (
               <div className={cn(column, "min-h-0 flex-1")}>
                 <Loading />
@@ -677,6 +685,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       </div>
     </TooltipProvider>
     </TaskContext>
+    </HarnessProvider>
   );
 }
 
@@ -689,7 +698,7 @@ function NowLine({ parts, onShow }: { parts: NowPart[] | null; onShow: (id: stri
         const text = p.target ? (
           <button
             type="button"
-            className={cn("underline decoration-1 underline-offset-[3px] hover:no-underline", p.attention ? "text-ink" : "now-link text-link")}
+            className={cn("text-left underline decoration-1 underline-offset-[3px] hover:no-underline", p.attention ? "rounded-[4px] bg-attention px-1 text-on-accent" : "now-link text-link")}
             onClick={() => onShow(p.target!)}
           >
             {p.text}
@@ -700,7 +709,7 @@ function NowLine({ parts, onShow }: { parts: NowPart[] | null; onShow: (id: stri
         return (
           <span key={p.text}>
             {i > 0 && <span className="text-muted"> · </span>}
-            {p.attention ? <span className="rounded-[4px] bg-attention px-1 text-ink">{text}</span> : text}
+            {p.attention && !p.target ? <span className="rounded-[4px] bg-attention px-1 text-on-accent [box-decoration-break:clone] [-webkit-box-decoration-break:clone]">{text}</span> : text}
           </span>
         );
       })}
