@@ -96,6 +96,45 @@ func (e AgentLeftEventType) Valid() bool {
 	}
 }
 
+// Defines values for AgentLineKind.
+const (
+	AgentLineKindPaused  AgentLineKind = "paused"
+	AgentLineKindWorking AgentLineKind = "working"
+)
+
+// Valid indicates whether the value is a known member of the AgentLineKind enum.
+func (e AgentLineKind) Valid() bool {
+	switch e {
+	case AgentLineKindPaused:
+		return true
+	case AgentLineKindWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentLineSource.
+const (
+	AgentLineSourceCommand AgentLineSource = "command"
+	AgentLineSourcePlan    AgentLineSource = "plan"
+	AgentLineSourceTask    AgentLineSource = "task"
+)
+
+// Valid indicates whether the value is a known member of the AgentLineSource enum.
+func (e AgentLineSource) Valid() bool {
+	switch e {
+	case AgentLineSourceCommand:
+		return true
+	case AgentLineSourcePlan:
+		return true
+	case AgentLineSourceTask:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AgentRemovedEventType.
 const (
 	AgentRemovedEventTypeAgentRemoved AgentRemovedEventType = "agent.removed"
@@ -105,6 +144,60 @@ const (
 func (e AgentRemovedEventType) Valid() bool {
 	switch e {
 	case AgentRemovedEventTypeAgentRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentState.
+const (
+	AgentStateDisconnected AgentState = "disconnected"
+	AgentStateIdle         AgentState = "idle"
+	AgentStateLate         AgentState = "late"
+	AgentStatePaused       AgentState = "paused"
+	AgentStateWaiting      AgentState = "waiting"
+	AgentStateWorking      AgentState = "working"
+)
+
+// Valid indicates whether the value is a known member of the AgentState enum.
+func (e AgentState) Valid() bool {
+	switch e {
+	case AgentStateDisconnected:
+		return true
+	case AgentStateIdle:
+		return true
+	case AgentStateLate:
+		return true
+	case AgentStatePaused:
+		return true
+	case AgentStateWaiting:
+		return true
+	case AgentStateWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AskState.
+const (
+	AskStateAnswered  AskState = "answered"
+	AskStateOpen      AskState = "open"
+	AskStateWentWith  AskState = "went_with"
+	AskStateWithdrawn AskState = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the AskState enum.
+func (e AskState) Valid() bool {
+	switch e {
+	case AskStateAnswered:
+		return true
+	case AskStateOpen:
+		return true
+	case AskStateWentWith:
+		return true
+	case AskStateWithdrawn:
 		return true
 	default:
 		return false
@@ -396,6 +489,21 @@ func (e BoardRole) Valid() bool {
 	}
 }
 
+// Defines values for BoardTaskPrefixSetEventType.
+const (
+	BoardTaskPrefixSet BoardTaskPrefixSetEventType = "board.task_prefix_set"
+)
+
+// Valid indicates whether the value is a known member of the BoardTaskPrefixSetEventType enum.
+func (e BoardTaskPrefixSetEventType) Valid() bool {
+	switch e {
+	case BoardTaskPrefixSet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BoardTitledEventType.
 const (
 	BoardTitled BoardTitledEventType = "board.titled"
@@ -438,6 +546,24 @@ const (
 func (e BoardVisibilityChangedEventType) Valid() bool {
 	switch e {
 	case BoardVisibilityChanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BriefSummaryName.
+const (
+	BriefHtml BriefSummaryName = "brief.html"
+	BriefMd   BriefSummaryName = "brief.md"
+)
+
+// Valid indicates whether the value is a known member of the BriefSummaryName enum.
+func (e BriefSummaryName) Valid() bool {
+	switch e {
+	case BriefHtml:
+		return true
+	case BriefMd:
 		return true
 	default:
 		return false
@@ -525,18 +651,28 @@ const (
 	ErrorErrorCodeAgentSessionRequired            ErrorErrorCode = "agent_session_required"
 	ErrorErrorCodeAgentTokenRequired              ErrorErrorCode = "agent_token_required"
 	ErrorErrorCodeAlreadyOnBoard                  ErrorErrorCode = "already_on_board"
+	ErrorErrorCodeAskClosed                       ErrorErrorCode = "ask_closed"
+	ErrorErrorCodeAskInvalid                      ErrorErrorCode = "ask_invalid"
 	ErrorErrorCodeBoardArchived                   ErrorErrorCode = "board_archived"
 	ErrorErrorCodeBoardCreationRestricted         ErrorErrorCode = "board_creation_restricted"
 	ErrorErrorCodeBoardCreatorRequired            ErrorErrorCode = "board_creator_required"
 	ErrorErrorCodeBoardNameTaken                  ErrorErrorCode = "board_name_taken"
 	ErrorErrorCodeBoardNotArchived                ErrorErrorCode = "board_not_archived"
 	ErrorErrorCodeBoardNotFound                   ErrorErrorCode = "board_not_found"
+	ErrorErrorCodeBriefExists                     ErrorErrorCode = "brief_exists"
+	ErrorErrorCodeBriefPathReserved               ErrorErrorCode = "brief_path_reserved"
 	ErrorErrorCodeBroadcastNotAllowed             ErrorErrorCode = "broadcast_not_allowed"
 	ErrorErrorCodeBrowserSessionNotFound          ErrorErrorCode = "browser_session_not_found"
 	ErrorErrorCodeBrowserSessionRequired          ErrorErrorCode = "browser_session_required"
 	ErrorErrorCodeBrowserSessionSwitchUnconfirmed ErrorErrorCode = "browser_session_switch_unconfirmed"
 	ErrorErrorCodeCsrfTokenInvalid                ErrorErrorCode = "csrf_token_invalid"
 	ErrorErrorCodeDelegationRevoked               ErrorErrorCode = "delegation_revoked"
+	ErrorErrorCodeFileChanged                     ErrorErrorCode = "file_changed"
+	ErrorErrorCodeFileExists                      ErrorErrorCode = "file_exists"
+	ErrorErrorCodeFileHasSecret                   ErrorErrorCode = "file_has_secret"
+	ErrorErrorCodeFileNameTaken                   ErrorErrorCode = "file_name_taken"
+	ErrorErrorCodeFileNotFound                    ErrorErrorCode = "file_not_found"
+	ErrorErrorCodeFileTooLarge                    ErrorErrorCode = "file_too_large"
 	ErrorErrorCodeForbidden                       ErrorErrorCode = "forbidden"
 	ErrorErrorCodeGuestCodeNotForMembers          ErrorErrorCode = "guest_code_not_for_members"
 	ErrorErrorCodeGuestNotAllowed                 ErrorErrorCode = "guest_not_allowed"
@@ -556,6 +692,7 @@ const (
 	ErrorErrorCodeKeyNotFound                     ErrorErrorCode = "key_not_found"
 	ErrorErrorCodeLastAdmin                       ErrorErrorCode = "last_admin"
 	ErrorErrorCodeLastOwner                       ErrorErrorCode = "last_owner"
+	ErrorErrorCodeLineUntilPast                   ErrorErrorCode = "line_until_past"
 	ErrorErrorCodeLoginCodeInvalid                ErrorErrorCode = "login_code_invalid"
 	ErrorErrorCodeMachineRequestInvalid           ErrorErrorCode = "machine_request_invalid"
 	ErrorErrorCodeMachineRequestRefused           ErrorErrorCode = "machine_request_refused"
@@ -563,9 +700,11 @@ const (
 	ErrorErrorCodeMessageNotFound                 ErrorErrorCode = "message_not_found"
 	ErrorErrorCodeMessageTooLarge                 ErrorErrorCode = "message_too_large"
 	ErrorErrorCodeNameTaken                       ErrorErrorCode = "name_taken"
+	ErrorErrorCodeNotAsked                        ErrorErrorCode = "not_asked"
 	ErrorErrorCodeNotFound                        ErrorErrorCode = "not_found"
 	ErrorErrorCodeNotImplemented                  ErrorErrorCode = "not_implemented"
 	ErrorErrorCodeNotOnBoard                      ErrorErrorCode = "not_on_board"
+	ErrorErrorCodeNotOnTask                       ErrorErrorCode = "not_on_task"
 	ErrorErrorCodeOriginNotAllowed                ErrorErrorCode = "origin_not_allowed"
 	ErrorErrorCodeOwnerRequired                   ErrorErrorCode = "owner_required"
 	ErrorErrorCodePersonIsGuest                   ErrorErrorCode = "person_is_guest"
@@ -576,10 +715,17 @@ const (
 	ErrorErrorCodeRoleNotFound                    ErrorErrorCode = "role_not_found"
 	ErrorErrorCodeSeatTokenReplaced               ErrorErrorCode = "seat_token_replaced"
 	ErrorErrorCodeServerAdminRequired             ErrorErrorCode = "server_admin_required"
+	ErrorErrorCodeStandsChanged                   ErrorErrorCode = "stands_changed"
+	ErrorErrorCodeTaskClosed                      ErrorErrorCode = "task_closed"
+	ErrorErrorCodeTaskNotFound                    ErrorErrorCode = "task_not_found"
+	ErrorErrorCodeTaskPrefixInvalid               ErrorErrorCode = "task_prefix_invalid"
+	ErrorErrorCodeTaskPrefixTaken                 ErrorErrorCode = "task_prefix_taken"
+	ErrorErrorCodeTaskTaken                       ErrorErrorCode = "task_taken"
 	ErrorErrorCodeTemplateNotFound                ErrorErrorCode = "template_not_found"
 	ErrorErrorCodeUnauthorized                    ErrorErrorCode = "unauthorized"
 	ErrorErrorCodeUnknownRecipient                ErrorErrorCode = "unknown_recipient"
 	ErrorErrorCodeUrgentNotAllowed                ErrorErrorCode = "urgent_not_allowed"
+	ErrorErrorCodeVersionNotFound                 ErrorErrorCode = "version_not_found"
 )
 
 // Valid indicates whether the value is a known member of the ErrorErrorCode enum.
@@ -605,6 +751,10 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeAlreadyOnBoard:
 		return true
+	case ErrorErrorCodeAskClosed:
+		return true
+	case ErrorErrorCodeAskInvalid:
+		return true
 	case ErrorErrorCodeBoardArchived:
 		return true
 	case ErrorErrorCodeBoardCreationRestricted:
@@ -617,6 +767,10 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeBoardNotFound:
 		return true
+	case ErrorErrorCodeBriefExists:
+		return true
+	case ErrorErrorCodeBriefPathReserved:
+		return true
 	case ErrorErrorCodeBroadcastNotAllowed:
 		return true
 	case ErrorErrorCodeBrowserSessionNotFound:
@@ -628,6 +782,18 @@ func (e ErrorErrorCode) Valid() bool {
 	case ErrorErrorCodeCsrfTokenInvalid:
 		return true
 	case ErrorErrorCodeDelegationRevoked:
+		return true
+	case ErrorErrorCodeFileChanged:
+		return true
+	case ErrorErrorCodeFileExists:
+		return true
+	case ErrorErrorCodeFileHasSecret:
+		return true
+	case ErrorErrorCodeFileNameTaken:
+		return true
+	case ErrorErrorCodeFileNotFound:
+		return true
+	case ErrorErrorCodeFileTooLarge:
 		return true
 	case ErrorErrorCodeForbidden:
 		return true
@@ -667,6 +833,8 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeLastOwner:
 		return true
+	case ErrorErrorCodeLineUntilPast:
+		return true
 	case ErrorErrorCodeLoginCodeInvalid:
 		return true
 	case ErrorErrorCodeMachineRequestInvalid:
@@ -681,11 +849,15 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeNameTaken:
 		return true
+	case ErrorErrorCodeNotAsked:
+		return true
 	case ErrorErrorCodeNotFound:
 		return true
 	case ErrorErrorCodeNotImplemented:
 		return true
 	case ErrorErrorCodeNotOnBoard:
+		return true
+	case ErrorErrorCodeNotOnTask:
 		return true
 	case ErrorErrorCodeOriginNotAllowed:
 		return true
@@ -707,6 +879,18 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeServerAdminRequired:
 		return true
+	case ErrorErrorCodeStandsChanged:
+		return true
+	case ErrorErrorCodeTaskClosed:
+		return true
+	case ErrorErrorCodeTaskNotFound:
+		return true
+	case ErrorErrorCodeTaskPrefixInvalid:
+		return true
+	case ErrorErrorCodeTaskPrefixTaken:
+		return true
+	case ErrorErrorCodeTaskTaken:
+		return true
 	case ErrorErrorCodeTemplateNotFound:
 		return true
 	case ErrorErrorCodeUnauthorized:
@@ -714,6 +898,98 @@ func (e ErrorErrorCode) Valid() bool {
 	case ErrorErrorCodeUnknownRecipient:
 		return true
 	case ErrorErrorCodeUrgentNotAllowed:
+		return true
+	case ErrorErrorCodeVersionNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileApprovalRemovedEventType.
+const (
+	FileApprovalRemoved FileApprovalRemovedEventType = "file.approval_removed"
+)
+
+// Valid indicates whether the value is a known member of the FileApprovalRemovedEventType enum.
+func (e FileApprovalRemovedEventType) Valid() bool {
+	switch e {
+	case FileApprovalRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileApprovedEventType.
+const (
+	FileApproved FileApprovedEventType = "file.approved"
+)
+
+// Valid indicates whether the value is a known member of the FileApprovedEventType enum.
+func (e FileApprovedEventType) Valid() bool {
+	switch e {
+	case FileApproved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileRemovedEventType.
+const (
+	FileRemoved FileRemovedEventType = "file.removed"
+)
+
+// Valid indicates whether the value is a known member of the FileRemovedEventType enum.
+func (e FileRemovedEventType) Valid() bool {
+	switch e {
+	case FileRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileRenamedEventType.
+const (
+	FileRenamed FileRenamedEventType = "file.renamed"
+)
+
+// Valid indicates whether the value is a known member of the FileRenamedEventType enum.
+func (e FileRenamedEventType) Valid() bool {
+	switch e {
+	case FileRenamed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileUpdatedEventType.
+const (
+	FileUpdated FileUpdatedEventType = "file.updated"
+)
+
+// Valid indicates whether the value is a known member of the FileUpdatedEventType enum.
+func (e FileUpdatedEventType) Valid() bool {
+	switch e {
+	case FileUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FileVersionAddedEventType.
+const (
+	FileVersionAdded FileVersionAddedEventType = "file.version_added"
+)
+
+// Valid indicates whether the value is a known member of the FileVersionAddedEventType enum.
+func (e FileVersionAddedEventType) Valid() bool {
+	switch e {
+	case FileVersionAdded:
 		return true
 	default:
 		return false
@@ -1440,9 +1716,28 @@ func (e PolicyBroadcast) Valid() bool {
 	}
 }
 
+// Defines values for PolicyNudges.
+const (
+	PolicyNudgesOff PolicyNudges = "off"
+	PolicyNudgesOn  PolicyNudges = "on"
+)
+
+// Valid indicates whether the value is a known member of the PolicyNudges enum.
+func (e PolicyNudges) Valid() bool {
+	switch e {
+	case PolicyNudgesOff:
+		return true
+	case PolicyNudgesOn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PolicyOverrides.
 const (
 	PolicyOverridesBroadcast   PolicyOverrides = "broadcast"
+	PolicyOverridesNudges      PolicyOverrides = "nudges"
 	PolicyOverridesShowHarness PolicyOverrides = "show_harness"
 	PolicyOverridesUrgent      PolicyOverrides = "urgent"
 	PolicyOverridesVisibility  PolicyOverrides = "visibility"
@@ -1452,6 +1747,8 @@ const (
 func (e PolicyOverrides) Valid() bool {
 	switch e {
 	case PolicyOverridesBroadcast:
+		return true
+	case PolicyOverridesNudges:
 		return true
 	case PolicyOverridesShowHarness:
 		return true
@@ -1512,6 +1809,24 @@ func (e PolicyChangeBroadcast) Valid() bool {
 	case PolicyChangeBroadcastEveryone:
 		return true
 	case PolicyChangeBroadcastGranted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PolicyChangeNudges.
+const (
+	PolicyChangeNudgesOff PolicyChangeNudges = "off"
+	PolicyChangeNudgesOn  PolicyChangeNudges = "on"
+)
+
+// Valid indicates whether the value is a known member of the PolicyChangeNudges enum.
+func (e PolicyChangeNudges) Valid() bool {
+	switch e {
+	case PolicyChangeNudgesOff:
+		return true
+	case PolicyChangeNudgesOn:
 		return true
 	default:
 		return false
@@ -1857,6 +2172,246 @@ func (e ServerRoleChangeServerRole) Valid() bool {
 	}
 }
 
+// Defines values for SetLineRequestKind.
+const (
+	SetLineRequestKindPaused  SetLineRequestKind = "paused"
+	SetLineRequestKindWorking SetLineRequestKind = "working"
+)
+
+// Valid indicates whether the value is a known member of the SetLineRequestKind enum.
+func (e SetLineRequestKind) Valid() bool {
+	switch e {
+	case SetLineRequestKindPaused:
+		return true
+	case SetLineRequestKindWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetLineRequestSource.
+const (
+	SetLineRequestSourceCommand SetLineRequestSource = "command"
+	SetLineRequestSourcePlan    SetLineRequestSource = "plan"
+)
+
+// Valid indicates whether the value is a known member of the SetLineRequestSource enum.
+func (e SetLineRequestSource) Valid() bool {
+	switch e {
+	case SetLineRequestSourceCommand:
+		return true
+	case SetLineRequestSourcePlan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskCreatedEventType.
+const (
+	TaskCreated TaskCreatedEventType = "task.created"
+)
+
+// Valid indicates whether the value is a known member of the TaskCreatedEventType enum.
+func (e TaskCreatedEventType) Valid() bool {
+	switch e {
+	case TaskCreated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskDoneEventType.
+const (
+	TaskDone TaskDoneEventType = "task.done"
+)
+
+// Valid indicates whether the value is a known member of the TaskDoneEventType enum.
+func (e TaskDoneEventType) Valid() bool {
+	switch e {
+	case TaskDone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskDroppedEventDataAs.
+const (
+	TaskDroppedEventDataAsHelper TaskDroppedEventDataAs = "helper"
+	TaskDroppedEventDataAsOwner  TaskDroppedEventDataAs = "owner"
+)
+
+// Valid indicates whether the value is a known member of the TaskDroppedEventDataAs enum.
+func (e TaskDroppedEventDataAs) Valid() bool {
+	switch e {
+	case TaskDroppedEventDataAsHelper:
+		return true
+	case TaskDroppedEventDataAsOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskDroppedEventDataBy.
+const (
+	TaskDroppedEventDataByPerson    TaskDroppedEventDataBy = "person"
+	TaskDroppedEventDataBySeatEnded TaskDroppedEventDataBy = "seat_ended"
+	TaskDroppedEventDataBySelf      TaskDroppedEventDataBy = "self"
+)
+
+// Valid indicates whether the value is a known member of the TaskDroppedEventDataBy enum.
+func (e TaskDroppedEventDataBy) Valid() bool {
+	switch e {
+	case TaskDroppedEventDataByPerson:
+		return true
+	case TaskDroppedEventDataBySeatEnded:
+		return true
+	case TaskDroppedEventDataBySelf:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskDroppedEventType.
+const (
+	TaskDropped TaskDroppedEventType = "task.dropped"
+)
+
+// Valid indicates whether the value is a known member of the TaskDroppedEventType enum.
+func (e TaskDroppedEventType) Valid() bool {
+	switch e {
+	case TaskDropped:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskJoinedEventType.
+const (
+	TaskJoined TaskJoinedEventType = "task.joined"
+)
+
+// Valid indicates whether the value is a known member of the TaskJoinedEventType enum.
+func (e TaskJoinedEventType) Valid() bool {
+	switch e {
+	case TaskJoined:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskStartedEventType.
+const (
+	TaskStarted TaskStartedEventType = "task.started"
+)
+
+// Valid indicates whether the value is a known member of the TaskStartedEventType enum.
+func (e TaskStartedEventType) Valid() bool {
+	switch e {
+	case TaskStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskState.
+const (
+	TaskStateCancelled  TaskState = "cancelled"
+	TaskStateDone       TaskState = "done"
+	TaskStateInProgress TaskState = "in_progress"
+	TaskStateOpen       TaskState = "open"
+)
+
+// Valid indicates whether the value is a known member of the TaskState enum.
+func (e TaskState) Valid() bool {
+	switch e {
+	case TaskStateCancelled:
+		return true
+	case TaskStateDone:
+		return true
+	case TaskStateInProgress:
+		return true
+	case TaskStateOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskTagHow.
+const (
+	Current TaskTagHow = "current"
+	Given   TaskTagHow = "given"
+	Named   TaskTagHow = "named"
+	Thread  TaskTagHow = "thread"
+)
+
+// Valid indicates whether the value is a known member of the TaskTagHow enum.
+func (e TaskTagHow) Valid() bool {
+	switch e {
+	case Current:
+		return true
+	case Given:
+		return true
+	case Named:
+		return true
+	case Thread:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskUpdatedEventType.
+const (
+	TaskUpdated TaskUpdatedEventType = "task.updated"
+)
+
+// Valid indicates whether the value is a known member of the TaskUpdatedEventType enum.
+func (e TaskUpdatedEventType) Valid() bool {
+	switch e {
+	case TaskUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAsksParamsState.
+const (
+	ListAsksParamsStateAll       ListAsksParamsState = "all"
+	ListAsksParamsStateAnswered  ListAsksParamsState = "answered"
+	ListAsksParamsStateOpen      ListAsksParamsState = "open"
+	ListAsksParamsStateWentWith  ListAsksParamsState = "went_with"
+	ListAsksParamsStateWithdrawn ListAsksParamsState = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the ListAsksParamsState enum.
+func (e ListAsksParamsState) Valid() bool {
+	switch e {
+	case ListAsksParamsStateAll:
+		return true
+	case ListAsksParamsStateAnswered:
+		return true
+	case ListAsksParamsStateOpen:
+		return true
+	case ListAsksParamsStateWentWith:
+		return true
+	case ListAsksParamsStateWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListBoardsParamsLifecycle.
 const (
 	ListBoardsParamsLifecycleActive   ListBoardsParamsLifecycle = "active"
@@ -1872,6 +2427,36 @@ func (e ListBoardsParamsLifecycle) Valid() bool {
 	case ListBoardsParamsLifecycleAll:
 		return true
 	case ListBoardsParamsLifecycleArchived:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListTasksParamsState.
+const (
+	ListTasksParamsStateActive     ListTasksParamsState = "active"
+	ListTasksParamsStateAll        ListTasksParamsState = "all"
+	ListTasksParamsStateCancelled  ListTasksParamsState = "cancelled"
+	ListTasksParamsStateDone       ListTasksParamsState = "done"
+	ListTasksParamsStateInProgress ListTasksParamsState = "in_progress"
+	ListTasksParamsStateOpen       ListTasksParamsState = "open"
+)
+
+// Valid indicates whether the value is a known member of the ListTasksParamsState enum.
+func (e ListTasksParamsState) Valid() bool {
+	switch e {
+	case ListTasksParamsStateActive:
+		return true
+	case ListTasksParamsStateAll:
+		return true
+	case ListTasksParamsStateCancelled:
+		return true
+	case ListTasksParamsStateDone:
+		return true
+	case ListTasksParamsStateInProgress:
+		return true
+	case ListTasksParamsStateOpen:
 		return true
 	default:
 		return false
@@ -2014,6 +2599,29 @@ type AgentLeftEvent struct {
 // AgentLeftEventType defines model for AgentLeftEvent.Type.
 type AgentLeftEventType string
 
+// AgentLine defines model for AgentLine.
+type AgentLine struct {
+	At   Timestamp     `json:"at"`
+	Kind AgentLineKind `json:"kind"`
+
+	// SetBy Who set it, by name: the agent, or its person.
+	SetBy string `json:"set_by"`
+
+	// Source `command`: `aboard working` or `paused`. `task`: starting or opening a task. `plan`: the harness's todo or plan list.
+	Source AgentLineSource `json:"source"`
+	Task   *TaskRef        `json:"task"`
+	Text   string          `json:"text"`
+
+	// Until For a paused line, when the agent said it would be back.
+	Until *Timestamp `json:"until"`
+}
+
+// AgentLineKind defines model for AgentLine.Kind.
+type AgentLineKind string
+
+// AgentLineSource `command`: `aboard working` or `paused`. `task`: starting or opening a task. `plan`: the harness's todo or plan list.
+type AgentLineSource string
+
 // AgentRemovalEventData The agent whose seat ended. Who ended it is the event's actor: the person who
 // removed it (their member on the board, or a person with no `member_id` for a
 // server admin not on it), or the agent itself for `agent.left`.
@@ -2072,6 +2680,107 @@ type AgentRemovedEvent struct {
 // AgentRemovedEventType defines model for AgentRemovedEvent.Type.
 type AgentRemovedEventType string
 
+// AgentState Worked out in this order: `waiting` (presence `waiting`: a person is needed in
+// the agent's session), `paused` (a paused line before its `until`) or `late`
+// (after it), `disconnected` (no session), `working` (a working line, or a turn
+// running), else `idle`.
+type AgentState string
+
+// AgentWork What an agent is working on, for reminders. Counts only what the agent may see.
+type AgentWork struct {
+	// AsksToIt Open asks to the agent.
+	AsksToIt *int `json:"asks_to_it,omitempty"`
+
+	// AsksWaiting The agent's own asks still open.
+	AsksWaiting int `json:"asks_waiting"`
+
+	// Brief The board's brief, when the agent wrote its latest version; null otherwise.
+	Brief *struct {
+		At             Timestamp `json:"at"`
+		MessagesSince  int       `json:"messages_since"`
+		TasksDoneSince int       `json:"tasks_done_since"`
+		Version        int       `json:"version"`
+	} `json:"brief"`
+	CurrentTask *struct {
+		Id TaskID `json:"id"`
+
+		// Owner True when the agent owns it; false when it helps.
+		Owner bool `json:"owner"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref    TaskReference `json:"ref"`
+		Stands *TaskText     `json:"stands"`
+		Title  string        `json:"title"`
+	} `json:"current_task"`
+	Line *AgentLine `json:"line"`
+
+	// Nudges False when the board's policy turned nudges off.
+	Nudges bool `json:"nudges"`
+
+	// OldestOpen The oldest task not picked up, to name in a reminder.
+	OldestOpen *TaskRef `json:"oldest_open,omitempty"`
+
+	// OpenTasks Tasks on the board not picked up.
+	OpenTasks int `json:"open_tasks"`
+
+	// PostsWithoutTask Messages the agent posted in a row, most recent last, about no task while it had no current task.
+	PostsWithoutTask int `json:"posts_without_task"`
+}
+
+// AnswerRequest Marks a reply as the answer to the ask in `reply_to`, or its withdrawal.
+type AnswerRequest struct {
+	// Option The option picked, counting from 1.
+	Option *int `json:"option,omitempty"`
+
+	// Withdrawn The asker no longer needs an answer.
+	Withdrawn *bool `json:"withdrawn,omitempty"`
+}
+
+// ApproveFileRequest defines model for ApproveFileRequest.
+type ApproveFileRequest struct {
+	Version int `json:"version"`
+}
+
+// AskList defines model for AskList.
+type AskList struct {
+	// Asks Messages with an `ask`, each on its `board`.
+	Asks []Message `json:"asks"`
+	More bool      `json:"more"`
+}
+
+// AskRequest Makes the message an ask. See `postMessage`.
+type AskRequest struct {
+	// Approval Asks a person to approve the file versions in the message's `files`; option 1
+	// means approve. See `postMessage`.
+	Approval *bool `json:"approval,omitempty"`
+
+	// GoingAt When the asker goes ahead with `going_with`; now when left out.
+	GoingAt *Timestamp `json:"going_at,omitempty"`
+
+	// GoingWith What the asker will do unless told otherwise. Makes the ask non-blocking.
+	GoingWith *string   `json:"going_with,omitempty"`
+	Options   *[]string `json:"options,omitempty"`
+}
+
+// AskState `open`: waiting for an answer. `answered`. `withdrawn` by the asker. `went_with`: a
+// going-with ask whose time passed with no answer; it can still be answered.
+type AskState string
+
+// BlockedOn One open blocking ask about a task that the reader may read. An ask the reader
+// may not read (under `addressed` visibility, one addressed to others) is never
+// listed: it only counts in `Task.blocked_count`.
+type BlockedOn struct {
+	AskId string `json:"ask_id"`
+
+	// AskSeq Position in a board's event log. Messages share this numbering.
+	AskSeq Seq        `json:"ask_seq"`
+	From   *MemberRef `json:"from,omitempty"`
+	Since  Timestamp  `json:"since"`
+	To     MemberRef  `json:"to"`
+}
+
 // Board defines model for Board.
 type Board struct {
 	// Added In `GET /v1/boards`, for a person on the board (with their own key, browser
@@ -2092,6 +2801,16 @@ type Board struct {
 	// field, interpret it by board visibility. Turning private resets it to false;
 	// opening preserves its value. Only a person who owns the board changes it.
 	AgentsAddPeople *bool `json:"agents_add_people,omitempty"`
+
+	// AsksToMe Open asks to the caller on this board, for a person on it: `blocking` ones and
+	// `going_with` ones. Absent for agents and for people off the board.
+	AsksToMe *struct {
+		Blocking  int `json:"blocking"`
+		GoingWith int `json:"going_with"`
+	} `json:"asks_to_me,omitempty"`
+
+	// Brief The board's brief (its file `brief.md` or `brief.html`) with its freshness; null when the board has none. Present for someone on the board on a server with files.
+	Brief *BriefSummary `json:"brief,omitempty"`
 
 	// CanArchive Whether this current credential may archive this active board. False for an archived board or a delegation.
 	// Computed from current authority and lifecycle, never guessed from a board
@@ -2157,6 +2876,13 @@ type Board struct {
 
 	// Roles Role name to role. Always includes `member`.
 	Roles map[string]Role `json:"roles"`
+
+	// TaskPrefix The prefix new tasks' references get (`CHK` makes `CHK-17`). Null until the
+	// board's first task. Absent from servers without tasks.
+	TaskPrefix *string `json:"task_prefix,omitempty"`
+
+	// TasksOpen How many tasks are open and not picked up. Present for someone on the board on a server with tasks.
+	TasksOpen *int `json:"tasks_open,omitempty"`
 
 	// Template Example: writer-reviewer
 	Template *string `json:"template"`
@@ -2337,6 +3063,37 @@ type BoardDeletedEventDataBefore string
 // BoardDeletedEventType defines model for BoardDeletedEvent.Type.
 type BoardDeletedEventType string
 
+// BoardFile defines model for BoardFile.
+type BoardFile struct {
+	About []TaskRef `json:"about"`
+
+	// Approvals Each person's approval, newest first.
+	Approvals []FileApproval `json:"approvals"`
+
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// Freshness What happened on the board since a version was written, counting only what the reader may see. Facts, never a verdict.
+	Freshness Freshness   `json:"freshness"`
+	Id        string      `json:"id"`
+	Latest    FileVersion `json:"latest"`
+
+	// Maintained Kept current (the brief, a status page), rather than one-off.
+	Maintained bool `json:"maintained"`
+
+	// Mine The caller's own approval; null when they have none.
+	Mine *FileApproval `json:"mine,omitempty"`
+
+	// Name A file's path on its board, unique there: names separated by `/`, each starting
+	// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+	// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+	// written `%2F`.
+	//
+	//
+	// Example: brief.md
+	Name FileName `json:"name"`
+}
+
 // BoardID defines model for BoardID.
 type BoardID = string
 
@@ -2482,6 +3239,33 @@ type BoardRestoredEventType string
 // everyone else. Agents have no board role.
 type BoardRole string
 
+// BoardTaskPrefixSetEvent defines model for BoardTaskPrefixSetEvent.
+type BoardTaskPrefixSetEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		After string `json:"after"`
+
+		// Before Null when the board's first task gave it its prefix.
+		Before *string `json:"before"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                         `json:"seq"`
+	Type BoardTaskPrefixSetEventType `json:"type"`
+}
+
+// BoardTaskPrefixSetEventType defines model for BoardTaskPrefixSetEvent.Type.
+type BoardTaskPrefixSetEventType string
+
 // BoardTitle Free text people read, such as `Payments retry design`, on one line. The board's
 // name stays its address; clients show the title with the name beside it, and the
 // name alone when there is no title.
@@ -2557,6 +3341,23 @@ type BoardVisibilityChangedEvent struct {
 
 // BoardVisibilityChangedEventType defines model for BoardVisibilityChangedEvent.Type.
 type BoardVisibilityChangedEventType string
+
+// BriefSummary defines model for BriefSummary.
+type BriefSummary struct {
+	At     Timestamp `json:"at"`
+	By     MemberRef `json:"by"`
+	FileId string    `json:"file_id"`
+
+	// Freshness What happened on the board since a version was written, counting only what the reader may see. Facts, never a verdict.
+	Freshness Freshness `json:"freshness"`
+
+	// Name Which of the two the board's brief is. HTML is shown only in a sandboxed preview.
+	Name    *BriefSummaryName `json:"name,omitempty"`
+	Version int               `json:"version"`
+}
+
+// BriefSummaryName Which of the two the board's brief is. HTML is shown only in a sandboxed preview.
+type BriefSummaryName string
 
 // BrowserSession defines model for BrowserSession.
 type BrowserSession struct {
@@ -2760,6 +3561,15 @@ type CreateKeyRequest struct {
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
 
+// CreateTaskRequest defines model for CreateTaskRequest.
+type CreateTaskRequest struct {
+	About *string `json:"about,omitempty"`
+
+	// Start Make the caller the owner at once, as `startTask` does.
+	Start *bool  `json:"start,omitempty"`
+	Title string `json:"title"`
+}
+
 // CurrentBrowserSession defines model for CurrentBrowserSession.
 type CurrentBrowserSession struct {
 	CreatedAt Timestamp `json:"created_at"`
@@ -2822,6 +3632,16 @@ type DeliverySetting struct {
 	Revision int `json:"revision"`
 }
 
+// Digest defines model for Digest.
+type Digest = string
+
+// DropTaskRequest defines model for DropTaskRequest.
+type DropTaskRequest struct {
+	// Member Whose part to drop; only a person may name another member. The caller when left out.
+	Member *MemberName `json:"member,omitempty"`
+	Reason *string     `json:"reason,omitempty"`
+}
+
 // Error Example: {"error":{"code":"broadcast_not_allowed","hint":"Address someone instead, e.g. aboard say --to role:reviewer \"…\"","message":"Your role can't post to all on this board."}}
 type Error struct {
 	Error struct {
@@ -2874,6 +3694,328 @@ type EventPage struct {
 	// HeadSeq Position in a board's event log. Messages share this numbering.
 	HeadSeq   Seq  `json:"head_seq"`
 	NextAfter *int `json:"next_after"`
+}
+
+// FileApproval defines model for FileApproval.
+type FileApproval struct {
+	At Timestamp `json:"at"`
+
+	// ChangesSince Versions written after the approved one.
+	ChangesSince int       `json:"changes_since"`
+	Digest       Digest    `json:"digest"`
+	Person       MemberRef `json:"person"`
+	Version      int       `json:"version"`
+}
+
+// FileApprovalRemovedEvent defines model for FileApprovalRemovedEvent.
+type FileApprovalRemovedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		FileId  string `json:"file_id"`
+		Version int    `json:"version"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                          `json:"seq"`
+	Type FileApprovalRemovedEventType `json:"type"`
+}
+
+// FileApprovalRemovedEventType defines model for FileApprovalRemovedEvent.Type.
+type FileApprovalRemovedEventType string
+
+// FileApprovedEvent defines model for FileApprovedEvent.
+type FileApprovedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		Digest  Digest `json:"digest"`
+		FileId  string `json:"file_id"`
+		Version int    `json:"version"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                   `json:"seq"`
+	Type FileApprovedEventType `json:"type"`
+}
+
+// FileApprovedEventType defines model for FileApprovedEvent.Type.
+type FileApprovedEventType string
+
+// FileDetail defines model for FileDetail.
+type FileDetail struct {
+	About []TaskRef `json:"about"`
+
+	// Approvals Each person's approval, newest first.
+	Approvals []FileApproval `json:"approvals"`
+
+	// Board Example: writer-reviewer
+	Board BoardName `json:"board"`
+
+	// Freshness What happened on the board since a version was written, counting only what the reader may see. Facts, never a verdict.
+	Freshness Freshness   `json:"freshness"`
+	Id        string      `json:"id"`
+	Latest    FileVersion `json:"latest"`
+
+	// Maintained Kept current (the brief, a status page), rather than one-off.
+	Maintained bool `json:"maintained"`
+
+	// Mine The caller's own approval; null when they have none.
+	Mine *FileApproval `json:"mine,omitempty"`
+
+	// Name A file's path on its board, unique there: names separated by `/`, each starting
+	// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+	// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+	// written `%2F`.
+	//
+	//
+	// Example: brief.md
+	Name FileName `json:"name"`
+
+	// PostedIn The messages, the reader may see, that attached a version of this file, oldest first.
+	PostedIn []struct {
+		MessageId string `json:"message_id"`
+
+		// Seq Position in a board's event log. Messages share this numbering.
+		Seq           Seq  `json:"seq"`
+		ThreadRootSeq *int `json:"thread_root_seq"`
+		Version       int  `json:"version"`
+	} `json:"posted_in"`
+
+	// Versions Every version, newest first.
+	Versions []FileVersion `json:"versions"`
+}
+
+// FileEventData defines model for FileEventData.
+type FileEventData struct {
+	FileId string `json:"file_id"`
+}
+
+// FileList defines model for FileList.
+type FileList struct {
+	// Board Example: writer-reviewer
+	Board BoardName   `json:"board"`
+	Files []BoardFile `json:"files"`
+	More  bool        `json:"more"`
+}
+
+// FileName A file's path on its board, unique there: names separated by `/`, each starting
+// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+// written `%2F`.
+//
+// Example: brief.md
+type FileName = string
+
+// FileRef defines model for FileRef.
+type FileRef struct {
+	Digest Digest `json:"digest"`
+	Id     string `json:"id"`
+
+	// Name A file's path on its board, unique there: names separated by `/`, each starting
+	// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+	// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+	// written `%2F`.
+	//
+	//
+	// Example: brief.md
+	Name    FileName `json:"name"`
+	Version int      `json:"version"`
+}
+
+// FileRemovedEvent defines model for FileRemovedEvent.
+type FileRemovedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		FileId string `json:"file_id"`
+
+		// Name A file's path on its board, unique there: names separated by `/`, each starting
+		// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+		// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+		// written `%2F`.
+		//
+		//
+		// Example: brief.md
+		Name FileName `json:"name"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type FileRemovedEventType `json:"type"`
+}
+
+// FileRemovedEventType defines model for FileRemovedEvent.Type.
+type FileRemovedEventType string
+
+// FileRenamedEvent defines model for FileRenamedEvent.
+type FileRenamedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		// After A file's path on its board, unique there: names separated by `/`, each starting
+		// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+		// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+		// written `%2F`.
+		//
+		//
+		// Example: brief.md
+		After FileName `json:"after"`
+
+		// Before A file's path on its board, unique there: names separated by `/`, each starting
+		// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+		// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+		// written `%2F`.
+		//
+		//
+		// Example: brief.md
+		Before FileName `json:"before"`
+		FileId string   `json:"file_id"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type FileRenamedEventType `json:"type"`
+}
+
+// FileRenamedEventType defines model for FileRenamedEvent.Type.
+type FileRenamedEventType string
+
+// FileUpdatedEvent defines model for FileUpdatedEvent.
+type FileUpdatedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		About      *[]TaskID `json:"about,omitempty"`
+		FileId     string    `json:"file_id"`
+		Maintained *bool     `json:"maintained,omitempty"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type FileUpdatedEventType `json:"type"`
+}
+
+// FileUpdatedEventType defines model for FileUpdatedEvent.Type.
+type FileUpdatedEventType string
+
+// FileVersion defines model for FileVersion.
+type FileVersion struct {
+	At Timestamp `json:"at"`
+
+	// Base The version this one replaced; 0 for the first.
+	Base      int       `json:"base"`
+	By        MemberRef `json:"by"`
+	Digest    Digest    `json:"digest"`
+	MediaType string    `json:"media_type"`
+
+	// Seq The `file.version_added` event's sequence number.
+	Seq     Seq `json:"seq"`
+	Size    int `json:"size"`
+	Version int `json:"version"`
+}
+
+// FileVersionAddedEvent defines model for FileVersionAddedEvent.
+type FileVersionAddedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		About       []TaskID `json:"about"`
+		BaseVersion int      `json:"base_version"`
+		Digest      Digest   `json:"digest"`
+		FileId      string   `json:"file_id"`
+		Maintained  bool     `json:"maintained"`
+		MediaType   string   `json:"media_type"`
+
+		// Name A file's path on its board, unique there: names separated by `/`, each starting
+		// with a letter or digit. Top-level `brief.md` or `brief.html` is the board's brief
+		// (at most one of them), written only as the brief. In a URL path a `/` inside it is
+		// written `%2F`.
+		//
+		//
+		// Example: brief.md
+		Name    FileName `json:"name"`
+		Size    int      `json:"size"`
+		Version int      `json:"version"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                       `json:"seq"`
+	Type FileVersionAddedEventType `json:"type"`
+}
+
+// FileVersionAddedEventType defines model for FileVersionAddedEvent.Type.
+type FileVersionAddedEventType string
+
+// FileVersionSelector defines model for FileVersionSelector.
+type FileVersionSelector struct {
+	// File The file's name or id.
+	File string `json:"file"`
+
+	// Version The version; the latest when left out.
+	Version *int `json:"version,omitempty"`
+}
+
+// FinishTaskRequest defines model for FinishTaskRequest.
+type FinishTaskRequest struct {
+	// Cancelled Closed because it is no longer needed, not because it was done.
+	Cancelled *bool  `json:"cancelled,omitempty"`
+	Note      string `json:"note"`
+}
+
+// Freshness What happened on the board since a version was written, counting only what the reader may see. Facts, never a verdict.
+type Freshness struct {
+	AnswersSince   int `json:"answers_since"`
+	MessagesSince  int `json:"messages_since"`
+	TasksDoneSince int `json:"tasks_done_since"`
 }
 
 // GuestJoinRequest defines model for GuestJoinRequest.
@@ -2989,6 +4131,11 @@ type Inbox struct {
 
 	// More True if `limit` cut the list short.
 	More bool `json:"more"`
+
+	// Work The agent's work on the board, read with the messages, so the CLI and the
+	// delivery daemon can remind it of what it's on without another request.
+	// Absent from servers without tasks.
+	Work *AgentWork `json:"work,omitempty"`
 }
 
 // JoinCode defines model for JoinCode.
@@ -3221,6 +4368,9 @@ type Me struct {
 	// Browser True for a browser token, which acts as its person.
 	Browser bool `json:"browser"`
 
+	// CurrentTask For an agent's token, its current task; null when it has none, and for a person. Absent from servers without tasks.
+	CurrentTask *TaskRef `json:"current_task,omitempty"`
+
 	// DeliveryMode For an agent's token, the agent's delivery mode as its person set it (`delivery_mode` on its member). Null for a person.
 	DeliveryMode *MeDeliveryMode `json:"delivery_mode,omitempty"`
 
@@ -3268,6 +4418,9 @@ type Member struct {
 	// absence as false. The removal checks again.
 	CanRemove *bool `json:"can_remove,omitempty"`
 
+	// CurrentTask The task the agent last started, opened or joined and hasn't finished or dropped. Null when none, and for people. Absent from servers without tasks.
+	CurrentTask *TaskRef `json:"current_task,omitempty"`
+
 	// Delivery The delivery mode the agent's delivery daemon last reported applying (see
 	// `DeliveryMode`). Null for people, and for an agent whose mode was never
 	// reported, such as one with no delivery daemon. It can differ from
@@ -3289,6 +4442,9 @@ type Member struct {
 	Id       string     `json:"id"`
 	JoinedAt Timestamp  `json:"joined_at"`
 	Kind     MemberKind `json:"kind"`
+
+	// Line What the agent says it's on; null when it has no line, and for people. Absent from servers without lines.
+	Line *AgentLine `json:"line,omitempty"`
 
 	// Name Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
 	//
@@ -3320,6 +4476,9 @@ type Member struct {
 
 	// ServerRole A person's role on the server, so a guest can be shown as one. Null for agents.
 	ServerRole *ServerRole `json:"server_role"`
+
+	// State The one word for what the agent is doing, worked out when read. Null for people. Absent from servers without lines.
+	State *AgentState `json:"state,omitempty"`
 
 	// Status `active` for a member on the board now. Only `GET /v1/boards/{board}/members`
 	// with `removed=true` lists an agent whose seat ended: `removed`, or `left` when
@@ -3476,14 +4635,27 @@ type MentionReason string
 
 // Message defines model for Message.
 type Message struct {
-	At Timestamp `json:"at"`
+	// About The tasks the message is about, as recorded when it was posted, each with how
+	// it got there. Absent or empty when it is about none, and for messages posted
+	// before tasks existed.
+	About *[]TaskTag `json:"about,omitempty"`
+
+	// Answer Present when the message answers or withdraws an ask.
+	Answer *MessageAnswer `json:"answer,omitempty"`
+
+	// Ask Present when the message is an ask.
+	Ask *MessageAsk `json:"ask,omitempty"`
+	At  Timestamp   `json:"at"`
 
 	// Board Example: writer-reviewer
 	Board        BoardName `json:"board"`
 	Body         string    `json:"body"`
 	ExpectsReply bool      `json:"expects_reply"`
-	From         MemberRef `json:"from"`
-	Id           string    `json:"id"`
+
+	// Files File versions attached to the message.
+	Files *[]FileRef `json:"files,omitempty"`
+	From  MemberRef  `json:"from"`
+	Id    string     `json:"id"`
 
 	// LastReplyAt When the newest reply the reader may see in the thread this message starts
 	// was posted. Null when `reply_count` is 0.
@@ -3560,6 +4732,43 @@ type MessageSender string
 // Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 type MessageTrust string
 
+// MessageAnswer defines model for MessageAnswer.
+type MessageAnswer struct {
+	AskId string `json:"ask_id"`
+
+	// AskSeq Position in a board's event log. Messages share this numbering.
+	AskSeq Seq `json:"ask_seq"`
+
+	// Option The option picked, counting from 1; null for an answer in words.
+	Option     *int    `json:"option"`
+	OptionText *string `json:"option_text,omitempty"`
+	Withdrawn  bool    `json:"withdrawn"`
+}
+
+// MessageAsk defines model for MessageAsk.
+type MessageAsk struct {
+	// AnswerOption The option the latest answer picked; null when it picked none.
+	AnswerOption *int `json:"answer_option"`
+
+	// AnswerSeq The latest answer's sequence number; null with none.
+	AnswerSeq *int `json:"answer_seq"`
+
+	// Approval True for an approval ask, whose option 1 approves the message's `files`. Absent otherwise.
+	Approval  *bool      `json:"approval,omitempty"`
+	Blocking  bool       `json:"blocking"`
+	GoingAt   *Timestamp `json:"going_at"`
+	GoingWith *string    `json:"going_with"`
+	Options   []string   `json:"options"`
+
+	// State `open`: waiting for an answer. `answered`. `withdrawn` by the asker. `went_with`: a
+	// going-with ask whose time passed with no answer; it can still be answered.
+	State AskState `json:"state"`
+
+	// Task The task a blocking ask blocks, or a going-with ask is about.
+	Task *TaskRef  `json:"task"`
+	To   MemberRef `json:"to"`
+}
+
 // MessagePage defines model for MessagePage.
 type MessagePage struct {
 	// Board Example: writer-reviewer
@@ -3581,8 +4790,34 @@ type MessagePostedEvent struct {
 	At      Timestamp `json:"at"`
 	BoardId string    `json:"board_id"`
 	Data    *struct {
+		// About The tasks the message is about, as `Message.about`. Absent when none, and from earlier events.
+		About *[]TaskTag `json:"about,omitempty"`
+
+		// Answer Present for a reply that answers or withdraws the ask it replies to.
+		Answer *struct {
+			AskId     string `json:"ask_id"`
+			Option    *int   `json:"option"`
+			Withdrawn bool   `json:"withdrawn"`
+		} `json:"answer,omitempty"`
+
+		// Ask Present for an ask. Its state is never recorded; it is worked out from later answers.
+		Ask *struct {
+			// Approval True for an approval ask; absent otherwise.
+			Approval  *bool      `json:"approval,omitempty"`
+			Blocking  bool       `json:"blocking"`
+			GoingAt   *time.Time `json:"going_at"`
+			GoingWith *string    `json:"going_with"`
+			Options   []string   `json:"options"`
+			TaskId    *string    `json:"task_id"`
+
+			// To The member asked.
+			To string `json:"to"`
+		} `json:"ask,omitempty"`
 		Body         string `json:"body"`
 		ExpectsReply bool   `json:"expects_reply"`
+
+		// Files File versions attached, as `Message.files`.
+		Files *[]FileRef `json:"files,omitempty"`
 
 		// Mentions The members the body mentions, as `Message.mentions`. Absent from
 		// events written before the server read mentions.
@@ -3903,6 +5138,13 @@ type Policy struct {
 	// Broadcast `everyone`: any member may post to `all`. `granted`: only roles with `broadcast`.
 	Broadcast PolicyBroadcast `json:"broadcast"`
 
+	// Nudges `on` (both presets): Aboard's clients add short reminders to agents on this
+	// board, in command output and at a turn's start (such as "2 tasks not picked
+	// up: aboard task list"). `off`: none, except the note that tells a session
+	// which agent and task it holds when it starts or comes back. Nothing is
+	// enforced either way. A policy without this key means `on`.
+	Nudges *PolicyNudges `json:"nudges,omitempty"`
+
 	// Overrides Keys set explicitly on top of the preset. Empty when the board matches its preset exactly.
 	Overrides *[]PolicyOverrides `json:"overrides,omitempty"`
 	Preset    PolicyPreset       `json:"preset"`
@@ -3924,6 +5166,13 @@ type Policy struct {
 // PolicyBroadcast `everyone`: any member may post to `all`. `granted`: only roles with `broadcast`.
 type PolicyBroadcast string
 
+// PolicyNudges `on` (both presets): Aboard's clients add short reminders to agents on this
+// board, in command output and at a turn's start (such as "2 tasks not picked
+// up: aboard task list"). `off`: none, except the note that tells a session
+// which agent and task it holds when it starts or comes back. Nothing is
+// enforced either way. A policy without this key means `on`.
+type PolicyNudges string
+
 // PolicyOverrides defines model for Policy.Overrides.
 type PolicyOverrides string
 
@@ -3936,6 +5185,7 @@ type PolicyVisibility string
 // PolicyChange defines model for PolicyChange.
 type PolicyChange struct {
 	Broadcast   *PolicyChangeBroadcast  `json:"broadcast,omitempty"`
+	Nudges      *PolicyChangeNudges     `json:"nudges,omitempty"`
 	Preset      *PolicyPreset           `json:"preset,omitempty"`
 	ShowHarness *bool                   `json:"show_harness,omitempty"`
 	Urgent      *PolicyChangeUrgent     `json:"urgent,omitempty"`
@@ -3944,6 +5194,9 @@ type PolicyChange struct {
 
 // PolicyChangeBroadcast defines model for PolicyChange.Broadcast.
 type PolicyChangeBroadcast string
+
+// PolicyChangeNudges defines model for PolicyChange.Nudges.
+type PolicyChangeNudges string
 
 // PolicyChangeUrgent defines model for PolicyChange.Urgent.
 type PolicyChangeUrgent string
@@ -3956,11 +5209,24 @@ type PolicyPreset string
 
 // PostMessageRequest defines model for PostMessageRequest.
 type PostMessageRequest struct {
-	Body string `json:"body"`
+	// About The tasks the message is about, by reference (`CHK-17`), number or id. Left
+	// out, the server works it out (see the operation). An empty list means none,
+	// though tasks the body names are still added.
+	About *[]TaskSelector `json:"about,omitempty"`
+
+	// Answer Marks a reply as the answer to the ask in `reply_to`, or its withdrawal.
+	Answer *AnswerRequest `json:"answer,omitempty"`
+
+	// Ask Makes the message an ask. See `postMessage`.
+	Ask  *AskRequest `json:"ask,omitempty"`
+	Body string      `json:"body"`
 
 	// ExpectsReply The sender is asking for an answer.
-	ExpectsReply *bool   `json:"expects_reply,omitempty"`
-	ReplyTo      *string `json:"reply_to,omitempty"`
+	ExpectsReply *bool `json:"expects_reply,omitempty"`
+
+	// Files Versions of files on the board to attach.
+	Files   *[]FileVersionSelector `json:"files,omitempty"`
+	ReplyTo *string                `json:"reply_to,omitempty"`
 
 	// To Omitted means `["all"]`, except for a reply (`reply_to` set): then the reply
 	// goes to the people and agents already in the thread, by name: the author of
@@ -4258,11 +5524,31 @@ type ServerInfo struct {
 	// a `commit_time` is older than one with it.
 	CommitTime *time.Time `json:"commit_time,omitempty"`
 
+	// Features What this server provides beyond the operations every server has, by name, so
+	// a client checks before using one and says `server_outdated` naming what is
+	// missing. Names are only added: `tasks`, `asks`, `lines`, `files`. Absent from
+	// servers that don't list features.
+	Features *[]string `json:"features,omitempty"`
+
 	// Mode `local` for a person's own server, `team` for one started with
 	// `aboard serve --team` at a public URL.
 	Mode     ServerInfoMode `json:"mode"`
 	Name     ServerInfoName `json:"name"`
 	ServerId string         `json:"server_id"`
+
+	// Storage The kinds of storage adapter the server runs, with no address, path or
+	// credential. Absent from servers before this was reported.
+	Storage *struct {
+		// Db The database adapter, `sqlite` today.
+		//
+		// Example: sqlite
+		Db string `json:"db"`
+
+		// Files The file store adapter, `disk` today.
+		//
+		// Example: disk
+		Files string `json:"files"`
+	} `json:"storage,omitempty"`
 
 	// Version The server's release version, compared as a semantic version.
 	//
@@ -4337,6 +5623,25 @@ type ServerSettingsChange struct {
 	BoardCreation *BoardCreation `json:"board_creation,omitempty"`
 }
 
+// SetLineRequest defines model for SetLineRequest.
+type SetLineRequest struct {
+	Kind   SetLineRequestKind    `json:"kind"`
+	Source *SetLineRequestSource `json:"source,omitempty"`
+
+	// Task The task the line is for; the agent's current task when left out.
+	Task *TaskSelector `json:"task,omitempty"`
+	Text string        `json:"text"`
+
+	// Until Required for `paused`.
+	Until *Timestamp `json:"until,omitempty"`
+}
+
+// SetLineRequestKind defines model for SetLineRequest.Kind.
+type SetLineRequestKind string
+
+// SetLineRequestSource defines model for SetLineRequest.Source.
+type SetLineRequestSource string
+
 // SetVisibilityRequest defines model for SetVisibilityRequest.
 type SetVisibilityRequest struct {
 	// DryRun Say what the change would do without making it.
@@ -4365,6 +5670,350 @@ type StartMachineRequest struct {
 //
 // Example: @reviewer
 type Target = string
+
+// Task defines model for Task.
+type Task struct {
+	// About What the task is and why; null when nobody wrote it.
+	About *TaskText `json:"about"`
+
+	// Blocked True while the task has an open blocking ask, whether or not the reader may
+	// read it. A fact about the task every member sees; it names no ask, sender or
+	// recipient.
+	Blocked bool `json:"blocked"`
+
+	// BlockedCount How many open blocking asks the task has, counting ones the reader may not read.
+	BlockedCount int `json:"blocked_count"`
+
+	// BlockedOn The open blocking asks about the task that the reader may read, oldest first.
+	// Shorter than `blocked_count` when some are hidden from the reader.
+	BlockedOn []BlockedOn `json:"blocked_on"`
+
+	// Board Example: writer-reviewer
+	Board    BoardName  `json:"board"`
+	ClosedAt *Timestamp `json:"closed_at,omitempty"`
+
+	// ClosedNote The final note given with `done`.
+	ClosedNote *string `json:"closed_note,omitempty"`
+	Id         TaskID  `json:"id"`
+
+	// MessageCount Messages about the task that the reader may see.
+	MessageCount int       `json:"message_count"`
+	Number       int       `json:"number"`
+	OpenedAt     Timestamp `json:"opened_at"`
+	OpenedBy     MemberRef `json:"opened_by"`
+
+	// Owner The member responsible for it; null while it is open.
+	Owner *MemberRef `json:"owner"`
+
+	// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+	//
+	// Example: CHK-17
+	Ref TaskReference `json:"ref"`
+
+	// Stands Where it stands, kept current by the owner; null until first written.
+	Stands *TaskText `json:"stands"`
+
+	// State `open`: nobody owns it ("not picked up"). `in_progress`: it has an owner. `done`
+	// and `cancelled`: closed with a final note. Blocked is never a state: see
+	// `Task.blocked`.
+	State TaskState `json:"state"`
+
+	// ThreadCount Threads with at least one message about the task that the reader may see.
+	ThreadCount int       `json:"thread_count"`
+	Title       string    `json:"title"`
+	UpdatedAt   Timestamp `json:"updated_at"`
+
+	// With Helpers, in the order they joined.
+	With []MemberRef `json:"with"`
+}
+
+// TaskCreatedEvent defines model for TaskCreatedEvent.
+type TaskCreatedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		About  *string `json:"about"`
+		Number int     `json:"number"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref    TaskReference `json:"ref"`
+		TaskId TaskID        `json:"task_id"`
+		Title  string        `json:"title"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type TaskCreatedEventType `json:"type"`
+}
+
+// TaskCreatedEventType defines model for TaskCreatedEvent.Type.
+type TaskCreatedEventType string
+
+// TaskDoneEvent defines model for TaskDoneEvent.
+type TaskDoneEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		Cancelled bool   `json:"cancelled"`
+		Note      string `json:"note"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref    TaskReference `json:"ref"`
+		TaskId TaskID        `json:"task_id"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq               `json:"seq"`
+	Type TaskDoneEventType `json:"type"`
+}
+
+// TaskDoneEventType defines model for TaskDoneEvent.Type.
+type TaskDoneEventType string
+
+// TaskDroppedEvent defines model for TaskDroppedEvent.
+type TaskDroppedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		As TaskDroppedEventDataAs `json:"as"`
+
+		// By `self`: the member dropped it. `person`: a person on the board dropped their part. `seat_ended`: their seat ended (removed or left).
+		By       TaskDroppedEventDataBy `json:"by"`
+		MemberId string                 `json:"member_id"`
+		Reason   *string                `json:"reason"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref    TaskReference `json:"ref"`
+		TaskId TaskID        `json:"task_id"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type TaskDroppedEventType `json:"type"`
+}
+
+// TaskDroppedEventDataAs defines model for TaskDroppedEvent.Data.As.
+type TaskDroppedEventDataAs string
+
+// TaskDroppedEventDataBy `self`: the member dropped it. `person`: a person on the board dropped their part. `seat_ended`: their seat ended (removed or left).
+type TaskDroppedEventDataBy string
+
+// TaskDroppedEventType defines model for TaskDroppedEvent.Type.
+type TaskDroppedEventType string
+
+// TaskEventData The task an event is about. Who did it is the event's actor.
+type TaskEventData struct {
+	// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+	//
+	// Example: CHK-17
+	Ref    TaskReference `json:"ref"`
+	TaskId TaskID        `json:"task_id"`
+}
+
+// TaskID defines model for TaskID.
+type TaskID = string
+
+// TaskJoinedEvent defines model for TaskJoinedEvent.
+type TaskJoinedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		MemberId string `json:"member_id"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref TaskReference `json:"ref"`
+
+		// Reselected True when the member already helped on or owned the task and it only became the agent's current task again. Absent otherwise.
+		Reselected *bool  `json:"reselected,omitempty"`
+		TaskId     TaskID `json:"task_id"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                 `json:"seq"`
+	Type TaskJoinedEventType `json:"type"`
+}
+
+// TaskJoinedEventType defines model for TaskJoinedEvent.Type.
+type TaskJoinedEventType string
+
+// TaskList defines model for TaskList.
+type TaskList struct {
+	// Board Example: writer-reviewer
+	Board  BoardName `json:"board"`
+	Counts struct {
+		Blocked    int `json:"blocked"`
+		Cancelled  int `json:"cancelled"`
+		Done       int `json:"done"`
+		InProgress int `json:"in_progress"`
+		Open       int `json:"open"`
+	} `json:"counts"`
+	More  bool   `json:"more"`
+	Tasks []Task `json:"tasks"`
+}
+
+// TaskRef defines model for TaskRef.
+type TaskRef struct {
+	Id TaskID `json:"id"`
+
+	// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+	//
+	// Example: CHK-17
+	Ref   TaskReference `json:"ref"`
+	Title string        `json:"title"`
+}
+
+// TaskReference A task's reference, its board's prefix when it was made and its number. It never changes.
+//
+// Example: CHK-17
+type TaskReference = string
+
+// TaskSelector A task's reference in any case (`CHK-17`, `chk-17`), its number on the board (`17`), or its id.
+type TaskSelector = string
+
+// TaskStartedEvent defines model for TaskStartedEvent.
+type TaskStartedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		// MemberId The owner.
+		MemberId      string  `json:"member_id"`
+		PreviousOwner *string `json:"previous_owner"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref TaskReference `json:"ref"`
+
+		// Reselected True when the member already owned the task and it only became the agent's current task again. Absent otherwise.
+		Reselected *bool  `json:"reselected,omitempty"`
+		TaskId     TaskID `json:"task_id"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type TaskStartedEventType `json:"type"`
+}
+
+// TaskStartedEventType defines model for TaskStartedEvent.Type.
+type TaskStartedEventType string
+
+// TaskState `open`: nobody owns it ("not picked up"). `in_progress`: it has an owner. `done`
+// and `cancelled`: closed with a final note. Blocked is never a state: see
+// `Task.blocked`.
+type TaskState string
+
+// TaskTag One task a message is about, and how it got there.
+type TaskTag struct {
+	// How `given`: the sender named it in `about`. `thread`: a reply, about what the
+	// message it answers is about. `current`: the sending agent's current task.
+	// `named`: its reference is in the body.
+	How TaskTagHow `json:"how"`
+	Id  TaskID     `json:"id"`
+
+	// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+	//
+	// Example: CHK-17
+	Ref TaskReference `json:"ref"`
+}
+
+// TaskTagHow `given`: the sender named it in `about`. `thread`: a reply, about what the
+// message it answers is about. `current`: the sending agent's current task.
+// `named`: its reference is in the body.
+type TaskTagHow string
+
+// TaskText A versioned text on a task (About, or Where it stands) and who last wrote it.
+type TaskText struct {
+	At Timestamp `json:"at"`
+	By MemberRef `json:"by"`
+
+	// MessagesSince For Where it stands, how many messages about the task were posted since this version, counting only what the reader may see.
+	MessagesSince *int   `json:"messages_since,omitempty"`
+	Text          string `json:"text"`
+
+	// Version How many times it has been written; every version is in the record as `task.created` or `task.updated`.
+	Version int `json:"version"`
+}
+
+// TaskUpdatedEvent defines model for TaskUpdatedEvent.
+type TaskUpdatedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		About *string `json:"about,omitempty"`
+
+		// Ref A task's reference, its board's prefix when it was made and its number. It never changes.
+		//
+		// Example: CHK-17
+		Ref           TaskReference `json:"ref"`
+		Stands        *string       `json:"stands,omitempty"`
+		StandsVersion *int          `json:"stands_version,omitempty"`
+		TaskId        TaskID        `json:"task_id"`
+		Title         *string       `json:"title,omitempty"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                  `json:"seq"`
+	Type TaskUpdatedEventType `json:"type"`
+}
+
+// TaskUpdatedEventType defines model for TaskUpdatedEvent.Type.
+type TaskUpdatedEventType string
 
 // ThreadList defines model for ThreadList.
 type ThreadList struct {
@@ -4398,8 +6047,36 @@ type UpdateBoardRequest struct {
 	AgentsAddPeople *bool         `json:"agents_add_people,omitempty"`
 	Policy          *PolicyChange `json:"policy,omitempty"`
 
+	// TaskPrefix The prefix for new tasks' references, 2 to 6 capital letters and digits
+	// starting with a letter. A board owner, or an agent whose person owns the
+	// board, may change it; tasks already made keep their references. A prefix
+	// another board on the server uses or used is 409 `task_prefix_taken`. Writes
+	// `board.task_prefix_set`.
+	TaskPrefix *string `json:"task_prefix,omitempty"`
+
 	// Title The new title, on one line. An empty string removes the title.
 	Title *string `json:"title,omitempty"`
+}
+
+// UpdateFileRequest defines model for UpdateFileRequest.
+type UpdateFileRequest struct {
+	About      *[]TaskSelector `json:"about,omitempty"`
+	Maintained *bool           `json:"maintained,omitempty"`
+
+	// Name A new name for the file.
+	Name *FileName `json:"name,omitempty"`
+}
+
+// UpdateTaskRequest defines model for UpdateTaskRequest.
+type UpdateTaskRequest struct {
+	About *string `json:"about,omitempty"`
+
+	// Stands Where it stands, replacing the last version.
+	Stands *string `json:"stands,omitempty"`
+
+	// StandsBase The version of Where it stands this one replaces; a later one there is 409 `stands_changed`.
+	StandsBase *int    `json:"stands_base,omitempty"`
+	Title      *string `json:"title,omitempty"`
 }
 
 // VisibilityChange defines model for VisibilityChange.
@@ -4440,6 +6117,9 @@ type BoardLifecycleParam = BoardLifecycleSelector
 // BoardParam Example: writer-reviewer
 type BoardParam = BoardName
 
+// FileParam defines model for FileParam.
+type FileParam = string
+
 // From defines model for From.
 type From = string
 
@@ -4462,6 +6142,12 @@ type ReactionParam = ReactionName
 // SenderRole defines model for SenderRole.
 type SenderRole = string
 
+// TaskFilter A task's reference in any case (`CHK-17`, `chk-17`), its number on the board (`17`), or its id.
+type TaskFilter = TaskSelector
+
+// TaskParam A task's reference in any case (`CHK-17`, `chk-17`), its number on the board (`17`), or its id.
+type TaskParam = TaskSelector
+
 // ToMe defines model for ToMe.
 type ToMe = bool
 
@@ -4469,6 +6155,21 @@ type ToMe = bool
 type PruneAgentsParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
+
+// ListAsksParams defines parameters for ListAsks.
+type ListAsksParams struct {
+	Board  *BoardName           `form:"board,omitempty" json:"board,omitempty"`
+	ToMe   *bool                `form:"to_me,omitempty" json:"to_me,omitempty"`
+	FromMe *bool                `form:"from_me,omitempty" json:"from_me,omitempty"`
+	State  *ListAsksParamsState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Task Only items about this task, by reference (`CHK-17`), number or id.
+	Task  *TaskFilter `form:"task,omitempty" json:"task,omitempty"`
+	Limit *Limit      `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAsksParamsState defines parameters for ListAsks.
+type ListAsksParamsState string
 
 // ListBoardsParams defines parameters for ListBoards.
 type ListBoardsParams struct {
@@ -4520,6 +6221,65 @@ type ListEventsParams struct {
 	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListFilesParams defines parameters for ListFiles.
+type ListFilesParams struct {
+	// Task Only items about this task, by reference (`CHK-17`), number or id.
+	Task *TaskFilter `form:"task,omitempty" json:"task,omitempty"`
+
+	// Mine Only files the caller wrote a version of.
+	Mine  *bool  `form:"mine,omitempty" json:"mine,omitempty"`
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PutFileParams defines parameters for PutFile.
+type PutFileParams struct {
+	Name FileName `form:"name" json:"name"`
+
+	// Base The version this one replaces. Left out, or 0, the write only creates: a path
+	// that already holds a file is 409 `file_exists`.
+	Base *int `form:"base,omitempty" json:"base,omitempty"`
+
+	// Brief Required to write top-level `brief.md` or `brief.html`, the board's brief
+	// (`aboard brief put` sends it); without it a write to either is 409
+	// `brief_path_reserved`.
+	Brief *bool `form:"brief,omitempty" json:"brief,omitempty"`
+
+	// Maintained Whether the file is kept current (the brief, a status page). Kept from the previous version when left out; false for a new file.
+	Maintained *bool `form:"maintained,omitempty" json:"maintained,omitempty"`
+
+	// About Tasks the file is for (references such as `CHK-17`). Kept from the previous version when left out.
+	About *[]string `form:"about,omitempty" json:"about,omitempty"`
+
+	// ReplaceFormat Only for `brief.md` or `brief.html`: when the board's brief is the other one,
+	// take it off the board (`file.removed`) and add this one, in one transaction.
+	// Without it that case is 409 `brief_exists`.
+	ReplaceFormat *bool `form:"replace_format,omitempty" json:"replace_format,omitempty"`
+
+	// MediaType The bytes' media type, such as `text/markdown`. Worked out from the name when left out.
+	MediaType      *string         `form:"media_type,omitempty" json:"media_type,omitempty"`
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RemoveFileParams defines parameters for RemoveFile.
+type RemoveFileParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// UpdateFileParams defines parameters for UpdateFile.
+type UpdateFileParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// RemoveFileApprovalParams defines parameters for RemoveFileApproval.
+type RemoveFileApprovalParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ApproveFileParams defines parameters for ApproveFile.
+type ApproveFileParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // CreateJoinCodeParams defines parameters for CreateJoinCode.
 type CreateJoinCodeParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -4557,6 +6317,16 @@ type SetDeliveryModeParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ClearMemberLineParams defines parameters for ClearMemberLine.
+type ClearMemberLineParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// SetMemberLineParams defines parameters for SetMemberLine.
+type SetMemberLineParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // ListMessagesParams defines parameters for ListMessages.
 type ListMessagesParams struct {
 	// After Return items with `seq` greater than this.
@@ -4575,8 +6345,11 @@ type ListMessagesParams struct {
 	Role *SenderRole `form:"role,omitempty" json:"role,omitempty"`
 
 	// ToMe Only messages addressed to the caller (to all, to its role, or to it by name) that it didn't send.
-	ToMe  *ToMe  `form:"to_me,omitempty" json:"to_me,omitempty"`
-	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+	ToMe *ToMe `form:"to_me,omitempty" json:"to_me,omitempty"`
+
+	// Task Only items about this task, by reference (`CHK-17`), number or id.
+	Task  *TaskFilter `form:"task,omitempty" json:"task,omitempty"`
+	Limit *Limit      `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // PostMessageParams defines parameters for PostMessage.
@@ -4601,6 +6374,51 @@ type RemovePersonParams struct {
 
 // RestoreBoardParams defines parameters for RestoreBoard.
 type RestoreBoardParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListTasksParams defines parameters for ListTasks.
+type ListTasksParams struct {
+	State *ListTasksParamsState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Owner Only tasks this member owns (a member name, without `@`).
+	Owner *MemberName `form:"owner,omitempty" json:"owner,omitempty"`
+
+	// Mine Only tasks the caller owns or helps on.
+	Mine  *bool  `form:"mine,omitempty" json:"mine,omitempty"`
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListTasksParamsState defines parameters for ListTasks.
+type ListTasksParamsState string
+
+// CreateTaskParams defines parameters for CreateTask.
+type CreateTaskParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// UpdateTaskParams defines parameters for UpdateTask.
+type UpdateTaskParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// FinishTaskParams defines parameters for FinishTask.
+type FinishTaskParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DropTaskParams defines parameters for DropTask.
+type DropTaskParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// JoinTaskParams defines parameters for JoinTask.
+type JoinTaskParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// StartTaskParams defines parameters for StartTask.
+type StartTaskParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -4737,6 +6555,16 @@ type LeaveAsAgentParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// ClearLineParams defines parameters for ClearLine.
+type ClearLineParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// SetLineParams defines parameters for SetLine.
+type SetLineParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // SetPresenceJSONBody defines parameters for SetPresence.
 type SetPresenceJSONBody struct {
 	// Delivery How messages reach an agent's open session, chosen by its owner. `focused` (the
@@ -4811,11 +6639,20 @@ type UpdateBoardJSONRequestBody = UpdateBoardRequest
 // AckBoardJSONRequestBody defines body for AckBoard for application/json ContentType.
 type AckBoardJSONRequestBody AckBoardJSONBody
 
+// UpdateFileJSONRequestBody defines body for UpdateFile for application/json ContentType.
+type UpdateFileJSONRequestBody = UpdateFileRequest
+
+// ApproveFileJSONRequestBody defines body for ApproveFile for application/json ContentType.
+type ApproveFileJSONRequestBody = ApproveFileRequest
+
 // CreateJoinCodeJSONRequestBody defines body for CreateJoinCode for application/json ContentType.
 type CreateJoinCodeJSONRequestBody = CreateJoinCodeRequest
 
 // SetDeliveryModeJSONRequestBody defines body for SetDeliveryMode for application/json ContentType.
 type SetDeliveryModeJSONRequestBody SetDeliveryModeJSONBody
+
+// SetMemberLineJSONRequestBody defines body for SetMemberLine for application/json ContentType.
+type SetMemberLineJSONRequestBody = SetLineRequest
 
 // PostMessageJSONRequestBody defines body for PostMessage for application/json ContentType.
 type PostMessageJSONRequestBody = PostMessageRequest
@@ -4825,6 +6662,18 @@ type AddOwnerJSONRequestBody = AddPersonRequest
 
 // AddPersonJSONRequestBody defines body for AddPerson for application/json ContentType.
 type AddPersonJSONRequestBody = AddPersonRequest
+
+// CreateTaskJSONRequestBody defines body for CreateTask for application/json ContentType.
+type CreateTaskJSONRequestBody = CreateTaskRequest
+
+// UpdateTaskJSONRequestBody defines body for UpdateTask for application/json ContentType.
+type UpdateTaskJSONRequestBody = UpdateTaskRequest
+
+// FinishTaskJSONRequestBody defines body for FinishTask for application/json ContentType.
+type FinishTaskJSONRequestBody = FinishTaskRequest
+
+// DropTaskJSONRequestBody defines body for DropTask for application/json ContentType.
+type DropTaskJSONRequestBody = DropTaskRequest
 
 // SetVisibilityJSONRequestBody defines body for SetVisibility for application/json ContentType.
 type SetVisibilityJSONRequestBody = SetVisibilityRequest
@@ -4878,6 +6727,9 @@ type RefuseMachineRequestJSONRequestBody = MachineRequestCode
 
 // AckInboxJSONRequestBody defines body for AckInbox for application/json ContentType.
 type AckInboxJSONRequestBody AckInboxJSONBody
+
+// SetLineJSONRequestBody defines body for SetLine for application/json ContentType.
+type SetLineJSONRequestBody = SetLineRequest
 
 // SetPresenceJSONRequestBody defines body for SetPresence for application/json ContentType.
 type SetPresenceJSONRequestBody SetPresenceJSONBody
@@ -5602,6 +7454,448 @@ func (t *Event) MergeAgentLeftEvent(v AgentLeftEvent) error {
 	return err
 }
 
+// AsBoardTaskPrefixSetEvent returns the union data inside the Event as a BoardTaskPrefixSetEvent
+func (t Event) AsBoardTaskPrefixSetEvent() (BoardTaskPrefixSetEvent, error) {
+	var body BoardTaskPrefixSetEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBoardTaskPrefixSetEvent overwrites any union data inside the Event as the provided BoardTaskPrefixSetEvent
+func (t *Event) FromBoardTaskPrefixSetEvent(v BoardTaskPrefixSetEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"board.task_prefix_set"}`))
+	t.union = b
+	return err
+}
+
+// MergeBoardTaskPrefixSetEvent performs a merge with any union data inside the Event, using the provided BoardTaskPrefixSetEvent
+func (t *Event) MergeBoardTaskPrefixSetEvent(v BoardTaskPrefixSetEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"board.task_prefix_set"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskCreatedEvent returns the union data inside the Event as a TaskCreatedEvent
+func (t Event) AsTaskCreatedEvent() (TaskCreatedEvent, error) {
+	var body TaskCreatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskCreatedEvent overwrites any union data inside the Event as the provided TaskCreatedEvent
+func (t *Event) FromTaskCreatedEvent(v TaskCreatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.created"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskCreatedEvent performs a merge with any union data inside the Event, using the provided TaskCreatedEvent
+func (t *Event) MergeTaskCreatedEvent(v TaskCreatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.created"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskStartedEvent returns the union data inside the Event as a TaskStartedEvent
+func (t Event) AsTaskStartedEvent() (TaskStartedEvent, error) {
+	var body TaskStartedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskStartedEvent overwrites any union data inside the Event as the provided TaskStartedEvent
+func (t *Event) FromTaskStartedEvent(v TaskStartedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.started"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskStartedEvent performs a merge with any union data inside the Event, using the provided TaskStartedEvent
+func (t *Event) MergeTaskStartedEvent(v TaskStartedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.started"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskJoinedEvent returns the union data inside the Event as a TaskJoinedEvent
+func (t Event) AsTaskJoinedEvent() (TaskJoinedEvent, error) {
+	var body TaskJoinedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskJoinedEvent overwrites any union data inside the Event as the provided TaskJoinedEvent
+func (t *Event) FromTaskJoinedEvent(v TaskJoinedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.joined"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskJoinedEvent performs a merge with any union data inside the Event, using the provided TaskJoinedEvent
+func (t *Event) MergeTaskJoinedEvent(v TaskJoinedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.joined"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskUpdatedEvent returns the union data inside the Event as a TaskUpdatedEvent
+func (t Event) AsTaskUpdatedEvent() (TaskUpdatedEvent, error) {
+	var body TaskUpdatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskUpdatedEvent overwrites any union data inside the Event as the provided TaskUpdatedEvent
+func (t *Event) FromTaskUpdatedEvent(v TaskUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.updated"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskUpdatedEvent performs a merge with any union data inside the Event, using the provided TaskUpdatedEvent
+func (t *Event) MergeTaskUpdatedEvent(v TaskUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.updated"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskDoneEvent returns the union data inside the Event as a TaskDoneEvent
+func (t Event) AsTaskDoneEvent() (TaskDoneEvent, error) {
+	var body TaskDoneEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskDoneEvent overwrites any union data inside the Event as the provided TaskDoneEvent
+func (t *Event) FromTaskDoneEvent(v TaskDoneEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.done"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskDoneEvent performs a merge with any union data inside the Event, using the provided TaskDoneEvent
+func (t *Event) MergeTaskDoneEvent(v TaskDoneEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.done"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTaskDroppedEvent returns the union data inside the Event as a TaskDroppedEvent
+func (t Event) AsTaskDroppedEvent() (TaskDroppedEvent, error) {
+	var body TaskDroppedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTaskDroppedEvent overwrites any union data inside the Event as the provided TaskDroppedEvent
+func (t *Event) FromTaskDroppedEvent(v TaskDroppedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.dropped"}`))
+	t.union = b
+	return err
+}
+
+// MergeTaskDroppedEvent performs a merge with any union data inside the Event, using the provided TaskDroppedEvent
+func (t *Event) MergeTaskDroppedEvent(v TaskDroppedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"task.dropped"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFileVersionAddedEvent returns the union data inside the Event as a FileVersionAddedEvent
+func (t Event) AsFileVersionAddedEvent() (FileVersionAddedEvent, error) {
+	var body FileVersionAddedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFileVersionAddedEvent overwrites any union data inside the Event as the provided FileVersionAddedEvent
+func (t *Event) FromFileVersionAddedEvent(v FileVersionAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.version_added"}`))
+	t.union = b
+	return err
+}
+
+// MergeFileVersionAddedEvent performs a merge with any union data inside the Event, using the provided FileVersionAddedEvent
+func (t *Event) MergeFileVersionAddedEvent(v FileVersionAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.version_added"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFileUpdatedEvent returns the union data inside the Event as a FileUpdatedEvent
+func (t Event) AsFileUpdatedEvent() (FileUpdatedEvent, error) {
+	var body FileUpdatedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFileUpdatedEvent overwrites any union data inside the Event as the provided FileUpdatedEvent
+func (t *Event) FromFileUpdatedEvent(v FileUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.updated"}`))
+	t.union = b
+	return err
+}
+
+// MergeFileUpdatedEvent performs a merge with any union data inside the Event, using the provided FileUpdatedEvent
+func (t *Event) MergeFileUpdatedEvent(v FileUpdatedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.updated"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFileApprovedEvent returns the union data inside the Event as a FileApprovedEvent
+func (t Event) AsFileApprovedEvent() (FileApprovedEvent, error) {
+	var body FileApprovedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFileApprovedEvent overwrites any union data inside the Event as the provided FileApprovedEvent
+func (t *Event) FromFileApprovedEvent(v FileApprovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.approved"}`))
+	t.union = b
+	return err
+}
+
+// MergeFileApprovedEvent performs a merge with any union data inside the Event, using the provided FileApprovedEvent
+func (t *Event) MergeFileApprovedEvent(v FileApprovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.approved"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFileApprovalRemovedEvent returns the union data inside the Event as a FileApprovalRemovedEvent
+func (t Event) AsFileApprovalRemovedEvent() (FileApprovalRemovedEvent, error) {
+	var body FileApprovalRemovedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFileApprovalRemovedEvent overwrites any union data inside the Event as the provided FileApprovalRemovedEvent
+func (t *Event) FromFileApprovalRemovedEvent(v FileApprovalRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.approval_removed"}`))
+	t.union = b
+	return err
+}
+
+// MergeFileApprovalRemovedEvent performs a merge with any union data inside the Event, using the provided FileApprovalRemovedEvent
+func (t *Event) MergeFileApprovalRemovedEvent(v FileApprovalRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.approval_removed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFileRemovedEvent returns the union data inside the Event as a FileRemovedEvent
+func (t Event) AsFileRemovedEvent() (FileRemovedEvent, error) {
+	var body FileRemovedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFileRemovedEvent overwrites any union data inside the Event as the provided FileRemovedEvent
+func (t *Event) FromFileRemovedEvent(v FileRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.removed"}`))
+	t.union = b
+	return err
+}
+
+// MergeFileRemovedEvent performs a merge with any union data inside the Event, using the provided FileRemovedEvent
+func (t *Event) MergeFileRemovedEvent(v FileRemovedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.removed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFileRenamedEvent returns the union data inside the Event as a FileRenamedEvent
+func (t Event) AsFileRenamedEvent() (FileRenamedEvent, error) {
+	var body FileRenamedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFileRenamedEvent overwrites any union data inside the Event as the provided FileRenamedEvent
+func (t *Event) FromFileRenamedEvent(v FileRenamedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.renamed"}`))
+	t.union = b
+	return err
+}
+
+// MergeFileRenamedEvent performs a merge with any union data inside the Event, using the provided FileRenamedEvent
+func (t *Event) MergeFileRenamedEvent(v FileRenamedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"file.renamed"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Event) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -5634,10 +7928,24 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsBoardPolicyChangedEvent()
 	case "board.restored":
 		return t.AsBoardRestoredEvent()
+	case "board.task_prefix_set":
+		return t.AsBoardTaskPrefixSetEvent()
 	case "board.titled":
 		return t.AsBoardTitledEvent()
 	case "board.visibility_changed":
 		return t.AsBoardVisibilityChangedEvent()
+	case "file.approval_removed":
+		return t.AsFileApprovalRemovedEvent()
+	case "file.approved":
+		return t.AsFileApprovedEvent()
+	case "file.removed":
+		return t.AsFileRemovedEvent()
+	case "file.renamed":
+		return t.AsFileRenamedEvent()
+	case "file.updated":
+		return t.AsFileUpdatedEvent()
+	case "file.version_added":
+		return t.AsFileVersionAddedEvent()
 	case "joincode.created":
 		return t.AsJoinCodeCreatedEvent()
 	case "joincode.revoked":
@@ -5658,6 +7966,18 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsReactionAddedEvent()
 	case "reaction.removed":
 		return t.AsReactionRemovedEvent()
+	case "task.created":
+		return t.AsTaskCreatedEvent()
+	case "task.done":
+		return t.AsTaskDoneEvent()
+	case "task.dropped":
+		return t.AsTaskDroppedEvent()
+	case "task.joined":
+		return t.AsTaskJoinedEvent()
+	case "task.started":
+		return t.AsTaskStartedEvent()
+	case "task.updated":
+		return t.AsTaskUpdatedEvent()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
@@ -5876,6 +8196,19 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/agents/prune (the `PruneAgents` operationId).
 	PruneAgents(ctx context.Context, params *PruneAgentsParams, body PruneAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAsks List asks, with their state
+	//
+	// Messages with an `ask`, newest first, each with its derived `state`: `open`,
+	// `answered`, `withdrawn`, or `went_with` (a going-with ask whose `going_at` passed
+	// with no answer). For a person, across every board they are on (the Inbox); for an
+	// agent, on its board. `to_me` keeps asks to the caller, `from_me` asks it sent;
+	// `board` and `task` narrow further. Blocking asks to the caller come before
+	// going-with ones when `to_me` and `state=open` are both given, which is the
+	// Inbox's "Needs you" order. Only asks the caller may read are listed.
+	//
+	// Corresponds with GET /v1/asks (the `ListAsks` operationId).
+	ListAsks(ctx context.Context, params *ListAsksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListBoards List boards the caller is on, or every board it can see
 	//
@@ -6136,6 +8469,129 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/boards/{board}/events (the `ListEvents` operationId).
 	ListEvents(ctx context.Context, board BoardParam, params *ListEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFiles List the board's files
+	//
+	// Every file on the board with its latest version, maintained files first, then
+	// the rest by when they last changed, newest first. Each carries its freshness
+	// (what happened on the board since its latest version) and the caller's own
+	// approval, if any.
+	//
+	// Corresponds with GET /v1/boards/{board}/files (the `ListFiles` operationId).
+	ListFiles(ctx context.Context, board BoardParam, params *ListFilesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutFileWithBody Add a file, or a new version of one
+	//
+	// Streams the request body as the bytes of a new version of the file at `name` (a
+	// path such as `notes/api.md`), stored unchanged and named by their SHA-256. The
+	// write is conditional on `base`, the version it replaces. Without `base` (or with
+	// 0) it only creates: a path that already holds a file is 409 `file_exists`. A
+	// `base` that isn't the file's latest version is 409 `file_changed`. Both carry
+	// `details` `{version, by, at}` (the current version, its writer and when), and
+	// nothing is stored. Top-level `brief.md` and `brief.html` need `brief=true` (409
+	// `brief_path_reserved` otherwise). More than the board's limit (50 MB) is 413
+	// `file_too_large`; a text file that contains a credential is 422
+	// `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
+	// reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
+	// brief. The version is readable by
+	// everyone on the board at once. An agent needs `upload_files`. Writes
+	// `file.version_added`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/files (the `PutFile` operationId).
+	PutFileWithBody(ctx context.Context, board BoardParam, params *PutFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveFile Take a file off the board
+	//
+	// Takes the file off the board's list and frees its name. Its versions, approvals
+	// and bytes stay in the record, readable by its id (`fil_…`) and from the messages
+	// that attached them; nothing is erased. An agent needs `upload_files`. Writes
+	// `file.removed`.
+	//
+	// Corresponds with DELETE /v1/boards/{board}/files/{file} (the `RemoveFile` operationId).
+	RemoveFile(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFile Read a file's versions, approvals and links
+	//
+	// The file with every version (newest first), every person's approval, its tasks,
+	// and the messages it was attached to. 404 `file_not_found` when the board has no
+	// such file.
+	//
+	// Corresponds with GET /v1/boards/{board}/files/{file} (the `GetFile` operationId).
+	GetFile(ctx context.Context, board BoardParam, file FileParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateFileWithBody Rename a file, mark it maintained or one-off, or change its tasks
+	//
+	// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+	// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+	// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+	// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+	// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+	UpdateFileWithBody(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateFile Rename a file, mark it maintained or one-off, or change its tasks
+	//
+	// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+	// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+	// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+	// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+	// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+	UpdateFile(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, body UpdateFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveFileApproval Take back your approval of a file
+	//
+	// Removes the caller's approval. Removing one never made changes nothing. Writes
+	// `file.approval_removed`.
+	//
+	// Corresponds with DELETE /v1/boards/{board}/files/{file}/approval (the `RemoveFileApproval` operationId).
+	RemoveFileApproval(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileApprovalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveFileWithBody Approve a version of a file, as a person
+	//
+	// Records the caller's approval of one version, tied to its digest. Any person on
+	// the board may approve, as their own statement; an agent token gets 403
+	// `human_token_required` (an agent asks for approval with an approval ask; see
+	// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+	// one approval per file; approving another version replaces it. A later version
+	// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+	// version already approved changes nothing. Writes `file.approved`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+	ApproveFileWithBody(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveFile Approve a version of a file, as a person
+	//
+	// Records the caller's approval of one version, tied to its digest. Any person on
+	// the board may approve, as their own statement; an agent token gets 403
+	// `human_token_required` (an agent asks for approval with an approval ask; see
+	// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+	// one approval per file; approving another version replaces it. A later version
+	// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+	// version already approved changes nothing. Writes `file.approved`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+	ApproveFile(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, body ApproveFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFileVersion Download a version's bytes
+	//
+	// The bytes, exactly as uploaded, with `Content-Type` the version's media type and
+	// `ETag` its digest. 404 `version_not_found` for a version the file doesn't have.
+	//
+	// Corresponds with GET /v1/boards/{board}/files/{file}/versions/{version} (the `GetFileVersion` operationId).
+	GetFileVersion(ctx context.Context, board BoardParam, file FileParam, version string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateJoinCodeWithBody Create a pairing code or a guest code for one role
 	//
 	// The code is returned only here; the server keeps a digest. Writes
@@ -6327,6 +8783,37 @@ type ClientInterface interface {
 	// Corresponds with PUT /v1/boards/{board}/members/{member}/delivery (the `SetDeliveryMode` operationId).
 	SetDeliveryMode(ctx context.Context, board BoardParam, member MemberName, params *SetDeliveryModeParams, body SetDeliveryModeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ClearMemberLine Clear your agent's line, as its person
+	//
+	// As `DELETE /v1/me/line`, for an agent of the caller's own.
+	//
+	// Corresponds with DELETE /v1/boards/{board}/members/{member}/line (the `ClearMemberLine` operationId).
+	ClearMemberLine(ctx context.Context, board BoardParam, member string, params *ClearMemberLineParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetMemberLineWithBody Set your agent's line, as its person
+	//
+	// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+	// access key or browser; the line records the person in `set_by`. An agent token
+	// gets 403 `human_token_required`; anyone but the agent's person 403
+	// `agent_owner_required`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+	SetMemberLineWithBody(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetMemberLine Set your agent's line, as its person
+	//
+	// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+	// access key or browser; the line records the person in `set_by`. An agent token
+	// gets 403 `human_token_required`; anyone but the agent's person 403
+	// `agent_owner_required`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+	SetMemberLine(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, body SetMemberLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListMessages Read the board timeline
 	//
 	// Messages the caller may see under the board's visibility, listed oldest first.
@@ -6339,8 +8826,11 @@ type ClientInterface interface {
 	// `newest=true` it holds the newest, still listed oldest first. Page forward with
 	// `next_after` and back with `prev_before`.
 	//
+	// `task` keeps the messages about one task (the task's reference, such as `CHK-17`,
+	// its number or its id): those whose `about` names it, however it got there.
+	//
 	// An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
-	// `role_not_found`.
+	// `role_not_found`; an unknown `task` returns 404 `task_not_found`.
 	//
 	// Corresponds with GET /v1/boards/{board}/messages (the `ListMessages` operationId).
 	ListMessages(ctx context.Context, board BoardParam, params *ListMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6374,6 +8864,38 @@ type ClientInterface interface {
 	// permission beyond `post`, the same as `to: ["@name"]` or `to: ["role:R"]`, and it
 	// never lets anyone read a message they couldn't read otherwise. A name that isn't
 	// on the board stays plain text.
+	//
+	// **What it's about.** The server records the tasks the message is about in
+	// `about`, in the same transaction: `about` as given (an empty list for none);
+	// else, for a reply, what the message it answers is about; else, for an agent, its
+	// current task. Task references in the body (`CHK-16`), outside code and links, are
+	// added. A reference to no task stays text; one to a task that doesn't exist in
+	// `about` as given is 404 `task_not_found`.
+	//
+	// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+	// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+	// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+	// first task in its `about` that wasn't only named in the text, unless it has
+	// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+	// without `going_with` is 422 `ask_invalid`.
+	//
+	// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+	// asker's person, answers it, with `answer.option` naming the option picked, if
+	// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+	// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+	// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+	// ask's answer; both stay in the record.
+	//
+	// **Files.** `files` attaches versions of files already on the board; a version that
+	// doesn't exist is 404 `version_not_found`.
+	//
+	// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+	// those file versions; it must go to a person (an agent recipient is 422
+	// `ask_invalid`), and needs at least one file and at least one option. When the
+	// person asked answers with `option` 1, the same transaction writes `file.approved`
+	// for each cited version, with that person as actor; any other answer, or an answer
+	// from the asker's person, approves nothing. Files are usable from the moment
+	// they're written: an approval is an optional sign-off, never a gate.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -6409,6 +8931,38 @@ type ClientInterface interface {
 	// permission beyond `post`, the same as `to: ["@name"]` or `to: ["role:R"]`, and it
 	// never lets anyone read a message they couldn't read otherwise. A name that isn't
 	// on the board stays plain text.
+	//
+	// **What it's about.** The server records the tasks the message is about in
+	// `about`, in the same transaction: `about` as given (an empty list for none);
+	// else, for a reply, what the message it answers is about; else, for an agent, its
+	// current task. Task references in the body (`CHK-16`), outside code and links, are
+	// added. A reference to no task stays text; one to a task that doesn't exist in
+	// `about` as given is 404 `task_not_found`.
+	//
+	// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+	// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+	// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+	// first task in its `about` that wasn't only named in the text, unless it has
+	// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+	// without `going_with` is 422 `ask_invalid`.
+	//
+	// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+	// asker's person, answers it, with `answer.option` naming the option picked, if
+	// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+	// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+	// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+	// ask's answer; both stay in the record.
+	//
+	// **Files.** `files` attaches versions of files already on the board; a version that
+	// doesn't exist is 404 `version_not_found`.
+	//
+	// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+	// those file versions; it must go to a person (an agent recipient is 422
+	// `ask_invalid`), and needs at least one file and at least one option. When the
+	// person asked answers with `option` 1, the same transaction writes `file.approved`
+	// for each cited version, with that person as actor; any other answer, or an answer
+	// from the asker's person, approves nothing. Files are usable from the moment
+	// they're written: an approval is an optional sign-off, never a gate.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -6595,6 +9149,167 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /v1/boards/{board}/restore (the `RestoreBoard` operationId).
 	RestoreBoard(ctx context.Context, board BoardLifecycleParam, params *RestoreBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTasks List the board's tasks
+	//
+	// The board's tasks, not picked up (`open`) first, then in progress, then done and
+	// cancelled, each group oldest first. `state` picks which: `active` (the default:
+	// open and in progress), `open`, `in_progress`, `done`, `cancelled` or `all`.
+	// `owner` keeps one member's tasks (by name); `mine` the caller's own, as owner or
+	// helper. Each task says whether it is Blocked, and on whom, from its open blocking
+	// asks. `counts` counts every task on the board by state, whatever the filters.
+	// Reading never changes anything.
+	//
+	// Corresponds with GET /v1/boards/{board}/tasks (the `ListTasks` operationId).
+	ListTasks(ctx context.Context, board BoardParam, params *ListTasksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTaskWithBody Open a task
+	//
+	// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+	// on a board also gives the board its prefix: the first three letters of its name
+	// in capitals, with a digit added when another board uses that prefix, written as
+	// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+	// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+	//
+	// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+	// `forbidden` naming the permission; people always may. Writes `task.created`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+	CreateTaskWithBody(ctx context.Context, board BoardParam, params *CreateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTask Open a task
+	//
+	// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+	// on a board also gives the board its prefix: the first three letters of its name
+	// in capitals, with a digit added when another board uses that prefix, written as
+	// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+	// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+	//
+	// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+	// `forbidden` naming the permission; people always may. Writes `task.created`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+	CreateTask(ctx context.Context, board BoardParam, params *CreateTaskParams, body CreateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTask Read one task
+	//
+	// The task, with About and Where it stands, its owner and helpers, whether it is
+	// Blocked and on whom, and how many messages and threads are about it (read them
+	// with `GET /v1/boards/{board}/messages?task=…`). A task that doesn't exist is 404
+	// `task_not_found`.
+	//
+	// Corresponds with GET /v1/boards/{board}/tasks/{task} (the `GetTask` operationId).
+	GetTask(ctx context.Context, board BoardParam, task TaskParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateTaskWithBody Change a task's title, About or Where it stands
+	//
+	// `title` and `about` may be changed by the member who opened the task, its owner, or
+	// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+	// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+	// change is refused with 409 `stands_changed` when Where it stands has moved past
+	// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+	UpdateTaskWithBody(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateTask Change a task's title, About or Where it stands
+	//
+	// `title` and `about` may be changed by the member who opened the task, its owner, or
+	// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+	// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+	// change is refused with 409 `stands_changed` when Where it stands has moved past
+	// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+	UpdateTask(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, body UpdateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FinishTaskWithBody Close a task, done or cancelled
+	//
+	// Closes the task with a final note: done, or with `cancelled` not needed after
+	// all. The owner or a person on the board may; another agent gets 403
+	// `not_on_task`. It stops being the current task of everyone on it, and a line set
+	// for it is cleared, in the same transaction. A task already closed is 409
+	// `task_closed`. Writes `task.done`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+	FinishTaskWithBody(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FinishTask Close a task, done or cancelled
+	//
+	// Closes the task with a final note: done, or with `cancelled` not needed after
+	// all. The owner or a person on the board may; another agent gets 403
+	// `not_on_task`. It stops being the current task of everyone on it, and a line set
+	// for it is cleared, in the same transaction. A task already closed is 409
+	// `task_closed`. Writes `task.done`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+	FinishTask(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, body FinishTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DropTaskWithBody Give a task back, or stop helping on it
+	//
+	// The owner gives the task back (it is open again), or a helper stops helping. A
+	// person on the board may drop anyone's part by naming `member`; an agent drops
+	// only its own (403 `not_on_task` otherwise). It stops being that member's current
+	// task, and a line set for it is cleared. The server also drops a member's part,
+	// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+	DropTaskWithBody(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DropTask Give a task back, or stop helping on it
+	//
+	// The owner gives the task back (it is open again), or a helper stops helping. A
+	// person on the board may drop anyone's part by naming `member`; an agent drops
+	// only its own (403 `not_on_task` otherwise). It stops being that member's current
+	// task, and a line set for it is cleared. The server also drops a member's part,
+	// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+	DropTask(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, body DropTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// JoinTask Help on a task without taking it over
+	//
+	// Adds the caller to the task's helpers (`with`). For an agent it becomes the
+	// current task, so the agent's messages are about it. Joining a task the agent
+	// already helps on or owns that isn't its current task makes it current again and
+	// writes `task.joined` with `reselected: true`; joining the task that is already
+	// current, or a person joining one they help on or own, changes nothing and writes
+	// no event. A done or cancelled task is 409 `task_closed`. An agent needs
+	// `claim_tasks`. Writes `task.joined`.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/join (the `JoinTask` operationId).
+	JoinTask(ctx context.Context, board BoardParam, task TaskParam, params *JoinTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartTask Take a task and start on it
+	//
+	// Makes the caller the task's owner, if nobody owns it, in one transaction: of two
+	// callers at once exactly one wins, and the other gets 409 `task_taken` naming the
+	// owner. For an agent it also becomes the agent's current task, and the agent's
+	// line becomes "Working on" the task's title (source `task`). Starting a task the
+	// agent already owns that isn't its current task makes it current again and writes
+	// `task.started` with `reselected: true`, so every change of the current task is in
+	// the record; starting the task that is already current, or a person starting a
+	// task they own, changes nothing and writes no event. A done or cancelled task is
+	// 409 `task_closed`. An agent needs `claim_tasks`. Writes `task.started`.
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/start (the `StartTask` operationId).
+	StartTask(ctx context.Context, board BoardParam, task TaskParam, params *StartTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListThreads List the board's threads
 	//
@@ -7743,6 +10458,41 @@ type ClientInterface interface {
 	// Corresponds with POST /v1/me/leave (the `LeaveAsAgent` operationId).
 	LeaveAsAgent(ctx context.Context, params *LeaveAsAgentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ClearLine Clear this agent's line
+	//
+	// Agent tokens only. Clearing a line that isn't set changes nothing.
+	//
+	// Corresponds with DELETE /v1/me/line (the `ClearLine` operationId).
+	ClearLine(ctx context.Context, params *ClearLineParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetLineWithBody Say what this agent is on
+	//
+	// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+	// ("Paused on … until …", which needs `until`; a time already past is 422
+	// `line_until_past`). The last line set wins, whatever set it. A line is
+	// bookkeeping like presence: never an event, sent to the board's members as a
+	// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+	// task. Repeating the same line only renews it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+	SetLineWithBody(ctx context.Context, params *SetLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetLine Say what this agent is on
+	//
+	// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+	// ("Paused on … until …", which needs `until`; a time already past is 422
+	// `line_until_past`). The last line set wins, whatever set it. A line is
+	// bookkeeping like presence: never an event, sent to the board's members as a
+	// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+	// task. Repeating the same line only renews it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+	SetLine(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetPresenceWithBody Report what this agent's session is doing
 	//
 	// Agent tokens only. Sets the agent's presence, which the board's members see on
@@ -7999,8 +10749,10 @@ type ClientInterface interface {
 	//
 	// A `presence` event is sent each time an agent's presence on one of those boards
 	// changes, including when an unrenewed presence runs out and becomes `no_session`
-	// (noticed within 25 seconds), and when the delivery mode its daemon reports
-	// applying changes; its `data` is one `PresenceEvent`. Presence is not
+	// (noticed within 25 seconds), when the delivery mode its daemon reports
+	// applying changes, and when its line or its state word changes (a paused line
+	// turning late included, noticed within 25 seconds); its `data` is one
+	// `PresenceEvent`. Presence is not
 	// in the event log, so it never moves a head. The stream sends no presence when it
 	// opens: read `GET /v1/boards/{board}/members` for the current presence, then
 	// follow the changes.
@@ -8106,6 +10858,29 @@ func (c *Client) PruneAgentsWithBody(ctx context.Context, params *PruneAgentsPar
 // Corresponds with POST /v1/agents/prune (the `PruneAgents` operationId).
 func (c *Client) PruneAgents(ctx context.Context, params *PruneAgentsParams, body PruneAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPruneAgentsRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListAsks List asks, with their state
+//
+// Messages with an `ask`, newest first, each with its derived `state`: `open`,
+// `answered`, `withdrawn`, or `went_with` (a going-with ask whose `going_at` passed
+// with no answer). For a person, across every board they are on (the Inbox); for an
+// agent, on its board. `to_me` keeps asks to the caller, `from_me` asks it sent;
+// `board` and `task` narrow further. Blocking asks to the caller come before
+// going-with ones when `to_me` and `state=open` are both given, which is the
+// Inbox's "Needs you" order. Only asks the caller may read are listed.
+//
+// Corresponds with GET /v1/asks (the `ListAsks` operationId).
+func (c *Client) ListAsks(ctx context.Context, params *ListAsksParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAsksRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -8485,6 +11260,229 @@ func (c *Client) ListEvents(ctx context.Context, board BoardParam, params *ListE
 	return c.Client.Do(req)
 }
 
+// ListFiles List the board's files
+//
+// Every file on the board with its latest version, maintained files first, then
+// the rest by when they last changed, newest first. Each carries its freshness
+// (what happened on the board since its latest version) and the caller's own
+// approval, if any.
+//
+// Corresponds with GET /v1/boards/{board}/files (the `ListFiles` operationId).
+func (c *Client) ListFiles(ctx context.Context, board BoardParam, params *ListFilesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFilesRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutFileWithBody Add a file, or a new version of one
+//
+// Streams the request body as the bytes of a new version of the file at `name` (a
+// path such as `notes/api.md`), stored unchanged and named by their SHA-256. The
+// write is conditional on `base`, the version it replaces. Without `base` (or with
+// 0) it only creates: a path that already holds a file is 409 `file_exists`. A
+// `base` that isn't the file's latest version is 409 `file_changed`. Both carry
+// `details` `{version, by, at}` (the current version, its writer and when), and
+// nothing is stored. Top-level `brief.md` and `brief.html` need `brief=true` (409
+// `brief_path_reserved` otherwise). More than the board's limit (50 MB) is 413
+// `file_too_large`; a text file that contains a credential is 422
+// `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
+// reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
+// brief. The version is readable by
+// everyone on the board at once. An agent needs `upload_files`. Writes
+// `file.version_added`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/files (the `PutFile` operationId).
+func (c *Client) PutFileWithBody(ctx context.Context, board BoardParam, params *PutFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutFileRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemoveFile Take a file off the board
+//
+// Takes the file off the board's list and frees its name. Its versions, approvals
+// and bytes stay in the record, readable by its id (`fil_…`) and from the messages
+// that attached them; nothing is erased. An agent needs `upload_files`. Writes
+// `file.removed`.
+//
+// Corresponds with DELETE /v1/boards/{board}/files/{file} (the `RemoveFile` operationId).
+func (c *Client) RemoveFile(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveFileRequest(c.Server, board, file, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetFile Read a file's versions, approvals and links
+//
+// The file with every version (newest first), every person's approval, its tasks,
+// and the messages it was attached to. 404 `file_not_found` when the board has no
+// such file.
+//
+// Corresponds with GET /v1/boards/{board}/files/{file} (the `GetFile` operationId).
+func (c *Client) GetFile(ctx context.Context, board BoardParam, file FileParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFileRequest(c.Server, board, file)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateFileWithBody Rename a file, mark it maintained or one-off, or change its tasks
+//
+// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+func (c *Client) UpdateFileWithBody(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFileRequestWithBody(c.Server, board, file, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateFile Rename a file, mark it maintained or one-off, or change its tasks
+//
+// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+func (c *Client) UpdateFile(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, body UpdateFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFileRequest(c.Server, board, file, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemoveFileApproval Take back your approval of a file
+//
+// Removes the caller's approval. Removing one never made changes nothing. Writes
+// `file.approval_removed`.
+//
+// Corresponds with DELETE /v1/boards/{board}/files/{file}/approval (the `RemoveFileApproval` operationId).
+func (c *Client) RemoveFileApproval(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileApprovalParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveFileApprovalRequest(c.Server, board, file, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveFileWithBody Approve a version of a file, as a person
+//
+// Records the caller's approval of one version, tied to its digest. Any person on
+// the board may approve, as their own statement; an agent token gets 403
+// `human_token_required` (an agent asks for approval with an approval ask; see
+// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+// one approval per file; approving another version replaces it. A later version
+// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+// version already approved changes nothing. Writes `file.approved`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+func (c *Client) ApproveFileWithBody(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveFileRequestWithBody(c.Server, board, file, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApproveFile Approve a version of a file, as a person
+//
+// Records the caller's approval of one version, tied to its digest. Any person on
+// the board may approve, as their own statement; an agent token gets 403
+// `human_token_required` (an agent asks for approval with an approval ask; see
+// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+// one approval per file; approving another version replaces it. A later version
+// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+// version already approved changes nothing. Writes `file.approved`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+func (c *Client) ApproveFile(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, body ApproveFileJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveFileRequest(c.Server, board, file, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetFileVersion Download a version's bytes
+//
+// The bytes, exactly as uploaded, with `Content-Type` the version's media type and
+// `ETag` its digest. 404 `version_not_found` for a version the file doesn't have.
+//
+// Corresponds with GET /v1/boards/{board}/files/{file}/versions/{version} (the `GetFileVersion` operationId).
+func (c *Client) GetFileVersion(ctx context.Context, board BoardParam, file FileParam, version string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFileVersionRequest(c.Server, board, file, version)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateJoinCodeWithBody Create a pairing code or a guest code for one role
 //
 // The code is returned only here; the server keeps a digest. Writes
@@ -8756,6 +11754,67 @@ func (c *Client) SetDeliveryMode(ctx context.Context, board BoardParam, member M
 	return c.Client.Do(req)
 }
 
+// ClearMemberLine Clear your agent's line, as its person
+//
+// As `DELETE /v1/me/line`, for an agent of the caller's own.
+//
+// Corresponds with DELETE /v1/boards/{board}/members/{member}/line (the `ClearMemberLine` operationId).
+func (c *Client) ClearMemberLine(ctx context.Context, board BoardParam, member string, params *ClearMemberLineParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearMemberLineRequest(c.Server, board, member, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetMemberLineWithBody Set your agent's line, as its person
+//
+// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+// access key or browser; the line records the person in `set_by`. An agent token
+// gets 403 `human_token_required`; anyone but the agent's person 403
+// `agent_owner_required`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+func (c *Client) SetMemberLineWithBody(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetMemberLineRequestWithBody(c.Server, board, member, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetMemberLine Set your agent's line, as its person
+//
+// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+// access key or browser; the line records the person in `set_by`. An agent token
+// gets 403 `human_token_required`; anyone but the agent's person 403
+// `agent_owner_required`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+func (c *Client) SetMemberLine(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, body SetMemberLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetMemberLineRequest(c.Server, board, member, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListMessages Read the board timeline
 //
 // Messages the caller may see under the board's visibility, listed oldest first.
@@ -8768,8 +11827,11 @@ func (c *Client) SetDeliveryMode(ctx context.Context, board BoardParam, member M
 // `newest=true` it holds the newest, still listed oldest first. Page forward with
 // `next_after` and back with `prev_before`.
 //
+// `task` keeps the messages about one task (the task's reference, such as `CHK-17`,
+// its number or its id): those whose `about` names it, however it got there.
+//
 // An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
-// `role_not_found`.
+// `role_not_found`; an unknown `task` returns 404 `task_not_found`.
 //
 // Corresponds with GET /v1/boards/{board}/messages (the `ListMessages` operationId).
 func (c *Client) ListMessages(ctx context.Context, board BoardParam, params *ListMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -8813,6 +11875,38 @@ func (c *Client) ListMessages(ctx context.Context, board BoardParam, params *Lis
 // permission beyond `post`, the same as `to: ["@name"]` or `to: ["role:R"]`, and it
 // never lets anyone read a message they couldn't read otherwise. A name that isn't
 // on the board stays plain text.
+//
+// **What it's about.** The server records the tasks the message is about in
+// `about`, in the same transaction: `about` as given (an empty list for none);
+// else, for a reply, what the message it answers is about; else, for an agent, its
+// current task. Task references in the body (`CHK-16`), outside code and links, are
+// added. A reference to no task stays text; one to a task that doesn't exist in
+// `about` as given is 404 `task_not_found`.
+//
+// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+// first task in its `about` that wasn't only named in the text, unless it has
+// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+// without `going_with` is 422 `ask_invalid`.
+//
+// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+// asker's person, answers it, with `answer.option` naming the option picked, if
+// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+// ask's answer; both stay in the record.
+//
+// **Files.** `files` attaches versions of files already on the board; a version that
+// doesn't exist is 404 `version_not_found`.
+//
+// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+// those file versions; it must go to a person (an agent recipient is 422
+// `ask_invalid`), and needs at least one file and at least one option. When the
+// person asked answers with `option` 1, the same transaction writes `file.approved`
+// for each cited version, with that person as actor; any other answer, or an answer
+// from the asker's person, approves nothing. Files are usable from the moment
+// they're written: an approval is an optional sign-off, never a gate.
 //
 // Takes any type of body and a specified content type.
 //
@@ -8858,6 +11952,38 @@ func (c *Client) PostMessageWithBody(ctx context.Context, board BoardParam, para
 // permission beyond `post`, the same as `to: ["@name"]` or `to: ["role:R"]`, and it
 // never lets anyone read a message they couldn't read otherwise. A name that isn't
 // on the board stays plain text.
+//
+// **What it's about.** The server records the tasks the message is about in
+// `about`, in the same transaction: `about` as given (an empty list for none);
+// else, for a reply, what the message it answers is about; else, for an agent, its
+// current task. Task references in the body (`CHK-16`), outside code and links, are
+// added. A reference to no task stays text; one to a task that doesn't exist in
+// `about` as given is 404 `task_not_found`.
+//
+// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+// first task in its `about` that wasn't only named in the text, unless it has
+// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+// without `going_with` is 422 `ask_invalid`.
+//
+// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+// asker's person, answers it, with `answer.option` naming the option picked, if
+// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+// ask's answer; both stay in the record.
+//
+// **Files.** `files` attaches versions of files already on the board; a version that
+// doesn't exist is 404 `version_not_found`.
+//
+// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+// those file versions; it must go to a person (an agent recipient is 422
+// `ask_invalid`), and needs at least one file and at least one option. When the
+// person asked answers with `option` 1, the same transaction writes `file.approved`
+// for each cited version, with that person as actor; any other answer, or an answer
+// from the asker's person, approves nothing. Files are usable from the moment
+// they're written: an approval is an optional sign-off, never a gate.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -9125,6 +12251,287 @@ func (c *Client) RemovePerson(ctx context.Context, board BoardParam, handle Hand
 // Corresponds with POST /v1/boards/{board}/restore (the `RestoreBoard` operationId).
 func (c *Client) RestoreBoard(ctx context.Context, board BoardLifecycleParam, params *RestoreBoardParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRestoreBoardRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListTasks List the board's tasks
+//
+// The board's tasks, not picked up (`open`) first, then in progress, then done and
+// cancelled, each group oldest first. `state` picks which: `active` (the default:
+// open and in progress), `open`, `in_progress`, `done`, `cancelled` or `all`.
+// `owner` keeps one member's tasks (by name); `mine` the caller's own, as owner or
+// helper. Each task says whether it is Blocked, and on whom, from its open blocking
+// asks. `counts` counts every task on the board by state, whatever the filters.
+// Reading never changes anything.
+//
+// Corresponds with GET /v1/boards/{board}/tasks (the `ListTasks` operationId).
+func (c *Client) ListTasks(ctx context.Context, board BoardParam, params *ListTasksParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTasksRequest(c.Server, board, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTaskWithBody Open a task
+//
+// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+// on a board also gives the board its prefix: the first three letters of its name
+// in capitals, with a digit added when another board uses that prefix, written as
+// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+//
+// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+// `forbidden` naming the permission; people always may. Writes `task.created`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+func (c *Client) CreateTaskWithBody(ctx context.Context, board BoardParam, params *CreateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTaskRequestWithBody(c.Server, board, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTask Open a task
+//
+// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+// on a board also gives the board its prefix: the first three letters of its name
+// in capitals, with a digit added when another board uses that prefix, written as
+// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+//
+// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+// `forbidden` naming the permission; people always may. Writes `task.created`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+func (c *Client) CreateTask(ctx context.Context, board BoardParam, params *CreateTaskParams, body CreateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTaskRequest(c.Server, board, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTask Read one task
+//
+// The task, with About and Where it stands, its owner and helpers, whether it is
+// Blocked and on whom, and how many messages and threads are about it (read them
+// with `GET /v1/boards/{board}/messages?task=…`). A task that doesn't exist is 404
+// `task_not_found`.
+//
+// Corresponds with GET /v1/boards/{board}/tasks/{task} (the `GetTask` operationId).
+func (c *Client) GetTask(ctx context.Context, board BoardParam, task TaskParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTaskRequest(c.Server, board, task)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateTaskWithBody Change a task's title, About or Where it stands
+//
+// `title` and `about` may be changed by the member who opened the task, its owner, or
+// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+// change is refused with 409 `stands_changed` when Where it stands has moved past
+// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+func (c *Client) UpdateTaskWithBody(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateTaskRequestWithBody(c.Server, board, task, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateTask Change a task's title, About or Where it stands
+//
+// `title` and `about` may be changed by the member who opened the task, its owner, or
+// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+// change is refused with 409 `stands_changed` when Where it stands has moved past
+// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+func (c *Client) UpdateTask(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, body UpdateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateTaskRequest(c.Server, board, task, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// FinishTaskWithBody Close a task, done or cancelled
+//
+// Closes the task with a final note: done, or with `cancelled` not needed after
+// all. The owner or a person on the board may; another agent gets 403
+// `not_on_task`. It stops being the current task of everyone on it, and a line set
+// for it is cleared, in the same transaction. A task already closed is 409
+// `task_closed`. Writes `task.done`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+func (c *Client) FinishTaskWithBody(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFinishTaskRequestWithBody(c.Server, board, task, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// FinishTask Close a task, done or cancelled
+//
+// Closes the task with a final note: done, or with `cancelled` not needed after
+// all. The owner or a person on the board may; another agent gets 403
+// `not_on_task`. It stops being the current task of everyone on it, and a line set
+// for it is cleared, in the same transaction. A task already closed is 409
+// `task_closed`. Writes `task.done`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+func (c *Client) FinishTask(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, body FinishTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFinishTaskRequest(c.Server, board, task, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DropTaskWithBody Give a task back, or stop helping on it
+//
+// The owner gives the task back (it is open again), or a helper stops helping. A
+// person on the board may drop anyone's part by naming `member`; an agent drops
+// only its own (403 `not_on_task` otherwise). It stops being that member's current
+// task, and a line set for it is cleared. The server also drops a member's part,
+// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+func (c *Client) DropTaskWithBody(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDropTaskRequestWithBody(c.Server, board, task, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DropTask Give a task back, or stop helping on it
+//
+// The owner gives the task back (it is open again), or a helper stops helping. A
+// person on the board may drop anyone's part by naming `member`; an agent drops
+// only its own (403 `not_on_task` otherwise). It stops being that member's current
+// task, and a line set for it is cleared. The server also drops a member's part,
+// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+func (c *Client) DropTask(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, body DropTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDropTaskRequest(c.Server, board, task, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// JoinTask Help on a task without taking it over
+//
+// Adds the caller to the task's helpers (`with`). For an agent it becomes the
+// current task, so the agent's messages are about it. Joining a task the agent
+// already helps on or owns that isn't its current task makes it current again and
+// writes `task.joined` with `reselected: true`; joining the task that is already
+// current, or a person joining one they help on or own, changes nothing and writes
+// no event. A done or cancelled task is 409 `task_closed`. An agent needs
+// `claim_tasks`. Writes `task.joined`.
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/join (the `JoinTask` operationId).
+func (c *Client) JoinTask(ctx context.Context, board BoardParam, task TaskParam, params *JoinTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewJoinTaskRequest(c.Server, board, task, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StartTask Take a task and start on it
+//
+// Makes the caller the task's owner, if nobody owns it, in one transaction: of two
+// callers at once exactly one wins, and the other gets 409 `task_taken` naming the
+// owner. For an agent it also becomes the agent's current task, and the agent's
+// line becomes "Working on" the task's title (source `task`). Starting a task the
+// agent already owns that isn't its current task makes it current again and writes
+// `task.started` with `reselected: true`, so every change of the current task is in
+// the record; starting the task that is already current, or a person starting a
+// task they own, changes nothing and writes no event. A done or cancelled task is
+// 409 `task_closed`. An agent needs `claim_tasks`. Writes `task.started`.
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/start (the `StartTask` operationId).
+func (c *Client) StartTask(ctx context.Context, board BoardParam, task TaskParam, params *StartTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartTaskRequest(c.Server, board, task, params)
 	if err != nil {
 		return nil, err
 	}
@@ -10750,6 +14157,71 @@ func (c *Client) LeaveAsAgent(ctx context.Context, params *LeaveAsAgentParams, r
 	return c.Client.Do(req)
 }
 
+// ClearLine Clear this agent's line
+//
+// Agent tokens only. Clearing a line that isn't set changes nothing.
+//
+// Corresponds with DELETE /v1/me/line (the `ClearLine` operationId).
+func (c *Client) ClearLine(ctx context.Context, params *ClearLineParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClearLineRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetLineWithBody Say what this agent is on
+//
+// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+// ("Paused on … until …", which needs `until`; a time already past is 422
+// `line_until_past`). The last line set wins, whatever set it. A line is
+// bookkeeping like presence: never an event, sent to the board's members as a
+// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+// task. Repeating the same line only renews it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+func (c *Client) SetLineWithBody(ctx context.Context, params *SetLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLineRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetLine Say what this agent is on
+//
+// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+// ("Paused on … until …", which needs `until`; a time already past is 422
+// `line_until_past`). The last line set wins, whatever set it. A line is
+// bookkeeping like presence: never an event, sent to the board's members as a
+// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+// task. Repeating the same line only renews it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+func (c *Client) SetLine(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLineRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SetPresenceWithBody Report what this agent's session is doing
 //
 // Agent tokens only. Sets the agent's presence, which the board's members see on
@@ -11136,8 +14608,10 @@ func (c *Client) UpdateSettings(ctx context.Context, params *UpdateSettingsParam
 //
 // A `presence` event is sent each time an agent's presence on one of those boards
 // changes, including when an unrenewed presence runs out and becomes `no_session`
-// (noticed within 25 seconds), and when the delivery mode its daemon reports
-// applying changes; its `data` is one `PresenceEvent`. Presence is not
+// (noticed within 25 seconds), when the delivery mode its daemon reports
+// applying changes, and when its line or its state word changes (a paused line
+// turning late included, noticed within 25 seconds); its `data` is one
+// `PresenceEvent`. Presence is not
 // in the event log, so it never moves a head. The stream sends no presence when it
 // opens: read `GET /v1/boards/{board}/members` for the current presence, then
 // follow the changes.
@@ -11224,6 +14698,120 @@ func NewPruneAgentsRequestWithBody(server string, params *PruneAgentsParams, con
 			req.Header.Set("Idempotency-Key", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewListAsksRequest constructs an http.Request for the ListAsks method
+func NewListAsksRequest(server string, params *ListAsksParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/asks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Board != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "board", *params.Board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ToMe != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to_me", *params.ToMe, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.FromMe != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from_me", *params.FromMe, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Task != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "task", *params.Task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -11679,6 +15267,576 @@ func NewListEventsRequest(server string, board BoardParam, params *ListEventsPar
 	return req, nil
 }
 
+// NewListFilesRequest constructs an http.Request for the ListFiles method
+func NewListFilesRequest(server string, board BoardParam, params *ListFilesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Task != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "task", *params.Task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Mine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "mine", *params.Mine, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutFileRequestWithBody constructs an http.Request for the PutFile method, with any body, and a specified content type
+func NewPutFileRequestWithBody(server string, board BoardParam, params *PutFileParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "name", params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Base != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "base", *params.Base, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Brief != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "brief", *params.Brief, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Maintained != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "maintained", *params.Maintained, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.About != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "about", *params.About, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "array", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ReplaceFormat != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "replace_format", *params.ReplaceFormat, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.MediaType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "media_type", *params.MediaType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRemoveFileRequest constructs an http.Request for the RemoveFile method
+func NewRemoveFileRequest(server string, board BoardParam, file FileParam, params *RemoveFileParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "file", file, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetFileRequest constructs an http.Request for the GetFile method
+func NewGetFileRequest(server string, board BoardParam, file FileParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "file", file, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateFileRequest calls the generic UpdateFile builder with application/json body
+func NewUpdateFileRequest(server string, board BoardParam, file FileParam, params *UpdateFileParams, body UpdateFileJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateFileRequestWithBody(server, board, file, params, "application/json", bodyReader)
+}
+
+// NewUpdateFileRequestWithBody constructs an http.Request for the UpdateFile method, with any body, and a specified content type
+func NewUpdateFileRequestWithBody(server string, board BoardParam, file FileParam, params *UpdateFileParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "file", file, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRemoveFileApprovalRequest constructs an http.Request for the RemoveFileApproval method
+func NewRemoveFileApprovalRequest(server string, board BoardParam, file FileParam, params *RemoveFileApprovalParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "file", file, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files/%s/approval", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewApproveFileRequest calls the generic ApproveFile builder with application/json body
+func NewApproveFileRequest(server string, board BoardParam, file FileParam, params *ApproveFileParams, body ApproveFileJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveFileRequestWithBody(server, board, file, params, "application/json", bodyReader)
+}
+
+// NewApproveFileRequestWithBody constructs an http.Request for the ApproveFile method, with any body, and a specified content type
+func NewApproveFileRequestWithBody(server string, board BoardParam, file FileParam, params *ApproveFileParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "file", file, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files/%s/approval", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetFileVersionRequest constructs an http.Request for the GetFileVersion method
+func NewGetFileVersionRequest(server string, board BoardParam, file FileParam, version string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "file", file, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "version", version, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/files/%s/versions/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreateJoinCodeRequest calls the generic CreateJoinCode builder with application/json body
 func NewCreateJoinCodeRequest(server string, board BoardParam, params *CreateJoinCodeParams, body CreateJoinCodeJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -12032,6 +16190,131 @@ func NewSetDeliveryModeRequestWithBody(server string, board BoardParam, member M
 	return req, nil
 }
 
+// NewClearMemberLineRequest constructs an http.Request for the ClearMemberLine method
+func NewClearMemberLineRequest(server string, board BoardParam, member string, params *ClearMemberLineParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "member", member, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/members/%s/line", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewSetMemberLineRequest calls the generic SetMemberLine builder with application/json body
+func NewSetMemberLineRequest(server string, board BoardParam, member string, params *SetMemberLineParams, body SetMemberLineJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetMemberLineRequestWithBody(server, board, member, params, "application/json", bodyReader)
+}
+
+// NewSetMemberLineRequestWithBody constructs an http.Request for the SetMemberLine method, with any body, and a specified content type
+func NewSetMemberLineRequestWithBody(server string, board BoardParam, member string, params *SetMemberLineParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "member", member, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/members/%s/line", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListMessagesRequest constructs an http.Request for the ListMessages method
 func NewListMessagesRequest(server string, board BoardParam, params *ListMessagesParams) (*http.Request, error) {
 	var err error
@@ -12130,6 +16413,18 @@ func NewListMessagesRequest(server string, board BoardParam, params *ListMessage
 		if params.ToMe != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to_me", *params.ToMe, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Task != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "task", *params.Task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -12499,6 +16794,525 @@ func NewRestoreBoardRequest(server string, board BoardLifecycleParam, params *Re
 	}
 
 	operationPath := fmt.Sprintf("/v1/boards/%s/restore", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListTasksRequest constructs an http.Request for the ListTasks method
+func NewListTasksRequest(server string, board BoardParam, params *ListTasksParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Owner != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "owner", *params.Owner, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Mine != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "mine", *params.Mine, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateTaskRequest calls the generic CreateTask builder with application/json body
+func NewCreateTaskRequest(server string, board BoardParam, params *CreateTaskParams, body CreateTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTaskRequestWithBody(server, board, params, "application/json", bodyReader)
+}
+
+// NewCreateTaskRequestWithBody constructs an http.Request for the CreateTask method, with any body, and a specified content type
+func NewCreateTaskRequestWithBody(server string, board BoardParam, params *CreateTaskParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetTaskRequest constructs an http.Request for the GetTask method
+func NewGetTaskRequest(server string, board BoardParam, task TaskParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "task", task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateTaskRequest calls the generic UpdateTask builder with application/json body
+func NewUpdateTaskRequest(server string, board BoardParam, task TaskParam, params *UpdateTaskParams, body UpdateTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateTaskRequestWithBody(server, board, task, params, "application/json", bodyReader)
+}
+
+// NewUpdateTaskRequestWithBody constructs an http.Request for the UpdateTask method, with any body, and a specified content type
+func NewUpdateTaskRequestWithBody(server string, board BoardParam, task TaskParam, params *UpdateTaskParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "task", task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewFinishTaskRequest calls the generic FinishTask builder with application/json body
+func NewFinishTaskRequest(server string, board BoardParam, task TaskParam, params *FinishTaskParams, body FinishTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFinishTaskRequestWithBody(server, board, task, params, "application/json", bodyReader)
+}
+
+// NewFinishTaskRequestWithBody constructs an http.Request for the FinishTask method, with any body, and a specified content type
+func NewFinishTaskRequestWithBody(server string, board BoardParam, task TaskParam, params *FinishTaskParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "task", task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks/%s/done", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDropTaskRequest calls the generic DropTask builder with application/json body
+func NewDropTaskRequest(server string, board BoardParam, task TaskParam, params *DropTaskParams, body DropTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDropTaskRequestWithBody(server, board, task, params, "application/json", bodyReader)
+}
+
+// NewDropTaskRequestWithBody constructs an http.Request for the DropTask method, with any body, and a specified content type
+func NewDropTaskRequestWithBody(server string, board BoardParam, task TaskParam, params *DropTaskParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "task", task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks/%s/drop", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewJoinTaskRequest constructs an http.Request for the JoinTask method
+func NewJoinTaskRequest(server string, board BoardParam, task TaskParam, params *JoinTaskParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "task", task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks/%s/join", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewStartTaskRequest constructs an http.Request for the StartTask method
+func NewStartTaskRequest(server string, board BoardParam, task TaskParam, params *StartTaskParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "board", board, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "task", task, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/boards/%s/tasks/%s/start", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -14020,6 +18834,103 @@ func NewLeaveAsAgentRequest(server string, params *LeaveAsAgentParams) (*http.Re
 	return req, nil
 }
 
+// NewClearLineRequest constructs an http.Request for the ClearLine method
+func NewClearLineRequest(server string, params *ClearLineParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/line")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewSetLineRequest calls the generic SetLine builder with application/json body
+func NewSetLineRequest(server string, params *SetLineParams, body SetLineJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetLineRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewSetLineRequestWithBody constructs an http.Request for the SetLine method, with any body, and a specified content type
+func NewSetLineRequestWithBody(server string, params *SetLineParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/line")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewSetPresenceRequest calls the generic SetPresence builder with application/json body
 func NewSetPresenceRequest(server string, params *SetPresenceParams, body SetPresenceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -14692,6 +19603,21 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/agents/prune (the `PruneAgents` operationId).
 	PruneAgentsWithResponse(ctx context.Context, params *PruneAgentsParams, body PruneAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*PruneAgentsResponse, error)
 
+	// ListAsksWithResponse List asks, with their state
+	//
+	// Messages with an `ask`, newest first, each with its derived `state`: `open`,
+	// `answered`, `withdrawn`, or `went_with` (a going-with ask whose `going_at` passed
+	// with no answer). For a person, across every board they are on (the Inbox); for an
+	// agent, on its board. `to_me` keeps asks to the caller, `from_me` asks it sent;
+	// `board` and `task` narrow further. Blocking asks to the caller come before
+	// going-with ones when `to_me` and `state=open` are both given, which is the
+	// Inbox's "Needs you" order. Only asks the caller may read are listed.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/asks (the `ListAsks` operationId).
+	ListAsksWithResponse(ctx context.Context, params *ListAsksParams, reqEditors ...RequestEditorFn) (*ListAsksResponse, error)
+
 	// ListBoardsWithResponse List boards the caller is on, or every board it can see
 	//
 	// Without `all`, the boards the caller is on: a person's boards, or an agent's own
@@ -14961,6 +19887,139 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/boards/{board}/events (the `ListEvents` operationId).
 	ListEventsWithResponse(ctx context.Context, board BoardParam, params *ListEventsParams, reqEditors ...RequestEditorFn) (*ListEventsResponse, error)
 
+	// ListFilesWithResponse List the board's files
+	//
+	// Every file on the board with its latest version, maintained files first, then
+	// the rest by when they last changed, newest first. Each carries its freshness
+	// (what happened on the board since its latest version) and the caller's own
+	// approval, if any.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/files (the `ListFiles` operationId).
+	ListFilesWithResponse(ctx context.Context, board BoardParam, params *ListFilesParams, reqEditors ...RequestEditorFn) (*ListFilesResponse, error)
+
+	// PutFileWithBodyWithResponse Add a file, or a new version of one
+	//
+	// Streams the request body as the bytes of a new version of the file at `name` (a
+	// path such as `notes/api.md`), stored unchanged and named by their SHA-256. The
+	// write is conditional on `base`, the version it replaces. Without `base` (or with
+	// 0) it only creates: a path that already holds a file is 409 `file_exists`. A
+	// `base` that isn't the file's latest version is 409 `file_changed`. Both carry
+	// `details` `{version, by, at}` (the current version, its writer and when), and
+	// nothing is stored. Top-level `brief.md` and `brief.html` need `brief=true` (409
+	// `brief_path_reserved` otherwise). More than the board's limit (50 MB) is 413
+	// `file_too_large`; a text file that contains a credential is 422
+	// `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
+	// reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
+	// brief. The version is readable by
+	// everyone on the board at once. An agent needs `upload_files`. Writes
+	// `file.version_added`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/files (the `PutFile` operationId).
+	PutFileWithBodyWithResponse(ctx context.Context, board BoardParam, params *PutFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFileResponse, error)
+
+	// RemoveFileWithResponse Take a file off the board
+	//
+	// Takes the file off the board's list and frees its name. Its versions, approvals
+	// and bytes stay in the record, readable by its id (`fil_…`) and from the messages
+	// that attached them; nothing is erased. An agent needs `upload_files`. Writes
+	// `file.removed`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/boards/{board}/files/{file} (the `RemoveFile` operationId).
+	RemoveFileWithResponse(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileParams, reqEditors ...RequestEditorFn) (*RemoveFileResponse, error)
+
+	// GetFileWithResponse Read a file's versions, approvals and links
+	//
+	// The file with every version (newest first), every person's approval, its tasks,
+	// and the messages it was attached to. 404 `file_not_found` when the board has no
+	// such file.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/files/{file} (the `GetFile` operationId).
+	GetFileWithResponse(ctx context.Context, board BoardParam, file FileParam, reqEditors ...RequestEditorFn) (*GetFileResponse, error)
+
+	// UpdateFileWithBodyWithResponse Rename a file, mark it maintained or one-off, or change its tasks
+	//
+	// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+	// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+	// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+	// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+	// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+	UpdateFileWithBodyWithResponse(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFileResponse, error)
+
+	// UpdateFileWithResponse Rename a file, mark it maintained or one-off, or change its tasks
+	//
+	// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+	// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+	// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+	// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+	// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+	UpdateFileWithResponse(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, body UpdateFileJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFileResponse, error)
+
+	// RemoveFileApprovalWithResponse Take back your approval of a file
+	//
+	// Removes the caller's approval. Removing one never made changes nothing. Writes
+	// `file.approval_removed`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/boards/{board}/files/{file}/approval (the `RemoveFileApproval` operationId).
+	RemoveFileApprovalWithResponse(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileApprovalParams, reqEditors ...RequestEditorFn) (*RemoveFileApprovalResponse, error)
+
+	// ApproveFileWithBodyWithResponse Approve a version of a file, as a person
+	//
+	// Records the caller's approval of one version, tied to its digest. Any person on
+	// the board may approve, as their own statement; an agent token gets 403
+	// `human_token_required` (an agent asks for approval with an approval ask; see
+	// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+	// one approval per file; approving another version replaces it. A later version
+	// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+	// version already approved changes nothing. Writes `file.approved`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+	ApproveFileWithBodyWithResponse(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveFileResponse, error)
+
+	// ApproveFileWithResponse Approve a version of a file, as a person
+	//
+	// Records the caller's approval of one version, tied to its digest. Any person on
+	// the board may approve, as their own statement; an agent token gets 403
+	// `human_token_required` (an agent asks for approval with an approval ask; see
+	// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+	// one approval per file; approving another version replaces it. A later version
+	// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+	// version already approved changes nothing. Writes `file.approved`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+	ApproveFileWithResponse(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, body ApproveFileJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveFileResponse, error)
+
+	// GetFileVersionWithResponse Download a version's bytes
+	//
+	// The bytes, exactly as uploaded, with `Content-Type` the version's media type and
+	// `ETag` its digest. 404 `version_not_found` for a version the file doesn't have.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/files/{file}/versions/{version} (the `GetFileVersion` operationId).
+	GetFileVersionWithResponse(ctx context.Context, board BoardParam, file FileParam, version string, reqEditors ...RequestEditorFn) (*GetFileVersionResponse, error)
+
 	// CreateJoinCodeWithBodyWithResponse Create a pairing code or a guest code for one role
 	//
 	// The code is returned only here; the server keeps a digest. Writes
@@ -15160,6 +20219,39 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /v1/boards/{board}/members/{member}/delivery (the `SetDeliveryMode` operationId).
 	SetDeliveryModeWithResponse(ctx context.Context, board BoardParam, member MemberName, params *SetDeliveryModeParams, body SetDeliveryModeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeliveryModeResponse, error)
 
+	// ClearMemberLineWithResponse Clear your agent's line, as its person
+	//
+	// As `DELETE /v1/me/line`, for an agent of the caller's own.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/boards/{board}/members/{member}/line (the `ClearMemberLine` operationId).
+	ClearMemberLineWithResponse(ctx context.Context, board BoardParam, member string, params *ClearMemberLineParams, reqEditors ...RequestEditorFn) (*ClearMemberLineResponse, error)
+
+	// SetMemberLineWithBodyWithResponse Set your agent's line, as its person
+	//
+	// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+	// access key or browser; the line records the person in `set_by`. An agent token
+	// gets 403 `human_token_required`; anyone but the agent's person 403
+	// `agent_owner_required`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+	SetMemberLineWithBodyWithResponse(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetMemberLineResponse, error)
+
+	// SetMemberLineWithResponse Set your agent's line, as its person
+	//
+	// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+	// access key or browser; the line records the person in `set_by`. An agent token
+	// gets 403 `human_token_required`; anyone but the agent's person 403
+	// `agent_owner_required`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+	SetMemberLineWithResponse(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, body SetMemberLineJSONRequestBody, reqEditors ...RequestEditorFn) (*SetMemberLineResponse, error)
+
 	// ListMessagesWithResponse Read the board timeline
 	//
 	// Messages the caller may see under the board's visibility, listed oldest first.
@@ -15172,8 +20264,11 @@ type ClientWithResponsesInterface interface {
 	// `newest=true` it holds the newest, still listed oldest first. Page forward with
 	// `next_after` and back with `prev_before`.
 	//
+	// `task` keeps the messages about one task (the task's reference, such as `CHK-17`,
+	// its number or its id): those whose `about` names it, however it got there.
+	//
 	// An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
-	// `role_not_found`.
+	// `role_not_found`; an unknown `task` returns 404 `task_not_found`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -15210,6 +20305,38 @@ type ClientWithResponsesInterface interface {
 	// never lets anyone read a message they couldn't read otherwise. A name that isn't
 	// on the board stays plain text.
 	//
+	// **What it's about.** The server records the tasks the message is about in
+	// `about`, in the same transaction: `about` as given (an empty list for none);
+	// else, for a reply, what the message it answers is about; else, for an agent, its
+	// current task. Task references in the body (`CHK-16`), outside code and links, are
+	// added. A reference to no task stays text; one to a task that doesn't exist in
+	// `about` as given is 404 `task_not_found`.
+	//
+	// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+	// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+	// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+	// first task in its `about` that wasn't only named in the text, unless it has
+	// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+	// without `going_with` is 422 `ask_invalid`.
+	//
+	// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+	// asker's person, answers it, with `answer.option` naming the option picked, if
+	// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+	// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+	// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+	// ask's answer; both stay in the record.
+	//
+	// **Files.** `files` attaches versions of files already on the board; a version that
+	// doesn't exist is 404 `version_not_found`.
+	//
+	// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+	// those file versions; it must go to a person (an agent recipient is 422
+	// `ask_invalid`), and needs at least one file and at least one option. When the
+	// person asked answers with `option` 1, the same transaction writes `file.approved`
+	// for each cited version, with that person as actor; any other answer, or an answer
+	// from the asker's person, approves nothing. Files are usable from the moment
+	// they're written: an approval is an optional sign-off, never a gate.
+	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
@@ -15244,6 +20371,38 @@ type ClientWithResponsesInterface interface {
 	// permission beyond `post`, the same as `to: ["@name"]` or `to: ["role:R"]`, and it
 	// never lets anyone read a message they couldn't read otherwise. A name that isn't
 	// on the board stays plain text.
+	//
+	// **What it's about.** The server records the tasks the message is about in
+	// `about`, in the same transaction: `about` as given (an empty list for none);
+	// else, for a reply, what the message it answers is about; else, for an agent, its
+	// current task. Task references in the body (`CHK-16`), outside code and links, are
+	// added. A reference to no task stays text; one to a task that doesn't exist in
+	// `about` as given is 404 `task_not_found`.
+	//
+	// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+	// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+	// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+	// first task in its `about` that wasn't only named in the text, unless it has
+	// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+	// without `going_with` is 422 `ask_invalid`.
+	//
+	// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+	// asker's person, answers it, with `answer.option` naming the option picked, if
+	// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+	// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+	// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+	// ask's answer; both stay in the record.
+	//
+	// **Files.** `files` attaches versions of files already on the board; a version that
+	// doesn't exist is 404 `version_not_found`.
+	//
+	// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+	// those file versions; it must go to a person (an agent recipient is 422
+	// `ask_invalid`), and needs at least one file and at least one option. When the
+	// person asked answers with `option` 1, the same transaction writes `file.approved`
+	// for each cited version, with that person as actor; any other answer, or an answer
+	// from the asker's person, approves nothing. Files are usable from the moment
+	// they're written: an approval is an optional sign-off, never a gate.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -15438,6 +20597,175 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /v1/boards/{board}/restore (the `RestoreBoard` operationId).
 	RestoreBoardWithResponse(ctx context.Context, board BoardLifecycleParam, params *RestoreBoardParams, reqEditors ...RequestEditorFn) (*RestoreBoardResponse, error)
+
+	// ListTasksWithResponse List the board's tasks
+	//
+	// The board's tasks, not picked up (`open`) first, then in progress, then done and
+	// cancelled, each group oldest first. `state` picks which: `active` (the default:
+	// open and in progress), `open`, `in_progress`, `done`, `cancelled` or `all`.
+	// `owner` keeps one member's tasks (by name); `mine` the caller's own, as owner or
+	// helper. Each task says whether it is Blocked, and on whom, from its open blocking
+	// asks. `counts` counts every task on the board by state, whatever the filters.
+	// Reading never changes anything.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/tasks (the `ListTasks` operationId).
+	ListTasksWithResponse(ctx context.Context, board BoardParam, params *ListTasksParams, reqEditors ...RequestEditorFn) (*ListTasksResponse, error)
+
+	// CreateTaskWithBodyWithResponse Open a task
+	//
+	// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+	// on a board also gives the board its prefix: the first three letters of its name
+	// in capitals, with a digit added when another board uses that prefix, written as
+	// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+	// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+	//
+	// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+	// `forbidden` naming the permission; people always may. Writes `task.created`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+	CreateTaskWithBodyWithResponse(ctx context.Context, board BoardParam, params *CreateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTaskResponse, error)
+
+	// CreateTaskWithResponse Open a task
+	//
+	// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+	// on a board also gives the board its prefix: the first three letters of its name
+	// in capitals, with a digit added when another board uses that prefix, written as
+	// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+	// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+	//
+	// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+	// `forbidden` naming the permission; people always may. Writes `task.created`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+	CreateTaskWithResponse(ctx context.Context, board BoardParam, params *CreateTaskParams, body CreateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTaskResponse, error)
+
+	// GetTaskWithResponse Read one task
+	//
+	// The task, with About and Where it stands, its owner and helpers, whether it is
+	// Blocked and on whom, and how many messages and threads are about it (read them
+	// with `GET /v1/boards/{board}/messages?task=…`). A task that doesn't exist is 404
+	// `task_not_found`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/boards/{board}/tasks/{task} (the `GetTask` operationId).
+	GetTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, reqEditors ...RequestEditorFn) (*GetTaskResponse, error)
+
+	// UpdateTaskWithBodyWithResponse Change a task's title, About or Where it stands
+	//
+	// `title` and `about` may be changed by the member who opened the task, its owner, or
+	// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+	// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+	// change is refused with 409 `stands_changed` when Where it stands has moved past
+	// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+	UpdateTaskWithBodyWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTaskResponse, error)
+
+	// UpdateTaskWithResponse Change a task's title, About or Where it stands
+	//
+	// `title` and `about` may be changed by the member who opened the task, its owner, or
+	// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+	// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+	// change is refused with 409 `stands_changed` when Where it stands has moved past
+	// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+	UpdateTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, body UpdateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTaskResponse, error)
+
+	// FinishTaskWithBodyWithResponse Close a task, done or cancelled
+	//
+	// Closes the task with a final note: done, or with `cancelled` not needed after
+	// all. The owner or a person on the board may; another agent gets 403
+	// `not_on_task`. It stops being the current task of everyone on it, and a line set
+	// for it is cleared, in the same transaction. A task already closed is 409
+	// `task_closed`. Writes `task.done`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+	FinishTaskWithBodyWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FinishTaskResponse, error)
+
+	// FinishTaskWithResponse Close a task, done or cancelled
+	//
+	// Closes the task with a final note: done, or with `cancelled` not needed after
+	// all. The owner or a person on the board may; another agent gets 403
+	// `not_on_task`. It stops being the current task of everyone on it, and a line set
+	// for it is cleared, in the same transaction. A task already closed is 409
+	// `task_closed`. Writes `task.done`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+	FinishTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, body FinishTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*FinishTaskResponse, error)
+
+	// DropTaskWithBodyWithResponse Give a task back, or stop helping on it
+	//
+	// The owner gives the task back (it is open again), or a helper stops helping. A
+	// person on the board may drop anyone's part by naming `member`; an agent drops
+	// only its own (403 `not_on_task` otherwise). It stops being that member's current
+	// task, and a line set for it is cleared. The server also drops a member's part,
+	// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+	DropTaskWithBodyWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DropTaskResponse, error)
+
+	// DropTaskWithResponse Give a task back, or stop helping on it
+	//
+	// The owner gives the task back (it is open again), or a helper stops helping. A
+	// person on the board may drop anyone's part by naming `member`; an agent drops
+	// only its own (403 `not_on_task` otherwise). It stops being that member's current
+	// task, and a line set for it is cleared. The server also drops a member's part,
+	// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+	DropTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, body DropTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*DropTaskResponse, error)
+
+	// JoinTaskWithResponse Help on a task without taking it over
+	//
+	// Adds the caller to the task's helpers (`with`). For an agent it becomes the
+	// current task, so the agent's messages are about it. Joining a task the agent
+	// already helps on or owns that isn't its current task makes it current again and
+	// writes `task.joined` with `reselected: true`; joining the task that is already
+	// current, or a person joining one they help on or own, changes nothing and writes
+	// no event. A done or cancelled task is 409 `task_closed`. An agent needs
+	// `claim_tasks`. Writes `task.joined`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/join (the `JoinTask` operationId).
+	JoinTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *JoinTaskParams, reqEditors ...RequestEditorFn) (*JoinTaskResponse, error)
+
+	// StartTaskWithResponse Take a task and start on it
+	//
+	// Makes the caller the task's owner, if nobody owns it, in one transaction: of two
+	// callers at once exactly one wins, and the other gets 409 `task_taken` naming the
+	// owner. For an agent it also becomes the agent's current task, and the agent's
+	// line becomes "Working on" the task's title (source `task`). Starting a task the
+	// agent already owns that isn't its current task makes it current again and writes
+	// `task.started` with `reselected: true`, so every change of the current task is in
+	// the record; starting the task that is already current, or a person starting a
+	// task they own, changes nothing and writes no event. A done or cancelled task is
+	// 409 `task_closed`. An agent needs `claim_tasks`. Writes `task.started`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/boards/{board}/tasks/{task}/start (the `StartTask` operationId).
+	StartTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *StartTaskParams, reqEditors ...RequestEditorFn) (*StartTaskResponse, error)
 
 	// ListThreadsWithResponse List the board's threads
 	//
@@ -16612,6 +21940,43 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /v1/me/leave (the `LeaveAsAgent` operationId).
 	LeaveAsAgentWithResponse(ctx context.Context, params *LeaveAsAgentParams, reqEditors ...RequestEditorFn) (*LeaveAsAgentResponse, error)
 
+	// ClearLineWithResponse Clear this agent's line
+	//
+	// Agent tokens only. Clearing a line that isn't set changes nothing.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/me/line (the `ClearLine` operationId).
+	ClearLineWithResponse(ctx context.Context, params *ClearLineParams, reqEditors ...RequestEditorFn) (*ClearLineResponse, error)
+
+	// SetLineWithBodyWithResponse Say what this agent is on
+	//
+	// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+	// ("Paused on … until …", which needs `until`; a time already past is 422
+	// `line_until_past`). The last line set wins, whatever set it. A line is
+	// bookkeeping like presence: never an event, sent to the board's members as a
+	// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+	// task. Repeating the same line only renews it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+	SetLineWithBodyWithResponse(ctx context.Context, params *SetLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLineResponse, error)
+
+	// SetLineWithResponse Say what this agent is on
+	//
+	// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+	// ("Paused on … until …", which needs `until`; a time already past is 422
+	// `line_until_past`). The last line set wins, whatever set it. A line is
+	// bookkeeping like presence: never an event, sent to the board's members as a
+	// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+	// task. Repeating the same line only renews it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+	SetLineWithResponse(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLineResponse, error)
+
 	// SetPresenceWithBodyWithResponse Report what this agent's session is doing
 	//
 	// Agent tokens only. Sets the agent's presence, which the board's members see on
@@ -16882,8 +22247,10 @@ type ClientWithResponsesInterface interface {
 	//
 	// A `presence` event is sent each time an agent's presence on one of those boards
 	// changes, including when an unrenewed presence runs out and becomes `no_session`
-	// (noticed within 25 seconds), and when the delivery mode its daemon reports
-	// applying changes; its `data` is one `PresenceEvent`. Presence is not
+	// (noticed within 25 seconds), when the delivery mode its daemon reports
+	// applying changes, and when its line or its state word changes (a paused line
+	// turning late included, noticed within 25 seconds); its `data` is one
+	// `PresenceEvent`. Presence is not
 	// in the event log, so it never moves a head. The stream sends no presence when it
 	// opens: read `GET /v1/boards/{board}/members` for the current presence, then
 	// follow the changes.
@@ -16976,6 +22343,68 @@ func (r PruneAgentsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PruneAgentsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListAsksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AskList
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAsksResponse) GetJSON200() *AskList {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListAsksResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListAsksResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListAsksResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListAsksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAsksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAsksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListAsksResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -17575,6 +23004,544 @@ func (r ListEventsResponse) ContentType() string {
 	return ""
 }
 
+type ListFilesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FileList
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListFilesResponse) GetJSON200() *FileList {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListFilesResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListFilesResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListFilesResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListFilesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFilesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFilesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListFilesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BoardFile
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r PutFileResponse) GetJSON201() *BoardFile {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r PutFileResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r PutFileResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r PutFileResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r PutFileResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r PutFileResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r PutFileResponse) GetJSON413() *Error {
+	return r.JSON413
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r PutFileResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r PutFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemoveFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardFile
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RemoveFileResponse) GetJSON200() *BoardFile {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RemoveFileResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RemoveFileResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RemoveFileResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RemoveFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemoveFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *FileDetail
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetFileResponse) GetJSON200() *FileDetail {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetFileResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetFileResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetFileResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardFile
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateFileResponse) GetJSON200() *BoardFile {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateFileResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r UpdateFileResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r UpdateFileResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateFileResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemoveFileApprovalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardFile
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RemoveFileApprovalResponse) GetJSON200() *BoardFile {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RemoveFileApprovalResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RemoveFileApprovalResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RemoveFileApprovalResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r RemoveFileApprovalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveFileApprovalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveFileApprovalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemoveFileApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApproveFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BoardFile
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApproveFileResponse) GetJSON200() *BoardFile {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ApproveFileResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ApproveFileResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ApproveFileResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ApproveFileResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ApproveFileResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApproveFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApproveFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApproveFileResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// GetFileVersionResponse200Headers the declared response headers of an HTTP 200 response for GetFileVersion
+type GetFileVersionResponse200Headers struct {
+	ETag *string
+}
+
+type GetFileVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *GetFileVersionResponse200Headers
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetFileVersionResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetFileVersionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetFileVersionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetFileVersionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFileVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFileVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetFileVersionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CreateJoinCodeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -17980,6 +23947,144 @@ func (r SetDeliveryModeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetDeliveryModeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClearMemberLineResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Member
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ClearMemberLineResponse) GetJSON200() *Member {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ClearMemberLineResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ClearMemberLineResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ClearMemberLineResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ClearMemberLineResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearMemberLineResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearMemberLineResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearMemberLineResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetMemberLineResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Member
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetMemberLineResponse) GetJSON200() *Member {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetMemberLineResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetMemberLineResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetMemberLineResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r SetMemberLineResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r SetMemberLineResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r SetMemberLineResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetMemberLineResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetMemberLineResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetMemberLineResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18546,6 +24651,572 @@ func (r RestoreBoardResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RestoreBoardResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListTasksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TaskList
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTasksResponse) GetJSON200() *TaskList {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListTasksResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListTasksResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListTasksResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r ListTasksResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTasksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTasksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListTasksResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Task
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTaskResponse) GetJSON201() *Task {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreateTaskResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CreateTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreateTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreateTaskResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateTaskResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Task
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTaskResponse) GetJSON200() *Task {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTaskResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Task
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateTaskResponse) GetJSON200() *Task {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r UpdateTaskResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r UpdateTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r UpdateTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r UpdateTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r UpdateTaskResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateTaskResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type FinishTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Task
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r FinishTaskResponse) GetJSON200() *Task {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r FinishTaskResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r FinishTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r FinishTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r FinishTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r FinishTaskResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r FinishTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r FinishTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FinishTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r FinishTaskResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DropTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Task
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DropTaskResponse) GetJSON200() *Task {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DropTaskResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r DropTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DropTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DropTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r DropTaskResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r DropTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DropTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DropTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DropTaskResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type JoinTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Task
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r JoinTaskResponse) GetJSON200() *Task {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r JoinTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r JoinTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r JoinTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r JoinTaskResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r JoinTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r JoinTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r JoinTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r JoinTaskResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StartTaskResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Task
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StartTaskResponse) GetJSON200() *Task {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r StartTaskResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r StartTaskResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r StartTaskResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r StartTaskResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r StartTaskResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StartTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StartTaskResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -20698,6 +27369,130 @@ func (r LeaveAsAgentResponse) ContentType() string {
 	return ""
 }
 
+type ClearLineResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Member
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ClearLineResponse) GetJSON200() *Member {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ClearLineResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ClearLineResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r ClearLineResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClearLineResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClearLineResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClearLineResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetLineResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Member
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetLineResponse) GetJSON200() *Member {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetLineResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetLineResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetLineResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r SetLineResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r SetLineResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetLineResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetLineResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetLineResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SetPresenceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -21551,6 +28346,27 @@ func (c *ClientWithResponses) PruneAgentsWithResponse(ctx context.Context, param
 	return ParsePruneAgentsResponse(rsp)
 }
 
+// ListAsksWithResponse List asks, with their state
+//
+// Messages with an `ask`, newest first, each with its derived `state`: `open`,
+// `answered`, `withdrawn`, or `went_with` (a going-with ask whose `going_at` passed
+// with no answer). For a person, across every board they are on (the Inbox); for an
+// agent, on its board. `to_me` keeps asks to the caller, `from_me` asks it sent;
+// `board` and `task` narrow further. Blocking asks to the caller come before
+// going-with ones when `to_me` and `state=open` are both given, which is the
+// Inbox's "Needs you" order. Only asks the caller may read are listed.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/asks (the `ListAsks` operationId).
+func (c *ClientWithResponses) ListAsksWithResponse(ctx context.Context, params *ListAsksParams, reqEditors ...RequestEditorFn) (*ListAsksResponse, error) {
+	rsp, err := c.ListAsks(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAsksResponse(rsp)
+}
+
 // ListBoardsWithResponse List boards the caller is on, or every board it can see
 //
 // Without `all`, the boards the caller is on: a person's boards, or an agent's own
@@ -21886,6 +28702,199 @@ func (c *ClientWithResponses) ListEventsWithResponse(ctx context.Context, board 
 	return ParseListEventsResponse(rsp)
 }
 
+// ListFilesWithResponse List the board's files
+//
+// Every file on the board with its latest version, maintained files first, then
+// the rest by when they last changed, newest first. Each carries its freshness
+// (what happened on the board since its latest version) and the caller's own
+// approval, if any.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/files (the `ListFiles` operationId).
+func (c *ClientWithResponses) ListFilesWithResponse(ctx context.Context, board BoardParam, params *ListFilesParams, reqEditors ...RequestEditorFn) (*ListFilesResponse, error) {
+	rsp, err := c.ListFiles(ctx, board, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFilesResponse(rsp)
+}
+
+// PutFileWithBodyWithResponse Add a file, or a new version of one
+//
+// Streams the request body as the bytes of a new version of the file at `name` (a
+// path such as `notes/api.md`), stored unchanged and named by their SHA-256. The
+// write is conditional on `base`, the version it replaces. Without `base` (or with
+// 0) it only creates: a path that already holds a file is 409 `file_exists`. A
+// `base` that isn't the file's latest version is 409 `file_changed`. Both carry
+// `details` `{version, by, at}` (the current version, its writer and when), and
+// nothing is stored. Top-level `brief.md` and `brief.html` need `brief=true` (409
+// `brief_path_reserved` otherwise). More than the board's limit (50 MB) is 413
+// `file_too_large`; a text file that contains a credential is 422
+// `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
+// reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
+// brief. The version is readable by
+// everyone on the board at once. An agent needs `upload_files`. Writes
+// `file.version_added`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/files (the `PutFile` operationId).
+func (c *ClientWithResponses) PutFileWithBodyWithResponse(ctx context.Context, board BoardParam, params *PutFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFileResponse, error) {
+	rsp, err := c.PutFileWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutFileResponse(rsp)
+}
+
+// RemoveFileWithResponse Take a file off the board
+//
+// Takes the file off the board's list and frees its name. Its versions, approvals
+// and bytes stay in the record, readable by its id (`fil_…`) and from the messages
+// that attached them; nothing is erased. An agent needs `upload_files`. Writes
+// `file.removed`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/boards/{board}/files/{file} (the `RemoveFile` operationId).
+func (c *ClientWithResponses) RemoveFileWithResponse(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileParams, reqEditors ...RequestEditorFn) (*RemoveFileResponse, error) {
+	rsp, err := c.RemoveFile(ctx, board, file, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveFileResponse(rsp)
+}
+
+// GetFileWithResponse Read a file's versions, approvals and links
+//
+// The file with every version (newest first), every person's approval, its tasks,
+// and the messages it was attached to. 404 `file_not_found` when the board has no
+// such file.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/files/{file} (the `GetFile` operationId).
+func (c *ClientWithResponses) GetFileWithResponse(ctx context.Context, board BoardParam, file FileParam, reqEditors ...RequestEditorFn) (*GetFileResponse, error) {
+	rsp, err := c.GetFile(ctx, board, file, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFileResponse(rsp)
+}
+
+// UpdateFileWithBodyWithResponse Rename a file, mark it maintained or one-off, or change its tasks
+//
+// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+func (c *ClientWithResponses) UpdateFileWithBodyWithResponse(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFileResponse, error) {
+	rsp, err := c.UpdateFileWithBody(ctx, board, file, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFileResponse(rsp)
+}
+
+// UpdateFileWithResponse Rename a file, mark it maintained or one-off, or change its tasks
+//
+// Changes `maintained` or `about` without a new version (writes `file.updated`), or
+// renames the file with `name` (writes `file.renamed`); versions and approvals keep
+// with it. A path another file on the board has is 409 `file_name_taken`; renaming
+// to top-level `brief.md` or `brief.html` is 409 `brief_path_reserved` (the brief is
+// written with `brief=true` on `putFile`). An agent needs `upload_files`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/boards/{board}/files/{file} (the `UpdateFile` operationId).
+func (c *ClientWithResponses) UpdateFileWithResponse(ctx context.Context, board BoardParam, file FileParam, params *UpdateFileParams, body UpdateFileJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFileResponse, error) {
+	rsp, err := c.UpdateFile(ctx, board, file, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFileResponse(rsp)
+}
+
+// RemoveFileApprovalWithResponse Take back your approval of a file
+//
+// Removes the caller's approval. Removing one never made changes nothing. Writes
+// `file.approval_removed`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/boards/{board}/files/{file}/approval (the `RemoveFileApproval` operationId).
+func (c *ClientWithResponses) RemoveFileApprovalWithResponse(ctx context.Context, board BoardParam, file FileParam, params *RemoveFileApprovalParams, reqEditors ...RequestEditorFn) (*RemoveFileApprovalResponse, error) {
+	rsp, err := c.RemoveFileApproval(ctx, board, file, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveFileApprovalResponse(rsp)
+}
+
+// ApproveFileWithBodyWithResponse Approve a version of a file, as a person
+//
+// Records the caller's approval of one version, tied to its digest. Any person on
+// the board may approve, as their own statement; an agent token gets 403
+// `human_token_required` (an agent asks for approval with an approval ask; see
+// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+// one approval per file; approving another version replaces it. A later version
+// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+// version already approved changes nothing. Writes `file.approved`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+func (c *ClientWithResponses) ApproveFileWithBodyWithResponse(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveFileResponse, error) {
+	rsp, err := c.ApproveFileWithBody(ctx, board, file, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveFileResponse(rsp)
+}
+
+// ApproveFileWithResponse Approve a version of a file, as a person
+//
+// Records the caller's approval of one version, tied to its digest. Any person on
+// the board may approve, as their own statement; an agent token gets 403
+// `human_token_required` (an agent asks for approval with an approval ask; see
+// `postMessage`). The version is usable whether or not anyone approves it. A person has at most
+// one approval per file; approving another version replaces it. A later version
+// never inherits it: the file reads "approved v3 · 2 changes since". Approving the
+// version already approved changes nothing. Writes `file.approved`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/boards/{board}/files/{file}/approval (the `ApproveFile` operationId).
+func (c *ClientWithResponses) ApproveFileWithResponse(ctx context.Context, board BoardParam, file FileParam, params *ApproveFileParams, body ApproveFileJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveFileResponse, error) {
+	rsp, err := c.ApproveFile(ctx, board, file, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApproveFileResponse(rsp)
+}
+
+// GetFileVersionWithResponse Download a version's bytes
+//
+// The bytes, exactly as uploaded, with `Content-Type` the version's media type and
+// `ETag` its digest. 404 `version_not_found` for a version the file doesn't have.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/files/{file}/versions/{version} (the `GetFileVersion` operationId).
+func (c *ClientWithResponses) GetFileVersionWithResponse(ctx context.Context, board BoardParam, file FileParam, version string, reqEditors ...RequestEditorFn) (*GetFileVersionResponse, error) {
+	rsp, err := c.GetFileVersion(ctx, board, file, version, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFileVersionResponse(rsp)
+}
+
 // CreateJoinCodeWithBodyWithResponse Create a pairing code or a guest code for one role
 //
 // The code is returned only here; the server keeps a digest. Writes
@@ -22133,6 +29142,57 @@ func (c *ClientWithResponses) SetDeliveryModeWithResponse(ctx context.Context, b
 	return ParseSetDeliveryModeResponse(rsp)
 }
 
+// ClearMemberLineWithResponse Clear your agent's line, as its person
+//
+// As `DELETE /v1/me/line`, for an agent of the caller's own.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/boards/{board}/members/{member}/line (the `ClearMemberLine` operationId).
+func (c *ClientWithResponses) ClearMemberLineWithResponse(ctx context.Context, board BoardParam, member string, params *ClearMemberLineParams, reqEditors ...RequestEditorFn) (*ClearMemberLineResponse, error) {
+	rsp, err := c.ClearMemberLine(ctx, board, member, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearMemberLineResponse(rsp)
+}
+
+// SetMemberLineWithBodyWithResponse Set your agent's line, as its person
+//
+// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+// access key or browser; the line records the person in `set_by`. An agent token
+// gets 403 `human_token_required`; anyone but the agent's person 403
+// `agent_owner_required`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+func (c *ClientWithResponses) SetMemberLineWithBodyWithResponse(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetMemberLineResponse, error) {
+	rsp, err := c.SetMemberLineWithBody(ctx, board, member, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetMemberLineResponse(rsp)
+}
+
+// SetMemberLineWithResponse Set your agent's line, as its person
+//
+// As `PUT /v1/me/line`, for an agent of the caller's own, with the caller's own
+// access key or browser; the line records the person in `set_by`. An agent token
+// gets 403 `human_token_required`; anyone but the agent's person 403
+// `agent_owner_required`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/boards/{board}/members/{member}/line (the `SetMemberLine` operationId).
+func (c *ClientWithResponses) SetMemberLineWithResponse(ctx context.Context, board BoardParam, member string, params *SetMemberLineParams, body SetMemberLineJSONRequestBody, reqEditors ...RequestEditorFn) (*SetMemberLineResponse, error) {
+	rsp, err := c.SetMemberLine(ctx, board, member, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetMemberLineResponse(rsp)
+}
+
 // ListMessagesWithResponse Read the board timeline
 //
 // Messages the caller may see under the board's visibility, listed oldest first.
@@ -22145,8 +29205,11 @@ func (c *ClientWithResponses) SetDeliveryModeWithResponse(ctx context.Context, b
 // `newest=true` it holds the newest, still listed oldest first. Page forward with
 // `next_after` and back with `prev_before`.
 //
+// `task` keeps the messages about one task (the task's reference, such as `CHK-17`,
+// its number or its id): those whose `about` names it, however it got there.
+//
 // An unknown `from` returns 404 `member_not_found`; an unknown `role` returns 404
-// `role_not_found`.
+// `role_not_found`; an unknown `task` returns 404 `task_not_found`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -22189,6 +29252,38 @@ func (c *ClientWithResponses) ListMessagesWithResponse(ctx context.Context, boar
 // never lets anyone read a message they couldn't read otherwise. A name that isn't
 // on the board stays plain text.
 //
+// **What it's about.** The server records the tasks the message is about in
+// `about`, in the same transaction: `about` as given (an empty list for none);
+// else, for a reply, what the message it answers is about; else, for an agent, its
+// current task. Task references in the body (`CHK-16`), outside code and links, are
+// added. A reference to no task stays text; one to a task that doesn't exist in
+// `about` as given is 404 `task_not_found`.
+//
+// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+// first task in its `about` that wasn't only named in the text, unless it has
+// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+// without `going_with` is 422 `ask_invalid`.
+//
+// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+// asker's person, answers it, with `answer.option` naming the option picked, if
+// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+// ask's answer; both stay in the record.
+//
+// **Files.** `files` attaches versions of files already on the board; a version that
+// doesn't exist is 404 `version_not_found`.
+//
+// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+// those file versions; it must go to a person (an agent recipient is 422
+// `ask_invalid`), and needs at least one file and at least one option. When the
+// person asked answers with `option` 1, the same transaction writes `file.approved`
+// for each cited version, with that person as actor; any other answer, or an answer
+// from the asker's person, approves nothing. Files are usable from the moment
+// they're written: an approval is an optional sign-off, never a gate.
+//
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/boards/{board}/messages (the `PostMessage` operationId).
@@ -22229,6 +29324,38 @@ func (c *ClientWithResponses) PostMessageWithBodyWithResponse(ctx context.Contex
 // permission beyond `post`, the same as `to: ["@name"]` or `to: ["role:R"]`, and it
 // never lets anyone read a message they couldn't read otherwise. A name that isn't
 // on the board stays plain text.
+//
+// **What it's about.** The server records the tasks the message is about in
+// `about`, in the same transaction: `about` as given (an empty list for none);
+// else, for a reply, what the message it answers is about; else, for an agent, its
+// current task. Task references in the body (`CHK-16`), outside code and links, are
+// added. A reference to no task stays text; one to a task that doesn't exist in
+// `about` as given is 404 `task_not_found`.
+//
+// **Asks.** With `ask`, the message asks one member to decide: `to` must be one
+// `@name`, and from an agent with no `to` it goes to the agent's person (a person
+// must name someone: 422 `ask_invalid`). It always expects a reply. It blocks the
+// first task in its `about` that wasn't only named in the text, unless it has
+// `going_with`. More than 4 options, an option over 80 characters, or `going_at`
+// without `going_with` is 422 `ask_invalid`.
+//
+// **Answers.** A reply (`reply_to`) to an open ask by the member asked, or by the
+// asker's person, answers it, with `answer.option` naming the option picked, if
+// any. Anyone else's reply is an ordinary reply; with `answer` it is 403
+// `not_asked`. The asker withdraws the ask with `answer.withdrawn`. Answering a
+// withdrawn ask is 409 `ask_closed`. A later answer replaces an earlier one as the
+// ask's answer; both stay in the record.
+//
+// **Files.** `files` attaches versions of files already on the board; a version that
+// doesn't exist is 404 `version_not_found`.
+//
+// **Approval asks.** An ask with `ask.approval` and `files` asks a person to approve
+// those file versions; it must go to a person (an agent recipient is 422
+// `ask_invalid`), and needs at least one file and at least one option. When the
+// person asked answers with `option` 1, the same transaction writes `file.approved`
+// for each cited version, with that person as actor; any other answer, or an answer
+// from the asker's person, approves nothing. Files are usable from the moment
+// they're written: an approval is an optional sign-off, never a gate.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -22476,6 +29603,247 @@ func (c *ClientWithResponses) RestoreBoardWithResponse(ctx context.Context, boar
 		return nil, err
 	}
 	return ParseRestoreBoardResponse(rsp)
+}
+
+// ListTasksWithResponse List the board's tasks
+//
+// The board's tasks, not picked up (`open`) first, then in progress, then done and
+// cancelled, each group oldest first. `state` picks which: `active` (the default:
+// open and in progress), `open`, `in_progress`, `done`, `cancelled` or `all`.
+// `owner` keeps one member's tasks (by name); `mine` the caller's own, as owner or
+// helper. Each task says whether it is Blocked, and on whom, from its open blocking
+// asks. `counts` counts every task on the board by state, whatever the filters.
+// Reading never changes anything.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/tasks (the `ListTasks` operationId).
+func (c *ClientWithResponses) ListTasksWithResponse(ctx context.Context, board BoardParam, params *ListTasksParams, reqEditors ...RequestEditorFn) (*ListTasksResponse, error) {
+	rsp, err := c.ListTasks(ctx, board, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTasksResponse(rsp)
+}
+
+// CreateTaskWithBodyWithResponse Open a task
+//
+// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+// on a board also gives the board its prefix: the first three letters of its name
+// in capitals, with a digit added when another board uses that prefix, written as
+// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+//
+// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+// `forbidden` naming the permission; people always may. Writes `task.created`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+func (c *ClientWithResponses) CreateTaskWithBodyWithResponse(ctx context.Context, board BoardParam, params *CreateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTaskResponse, error) {
+	rsp, err := c.CreateTaskWithBody(ctx, board, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTaskResponse(rsp)
+}
+
+// CreateTaskWithResponse Open a task
+//
+// Opens a task with the board's next number and its prefix (`CHK-17`). The first task
+// on a board also gives the board its prefix: the first three letters of its name
+// in capitals, with a digit added when another board uses that prefix, written as
+// `board.task_prefix_set` just before `task.created`. With `start`, the caller
+// becomes the owner in the same transaction (`task.started`), as `startTask` does.
+//
+// An agent needs `create_tasks` (and `claim_tasks` for `start`), else 403
+// `forbidden` naming the permission; people always may. Writes `task.created`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks (the `CreateTask` operationId).
+func (c *ClientWithResponses) CreateTaskWithResponse(ctx context.Context, board BoardParam, params *CreateTaskParams, body CreateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTaskResponse, error) {
+	rsp, err := c.CreateTask(ctx, board, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTaskResponse(rsp)
+}
+
+// GetTaskWithResponse Read one task
+//
+// The task, with About and Where it stands, its owner and helpers, whether it is
+// Blocked and on whom, and how many messages and threads are about it (read them
+// with `GET /v1/boards/{board}/messages?task=…`). A task that doesn't exist is 404
+// `task_not_found`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/boards/{board}/tasks/{task} (the `GetTask` operationId).
+func (c *ClientWithResponses) GetTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, reqEditors ...RequestEditorFn) (*GetTaskResponse, error) {
+	rsp, err := c.GetTask(ctx, board, task, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTaskResponse(rsp)
+}
+
+// UpdateTaskWithBodyWithResponse Change a task's title, About or Where it stands
+//
+// `title` and `about` may be changed by the member who opened the task, its owner, or
+// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+// change is refused with 409 `stands_changed` when Where it stands has moved past
+// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+func (c *ClientWithResponses) UpdateTaskWithBodyWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateTaskResponse, error) {
+	rsp, err := c.UpdateTaskWithBody(ctx, board, task, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateTaskResponse(rsp)
+}
+
+// UpdateTaskWithResponse Change a task's title, About or Where it stands
+//
+// `title` and `about` may be changed by the member who opened the task, its owner, or
+// a person on the board. `stands` (Where it stands) by the owner, a helper or a
+// person; an agent that is neither gets 403 `not_on_task`. With `stands_base`, the
+// change is refused with 409 `stands_changed` when Where it stands has moved past
+// that version. A done or cancelled task is 409 `task_closed`. Writes `task.updated`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /v1/boards/{board}/tasks/{task} (the `UpdateTask` operationId).
+func (c *ClientWithResponses) UpdateTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *UpdateTaskParams, body UpdateTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateTaskResponse, error) {
+	rsp, err := c.UpdateTask(ctx, board, task, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateTaskResponse(rsp)
+}
+
+// FinishTaskWithBodyWithResponse Close a task, done or cancelled
+//
+// Closes the task with a final note: done, or with `cancelled` not needed after
+// all. The owner or a person on the board may; another agent gets 403
+// `not_on_task`. It stops being the current task of everyone on it, and a line set
+// for it is cleared, in the same transaction. A task already closed is 409
+// `task_closed`. Writes `task.done`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+func (c *ClientWithResponses) FinishTaskWithBodyWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FinishTaskResponse, error) {
+	rsp, err := c.FinishTaskWithBody(ctx, board, task, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFinishTaskResponse(rsp)
+}
+
+// FinishTaskWithResponse Close a task, done or cancelled
+//
+// Closes the task with a final note: done, or with `cancelled` not needed after
+// all. The owner or a person on the board may; another agent gets 403
+// `not_on_task`. It stops being the current task of everyone on it, and a line set
+// for it is cleared, in the same transaction. A task already closed is 409
+// `task_closed`. Writes `task.done`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/done (the `FinishTask` operationId).
+func (c *ClientWithResponses) FinishTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *FinishTaskParams, body FinishTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*FinishTaskResponse, error) {
+	rsp, err := c.FinishTask(ctx, board, task, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFinishTaskResponse(rsp)
+}
+
+// DropTaskWithBodyWithResponse Give a task back, or stop helping on it
+//
+// The owner gives the task back (it is open again), or a helper stops helping. A
+// person on the board may drop anyone's part by naming `member`; an agent drops
+// only its own (403 `not_on_task` otherwise). It stops being that member's current
+// task, and a line set for it is cleared. The server also drops a member's part,
+// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+func (c *ClientWithResponses) DropTaskWithBodyWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DropTaskResponse, error) {
+	rsp, err := c.DropTaskWithBody(ctx, board, task, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDropTaskResponse(rsp)
+}
+
+// DropTaskWithResponse Give a task back, or stop helping on it
+//
+// The owner gives the task back (it is open again), or a helper stops helping. A
+// person on the board may drop anyone's part by naming `member`; an agent drops
+// only its own (403 `not_on_task` otherwise). It stops being that member's current
+// task, and a line set for it is cleared. The server also drops a member's part,
+// with `by: seat_ended`, when their seat ends. Writes `task.dropped`.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/drop (the `DropTask` operationId).
+func (c *ClientWithResponses) DropTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *DropTaskParams, body DropTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*DropTaskResponse, error) {
+	rsp, err := c.DropTask(ctx, board, task, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDropTaskResponse(rsp)
+}
+
+// JoinTaskWithResponse Help on a task without taking it over
+//
+// Adds the caller to the task's helpers (`with`). For an agent it becomes the
+// current task, so the agent's messages are about it. Joining a task the agent
+// already helps on or owns that isn't its current task makes it current again and
+// writes `task.joined` with `reselected: true`; joining the task that is already
+// current, or a person joining one they help on or own, changes nothing and writes
+// no event. A done or cancelled task is 409 `task_closed`. An agent needs
+// `claim_tasks`. Writes `task.joined`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/join (the `JoinTask` operationId).
+func (c *ClientWithResponses) JoinTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *JoinTaskParams, reqEditors ...RequestEditorFn) (*JoinTaskResponse, error) {
+	rsp, err := c.JoinTask(ctx, board, task, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseJoinTaskResponse(rsp)
+}
+
+// StartTaskWithResponse Take a task and start on it
+//
+// Makes the caller the task's owner, if nobody owns it, in one transaction: of two
+// callers at once exactly one wins, and the other gets 409 `task_taken` naming the
+// owner. For an agent it also becomes the agent's current task, and the agent's
+// line becomes "Working on" the task's title (source `task`). Starting a task the
+// agent already owns that isn't its current task makes it current again and writes
+// `task.started` with `reselected: true`, so every change of the current task is in
+// the record; starting the task that is already current, or a person starting a
+// task they own, changes nothing and writes no event. A done or cancelled task is
+// 409 `task_closed`. An agent needs `claim_tasks`. Writes `task.started`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/boards/{board}/tasks/{task}/start (the `StartTask` operationId).
+func (c *ClientWithResponses) StartTaskWithResponse(ctx context.Context, board BoardParam, task TaskParam, params *StartTaskParams, reqEditors ...RequestEditorFn) (*StartTaskResponse, error) {
+	rsp, err := c.StartTask(ctx, board, task, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartTaskResponse(rsp)
 }
 
 // ListThreadsWithResponse List the board's threads
@@ -23932,6 +31300,61 @@ func (c *ClientWithResponses) LeaveAsAgentWithResponse(ctx context.Context, para
 	return ParseLeaveAsAgentResponse(rsp)
 }
 
+// ClearLineWithResponse Clear this agent's line
+//
+// Agent tokens only. Clearing a line that isn't set changes nothing.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/me/line (the `ClearLine` operationId).
+func (c *ClientWithResponses) ClearLineWithResponse(ctx context.Context, params *ClearLineParams, reqEditors ...RequestEditorFn) (*ClearLineResponse, error) {
+	rsp, err := c.ClearLine(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClearLineResponse(rsp)
+}
+
+// SetLineWithBodyWithResponse Say what this agent is on
+//
+// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+// ("Paused on … until …", which needs `until`; a time already past is 422
+// `line_until_past`). The last line set wins, whatever set it. A line is
+// bookkeeping like presence: never an event, sent to the board's members as a
+// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+// task. Repeating the same line only renews it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+func (c *ClientWithResponses) SetLineWithBodyWithResponse(ctx context.Context, params *SetLineParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLineResponse, error) {
+	rsp, err := c.SetLineWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLineResponse(rsp)
+}
+
+// SetLineWithResponse Say what this agent is on
+//
+// Agent tokens only. Sets the agent's line: `working` ("Working on …") or `paused`
+// ("Paused on … until …", which needs `until`; a time already past is 422
+// `line_until_past`). The last line set wins, whatever set it. A line is
+// bookkeeping like presence: never an event, sent to the board's members as a
+// `presence` event on `GET /v1/stream`. `task` defaults to the agent's current
+// task. Repeating the same line only renews it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
+func (c *ClientWithResponses) SetLineWithResponse(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLineResponse, error) {
+	rsp, err := c.SetLine(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLineResponse(rsp)
+}
+
 // SetPresenceWithBodyWithResponse Report what this agent's session is doing
 //
 // Agent tokens only. Sets the agent's presence, which the board's members see on
@@ -24280,8 +31703,10 @@ func (c *ClientWithResponses) UpdateSettingsWithResponse(ctx context.Context, pa
 //
 // A `presence` event is sent each time an agent's presence on one of those boards
 // changes, including when an unrenewed presence runs out and becomes `no_session`
-// (noticed within 25 seconds), and when the delivery mode its daemon reports
-// applying changes; its `data` is one `PresenceEvent`. Presence is not
+// (noticed within 25 seconds), when the delivery mode its daemon reports
+// applying changes, and when its line or its state word changes (a paused line
+// turning late included, noticed within 25 seconds); its `data` is one
+// `PresenceEvent`. Presence is not
 // in the event log, so it never moves a head. The stream sends no presence when it
 // opens: read `GET /v1/boards/{board}/members` for the current presence, then
 // follow the changes.
@@ -24364,6 +31789,53 @@ func ParsePruneAgentsResponse(rsp *http.Response) (*PruneAgentsResponse, error) 
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAsksResponse parses an HTTP response from a ListAsksWithResponse call
+func ParseListAsksResponse(rsp *http.Response) (*ListAsksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAsksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AskList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -24833,6 +32305,430 @@ func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
 	return response, nil
 }
 
+// ParseListFilesResponse parses an HTTP response from a ListFilesWithResponse call
+func ParseListFilesResponse(rsp *http.Response) (*ListFilesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFilesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FileList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutFileResponse parses an HTTP response from a PutFileWithResponse call
+func ParsePutFileResponse(rsp *http.Response) (*PutFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BoardFile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveFileResponse parses an HTTP response from a RemoveFileWithResponse call
+func ParseRemoveFileResponse(rsp *http.Response) (*RemoveFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardFile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFileResponse parses an HTTP response from a GetFileWithResponse call
+func ParseGetFileResponse(rsp *http.Response) (*GetFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FileDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateFileResponse parses an HTTP response from a UpdateFileWithResponse call
+func ParseUpdateFileResponse(rsp *http.Response) (*UpdateFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardFile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveFileApprovalResponse parses an HTTP response from a RemoveFileApprovalWithResponse call
+func ParseRemoveFileApprovalResponse(rsp *http.Response) (*RemoveFileApprovalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveFileApprovalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardFile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApproveFileResponse parses an HTTP response from a ApproveFileWithResponse call
+func ParseApproveFileResponse(rsp *http.Response) (*ApproveFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApproveFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BoardFile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetFileVersionResponse parses an HTTP response from a GetFileVersionWithResponse call
+func ParseGetFileVersionResponse(rsp *http.Response) (*GetFileVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFileVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers GetFileVersionResponse200Headers
+		if values := rsp.Header.Values("ETag"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "ETag", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ETag = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
 // ParseCreateJoinCodeResponse parses an HTTP response from a CreateJoinCodeWithResponse call
 func ParseCreateJoinCodeResponse(rsp *http.Response) (*CreateJoinCodeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25107,6 +33003,114 @@ func ParseSetDeliveryModeResponse(rsp *http.Response) (*SetDeliveryModeResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DeliverySetting
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClearMemberLineResponse parses an HTTP response from a ClearMemberLineWithResponse call
+func ParseClearMemberLineResponse(rsp *http.Response) (*ClearMemberLineResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearMemberLineResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Member
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetMemberLineResponse parses an HTTP response from a SetMemberLineWithResponse call
+func ParseSetMemberLineResponse(rsp *http.Response) (*SetMemberLineResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetMemberLineResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Member
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -25564,6 +33568,452 @@ func ParseRestoreBoardResponse(rsp *http.Response) (*RestoreBoardResponse, error
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListTasksResponse parses an HTTP response from a ListTasksWithResponse call
+func ParseListTasksResponse(rsp *http.Response) (*ListTasksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTasksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TaskList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTaskResponse parses an HTTP response from a CreateTaskWithResponse call
+func ParseCreateTaskResponse(rsp *http.Response) (*CreateTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTaskResponse parses an HTTP response from a GetTaskWithResponse call
+func ParseGetTaskResponse(rsp *http.Response) (*GetTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateTaskResponse parses an HTTP response from a UpdateTaskWithResponse call
+func ParseUpdateTaskResponse(rsp *http.Response) (*UpdateTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFinishTaskResponse parses an HTTP response from a FinishTaskWithResponse call
+func ParseFinishTaskResponse(rsp *http.Response) (*FinishTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FinishTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDropTaskResponse parses an HTTP response from a DropTaskWithResponse call
+func ParseDropTaskResponse(rsp *http.Response) (*DropTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DropTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseJoinTaskResponse parses an HTTP response from a JoinTaskWithResponse call
+func ParseJoinTaskResponse(rsp *http.Response) (*JoinTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &JoinTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartTaskResponse parses an HTTP response from a StartTaskWithResponse call
+func ParseStartTaskResponse(rsp *http.Response) (*StartTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Task
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Error
@@ -27372,6 +35822,100 @@ func ParseLeaveAsAgentResponse(rsp *http.Response) (*LeaveAsAgentResponse, error
 	return response, nil
 }
 
+// ParseClearLineResponse parses an HTTP response from a ClearLineWithResponse call
+func ParseClearLineResponse(rsp *http.Response) (*ClearLineResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClearLineResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Member
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetLineResponse parses an HTTP response from a SetLineWithResponse call
+func ParseSetLineResponse(rsp *http.Response) (*SetLineResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetLineResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Member
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSetPresenceResponse parses an HTTP response from a SetPresenceWithResponse call
 func ParseSetPresenceResponse(rsp *http.Response) (*SetPresenceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -27971,6 +36515,9 @@ type ServerInterface interface {
 	// PruneAgents Remove agents disconnected for a while
 	// (POST /v1/agents/prune)
 	PruneAgents(w http.ResponseWriter, r *http.Request, params PruneAgentsParams)
+	// ListAsks List asks, with their state
+	// (GET /v1/asks)
+	ListAsks(w http.ResponseWriter, r *http.Request, params ListAsksParams)
 	// ListBoards List boards the caller is on, or every board it can see
 	// (GET /v1/boards)
 	ListBoards(w http.ResponseWriter, r *http.Request, params ListBoardsParams)
@@ -27995,6 +36542,30 @@ type ServerInterface interface {
 	// ListEvents Read the board's append-only event log
 	// (GET /v1/boards/{board}/events)
 	ListEvents(w http.ResponseWriter, r *http.Request, board BoardParam, params ListEventsParams)
+	// ListFiles List the board's files
+	// (GET /v1/boards/{board}/files)
+	ListFiles(w http.ResponseWriter, r *http.Request, board BoardParam, params ListFilesParams)
+	// PutFile Add a file, or a new version of one
+	// (POST /v1/boards/{board}/files)
+	PutFile(w http.ResponseWriter, r *http.Request, board BoardParam, params PutFileParams)
+	// RemoveFile Take a file off the board
+	// (DELETE /v1/boards/{board}/files/{file})
+	RemoveFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params RemoveFileParams)
+	// GetFile Read a file's versions, approvals and links
+	// (GET /v1/boards/{board}/files/{file})
+	GetFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam)
+	// UpdateFile Rename a file, mark it maintained or one-off, or change its tasks
+	// (PATCH /v1/boards/{board}/files/{file})
+	UpdateFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params UpdateFileParams)
+	// RemoveFileApproval Take back your approval of a file
+	// (DELETE /v1/boards/{board}/files/{file}/approval)
+	RemoveFileApproval(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params RemoveFileApprovalParams)
+	// ApproveFile Approve a version of a file, as a person
+	// (PUT /v1/boards/{board}/files/{file}/approval)
+	ApproveFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params ApproveFileParams)
+	// GetFileVersion Download a version's bytes
+	// (GET /v1/boards/{board}/files/{file}/versions/{version})
+	GetFileVersion(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, version string)
 	// CreateJoinCode Create a pairing code or a guest code for one role
 	// (POST /v1/boards/{board}/join-codes)
 	CreateJoinCode(w http.ResponseWriter, r *http.Request, board BoardParam, params CreateJoinCodeParams)
@@ -28013,6 +36584,12 @@ type ServerInterface interface {
 	// SetDeliveryMode Set an agent's delivery mode
 	// (PUT /v1/boards/{board}/members/{member}/delivery)
 	SetDeliveryMode(w http.ResponseWriter, r *http.Request, board BoardParam, member MemberName, params SetDeliveryModeParams)
+	// ClearMemberLine Clear your agent's line, as its person
+	// (DELETE /v1/boards/{board}/members/{member}/line)
+	ClearMemberLine(w http.ResponseWriter, r *http.Request, board BoardParam, member string, params ClearMemberLineParams)
+	// SetMemberLine Set your agent's line, as its person
+	// (PUT /v1/boards/{board}/members/{member}/line)
+	SetMemberLine(w http.ResponseWriter, r *http.Request, board BoardParam, member string, params SetMemberLineParams)
 	// ListMessages Read the board timeline
 	// (GET /v1/boards/{board}/messages)
 	ListMessages(w http.ResponseWriter, r *http.Request, board BoardParam, params ListMessagesParams)
@@ -28037,6 +36614,30 @@ type ServerInterface interface {
 	// RestoreBoard Restore a board
 	// (POST /v1/boards/{board}/restore)
 	RestoreBoard(w http.ResponseWriter, r *http.Request, board BoardLifecycleParam, params RestoreBoardParams)
+	// ListTasks List the board's tasks
+	// (GET /v1/boards/{board}/tasks)
+	ListTasks(w http.ResponseWriter, r *http.Request, board BoardParam, params ListTasksParams)
+	// CreateTask Open a task
+	// (POST /v1/boards/{board}/tasks)
+	CreateTask(w http.ResponseWriter, r *http.Request, board BoardParam, params CreateTaskParams)
+	// GetTask Read one task
+	// (GET /v1/boards/{board}/tasks/{task})
+	GetTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam)
+	// UpdateTask Change a task's title, About or Where it stands
+	// (PATCH /v1/boards/{board}/tasks/{task})
+	UpdateTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params UpdateTaskParams)
+	// FinishTask Close a task, done or cancelled
+	// (POST /v1/boards/{board}/tasks/{task}/done)
+	FinishTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params FinishTaskParams)
+	// DropTask Give a task back, or stop helping on it
+	// (POST /v1/boards/{board}/tasks/{task}/drop)
+	DropTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params DropTaskParams)
+	// JoinTask Help on a task without taking it over
+	// (POST /v1/boards/{board}/tasks/{task}/join)
+	JoinTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params JoinTaskParams)
+	// StartTask Take a task and start on it
+	// (POST /v1/boards/{board}/tasks/{task}/start)
+	StartTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params StartTaskParams)
 	// ListThreads List the board's threads
 	// (GET /v1/boards/{board}/threads)
 	ListThreads(w http.ResponseWriter, r *http.Request, board BoardParam, params ListThreadsParams)
@@ -28129,6 +36730,12 @@ type ServerInterface interface {
 	// LeaveAsAgent The calling agent leaves its board
 	// (POST /v1/me/leave)
 	LeaveAsAgent(w http.ResponseWriter, r *http.Request, params LeaveAsAgentParams)
+	// ClearLine Clear this agent's line
+	// (DELETE /v1/me/line)
+	ClearLine(w http.ResponseWriter, r *http.Request, params ClearLineParams)
+	// SetLine Say what this agent is on
+	// (PUT /v1/me/line)
+	SetLine(w http.ResponseWriter, r *http.Request, params SetLineParams)
 	// SetPresence Report what this agent's session is doing
 	// (PUT /v1/me/presence)
 	SetPresence(w http.ResponseWriter, r *http.Request, params SetPresenceParams)
@@ -28205,6 +36812,104 @@ func (siw *ServerInterfaceWrapper) PruneAgents(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PruneAgents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAsks operation middleware
+func (siw *ServerInterfaceWrapper) ListAsks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAsksParams
+
+	// ------------- Optional query parameter "board" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "board", r.URL.Query(), &params.Board, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "board"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to_me" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to_me", r.URL.Query(), &params.ToMe, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to_me"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to_me", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from_me" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from_me", r.URL.Query(), &params.FromMe, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from_me"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from_me", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "task" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "task", r.URL.Query(), &params.Task, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "task"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAsks(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28582,6 +37287,530 @@ func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListFiles operation middleware
+func (siw *ServerInterfaceWrapper) ListFiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFilesParams
+
+	// ------------- Optional query parameter "task" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "task", r.URL.Query(), &params.Task, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "task"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "mine" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mine", r.URL.Query(), &params.Mine, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "mine"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mine", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFiles(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutFile operation middleware
+func (siw *ServerInterfaceWrapper) PutFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutFileParams
+
+	// ------------- Required query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "base" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "base", r.URL.Query(), &params.Base, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "base"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "base", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "brief" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "brief", r.URL.Query(), &params.Brief, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "brief"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "brief", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "maintained" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "maintained", r.URL.Query(), &params.Maintained, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "maintained"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "maintained", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "about" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "about", r.URL.Query(), &params.About, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "about"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "about", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "replace_format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "replace_format", r.URL.Query(), &params.ReplaceFormat, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "replace_format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "replace_format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "media_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "media_type", r.URL.Query(), &params.MediaType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "media_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "media_type", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutFile(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveFile operation middleware
+func (siw *ServerInterfaceWrapper) RemoveFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "file" -------------
+	var file FileParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "file", r.PathValue("file"), &file, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "file", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveFileParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveFile(w, r, board, file, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFile operation middleware
+func (siw *ServerInterfaceWrapper) GetFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "file" -------------
+	var file FileParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "file", r.PathValue("file"), &file, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "file", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFile(w, r, board, file)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateFile operation middleware
+func (siw *ServerInterfaceWrapper) UpdateFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "file" -------------
+	var file FileParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "file", r.PathValue("file"), &file, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "file", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateFileParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateFile(w, r, board, file, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveFileApproval operation middleware
+func (siw *ServerInterfaceWrapper) RemoveFileApproval(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "file" -------------
+	var file FileParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "file", r.PathValue("file"), &file, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "file", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveFileApprovalParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveFileApproval(w, r, board, file, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveFile operation middleware
+func (siw *ServerInterfaceWrapper) ApproveFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "file" -------------
+	var file FileParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "file", r.PathValue("file"), &file, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "file", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveFileParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveFile(w, r, board, file, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFileVersion operation middleware
+func (siw *ServerInterfaceWrapper) GetFileVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "file" -------------
+	var file FileParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "file", r.PathValue("file"), &file, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "file", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "version" -------------
+	var version string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", r.PathValue("version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFileVersion(w, r, board, file, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateJoinCode operation middleware
 func (siw *ServerInterfaceWrapper) CreateJoinCode(w http.ResponseWriter, r *http.Request) {
 
@@ -28901,6 +38130,124 @@ func (siw *ServerInterfaceWrapper) SetDeliveryMode(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ClearMemberLine operation middleware
+func (siw *ServerInterfaceWrapper) ClearMemberLine(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "member" -------------
+	var member string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ClearMemberLineParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearMemberLine(w, r, board, member, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetMemberLine operation middleware
+func (siw *ServerInterfaceWrapper) SetMemberLine(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "member" -------------
+	var member string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "member", r.PathValue("member"), &member, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "member", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetMemberLineParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetMemberLine(w, r, board, member, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListMessages operation middleware
 func (siw *ServerInterfaceWrapper) ListMessages(w http.ResponseWriter, r *http.Request) {
 
@@ -28993,6 +38340,19 @@ func (siw *ServerInterfaceWrapper) ListMessages(w http.ResponseWriter, r *http.R
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to_me"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to_me", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "task" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "task", r.URL.Query(), &params.Task, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "task"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
 		}
 		return
 	}
@@ -29332,6 +38692,467 @@ func (siw *ServerInterfaceWrapper) RestoreBoard(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestoreBoard(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTasks operation middleware
+func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTasksParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "owner" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "owner", r.URL.Query(), &params.Owner, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "owner"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "owner", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "mine" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mine", r.URL.Query(), &params.Mine, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "mine"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mine", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTasks(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTask operation middleware
+func (siw *ServerInterfaceWrapper) CreateTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateTaskParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTask(w, r, board, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTask operation middleware
+func (siw *ServerInterfaceWrapper) GetTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "task" -------------
+	var task TaskParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task", r.PathValue("task"), &task, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTask(w, r, board, task)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTask operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "task" -------------
+	var task TaskParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task", r.PathValue("task"), &task, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateTaskParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTask(w, r, board, task, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishTask operation middleware
+func (siw *ServerInterfaceWrapper) FinishTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "task" -------------
+	var task TaskParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task", r.PathValue("task"), &task, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishTaskParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishTask(w, r, board, task, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DropTask operation middleware
+func (siw *ServerInterfaceWrapper) DropTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "task" -------------
+	var task TaskParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task", r.PathValue("task"), &task, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DropTaskParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DropTask(w, r, board, task, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// JoinTask operation middleware
+func (siw *ServerInterfaceWrapper) JoinTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "task" -------------
+	var task TaskParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task", r.PathValue("task"), &task, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params JoinTaskParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.JoinTask(w, r, board, task, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartTask operation middleware
+func (siw *ServerInterfaceWrapper) StartTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "board" -------------
+	var board BoardParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "board", r.PathValue("board"), &board, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "board", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "task" -------------
+	var task TaskParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task", r.PathValue("task"), &task, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartTaskParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartTask(w, r, board, task, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30443,6 +40264,88 @@ func (siw *ServerInterfaceWrapper) LeaveAsAgent(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ClearLine operation middleware
+func (siw *ServerInterfaceWrapper) ClearLine(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ClearLineParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearLine(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetLine operation middleware
+func (siw *ServerInterfaceWrapper) SetLine(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetLineParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetLine(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SetPresence operation middleware
 func (siw *ServerInterfaceWrapper) SetPresence(w http.ResponseWriter, r *http.Request) {
 
@@ -31074,6 +40977,27 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/messages/{message}/reactions/{reaction}", wrapper.RemoveReaction)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/messages/{message}/reactions/{reaction}", wrapper.AddReaction)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/threads", wrapper.ListThreads)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/tasks", wrapper.ListTasks)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/tasks", wrapper.CreateTask)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/tasks/{task}", wrapper.GetTask)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/boards/{board}/tasks/{task}", wrapper.UpdateTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/tasks/{task}/start", wrapper.StartTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/tasks/{task}/join", wrapper.JoinTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/tasks/{task}/done", wrapper.FinishTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/tasks/{task}/drop", wrapper.DropTask)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/asks", wrapper.ListAsks)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/line", wrapper.ClearLine)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/line", wrapper.SetLine)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/members/{member}/line", wrapper.ClearMemberLine)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/boards/{board}/members/{member}/line", wrapper.SetMemberLine)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/files", wrapper.ListFiles)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/boards/{board}/files", wrapper.PutFile)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/files/{file}", wrapper.RemoveFile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/files/{file}", wrapper.GetFile)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/boards/{board}/files/{file}", wrapper.UpdateFile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/files/{file}/versions/{version}", wrapper.GetFileVersion)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/boards/{board}/files/{file}/approval", wrapper.RemoveFileApproval)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/boards/{board}/files/{file}/approval", wrapper.ApproveFile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/events", wrapper.ListEvents)
 
@@ -31157,6 +41081,70 @@ func (response PruneAgents422JSONResponse) VisitPruneAgentsResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAsksRequestObject struct {
+	Params ListAsksParams
+}
+
+type ListAsksResponseObject interface {
+	VisitListAsksResponse(w http.ResponseWriter) error
+}
+
+type ListAsks200JSONResponse AskList
+
+func (response ListAsks200JSONResponse) VisitListAsksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAsks401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListAsks401JSONResponse) VisitListAsksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAsks403JSONResponse Error
+
+func (response ListAsks403JSONResponse) VisitListAsksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAsks404JSONResponse Error
+
+func (response ListAsks404JSONResponse) VisitListAsksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -31845,6 +41833,632 @@ func (response ListEvents404JSONResponse) VisitListEventsResponse(w http.Respons
 	return err
 }
 
+type ListFilesRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params ListFilesParams
+}
+
+type ListFilesResponseObject interface {
+	VisitListFilesResponse(w http.ResponseWriter) error
+}
+
+type ListFiles200JSONResponse FileList
+
+func (response ListFiles200JSONResponse) VisitListFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFiles401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListFiles401JSONResponse) VisitListFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFiles403JSONResponse Error
+
+func (response ListFiles403JSONResponse) VisitListFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFiles404JSONResponse Error
+
+func (response ListFiles404JSONResponse) VisitListFilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFileRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params PutFileParams
+	Body   io.Reader
+}
+
+type PutFileResponseObject interface {
+	VisitPutFileResponse(w http.ResponseWriter) error
+}
+
+type PutFile201JSONResponse BoardFile
+
+func (response PutFile201JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile400JSONResponse struct{ ErrorJSONResponse }
+
+func (response PutFile400JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile401JSONResponse Error
+
+func (response PutFile401JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile403JSONResponse Error
+
+func (response PutFile403JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile404JSONResponse Error
+
+func (response PutFile404JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile409JSONResponse Error
+
+func (response PutFile409JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile413JSONResponse Error
+
+func (response PutFile413JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFile422JSONResponse Error
+
+func (response PutFile422JSONResponse) VisitPutFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFileRequestObject struct {
+	Board  BoardParam `json:"board"`
+	File   FileParam  `json:"file"`
+	Params RemoveFileParams
+}
+
+type RemoveFileResponseObject interface {
+	VisitRemoveFileResponse(w http.ResponseWriter) error
+}
+
+type RemoveFile200JSONResponse BoardFile
+
+func (response RemoveFile200JSONResponse) VisitRemoveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFile401JSONResponse struct{ ErrorJSONResponse }
+
+func (response RemoveFile401JSONResponse) VisitRemoveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFile403JSONResponse Error
+
+func (response RemoveFile403JSONResponse) VisitRemoveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFile404JSONResponse Error
+
+func (response RemoveFile404JSONResponse) VisitRemoveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFileRequestObject struct {
+	Board BoardParam `json:"board"`
+	File  FileParam  `json:"file"`
+}
+
+type GetFileResponseObject interface {
+	VisitGetFileResponse(w http.ResponseWriter) error
+}
+
+type GetFile200JSONResponse FileDetail
+
+func (response GetFile200JSONResponse) VisitGetFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFile401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetFile401JSONResponse) VisitGetFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFile403JSONResponse Error
+
+func (response GetFile403JSONResponse) VisitGetFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFile404JSONResponse Error
+
+func (response GetFile404JSONResponse) VisitGetFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFileRequestObject struct {
+	Board  BoardParam `json:"board"`
+	File   FileParam  `json:"file"`
+	Params UpdateFileParams
+	Body   *UpdateFileJSONRequestBody
+}
+
+type UpdateFileResponseObject interface {
+	VisitUpdateFileResponse(w http.ResponseWriter) error
+}
+
+type UpdateFile200JSONResponse BoardFile
+
+func (response UpdateFile200JSONResponse) VisitUpdateFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFile400JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateFile400JSONResponse) VisitUpdateFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFile401JSONResponse Error
+
+func (response UpdateFile401JSONResponse) VisitUpdateFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFile403JSONResponse Error
+
+func (response UpdateFile403JSONResponse) VisitUpdateFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFile404JSONResponse Error
+
+func (response UpdateFile404JSONResponse) VisitUpdateFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFileApprovalRequestObject struct {
+	Board  BoardParam `json:"board"`
+	File   FileParam  `json:"file"`
+	Params RemoveFileApprovalParams
+}
+
+type RemoveFileApprovalResponseObject interface {
+	VisitRemoveFileApprovalResponse(w http.ResponseWriter) error
+}
+
+type RemoveFileApproval200JSONResponse BoardFile
+
+func (response RemoveFileApproval200JSONResponse) VisitRemoveFileApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFileApproval401JSONResponse struct{ ErrorJSONResponse }
+
+func (response RemoveFileApproval401JSONResponse) VisitRemoveFileApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFileApproval403JSONResponse Error
+
+func (response RemoveFileApproval403JSONResponse) VisitRemoveFileApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveFileApproval404JSONResponse Error
+
+func (response RemoveFileApproval404JSONResponse) VisitRemoveFileApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveFileRequestObject struct {
+	Board  BoardParam `json:"board"`
+	File   FileParam  `json:"file"`
+	Params ApproveFileParams
+	Body   *ApproveFileJSONRequestBody
+}
+
+type ApproveFileResponseObject interface {
+	VisitApproveFileResponse(w http.ResponseWriter) error
+}
+
+type ApproveFile200JSONResponse BoardFile
+
+func (response ApproveFile200JSONResponse) VisitApproveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveFile400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ApproveFile400JSONResponse) VisitApproveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveFile401JSONResponse Error
+
+func (response ApproveFile401JSONResponse) VisitApproveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveFile403JSONResponse Error
+
+func (response ApproveFile403JSONResponse) VisitApproveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveFile404JSONResponse Error
+
+func (response ApproveFile404JSONResponse) VisitApproveFileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFileVersionRequestObject struct {
+	Board   BoardParam `json:"board"`
+	File    FileParam  `json:"file"`
+	Version string     `json:"version"`
+}
+
+type GetFileVersionResponseObject interface {
+	VisitGetFileVersionResponse(w http.ResponseWriter) error
+}
+
+type GetFileVersion200ResponseHeaders struct {
+	ETag *string
+}
+
+type GetFileVersion200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	Headers       GetFileVersion200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetFileVersion200ApplicationoctetStreamResponse) VisitGetFileVersionResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetFileVersion401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetFileVersion401JSONResponse) VisitGetFileVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFileVersion403JSONResponse Error
+
+func (response GetFileVersion403JSONResponse) VisitGetFileVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFileVersion404JSONResponse Error
+
+func (response GetFileVersion404JSONResponse) VisitGetFileVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateJoinCodeRequestObject struct {
 	Board  BoardParam `json:"board"`
 	Params CreateJoinCodeParams
@@ -32301,6 +42915,167 @@ func (response SetDeliveryMode404JSONResponse) VisitSetDeliveryModeResponse(w ht
 type SetDeliveryMode422JSONResponse Error
 
 func (response SetDeliveryMode422JSONResponse) VisitSetDeliveryModeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearMemberLineRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Member string     `json:"member"`
+	Params ClearMemberLineParams
+}
+
+type ClearMemberLineResponseObject interface {
+	VisitClearMemberLineResponse(w http.ResponseWriter) error
+}
+
+type ClearMemberLine200JSONResponse Member
+
+func (response ClearMemberLine200JSONResponse) VisitClearMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearMemberLine401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ClearMemberLine401JSONResponse) VisitClearMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearMemberLine403JSONResponse Error
+
+func (response ClearMemberLine403JSONResponse) VisitClearMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearMemberLine404JSONResponse Error
+
+func (response ClearMemberLine404JSONResponse) VisitClearMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMemberLineRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Member string     `json:"member"`
+	Params SetMemberLineParams
+	Body   *SetMemberLineJSONRequestBody
+}
+
+type SetMemberLineResponseObject interface {
+	VisitSetMemberLineResponse(w http.ResponseWriter) error
+}
+
+type SetMemberLine200JSONResponse Member
+
+func (response SetMemberLine200JSONResponse) VisitSetMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMemberLine400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetMemberLine400JSONResponse) VisitSetMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMemberLine401JSONResponse Error
+
+func (response SetMemberLine401JSONResponse) VisitSetMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMemberLine403JSONResponse Error
+
+func (response SetMemberLine403JSONResponse) VisitSetMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMemberLine404JSONResponse Error
+
+func (response SetMemberLine404JSONResponse) VisitSetMemberLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMemberLine422JSONResponse Error
+
+func (response SetMemberLine422JSONResponse) VisitSetMemberLineResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -32964,6 +43739,675 @@ func (response RestoreBoard404JSONResponse) VisitRestoreBoardResponse(w http.Res
 type RestoreBoard409JSONResponse Error
 
 func (response RestoreBoard409JSONResponse) VisitRestoreBoardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasksRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params ListTasksParams
+}
+
+type ListTasksResponseObject interface {
+	VisitListTasksResponse(w http.ResponseWriter) error
+}
+
+type ListTasks200JSONResponse TaskList
+
+func (response ListTasks200JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasks401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListTasks401JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasks403JSONResponse Error
+
+func (response ListTasks403JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasks404JSONResponse Error
+
+func (response ListTasks404JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTaskRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Params CreateTaskParams
+	Body   *CreateTaskJSONRequestBody
+}
+
+type CreateTaskResponseObject interface {
+	VisitCreateTaskResponse(w http.ResponseWriter) error
+}
+
+type CreateTask201JSONResponse Task
+
+func (response CreateTask201JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateTask400JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask401JSONResponse Error
+
+func (response CreateTask401JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask403JSONResponse Error
+
+func (response CreateTask403JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask404JSONResponse Error
+
+func (response CreateTask404JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTask409JSONResponse Error
+
+func (response CreateTask409JSONResponse) VisitCreateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTaskRequestObject struct {
+	Board BoardParam `json:"board"`
+	Task  TaskParam  `json:"task"`
+}
+
+type GetTaskResponseObject interface {
+	VisitGetTaskResponse(w http.ResponseWriter) error
+}
+
+type GetTask200JSONResponse Task
+
+func (response GetTask200JSONResponse) VisitGetTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTask401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetTask401JSONResponse) VisitGetTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTask403JSONResponse Error
+
+func (response GetTask403JSONResponse) VisitGetTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTask404JSONResponse Error
+
+func (response GetTask404JSONResponse) VisitGetTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTaskRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Task   TaskParam  `json:"task"`
+	Params UpdateTaskParams
+	Body   *UpdateTaskJSONRequestBody
+}
+
+type UpdateTaskResponseObject interface {
+	VisitUpdateTaskResponse(w http.ResponseWriter) error
+}
+
+type UpdateTask200JSONResponse Task
+
+func (response UpdateTask200JSONResponse) VisitUpdateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTask400JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateTask400JSONResponse) VisitUpdateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTask401JSONResponse Error
+
+func (response UpdateTask401JSONResponse) VisitUpdateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTask403JSONResponse Error
+
+func (response UpdateTask403JSONResponse) VisitUpdateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTask404JSONResponse Error
+
+func (response UpdateTask404JSONResponse) VisitUpdateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTask409JSONResponse Error
+
+func (response UpdateTask409JSONResponse) VisitUpdateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishTaskRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Task   TaskParam  `json:"task"`
+	Params FinishTaskParams
+	Body   *FinishTaskJSONRequestBody
+}
+
+type FinishTaskResponseObject interface {
+	VisitFinishTaskResponse(w http.ResponseWriter) error
+}
+
+type FinishTask200JSONResponse Task
+
+func (response FinishTask200JSONResponse) VisitFinishTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishTask400JSONResponse struct{ ErrorJSONResponse }
+
+func (response FinishTask400JSONResponse) VisitFinishTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishTask401JSONResponse Error
+
+func (response FinishTask401JSONResponse) VisitFinishTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishTask403JSONResponse Error
+
+func (response FinishTask403JSONResponse) VisitFinishTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishTask404JSONResponse Error
+
+func (response FinishTask404JSONResponse) VisitFinishTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishTask409JSONResponse Error
+
+func (response FinishTask409JSONResponse) VisitFinishTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DropTaskRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Task   TaskParam  `json:"task"`
+	Params DropTaskParams
+	Body   *DropTaskJSONRequestBody
+}
+
+type DropTaskResponseObject interface {
+	VisitDropTaskResponse(w http.ResponseWriter) error
+}
+
+type DropTask200JSONResponse Task
+
+func (response DropTask200JSONResponse) VisitDropTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DropTask400JSONResponse struct{ ErrorJSONResponse }
+
+func (response DropTask400JSONResponse) VisitDropTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DropTask401JSONResponse Error
+
+func (response DropTask401JSONResponse) VisitDropTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DropTask403JSONResponse Error
+
+func (response DropTask403JSONResponse) VisitDropTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DropTask404JSONResponse Error
+
+func (response DropTask404JSONResponse) VisitDropTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DropTask409JSONResponse Error
+
+func (response DropTask409JSONResponse) VisitDropTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinTaskRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Task   TaskParam  `json:"task"`
+	Params JoinTaskParams
+}
+
+type JoinTaskResponseObject interface {
+	VisitJoinTaskResponse(w http.ResponseWriter) error
+}
+
+type JoinTask200JSONResponse Task
+
+func (response JoinTask200JSONResponse) VisitJoinTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinTask401JSONResponse struct{ ErrorJSONResponse }
+
+func (response JoinTask401JSONResponse) VisitJoinTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinTask403JSONResponse Error
+
+func (response JoinTask403JSONResponse) VisitJoinTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinTask404JSONResponse Error
+
+func (response JoinTask404JSONResponse) VisitJoinTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinTask409JSONResponse Error
+
+func (response JoinTask409JSONResponse) VisitJoinTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTaskRequestObject struct {
+	Board  BoardParam `json:"board"`
+	Task   TaskParam  `json:"task"`
+	Params StartTaskParams
+}
+
+type StartTaskResponseObject interface {
+	VisitStartTaskResponse(w http.ResponseWriter) error
+}
+
+type StartTask200JSONResponse Task
+
+func (response StartTask200JSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTask401JSONResponse struct{ ErrorJSONResponse }
+
+func (response StartTask401JSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTask403JSONResponse Error
+
+func (response StartTask403JSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTask404JSONResponse Error
+
+func (response StartTask404JSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTask409JSONResponse Error
+
+func (response StartTask409JSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -35410,6 +46854,135 @@ func (response LeaveAsAgent404JSONResponse) VisitLeaveAsAgentResponse(w http.Res
 	return err
 }
 
+type ClearLineRequestObject struct {
+	Params ClearLineParams
+}
+
+type ClearLineResponseObject interface {
+	VisitClearLineResponse(w http.ResponseWriter) error
+}
+
+type ClearLine200JSONResponse Member
+
+func (response ClearLine200JSONResponse) VisitClearLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearLine401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ClearLine401JSONResponse) VisitClearLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearLine403JSONResponse Error
+
+func (response ClearLine403JSONResponse) VisitClearLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLineRequestObject struct {
+	Params SetLineParams
+	Body   *SetLineJSONRequestBody
+}
+
+type SetLineResponseObject interface {
+	VisitSetLineResponse(w http.ResponseWriter) error
+}
+
+type SetLine200JSONResponse Member
+
+func (response SetLine200JSONResponse) VisitSetLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLine400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetLine400JSONResponse) VisitSetLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLine401JSONResponse Error
+
+func (response SetLine401JSONResponse) VisitSetLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLine403JSONResponse Error
+
+func (response SetLine403JSONResponse) VisitSetLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLine422JSONResponse Error
+
+func (response SetLine422JSONResponse) VisitSetLineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SetPresenceRequestObject struct {
 	Params SetPresenceParams
 	Body   *SetPresenceJSONRequestBody
@@ -36309,6 +47882,9 @@ type StrictServerInterface interface {
 	// PruneAgents Remove agents disconnected for a while
 	// (POST /v1/agents/prune)
 	PruneAgents(ctx context.Context, request PruneAgentsRequestObject) (PruneAgentsResponseObject, error)
+	// ListAsks List asks, with their state
+	// (GET /v1/asks)
+	ListAsks(ctx context.Context, request ListAsksRequestObject) (ListAsksResponseObject, error)
 	// ListBoards List boards the caller is on, or every board it can see
 	// (GET /v1/boards)
 	ListBoards(ctx context.Context, request ListBoardsRequestObject) (ListBoardsResponseObject, error)
@@ -36333,6 +47909,30 @@ type StrictServerInterface interface {
 	// ListEvents Read the board's append-only event log
 	// (GET /v1/boards/{board}/events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// ListFiles List the board's files
+	// (GET /v1/boards/{board}/files)
+	ListFiles(ctx context.Context, request ListFilesRequestObject) (ListFilesResponseObject, error)
+	// PutFile Add a file, or a new version of one
+	// (POST /v1/boards/{board}/files)
+	PutFile(ctx context.Context, request PutFileRequestObject) (PutFileResponseObject, error)
+	// RemoveFile Take a file off the board
+	// (DELETE /v1/boards/{board}/files/{file})
+	RemoveFile(ctx context.Context, request RemoveFileRequestObject) (RemoveFileResponseObject, error)
+	// GetFile Read a file's versions, approvals and links
+	// (GET /v1/boards/{board}/files/{file})
+	GetFile(ctx context.Context, request GetFileRequestObject) (GetFileResponseObject, error)
+	// UpdateFile Rename a file, mark it maintained or one-off, or change its tasks
+	// (PATCH /v1/boards/{board}/files/{file})
+	UpdateFile(ctx context.Context, request UpdateFileRequestObject) (UpdateFileResponseObject, error)
+	// RemoveFileApproval Take back your approval of a file
+	// (DELETE /v1/boards/{board}/files/{file}/approval)
+	RemoveFileApproval(ctx context.Context, request RemoveFileApprovalRequestObject) (RemoveFileApprovalResponseObject, error)
+	// ApproveFile Approve a version of a file, as a person
+	// (PUT /v1/boards/{board}/files/{file}/approval)
+	ApproveFile(ctx context.Context, request ApproveFileRequestObject) (ApproveFileResponseObject, error)
+	// GetFileVersion Download a version's bytes
+	// (GET /v1/boards/{board}/files/{file}/versions/{version})
+	GetFileVersion(ctx context.Context, request GetFileVersionRequestObject) (GetFileVersionResponseObject, error)
 	// CreateJoinCode Create a pairing code or a guest code for one role
 	// (POST /v1/boards/{board}/join-codes)
 	CreateJoinCode(ctx context.Context, request CreateJoinCodeRequestObject) (CreateJoinCodeResponseObject, error)
@@ -36351,6 +47951,12 @@ type StrictServerInterface interface {
 	// SetDeliveryMode Set an agent's delivery mode
 	// (PUT /v1/boards/{board}/members/{member}/delivery)
 	SetDeliveryMode(ctx context.Context, request SetDeliveryModeRequestObject) (SetDeliveryModeResponseObject, error)
+	// ClearMemberLine Clear your agent's line, as its person
+	// (DELETE /v1/boards/{board}/members/{member}/line)
+	ClearMemberLine(ctx context.Context, request ClearMemberLineRequestObject) (ClearMemberLineResponseObject, error)
+	// SetMemberLine Set your agent's line, as its person
+	// (PUT /v1/boards/{board}/members/{member}/line)
+	SetMemberLine(ctx context.Context, request SetMemberLineRequestObject) (SetMemberLineResponseObject, error)
 	// ListMessages Read the board timeline
 	// (GET /v1/boards/{board}/messages)
 	ListMessages(ctx context.Context, request ListMessagesRequestObject) (ListMessagesResponseObject, error)
@@ -36375,6 +47981,30 @@ type StrictServerInterface interface {
 	// RestoreBoard Restore a board
 	// (POST /v1/boards/{board}/restore)
 	RestoreBoard(ctx context.Context, request RestoreBoardRequestObject) (RestoreBoardResponseObject, error)
+	// ListTasks List the board's tasks
+	// (GET /v1/boards/{board}/tasks)
+	ListTasks(ctx context.Context, request ListTasksRequestObject) (ListTasksResponseObject, error)
+	// CreateTask Open a task
+	// (POST /v1/boards/{board}/tasks)
+	CreateTask(ctx context.Context, request CreateTaskRequestObject) (CreateTaskResponseObject, error)
+	// GetTask Read one task
+	// (GET /v1/boards/{board}/tasks/{task})
+	GetTask(ctx context.Context, request GetTaskRequestObject) (GetTaskResponseObject, error)
+	// UpdateTask Change a task's title, About or Where it stands
+	// (PATCH /v1/boards/{board}/tasks/{task})
+	UpdateTask(ctx context.Context, request UpdateTaskRequestObject) (UpdateTaskResponseObject, error)
+	// FinishTask Close a task, done or cancelled
+	// (POST /v1/boards/{board}/tasks/{task}/done)
+	FinishTask(ctx context.Context, request FinishTaskRequestObject) (FinishTaskResponseObject, error)
+	// DropTask Give a task back, or stop helping on it
+	// (POST /v1/boards/{board}/tasks/{task}/drop)
+	DropTask(ctx context.Context, request DropTaskRequestObject) (DropTaskResponseObject, error)
+	// JoinTask Help on a task without taking it over
+	// (POST /v1/boards/{board}/tasks/{task}/join)
+	JoinTask(ctx context.Context, request JoinTaskRequestObject) (JoinTaskResponseObject, error)
+	// StartTask Take a task and start on it
+	// (POST /v1/boards/{board}/tasks/{task}/start)
+	StartTask(ctx context.Context, request StartTaskRequestObject) (StartTaskResponseObject, error)
 	// ListThreads List the board's threads
 	// (GET /v1/boards/{board}/threads)
 	ListThreads(ctx context.Context, request ListThreadsRequestObject) (ListThreadsResponseObject, error)
@@ -36467,6 +48097,12 @@ type StrictServerInterface interface {
 	// LeaveAsAgent The calling agent leaves its board
 	// (POST /v1/me/leave)
 	LeaveAsAgent(ctx context.Context, request LeaveAsAgentRequestObject) (LeaveAsAgentResponseObject, error)
+	// ClearLine Clear this agent's line
+	// (DELETE /v1/me/line)
+	ClearLine(ctx context.Context, request ClearLineRequestObject) (ClearLineResponseObject, error)
+	// SetLine Say what this agent is on
+	// (PUT /v1/me/line)
+	SetLine(ctx context.Context, request SetLineRequestObject) (SetLineResponseObject, error)
 	// SetPresence Report what this agent's session is doing
 	// (PUT /v1/me/presence)
 	SetPresence(ctx context.Context, request SetPresenceRequestObject) (SetPresenceResponseObject, error)
@@ -36567,6 +48203,32 @@ func (sh *strictHandler) PruneAgents(w http.ResponseWriter, r *http.Request, par
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PruneAgentsResponseObject); ok {
 		if err := validResponse.VisitPruneAgentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAsks operation middleware
+func (sh *strictHandler) ListAsks(w http.ResponseWriter, r *http.Request, params ListAsksParams) {
+	var request ListAsksRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAsks(ctx, request.(ListAsksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAsks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAsksResponseObject); ok {
+		if err := validResponse.VisitListAsksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -36808,6 +48470,243 @@ func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, boar
 	}
 }
 
+// ListFiles operation middleware
+func (sh *strictHandler) ListFiles(w http.ResponseWriter, r *http.Request, board BoardParam, params ListFilesParams) {
+	var request ListFilesRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFiles(ctx, request.(ListFilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFiles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListFilesResponseObject); ok {
+		if err := validResponse.VisitListFilesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutFile operation middleware
+func (sh *strictHandler) PutFile(w http.ResponseWriter, r *http.Request, board BoardParam, params PutFileParams) {
+	var request PutFileRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutFile(ctx, request.(PutFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutFileResponseObject); ok {
+		if err := validResponse.VisitPutFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveFile operation middleware
+func (sh *strictHandler) RemoveFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params RemoveFileParams) {
+	var request RemoveFileRequestObject
+
+	request.Board = board
+	request.File = file
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveFile(ctx, request.(RemoveFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveFileResponseObject); ok {
+		if err := validResponse.VisitRemoveFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetFile operation middleware
+func (sh *strictHandler) GetFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam) {
+	var request GetFileRequestObject
+
+	request.Board = board
+	request.File = file
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFile(ctx, request.(GetFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetFileResponseObject); ok {
+		if err := validResponse.VisitGetFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateFile operation middleware
+func (sh *strictHandler) UpdateFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params UpdateFileParams) {
+	var request UpdateFileRequestObject
+
+	request.Board = board
+	request.File = file
+	request.Params = params
+
+	var body UpdateFileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateFile(ctx, request.(UpdateFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateFileResponseObject); ok {
+		if err := validResponse.VisitUpdateFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveFileApproval operation middleware
+func (sh *strictHandler) RemoveFileApproval(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params RemoveFileApprovalParams) {
+	var request RemoveFileApprovalRequestObject
+
+	request.Board = board
+	request.File = file
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveFileApproval(ctx, request.(RemoveFileApprovalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveFileApproval")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveFileApprovalResponseObject); ok {
+		if err := validResponse.VisitRemoveFileApprovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveFile operation middleware
+func (sh *strictHandler) ApproveFile(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, params ApproveFileParams) {
+	var request ApproveFileRequestObject
+
+	request.Board = board
+	request.File = file
+	request.Params = params
+
+	var body ApproveFileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveFile(ctx, request.(ApproveFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveFileResponseObject); ok {
+		if err := validResponse.VisitApproveFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetFileVersion operation middleware
+func (sh *strictHandler) GetFileVersion(w http.ResponseWriter, r *http.Request, board BoardParam, file FileParam, version string) {
+	var request GetFileVersionRequestObject
+
+	request.Board = board
+	request.File = file
+	request.Version = version
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFileVersion(ctx, request.(GetFileVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFileVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetFileVersionResponseObject); ok {
+		if err := validResponse.VisitGetFileVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateJoinCode operation middleware
 func (sh *strictHandler) CreateJoinCode(w http.ResponseWriter, r *http.Request, board BoardParam, params CreateJoinCodeParams) {
 	var request CreateJoinCodeRequestObject
@@ -36980,6 +48879,69 @@ func (sh *strictHandler) SetDeliveryMode(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetDeliveryModeResponseObject); ok {
 		if err := validResponse.VisitSetDeliveryModeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearMemberLine operation middleware
+func (sh *strictHandler) ClearMemberLine(w http.ResponseWriter, r *http.Request, board BoardParam, member string, params ClearMemberLineParams) {
+	var request ClearMemberLineRequestObject
+
+	request.Board = board
+	request.Member = member
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearMemberLine(ctx, request.(ClearMemberLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearMemberLine")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearMemberLineResponseObject); ok {
+		if err := validResponse.VisitClearMemberLineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetMemberLine operation middleware
+func (sh *strictHandler) SetMemberLine(w http.ResponseWriter, r *http.Request, board BoardParam, member string, params SetMemberLineParams) {
+	var request SetMemberLineRequestObject
+
+	request.Board = board
+	request.Member = member
+	request.Params = params
+
+	var body SetMemberLineJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetMemberLine(ctx, request.(SetMemberLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetMemberLine")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetMemberLineResponseObject); ok {
+		if err := validResponse.VisitSetMemberLineResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -37217,6 +49179,258 @@ func (sh *strictHandler) RestoreBoard(w http.ResponseWriter, r *http.Request, bo
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RestoreBoardResponseObject); ok {
 		if err := validResponse.VisitRestoreBoardResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTasks operation middleware
+func (sh *strictHandler) ListTasks(w http.ResponseWriter, r *http.Request, board BoardParam, params ListTasksParams) {
+	var request ListTasksRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTasks(ctx, request.(ListTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTasksResponseObject); ok {
+		if err := validResponse.VisitListTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateTask operation middleware
+func (sh *strictHandler) CreateTask(w http.ResponseWriter, r *http.Request, board BoardParam, params CreateTaskParams) {
+	var request CreateTaskRequestObject
+
+	request.Board = board
+	request.Params = params
+
+	var body CreateTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTask(ctx, request.(CreateTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateTaskResponseObject); ok {
+		if err := validResponse.VisitCreateTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTask operation middleware
+func (sh *strictHandler) GetTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam) {
+	var request GetTaskRequestObject
+
+	request.Board = board
+	request.Task = task
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTask(ctx, request.(GetTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTaskResponseObject); ok {
+		if err := validResponse.VisitGetTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateTask operation middleware
+func (sh *strictHandler) UpdateTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params UpdateTaskParams) {
+	var request UpdateTaskRequestObject
+
+	request.Board = board
+	request.Task = task
+	request.Params = params
+
+	var body UpdateTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateTask(ctx, request.(UpdateTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateTaskResponseObject); ok {
+		if err := validResponse.VisitUpdateTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishTask operation middleware
+func (sh *strictHandler) FinishTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params FinishTaskParams) {
+	var request FinishTaskRequestObject
+
+	request.Board = board
+	request.Task = task
+	request.Params = params
+
+	var body FinishTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishTask(ctx, request.(FinishTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishTaskResponseObject); ok {
+		if err := validResponse.VisitFinishTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DropTask operation middleware
+func (sh *strictHandler) DropTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params DropTaskParams) {
+	var request DropTaskRequestObject
+
+	request.Board = board
+	request.Task = task
+	request.Params = params
+
+	var body DropTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DropTask(ctx, request.(DropTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DropTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DropTaskResponseObject); ok {
+		if err := validResponse.VisitDropTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// JoinTask operation middleware
+func (sh *strictHandler) JoinTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params JoinTaskParams) {
+	var request JoinTaskRequestObject
+
+	request.Board = board
+	request.Task = task
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.JoinTask(ctx, request.(JoinTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "JoinTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(JoinTaskResponseObject); ok {
+		if err := validResponse.VisitJoinTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartTask operation middleware
+func (sh *strictHandler) StartTask(w http.ResponseWriter, r *http.Request, board BoardParam, task TaskParam, params StartTaskParams) {
+	var request StartTaskRequestObject
+
+	request.Board = board
+	request.Task = task
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartTask(ctx, request.(StartTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartTaskResponseObject); ok {
+		if err := validResponse.VisitStartTaskResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -38118,6 +50332,65 @@ func (sh *strictHandler) LeaveAsAgent(w http.ResponseWriter, r *http.Request, pa
 	}
 }
 
+// ClearLine operation middleware
+func (sh *strictHandler) ClearLine(w http.ResponseWriter, r *http.Request, params ClearLineParams) {
+	var request ClearLineRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearLine(ctx, request.(ClearLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearLine")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearLineResponseObject); ok {
+		if err := validResponse.VisitClearLineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetLine operation middleware
+func (sh *strictHandler) SetLine(w http.ResponseWriter, r *http.Request, params SetLineParams) {
+	var request SetLineRequestObject
+
+	request.Params = params
+
+	var body SetLineJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetLine(ctx, request.(SetLineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetLine")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetLineResponseObject); ok {
+		if err := validResponse.VisitSetLineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SetPresence operation middleware
 func (sh *strictHandler) SetPresence(w http.ResponseWriter, r *http.Request, params SetPresenceParams) {
 	var request SetPresenceRequestObject
@@ -38431,830 +50704,1052 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"F7mwBw/e/fnd/wQAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

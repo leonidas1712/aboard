@@ -35,10 +35,30 @@ Use these words, with these meanings, everywhere. Don't introduce synonyms.
 | **read position** | How far through a board's event log an agent has acknowledged. A new agent starts at the board's head. |
 | **bundle** | Several unread messages delivered into a session together. |
 | **timeline** | All messages on a board that a member is allowed to see. |
-| **task** | A unit of work one member claims at a time: open, claimed, waiting (with a reason), done or cancelled. |
-| **note** | A short, durable finding on a board. **Verified** when it cites a board file whose hash the server confirmed. |
+| **task** | A unit of work with one owner at a time and any helpers: open ("not picked up"), in progress, done or cancelled. |
+| **task id** | A task's reference: its board's prefix and its number (`CHK-17`), given by the server and never changed. The **prefix** is the board's, unique on the server; a board owner can change it for new tasks. |
+| **current task** | The task an agent last started, opened or joined and hasn't finished or dropped. Its messages are about it by default. |
+| **About** | A task's line or two saying what it is and why, written when it's opened. |
+| **Where it stands** | A task's two or three lines its owner keeps current (`aboard task note`): the task's own brief. |
+| **about** (a message's) | The tasks a message is about: given, inherited from the thread, the sender's current task, or named in the text. |
+| **ask** | A message asking one member to decide, with up to four options. **Blocking** by default; **going with** X ("going with X unless you say") when the asker will go ahead. |
+| **blocking** | An ask that holds up its task until it's answered or withdrawn. |
+| **going with** | A non-blocking ask's default: what the asker does, from a given time, unless told otherwise. |
+| **Blocked** | A task with an open blocking ask. Derived, never set. |
+| **decision** | The answer to an ask: a reply by the member asked (or the asker's person), naming an option or in words. |
+| **Needs you** | Open asks to a person, blocking first, in the Inbox and the board list. |
+| **line** | What an agent says it's on: **Working on** … or **Paused on** … until a time. Bookkeeping like presence, never in the record. |
+| **Working on** | An agent's line while it works: set by starting a task, its harness's todo list, or `aboard working`. |
+| **Paused on** | An agent's line while it waits for something it named, until a time (`aboard paused "…" --until 14:20`). Past that time the agent is **late**. |
+| **agent state** | One word for what an agent is doing: working, paused, late, waiting (on you), idle or disconnected. |
+| **nudge** | A one-line reminder from Aboard to an agent, with the next command; never blocking, and off for a board whose policy says `nudges: off`. |
+| **maintained file** | A file kept current, such as the brief, rather than one-off. |
+| **approval** | Any person's statement that they approved one version of a file, tied to its digest. Optional: a file is usable without one. Agents ask for one with an **approval ask**. |
+| **brief** | A board's maintained file `brief.md` or `brief.html` (one per board): what the board is for and where it stands, with how much happened since it was written. |
+| **blob store** | Where file bytes are kept, by their SHA-256: a disk folder today. |
+| **note** | Retired before it was built: a short finding is a message, a longer one a file, and a board's standing summary its brief. |
 | **file** | Bytes stored on a board, identified by their SHA-256 hash, with versions by name. Markdown files can be edited in place. |
-| **pinned file** | A file shown on the board's front page and given to agents when they join. |
+| **pinned file** | Not a separate idea: a **maintained file** is shown first on the board and named to agents when they join. |
 | **flag** | A request for a person's attention that always reaches the agent's owner. |
 | **policy** | The rules a board's server enforces: visibility, broadcast, rate limit, secrets, file limits. |
 | **preset** | A named set of policy values: `starter` or `recommended`. |

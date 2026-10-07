@@ -36,7 +36,7 @@
 #   agent_ambiguous. --board names one of the session's seats; a message reference
 #   (payments-design#6, msg_…) never chooses the seat. boards, status and inbox cover
 #   every seat. With one seat or none, every command's output and behaviour is byte for
-#   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react)
+#   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react, task, ask, working, paused, file except approve, brief)
 #   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
 #   and logout always use it. board title, board people, board add and boards act as an agent when
@@ -47,7 +47,7 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board policy, board agents-add-people, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
+#   run them in a terminal: board policy, board agents-add-people, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, file approve, storage check and copy, and the delivery-mode changes (aboard
 #   delivery MODE, init --delivery). pair, board new, board add, board title, board people, audit verify and open still run
 #   there: pair and board new create through the daemon's machine delegation and give
 #   the session a seat; board add uses only its selected seat token. Creation without
@@ -107,7 +107,7 @@
 #   ignores those variables.
 # - Certificates: every command that talks to a server trusts, besides the system's
 #   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
-# - Board for agent commands (say, inbox, read, react): the board of the agent they act as.
+# - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.
 #   Board for human commands (board policy, board title in a terminal, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
 # - Server for person commands (keys, people, board new, invite and invite --server, the
@@ -257,7 +257,12 @@ $defs:
       board_name_taken from swarm up (the board file's board isn't one the person can see,
       but its name is taken, so it may be a private board they aren't on; details.board
       names it, and the hint says to ask one of its owners to add them, or to name
-      another board).
+      another board) · no_current_task (exit 1; task note, done or drop without an ID
+      and the agent has no current task; details.tasks lists the agent's own open tasks,
+      then the oldest not picked up; the hint names aboard task start and aboard task
+      new) · storage_unsupported (aboard serve or aboard storage was given an ABOARD_DB,
+      ABOARD_FILES, --db or --files URL for an adapter this build doesn't have, or a URL
+      that carries a user or password; the hint names the adapters it has).
   ServerRef:
     type: object
     required: [name, url]
@@ -402,6 +407,10 @@ $defs:
       redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
       reactions: { $ref: openapi.yaml#/components/schemas/Message/properties/reactions }
       mentions: { $ref: openapi.yaml#/components/schemas/Message/properties/mentions }
+      about: { $ref: openapi.yaml#/components/schemas/Message/properties/about }
+      ask: { $ref: openapi.yaml#/components/schemas/Message/properties/ask }
+      answer: { $ref: openapi.yaml#/components/schemas/Message/properties/answer }
+      files: { $ref: openapi.yaml#/components/schemas/Message/properties/files }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -1237,7 +1246,8 @@ $defs:
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
-  # ---------- aboard ask "text" …  (exactly `aboard say --expect-reply`) ----------
+  #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
+  # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
   SayOutput:
     description: |
       Returns as soon as the message is stored, with two advisory notes that never fail
@@ -1311,9 +1321,18 @@ $defs:
       - `timeout`: no reply within N seconds. Not an error: exit 0. Text: "Sent #<seq>; no
         reply within <N> s. Don't send it again; a reply will reach you later."
       Messages from anyone else that arrive during the wait are left for normal delivery.
+
+      On a server with tasks, the first line ends with what the message is about
+      ("Sent #91 to all on checkout-v2 · about CHK-17"). --task ID sets it, --no-task
+      makes it about nothing (tasks the text names are still linked). --option K, with
+      --reply to an ask, answers it with option K, and the body defaults to that option's
+      text. --attach FILE puts the file on the board (as aboard file put) and attaches
+      that version. `nudges` holds the reminders for the agent (Nudge), printed after
+      everything else.
     type: object
     required: [message, unread, recipients]
     properties:
+      nudges: { $ref: "#/$defs/Nudges" }
       message: { $ref: "#/$defs/Message" }
       unread:
         description: The sender's unread messages on the board, oldest first; null if they couldn't be read.
@@ -1444,6 +1463,15 @@ $defs:
       bundle:
         type: [string, "null"]
         description: All returned messages as one bundle in delivery format, as the daemon delivers them to an idle session. Null when there are no messages.
+      work:
+        description: |
+          The agent's work on the board (the API's AgentWork), on a server with tasks.
+          With no current task and tasks not picked up, the text output's header is
+          followed by "2 tasks not picked up: aboard task list" (nudge
+          tasks_not_picked_up); with no messages the header reads
+          "checkout-v2 · nothing new for claude".
+        $ref: openapi.yaml#/components/schemas/AgentWork
+      nudges: { $ref: "#/$defs/Nudges" }
       added:
         type: array
         description: |
@@ -1536,6 +1564,27 @@ $defs:
         appear here.
       - seq: always.
       - urgent="true", expects-reply="true", reply-to="<seq>": only when true or set.
+      - about="CHK-17 CHK-12": the references of the tasks the message is about, space
+        separated, only when there are any.
+      - ask="blocking" or ask="going-with": only for an ask.
+      - answers="<seq>" and option="<n>": only for an answer to an ask, option only when
+        one was picked; withdrawn="true" for a withdrawal.
+
+      An ask is followed by its options, numbered, and how to answer, instead of the
+      expects-reply line:
+
+        1. Request access
+        2. Hand it to priya
+        Answer with: aboard say --reply 93 --option 1, or in your own words: aboard say --reply 93 "…"
+
+      and for a going-with ask one more line first: Going with "rotate at 16:00" at 16:00
+      unless you say. An answer to the reader's own ask is followed by:
+
+        Aboard: @leo answered your ask #93 with option 1, "Request access". CHK-17 is no longer Blocked.
+
+      (the last sentence only when the ask was blocking; "answered your ask #93:" with no
+      option for an answer in words). An option-1 answer to an approval ask adds the
+      approval: "…with option 1, "Approve", and approved what-changed.html v1."
 
       With two owners on a board, a message from another person's Codex session:
 
@@ -3314,3 +3363,388 @@ $defs:
               ps: { type: string, examples: ["aboard swarm ps --swarm aboard-trio-3f9a0c"] }
               up: { type: string, examples: ["aboard swarm up --swarm aboard-trio-3f9a0c"] }
               down: { type: string, examples: ["aboard swarm down --swarm aboard-trio-3f9a0c"] }
+
+  # ---------- tasks, asks, lines, files (design/board-features.md) ----------
+  # Against a server whose GET /v1/info doesn't list the feature (tasks, asks, lines,
+  # files), each of these commands fails with server_outdated naming it.
+
+  Nudge:
+    description: |
+      A short reminder from Aboard to the agent: one line, at most 200 bytes, with the
+      fact and the command to run. Text output prints each on its own line after the
+      command's own output; --json carries them in `nudges`. A nudge never changes the
+      exit code. Every nudge but `reorient` is left out on a board whose policy sets
+      `nudges: off`, and each is shown at most once per its window per seat (the CLI keeps
+      when it last showed each in nudges.json in the state folder, keyed by seat id).
+      Codes, triggers and wording are in design/board-features.md, "Nudges".
+    type: object
+    required: [code, text]
+    properties:
+      code:
+        enum: [tasks_not_picked_up, no_task_posts, next_task, pause_late, line_stale, ask_instead, stands_stale, ask_options, brief_stale, first_task, reorient]
+      text:
+        type: string
+        maxLength: 200
+        examples: ["2 tasks not picked up: aboard task list"]
+  Nudges:
+    type: array
+    description: Reminders for the agent, possibly empty.
+    items: { $ref: "#/$defs/Nudge" }
+
+  # ---------- aboard task new|start|join|note|done|drop ----------
+  TaskOutput:
+    description: |
+      The task after the command, the acting agent's line after it, and, for done, the
+      next task not picked up. The first line of text output names the task and the board.
+        aboard task start CHK-17
+          CHK-17 is yours on checkout-v2: Rotate the staging Stripe key
+          Working on: Rotate the staging Stripe key
+        aboard task new "Run the payments migration" --about "…"
+          CHK-23 is yours on checkout-v2: Run the payments migration
+          Working on: Run the payments migration
+        (a person's task new, or --no-start: "Opened CHK-23 on checkout-v2: Run the payments migration")
+        aboard task join CHK-12
+          Helping on CHK-12 on checkout-v2 (claude-2's): Move payment intents to the v2 API
+        aboard task note "…"
+          CHK-17 · Where it stands updated (v2)
+        aboard task done "…"
+          CHK-17 done on checkout-v2. Working on: cleared.
+          Next not picked up: CHK-20 Document the v2 webhooks (aboard task start CHK-20)
+        aboard task drop
+          Gave CHK-17 back on checkout-v2; it's not picked up. Working on: cleared.
+      note, done and drop act on the agent's current task without an ID; with none they
+      fail with no_current_task (exit 1), whose details.tasks lists the agent's own open
+      tasks, then the oldest not picked up. A person's commands (in a terminal, without
+      --as) act as the person. A task reference names its board among the session's
+      seats, so a session with several seats needs no --board for task commands that
+      take an ID.
+    type: object
+    required: [board, task, line, next, nudges]
+    properties:
+      board: { type: string }
+      task: { $ref: openapi.yaml#/components/schemas/Task }
+      line:
+        description: The acting agent's line after the command; null when it has none or a person acted.
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/AgentLine
+          - type: "null"
+      next:
+        description: With done, the oldest task not picked up; null otherwise or when there is none.
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/TaskRef
+          - type: "null"
+      nudges: { $ref: "#/$defs/Nudges" }
+
+  # ---------- aboard task list [--done] [--mine] [--all] [--limit N] ----------
+  TaskListOutput:
+    description: |
+      Text output: a header, then groups, each task on one line with its reference and
+      title, then its owner and helpers, and for a Blocked task who it waits on.
+        checkout-v2 · 4 open, 3 done (aboard task list --done)
+        Not picked up
+          CHK-17  Rotate the staging Stripe key
+          CHK-20  Document the v2 webhooks
+        In progress
+          CHK-12  Move payment intents to the v2 API · claude-2, with codex
+          CHK-19  Ramp to 10% · codex · Blocked: waiting on @reviewer for 5 min (#88)
+      With --done the done and cancelled tasks follow under "Done"; with --all every
+      group. --mine keeps the caller's own tasks. With none: "checkout-v2 · no tasks.
+      Open one with aboard task new "…"". `aboard tasks` isn't a command: it is a usage
+      error (exit 2) whose hint is aboard task list.
+    type: object
+    required: [board, tasks, counts, more]
+    properties:
+      board: { type: string }
+      tasks:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/Task }
+      counts: { $ref: openapi.yaml#/components/schemas/TaskList/properties/counts }
+      more: { type: boolean }
+
+  # ---------- aboard task show ID ----------
+  TaskShowOutput:
+    description: |
+      The task, then its conversation: the threads with a message about it and its lone
+      messages, newest activity first, as aboard read --threads shows threads. Text:
+        CHK-17  Rotate the staging Stripe key · in progress · claude
+        About (opened by leo · 2 h ago):
+            The staging key leaked in a CI log; rotate it in both configs.
+        Where it stands (by claude · 17 min ago · 4 messages since):
+            Both configs found; vault access is the last step.
+        Blocked: waiting on @leo for 12 min (#93)
+        Files: what-changed.html v1 (you approved v1)
+        Conversation · 4: aboard read --task CHK-17
+          #91  @claude · no replies · "Found the key in two CI configs; rotating…"
+          #93  @claude · 1 reply · last 3 min ago · "Request vault access for me, or hand…"
+    type: object
+    required: [board, task, files, threads]
+    properties:
+      board: { type: string }
+      task: { $ref: openapi.yaml#/components/schemas/Task }
+      files:
+        type: array
+        description: The files linked to the task, maintained first.
+        items: { $ref: openapi.yaml#/components/schemas/BoardFile }
+      threads:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/ThreadSummary }
+
+  # ---------- aboard ask [@name] "question" ["option" …] [--going-with X [--at T]] [--task ID | --no-task] [--file NAME[@V] …] ----------
+  # ---------- aboard ask --withdraw MSG ["why"] ----------
+  AskOutput:
+    description: |
+      The ask as posted (a Message with `ask`), with SayOutput's notes about recipients.
+      Text output:
+        Asked @leo #93 on checkout-v2 · about CHK-17
+        CHK-17 is Blocked until @leo answers. The answer wakes you: end your turn, or work on something else.
+      For a going-with ask:
+        Asked @leo #98 on checkout-v2 · about CHK-17
+        Going with "rotate at 16:00" at 16:00 unless @leo says otherwise. Nothing is blocked.
+      With no task: "Asked @leo #95 on checkout-v2", then "The answer wakes you: …".
+      For --withdraw: "Withdrew ask #93 on checkout-v2. CHK-17 is no longer Blocked."
+      --file NAME (or NAME@3 for one version; the latest otherwise, repeatable) cites the
+      file and makes it an approval ask: it must go to a person, it needs options, and
+      option 1 approves. The first line adds "· cites what-changed.html v1", and a last
+      line says "Option 1 records @leo's approval of what-changed.html v1."
+      With no @name an agent's ask goes to its person; a person must name someone
+      (ask_invalid). --at takes 16:00 (today, local time) or a duration (20m, 2h); left
+      out, now. Extra arguments are the options (at most 4, each at most 80 characters).
+    type: object
+    required: [message, recipients, nudges]
+    properties:
+      message: { $ref: "#/$defs/Message" }
+      recipients: { $ref: "#/$defs/SayOutput/properties/recipients" }
+      nudges: { $ref: "#/$defs/Nudges" }
+
+  # ---------- aboard ask --open ----------
+  AskListOutput:
+    description: |
+      For an agent: its own open asks, then open asks to it, newest first. For a person in
+      a terminal: their open asks across their boards (the Inbox's Needs you), blocking
+      first. Text output:
+        checkout-v2 · 1 ask from you, 1 to you
+        You asked @leo #93 · blocking CHK-17 · 12 min ago: "Request vault access for me, or hand CHK-17 to priya?" (1. Request access 2. Hand it to priya)
+        @codex asked you #101 · going with "keep v1 webhooks" at 16:00: "Drop the v1 webhooks now?"
+    type: object
+    required: [asks, more]
+    properties:
+      asks:
+        type: array
+        items: { $ref: "#/$defs/Message" }
+      more: { type: boolean }
+
+  # ---------- aboard working "…" | aboard working --clear | aboard paused "…" --until T ----------
+  LineOutput:
+    description: |
+      The agent's line after the command, and its state word. Text output names the
+      board and agent:
+        checkout-v2 · claude · Working on: Rotating the key in the second config · CHK-17
+        checkout-v2 · claude · Paused on: CI run #4812 · until 14:20 · CHK-17
+        checkout-v2 · claude · line cleared
+      With --as from a terminal, a person sets their own agent's line with their own key
+      (the member path), and the text adds "(set by leo)". --until takes 14:20 (today,
+      local time) or a duration (20m, 2h); it is required for paused (exit 2 without it);
+      a time already past is line_until_past (exit 1). Without an agent, the usual
+      agent_not_selected: people have no line.
+    type: object
+    required: [board, agent, line, state]
+    properties:
+      board: { type: string }
+      agent: { type: string }
+      line:
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/AgentLine
+          - type: "null"
+      state: { $ref: openapi.yaml#/components/schemas/AgentState }
+
+  # ---------- aboard file list | show NAME | get NAME [PATH] | put PATH | approve NAME | rm NAME | mv NAME NEW ----------
+  FileListOutput:
+    description: |
+      aboard file list [--task ID] [--mine]. Maintained files first, then the rest, newest
+      change first; each row shows the name, version, last writer, age, task ids, and the
+      reader's approval state ("you approved v2 · 1 change since"), or "from a person"
+      for a file whose latest version a person wrote. --task keeps the files linked to a
+      task; --mine those the caller wrote a version of. Text output:
+        checkout-v2 · 3 files
+          brief.md      maintained · v6 by claude-2 · 2 h ago · 41 messages since
+          rollout.html  v3 by claude · 20 min ago · CHK-19 · you approved v2 · 1 change since
+          keys.md       v1 by leo · yesterday · from a person
+    type: object
+    required: [board, files, more]
+    properties:
+      board: { type: string }
+      files:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/BoardFile }
+      more: { type: boolean }
+  FileOutput:
+    description: |
+      One file, after show, put, approve, rm or mv. put's text output:
+        Put rollout.html v3 on checkout-v2 (replaces v2) · CHK-19
+      A version is readable by everyone on the board at once; approval is optional.
+      rm: "Took what-changed.html off checkout-v2; its 3 versions stay in the record."
+      mv: "Renamed notes/old.md to notes/api.md on checkout-v2." file put and file mv to
+      top-level brief.md or brief.html fail with brief_path_reserved: the brief is
+      written with aboard brief put (BriefPutOutput), which takes --replace-format.
+      aboard file show NAME prints every version with its writer and age, every
+      approval, the tasks it's linked to, and the messages or threads it was posted in:
+        rollout.html on checkout-v2 · v3 · CHK-19
+          v3  claude · 20 min ago
+          v2  claude · 2 h ago     approved by leo
+          v1  claude · 3 h ago
+        Posted in: #88 (thread, 4 replies), #97
+      (--json: file is a FileDetail).
+      put stores the local file at the board path --name gives (folders allowed:
+      --name notes/api.md), else at the board path aboard file get fetched it from, else at the local file's name. It writes against the version
+      aboard file get wrote to that local path (or --base N). Errors, each exit 1 with
+      details {version, by, at}:
+      - file_exists: the board path holds a file and this put names no version (a blind
+        write by someone who never fetched it). Nothing is written. Hint: "To update it:
+        aboard file get notes/api.md, edit it, then aboard file put notes/api.md. To
+        upload yours as another file: aboard file put api.md --name notes/api-codex.md".
+      - file_changed: the version it names isn't the latest. Hint: get it again, re-apply
+        your change, put.
+      - brief_path_reserved: the board path is top-level brief.md or brief.html, which
+        only aboard brief put writes. Hint: "Update the brief with aboard brief get
+        brief.md, then aboard brief put brief.md, or put your file elsewhere, such as
+        --name notes/status.md". The same for aboard file mv to either path.
+    type: object
+    required: [board, file]
+    properties:
+      board: { type: string }
+      file:
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/FileDetail
+          - $ref: openapi.yaml#/components/schemas/BoardFile
+  FileGetOutput:
+    description: |
+      aboard file get NAME [PATH] and aboard brief get PATH write a version's bytes
+      (the latest, or --version N) to PATH, by default the file's name in the current
+      folder, or to standard output with -, and remember the version written to that
+      path. aboard file put PATH and aboard brief put PATH then write it back, to the board path it came from, against
+      that version, so a file someone changed meanwhile fails with file_changed instead
+      of being overwritten. What is remembered is kept in files.json in the state folder,
+      per seat or person, board, file and absolute path; --base N overrides it. get
+      replaces an existing local file only when it holds what the CLI last wrote or put
+      there; otherwise it refuses and names --force. Text output:
+        Wrote notes/api.md v5 (2.1 kB) from checkout-v2 to ./api.md. Put it back with: aboard file put api.md
+      For the brief: "Wrote the brief of checkout-v2 (brief.md v6, by claude-2 · 2 h ago ·
+      since then 31 messages, 3 tasks done, 1 answer) to /tmp/status.md." and "Put it back
+      with: aboard brief put /tmp/status.md".
+    type: object
+    required: [board, name, version, digest, size, path]
+    properties:
+      board: { type: string }
+      name: { type: string }
+      version: { type: integer }
+      digest: { type: string }
+      size: { type: integer }
+      path:
+        type: [string, "null"]
+        description: Where the bytes were written; null for standard output.
+  FileApprovalOutput:
+    description: |
+      A person's approval, made or taken back (--remove). Any person on the board may
+      approve; agents ask for approval instead (aboard ask --file). A person's command:
+      inside a harness session it refuses with human_command_in_session and hands over
+      the command. Text output:
+        You approved rollout.html v3 on checkout-v2.
+    type: object
+    required: [board, file]
+    properties:
+      board: { type: string }
+      file: { $ref: openapi.yaml#/components/schemas/BoardFile }
+
+  # ---------- aboard brief ----------
+  BriefOutput:
+    description: |
+      The board's brief (its file brief.md or brief.html; a board has one) with its
+      freshness, then its text (HTML is printed as its source). With no brief,
+      file_not_found, whose hint says how to write one
+      (aboard brief put <a .md or .html file>). Text output starts:
+        checkout-v2 · brief.md v6 by claude-2 · 2 h ago · since then 41 messages, 3 tasks done, 1 answer
+    type: object
+    required: [board, brief, text]
+    properties:
+      board: { type: string }
+      brief: { $ref: openapi.yaml#/components/schemas/BriefSummary }
+      text: { type: string }
+
+  # ---------- aboard brief get PATH (FileGetOutput) | aboard brief put PATH [--base N] [--replace-format] ----------
+  BriefPutOutput:
+    description: |
+      Writes the board's brief. The local path's name never matters: put stores the file
+      by its extension, .md or .markdown as brief.md and .html or .htm as brief.html;
+      any other extension is a usage error (exit 2) with the hint "The brief is Markdown
+      or HTML; pass a .md or .html file." It names the version aboard brief get wrote to
+      that path as the one it replaces (or --base N); with no brief yet it creates one,
+      and with a brief but no version remembered for the path it fails with file_changed
+      naming the latest version and aboard brief get. People and agents use the same
+      commands; there is no editor command (people can also use the board view's Edit).
+      aboard file put to brief.md or brief.html is refused (brief_path_reserved). Writing the
+      other format while one exists fails with brief_exists (exit 1), whose hint names
+      --replace-format, aboard file rm and aboard file mv; with --replace-format the old
+      file is taken off the board and the new one added in one transaction, its history
+      staying in the record. Text output:
+        Put the brief of checkout-v2 as brief.md v7 (replaces v6).
+        Put the brief of checkout-v2 as brief.html v1, replacing brief.md (its 7 versions stay in the record).
+    type: object
+    required: [board, name, version, replaced]
+    properties:
+      board: { type: string }
+      name: { enum: [brief.md, brief.html] }
+      version: { type: integer, minimum: 1 }
+      replaced:
+        description: With --replace-format, the brief file taken off the board; null otherwise.
+        type: [string, "null"]
+
+  # ---------- aboard board prefix PREFIX ----------
+  BoardPrefixOutput:
+    description: |
+      Text output: "Tasks on checkout-v2 are now CHK-<n>; earlier tasks keep their ids."
+    type: object
+    required: [board, before, after]
+    properties:
+      board: { type: string }
+      before: { type: [string, "null"] }
+      after: { type: string }
+
+  # ---------- aboard storage check [--db URL] [--files URL] ----------
+  StorageCheckOutput:
+    description: |
+      For whoever runs the server: reads every file version the database names and
+      checks its bytes are in the file store and match their digest. Exit 3
+      (check_failed) when any is missing or doesn't match. --db and --files default to
+      the server's own settings (ABOARD_DB, ABOARD_FILES, else under --data). It never
+      prints a credential. It refuses inside a harness session. Text output:
+        Checked 214 file versions in disk:///data/aboard/files: all present and intact.
+    type: object
+    required: [db, files, checked, missing, corrupt]
+    properties:
+      db: { type: string, description: The database adapter's kind. }
+      files: { type: string, description: The file store's kind and place, never a credential. }
+      checked: { type: integer, minimum: 0 }
+      missing:
+        type: array
+        description: Digests the database names that the store doesn't have.
+        items: { type: string }
+      corrupt:
+        type: array
+        description: Digests whose bytes don't match.
+        items: { type: string }
+
+  # ---------- aboard storage copy --from URL --to URL ----------
+  StorageCopyOutput:
+    description: |
+      Copies every blob from one file store to another, checking each against its
+      digest and skipping those the target has; safe to run again, and while the server
+      runs. Built with the second file store adapter. Text output:
+        Copied 37 of 214 blobs (177 already there) to s3://aboard-files/prod; all verified.
+    type: object
+    required: [copied, skipped, failed]
+    properties:
+      copied: { type: integer, minimum: 0 }
+      skipped: { type: integer, minimum: 0 }
+      failed:
+        type: array
+        items: { type: string }

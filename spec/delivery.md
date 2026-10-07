@@ -939,6 +939,54 @@ Your person was added to payments-refunds by leo's agent claude; join with aboar
 The skill tells the agent to run `aboard inbox --wait`. The inbox output uses the same
 delivery format and acknowledges what it shows.
 
+## Tasks, asks and reminders
+
+What we want: an agent that has forgotten what it was doing finds out from what Aboard
+already puts in front of it, and an answer to its question reaches it as surely as any
+message, without Aboard ever waking it just to remind it of something.
+
+How Aboard does it (design/board-features.md has the reasons):
+
+- **What a message is about.** A delivered message carries `about="CHK-17"` when it is
+  about tasks (DeliveryText in [cli.yaml](cli.yaml)). It changes nothing about who is
+  woken.
+- **Asks.** An ask is an `expects_reply` message, so it concerns the agent it is
+  addressed to and wakes it as a question does today ("Delivery modes"). Its element
+  carries `ask="blocking"` or `ask="going-with"` and is followed by its numbered options
+  and the command that answers it.
+- **Answers.** An answer is a reply to the asker's own message, so it concerns the asker
+  and wakes it in every mode but `off`. It carries `answers` and `option`, and is
+  followed by one line of Aboard's: "Aboard: @leo answered your ask #93 with option 1,
+  "Request access". CHK-17 is no longer Blocked." A later answer (an override) wakes the
+  agent the same way.
+- **Coming back.** The note a session gets when it takes a seat or comes back
+  (`register`'s `note`, `aboard resume`'s output, and Claude Code's session start after
+  compaction, `source` `compact`, which the session-start hook now registers too) adds,
+  from the agent's inbox `work`: its current task and whether it owns it, Where it
+  stands with its age, its line, and its open asks, in at most 600 bytes and never a
+  message body:
+
+  ```
+  You're on CHK-17 Rotate the staging Stripe key (owner). Where it stands, 52 min ago: "Both configs found; vault access is the last step."
+  Your line says: Paused on CI run #4812 until 14:20 (late). Waiting on @leo: ask #98 (going with "rotate at 16:00" at 16:00).
+  ```
+
+  With no current task and tasks not picked up it says "2 tasks not picked up: aboard
+  task list" instead. This note is given whatever the board's `nudges` policy.
+- **Reminders** (`nudge` in [control.md](control.md#reminders)): `pause_late` at the next
+  tool boundary of a running turn, or else at the next turn's start; `line_stale` and
+  `brief_stale` at a turn's start. Each is said once, never wakes a session, and is left
+  out in mode `off` except at a turn's start, and on a board whose policy sets
+  `nudges: off`.
+- **The plan hook.** A tool hook that sees the harness's todo or plan tool sends `plan`
+  ([control.md](control.md)); the daemon sets the agent's line from it, at most once
+  every 10 seconds. A harness profile names the tool and its fields under `plan`; one
+  without it sets lines only by command.
+- **Lines and presence.** When the daemon reports `no_session`, the server clears a
+  `working` line; a `paused` line stays, so the agent's people see it go late.
+- **The digest** ("Delivery modes") marks an ask's line with `· ask` and an answer's with
+  `· answers #93`.
+
 ## Archived and unavailable boards
 
 An archive is not an ended seat. Its existing messages remain readable and may be
