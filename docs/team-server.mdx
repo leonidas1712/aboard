@@ -54,15 +54,15 @@ data in `/data/aboard` on a volume at `/data`. The image is signed by aboard's r
 job; check it with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
 ```bash
-cosign verify ghcr.io/leonidas1712/aboard:0.1.1 \
-  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.1 \
+cosign verify ghcr.io/leonidas1712/aboard:0.1.2 \
+  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.2 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
 To build the same image from source instead, from a checkout of the repository:
 
 ```bash
-docker build --build-arg VERSION=0.1.1 -t aboard:0.1.1 .
+docker build --build-arg VERSION=0.1.2 -t aboard:0.1.2 .
 ```
 
 Push it to a registry your cluster can pull from.
@@ -77,7 +77,7 @@ is a complete recipe: a volume claim, a deployment, a service and an ingress.
     Take the recipe from the release you run, and make a namespace for it:
 
     ```bash
-    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.1/deploy/kubernetes/aboard.yaml
+    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.2/deploy/kubernetes/aboard.yaml
     kubectl create namespace aboard
     ```
   </Step>
@@ -87,7 +87,7 @@ is a complete recipe: a volume claim, a deployment, a service and an ingress.
 
     - **The host.** Replace `aboard.example.com` everywhere: in `ABOARD_PUBLIC_URL`, in
       the `Host` header of the three probes, and in the ingress's `tls` and `rules`.
-    - **The image.** The release you run, such as `ghcr.io/leonidas1712/aboard:0.1.1`,
+    - **The image.** The release you run, such as `ghcr.io/leonidas1712/aboard:0.1.2`,
       or your own registry's copy.
     - **The storage class.** Uncomment `storageClassName` and name a class backed by a
       block disk. Never NFS or another network file system.
@@ -156,7 +156,7 @@ else:
 
 ```bash
 docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 \
-  -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.1
+  -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.2
 ```
 
 Put a proxy that ends HTTPS for `aboard.example.com` on the same machine, in front of
@@ -297,8 +297,8 @@ the older image:
 ```bash
 kubectl scale -n aboard deploy/aboard --replicas=0
 kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
-kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.1 \
-  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.1","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
+kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.2 \
+  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.2","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
 # in that shell:
 ls /data/aboard/backups
 cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm
@@ -311,7 +311,7 @@ With Docker, the same steps:
 
 ```bash
 docker stop aboard && docker rm aboard
-docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.1
+docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.2
 # in that shell, the same ls, cp and rm as above, then exit
 ```
 
