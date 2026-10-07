@@ -105,8 +105,16 @@ func recipientsOf(tx ReadTx, b Board, sender Member, to []string) ([]string, err
 	}
 	for _, t := range to {
 		kind, v, _ := rules.ParseTarget(t)
+		ownerID := ""
+		if kind == rules.TargetOwner {
+			owner, err := tx.MemberByName(b.ID, v)
+			if err != nil {
+				return nil, err
+			}
+			ownerID = owner.HumanID
+		}
 		for _, m := range on {
-			if (kind == rules.TargetName && m.Name == v) || (kind == rules.TargetRole && m.Role != nil && *m.Role == v) {
+			if (kind == rules.TargetName && m.Name == v) || (kind == rules.TargetRole && m.Role != nil && *m.Role == v) || (kind == rules.TargetOwner && m.Kind == "agent" && m.HumanID == ownerID) {
 				add(m)
 			}
 		}
@@ -160,7 +168,7 @@ func (s *Service) Receipts(ctx context.Context, p Principal, boardName string, s
 			return err
 		}
 		m, ok := msgs[seq]
-		if !ok || !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+		if !ok || !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 			return messageNotFound()
 		}
 		out = ReceiptsReading{Board: b, Message: m, ToEveryone: slices.Contains(m.To, rules.TargetAll), Available: m.Recipients != nil || slices.Contains(m.To, rules.TargetAll), Recipients: []Receipt{}}

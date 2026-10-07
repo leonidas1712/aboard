@@ -15,11 +15,12 @@ type WorkingTask struct {
 
 // AgentWork contains recorded task facts; reading it never changes work or cursors.
 type AgentWork struct {
-	CurrentTask      *WorkingTask
-	OpenTasks        int64
-	OldestOpen       *TaskRef
-	PostsWithoutTask int
-	Nudges           bool
+	AsksWaiting, AsksToIt int
+	CurrentTask           *WorkingTask
+	OpenTasks             int64
+	OldestOpen            *TaskRef
+	PostsWithoutTask      int
+	Nudges                bool
 }
 
 // TaskPostReader counts the member's latest consecutive posts without a task.
@@ -62,10 +63,27 @@ func (s *Service) taskWork(tx ReadTx, b Board, me Member) (AgentWork, error) {
 			}
 		}
 		if me.CurrentTask != nil && me.CurrentTask.ID == t.ID {
-			if e := projectTask(tx, b, me, &t); e != nil {
+			if e := s.projectTask(tx, b, me, &t); e != nil {
 				return out, e
 			}
 			out.CurrentTask = &WorkingTask{TaskRef: taskRef(t), Owner: t.Owner != nil && t.Owner.ID == me.ID, Stands: t.Stands}
+		}
+	}
+	asks, e := tx.Asks(b.ID)
+	if e != nil {
+		return out, e
+	}
+	for _, m := range asks {
+		if e := projectAsk(tx, me, &m, s.clk.Now()); e != nil {
+			return out, e
+		}
+		if m.Ask.State == "open" {
+			if m.SenderID == me.ID {
+				out.AsksWaiting++
+			}
+			if m.Ask.To == me.ID {
+				out.AsksToIt++
+			}
 		}
 	}
 	if out.CurrentTask == nil {

@@ -19,6 +19,15 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	FileBySelector(boardID, selector string) (File, error)
+	FileByName(boardID, name string) (File, error)
+	Files(boardID string) ([]File, error)
+	// BlobVersions includes all historical versions, even removed files and deleted boards.
+	BlobVersions() ([]Blob, error)
+	// Asks returns immutable ask messages on one board.
+	Asks(boardID string) ([]Message, error)
+	// LatestAnswer returns the latest recorded answer or withdrawal.
+	LatestAnswer(askID string) (Message, error)
 	TaskMessageCounts(boardID, taskID string, reader Member, readAll bool, since int64) (messages, threads, messagesSince int, err error)
 	TaskBySelector(boardID, selector string) (Task, error)
 	Tasks(boardID string) ([]Task, error)
@@ -171,6 +180,7 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SaveFile(File) error
 	SaveTask(Task) error
 	ReserveTaskPrefix(boardID, prefix string) error
 	SetTaskPrefix(boardID, prefix string) error

@@ -22,6 +22,7 @@ import (
 	"github.com/getkin/kin-openapi/routers/gorillamux"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/blobs/disk"
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/events"
@@ -57,7 +58,12 @@ func newTestServer(t *testing.T, opts ...func(*api.Options)) *testServer {
 	t.Cleanup(func() { _ = st.Close() })
 	key := []byte("test digest key")
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local", JoinHost: "localhost"}, log)
+	blobs, err := disk.Open(filepath.Join(t.TempDir(), "files"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = blobs.Close() })
+	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{Blobs: blobs, ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local", JoinHost: "localhost"}, log)
 	owner, err := svc.BootstrapOwner(ctx, "alex", "laptop")
 	if err != nil {
 		t.Fatal(err)

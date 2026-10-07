@@ -15,10 +15,6 @@ func notProvided(what string) error {
 		"Use a server whose GET /v1/info lists the feature.")
 }
 
-func (h *handlers) ListAsks(context.Context, ListAsksRequestObject) (ListAsksResponseObject, error) {
-	return nil, notProvided("asks")
-}
-
 func (h *handlers) SetLine(context.Context, SetLineRequestObject) (SetLineResponseObject, error) {
 	return nil, notProvided("agent lines")
 }
@@ -33,30 +29,6 @@ func (h *handlers) SetMemberLine(context.Context, SetMemberLineRequestObject) (S
 
 func (h *handlers) ClearMemberLine(context.Context, ClearMemberLineRequestObject) (ClearMemberLineResponseObject, error) {
 	return nil, notProvided("agent lines")
-}
-
-func (h *handlers) ListFiles(context.Context, ListFilesRequestObject) (ListFilesResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) PutFile(context.Context, PutFileRequestObject) (PutFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) GetFile(context.Context, GetFileRequestObject) (GetFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) RemoveFile(context.Context, RemoveFileRequestObject) (RemoveFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) UpdateFile(context.Context, UpdateFileRequestObject) (UpdateFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) GetFileVersion(context.Context, GetFileVersionRequestObject) (GetFileVersionResponseObject, error) {
-	return nil, notProvided("files")
 }
 
 func (h *handlers) ApproveFile(context.Context, ApproveFileRequestObject) (ApproveFileResponseObject, error) {

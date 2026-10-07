@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* The theme: the tokens below as utilities, and the motion utilities. */
+@import "./theme.css";
+/* The UI lab (web/lab) brings its own styles; none of its classes reach the real UI. */
+@source not "../lab";
 
 /* Atkinson Hyperlegible Next, served from this binary (SIL Open Font License, see
    /fonts/OFL.txt). One variable file covers every weight. */
@@ -36,6 +40,11 @@
   --link: #1f5a78;
   --attention: #f3dfa8;
   --on-ink: #fbfcfc;
+  /* Depth (D217): shadows and scrims are drawn in a shade of the ink. */
+  --shade: #14212b;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 7%, transparent),
+    0 12px 32px -10px color-mix(in oklab, var(--shade) 22%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 28%, transparent);
   /* Identity colours: a fill and an initial for each sender mark. They only tell
      senders apart and carry no other meaning (DESIGN.md, "Identity colours"). */
   --id-1-bg: #fbd5d4;
@@ -72,6 +81,14 @@
     --link: #8ccbe6;
     --attention: #3a3016;
     --on-ink: #0e171d;
+  --shade: #03080b;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
+    0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
+    --shade: #03080b;
+    --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
+      0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
+    --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
     --id-1-bg: #523333;
     --id-1-fg: #fdcdcc;
     --id-2-bg: #503627;
@@ -139,37 +156,36 @@
   --mention: color-mix(in oklab, var(--accent) 16%, transparent);
   /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
+  /* Hover is a weaker selected, so the row the keys act on always stands out. */
+  --hover: color-mix(in oklab, var(--selected) 55%, transparent);
+  /* A place to drop a file, while one is dragged over it: a trace of the accent. */
+  --drop: color-mix(in oklab, var(--accent) 8%, transparent);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-surface: var(--surface);
-  --color-ink: var(--ink);
-  --color-muted: var(--muted);
-  --color-rule: var(--rule);
-  --color-field-border: var(--field-border);
-  --color-selected: var(--selected);
-  --color-sidebar: var(--sidebar);
-  --color-accent: var(--accent);
-  --color-link: var(--link);
-  --color-attention: var(--attention);
-  --color-on-ink: var(--on-ink);
-  --color-own: var(--own);
-  --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif;
-  --text-meta: 14px;
-  --text-meta--line-height: 1.5;
-  --text-body: 15px;
-  --text-body--line-height: 1.5;
-  --text-now: 17px;
-  --text-now--line-height: 1.5;
-  --text-title: 19px;
-  --text-title--line-height: 1.4;
-  --text-headline: 26px;
-  --text-headline--line-height: 1.3;
-  --radius-control: 8px;
-  --radius-box: 10px;
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+/* A file is shown on a light page in every theme, so it reads as the agent's work and
+   not as part of the board view. Its colours are fixed: the page is the same paper in
+   light, dark and every scheme. */
+:root {
+  --page: #f7f5f0;
+  --page-ink: #1d2328;
 }
+.file-page {
+  background: var(--page);
+  color: var(--page-ink);
+  color-scheme: light;
+}
+.file-page code,
+.file-page pre {
+  background: #e8e5dd;
+}
+.file-page a,
+.file-page .text-link {
+  color: #1f5a78;
+}
+.file-page li::marker {
+  color: #55606a;
+}
+
 
 @layer base {
   html,
@@ -248,18 +264,6 @@
     opacity: 0;
   }
 }
-@utility animate-arrive {
-  animation: arrive 200ms var(--ease-out) both;
-}
-@utility animate-appear {
-  animation: fade-in 240ms var(--ease-out) both;
-}
-@utility animate-fade-in {
-  animation: fade-in 200ms var(--ease-out) both;
-}
-@utility animate-fade-out {
-  animation: fade-out 200ms var(--ease-out) both;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .animate-arrive {
@@ -267,5 +271,47 @@
   }
   .jump-newest {
     transform: none !important;
+  }
+}
+
+/* Frosted glass (D217), only where content scrolls under a layer that stays put: a
+   translucent tone of the surface it stands for, blurred. Without backdrop-filter, or
+   when the person asks for less transparency, it is the solid tone. */
+.glass {
+  --glass-tone: var(--surface);
+  background-color: var(--glass-tone);
+}
+.glass-sidebar {
+  --glass-tone: var(--sidebar);
+}
+.glass-page {
+  --glass-tone: var(--background);
+}
+.scrim,
+dialog.keys-sheet::backdrop {
+  background-color: var(--scrim);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background-color: color-mix(in oklab, var(--glass-tone) 78%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+  }
+  .scrim,
+  dialog.keys-sheet::backdrop {
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--glass-tone);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .scrim,
+  dialog.keys-sheet::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

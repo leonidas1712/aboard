@@ -30,7 +30,7 @@ export const headerRow = "flex min-h-14 items-center";
 type Props = {
   side: "left" | "right";
   /** title heads the panel; label names it for assistive technology and its buttons. */
-  title: string;
+  title: ReactNode;
   label: string;
   size: PanelSize;
   setSize: (s: PanelSize) => void;
@@ -72,7 +72,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
   };
 
   const iconButton =
-    "inline-flex size-10 shrink-0 items-center justify-center rounded-control text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink";
+    "inline-flex size-10 shrink-0 items-center justify-center rounded-control text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink";
 
   return (
     <aside
@@ -96,7 +96,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
       <div className={cn("quiet-scroll flex h-full flex-col px-4 pb-6 sm:px-6 lg:overflow-y-auto lg:px-5", size.collapsed && "lg:hidden")}>
         {/* On a wide screen the header row stays in place while the panel scrolls, so its
             title and hide button are always in reach. */}
-        <div className={cn(headerRow, "justify-between gap-3 bg-sidebar pt-2 lg:sticky lg:top-0 lg:z-10 lg:pt-0")}>
+        <div className={cn(headerRow, "glass glass-sidebar justify-between gap-3 pt-2 lg:sticky lg:top-0 lg:z-10 lg:pt-0")}>
           <h2 id={id} className="text-meta font-bold text-muted">
             {title}
           </h2>

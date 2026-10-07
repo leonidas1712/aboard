@@ -4,14 +4,16 @@
 // box below it, the boards to move between on the left, and this board (its agents and
 // people, charter, rules and details) on the right.
 
+import { lab } from "aboard-lab";
 import { CheckCheck } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
 import { TaskBoard, TaskContext, TaskDetail, WorkTasks, useTasks } from "./task-ui";
+import { FilePanel, FilesView, useFiles } from "./files";
 import { Composer } from "./composer";
 import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
@@ -28,16 +30,25 @@ import { type NowPart, boardLabel, eventLine, eventMatches, identitiesOf, identi
 // in whatever room the panels leave.
 const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
 
+type View = "conversation" | "tasks" | "files";
+
 const leftPanel: Limits = { initial: 272, min: 240, max: 400 };
 const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
 
 export default function BoardView({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
-  const [view, setView] = useState<"conversation" | "tasks">("conversation");
+  const [view, setView] = useState<View>("conversation");
   const [taskPanel, setTaskPanel] = useState<string | null>(null);
   const taskState = useTasks(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
   const tasks = taskState.list?.tasks ?? [];
+  const fileState = useFiles(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
+  const files = fileState.list?.files ?? [];
+  const [filePanel, setFilePanel] = useState<string | null>(null);
+  // Tasks appears with the first task. Files is on every board whose server keeps files,
+  // so a person can always put a file on the board from here.
+  const views: View[] = ["conversation", ...(tasks.length > 0 ? (["tasks"] as const) : []), ...(fileState.list !== null ? (["files"] as const) : [])];
+  const shownView: View = views.includes(view) ? view : "conversation";
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
   const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {
     width: leftPanel.initial,
@@ -50,7 +61,13 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const left = clampSize(leftPref, leftPanel);
   const right = clampSize(rightPref, rightPanel);
   const openTask = useCallback((ref: string) => {
+    setFilePanel(null);
     setTaskPanel(ref);
+    setRight({ ...rightPref, collapsed: false });
+  }, [rightPref, setRight]);
+  const openFile = useCallback((id: string) => {
+    setTaskPanel(null);
+    setFilePanel(id);
     setRight({ ...rightPref, collapsed: false });
   }, [rightPref, setRight]);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -97,7 +114,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   }, [known, s.toMe, repliesTo]);
 
   const answer = useCallback(
-    (m: Message) => (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
+    (m: Message) => m.ask
+      ? (repliesTo.get(m.id) ?? []).find((r) => r.seq === m.ask!.answer_seq) ?? null
+      : (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
     [repliesTo],
   );
 
@@ -209,7 +228,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const presented = useRef(new Set<number>());
   const onSeen = useCallback(
     (seq: number) => {
-      if ((view === "tasks" && tasks.length > 0) || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
+      // A message permalink may show isolated history with unloaded messages between it and the newest page.
+      if (new URLSearchParams(window.location.search).has("message")) return;
+      if (shownView !== "conversation" || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
       presented.current.add(seq);
       const from = s.readFrom;
       const unread = (s.messages ?? []).filter((m) => m.seq > from);
@@ -221,7 +242,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       }
       if (through > s.readFrom) ack(through);
     },
-    [view, tasks.length, filter, ack, s.messages, s.readFrom, s.firstUnread],
+    [shownView, filter, ack, s.messages, s.readFrom, s.firstUnread],
   );
   const receiptsAt = useMemo(() => ({ board: name, activity: s.activity }), [name, s.activity]);
 
@@ -247,6 +268,31 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   useEffect(() => {
     if (pending && showMessage(pending)) setPending(null);
   }, [pending, entries]);
+
+  const linkedMessage = useRef<string | null>(null);
+  useEffect(() => {
+    if (s.messages === null) return;
+    const id = new URLSearchParams(window.location.search).get("message");
+    if (!id || linkedMessage.current === id) return;
+    linkedMessage.current = id;
+    const seq = Number(new URLSearchParams(window.location.search).get("seq"));
+    if (!Number.isSafeInteger(seq) || seq < 1) return;
+    s.loadMessage(id, seq).then(() => setPending(id), setPostError);
+  }, [s.messages, s.loadMessage]);
+  useEffect(() => {
+    if (!pending) return;
+    const m = byId.get(pending);
+    if (m?.thread_root && prefs.open(m.thread_root) !== true) prefs.setOpen(m.thread_root, true);
+  }, [pending, byId, prefs]);
+
+  const linkedTask = useRef<string | null>(null);
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("task");
+    if (ref && linkedTask.current !== ref && tasks.some((t) => t.ref === ref)) {
+      linkedTask.current = ref;
+      openTask(ref);
+    }
+  }, [tasks, openTask]);
 
   const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
@@ -284,6 +330,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const show = useCallback(
     (section: string) => {
       setTaskPanel(null);
+      setFilePanel(null);
       if (right.collapsed) setRight({ ...right, collapsed: false });
       setReveal((r) => ({ section, n: (r?.n ?? 0) + 1 }));
     },
@@ -369,9 +416,39 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // An archived board takes nothing new: no message box, no replies, no reactions.
   const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
+  const panel = (agents: boolean) => (
+    <BoardPanel
+      board={s.board}
+      members={s.members}
+      record={s.record}
+      me={me}
+      meId={s.me?.kind === "human" ? s.me.id : null}
+      canInvite={s.me?.kind === "human" && s.me.server_role !== "guest"}
+      from={filter.from}
+      onPick={pick}
+      reveal={reveal}
+      onLifecycle={s.refresh}
+      identity={identity}
+      latest={(agent) => known.findLast((m) => m.from.kind === "agent" && m.from.name === agent) ?? null}
+      onShowMessage={(id) => {
+        setView("conversation");
+        onShow(id);
+      }}
+      agents={agents}
+    />
+  );
+  // The conversation, which only the UI lab ever wraps (lab-seam.ts).
+  const centre = (conversation: ReactNode) =>
+    lab?.Centre ? (
+      <lab.Centre board={name} members={s.members ?? []} identity={identity} onShow={onShow}>
+        {conversation}
+      </lab.Centre>
+    ) : (
+      conversation
+    );
 
   return (
-    <TaskContext tasks={tasks} open={openTask}>
+    <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me} asks={taskState.asks}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header
@@ -398,7 +475,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             className="order-3 lg:order-none"
           >
             <nav aria-label="Boards">
-              <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />
+              {lab?.Nav ? <lab.Nav current={name} boards={s.boards} /> : <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />}
             </nav>
           </SidePanel>
 
@@ -423,12 +500,15 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 </div>
               )}
             </div>
-            {tasks.length > 0 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
-              {(["conversation", "tasks"] as const).map((v) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={view === v} tabIndex={view === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? "conversation" : e.key === "End" ? "tasks" : v === "conversation" ? "tasks" : "conversation"; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", view === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink")}>{v === "conversation" ? "Conversation" : `Tasks ${tasks.length}`}</button>)}
+            {centre(
+              <>
+            {views.length > 1 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
+              {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", shownView === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
             </div>}
-            {taskState.list?.more && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
+            {taskState.list?.more && shownView === "tasks" && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
             {taskState.error !== null && <div className={column}><Problem error={taskState.error} /></div>}
-            <div id="view-conversation" role={tasks.length > 0 ? "tabpanel" : undefined} aria-labelledby={tasks.length > 0 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", view === "conversation" || tasks.length === 0 ? "flex" : "hidden")}>
+            {fileState.error !== null && <div className={column}><Problem error={fileState.error} /></div>}
+            <div id="view-conversation" role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", shownView === "conversation" ? "flex" : "hidden")}>
             {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-accent hover:underline">Show everything</button></p>}
             {loading ? (
               <div className={cn(column, "min-h-0 flex-1")}>
@@ -485,33 +565,65 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               )}
             </div>
             </div>
-            {view === "tasks" && tasks.length > 0 && <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col"><TaskBoard tasks={tasks} open={openTask} /></div>}
+            {shownView === "tasks" && <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col"><TaskBoard tasks={tasks} open={openTask} /></div>}
+            {shownView === "files" && (
+              <div id="view-files" role="tabpanel" aria-labelledby="tab-files" className="flex min-h-0 flex-1 flex-col">
+                <FilesView
+                  board={name}
+                  files={files}
+                  more={fileState.list?.more ?? false}
+                  selected={filePanel}
+                  open={openFile}
+                  identity={identity}
+                  me={me}
+                  canUpload={s.me?.kind === "human" && !readOnly}
+                  onUploaded={(f) => {
+                    fileState.reload();
+                    openFile(f.id);
+                  }}
+                />
+              </div>
+            )}
+              </>,
+            )}
           </main>
 
           <SidePanel
             side="right"
-            title={tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name}
+            title={lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name}
             label="board panel"
             size={right}
             setSize={setRight}
             limits={rightPanel}
             className="order-2 lg:order-none"
           >
-            {taskPanel ? <TaskDetail board={name} reference={taskPanel} activity={s.activity} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} /> : <>
-            <WorkTasks tasks={tasks} open={openTask} />
-            <BoardPanel
-              board={s.board}
-              members={s.members}
-              record={s.record}
-              me={me}
-              meId={s.me?.kind === "human" ? s.me.id : null}
-              canInvite={s.me?.kind === "human" && s.me.server_role !== "guest"}
-              from={filter.from}
-              onPick={pick}
-              reveal={reveal}
-              onLifecycle={s.refresh}
-            />
-            </>}
+            {/* Only the UI lab draws the board panel its own way (lab-seam.ts). */}
+            {lab?.RightPanel ? (
+              <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
+            ) : filePanel ? (
+              <FilePanel
+                board={name}
+                id={filePanel}
+                activity={s.activity}
+                back={() => setFilePanel(null)}
+                identity={identity}
+                me={me}
+                canUpload={s.me?.kind === "human" && !readOnly}
+                onShow={(id, seq) => {
+                  setView("conversation");
+                  // A message the timeline hasn't loaded is read first, as a permalink is.
+                  if (byId.has(id)) onShow(id);
+                  else s.loadMessage(id, seq).then(() => onShow(id), setPostError);
+                }}
+              />
+            ) : taskPanel ? (
+              <TaskDetail board={name} reference={taskPanel} activity={s.activity} readOnly={readOnly} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} pick={(member) => { setFilter((f) => ({ ...f, from: member })); setView("conversation"); }} onPosted={() => { setStick((n) => n + 1); s.refresh(); }} />
+            ) : (
+              <>
+                <WorkTasks tasks={tasks} open={openTask} />
+                {panel(true)}
+              </>
+            )}
           </SidePanel>
         </div>
       </div>
@@ -554,7 +666,7 @@ function MarkAllRead({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      className="mark-all-read ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+      className="mark-all-read ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
       onClick={onClick}
     >
       <CheckCheck className="size-4" strokeWidth={1.5} aria-hidden />

@@ -15,6 +15,9 @@ import (
 
 // NewMessage is a message to post.
 type NewMessage struct {
+	Files        []FileSelector
+	Ask          *NewAsk
+	Answer       *NewAnswer
 	About        *[]string
 	To           []string
 	Body         string
@@ -27,7 +30,7 @@ type NewMessage struct {
 // as soon as the message is stored.
 func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string, in NewMessage) (Message, error) {
 	to := in.To
-	if len(to) == 0 && in.ReplyTo == nil {
+	if len(to) == 0 && in.ReplyTo == nil && in.Ask == nil {
 		to = []string{rules.TargetAll}
 	}
 	var msg Message
@@ -38,6 +41,13 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		}
 		if err := requireActive(b); err != nil {
 			return err
+		}
+		if in.Ask != nil {
+			to, err = askRecipient(tx, b, me, in)
+			if err != nil {
+				return err
+			}
+			in.ExpectsReply = true
 		}
 		var replyToSeq *int64
 		var threadRoot *string
@@ -81,7 +91,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 
 		// Mentions are read from the body as stored, against the members on the board now,
 		// so later joins never change who a message mentioned.
-		mentions, err := resolveMentions(tx, b, me, to, in.Body)
+		mentions, err := resolveMentions(tx, b, me, to, in.Body, recipients)
 		if err != nil {
 			return err
 		}
@@ -89,15 +99,34 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		if err != nil {
 			return err
 		}
+		files, err := resolveFileRefs(tx, b, in.Files)
+		if err != nil {
+			return err
+		}
 		now := s.clk.Now()
+		ask, err := makeAsk(tx, b, to, in.Ask, about, now)
+		if err != nil {
+			return err
+		}
+		answer, err := resolveAnswer(tx, b, me, in)
+		if err != nil {
+			return err
+		}
 		id, err := s.gen.ID("msg", now)
 		if err != nil {
 			return err
 		}
 		data := map[string]any{
+			"files":      files,
 			"about":      about,
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
 			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{}, "mentions": mentions,
+		}
+		if ask != nil {
+			data["ask"] = ask
+		}
+		if answer != nil {
+			data["answer"] = answer
 		}
 		if recipients != nil {
 			data["recipients"] = recipients
@@ -107,6 +136,8 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		msg = Message{
+			Files: files,
+			Ask:   ask, Answer: answer,
 			About: about,
 			ID:    id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
 			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
@@ -118,6 +149,9 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		}
 		// Read it back for what the store adds, such as how many people have agents here.
 		if msg, err = tx.MessageByID(id); err != nil {
+			return err
+		}
+		if err := projectAsk(tx, me, &msg, now); err != nil {
 			return err
 		}
 		if !b.Policy.ShowHarness && me.Kind == "agent" {
@@ -140,7 +174,7 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 		switch {
 		case !ok:
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
-				fmt.Sprintf("%q is not a target.", t), "Use all, @name or role:R.")
+				fmt.Sprintf("%q is not a target.", t), "Use all, @name, role:R or owner:handle.")
 		case kind == rules.TargetAll && len(to) > 1:
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
 				"all already includes everyone, so it can't be combined with other targets.", "Use --to all on its own.")
@@ -149,6 +183,14 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient",
 					fmt.Sprintf("No one on this board is called %q.", v), "Run aboard read to see who is posting here.")
 			} else if err != nil {
+				return nil, err
+			}
+		case kind == rules.TargetOwner:
+			owner, err := tx.MemberByName(b.ID, v)
+			if errors.Is(err, ErrNotFound) || (err == nil && (owner.Kind != "human" || owner.Status != StatusActive)) {
+				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient", "No person on this board has that handle.", "Use a person shown by aboard board people.")
+			}
+			if err != nil {
 				return nil, err
 			}
 		case kind == rules.TargetRole:
@@ -231,7 +273,7 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 		if err != nil {
 			return err
 		}
-		if err := annotate(tx, b, me, msgs); err != nil {
+		if err := s.annotate(tx, b, me, msgs); err != nil {
 			return err
 		}
 		r = Reading{Board: b, Reader: me, Messages: msgs}
@@ -299,7 +341,7 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if len(msgs) > limit {
 				msgs, more = msgs[:limit], true
 			}
-			if err := annotate(tx, b, me, msgs); err != nil {
+			if err := s.annotate(tx, b, me, msgs); err != nil {
 				return err
 			}
 			work, err := s.taskWork(tx, b, me)
@@ -406,7 +448,7 @@ func (s *Service) Events(ctx context.Context, p Principal, boardName string, aft
 				}
 				ok = true
 			}
-			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 				evs[i].Data, evs[i].DataWithheld = nil, true
 			}
 		}

@@ -42,6 +42,7 @@ export type Board = {
   unread?: number;
   /** needs_reply counts questions to this person without their own direct reply. */
   needs_reply?: number | null;
+  asks_to_me?: { blocking: number; going_with: number };
   /** lifecycle is archived for a read-only board; absent means active. */
   lifecycle?: Lifecycle;
   /** can_archive, can_restore and can_delete are what this person may do now; absent means no. */
@@ -164,6 +165,7 @@ export function setDelivery(board: string, agent: string, mode: SettableMode): P
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
 
 export type Message = {
+  board?: string;
   id: string;
   seq: number;
   at: string;
@@ -187,7 +189,24 @@ export type Message = {
   reactions: Reaction[];
   /** mentions are the members the text mentions, as the server resolved them when it was posted. */
   mentions: Mention[];
+  ask?: MessageAsk;
+  answer?: { ask_id: string; ask_seq: number; option: number | null; option_text?: string | null; withdrawn: boolean };
 };
+
+export type MessageAsk = {
+  to: MemberRef;
+  options: string[];
+  blocking: boolean;
+  going_with: string | null;
+  going_at: string | null;
+  task: string | null;
+  state: "open" | "answered" | "withdrawn" | "went_with";
+  answer_seq: number | null;
+  answer_option: number | null;
+  can_answer?: boolean;
+  can_withdraw?: boolean;
+};
+export type AskList = { asks: Message[]; more: boolean };
 
 /**
  * Mention is one member a message mentions: `text` is how it was written ("@codex" or
@@ -248,6 +267,8 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly hint: string,
+    /** details is what the error names beyond its message, such as the current version of a file a write found changed. */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -292,7 +313,7 @@ async function failure(resp: Response): Promise<ApiError> {
     current = null;
     window.dispatchEvent(new Event(signedOutEvent));
   }
-  return new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "");
+  return new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "", e.details);
 }
 
 /**
@@ -639,7 +660,7 @@ export type Task = {
   state: "open" | "in_progress" | "done" | "cancelled";
   owner: MemberRef | null; with: MemberRef[];
   blocked: boolean; blocked_count: number;
-  blocked_on: { ask_id: string; ask_seq: number; to: MemberRef; since: string }[];
+  blocked_on: { ask_id: string; ask_seq: number; to: MemberRef; from?: MemberRef; since: string }[];
   opened_by: MemberRef; opened_at: string; updated_at: string;
   closed_at?: string | null; closed_note?: string | null;
   message_count: number; thread_count: number;
@@ -651,4 +672,73 @@ export function listTasks(board: string): Promise<TaskList> {
 }
 export function getTask(board: string, task: string): Promise<Task> {
   return get(`/v1/boards/${encodeURIComponent(board)}/tasks/${encodeURIComponent(task)}`);
+}
+
+/** FileVersion is one version of a file: its bytes' digest, size and type, who wrote it, and the version it replaced (0 for the first). */
+export type FileVersion = { version: number; base: number; digest: string; size: number; media_type: string; by: MemberRef; at: string; seq: number };
+/** Freshness is what happened on the board since a file's latest version, counted from the record. */
+export type Freshness = { messages_since: number; tasks_done_since: number; answers_since: number };
+export type TaskRef = { id: string; ref: string; title: string };
+export type BoardFile = {
+  id: string;
+  name: string;
+  board: string;
+  /** maintained is true for a file its writers keep current, such as a status page; false for a one-off. */
+  maintained: boolean;
+  about: TaskRef[];
+  latest: FileVersion;
+  freshness: Freshness;
+};
+/** FileDetail is a file with every version, newest first, and the messages that attached one. */
+export type FileDetail = BoardFile & {
+  versions: FileVersion[];
+  posted_in: { message_id: string; seq: number; version: number; thread_root_seq: number | null }[];
+};
+export type FileList = { board: string; files: BoardFile[]; more: boolean };
+/** FileChanged is what a 409 file_exists or file_changed names: the file's current version, who wrote it and when. */
+export type FileChanged = { version: number; by: Pick<MemberRef, "name" | "kind">; at: string };
+
+function filePath(board: string, file: string): string {
+  return `/v1/boards/${encodeURIComponent(board)}/files/${encodeURIComponent(file)}`;
+}
+
+export function listFiles(board: string): Promise<FileList> {
+  return get(`/v1/boards/${encodeURIComponent(board)}/files`, { limit: 200 });
+}
+
+export function getFile(board: string, file: string): Promise<FileDetail> {
+  return get(filePath(board, file));
+}
+
+/** versionUrl is where a version's bytes download from, exactly as they were uploaded. */
+export function versionUrl(board: string, file: string, version: number): string {
+  return `${filePath(board, file)}/versions/${version}`;
+}
+
+/** fileText reads a version's bytes as text, for a preview. */
+export async function fileText(board: string, file: string, version: number): Promise<string> {
+  const resp = await fetch(versionUrl(board, file, version), { credentials: "same-origin" });
+  if (!resp.ok) throw await failure(resp);
+  return resp.text();
+}
+
+/**
+ * putFile uploads bytes as a new version of the file at name, as the person. base is the
+ * version it replaces, 0 for a new file. The server refuses a base that isn't the file's
+ * latest version (409 file_changed, or file_exists for a name already taken) and stores
+ * nothing, so no one's version is overwritten unseen. fileId, sent with a new version,
+ * is the file the person saw: if it was removed, or replaced by another file at the same
+ * path, the write is refused as file_changed too.
+ */
+export async function putFile(board: string, name: string, base: number, body: Blob, fileId?: string, key: string = crypto.randomUUID()): Promise<BoardFile> {
+  const qs = new URLSearchParams({ name, base: String(base) });
+  if (fileId) qs.set("file_id", fileId);
+  const resp = await fetch(`/v1/boards/${encodeURIComponent(board)}/files?${qs}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { ...writeHeaders(), "Content-Type": "application/octet-stream", "Idempotency-Key": key },
+    body,
+  });
+  if (resp.ok) return (await resp.json()) as BoardFile;
+  throw await failure(resp);
 }

@@ -86,7 +86,7 @@ func (s *Service) React(ctx context.Context, p Principal, messageID, name string
 			changed = true
 		}
 		msgs := []Message{m}
-		if err := annotate(tx, b, me, msgs); err != nil {
+		if err := s.annotate(tx, b, me, msgs); err != nil {
 			return err
 		}
 		r = Reading{Board: b, Reader: me, Messages: msgs}
@@ -125,7 +125,7 @@ func (s *Service) visibleMessage(tx ReadTx, p Principal, messageID string) (Mess
 	if err != nil {
 		return Message{}, Board{}, Member{}, err
 	}
-	if !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+	if !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 		return Message{}, Board{}, Member{}, messageNotFound()
 	}
 	return m, b, me, nil
@@ -133,7 +133,7 @@ func (s *Service) visibleMessage(tx ReadTx, p Principal, messageID string) (Mess
 
 // annotate fills in what each message looks like to me: how many replies the threads
 // they start have, and their reactions.
-func annotate(tx ReadTx, b Board, me Member, msgs []Message) error {
+func (s *Service) annotate(tx ReadTx, b Board, me Member, msgs []Message) error {
 	if err := countReplies(tx, b, me, msgs); err != nil {
 		return err
 	}
@@ -146,6 +146,9 @@ func annotate(tx ReadTx, b Board, me Member, msgs []Message) error {
 		return fmt.Errorf("read reactions on board %s: %w", b.Name, err)
 	}
 	for i := range msgs {
+		if err := projectAsk(tx, me, &msgs[i], s.clk.Now()); err != nil {
+			return err
+		}
 		msgs[i].Reactions = countReactions(byMessage[msgs[i].ID], me)
 	}
 	return nil

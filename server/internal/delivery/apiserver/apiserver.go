@@ -176,7 +176,10 @@ func (s *Server) TaskWork(ctx context.Context, agent delivery.AgentRef) (*delive
 		return nil, nil
 	}
 	w := in.Work
-	out := &deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges}
+	out := &deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges, AsksWaiting: w.AsksWaiting}
+	if w.AsksToIt != nil {
+		out.AsksToIt = *w.AsksToIt
+	}
 	if w.OldestOpen != nil {
 		out.OldestOpen = &deliverytext.TaskRef{ID: w.OldestOpen.Id, Ref: w.OldestOpen.Ref, Title: w.OldestOpen.Title}
 	}
@@ -344,6 +347,21 @@ func TextMessage(m api.Message) deliverytext.Message {
 		Board: m.Board, FromName: m.From.Name, FromHuman: m.From.Kind == "human",
 		Sender: string(m.Sender), Seq: m.Seq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply, Body: m.Body,
 	}
+	if m.Ask != nil {
+		t.Ask = &deliverytext.Ask{ToName: m.Ask.To.Name, Blocking: m.Ask.Blocking, Options: m.Ask.Options, GoingAt: m.Ask.GoingAt}
+		if m.Ask.GoingWith != nil {
+			t.Ask.GoingWith = *m.Ask.GoingWith
+		}
+	}
+	if m.Answer != nil {
+		t.Answer = &deliverytext.Answer{Seq: m.Answer.AskSeq, Withdrawn: m.Answer.Withdrawn}
+		if m.Answer.Option != nil {
+			t.Answer.Option = *m.Answer.Option
+		}
+		if m.Answer.OptionText != nil {
+			t.Answer.OptionText = *m.Answer.OptionText
+		}
+	}
 	if m.From.Owner != nil && m.ShowOwner {
 		t.Owner = *m.From.Owner
 	}
@@ -362,6 +380,11 @@ func TextMessage(m api.Message) deliverytext.Message {
 	if m.About != nil {
 		for _, tag := range *m.About {
 			t.About = append(t.About, tag.Ref)
+		}
+	}
+	if m.Files != nil {
+		for _, file := range *m.Files {
+			t.Files = append(t.Files, deliverytext.File{ID: file.Id, Name: file.Name, Version: file.Version})
 		}
 	}
 	for _, to := range m.To {

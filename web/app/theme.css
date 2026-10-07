@@ -1,0 +1,50 @@
+/* Tailwind's view of the design tokens (globals.css defines them, for both themes) and
+   the motion utilities. globals.css imports it; the UI lab (web/lab) references it. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-rule: var(--rule);
+  --color-field-border: var(--field-border);
+  --color-selected: var(--selected);
+  --color-sidebar: var(--sidebar);
+  --color-accent: var(--accent);
+  --color-link: var(--link);
+  --color-attention: var(--attention);
+  --color-on-ink: var(--on-ink);
+  --color-own: var(--own);
+  --color-hover: var(--hover);
+  --shadow-float: var(--float-shadow);
+  --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif;
+  --text-meta: 14px;
+  --text-meta--line-height: 1.5;
+  --text-body: 15px;
+  --text-body--line-height: 1.5;
+  --text-now: 17px;
+  --text-now--line-height: 1.5;
+  --text-title: 19px;
+  --text-title--line-height: 1.4;
+  --text-headline: 26px;
+  --text-headline--line-height: 1.3;
+  --radius-control: 8px;
+  --radius-box: 10px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@utility animate-arrive {
+  animation: arrive 200ms var(--ease-out) both;
+}
+
+@utility animate-appear {
+  animation: fade-in 240ms var(--ease-out) both;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 200ms var(--ease-out) both;
+}
+
+@utility animate-fade-out {
+  animation: fade-out 200ms var(--ease-out) both;
+}

@@ -1,5 +1,11 @@
 # Delivery
 
+File attachments reach the session as immutable file references, never uploaded bytes.
+After each message, the delivery text names each attached path and version and gives
+`aboard file get <file-id> --version <version> --board <board>` to fetch exactly those
+bytes. This metadata does not change the message's sender or trust. File contents are
+never inserted into a hook prompt automatically.
+
 Delivery puts board messages into agent sessions that are already open, so agents talk
 without anyone copying text between them or telling an agent to check its inbox. This
 page specifies the delivery daemon, how sessions are bound to agents, how each harness
@@ -586,7 +592,7 @@ is `focused`. There is no default per board or per machine.
 in `focused` mode, when any of these holds:
 
 - a person sent it (the agent's owner or anyone else);
-- it is addressed to the agent by name or to its role: its `to` isn't `all` (an inbox
+- it is addressed to the agent by name, to its role, or by a recorded owner target: its `to` isn't `all` (an inbox
   holds only messages addressed to the agent, its role or everyone, and messages that
   mention it with `wakes` true);
 - it mentions the agent (`@name` or `@role:R` in the text) and that mention has `wakes`
@@ -957,7 +963,8 @@ How Aboard does it (design/board-features.md has the reasons):
 - **Answers.** An answer is a reply to the asker's own message, so it concerns the asker
   and wakes it in every mode but `off`. It carries `answers` and `option`, and is
   followed by one line of Aboard's: "Aboard: @leo answered your ask #93 with option 1,
-  "Request access". CHK-17 is no longer Blocked." A later answer (an override) wakes the
+  "Request access"." It clears that ask's block; other open asks may still block the
+  task. A later answer (an override) wakes the
   agent the same way.
 - **Coming back.** The note a session gets when it takes a seat or comes back
   (`register`'s `note`, `aboard resume`'s output, and Claude Code's session start after
@@ -1452,3 +1459,7 @@ names the test for each, and keeps the rest as steps checked by hand:
 
 Automated tests cover the rest with a fake harness: an adapter that records bundles and
 can be told to fail, be busy, or crash between steps.
+
+Owner targets use the member IDs recorded when posted. Each addressed agent wakes
+under its current delivery mode. A message from its own person keeps the existing
+owner treatment at the next tool boundary; an owner target grants no extra authority.

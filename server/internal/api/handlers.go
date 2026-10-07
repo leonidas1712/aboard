@@ -47,7 +47,14 @@ func afterOr(a *int) int64 {
 func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoResponseObject, error) {
 	cfg := h.svc.Config()
 	info := GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}
-	features := []string{"tasks"}
+	features := []string{"tasks", "asks"}
+	if cfg.Blobs != nil {
+		features = append(features, "files")
+		info.Storage = &struct {
+			Db    string `json:"db"`
+			Files string `json:"files"`
+		}{Db: "sqlite", Files: "disk"}
+	}
 	info.Features = &features
 	if h.commit != "" {
 		info.Commit = &h.commit
@@ -296,18 +303,21 @@ func (h *handlers) GuestJoin(ctx context.Context, req GuestJoinRequestObject) (G
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {
 	in, err := convert[struct {
-		About        *[]string `json:"about"`
-		To           []string  `json:"to"`
-		Body         string    `json:"body"`
-		ReplyTo      *string   `json:"reply_to"`
-		Urgent       bool      `json:"urgent"`
-		ExpectsReply bool      `json:"expects_reply"`
+		Ask          *board.NewAsk        `json:"ask"`
+		Answer       *board.NewAnswer     `json:"answer"`
+		Files        []board.FileSelector `json:"files"`
+		About        *[]string            `json:"about"`
+		To           []string             `json:"to"`
+		Body         string               `json:"body"`
+		ReplyTo      *string              `json:"reply_to"`
+		Urgent       bool                 `json:"urgent"`
+		ExpectsReply bool                 `json:"expects_reply"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
 	p := principal(ctx)
-	m, err := h.svc.PostMessage(ctx, p, req.Board, board.NewMessage{About: in.About, To: in.To, Body: in.Body, ReplyTo: in.ReplyTo, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply})
+	m, err := h.svc.PostMessage(ctx, p, req.Board, board.NewMessage{Files: in.Files, Ask: in.Ask, Answer: in.Answer, About: in.About, To: in.To, Body: in.Body, ReplyTo: in.ReplyTo, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply})
 	if err != nil {
 		return nil, err
 	}

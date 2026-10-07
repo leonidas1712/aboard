@@ -3,8 +3,10 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -37,7 +39,9 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	use := usageOf("say")
 	fs := a.flags("say")
 	var to listFlag
-	fs.Var(&to, "to", "who to address: all, @name or role:R; comma-separated or repeated")
+	var attach listFlag
+	fs.Var(&attach, "attach", "a local file to put on the board and attach")
+	fs.Var(&to, "to", "who to address: all, @name, role:R, owner:handle or mine (person only); comma-separated or repeated")
 	task := fs.String("task", "", "the task this message is about")
 	noTask := fs.Bool("no-task", false, "do not inherit a task from your current task or the thread")
 	reply := fs.String("reply", "", "the message this replies to: msg_…, 6, #6 or board-name#6")
@@ -46,15 +50,31 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	waitFor := fs.Int("wait-reply", 0, "ask for a reply and wait up to this many seconds for it")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board to post on")
-	pos, err := a.parse(fs, args, use, 1, -1)
+	option := fs.Int("option", 0, "answer the ask with this numbered option")
+	pos, err := a.parse(fs, args, use, 0, -1)
 	if err != nil {
 		return err
+	}
+	optionGiven := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "option" {
+			optionGiven = true
+		}
+	})
+	if *waitFor < 0 || *waitFor > 3600 {
+		return usageError("--wait-reply takes from 1 to 3600 seconds.", use)
 	}
 	if *task != "" && *noTask {
 		return usageError("Use only one of --task and --no-task.", use)
 	}
+	if optionGiven && (*reply == "" || *option < 1 || *option > 4) {
+		return usageError("--option takes 1 to 4 and needs --reply.", use)
+	}
+	if *option != 0 && !a.agentSelected(*as) {
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor)
+	}
 	body := strings.Join(pos, " ")
-	if strings.TrimSpace(body) == "" {
+	if strings.TrimSpace(body) == "" && *option == 0 {
 		return usageError("The message text is empty.", use)
 	}
 	if *waitFor < 0 || *waitFor > 3600 {
@@ -69,7 +89,39 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	t, cred, err := a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+	mine := slices.Contains([]string(to), "mine")
+	var t target
+	var cred agentCredential
+	if mine {
+		if a.agentSelected(*as) {
+			return newError("human_command_in_session", "Only a person may use --to mine.", "An agent uses --to owner:<handle> with its own seat.")
+		}
+		if t, err = a.humanBoard(*boardFlag); err != nil {
+			return err
+		}
+		if cred.Token, err = a.readOwnerToken(t.server); err != nil {
+			return err
+		}
+		personClient, err := a.client(ctx, t.server, cred.Token, requestTimeout)
+		if err != nil {
+			return err
+		}
+		person, err := personClient.api.GetMeWithResponse(ctx)
+		if err != nil {
+			return personClient.unreachable(err)
+		}
+		if person.JSON200 == nil {
+			return apiError(person.StatusCode(), person.Body)
+		}
+		cred.Name = person.JSON200.Name
+		for i, target := range to {
+			if target == "mine" {
+				to[i] = "owner:" + cred.Name
+			}
+		}
+	} else {
+		t, cred, err = a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+	}
 	if err != nil {
 		return err
 	}
@@ -108,6 +160,29 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if len(attach) > 0 {
+		files := []api.FileVersionSelector{}
+		for _, local := range attach {
+			item, err := a.uploadLocalFile(ctx, t, c, local, api.PutFileParams{})
+			if err != nil {
+				return err
+			}
+			files = append(files, api.FileVersionSelector{File: item.Id, Version: &item.Latest.Version})
+		}
+		req.Files = &files
+	}
+	if *option != 0 {
+		if err := c.requireAsks(ctx); err != nil {
+			return err
+		}
+		req.Answer = &api.AnswerRequest{Option: option}
+		if strings.TrimSpace(req.Body) == "" {
+			req.Body, err = askOptionBody(ctx, c, t.board, *req.ReplyTo, *option)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	r, err := c.api.PostMessageWithResponse(ctx, t.board, &api.PostMessageParams{}, req)
 	if err != nil {
 		return c.unreachable(err)
@@ -117,7 +192,11 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	}
 	m := r.JSON201
 	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
-	unread, recipients := a.unreadAfterSay(ctx, c, agent), recipientsOf(ctx, c, m)
+	var unread *unreadNote
+	if !mine {
+		unread = a.unreadAfterSay(ctx, c, agent)
+	}
+	recipients := recipientsOf(ctx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
 	text := fmt.Sprintf("Sent #%d to %s on %s", m.Seq, targetsText(m.To), m.Board)
 	if m.About != nil && len(*m.About) > 0 {
@@ -150,7 +229,9 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		}
 		text += waitedText(m, *waitFor, w)
 	}
-	out.Nudges = a.taskNudges(ctx, c, agent, c.taskInbox(ctx), "say", *boardFlag != "", m)
+	if !mine {
+		out.Nudges = a.taskNudges(ctx, c, agent, c.taskInbox(ctx), "say", *boardFlag != "", m)
+	}
 	text += nudgesText(out.Nudges)
 	a.emit(out, text)
 	return nil

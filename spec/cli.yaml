@@ -1253,6 +1253,10 @@ $defs:
   #            [--expect-reply | --wait-reply SECONDS]
   #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
   # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
+  # `say --to owner:handle` addresses that person’s current agents on this board.
+  # In a human terminal, `say --to mine` posts as the person to owner:<their handle>.
+  # `mine` is refused with human_command_in_session for --as, ABOARD_AGENT or a harness session.
+  # No agent path may use a human login. Recorded recipients are fixed at post time.
   SayOutput:
     description: |
       Returns as soon as the message is stored, with two advisory notes that never fail
@@ -3514,9 +3518,9 @@ $defs:
         CHK-17 is Blocked until @leo answers. The answer wakes you: end your turn, or work on something else.
       For a going-with ask:
         Asked @leo #98 on checkout-v2 · about CHK-17
-        Going with "rotate at 16:00" at 16:00 unless @leo says otherwise. Nothing is blocked.
+        Going with "rotate at 16:00" at 16:00 unless @leo says otherwise. This ask blocks nothing.
       With no task: "Asked @leo #95 on checkout-v2", then "The answer wakes you: …".
-      For --withdraw: "Withdrew ask #93 on checkout-v2. CHK-17 is no longer Blocked."
+      For --withdraw: "Withdrew ask #93 on checkout-v2." This clears that ask's block; other open asks may still block the task.
       --file NAME (or NAME@3 for one version; the latest otherwise, repeatable) cites the
       file and makes it an approval ask: it must go to a person, it needs options, and
       option 1 approves. The first line adds "· cites what-changed.html v1", and a last
@@ -3628,7 +3632,7 @@ $defs:
     properties:
       board: { type: string }
       file:
-        oneOf:
+        anyOf:
           - $ref: openapi.yaml#/components/schemas/FileDetail
           - $ref: openapi.yaml#/components/schemas/BoardFile
   FileGetOutput:
@@ -3637,8 +3641,9 @@ $defs:
       (the latest, or --version N) to PATH, by default the file's name in the current
       folder, or to standard output with -, and remember the version written to that
       path. aboard file put PATH and aboard brief put PATH then write it back, to the board path it came from, against
-      that version, so a file someone changed meanwhile fails with file_changed instead
-      of being overwritten. What is remembered is kept in files.json in the state folder,
+      that version and immutable file id, so a changed, removed or replaced file fails with file_changed instead
+      of being overwritten. With --json and standard output (-), it returns this metadata
+      instead of raw bytes. What is remembered is kept in files.json in the state folder,
       per seat or person, board, file and absolute path; --base N overrides it. get
       replaces an existing local file only when it holds what the CLI last wrote or put
       there; otherwise it refuses and names --force. Text output:
@@ -3753,8 +3758,8 @@ $defs:
     description: |
       Copies every blob from one file store to another, checking each against its
       digest and skipping those the target has; safe to run again, and while the server
-      runs. Built with the second file store adapter. Text output:
-        Copied 37 of 214 blobs (177 already there) to s3://aboard-files/prod; all verified.
+      runs. This build supports disk-to-disk copies. Text output:
+        Copied 37 of 214 blobs (177 already there); all verified.
     type: object
     required: [copied, skipped, failed]
     properties:

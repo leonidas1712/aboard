@@ -65,6 +65,7 @@ export type BoardState = {
   gone: boolean;
   error: unknown;
   loadEarlier: () => void;
+  loadMessage: (id: string, seq: number) => Promise<void>;
   refresh: () => void;
   /** replace puts a newer copy of a loaded message in place, as after reacting to it. */
   replace: (m: Message) => void;
@@ -175,6 +176,14 @@ export function useBoard(name: string, filter: Filter): BoardState {
     setExtra(swap);
   }, []);
 
+  const loadMessage = useCallback(async (id: string, seq: number) => {
+    const r = await get<MessagePage>(`${path}/messages`, { after: seq - 1, before: seq + 1, limit: 1 });
+    const message = r.messages.find((m) => m.id === id && m.seq === seq);
+    if (!message) throw new ApiError(404, "message_not_found", "This message is no longer available on the board.", "Open it from the Inbox again.");
+    if (!live.current) return;
+    setBase((p) => p && !p.messages.some((m) => m.id === id) ? { ...p, messages: [...p.messages, message].sort((a, b) => a.seq - b.seq) } : p);
+  }, [path]);
+
   // after reads every page of messages after seq that match query, and adds them.
   const readAfter = useCallback(
     async (from: { current: number }, query: Record<string, string | boolean | undefined>, add: (ms: Message[]) => void) => {
@@ -241,6 +250,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
         }
         const id = (e.data as { message_id?: string } | undefined)?.message_id;
         if (isReaction(e) && e.seq > loadedHead.current && id) reacted.add(id);
+        const answered = (e.data as { answer?: { ask_id?: string } } | undefined)?.answer?.ask_id;
+        if (e.type === "message.posted" && answered) reacted.add(answered);
       }
       if (page.next_after === null || page.events.length === 0) break;
     }
@@ -489,6 +500,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     error,
     gone,
     loadEarlier,
+    loadMessage,
     refresh,
     replace: replaceMessage,
     ack,
