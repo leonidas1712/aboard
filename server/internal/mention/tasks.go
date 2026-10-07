@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-var taskReference = regexp.MustCompile(`(?i)[a-z][a-z0-9]{1,5}-[1-9][0-9]*`)
+var taskReference = regexp.MustCompile(`(?i)[a-z][a-z0-9]{1,5}-[1-9]\d*`)
 
 // Tasks returns task references written outside code and links.
 func Tasks(body string) []string {
