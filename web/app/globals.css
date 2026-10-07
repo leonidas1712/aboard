@@ -315,3 +315,16 @@ dialog.keys-sheet::backdrop {
     backdrop-filter: none;
   }
 }
+
+/* The brief's Markdown, on the board view's own surface: code reads as code in every theme. */
+.brief code,
+.brief pre {
+  background: var(--selected);
+}
+.brief :not(pre) > code {
+  border-radius: 4px;
+  padding: 0 0.3em;
+}
+.brief kbd {
+  font-family: inherit;
+}
