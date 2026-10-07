@@ -142,11 +142,12 @@ func runServe(ctx context.Context, a *app, args []string) error {
 	data := fs.String("data", "", "the folder for the database, files and backups")
 	listen := fs.String("listen", "", "the address to listen on")
 	admin := fs.String("admin", "", "the first admin's handle")
+	files := fs.String("files", "", "the disk file store URL")
 	if _, err := a.parse(fs, args, usageOf("serve"), 0, 0); err != nil {
 		return err
 	}
 	if *team {
-		return a.serveTeam(ctx, teamFlags{publicURL: *publicURL, data: *data, listen: *listen, admin: *admin})
+		return a.serveTeam(ctx, teamFlags{publicURL: *publicURL, data: *data, listen: *listen, admin: *admin, files: *files})
 	}
 	if *publicURL != "" || *data != "" || *listen != "" || *admin != "" {
 		return usageError("--public-url, --data, --listen and --admin are for a team server: add --team.", usageOf("serve"))
@@ -162,7 +163,12 @@ func runServe(ctx context.Context, a *app, args []string) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	b := currentBuild()
+	filesDir, err := storagePath(firstStorageURL(*files, a.env.Getenv("ABOARD_FILES")), "disk", filepath.Join(p.data, "files"))
+	if err != nil {
+		return err
+	}
 	err = server.Run(ctx, server.Options{
+		FilesDir:       filesDir,
 		Addr:           a.localAddr(),
 		DataDir:        p.data,
 		OwnerName:      owner,
@@ -188,7 +194,7 @@ func runServe(ctx context.Context, a *app, args []string) error {
 }
 
 // teamFlags are aboard serve --team's flags as given; empty when not given.
-type teamFlags struct{ publicURL, data, listen, admin string }
+type teamFlags struct{ publicURL, data, listen, admin, files string }
 
 // defaultTeamListen is where a team server listens unless told otherwise: every
 // address, since its proxy reaches it from outside its container or machine.
@@ -234,8 +240,13 @@ func (a *app) serveTeam(ctx context.Context, f teamFlags) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	b := currentBuild()
+	filesDir, err := storagePath(pick(f.files, "ABOARD_FILES", ""), "disk", filepath.Join(data, "files"))
+	if err != nil {
+		return err
+	}
 	err = server.Run(ctx, server.Options{
-		Addr: listen, DataDir: data, Version: b.Version, Commit: b.Commit, CommitTime: b.CommitTime,
+		FilesDir: filesDir,
+		Addr:     listen, DataDir: data, Version: b.Version, Commit: b.Commit, CommitTime: b.CommitTime,
 		Log:  slog.New(slog.NewJSONHandler(a.env.Stderr, nil)),
 		Team: &server.Team{PublicURL: pub, AdminName: admin},
 	})

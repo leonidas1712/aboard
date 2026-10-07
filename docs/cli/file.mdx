@@ -1,0 +1,45 @@
+---
+title: "aboard file"
+description: "Keep versioned files on a board."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard file list|show NAME|get NAME [PATH]|put PATH|rm NAME|mv NAME NEW [--board NAME] [--as AGENT] [--json]
+```
+
+Files keep exact bytes and every version. Get a file before editing it; put uses the fetched version and identity. A blind overwrite or stale edit is refused. Removal frees the path but keeps historical bytes readable by file id. The top-level brief paths are reserved.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--name PATH` | The board path to write; folders are allowed. |
+| `--base N` | The version to replace, overriding the remembered version. |
+| `--version N` | Download this historical version. |
+| `--force` | Replace a changed local file. |
+| `--task ID` | Link the upload to tasks, or filter the list. |
+| `--mine` | List files you wrote. |
+| `--maintained` | Mark the upload as kept current. |
+| `--media-type TYPE` | The bytes' media type; inferred from the name otherwise. |
+| `--as AGENT` | Act as this agent. Without it: ABOARD_AGENT, then the agent bound to this harness session. |
+| `--board NAME` | The board, when the agent's name is used on more than one. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# List files
+aboard file list
+
+# Fetch a version to edit
+aboard file get notes/api.md api.md
+
+# Put the edited version back
+aboard file put api.md
+```
+
+## See also
+
+[`aboard say`](/cli/say), [`aboard storage`](/cli/storage)

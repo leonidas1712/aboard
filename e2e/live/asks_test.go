@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +57,9 @@ func TestAskAnsweredInTheBoardViewWakesTheAsker(t *testing.T) {
 				var m struct {
 					Body string `json:"body"`
 				}
-				if json.Unmarshal(raw, &m) == nil && m.Body == question {
+				// The skill asks for two lines (what the agent did, then what it needs), so
+				// the question is one line of the body, not all of it.
+				if json.Unmarshal(raw, &m) == nil && strings.Contains(m.Body, question) {
 					return json.Unmarshal(raw, &ask) == nil && ask.Ask != nil
 				}
 			}
@@ -116,11 +120,10 @@ func (l *lab) answerAskInBrowser(board, option string) {
 	cmd.Dir = filepath.Join(repoRoot, "web")
 	cache := os.Getenv("PLAYWRIGHT_BROWSERS_PATH")
 	if cache == "" {
-		base, err := os.UserCacheDir()
-		if err != nil {
-			l.t.Fatal("find the installed Chromium cache")
-		}
-		cache = filepath.Join(base, "ms-playwright")
+		cache = playwrightCache()
+	}
+	if cache == "" {
+		l.t.Fatal("find the installed Chromium cache: set PLAYWRIGHT_BROWSERS_PATH, or run npx playwright install chromium in web/")
 	}
 	// The installed browser is read-only; its profile and every process home remain isolated.
 	cmd.Env = append(append([]string{}, l.vars...), "PLAYWRIGHT_BROWSERS_PATH="+cache)
@@ -128,4 +131,27 @@ func (l *lab) answerAskInBrowser(board, option string) {
 	if err := cmd.Run(); err != nil {
 		l.t.Fatalf("answer the ask through the board view: %v", err)
 	}
+}
+
+// playwrightCache finds where Playwright installed its browsers. A run may set HOME to a
+// scratch folder, which moves os.UserCacheDir there, so it also looks under the account's
+// home from the user database. It only reads that folder.
+func playwrightCache() string {
+	var dirs []string
+	if base, err := os.UserCacheDir(); err == nil {
+		dirs = append(dirs, filepath.Join(base, "ms-playwright"))
+	}
+	if u, err := user.Current(); err == nil && u.HomeDir != "" {
+		if runtime.GOOS == "darwin" {
+			dirs = append(dirs, filepath.Join(u.HomeDir, "Library", "Caches", "ms-playwright"))
+		} else {
+			dirs = append(dirs, filepath.Join(u.HomeDir, ".cache", "ms-playwright"))
+		}
+	}
+	for _, dir := range dirs {
+		if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
+			return dir
+		}
+	}
+	return ""
 }

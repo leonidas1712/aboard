@@ -31,30 +31,6 @@ func (h *handlers) ClearMemberLine(context.Context, ClearMemberLineRequestObject
 	return nil, notProvided("agent lines")
 }
 
-func (h *handlers) ListFiles(context.Context, ListFilesRequestObject) (ListFilesResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) PutFile(context.Context, PutFileRequestObject) (PutFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) GetFile(context.Context, GetFileRequestObject) (GetFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) RemoveFile(context.Context, RemoveFileRequestObject) (RemoveFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) UpdateFile(context.Context, UpdateFileRequestObject) (UpdateFileResponseObject, error) {
-	return nil, notProvided("files")
-}
-
-func (h *handlers) GetFileVersion(context.Context, GetFileVersionRequestObject) (GetFileVersionResponseObject, error) {
-	return nil, notProvided("files")
-}
-
 func (h *handlers) ApproveFile(context.Context, ApproveFileRequestObject) (ApproveFileResponseObject, error) {
 	return nil, notProvided("file approvals")
 }

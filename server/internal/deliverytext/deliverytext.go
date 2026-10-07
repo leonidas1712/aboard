@@ -13,6 +13,7 @@ import (
 
 // Message is what the delivery text shows of one board message.
 type Message struct {
+	Files []File
 	// About lists permanent task references recorded on this message.
 	About  []string
 	Ask    *Ask
@@ -50,6 +51,12 @@ type Message struct {
 	Body      string
 	// Truncated marks a body cut short to fit where it is shown.
 	Truncated bool
+}
+
+// File pins the bytes a message attached, independently of later file versions.
+type File struct {
+	ID, Name string
+	Version  int
 }
 
 // Context adds the receiving seat and explicit board commands when a session works
@@ -159,6 +166,10 @@ func Format(m Message, contexts ...Context) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("</aboard-message>")
+	for _, file := range m.Files {
+		quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
+		fmt.Fprintf(&b, "\nAttached file %q v%d. Read: aboard file get %s --version %d --board %s", file.Name, file.Version, quote(file.ID), file.Version, quote(m.Board))
+	}
 	if m.Ask == nil && m.Answer == nil && m.ExpectsReply {
 		fmt.Fprintf(&b, "\nReply requested. Reply with: %s --reply %d \"…\"", boardCommand("aboard say", m.Board, contexts), m.Seq)
 	}
