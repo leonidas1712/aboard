@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -88,13 +89,26 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			writeError(w, o.Log, errNoScope)
 			return
 		}
-		body, err := io.ReadAll(r.Body)
+		var bodyReader io.Reader = r.Body
+		if strings.HasPrefix(r.URL.Path, "/v1/boards/") && strings.HasSuffix(r.URL.Path, "/files") && r.Method == http.MethodPost {
+			bodyReader = http.MaxBytesReader(w, r.Body, 50*1024*1024)
+		}
+		body, err := io.ReadAll(bodyReader)
 		if err != nil {
+			var size *http.MaxBytesError
+			if errors.As(err, &size) {
+				writeError(w, o.Log, apierr.New(413, "file_too_large", "Files can be at most 50 MB.", "Upload a smaller file."))
+				return
+			}
 			writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body could not be read.", "Send the request again."))
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
-		sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
+		requestPath := r.URL.Path
+		if strings.HasPrefix(r.URL.Path, "/v1/boards/") && strings.HasSuffix(r.URL.Path, "/files") && r.Method == http.MethodPost {
+			requestPath += "?" + r.URL.Query().Encode()
+		}
+		sum := sha256.Sum256(append([]byte(r.Method+" "+requestPath+"\n"), body...))
 		reqHash := hex.EncodeToString(sum[:])
 		if rawHash, ok := r.Context().Value(requestHashKey{}).(string); ok {
 			reqHash = rawHash
@@ -230,7 +244,7 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		}
 	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
 		in.Name = parts[2]
-		in.Tasks = len(parts) >= 4 && parts[3] == "tasks"
+		in.Tasks = len(parts) >= 4 && (parts[3] == "tasks" || parts[3] == "files")
 		if len(parts) == 4 && parts[3] == "people" && method == http.MethodPost {
 			var add struct {
 				Handle string `json:"handle"`

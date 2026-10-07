@@ -49,6 +49,13 @@ func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoRespon
 	cfg := h.svc.Config()
 	info := GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}
 	features := []string{"tasks", "asks"}
+	if cfg.Blobs != nil {
+		features = append(features, "files")
+		info.Storage = &struct {
+			Db    string `json:"db"`
+			Files string `json:"files"`
+		}{Db: "sqlite", Files: "disk"}
+	}
 	info.Features = &features
 	if h.commit != "" {
 		info.Commit = &h.commit

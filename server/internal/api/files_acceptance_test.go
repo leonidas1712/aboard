@@ -55,3 +55,56 @@ func TestFilesKeepConditionalVersionsAndExactBytes(t *testing.T) {
 		t.Fatal("history must retain both versions")
 	}
 }
+
+func TestFilesRejectSecretsTraversalAndForeignBoardReads(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	for _, prefix := range []string{"abh_", "abi_", "abc_"} {
+		for _, media := range []string{"text/plain", "application/octet-stream", "application/json"} {
+			secret, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "secret.txt", MediaType: &media}, "application/octet-stream", strings.NewReader(prefix+strings.Repeat("X", 40)))
+			mustStatus(t, secret, err, 422)
+			if secret.JSON422.Error.Code != "file_has_secret" {
+				t.Fatal("credential was not refused")
+			}
+		}
+	}
+
+	reserved, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "brief.md"}, "application/octet-stream", strings.NewReader("brief"))
+	mustStatus(t, reserved, err, 409)
+	file, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "safe.txt"}, "application/octet-stream", strings.NewReader("safe"))
+	mustStatus(t, file, err, 201)
+	other, err := c.CreateBoardWithResponse(ctx, nil, api.CreateBoardRequest{Name: func() *string { v := "other-files"; return &v }()})
+	mustStatus(t, other, err, 201)
+	foreign, err := c.GetFileWithResponse(ctx, "other-files", file.JSON201.Id)
+	mustStatus(t, foreign, err, 404)
+	bytes, err := c.GetFileVersionWithResponse(ctx, "other-files", file.JSON201.Id, "1")
+	mustStatus(t, bytes, err, 404)
+	list, err := c.ListFilesWithResponse(ctx, name, nil)
+	mustStatus(t, list, err, 200)
+	if len(list.JSON200.Files) != 1 {
+		t.Fatal("rejected uploads created files")
+	}
+}
+
+func TestFileReplayBindsNameAndBase(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	key := "file-replay"
+	p := api.PutFileParams{Name: "one.txt", IdempotencyKey: &key}
+	first, err := c.PutFileWithBodyWithResponse(ctx, name, &p, "application/octet-stream", strings.NewReader("same bytes"))
+	mustStatus(t, first, err, 201)
+	replay, err := c.PutFileWithBodyWithResponse(ctx, name, &p, "application/octet-stream", strings.NewReader("same bytes"))
+	mustStatus(t, replay, err, 201)
+	if replay.JSON201.Id != first.JSON201.Id {
+		t.Fatal("replay created another file")
+	}
+	p.Name = "two.txt"
+	changed, err := c.PutFileWithBodyWithResponse(ctx, name, &p, "application/octet-stream", strings.NewReader("same bytes"))
+	mustStatus(t, changed, err, 422)
+}

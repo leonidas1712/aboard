@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/blobs/disk"
 	"github.com/leonidas1712/aboard/server/internal/board"
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/ids"
@@ -155,7 +156,13 @@ func Run(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	cfg := board.Config{ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}
+	blobs, err := disk.Open(filepath.Join(o.DataDir, "files"))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = blobs.Close() }()
+	o.Log.Info("storage", "db", "sqlite", "files", "disk")
+	cfg := board.Config{Blobs: blobs, ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}
 	if o.Team != nil {
 		cfg.Mode, cfg.JoinHost = "team", o.Team.PublicURL.Host
 	}
