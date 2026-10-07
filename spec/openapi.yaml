@@ -3494,7 +3494,7 @@ paths:
               description: The version's digest, `"sha256:…"`.
               schema: { type: string }
           content:
-            application/octet-stream:
+            "*/*":
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
