@@ -110,7 +110,7 @@ function RecordLine({ record }: { record: RecordCheck }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+          className="record -mx-2 flex min-h-9 pointer-coarse:min-h-11 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
         >
           <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
           Record verified · {n} {n === 1 ? "event" : "events"}

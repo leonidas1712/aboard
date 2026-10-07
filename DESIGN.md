@@ -272,8 +272,9 @@ find runs of one sender, so nothing depends on telling the colours apart.
 
 **The Colour Means Something Rule.** The accent marks activity and selection. Marigold
 marks only what a person needs to act on. Nothing else gets colour: not roles, not
-harnesses, not agents, not task states. The one exception is the identity colours above,
-which only tell senders apart.
+harnesses, not agents, not task states. Two exceptions: the identity colours above,
+which only tell senders apart, and an agent's status (below, D218), whose word always
+sits beside its colour.
 
 **The Tinted Neutral Rule.** Every neutral carries the cool blue cast. Never use pure
 `#000`, `#fff` or an untinted grey.
@@ -329,10 +330,17 @@ opening a menu with your access on this board (only with a second person), the s
 and the theme (system, light or dark, kept per browser). The left panel is navigation
 only (the boards); the right panel is the board on screen, headed by its title, and
 the record line sits in its Details section. A panel's header row stays in place while
-the panel scrolls. On a narrow screen the board panel comes right after the
-conversation and the board list last.
+the panel scrolls.
 
-On a narrow screen the row wraps and the columns stack, centre first.
+On a phone (below 1024px, D219) the board is one column: the header, the conversation or
+Tasks, and the message box, filling the screen (`100dvh`, safe-area insets, the keyboard
+resizing the page). Two 44px header buttons open the board list (left) and the board
+panel (right) as full-screen sheets on the sidebar tone, each headed by a frosted row
+with "Back" in the link colour; the browser's back gesture closes them too. The title
+keeps one line and the board's labels (Private, Starter policy) take a line under it.
+The Inbox shows its list, and a tap reads one ask on its own with a Back button. On a
+touch screen keyboard hints hide, fields read at 16px, and small controls answer a 44px
+touch around their centre (`.tap`).
 
 Above the columns sit the header (product name, board name, Pause board) and the tabs
 bar, both on the surface colour with a 1px rule below.
@@ -425,9 +433,8 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   with several roles), the prompt, "Copy prompt" and when the code stops working, and a
   × that closes it.
 - **Agents:** each agent one compact row, at least 44px high: its 20px agent mark, its
-  name in bold, and right-aligned its presence as an 8px dot and a word (working:
-  accent dot, `ink` word; idle: `muted` dot; disconnected: a `muted` ring; waiting: the
-  marigold block) and a chevron. The row opens the agent's details in a popover below
+  name in bold, and right-aligned its status word, then a chevron. The status mark
+  sits on the agent mark's top-right corner, cut out of the panel behind it. The row opens the agent's details in a popover below
   it (surface fill, `field-border` edge, 10px radius, the floating shadow): a two-column field
   grid (72px labels in Meta, values in Body, on one baseline) with Owner (only with a
   second person), Role (a disclosure that opens a one-line description of the role),
@@ -510,6 +517,21 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   (idle or disconnected, on no task) under Not picked up. Done and cancelled fold
   below. Columns are at most 320px wide on a wide screen and stack on a phone.
 
+### Agent status (D218)
+
+- **Tones:** working (`--status-working`, green, a dot); needs a person (`--status-needs`,
+  the marigold in a dot's tone with a soft halo: its session's prompt, or an open
+  blocking ask to a person); on hold (`--status-hold`, violet, two bars: paused, late, or
+  blocked on another agent); idle (`--status-idle`, slate, a dot); no session (a `muted`
+  ring). Each keeps 3:1 on surface, sidebar, background and selected in every scheme.
+- **Words:** working, waiting, waiting on you (or a name), blocked on codex, paused,
+  late, idle, disconnected; `ink` for working and needs, `muted` otherwise. The sentence
+  ("claude asked you and waits for the answer.") is the tooltip and accessible name.
+- **Where:** on the agent mark's corner (`--mark-ring` cuts it out of the surface
+  behind) in the agent list, Work, task cards, the task panel and free agents, with the
+  word beside it; in the agent popover as a sentence; in the Inbox beside the asker.
+  The row's marigold fill stays for what waits on the viewer.
+
 ### Agent mark (task views)
 
 - In the task views an agent's mark is its harness: an original single-colour icon
@@ -525,7 +547,7 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 
 - The reference, the title (Title), "opened by … · when", and the state with its owner.
 - **About** and **Where it stands**, each a Meta label with a tooltip, then the text and
-  a byline ("by claude · 17 min ago · 4 messages since"). Where it stands turns
+  a byline (Where it stands: "Updated by claude · 17 min ago · 4 messages since"). Where it stands turns
   `muted` with a clock once it is two hours old on a live task.
 - **Open question:** each open blocking ask on the task: its question, who asks whom,
   and when. One to the person sits on marigold ("Waiting on you") with the numbered

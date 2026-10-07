@@ -19,6 +19,10 @@
   --link: #a6d6e1;
   --attention: #4a3812;
   --on-ink: #16110e;
+  --status-working: #7cc790;
+  --status-needs: #e8b04a;
+  --status-hold: #b7a4ea;
+  --status-idle: #9c8c7e;
   --id-1-bg: #563432;
   --id-1-fg: #fdd0cc;
   --id-2-bg: #553a29;
@@ -52,6 +56,10 @@
   --link: #95e4d6;
   --attention: #43391a;
   --on-ink: #08191a;
+  --status-working: #7fd69a;
+  --status-needs: #e9b84f;
+  --status-hold: #b4a6ee;
+  --status-idle: #7fa29b;
   --id-1-bg: #4f3536;
   --id-1-fg: #fdcdcc;
   --id-2-bg: #4d3829;
@@ -86,6 +94,10 @@
   --link: #a9ddff;
   --attention: #5c4500;
   --on-ink: #05080a;
+  --status-working: #6fe0a0;
+  --status-needs: #ffc54d;
+  --status-hold: #c4b6ff;
+  --status-idle: #b2c2cc;
   --id-1-bg: #6a2b2b;
   --id-1-fg: #ffe3e1;
   --id-2-bg: #6a3a1c;

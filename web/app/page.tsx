@@ -85,7 +85,7 @@ export default function Page() {
     <BoardList onSignOut={onSignOut} />
   );
   return (
-    <div className={started.board ? "flex min-h-dvh flex-col lg:h-dvh lg:overflow-clip" : undefined}>
+    <div className={started.board && !inboxPage && !peoplePage ? "flex h-dvh flex-col overflow-clip" : undefined}>
       {notice && <SignedInNotice session={notice} note={started.note} onClose={() => setNotice(null)} />}
       {view}
       {lab && <lab.Overlay />}

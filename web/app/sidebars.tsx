@@ -26,7 +26,9 @@ import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
-import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, relativeTime, rules } from "./words";
+import { StatusDot } from "./status";
+import { useStatus } from "./task-ui";
+import { appliedMode, boardLabel, charterBlocks, count, harnessName, relativeTime, rules } from "./words";
 import { VisibilityControl } from "./visibility";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
@@ -85,7 +87,7 @@ export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: num
     <Collapsible asChild open={open} onOpenChange={setOpen}>
       <section aria-label="Archived boards" className="archived-boards flex flex-col">
         <h3 className="text-meta font-bold text-muted">
-          <CollapsibleTrigger className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink">
+          <CollapsibleTrigger className="group -ml-2 flex min-h-9 pointer-coarse:min-h-11 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink">
             <ChevronRight
               className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
               strokeWidth={1.75}
@@ -257,7 +259,7 @@ function Help({ topic, children }: { topic: string; children: ReactNode }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="help inline-flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+          className="help tap inline-flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
           aria-label={`About ${topic}`}
         >
           <CircleQuestionMark className="size-3.5" strokeWidth={1.75} aria-hidden />
@@ -295,7 +297,7 @@ function Section({ id, title, help, reveal, children }: { id: string; title: str
           <h3 id={id} className="min-w-0 flex-1 text-meta font-bold text-muted">
             <CollapsibleTrigger
               ref={trigger}
-              className="group -ml-2 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+              className="group -ml-2 flex min-h-9 pointer-coarse:min-h-11 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-[6px] px-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
             >
               <ChevronRight
                 className="size-3.5 shrink-0 transition-transform duration-200 ease-out group-data-[state=open]:rotate-90"
@@ -414,7 +416,7 @@ function NameButton({ name, picked, onPick, children }: { name: string; picked: 
       aria-pressed={picked}
       title={picked ? `Show everyone's messages` : `Show only ${name}'s messages`}
       className={cn(
-        "member-filter -mx-2 min-h-9 min-w-0 rounded-[6px] px-2 text-left font-bold break-all text-ink transition-colors duration-[140ms] ease-out hover:bg-hover",
+        "member-filter -mx-2 min-h-9 pointer-coarse:min-h-11 min-w-0 rounded-[6px] px-2 text-left font-bold break-all text-ink transition-colors duration-[140ms] ease-out hover:bg-hover",
         picked && "bg-selected hover:bg-selected underline decoration-accent decoration-2 underline-offset-[5px]",
       )}
     >
@@ -451,8 +453,10 @@ function AgentItem({
   onPick: () => void;
   onShowMessage: (id: string) => void;
 }) {
-  const presence = agent.presence ?? "no_session";
-  const waiting = presence === "waiting";
+  const status = useStatus()(agent);
+  // The row turns marigold only for what waits on this person: its session's prompt, or
+  // an ask to them. An ask to someone else keeps the marigold dot and its words.
+  const waiting = agent.presence === "waiting" || status.word === "waiting on you";
   const [open, setOpen] = useState(false);
   const item = useRef<HTMLLIElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -481,7 +485,7 @@ function AgentItem({
     };
   }, [open]);
   return (
-    <li ref={item} className={cn("agent relative transition-colors duration-200 ease-out", waiting && "-mx-2 rounded-box bg-attention px-2 py-1.5")} data-agent={agent.name}>
+    <li ref={item} className={cn("agent relative transition-colors duration-200 ease-out", waiting && "-mx-2 rounded-box bg-attention px-2 py-1.5 [--mark-ring:var(--attention)]")} data-agent={agent.name} data-status={status.tone}>
       <button
         ref={trigger}
         type="button"
@@ -494,29 +498,27 @@ function AgentItem({
           open && "bg-selected hover:bg-selected",
         )}
       >
-        <AgentMark member={agent} identity={identity} size="sm" />
+        <AgentMark member={agent} identity={identity} size="sm" status={status.tone} />
         <span className={cn("agent-name min-w-0 flex-1 truncate font-bold", picked && "underline decoration-accent decoration-2 underline-offset-[5px]")}>
           {agent.name}
         </span>
-        <span className="flex shrink-0 items-center gap-1.5">
-          <span
-            aria-hidden
-            className={cn(
-              "presence-dot size-2 rounded-full transition-colors duration-200 ease-out",
-              presence === "working" ? "bg-accent" : presence === "no_session" ? "border border-muted" : waiting ? "bg-ink" : "bg-muted",
-            )}
-          />
-          <CrossFade value={presenceWords[presence]} className={cn("text-meta", presence === "working" || waiting ? "text-ink" : "text-muted")} />
+        <span className="flex min-w-0 shrink items-center" title={status.sentence}>
+          <CrossFade value={status.word} className={cn("text-meta", status.tone === "working" || status.tone === "needs" ? "text-ink" : "text-muted")} />
+          <span className="sr-only">. {status.sentence}</span>
         </span>
         <ChevronRight className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")} strokeWidth={1.75} aria-hidden />
       </button>
-      {waiting && <p className="text-meta">Its session is waiting for you, such as a permission prompt.</p>}
+      {agent.presence === "waiting" && <p className="text-meta">Its session is waiting for a person, such as at a permission prompt.</p>}
       {open && (
         <div
           role="dialog"
           aria-label={`${agent.name}'s details`}
           className="agent-popover absolute top-full right-0 left-0 z-20 mt-1 flex animate-fade-in flex-col gap-2 rounded-box border border-field-border bg-surface px-3.5 py-3 shadow-float"
         >
+          <p className="flex items-start gap-2 text-meta">
+            <StatusDot tone={status.tone} className="mt-[7px]" />
+            <span>{status.sentence}</span>
+          </p>
           <AgentDetails agent={agent} board={board} mine={mine} roleCharter={roleCharter} showOwner={showOwner} />
           {agent.can_remove === true && board && <RemoveAgent board={board} agent={agent} onRemoved={onRemoved} />}
           <div className="flex flex-col gap-1 border-t border-rule pt-2 text-meta">
