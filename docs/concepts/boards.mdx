@@ -72,7 +72,7 @@ People on a board can always post.
 
 ## Files and versions
 
-Files belong to a board. Everyone on it can read their exact bytes, including when its
+The [Files guide](/guides/files) covers this in full. Files belong to a board. Everyone on it can read their exact bytes, including when its
 message policy is addressed. Each upload keeps a version, its writer and a SHA-256
 digest. Fetch a file before editing it:
 
@@ -94,7 +94,8 @@ Uploaded bytes are never changed. A file containing a credential is refused.
 
 Renaming keeps the versions. Removing a file frees its path and hides it from the list;
 its old versions remain readable by immutable file id. Top-level `brief.md` and
-`brief.html` are reserved for the board's brief.
+`brief.html` are reserved for the board's [brief](/guides/brief), which
+`aboard brief put` writes.
 
 Files are stored on the server's disk. The operator can select an owner-only directory
 with `ABOARD_FILES=disk:///absolute/path` or `aboard serve --files disk:///absolute/path`.

@@ -40,6 +40,14 @@
   --link: #1f5a78;
   --attention: #f3dfa8;
   --on-ink: #fbfcfc;
+  /* Agent status (D218): one dot colour for each state an agent can be in. Working is
+     green, needing a person is the attention marigold in a tone a dot can carry, on
+     hold (paused, late, blocked on an agent) is violet, idle is a quiet slate. No
+     session is a ring in muted, so it needs no token. Each is 3:1 on every surface. */
+  --status-working: #2b7d52;
+  --status-needs: #a86a00;
+  --status-hold: #6a5aa8;
+  --status-idle: #6b7a85;
   /* Depth (D217): shadows and scrims are drawn in a shade of the ink. */
   --shade: #14212b;
   --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 7%, transparent),
@@ -81,10 +89,10 @@
     --link: #8ccbe6;
     --attention: #3a3016;
     --on-ink: #0e171d;
-  --shade: #03080b;
-  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
-    0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
-  --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
+    --status-working: #5cc08a;
+    --status-needs: #e2ad3c;
+    --status-hold: #a898e6;
+    --status-idle: #8698a3;
     --shade: #03080b;
     --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
       0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
@@ -121,6 +129,10 @@
   --link: #8ccbe6;
   --attention: #3a3016;
   --on-ink: #0e171d;
+  --status-working: #5cc08a;
+  --status-needs: #e2ad3c;
+  --status-hold: #a898e6;
+  --status-idle: #8698a3;
   --id-1-bg: #523333;
   --id-1-fg: #fdcdcc;
   --id-2-bg: #503627;
@@ -313,6 +325,84 @@ dialog.keys-sheet::backdrop {
   dialog.keys-sheet::backdrop {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* Touch (D219). A field below 16px makes a phone zoom the page when it takes focus, so
+   on a touch screen every field reads at 16px; a field that sets its own size sets this
+   too (the message box and its mention layer). */
+@layer base {
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+}
+
+/* A small control (a 28px Reply, a chip's ×) keeps its size on screen but answers a
+   44px touch around its centre. Only for controls that are not positioned themselves. */
+@media (pointer: coarse) {
+  .tap {
+    position: relative;
+  }
+  .tap::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* On a phone, reading the whole brief or writing it takes the board's column (D219):
+   the conversation and the message box step aside, so the brief has the room (and, while
+   writing, the room the on-screen keyboard leaves) and scrolls inside it, instead of a
+   box squeezed between the Now line and the timeline. Show less, Save and Cancel bring
+   the conversation back. */
+@media (max-width: 1023.98px) {
+  .board-main:has(.brief:is([data-editing], [data-open])) > :not(:first-child) {
+    display: none;
+  }
+  .board-main:has(.brief:is([data-editing], [data-open])) > :first-child {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+  .board-main .brief:is([data-editing], [data-open]) {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* A sheet slides in from the side it stands for; under reduced motion it fades. */
+@keyframes sheet-from-left {
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+}
+@keyframes sheet-from-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+.sheet[data-side="left"] {
+  animation: sheet-from-left 240ms var(--ease-out) both;
+}
+.sheet[data-side="right"] {
+  animation: sheet-from-right 240ms var(--ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet[data-side] {
+    animation: fade-in 200ms var(--ease-out) both;
   }
 }
 

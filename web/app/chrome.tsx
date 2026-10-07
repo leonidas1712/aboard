@@ -58,6 +58,10 @@ type HeaderProps = {
   onTitle?: () => void;
   /** onStarter, when given, makes "Starter policy" a button that shows the board's rules. */
   onStarter?: () => void;
+  /** lead comes before the mark (on a phone, the button that opens the boards). */
+  lead?: ReactNode;
+  /** tools come before the account (on a phone, the button that opens the board panel). */
+  tools?: ReactNode;
 };
 
 /**
@@ -65,30 +69,33 @@ type HeaderProps = {
  * it, whether it is on the starter policy, and who you are at the right once the
  * browser is logged in.
  */
-export function Header({ board, title, starter, visibility, shared = false, account, onTitle, onStarter }: HeaderProps) {
+export function Header({ board, title, starter, visibility, shared = false, account, onTitle, onStarter, lead, tools }: HeaderProps) {
   const label = title?.trim();
+  // On a phone the title keeps one line and the board's name gives way to it.
   const words = board && (
     <>
-      <span className="text-title font-bold break-words">{label || board}</span>
-      {label && <span className="text-meta break-all text-muted">{board}</span>}
+      <span className="text-title font-bold max-lg:min-w-0 max-lg:truncate lg:break-words">{label || board}</span>
+      {label && <span className="text-meta break-all text-muted max-sm:hidden">{board}</span>}
     </>
   );
   return (
-    <header className="shrink-0 border-b border-rule bg-surface">
-      <div className="flex min-h-16 flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2.5 sm:px-5">
-        <a href="/" className="flex items-center gap-2 text-[17px] font-bold text-ink no-underline">
+    // The header stays at the top while a page scrolls under it (D217's glass).
+    <header className="glass sticky top-0 z-30 shrink-0 border-b border-rule pt-[env(safe-area-inset-top)]">
+      <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] sm:min-h-16 sm:gap-x-5 sm:px-5 sm:py-2.5">
+        {lead}
+        <a href="/" className="flex min-h-11 items-center gap-2 text-[17px] font-bold text-ink no-underline">
           <Mark className="size-[22px]" />
-          aboard
+          <span className={cn(board && "max-sm:sr-only")}>aboard</span>
         </a>
         {board && (
-          <h1 className="min-w-0">
+          <h1 className="min-w-0 max-lg:flex-1">
             {onTitle ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
                     onClick={onTitle}
-                    className="board-title -mx-2 flex min-h-11 min-w-0 flex-wrap items-baseline gap-x-2.5 rounded-control px-2 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover"
+                    className="board-title -mx-2 flex min-h-11 min-w-0 items-baseline max-lg:max-w-full gap-x-2.5 rounded-control px-2 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover lg:flex-wrap"
                   >
                     {words}
                     <span className="sr-only">, board details</span>
@@ -99,24 +106,28 @@ export function Header({ board, title, starter, visibility, shared = false, acco
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <span className="flex min-w-0 flex-wrap items-baseline gap-x-2.5">{words}</span>
+              <span className="flex min-w-0 items-baseline gap-x-2.5 lg:flex-wrap">{words}</span>
             )}
           </h1>
         )}
-        {board && <VisibilityLabel visibility={visibility} shared={shared} />}
-        {starter &&
-          (onStarter ? (
-            <button
-              type="button"
-              onClick={onStarter}
-              className="starter min-h-11 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
-              title="Every member reads everything. See the rules for how to tighten them."
-            >
-              Starter policy
-            </button>
-          ) : (
-            <span className="starter text-meta text-muted">Starter policy</span>
-          ))}
+        {/* On a phone the board's labels take a second line under its title. */}
+        <div className="flex items-center gap-x-5 empty:hidden max-lg:order-last max-lg:basis-full max-lg:gap-x-4">
+          {board && <VisibilityLabel visibility={visibility} shared={shared} />}
+          {starter &&
+            (onStarter ? (
+              <button
+                type="button"
+                onClick={onStarter}
+                className="starter min-h-11 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline tap max-lg:min-h-9"
+                title="Every member reads everything. See the rules for how to tighten them."
+              >
+                Starter policy
+              </button>
+            ) : (
+              <span className="starter text-meta text-muted">Starter policy</span>
+            ))}
+        </div>
+        {tools}
         {account}
       </div>
     </header>

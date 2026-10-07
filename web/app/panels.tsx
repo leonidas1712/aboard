@@ -78,7 +78,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
     <aside
       aria-labelledby={id}
       data-collapsed={size.collapsed || undefined}
-      className={cn("side-panel relative min-w-0 border-t border-rule bg-sidebar lg:min-h-0 lg:border-t-0", left ? "lg:border-r" : "lg:border-l", className)}
+      className={cn("side-panel relative min-w-0 border-t border-rule bg-sidebar [--mark-ring:var(--sidebar)] lg:min-h-0 lg:border-t-0", left ? "lg:border-r" : "lg:border-l", className)}
     >
       {/* The strip: only the button that shows the panel again, in the header row. */}
       <div className={cn(headerRow, "hidden justify-center", size.collapsed && "lg:flex")}>
