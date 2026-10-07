@@ -6449,7 +6449,8 @@ components:
                     The member ids (`mem_…`, a member's `id` on this board; not handles,
                     person ids or tokens) the message was addressed to when it was posted:
                     each member named in `to` with `@name`, and each member who held a
-                    `role:R` target's role then, without the sender. Only `to` decides
+                    `role:R` target's role then, and the active agent seats of an
+                    `owner:handle` target's person then, without the sender. Only `to` decides
                     them: someone only mentioned in the body is not a recipient. Absent
                     for a message to `all`, and from events written before recipients
                     were recorded.
