@@ -126,6 +126,17 @@ view's Playwright suite (`make web-e2e`: `web/e2e/asks.spec.ts`, `web/e2e/files.
 - [ ] `aboard task new "…" --about "…" --no-start` opens a task nobody owns; `aboard task list --done` lists finished tasks after `task done`.
 - [ ] With a real Claude Code and a real Codex session on one board, a session told "ask me whether to proceed, with two options" runs `aboard ask` in two lines with options, ends its turn, and is woken by the answer from the Inbox (`aboard open`, then the `1` key); the task shows Blocked while the ask is open and clears after.
 
+## The brief ([docs/guides/brief.mdx](../docs/guides/brief.mdx))
+
+Covered by e2e: `TestBriefCLIUpdatesOnlyTheIdentityAndVersionFetched` (`brief`, `get`, `put`, the stale refusal),
+`TestBriefCLIFormatSwitchKeepsTheOldFileHistory` (`--replace-format`) and the board view's `web/e2e/brief.spec.ts`
+(`make web-e2e`: the box, writing and editing, the refused save that keeps the person's text, the HTML sandbox).
+By hand:
+
+- [ ] `aboard brief` on a board with no brief exits 1 with `file_not_found` and the `brief put` hint; after `aboard brief put status.md` it prints the freshness line.
+- [ ] `aboard file put brief.md` and `aboard file mv notes.md brief.md` are refused with `brief_path_reserved`.
+- [ ] A brief more than an hour old, on a board with 30 messages since, shows "may be out of date" in the board view.
+
 ## Web UI ([README.md](../README.md#quick-start), [docs/safety.mdx](../docs/safety.mdx))
 
 Run with a binary from `make install` (or a release).
