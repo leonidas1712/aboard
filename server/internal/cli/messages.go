@@ -257,6 +257,12 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	}
 	nudges := a.taskNudges(ctx, c, ref, in, "inbox", *boardFlag != "")
 	text += nudgesText(nudges)
+	// In a session, the boards its person was added to that are still new to them.
+	var added []addedNotice
+	if key, ok := a.sessionKey(); ok {
+		_, added = a.sessionAdded(ctx, key)
+		text += addedText(added)
+	}
 	a.emit(struct {
 		Board     string               `json:"board"`
 		Agent     string               `json:"agent"`
@@ -265,9 +271,10 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		More      bool                 `json:"more"`
 		Wrapped   []string             `json:"wrapped"`
 		Bundle    *string              `json:"bundle"`
+		Added     []addedNotice        `json:"added,omitempty"`
 		Work      *api.AgentWork       `json:"work,omitempty"`
 		Nudges    []deliverytext.Nudge `json:"nudges"`
-	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle, in.Work, nudges}, text)
+	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle, added, in.Work, nudges}, text)
 	return nil
 }
 

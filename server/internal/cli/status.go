@@ -76,6 +76,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Nudges     []deliverytext.Nudge `json:"nudges,omitempty"`
 		Seats      []seatRow            `json:"seats,omitempty"`
 		SeatsUsage []string             `json:"seats_usage,omitempty"`
+		// Added are the boards the person was added to that are still new to them.
+		Added []addedNotice `json:"added,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -151,6 +153,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
 		text.WriteString(subLine)
+		out.Added = a.addedAround(ctx, out.Server)
+		text.WriteString(addedText(out.Added))
 		a.emit(out, styleStatus(text.String(), a.out()))
 		return nil
 	}
@@ -249,6 +253,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			text.WriteString(nudgesText(out.Nudges))
 		}
 	}
+	out.Added = a.addedAround(ctx, out.Server)
+	text.WriteString(addedText(out.Added))
 	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil
 }

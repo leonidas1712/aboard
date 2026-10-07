@@ -269,6 +269,28 @@ $defs:
     properties:
       name: { type: string, examples: [local] }
       url: { type: string, format: uri, examples: ["http://127.0.0.1:7400"] }
+  AddedNotice:
+    description: |
+      Someone else added the person to a board and nothing of theirs has followed yet
+      (openapi.yaml, Board.added): none of their agents has joined it since and they
+      haven't read past the add. Text: "Added to <board> by <person>" or "Added to <board>
+      by <person>'s agent <agent>", then " · aboard join --board <board>", the command
+      their agent runs to join. It clears by itself once an agent of theirs joins or they
+      read the board; nothing is posted or recorded for it.
+    type: object
+    required: [board, by, by_owner, seq, join]
+    properties:
+      board: { type: string, examples: [payments-refunds] }
+      by:
+        type: string
+        description: The name on the board of whoever added them.
+        examples: [claude]
+      by_owner:
+        type: [string, "null"]
+        description: When an agent added them, its person's handle; null when a person did.
+        examples: [leo]
+      seq: { type: integer, minimum: 1, description: "The person.added event's seq." }
+      join: { type: string, examples: ["aboard join --board payments-refunds"] }
   AgentUse:
     description: How to act as this agent in later commands.
     type: object
@@ -1450,6 +1472,15 @@ $defs:
           "checkout-v2 · nothing new for claude".
         $ref: openapi.yaml#/components/schemas/AgentWork
       nudges: { $ref: "#/$defs/Nudges" }
+      added:
+        type: array
+        description: |
+          Run in a harness session: the boards its person was added to by someone else
+          that are still new to them (AddedNotice), read through the machine's delegation;
+          absent elsewhere, and when they can't be read. Each is one line after the
+          messages, such as "Added to payments-refunds by leo's agent claude · aboard join
+          --board payments-refunds". They are never acknowledged and wake no one.
+        items: { $ref: "#/$defs/AddedNotice" }
 
   # ---------- aboard inbox, in a session with several seats, without --board ----------
   InboxSeatsOutput:
@@ -2403,6 +2434,16 @@ $defs:
           seat:
             type: [string, "null"]
             description: The subagent's own seat; always null, since a subagent has none.
+      added:
+        type: array
+        description: |
+          The boards the person was added to by someone else that are still new to them
+          (AddedNotice): in a terminal, read with the person's login on the server status
+          reports; in a harness session, through the machine's delegation. Absent when
+          there are none or they can't be read. Each is one line at the end of the text,
+          such as "Added to payments-refunds by leo's agent claude · aboard join --board
+          payments-refunds".
+        items: { $ref: "#/$defs/AddedNotice" }
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:
@@ -2549,6 +2590,13 @@ $defs:
             seat:
               type: [string, "null"]
               description: In a session, listing through the machine's delegation, the session's seat on this board (the agent's name), or null. Absent otherwise.
+            added:
+              allOf: [{ $ref: "#/$defs/AddedNotice" }]
+              description: |
+                Present while someone else's add is new to the person (AddedNotice). The
+                text adds "new, added by <person>" or "new, added by <person>'s agent
+                <agent>" to the row; in a session, for a board without the session's
+                seat, "new, added by <who>; join with aboard join --board <board>".
       archived_count:
         type: integer
         minimum: 0
@@ -2614,7 +2662,19 @@ $defs:
       agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
       <n> people", then one line per person: their name on the board, "(owner)" for an
       owner, "(guest)" for a guest of the server, and their display name when they have
-      one. Each person's server_role is in the JSON.
+      one. Each person's server_role is in the JSON. Under each person, one line per
+      agent of theirs on the board now, so an agent can find another person's agent by
+      its person and address it:
+        retry-design · open · 2 people
+          leo (owner)
+            @claude · claude-code · idle
+          maya
+            @claude-2 · claude-code · working
+      An agent line is "@<name>", then its harness when the reader may see it, then its
+      presence. agents is null, and no agent lines are shown, when the caller can't read
+      the board's members: a person looking at an open board they aren't on. It reads
+      GET /boards/{board}/people and GET /boards/{board}/members with the same
+      credential, so it shows nothing either doesn't.
     type: object
     required: [board, visibility, people]
     properties:
@@ -2622,7 +2682,24 @@ $defs:
       visibility: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
       people:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+        items:
+          allOf:
+            - { $ref: openapi.yaml#/components/schemas/BoardPerson }
+            - type: object
+              required: [agents]
+              properties:
+                agents:
+                  type: [array, "null"]
+                  description: The person's agents on the board now, in the order they joined.
+                  items:
+                    type: object
+                    required: [name, harness, presence]
+                    properties:
+                      name: { type: string }
+                      harness: { type: [string, "null"] }
+                      presence:
+                        type: [string, "null"]
+                        enum: [working, idle, waiting, no_session, null]
 
   # ---------- aboard board add @handle ----------
   BoardAddOutput:

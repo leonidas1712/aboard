@@ -50,7 +50,22 @@ export type Board = {
   can_delete?: boolean;
   task_prefix?: string | null;
   tasks_open?: number;
+  /** added is set while someone else's add of this person to the board is new to them: no agent of theirs has joined since and they haven't read past it. */
+  added?: BoardAdded;
 };
+
+/** BoardAdded is the person.added event that put the reader on a board. */
+export type BoardAdded = {
+  seq: number;
+  at: string;
+  by: { kind: "agent" | "human" | "system"; member_id: string | null; name: string | null; owner: string | null };
+};
+
+/** addedBy says who added the reader: "leo", or "leo's agent claude". */
+export function addedBy(a: BoardAdded): string {
+  const name = a.by.name ?? "someone";
+  return a.by.kind === "agent" && a.by.owner ? `${a.by.owner}'s agent ${name}` : name;
+}
 
 export type Lifecycle = "active" | "archived";
 

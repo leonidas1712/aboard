@@ -1,0 +1,68 @@
+#!/bin/sh
+# Keeps the release versions the docs and deploy recipes name in step with the current
+# release: `version` in server/internal/cli/build.go.
+#
+#   scripts/doc-versions check        fail when a checked file names an older release
+#   scripts/doc-versions bump [ver]   rewrite every older release in them to ver
+#                                     (default: the version in build.go)
+#
+# A release is any "## X.Y.Z" heading in CHANGELOG.md. The checked files are the docs'
+# pages, README.md, the deploy recipes and e2e/RELEASE_CHECKLIST.md. CHANGELOG.md,
+# engineering/ and the tests are not checked: they keep their history.
+#
+# Exit codes: 0 in step (or bumped), 1 an older release is named, 2 usage.
+
+set -eu
+cd "$(dirname "$0")/.."
+
+current=$(sed -n 's/^var version = "\(.*\)"$/\1/p' server/internal/cli/build.go)
+[ -n "$current" ] || { echo "doc-versions: no version in server/internal/cli/build.go" >&2; exit 2; }
+
+files() {
+	find docs -name '*.mdx' -not -path 'docs/node_modules/*'
+	find deploy -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.toml' \)
+	echo README.md
+	echo e2e/RELEASE_CHECKLIST.md
+}
+
+# Released versions other than $1, from the changelog's headings.
+older() {
+	sed -n 's/^## \[\{0,1\}\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)\]\{0,1\}$/\1/p' CHANGELOG.md | grep -vxF "$1" || true
+}
+
+# A version as a whole word: not part of a longer version such as 10.1.0 or 0.1.10.
+pattern() {
+	printf '(^|[^0-9.])v?%s([^0-9]|$)' "$(printf %s "$1" | sed 's/\./\\./g')"
+}
+
+case "${1:-}" in
+check)
+	bad=0
+	for v in $(older "$current"); do
+		# shellcheck disable=SC2046
+		if grep -nE "$(pattern "$v")" $(files); then bad=1; fi
+	done
+	if [ "$bad" = 1 ]; then
+		echo "doc-versions: the lines above name an older release; the current one is $current. Run: scripts/doc-versions bump" >&2
+		exit 1
+	fi
+	;;
+bump)
+	new=${2:-$current}
+	new=${new#v}
+	for v in $(older "$new"); do
+		re=$(printf %s "$v" | sed 's/\./\\./g')
+		for f in $(files); do
+			grep -qE "$(pattern "$v")" "$f" || continue
+			# Twice, since one pass can't rewrite two mentions that share a separator.
+			sed -E -i.bak "s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g; s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g" "$f"
+			rm -f "$f.bak"
+			echo "$f"
+		done
+	done
+	;;
+*)
+	echo "usage: scripts/doc-versions check | bump [version]" >&2
+	exit 2
+	;;
+esac

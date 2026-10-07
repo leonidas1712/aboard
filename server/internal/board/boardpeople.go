@@ -69,6 +69,25 @@ func (s *Service) People(ctx context.Context, p Principal, boardName string) (Pe
 	return out, err
 }
 
+// addedBy is how a person learns someone else put them on b, read from the record: the
+// latest person.added for them, when its actor isn't them, none of their agents has
+// joined since, and they haven't read past it. Nil otherwise.
+func addedBy(tx ReadTx, b Board, me Member, members []Member) (*events.Event, error) {
+	e, err := tx.PersonAdded(b.ID, me.ID)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil || e.Actor.MemberID == nil || *e.Actor.MemberID == me.ID || me.Cursor > e.Seq {
+		return nil, err
+	}
+	for _, m := range members {
+		if m.Kind == "agent" && m.HumanID == me.HumanID && m.JoinedAt >= e.At {
+			return nil, nil
+		}
+	}
+	return &e, nil
+}
+
 func noSuchPerson(handle string) *apierr.Error {
 	return apierr.New(http.StatusNotFound, "person_not_found",
 		fmt.Sprintf("No one on this server is called %s.", handle),

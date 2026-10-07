@@ -60,7 +60,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 
 	people := maya.run("board", "people", "--json").json(t)
 	matchesCLISpec(t, "BoardPeopleOutput", people)
-	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam")
+	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam", "    @member · disconnected")
 
 	added := sam.run("board", "add", "kim", "--json").json(t)
 	matchesCLISpec(t, "BoardAddOutput", added)
@@ -128,7 +128,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	}
 	left := maya.run("board", "leave", "--json").json(t)
 	matchesCLISpec(t, "BoardLeaveOutput", left)
-	expectLines(t, sam.run("board", "people"), board+" · private · 1 person", "  sam (owner)")
+	expectLines(t, sam.run("board", "people"), board+" · private · 1 person", "  sam (owner)", "    @member-2 · disconnected")
 	sam.run("audit", "verify")
 }
 
@@ -191,7 +191,7 @@ func TestUpgradeMakesExistingBoardsOpenAndOwned(t *testing.T) {
 	if status != http.StatusOK || v["visibility"] != "open" || v["on_board"] != true {
 		t.Fatalf("the board after the upgrade: %d %v", status, v)
 	}
-	expectLines(t, e.run("board", "people"), "writer-reviewer · open · 1 person", "  alex (owner)")
+	expectLines(t, e.run("board", "people"), "writer-reviewer · open · 1 person", "  alex (owner)", "    @writer · disconnected", "    @reviewer · disconnected")
 	e.run("audit", "verify")
 }
 

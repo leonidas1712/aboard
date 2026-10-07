@@ -606,6 +606,19 @@ func (t *tx) Events(boardID string, after int64, limit int) ([]events.Event, err
 	return out, rows.Err()
 }
 
+// PersonAdded finds the latest person.added event for a person's member on a board.
+func (t *tx) PersonAdded(boardID, memberID string) (events.Event, error) {
+	var e events.Event
+	var actor string
+	err := t.queryRow("SELECT seq, at, actor_json FROM events WHERE board_id = ? AND type = ? AND json_extract(data_json, '$.member_id') = ? ORDER BY seq DESC LIMIT 1",
+		boardID, events.PersonAdded, memberID).Scan(&e.Seq, &e.At, &actor)
+	if err != nil {
+		return events.Event{}, notFound(err)
+	}
+	e.BoardID, e.Type = boardID, events.PersonAdded
+	return e, json.Unmarshal([]byte(actor), &e.Actor)
+}
+
 func lifecycleDefault(v string) string {
 	if v == "" {
 		return board.LifecycleActive
