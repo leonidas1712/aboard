@@ -785,13 +785,25 @@ function Versions({
   );
 }
 
-/** Preview shows a version on its light page: Markdown formatted, text as written, images drawn. */
+/**
+ * htmlPolicy is the Content-Security-Policy an HTML preview runs under, put first in its
+ * document: nothing may load from anywhere (no fetch, no external image, style, font or
+ * frame), images only from data: URLs, and styles only from the file itself.
+ */
+export const htmlPolicy = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+
+/** sandboxed puts the preview policy ahead of the file's own markup; the file's bytes are never changed. */
+function sandboxed(html: string): string {
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${htmlPolicy}"><meta name="referrer" content="no-referrer"><base target="_blank">${html}`;
+}
+
+/** Preview shows a version on its light page: Markdown formatted, text as written, HTML in a sandbox, images drawn. */
 function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileVersion }) {
   const kind = kindOf(file.name, v.media_type);
   const [text, setText] = useState<{ key: string; body: string } | null>(null);
   const [error, setError] = useState<unknown>(null);
   const key = `${file.id}@${v.version}`;
-  const readable = (kind === "markdown" || kind === "text") && v.size <= maxPreview;
+  const readable = (kind === "markdown" || kind === "text" || kind === "html") && v.size <= maxPreview;
   useEffect(() => {
     if (!readable) return;
     let live = true;
@@ -806,7 +818,6 @@ function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileV
   }, [board, file.id, v.version, key, readable]);
 
   const note = (children: ReactNode) => <p className="file-preview-note rounded-box border border-rule px-3.5 py-3 text-meta text-muted">{children}</p>;
-  if (kind === "html") return note("HTML isn't previewed here yet. Download it to open it in your browser.");
   if (kind === "other") return note(`There is no preview for this type. Download v${v.version} to open it.`);
   if (kind === "image") {
     return (
@@ -820,6 +831,25 @@ function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileV
   if (error !== null) return <Problem error={error} />;
   if (!text || text.key !== key) {
     return <div className="file-page h-32 rounded-box border border-rule motion-safe:animate-pulse" role="status" aria-label="Loading the preview" />;
+  }
+  if (kind === "html") {
+    // An agent's HTML is untrusted. sandbox="" with no allow-* token gives the frame an
+    // opaque origin (it can't read this page, its cookies or the API) and blocks scripts,
+    // forms, popups, plugins and navigating the top page. The policy in its document
+    // blocks every network load. Links open in a new window (<base target="_blank">),
+    // which the sandbox refuses as a popup, so a link goes nowhere; the board view's own
+    // policy, which a srcdoc frame inherits, still refuses any frame navigation off-site.
+    return (
+      <div className="file-page overflow-hidden rounded-box border border-rule">
+        <iframe
+          title={`Preview of ${file.name}, v${v.version}`}
+          sandbox=""
+          referrerPolicy="no-referrer"
+          srcDoc={sandboxed(text.body)}
+          className="file-frame block h-[min(60vh,560px)] w-full border-0 bg-[var(--page)]"
+        />
+      </div>
+    );
   }
   return (
     <div className="file-page file-preview quiet-scroll max-h-[min(60vh,560px)] overflow-y-auto rounded-box border border-rule px-4 py-3" tabIndex={0} aria-label={`Preview of ${file.name}, v${v.version}`}>

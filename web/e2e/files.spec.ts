@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createServer as httpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -55,14 +56,17 @@ test.afterAll(() => {
 // The board view runs under a strict Content-Security-Policy: a preview that broke it
 // would fail here.
 let violations: string[] = [];
+// The HTML preview test expects the preview's own policy to refuse loads, and says so.
+let refusalsExpected = false;
 test.beforeEach(({ page }) => {
   violations = [];
+  refusalsExpected = false;
   page.on("console", (m) => {
     if (m.text().includes("Content Security Policy")) violations.push(m.text());
   });
 });
 test.afterEach(() => {
-  expect(violations).toEqual([]);
+  if (!refusalsExpected) expect(violations).toEqual([]);
 });
 
 function base(): string {
@@ -376,6 +380,60 @@ test("the panel links to the messages that posted a file, and a file removed and
   expect(await latest(board, second.id)).toMatchObject({ version: 1, by: { name: "writer" } });
   expect((await bytes(board, second.id, 1)).toString()).toBe("# Plan\n\nA different file.\n");
   await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
+test("an HTML file previews in a sandbox that runs no script, loads nothing and can't move the page", async ({ page }) => {
+  refusalsExpected = true;
+  const board = "files-html";
+  await openBoard(page, board);
+  // A server that counts every request the preview might make.
+  const hits: string[] = [];
+  const tracker = httpServer((req, res) => {
+    hits.push(req.url ?? "");
+    res.end("ok");
+  });
+  await new Promise<void>((done) => tracker.listen(0, "127.0.0.1", done));
+  const out = `http://127.0.0.1:${(tracker.address() as { port: number }).port}`;
+  const dot = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const html = `<html><head><link rel="stylesheet" href="${out}/style.css"><style>h1 { color: rgb(160, 40, 40); } body { background: url(${out}/bg.png); }</style></head>
+<body><h1>Report</h1><p id="state">static</p>
+<img id="inline" src="data:image/png;base64,${dot}"><img id="outside" src="${out}/pixel.png">
+<a id="top" href="${out}/top" target="_top">leave the board</a> <a id="inside" href="${out}/inside">go elsewhere</a>
+<form action="${out}/form" method="post"><button id="send">Send</button></form>
+<script>document.getElementById("state").textContent = "script ran"; fetch("${out}/fetch"); top.location = "${out}/script";</script>
+</body></html>`;
+  await put(board, "report.html", 0, html);
+  await page.getByRole("tab", { name: "Files 1" }).click();
+  await page.locator('[data-file="report.html"]').getByRole("button", { name: "report.html" }).click();
+  const panel = page.getByRole("region", { name: "File report.html" });
+  const frame = page.frameLocator('iframe[title="Preview of report.html, v1"]');
+
+  // The file's markup and its own styles and data: images render.
+  await expect(frame.getByRole("heading", { name: "Report" })).toBeVisible();
+  await expect(frame.locator("h1")).toHaveCSS("color", "rgb(160, 40, 40)");
+  await expect.poll(() => frame.locator("#inline").evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1);
+  // The frame has no permissions at all.
+  await expect(panel.locator("iframe")).toHaveAttribute("sandbox", "");
+  // Its script never ran: no text change, no fetch, no navigation.
+  await expect(frame.locator("#state")).toHaveText("static");
+  expect(await frame.locator("#outside").evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(0);
+
+  // Neither link nor the form moves the board view or reaches the outside server.
+  const here = page.url();
+  await frame.locator("#top").click();
+  await frame.locator("#inside").click();
+  await frame.locator("#send").click();
+  await expect(page.getByRole("region", { name: "File report.html" })).toBeVisible();
+  expect(page.url()).toBe(here);
+  expect(page.context().pages()).toHaveLength(1);
+  await expect(frame.locator("#state")).toHaveText("static");
+  // Give anything that slipped through time to arrive, then check nothing did.
+  await page.evaluate(() => new Promise((done) => setTimeout(done, 500)));
+  expect(hits).toEqual([]);
+  // The bytes are still offered as they are.
+  await expect(panel.getByRole("link", { name: "Download v1" }).first()).toBeVisible();
+  expect((await bytes(board, "report.html", 1)).toString()).toBe(html);
+  await new Promise((done) => tracker.close(done));
 });
 
 // Screenshots for review, only when FILES_SHOTS names a folder: the list and the panel,
