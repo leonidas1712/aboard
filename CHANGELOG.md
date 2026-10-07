@@ -9,6 +9,11 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Added
+
+- `aboard doctor` names client and server versions and warns outside the supported
+  version window, with the next step to upgrade the CLI or the server.
+
 ### Changed
 
 - `aboard boards` lists boards across this machine's servers, grouped by server.
@@ -17,6 +22,10 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Additive: CLI doctor checks describe `server_version`, `version_skew` and
+  `version_unknown`, keeping the output shape and warning exit behavior. API clients
+  may send their version as optional `User-Agent` metadata; requests remain accepted
+  without it.
 - `spec/cli.yaml`: optional `BoardsOutput.servers` contains per-server board lists
   and errors. Existing top-level fields still describe the primary server. This is
   additive for CLI scripts; agent-session output is unchanged.

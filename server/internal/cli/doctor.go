@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
 	"github.com/leonidas1712/aboard/server/internal/harness"
@@ -54,24 +53,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	var checks []doctorCheck
-	srv := a.localServer()
-	if info, err := a.localInfo(ctx); err == nil {
-		if b := infoBuild(info); info.Mode == api.Local && compareBuilds(b, currentBuild()) < 0 {
-			checks = append(checks, problem("local_server", levelWarning, "server_outdated",
-				"local server at "+srv.URL+" runs aboard "+buildLabel(b)+", older than this aboard "+buildLabel(currentBuild()),
-				"run aboard status, or any other command that uses it, which replaces it"))
-		} else {
-			checks = append(checks, okCheck("local_server", "local server running at "+srv.URL))
-		}
-	} else if sandbox, ok := a.networkBlocked(); ok {
-		checks = append(checks, problem("local_server", levelError, "sandbox_blocks_network",
-			"local server at "+srv.URL+" can't be reached from "+sandbox+"'s sandbox, which blocks network access",
-			"run "+allowFix+" in a terminal, or approve this command outside the sandbox"))
-	} else {
-		checks = append(checks, problem("local_server", levelWarning, "server_unreachable",
-			"local server not running at "+srv.URL, "run aboard up, or any command that needs it starts it"))
-	}
+	checks := a.doctorServerChecks(ctx)
 	status, daemonCheck := a.checkDaemon(ctx, p)
 	checks = append(checks, daemonCheck...)
 	for _, h := range a.registry() {

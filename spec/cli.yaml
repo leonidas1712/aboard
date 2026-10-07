@@ -2015,6 +2015,15 @@ $defs:
   # ---------- aboard doctor ----------
   DoctorOutput:
     description: |
+      A server_version check names this CLI's version and the server's version from
+      GET /v1/info. For two 0.x versions, their minor numbers may differ by one;
+      otherwise their major numbers may differ by one. Patches, prereleases and build
+      metadata do not change this window. Outside it the check is a warning with code
+      version_skew, naming aboard upgrade when the CLI is older, or asking the server's
+      admin to upgrade when the server is older. Commands keep running.
+      An unreadable version makes the check a warning with code version_unknown:
+      compatibility cannot be assessed. A development build with a semantic version
+      uses that version's core numbers. These warnings never count as errors.
       One check per part. Exit 0 when no check is an error, 3 otherwise. Text output is
       one line per check: "✓ …", "! …" (warning) or "✗ … Fix: …".
       An installed skill or Aboard hook entries that differ from what this aboard writes

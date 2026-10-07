@@ -42,6 +42,7 @@ func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*cl
 			base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL,
 		}, CheckRedirect: noRedirects}),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
+			req.Header.Set("User-Agent", "aboard/"+version)
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
 			}
