@@ -157,7 +157,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
 		text.WriteString(subLine)
-		out.Added = a.addedAround(ctx, out.Server)
+		out.Added = a.addedAround(ctx, out.Server, *as)
 		text.WriteString(addedText(out.Added))
 		a.emit(out, styleStatus(text.String(), a.out()))
 		return nil
@@ -253,7 +253,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(subLine)
 	text.WriteString(boardLines.String())
-	out.Added = a.addedAround(ctx, out.Server)
+	out.Added = a.addedAround(ctx, out.Server, *as)
 	text.WriteString(addedText(out.Added))
 	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil

@@ -113,11 +113,14 @@ func (a *app) sessionAdded(ctx context.Context, key delivery.SessionKey) (string
 }
 
 // addedAround is aboard status's and aboard inbox's notices: through the delegation in
-// a session, else with the person's login on srv.
-func (a *app) addedAround(ctx context.Context, srv serverRef) []addedNotice {
+// a session, else with the person's login on srv only when no agent is selected.
+func (a *app) addedAround(ctx context.Context, srv serverRef, asFlag string) []addedNotice {
 	if key, ok := a.sessionKey(); ok {
 		_, ns := a.sessionAdded(ctx, key)
 		return ns
+	}
+	if a.agentSelected(asFlag) {
+		return nil
 	}
 	return a.personAdded(ctx, srv)
 }

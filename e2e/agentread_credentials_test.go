@@ -50,6 +50,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 	humanStream := make(chan struct{}, 1)
 	var mu sync.Mutex
 	ownerRequests, seatRequests, wrongBoard := 0, 0, false
+	var ownerPaths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		switch r.Header.Get("Authorization") {
@@ -61,6 +62,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 				}
 			} else {
 				ownerRequests++
+				ownerPaths = append(ownerPaths, r.Method+" "+r.URL.Path)
 			}
 		case "Bearer " + seat.Token:
 			seatRequests++
@@ -115,6 +117,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 			t.Run(selection.name+"/"+command[0], func(t *testing.T) {
 				mu.Lock()
 				ownerRequests, seatRequests, wrongBoard = 0, 0, false
+				ownerPaths = nil
 				mu.Unlock()
 				args := append(append(append([]string{}, command...), selection.args...), "--json")
 				result := e.exec(selection.vars, "", args...)
@@ -126,9 +129,10 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 				}
 				mu.Lock()
 				human, agent, wrong := ownerRequests, seatRequests, wrongBoard
+				paths := append([]string(nil), ownerPaths...)
 				mu.Unlock()
 				if human != 0 || agent == 0 || wrong {
-					t.Fatalf("selected read: person requests %d, seat requests %d, wrong board %t", human, agent, wrong)
+					t.Fatalf("selected read: person requests %d, seat requests %d, wrong board %t; person paths %v", human, agent, wrong, paths)
 				}
 			})
 		}
@@ -187,6 +191,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 		t.Run("multi-seat/"+selection.name, func(t *testing.T) {
 			mu.Lock()
 			ownerRequests, seatRequests, wrongBoard = 0, 0, false
+			ownerPaths = nil
 			mu.Unlock()
 			args := append(append([]string{"audit", "verify"}, selection.args...), "--json")
 			result := e.exec(selection.vars, "", args...)
@@ -205,9 +210,10 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 			}
 			mu.Lock()
 			human, agent, wrong := ownerRequests, seatRequests, wrongBoard
+			paths := append([]string(nil), ownerPaths...)
 			mu.Unlock()
 			if human != 0 || agent == 0 || wrong {
-				t.Fatalf("qualified audit credential/board mismatch: person %d, seat %d, wrong board %t", human, agent, wrong)
+				t.Fatalf("qualified audit credential/board mismatch: person %d, seat %d, wrong board %t; person paths %v", human, agent, wrong, paths)
 			}
 		})
 	}
