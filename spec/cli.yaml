@@ -1248,6 +1248,10 @@ $defs:
   #            [--expect-reply | --wait-reply SECONDS]
   #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
   # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
+  # `say --to owner:handle` addresses that person’s current agents on this board.
+  # In a human terminal, `say --to mine` posts as the person to owner:<their handle>.
+  # `mine` is refused with human_command_in_session for --as, ABOARD_AGENT or a harness session.
+  # No agent path may use a human login. Recorded recipients are fixed at post time.
   SayOutput:
     description: |
       Returns as soon as the message is stored, with two advisory notes that never fail

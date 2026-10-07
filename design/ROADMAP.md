@@ -102,7 +102,7 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
+| `owner:<name>` targets; owners beside names; team concepts appear through actions | building | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | People post from the CLI: `aboard say --me` | later | |
 | The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone"); a reply starts from the asker and the thread's people as removable chips, and a mention adds anyone on the board; mentions show as names in the timeline | done (#62) | D174 |
@@ -200,7 +200,7 @@ the board.
 | MCP server: `aboard mcp` over stdio, and the remote endpoint on team servers | later | D67, D109 |
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
 | `aboard swarm up`, `ps`, `down` from the board file's `agents` section | done (#61) | D61, D105, D178 |
-| Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | in review (issue #175) | test-only fixture ordering; product resume rules unchanged |
+| Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | done (#178) | test-only fixture ordering; product resume rules unchanged |
 | Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | done (#61, #64, #70) | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |
