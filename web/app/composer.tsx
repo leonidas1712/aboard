@@ -238,7 +238,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           <button
             type="button"
             onClick={onCancelReply}
-            className="inline-flex size-8 items-center justify-center rounded-[6px] text-ink hover:bg-selected"
+            className="inline-flex size-8 items-center justify-center rounded-[6px] text-ink hover:bg-hover"
             aria-label="Cancel the reply"
             title="Cancel the reply"
           >
@@ -254,7 +254,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
                 type="button"
                 data-target={t}
                 onClick={() => unpick(t)}
-                className="recipient-chip inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface pr-1.5 pl-2.5 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-selected"
+                className="recipient-chip inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface pr-1.5 pl-2.5 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
                 aria-label={`Remove ${recipient(t)} from the recipients`}
               >
                 {recipient(t)}
@@ -270,7 +270,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           id={listId}
           role="listbox"
           aria-label="People, agents and roles to mention"
-          className="mention-list quiet-scroll absolute bottom-full left-0 z-40 mb-1 max-h-[min(19rem,50dvh)] w-full max-w-[22rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink animate-fade-in"
+          className="mention-list quiet-scroll absolute bottom-full left-0 z-40 mb-1 max-h-[min(19rem,50dvh)] w-full max-w-[22rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink shadow-float animate-fade-in"
         >
           {offered.map((c, i) => (
             <li
@@ -319,7 +319,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
       >
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="to-label inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-selected focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent sm:max-w-[16rem]"
+            className="to-label inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent sm:max-w-[16rem]"
             aria-label={`Recipients: ${toWords(to)}. Change`}
           >
             <span className="truncate">To {summary}</span>

@@ -670,7 +670,7 @@ function ThreadBlock({
   ) : (
     <button
       type="button"
-      className="thread-toggle -ml-1.5 flex min-h-11 max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-control px-1.5 text-left text-meta transition-colors duration-[140ms] ease-out hover:bg-selected"
+      className="thread-toggle -ml-1.5 flex min-h-11 max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-control px-1.5 text-left text-meta transition-colors duration-[140ms] ease-out hover:bg-hover"
       aria-expanded={open}
       aria-controls={open ? id : undefined}
       aria-label={`${open ? "Hide" : "Show"} ${replies}${thread.fresh > 0 && !open ? `, ${thread.fresh} new` : ""}`}
