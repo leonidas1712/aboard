@@ -33,6 +33,12 @@
           "version": "2.1.291 (Claude Code)",
           "test": "TestOwnerReachesBusy/claude-code"
         },
+        "OwnerTargetsWakeEachCurrentAgent": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "2.1.291 (Claude Code)",
+          "test": "TestOwnerTargetsWakeEachCurrentAgent/claude-code"
+        },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
           "date": "2026-10-06",
@@ -131,9 +137,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2010,
-        "harness_ms": 2716,
-        "deliveries": 1,
+        "aboard_ms": 2008,
+        "harness_ms": 2293,
+        "deliveries": 3,
         "date": "2026-10-07"
       }
     },
@@ -174,6 +180,12 @@
           "date": "2026-10-06",
           "version": "codex-cli 0.160.0",
           "test": "TestOwnerReachesBusy/codex"
+        },
+        "OwnerTargetsWakeEachCurrentAgent": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "codex-cli 0.160.0",
+          "test": "TestOwnerTargetsWakeEachCurrentAgent/codex"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "n/a",
@@ -280,8 +292,8 @@
       },
       "handover": {
         "aboard_ms": 2008,
-        "harness_ms": 32,
-        "deliveries": 1,
+        "harness_ms": 38,
+        "deliveries": 3,
         "date": "2026-10-07"
       }
     },
@@ -317,6 +329,12 @@
           "date": "2026-10-06",
           "version": "omp/18.5.1",
           "test": "TestOwnerReachesBusy/omp"
+        },
+        "OwnerTargetsWakeEachCurrentAgent": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "omp/18.5.1",
+          "test": "TestOwnerTargetsWakeEachCurrentAgent/omp"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
@@ -416,9 +434,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2008,
-        "harness_ms": 2,
-        "deliveries": 1,
+        "aboard_ms": 2010,
+        "harness_ms": 3,
+        "deliveries": 3,
         "date": "2026-10-07"
       }
     }
