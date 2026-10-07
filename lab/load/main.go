@@ -18,20 +18,23 @@ type (
 		People, Agents, Boards, Rounds int
 	}
 	report struct {
-		People         int          `json:"people"`
-		Agents         int          `json:"agents_per_person"`
-		Boards         int          `json:"boards"`
-		Daemons        int          `json:"daemons"`
-		Posts          int          `json:"posts"`
-		Deliveries     int          `json:"deliveries"`
-		VerifiedChains int          `json:"verified_chains"`
-		Throttles      int          `json:"throttled_requests"`
-		Setup          float64      `json:"setup_seconds"`
-		Measurement    float64      `json:"measurement_seconds"`
-		Throughput     float64      `json:"successful_posts_per_second"`
-		Stream         distribution `json:"request_to_stream"`
-		LongPoll       distribution `json:"request_to_long_poll"`
-		Handover       distribution `json:"request_to_handover"`
+		Status         string              `json:"status"`
+		Stage          string              `json:"failed_stage,omitempty"`
+		Processes      []processDiagnostic `json:"processes,omitempty"`
+		People         int                 `json:"people"`
+		Agents         int                 `json:"agents_per_person"`
+		Boards         int                 `json:"boards"`
+		Daemons        int                 `json:"daemons"`
+		Posts          int                 `json:"posts"`
+		Deliveries     int                 `json:"deliveries"`
+		VerifiedChains int                 `json:"verified_chains"`
+		Throttles      int                 `json:"throttled_requests"`
+		Setup          float64             `json:"setup_seconds"`
+		Measurement    float64             `json:"measurement_seconds"`
+		Throughput     float64             `json:"successful_posts_per_second"`
+		Stream         distribution        `json:"request_to_stream"`
+		LongPoll       distribution        `json:"request_to_long_poll"`
+		Handover       distribution        `json:"request_to_handover"`
 	}
 )
 

@@ -33,6 +33,8 @@ type (
 		log                           *os.File
 		seats                         []*seat
 		heads                         *headLog
+		done                          chan struct{}
+		exitCode                      int
 	}
 	board struct {
 		ID, Name string
@@ -90,10 +92,10 @@ type (
 	}
 )
 
-func run(ctx context.Context, o options) (report, error) {
+func run(ctx context.Context, o options) (r report, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	r := report{People: o.People, Agents: o.Agents, Boards: o.Boards}
+	r = report{People: o.People, Agents: o.Agents, Boards: o.Boards, Status: "incomplete", Stage: "topology"}
 	if o.People < 1 || o.Agents < 1 || o.Boards < 1 || o.Rounds < 1 || o.Boards > o.People*o.Agents {
 		return r, errors.New("positive topology and rounds required; each board needs a seat")
 	}
@@ -103,7 +105,8 @@ func run(ctx context.Context, o options) (report, error) {
 	}
 	defer func() { _ = os.RemoveAll(root) }()
 	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: &http.Client{Timeout: 65 * time.Second}}
-	defer func() { cancel(); f.close() }()
+	progress := runProgress{Stage: "build"}
+	defer func() { f.finishReport(&r, progress, err); cancel(); f.close() }()
 	if f.binary == "" {
 		f.binary = filepath.Join(root, "aboard")
 		// #nosec G204 -- builds a fixed repository command into its private scratch directory.
@@ -118,22 +121,26 @@ func run(ctx context.Context, o options) (report, error) {
 		return r, err
 	}
 	start := time.Now()
+	progress.SetupStart = start
+	progress.Stage = "setup"
 	if err := f.setup(o); err != nil {
 		return r, err
 	}
 	r.Setup = time.Since(start).Seconds()
 	r.Daemons = len(f.people)
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
-	var stream, poll, handover []time.Duration
 	start = time.Now()
+	progress.MeasurementStart = start
+	progress.Stage = "round"
 	for round := range o.Rounds {
-		if err := f.round(ctx, round, &checks, &stream, &poll, &handover, &r); err != nil {
+		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &r); err != nil {
 			return r, err
 		}
 	}
 	r.Measurement = time.Since(start).Seconds()
 	r.Throughput = float64(r.Posts) / r.Measurement
 	r.Throttles = int(f.throttles.Load())
+	progress.Stage = "confirmation"
 	if err := f.finishExtensions(o.Rounds); err != nil {
 		return r, err
 	}
@@ -147,6 +154,7 @@ func run(ctx context.Context, o options) (report, error) {
 			}
 		}
 	}
+	progress.Stage = "audit"
 	for _, b := range f.boards {
 		if err := f.cli(f.admin, "", "audit", "verify", "--board", b.Name, "--json"); err != nil {
 			return r, fmt.Errorf("chain verification: %w", err)
@@ -161,16 +169,16 @@ func run(ctx context.Context, o options) (report, error) {
 		}
 		wantStream += len(boards) * o.Rounds
 	}
-	if r.Posts != o.Boards*o.Rounds || r.Deliveries != o.People*o.Agents*o.Rounds || len(poll) != r.Deliveries || len(handover) != r.Deliveries || len(stream) != wantStream {
+	if r.Posts != o.Boards*o.Rounds || r.Deliveries != o.People*o.Agents*o.Rounds || len(progress.Poll) != r.Deliveries || len(progress.Handover) != r.Deliveries || len(progress.Stream) != wantStream {
 		return r, errors.New("measurement sample counts do not match the topology")
 	}
-	if r.Stream, err = summarize(stream); err != nil {
+	if r.Stream, err = summarize(progress.Stream); err != nil {
 		return r, err
 	}
-	if r.LongPoll, err = summarize(poll); err != nil {
+	if r.LongPoll, err = summarize(progress.Poll); err != nil {
 		return r, err
 	}
-	r.Handover, err = summarize(handover)
+	r.Handover, err = summarize(progress.Handover)
 	return r, err
 }
 
@@ -228,6 +236,7 @@ func (f *fixture) process(m *machine, args ...string) error {
 		return err
 	}
 	m.cmd, m.log = cmd, log
+	trackProcess(m)
 	return nil
 }
 
@@ -242,8 +251,10 @@ func (f *fixture) close() {
 	for _, p := range append(f.people, f.admin) {
 		if p != nil && p.cmd != nil {
 			_ = p.cmd.Process.Kill()
-			_ = p.cmd.Wait()
-			_ = p.log.Close()
+			<-p.done
+			if p.log != nil {
+				_ = p.log.Close()
+			}
 		}
 	}
 	f.client.CloseIdleConnections()
