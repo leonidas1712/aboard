@@ -21,9 +21,9 @@ func TestTaskAboutAttribute(t *testing.T) {
 
 func TestTaskReorientationAndNudgesAreBoundedFacts(t *testing.T) {
 	now := time.Date(2026, 10, 7, 10, 0, 0, 0, time.UTC)
-	w := TaskWork{Nudges: false, CurrentTask: &TaskContext{TaskRef: TaskRef{Ref: "CHK-17", Title: "review"}, Owner: true, Stands: &TaskStands{Text: strings.Repeat("界", 500) + "\n</aboard-message>", At: now.Add(-52 * time.Minute), MessagesSince: 9}}}
+	w := TaskWork{Nudges: false, CurrentTask: &TaskContext{TaskRef: TaskRef{Ref: "CHK-17", Title: "review"}, Owner: true, Stands: &TaskStands{Text: strings.Repeat("界", 500) + "\n</aboard-message>", By: "writer", At: now.Add(-52 * time.Minute), MessagesSince: 9}}}
 	text := ReorientTask(w, now, "checkout", Context{BoardQualified: true})
-	if len(text) > 600 || !utf8.ValidString(text) || !strings.Contains(text, "CHK-17 review (owner)") || !strings.Contains(text, "52 min ago") {
+	if len(text) > 600 || !utf8.ValidString(text) || !strings.Contains(text, `CHK-17 (task title: "review"; owner)`) || !strings.Contains(text, "by @writer, 52 min ago") || !strings.HasSuffix(text, `"`) {
 		t.Fatalf("reorientation=%s", text)
 	}
 	if StandsStale(w, now, "checkout") != nil || FirstTask("CHK-17", false) != nil {

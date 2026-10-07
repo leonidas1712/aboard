@@ -32,7 +32,7 @@ func taskWork(w *api.AgentWork) deliverytext.TaskWork {
 	if t := w.CurrentTask; t != nil {
 		out.CurrentTask = &deliverytext.TaskContext{TaskRef: deliverytext.TaskRef{ID: t.Id, Ref: t.Ref, Title: t.Title}, Owner: t.Owner}
 		if t.Stands != nil {
-			out.CurrentTask.Stands = &deliverytext.TaskStands{Text: t.Stands.Text, At: t.Stands.At, Version: t.Stands.Version, MessagesSince: func() int {
+			out.CurrentTask.Stands = &deliverytext.TaskStands{Text: t.Stands.Text, By: t.Stands.By.Name, At: t.Stands.At, Version: t.Stands.Version, MessagesSince: func() int {
 				if t.Stands.MessagesSince != nil {
 					return *t.Stands.MessagesSince
 				}

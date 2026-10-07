@@ -55,7 +55,7 @@ type wireMember struct {
 
 type wireBoard struct {
 	TaskPrefix      *string               `json:"task_prefix"`
-	TasksOpen       int64                 `json:"tasks_open"`
+	TasksOpen       *int64                `json:"tasks_open,omitempty"`
 	AgentsAddPeople bool                  `json:"agents_add_people"`
 	ID              string                `json:"id"`
 	Name            string                `json:"name"`
@@ -179,10 +179,13 @@ func memberOf(m board.Member, boardName string) wireMember {
 func boardOf(v board.View, p board.Principal) wireBoard {
 	b := v.Board
 	w := wireBoard{
-		TaskPrefix: b.TaskPrefix, TasksOpen: b.TasksOpen,
-		ID: b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
+		TaskPrefix: b.TaskPrefix,
+		ID:         b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
 		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator), Visibility: b.Visibility, OnBoard: v.OnBoard,
 		AgentsAddPeople: b.AgentsAddPeople, Lifecycle: b.Lifecycle, CanArchive: v.CanArchive, CanRestore: v.CanRestore, CanDelete: v.CanDelete,
+	}
+	if v.OnBoard {
+		w.TasksOpen = &b.TasksOpen
 	}
 	if v.ShowsCounts(p) {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt

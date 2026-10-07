@@ -64,3 +64,48 @@ func TestTaskTagsPreserveSelectionThreadAndExplicitIntent(t *testing.T) {
 		t.Fatalf("freshness must follow event order even with identical timestamps: %+v", detail.JSON200.Stands)
 	}
 }
+
+func TestReplyDoesNotInheritTasksFromAnUnreadableMessage(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, writer, reviewer := s.pair("recommended")
+	created, err := s.client(s.owner).CreateTaskWithResponse(ctx, name, nil, api.CreateTaskRequest{Title: "Private thread context"})
+	mustStatus(t, created, err, 201)
+	who, err := s.client(writer).GetMeWithResponse(ctx)
+	mustStatus(t, who, err, 200)
+	to := []string{"@" + who.JSON200.Name}
+	about := []string{created.JSON201.Id}
+	root, err := s.client(s.owner).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Only the writer sees this", To: &to, About: &about})
+	mustStatus(t, root, err, 201)
+	page, err := s.client(reviewer).ListMessagesWithResponse(ctx, name, nil)
+	mustStatus(t, page, err, 200)
+	if len(page.JSON200.Messages) != 0 {
+		t.Fatal("the reviewer could read the addressed root")
+	}
+	reply, err := s.client(reviewer).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "An explicitly addressed reply", To: &to, ReplyTo: &root.JSON201.Id})
+	mustStatus(t, reply, err, 201)
+	if reply.JSON201.About == nil || len(*reply.JSON201.About) != 0 {
+		t.Fatalf("unreadable root leaked task tags: %+v", reply.JSON201.About)
+	}
+}
+
+func TestOpenTaskCountIsOnlyShownToBoardMembers(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, _, _ := s.pair("starter")
+	created, err := s.client(s.owner).CreateTaskWithResponse(ctx, name, nil, api.CreateTaskRequest{Title: "Only members count this task"})
+	mustStatus(t, created, err, 201)
+	outsider := s.addHuman("outside")
+	other, err := s.client(outsider).GetBoardWithResponse(ctx, name)
+	mustStatus(t, other, err, 200)
+	if other.JSON200.OnBoard || other.JSON200.TasksOpen != nil {
+		t.Fatalf("open-board outsider received task count: %+v", other.JSON200.TasksOpen)
+	}
+	member, err := s.client(s.owner).GetBoardWithResponse(ctx, name)
+	mustStatus(t, member, err, 200)
+	if member.JSON200.TasksOpen == nil || *member.JSON200.TasksOpen != 1 {
+		t.Fatalf("member task count: %+v", member.JSON200.TasksOpen)
+	}
+}

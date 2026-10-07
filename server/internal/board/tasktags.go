@@ -6,6 +6,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/mention"
+	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
 func resolveTaskTags(tx ReadTx, b Board, me Member, in NewMessage) ([]TaskTag, error) {
@@ -37,6 +38,9 @@ func resolveTaskTags(tx ReadTx, b Board, me Member, in NewMessage) ([]TaskTag, e
 		orig, err := tx.MessageByID(*in.ReplyTo)
 		if err != nil {
 			return nil, err
+		}
+		if !readsAll(b, me) && !rules.CanRead(b.Policy, orig.To, orig.SenderID, me.Rules()) {
+			break
 		}
 		for _, tag := range orig.About {
 			t, err := findTask(tx, b, tag.ID)

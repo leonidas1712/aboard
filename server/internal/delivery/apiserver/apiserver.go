@@ -183,7 +183,7 @@ func (s *Server) TaskWork(ctx context.Context, agent delivery.AgentRef) (*delive
 	if t := w.CurrentTask; t != nil {
 		out.CurrentTask = &deliverytext.TaskContext{TaskRef: deliverytext.TaskRef{ID: t.Id, Ref: t.Ref, Title: t.Title}, Owner: t.Owner}
 		if t.Stands != nil {
-			out.CurrentTask.Stands = &deliverytext.TaskStands{Text: t.Stands.Text, At: t.Stands.At, Version: t.Stands.Version}
+			out.CurrentTask.Stands = &deliverytext.TaskStands{Text: t.Stands.Text, By: t.Stands.By.Name, At: t.Stands.At, Version: t.Stands.Version}
 			if t.Stands.MessagesSince != nil {
 				out.CurrentTask.Stands.MessagesSince = *t.Stands.MessagesSince
 			}

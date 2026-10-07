@@ -14,6 +14,7 @@ type TaskRef struct{ ID, Ref, Title string }
 // TaskStands is the latest recorded task note, with its age and visible message count.
 type TaskStands struct {
 	Text                   string
+	By                     string
 	At                     time.Time
 	Version, MessagesSince int
 }
@@ -137,13 +138,20 @@ func ReorientTask(w TaskWork, now time.Time, board string, contexts ...Context) 
 	if t.Owner {
 		part = "owner"
 	}
-	text := fmt.Sprintf("You're on %s %s (%s).", t.Ref, boundedText(plainLine(t.Title), 120), part)
-	if t.Stands != nil {
-		minutes := int(max(time.Duration(0), now.Sub(t.Stands.At)) / time.Minute)
-		text += fmt.Sprintf(" Where it stands, %d min ago: %q", minutes, plainLine(t.Stands.Text))
-	}
+	text := fmt.Sprintf("You're on %s (task title: %q; %s).", t.Ref, boundedText(plainLine(t.Title), 120), part)
 	if contextOf(contexts).BoardQualified {
 		text = "Board " + board + ": " + text
+	}
+	if t.Stands != nil {
+		minutes := int(max(time.Duration(0), now.Sub(t.Stands.At)) / time.Minute)
+		author := ""
+		if t.Stands.By != "" {
+			author = ", by @" + plainLine(t.Stands.By)
+		}
+		prefix := fmt.Sprintf(" Where it stands%s, %d min ago: ", author, minutes)
+		// Quoting can double the bytes; bound the body first to keep its closing quote.
+		note := boundedText(plainLine(t.Stands.Text), max(0, (600-len(text)-len(prefix)-2)/2))
+		text += prefix + fmt.Sprintf("%q", note)
 	}
 	return boundedText(text, 600)
 }
