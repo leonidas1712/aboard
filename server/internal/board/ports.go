@@ -19,6 +19,10 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	// Asks returns immutable ask messages on one board.
+	Asks(boardID string) ([]Message, error)
+	// LatestAnswer returns the latest recorded answer or withdrawal.
+	LatestAnswer(askID string) (Message, error)
 	TaskMessageCounts(boardID, taskID string, reader Member, readAll bool, since int64) (messages, threads, messagesSince int, err error)
 	TaskBySelector(boardID, selector string) (Task, error)
 	Tasks(boardID string) ([]Task, error)

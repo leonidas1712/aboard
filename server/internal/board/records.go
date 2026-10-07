@@ -299,6 +299,8 @@ const (
 
 // Message is a stored message with its sender.
 type Message struct {
+	Ask        *Ask
+	Answer     *Answer
 	About      []TaskTag
 	ID         string
 	BoardID    string

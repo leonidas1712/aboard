@@ -17,7 +17,7 @@ func taskWorkOf(w *board.AgentWork) any {
 	}
 	return map[string]any{
 		"current_task": current, "open_tasks": w.OpenTasks, "oldest_open": taskRefOf(w.OldestOpen), "posts_without_task": w.PostsWithoutTask,
-		"asks_waiting": 0, "line": nil, "brief": nil, "nudges": w.Nudges,
+		"asks_waiting": w.AsksWaiting, "asks_to_it": w.AsksToIt, "line": nil, "brief": nil, "nudges": w.Nudges,
 	}
 }
 
@@ -48,7 +48,7 @@ func taskOf(t board.Task) map[string]any {
 		"id": t.ID, "ref": t.Ref, "number": t.Number, "board": t.Board,
 		"title": t.Title, "about": taskTextOf(t.About), "stands": taskTextOf(t.Stands),
 		"state": t.State, "owner": owner, "with": helpers,
-		"blocked": false, "blocked_count": 0, "blocked_on": []any{},
+		"blocked": t.Blocked, "blocked_count": t.BlockedCount, "blocked_on": blockedOf(t.BlockedOn),
 		"opened_by": refOf(t.OpenedBy), "opened_at": t.OpenedAt, "updated_at": t.UpdatedAt,
 		"closed_at": t.ClosedAt, "closed_note": t.ClosedNote,
 		"message_count": t.MessageCount, "thread_count": t.ThreadCount,
