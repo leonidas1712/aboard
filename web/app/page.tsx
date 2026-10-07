@@ -1,10 +1,12 @@
 "use client";
 
+import { lab } from "aboard-lab";
 import { useEffect, useState } from "react";
 import { type Session, type Started, signedOutEvent, start } from "./api";
 import People from "./people";
 import BoardList from "./board-list";
 import BoardView from "./board-view";
+import Inbox from "./inbox";
 import { Header, Problem } from "./chrome";
 import Login, { ConfirmSignIn, SignedInNotice } from "./login";
 
@@ -74,7 +76,10 @@ export default function Page() {
     setStarted({ ...started, session: null });
   };
   const peoplePage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "people";
-  const view = peoplePage ? <People onSignOut={onSignOut} /> : started.board ? (
+  const inboxPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox");
+  const view = lab?.Place && lab.place?.() ? (
+    <lab.Place onSignOut={onSignOut} />
+  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />
@@ -83,6 +88,7 @@ export default function Page() {
     <div className={started.board ? "flex min-h-dvh flex-col lg:h-dvh lg:overflow-clip" : undefined}>
       {notice && <SignedInNotice session={notice} note={started.note} onClose={() => setNotice(null)} />}
       {view}
+      {lab && <lab.Overlay />}
     </div>
   );
 }

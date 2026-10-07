@@ -4,8 +4,9 @@
 // box below it, the boards to move between on the left, and this board (its agents and
 // people, charter, rules and details) on the right.
 
+import { lab } from "aboard-lab";
 import { CheckCheck } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
@@ -97,7 +98,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   }, [known, s.toMe, repliesTo]);
 
   const answer = useCallback(
-    (m: Message) => (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
+    (m: Message) => m.ask
+      ? (repliesTo.get(m.id) ?? []).find((r) => r.seq === m.ask!.answer_seq) ?? null
+      : (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
     [repliesTo],
   );
 
@@ -209,6 +212,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const presented = useRef(new Set<number>());
   const onSeen = useCallback(
     (seq: number) => {
+      // A message permalink may show isolated history with unloaded messages between it and the newest page.
+      if (new URLSearchParams(window.location.search).has("message")) return;
       if ((view === "tasks" && tasks.length > 0) || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
       presented.current.add(seq);
       const from = s.readFrom;
@@ -247,6 +252,31 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   useEffect(() => {
     if (pending && showMessage(pending)) setPending(null);
   }, [pending, entries]);
+
+  const linkedMessage = useRef<string | null>(null);
+  useEffect(() => {
+    if (s.messages === null) return;
+    const id = new URLSearchParams(window.location.search).get("message");
+    if (!id || linkedMessage.current === id) return;
+    linkedMessage.current = id;
+    const seq = Number(new URLSearchParams(window.location.search).get("seq"));
+    if (!Number.isSafeInteger(seq) || seq < 1) return;
+    s.loadMessage(id, seq).then(() => setPending(id), setPostError);
+  }, [s.messages, s.loadMessage]);
+  useEffect(() => {
+    if (!pending) return;
+    const m = byId.get(pending);
+    if (m?.thread_root && prefs.open(m.thread_root) !== true) prefs.setOpen(m.thread_root, true);
+  }, [pending, byId, prefs]);
+
+  const linkedTask = useRef<string | null>(null);
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get("task");
+    if (ref && linkedTask.current !== ref && tasks.some((t) => t.ref === ref)) {
+      linkedTask.current = ref;
+      openTask(ref);
+    }
+  }, [tasks, openTask]);
 
   const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
@@ -369,6 +399,30 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // An archived board takes nothing new: no message box, no replies, no reactions.
   const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
+  const panel = (agents: boolean) => (
+    <BoardPanel
+      board={s.board}
+      members={s.members}
+      record={s.record}
+      me={me}
+      meId={s.me?.kind === "human" ? s.me.id : null}
+      canInvite={s.me?.kind === "human" && s.me.server_role !== "guest"}
+      from={filter.from}
+      onPick={pick}
+      reveal={reveal}
+      onLifecycle={s.refresh}
+      agents={agents}
+    />
+  );
+  // The conversation, which only the UI lab ever wraps (lab-seam.ts).
+  const centre = (conversation: ReactNode) =>
+    lab?.Centre ? (
+      <lab.Centre board={name} members={s.members ?? []} identity={identity} onShow={onShow}>
+        {conversation}
+      </lab.Centre>
+    ) : (
+      conversation
+    );
 
   return (
     <TaskContext tasks={tasks} open={openTask}>
@@ -398,7 +452,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             className="order-3 lg:order-none"
           >
             <nav aria-label="Boards">
-              <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />
+              {lab?.Nav ? <lab.Nav current={name} boards={s.boards} /> : <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />}
             </nav>
           </SidePanel>
 
@@ -423,6 +477,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 </div>
               )}
             </div>
+            {centre(
+              <>
             {tasks.length > 0 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
               {(["conversation", "tasks"] as const).map((v) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={view === v} tabIndex={view === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? "conversation" : e.key === "End" ? "tasks" : v === "conversation" ? "tasks" : "conversation"; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", view === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink")}>{v === "conversation" ? "Conversation" : `Tasks ${tasks.length}`}</button>)}
             </div>}
@@ -486,32 +542,30 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             </div>
             </div>
             {view === "tasks" && tasks.length > 0 && <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col"><TaskBoard tasks={tasks} open={openTask} /></div>}
+              </>,
+            )}
           </main>
 
           <SidePanel
             side="right"
-            title={tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name}
+            title={lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name}
             label="board panel"
             size={right}
             setSize={setRight}
             limits={rightPanel}
             className="order-2 lg:order-none"
           >
-            {taskPanel ? <TaskDetail board={name} reference={taskPanel} activity={s.activity} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} /> : <>
-            <WorkTasks tasks={tasks} open={openTask} />
-            <BoardPanel
-              board={s.board}
-              members={s.members}
-              record={s.record}
-              me={me}
-              meId={s.me?.kind === "human" ? s.me.id : null}
-              canInvite={s.me?.kind === "human" && s.me.server_role !== "guest"}
-              from={filter.from}
-              onPick={pick}
-              reveal={reveal}
-              onLifecycle={s.refresh}
-            />
-            </>}
+            {/* Only the UI lab draws the board panel its own way (lab-seam.ts). */}
+            {lab?.RightPanel ? (
+              <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
+            ) : taskPanel ? (
+              <TaskDetail board={name} reference={taskPanel} activity={s.activity} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} />
+            ) : (
+              <>
+                <WorkTasks tasks={tasks} open={openTask} />
+                {panel(true)}
+              </>
+            )}
           </SidePanel>
         </div>
       </div>

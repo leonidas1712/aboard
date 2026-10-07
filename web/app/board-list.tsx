@@ -104,6 +104,7 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
       <Header account={<Account onSignOut={onSignOut} />} />
       <main className="mx-auto w-full max-w-[960px] px-4 py-8 sm:px-6">
         <h1 className="mb-4 text-headline font-bold">Your boards</h1>
+        <a href="/?inbox" className="mb-5 inline-flex min-h-11 items-center gap-2 font-bold">Inbox{boards && boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 text-meta text-ink">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}</a>
         {error !== null && <Problem error={error} />}
         {boards === null && error === null && (
           <div className="h-20 rounded-box bg-selected motion-safe:animate-pulse" role="status" aria-label="Loading your boards" />

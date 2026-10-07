@@ -180,7 +180,7 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 			if r.Root != nil {
 				replies = append([]Message{*r.Root}, replies...)
 			}
-			if err := annotate(tx, b, me, replies); err != nil {
+			if err := s.annotate(tx, b, me, replies); err != nil {
 				return err
 			}
 			if r.Root != nil {
@@ -251,7 +251,7 @@ func (s *Service) Threads(ctx context.Context, p Principal, boardName string, li
 			}
 			roots = append(roots, root)
 		}
-		if err := annotate(tx, b, me, roots); err != nil {
+		if err := s.annotate(tx, b, me, roots); err != nil {
 			return err
 		}
 		for i, root := range roots {
