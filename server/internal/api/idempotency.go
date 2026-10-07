@@ -245,6 +245,7 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
 		in.Name = parts[2]
 		in.Tasks = len(parts) >= 4 && (parts[3] == "tasks" || parts[3] == "files")
+		in.FileWrite = len(parts) >= 4 && parts[3] == "files"
 		if len(parts) == 4 && parts[3] == "people" && method == http.MethodPost {
 			var add struct {
 				Handle string `json:"handle"`

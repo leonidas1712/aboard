@@ -147,7 +147,10 @@ func TestBriefFormatReplacementIsOneChainedTransaction(t *testing.T) {
 	if len(es) != 2 || es[0]["type"] != "file.removed" || es[1]["type"] != "file.version_added" {
 		t.Fatalf("replacement event order: %v", types(es))
 	}
-	data := es[1]["data"].(map[string]any)
+	data, ok := es[1]["data"].(map[string]any)
+	if !ok {
+		t.Fatal("file event has no object data")
+	}
 	if data["base_version"] != float64(0) || data["version"] != float64(1) {
 		t.Fatal("new file event inherited the old base")
 	}
@@ -272,5 +275,30 @@ func TestBriefUploadReplayRechecksArchive(t *testing.T) {
 	}
 	if b.Brief == nil || b.Brief.FileId != first.Id {
 		t.Fatal("archive made the brief unreadable")
+	}
+}
+
+func TestBriefListAndJoinExposeTheSameVersion(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	f := briefUpload(t, c, name, briefParams("brief.md"), "join context", 201).JSON201
+	list, err := c.ListBoardsWithResponse(context.Background(), nil)
+	mustStatus(t, list, err, 200)
+	found := false
+	for _, b := range list.JSON200.Boards {
+		if b.Name == name {
+			found = b.Brief != nil && b.Brief.FileId == f.Id && b.Brief.Version == 1
+		}
+	}
+	if !found {
+		t.Fatal("board listing omitted current brief")
+	}
+	role := "writer"
+	joined, err := c.JoinWithResponse(context.Background(), nil, api.JoinRequest{Board: &name, Role: &role})
+	mustStatus(t, joined, err, 201)
+	if joined.JSON201.Board.Brief == nil || joined.JSON201.Board.Brief.FileId != f.Id || joined.JSON201.Board.Brief.Version != 1 {
+		t.Fatal("join summary omitted current brief")
 	}
 }

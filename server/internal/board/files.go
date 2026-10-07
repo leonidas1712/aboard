@@ -385,7 +385,7 @@ func projectFile(tx ReadTx, b Board, me Member, f *File) error {
 		}
 		for _, e := range es {
 			after = e.Seq
-			if e.Type == "task.done" || e.Type == "task.cancelled" {
+			if e.Type == "task.done" {
 				f.TasksDoneSince++
 			}
 		}
@@ -461,7 +461,7 @@ func (s *Service) ChangeFile(ctx context.Context, p Principal, name, selector st
 			}
 			data := map[string]any{"file_id": out.ID}
 			if in.Maintained != nil {
-				out.Maintained = *in.Maintained
+				out.Maintained = *in.Maintained || isBriefName(out.Name)
 				data["maintained"] = out.Maintained
 			}
 			if in.About != nil {

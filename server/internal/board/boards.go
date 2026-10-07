@@ -294,6 +294,11 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 			if err != nil {
 				return err
 			}
+			v.OnBoard = true
+			v.Brief, err = projectBrief(tx, b, me)
+			if err != nil {
+				return err
+			}
 			pos, err := positionOf(tx, me, readsAll(b, me))
 			v.Position = &pos
 			out.Boards = []View{v}
@@ -324,6 +329,10 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 			}
 			v.OnBoard = err == nil && m.Status == StatusActive
 			if v.OnBoard {
+				v.Brief, err = projectBrief(tx, b, m)
+				if err != nil {
+					return err
+				}
 				pos, err := positionOf(tx, m, readsAll(b, m))
 				if err != nil {
 					return err
