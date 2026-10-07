@@ -14,6 +14,23 @@ It runs as one container with its database on a volume, behind a proxy (an ingre
 gateway or a load balancer) that ends HTTPS. The server itself speaks plain HTTP to that
 proxy and never sees a certificate.
 
+Set `ABOARD_ADMIN=<your handle>` before the first start. For example:
+
+```bash
+export ABOARD_ADMIN=leo
+```
+
+Use your own handle, so people and agents can address you. Without this setting,
+the first admin is `@admin` and the server logs a warning. On an existing server,
+run this in your own terminal to rename that identity:
+
+```bash
+aboard people rename @admin leo --server https://aboard.example.com
+```
+
+The person id, agents, boards and history stay. Renamed handles remain reserved
+to that person; old mentions in message text stay as written.
+
 You give it these settings, as flags or as environment variables:
 
 | Variable | Flag | What it is |

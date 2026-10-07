@@ -1172,7 +1172,7 @@ paths:
         before anything changes.
 
         Removal is final: the person can't sign in again, and their id is never reused.
-        Their handle is free at once, so an admin can invite them again as a new person,
+        Their handle is free at once unless reserved by a rename, so an admin can invite them again as a new person,
         with a new id, who inherits nothing. The last admin can't be removed (409
         `last_admin`). An unknown handle is 404 `person_not_found`.
       parameters:
@@ -1188,6 +1188,55 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PersonRemoval" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /v1/people/{handle}/rename:
+    post:
+      tags: [people]
+      operationId: renamePerson
+      summary: Change a person's handle
+      description: |
+        The person themselves or a current server admin, using their own access key.
+        Agents, delegations and browsers get 403 human_token_required. Other people
+        get 403 server_admin_required before target lookup. Unknown current handles
+        get 404 person_not_found. Invalid handles get 400 invalid_request; a handle
+        held by another person or reserved by a rename gets 409 handle_taken.
+        A rename keeps the permanent person id, board member ids, keys, seats and
+        read positions. Both handles are reserved to this person, even after removal;
+        the same person may rename back. Retired handles are not lookup aliases.
+        A human board name collision also gives handle_taken without board details.
+        Human membership names and agent owner fields change in the same transaction.
+        Message author displays use the current handle; bodies, recipient text and
+        hashed event envelopes are unchanged. Each non-deleted board where the
+        person has a human membership records person.renamed, including archives and
+        former memberships. Streams refresh current member metadata. The receipt
+        reveals no board names or memberships to an outside admin.
+        Existing guest codes bound to the person id still belong to that person.
+        Unbound guest codes naming a retired handle cannot create another identity.
+        Pending machine approvals resolve only current handles, never retired aliases.
+        Setting the current handle changes nothing. Idempotency replay rechecks the
+        caller's current self/admin authority against the recorded person id.
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/MemberName" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonRename" }
+      responses:
+        "200":
+          description: The same person with their current handle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonRenameResult" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
@@ -2174,7 +2223,13 @@ paths:
       operationId: postMessage
       summary: Post a message
       description: |
-        Posting to `@name` or `role:R` needs `post`. Posting to `all` needs the
+        Posting to `@name`, `role:R` or `owner:handle` needs `post`.
+        An owner target names a person currently on this board and resolves in the post
+        transaction to their active agent seats, excluding the sender. `to` keeps the
+        owner target; recorded recipient member IDs fix its addressed visibility, inbox
+        and receipts. Later agent seats are not retroactively addressed. An owner with
+        no active agents is a valid empty target. Guests may use owner targets only
+        within their own board, under the same post and visibility rules. Posting to `all` needs the
         `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
         post. Secrets in `body` are redacted before the event is written. Returns as soon
         as the message is stored; delivery happens separately.
@@ -3736,8 +3791,8 @@ components:
       example: reviewer
     Target:
       type: string
-      pattern: "^(all|@[a-z0-9][a-z0-9-]{0,39}|role:[a-z][a-z0-9-]{0,31})$"
-      description: "`all`, `@name`, or `role:R`. New kinds may be added; clients must not reject unknown ones."
+      pattern: "^(all|@[a-z0-9][a-z0-9-]{0,39}|role:[a-z][a-z0-9-]{0,31}|owner:[a-z0-9]+(-[a-z0-9]+)*)$"
+      description: "`all`, `@name`, `role:R`, or `owner:handle`. New kinds may be added; clients must not reject unknown ones."
       example: "@reviewer"
     BoardTitle:
       type: string
@@ -4126,6 +4181,18 @@ components:
         changed:
           type: boolean
           description: False when the person already had that role; nothing changed.
+    PersonRename:
+      type: object
+      additionalProperties: false
+      required: [handle]
+      properties:
+        handle: { $ref: "#/components/schemas/MemberName" }
+    PersonRenameResult:
+      type: object
+      required: [person, changed]
+      properties:
+        person: { $ref: "#/components/schemas/Person" }
+        changed: { type: boolean }
     PersonRemoval:
       type: object
       required: [person, dry_run, keys_revoked, browser_sessions_ended, agents_removed, boards_left, owners_passed, unreachable_boards]
@@ -5095,6 +5162,9 @@ components:
         id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
         name: { $ref: "#/components/schemas/MemberName" }
+        display_name:
+          type: string
+          description: Optional human display name for member listing only; never authority or a sender field.
         kind: { type: string, enum: [agent, human] }
         role:
           type: string
@@ -6253,6 +6323,7 @@ components:
         - $ref: "#/components/schemas/ReactionAddedEvent"
         - $ref: "#/components/schemas/ReactionRemovedEvent"
         - $ref: "#/components/schemas/PersonAddedEvent"
+        - $ref: "#/components/schemas/PersonRenamedEvent"
         - $ref: "#/components/schemas/PersonRemovedEvent"
         - $ref: "#/components/schemas/PersonLeftEvent"
         - $ref: "#/components/schemas/PersonMadeOwnerEvent"
@@ -6290,6 +6361,7 @@ components:
           reaction.added: "#/components/schemas/ReactionAddedEvent"
           reaction.removed: "#/components/schemas/ReactionRemovedEvent"
           person.added: "#/components/schemas/PersonAddedEvent"
+          person.renamed: "#/components/schemas/PersonRenamedEvent"
           person.removed: "#/components/schemas/PersonRemovedEvent"
           person.left: "#/components/schemas/PersonLeftEvent"
           person.made_owner: "#/components/schemas/PersonMadeOwnerEvent"
@@ -6449,7 +6521,8 @@ components:
                     The member ids (`mem_…`, a member's `id` on this board; not handles,
                     person ids or tokens) the message was addressed to when it was posted:
                     each member named in `to` with `@name`, and each member who held a
-                    `role:R` target's role then, without the sender. Only `to` decides
+                    `role:R` target's role then, and the active agent seats of an
+                    `owner:handle` target's person then, without the sender. Only `to` decides
                     them: someone only mentioned in the body is not a recipient. Absent
                     for a message to `all`, and from events written before recipients
                     were recorded.
@@ -6609,6 +6682,20 @@ components:
           properties:
             type: { type: string, enum: [person.added] }
             data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonRenamedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.renamed] }
+            data:
+              type: object
+              required: [person_id, member_id, before, after]
+              properties:
+                person_id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+                member_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+                before: { $ref: "#/components/schemas/MemberName" }
+                after: { $ref: "#/components/schemas/MemberName" }
     PersonRemovedEvent:
       allOf:
         - $ref: "#/components/schemas/EventEnvelope"

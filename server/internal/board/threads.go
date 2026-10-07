@@ -61,7 +61,7 @@ const threadScanLimit = 1000
 func replyRecipients(tx ReadTx, b Board, me Member, orig Message) ([]string, error) {
 	rootID := orig.ID
 	var thread []Message
-	if rules.CanRead(b.Policy, orig.To, orig.SenderID, me.Rules()) {
+	if rules.CanRead(b.Policy, orig.To, orig.SenderID, me.Rules(), orig.Recipients) {
 		thread = append(thread, orig)
 	}
 	if orig.ThreadRoot != nil {
@@ -70,7 +70,7 @@ func replyRecipients(tx ReadTx, b Board, me Member, orig Message) ([]string, err
 		if err != nil {
 			return nil, fmt.Errorf("thread root %s: %w", rootID, err)
 		}
-		if rules.CanRead(b.Policy, root.To, root.SenderID, me.Rules()) {
+		if rules.CanRead(b.Policy, root.To, root.SenderID, me.Rules(), root.Recipients) {
 			thread = append(thread, root)
 		}
 	}
@@ -166,7 +166,7 @@ func (s *Service) Thread(ctx context.Context, p Principal, messageID string, wai
 				}
 				m = root
 			}
-			if rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+			if rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 				r.Root = &m
 			}
 			replies, err := tx.Thread(rootID, me, readsAll(b, me), after, limit+1)

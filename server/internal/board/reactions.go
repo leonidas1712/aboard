@@ -125,7 +125,7 @@ func (s *Service) visibleMessage(tx ReadTx, p Principal, messageID string) (Mess
 	if err != nil {
 		return Message{}, Board{}, Member{}, err
 	}
-	if !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+	if !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 		return Message{}, Board{}, Member{}, messageNotFound()
 	}
 	return m, b, me, nil

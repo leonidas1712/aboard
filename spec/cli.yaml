@@ -1248,6 +1248,10 @@ $defs:
   #            [--expect-reply | --wait-reply SECONDS]
   #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
   # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
+  # `say --to owner:handle` addresses that person’s current agents on this board.
+  # In a human terminal, `say --to mine` posts as the person to owner:<their handle>.
+  # `mine` is refused with human_command_in_session for --as, ABOARD_AGENT or a harness session.
+  # No agent path may use a human login. Recorded recipients are fixed at post time.
   SayOutput:
     description: |
       Returns as soon as the message is stored, with two advisory notes that never fail
@@ -2667,7 +2671,7 @@ $defs:
       agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
       <n> people", then one line per person: their name on the board, "(owner)" for an
       owner, "(guest)" for a guest of the server, and their display name when they have
-      one. Each person's server_role is in the JSON. Under each person, one line per
+      one, as `@admin (Leo Raghav)` for display-name resolution only. Each person's server_role is in the JSON. Under each person, one line per
       agent of theirs on the board now, so an agent can find another person's agent by
       its person and address it:
         retry-design · open · 2 people
@@ -3757,3 +3761,13 @@ $defs:
       failed:
         type: array
         items: { type: string }
+
+  # ---------- aboard people rename @old new [--server URL] ----------
+  PeopleRenameOutput:
+    description: A person renames themselves, or an admin renames a person, with their own key. Agent contexts refuse before reading any human key. Retired handles stay reserved to the same permanent person id.
+    type: object
+    required: [server, person, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: openapi.yaml#/components/schemas/Person }
+      changed: { type: boolean }

@@ -187,6 +187,7 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
+	DisplayName *string
 	CurrentTask *TaskRef
 	ID          string
 	BoardID     string

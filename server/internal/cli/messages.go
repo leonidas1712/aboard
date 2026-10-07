@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	use := usageOf("say")
 	fs := a.flags("say")
 	var to listFlag
-	fs.Var(&to, "to", "who to address: all, @name or role:R; comma-separated or repeated")
+	fs.Var(&to, "to", "who to address: all, @name, role:R, owner:handle or mine (person only); comma-separated or repeated")
 	task := fs.String("task", "", "the task this message is about")
 	noTask := fs.Bool("no-task", false, "do not inherit a task from your current task or the thread")
 	reply := fs.String("reply", "", "the message this replies to: msg_…, 6, #6 or board-name#6")
@@ -76,7 +77,39 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			return err
 		}
 	}
-	t, cred, err := a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+	mine := slices.Contains([]string(to), "mine")
+	var t target
+	var cred agentCredential
+	if mine {
+		if a.agentSelected(*as) {
+			return newError("human_command_in_session", "Only a person may use --to mine.", "An agent uses --to owner:<handle> with its own seat.")
+		}
+		if t, err = a.humanBoard(*boardFlag); err != nil {
+			return err
+		}
+		if cred.Token, err = a.readOwnerToken(t.server); err != nil {
+			return err
+		}
+		personClient, err := a.client(ctx, t.server, cred.Token, requestTimeout)
+		if err != nil {
+			return err
+		}
+		person, err := personClient.api.GetMeWithResponse(ctx)
+		if err != nil {
+			return personClient.unreachable(err)
+		}
+		if person.JSON200 == nil {
+			return apiError(person.StatusCode(), person.Body)
+		}
+		cred.Name = person.JSON200.Name
+		for i, target := range to {
+			if target == "mine" {
+				to[i] = "owner:" + cred.Name
+			}
+		}
+	} else {
+		t, cred, err = a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+	}
 	if err != nil {
 		return err
 	}
@@ -124,7 +157,11 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	}
 	m := r.JSON201
 	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
-	unread, recipients := a.unreadAfterSay(ctx, c, agent), recipientsOf(ctx, c, m)
+	var unread *unreadNote
+	if !mine {
+		unread = a.unreadAfterSay(ctx, c, agent)
+	}
+	recipients := recipientsOf(ctx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
 	text := fmt.Sprintf("Sent #%d to %s on %s", m.Seq, targetsText(m.To), m.Board)
 	if m.About != nil && len(*m.About) > 0 {
@@ -157,7 +194,9 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		}
 		text += waitedText(m, *waitFor, w)
 	}
-	out.Nudges = a.taskNudges(ctx, c, agent, c.taskInbox(ctx), "say", *boardFlag != "", m)
+	if !mine {
+		out.Nudges = a.taskNudges(ctx, c, agent, c.taskInbox(ctx), "say", *boardFlag != "", m)
+	}
 	text += nudgesText(out.Nudges)
 	a.emit(out, text)
 	return nil

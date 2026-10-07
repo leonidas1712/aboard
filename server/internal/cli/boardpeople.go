@@ -131,15 +131,16 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 	fmt.Fprintf(&b, "%s · %s · %d %s\n", out.Board, out.Visibility, len(r.JSON200.People), noun)
 	for _, p := range r.JSON200.People {
 		line := "  " + p.Name
+		if p.DisplayName != nil && *p.DisplayName != "" {
+			line = "  @" + p.Name + " (" + *p.DisplayName + ")"
+		}
 		if p.BoardRole == api.BoardRoleOwner {
 			line += " (owner)"
 		}
 		if p.ServerRole == api.ServerRoleGuest {
 			line += " (guest)"
 		}
-		if p.DisplayName != nil {
-			line += " · " + *p.DisplayName
-		}
+
 		b.WriteString(line + "\n")
 		row := personWithAgents{BoardPerson: p}
 		if members != nil {

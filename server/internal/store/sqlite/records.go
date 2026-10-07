@@ -13,6 +13,11 @@ import (
 
 // InsertHuman adds a human.
 func (t *tx) InsertHuman(h board.Human) error {
+	if _, err := t.ReservedHandle(h.Name); err == nil {
+		return board.HandleTaken(h.Name)
+	} else if !errors.Is(err, board.ErrNotFound) {
+		return err
+	}
 	return t.exec("INSERT INTO humans (id, name, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
 		h.ID, h.Name, h.DisplayName, h.Role, h.CreatedAt)
 }
@@ -353,7 +358,7 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id)"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human')"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
@@ -361,7 +366,7 @@ func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var taskID, taskRef, taskTitle sql.NullString
 	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName)
 	if taskID.Valid {
 		m.CurrentTask = &board.TaskRef{ID: taskID.String, Ref: taskRef.String, Title: taskTitle.String}
 	}
@@ -629,4 +634,58 @@ func lifecycleDefault(v string) string {
 // SetBoardLifecycle changes only access state, retaining all rows and the name.
 func (t *tx) SetBoardLifecycle(id, lifecycle string) error {
 	return t.exec("UPDATE boards SET lifecycle = ? WHERE id = ?", lifecycle, id)
+}
+
+// ReservedHandle identifies the person to whom a renamed handle belongs forever.
+func (t *tx) ReservedHandle(name string) (string, error) {
+	var id string
+	err := t.queryRow("SELECT human_id FROM person_handles WHERE handle = ?", name).Scan(&id)
+	return id, notFound(err)
+}
+
+// MembershipBoards includes former memberships; deleted records cannot receive events.
+func (t *tx) MembershipBoards(id string) ([]board.Board, error) {
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE lifecycle != 'deleted' AND id IN (SELECT board_id FROM members WHERE human_id = ? AND kind = 'human') ORDER BY id", id)
+}
+
+// RenameHuman reserves both handles and changes all member projections atomically.
+func (t *tx) RenameHuman(id, name string) error {
+	h, err := t.HumanByID(id)
+	if err != nil {
+		return err
+	}
+	if owner, err := t.ReservedHandle(name); err == nil && owner != id {
+		return board.HandleTaken(name)
+	} else if err != nil && !errors.Is(err, board.ErrNotFound) {
+		return err
+	}
+	if other, err := t.HumanByName(name); err == nil && other.ID != id {
+		return board.HandleTaken(name)
+	} else if err != nil && !errors.Is(err, board.ErrNotFound) {
+		return err
+	}
+	var collisions int
+	if err := t.queryRow("SELECT count(*) FROM members x WHERE x.name = ? AND x.human_id != ? AND x.board_id IN (SELECT board_id FROM members WHERE human_id = ? AND kind = 'human')", name, id, id).Scan(&collisions); err != nil {
+		return err
+	}
+	// An agent of this person also occupies a distinct member name.
+	var ownAgents int
+	if err := t.queryRow("SELECT count(*) FROM members x WHERE x.name = ? AND x.kind != 'human' AND x.board_id IN (SELECT board_id FROM members WHERE human_id = ? AND kind = 'human')", name, id).Scan(&ownAgents); err != nil {
+		return err
+	}
+	if collisions+ownAgents > 0 {
+		return board.HandleTaken(name)
+	}
+	for _, handle := range []string{h.Name, name} {
+		if err := t.exec("INSERT INTO person_handles(handle, human_id) VALUES (?, ?) ON CONFLICT(handle) DO NOTHING", handle, id); err != nil {
+			return err
+		}
+	}
+	if err := t.exec("UPDATE humans SET name = ? WHERE id = ?", name, id); err != nil {
+		return err
+	}
+	if err := t.exec("UPDATE members SET name = ? WHERE human_id = ? AND kind = 'human'", name, id); err != nil {
+		return err
+	}
+	return t.exec("UPDATE members SET owner = ? WHERE human_id = ? AND kind = 'agent'", name, id)
 }

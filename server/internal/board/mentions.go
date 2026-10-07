@@ -15,7 +15,7 @@ const MaxMentionWakes = 8
 // naming its members in the order they joined. The sender is never mentioned, and a
 // name or role nobody has stays text. A mention wakes an agent only when the agent may
 // read the message to `to` anyway, and only for the first MaxMentionWakes such agents.
-func resolveMentions(tx ReadTx, b Board, sender Member, to []string, body string) ([]Mention, error) {
+func resolveMentions(tx ReadTx, b Board, sender Member, to []string, body string, recorded ...[]string) ([]Mention, error) {
 	refs := mention.Find(body)
 	out := []Mention{}
 	if len(refs) == 0 {
@@ -35,7 +35,7 @@ func resolveMentions(tx ReadTx, b Board, sender Member, to []string, body string
 		mn := Mention{MemberID: m.ID, Kind: m.Kind, Name: m.Name, Text: text}
 		if m.Kind == "agent" {
 			switch {
-			case !rules.CanRead(b.Policy, to, sender.ID, m.Rules()):
+			case !rules.CanRead(b.Policy, to, sender.ID, m.Rules(), recorded...):
 				mn.Reason = ptr(MentionCannotRead)
 			case woken >= MaxMentionWakes:
 				mn.Reason = ptr(MentionLimit)

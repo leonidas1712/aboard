@@ -22,6 +22,7 @@ type wireMemberRef struct {
 }
 
 type wireMember struct {
+	DisplayName *string `json:"display_name,omitempty"`
 	CurrentTask any     `json:"current_task"`
 	ID          string  `json:"id"`
 	Board       string  `json:"board"`
@@ -166,7 +167,7 @@ func refOf(m board.Member) wireMemberRef {
 
 func memberOf(m board.Member, boardName string) wireMember {
 	w := wireMember{
-		ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
+		DisplayName: m.DisplayName, ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
 		Harness: m.Harness, Status: m.Status, JoinedAt: m.JoinedAt,
 		CurrentTask: taskRefOf(m.CurrentTask),
 	}

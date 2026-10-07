@@ -90,7 +90,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 
 		// Mentions are read from the body as stored, against the members on the board now,
 		// so later joins never change who a message mentioned.
-		mentions, err := resolveMentions(tx, b, me, to, in.Body)
+		mentions, err := resolveMentions(tx, b, me, to, in.Body, recipients)
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 		switch {
 		case !ok:
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
-				fmt.Sprintf("%q is not a target.", t), "Use all, @name or role:R.")
+				fmt.Sprintf("%q is not a target.", t), "Use all, @name, role:R or owner:handle.")
 		case kind == rules.TargetAll && len(to) > 1:
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
 				"all already includes everyone, so it can't be combined with other targets.", "Use --to all on its own.")
@@ -176,6 +176,14 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient",
 					fmt.Sprintf("No one on this board is called %q.", v), "Run aboard read to see who is posting here.")
 			} else if err != nil {
+				return nil, err
+			}
+		case kind == rules.TargetOwner:
+			owner, err := tx.MemberByName(b.ID, v)
+			if errors.Is(err, ErrNotFound) || (err == nil && (owner.Kind != "human" || owner.Status != StatusActive)) {
+				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient", "No person on this board has that handle.", "Use a person shown by aboard board people.")
+			}
+			if err != nil {
 				return nil, err
 			}
 		case kind == rules.TargetRole:
@@ -433,7 +441,7 @@ func (s *Service) Events(ctx context.Context, p Principal, boardName string, aft
 				}
 				ok = true
 			}
-			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 				evs[i].Data, evs[i].DataWithheld = nil, true
 			}
 		}
