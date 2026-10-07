@@ -228,7 +228,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
   const optionId = (i: number) => `${ids}-mention-${i}`;
 
   return (
-    <form onSubmit={send} className="composer relative border-t border-rule pt-3 pb-4" aria-label="Post a message">
+    <form onSubmit={send} className="composer relative border-t border-rule pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]" aria-label="Post a message">
       {replyTo && (
         <div className="mb-2 flex items-center gap-2 text-meta text-muted">
           <p className="min-w-0 flex-1 truncate">
@@ -238,7 +238,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           <button
             type="button"
             onClick={onCancelReply}
-            className="inline-flex size-8 items-center justify-center rounded-[6px] text-ink hover:bg-hover"
+            className="tap inline-flex size-8 items-center justify-center rounded-[6px] text-ink hover:bg-hover"
             aria-label="Cancel the reply"
             title="Cancel the reply"
           >
@@ -254,7 +254,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
                 type="button"
                 data-target={t}
                 onClick={() => unpick(t)}
-                className="recipient-chip inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface pr-1.5 pl-2.5 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
+                className="recipient-chip tap inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface pr-1.5 pl-2.5 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
                 aria-label={`Remove ${recipient(t)} from the recipients`}
               >
                 {recipient(t)}
@@ -319,7 +319,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
       >
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="to-label inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent sm:max-w-[16rem]"
+            className="to-label tap inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent sm:max-w-[16rem]"
             aria-label={`Recipients: ${toWords(to)}. Change`}
           >
             <span className="truncate">To {summary}</span>
@@ -370,7 +370,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           <div
             ref={backdrop}
             aria-hidden
-            className="mention-backdrop pointer-events-none absolute inset-0 overflow-hidden px-2.5 py-[10px] text-body break-words whitespace-pre-wrap text-transparent"
+            className="mention-backdrop pointer-events-none absolute inset-0 overflow-hidden px-2.5 py-[10px] text-body break-words whitespace-pre-wrap text-transparent pointer-coarse:text-[16px]"
           >
             {segments(body, known).map((s, i) =>
               s.target ? (
@@ -408,7 +408,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
               if (backdrop.current) backdrop.current.scrollTop = e.currentTarget.scrollTop;
             }}
             placeholder={label}
-            className="relative block min-h-11 w-full resize-none bg-transparent px-2.5 py-[10px] text-body text-ink outline-none placeholder:text-muted"
+            className="relative block min-h-11 w-full resize-none bg-transparent px-2.5 py-[10px] text-body text-ink outline-none placeholder:text-muted pointer-coarse:text-[16px]"
           />
           <span id={`${ids}-hint`} className="sr-only">
             Type @ to mention an agent, a person or a role; each one you mention receives the message.
