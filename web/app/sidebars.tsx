@@ -25,6 +25,7 @@ import { modeRules, type SettableMode, settableModes } from "./delivery-modes.ge
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
+import { VisibilityControl } from "./visibility";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
 export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
@@ -223,6 +224,7 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
         <Section id="board-details" title="Details" reveal={reveal}>
           <div className="flex flex-col gap-3">
             <Details board={board} agents={agents.length} people={people.length} record={record} />
+            <VisibilityControl board={board} owner={people.some((p) => p.name === me && p.access === "admin")} onChanged={onLifecycle} />
             <LifecycleActions board={board} onChanged={onLifecycle} />
           </div>
         </Section>

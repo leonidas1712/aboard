@@ -17,8 +17,9 @@ no person last-active timestamp. The previews say so rather than inventing one.
 
 Server role changes and removal reject browser credentials. The proposed
 confirmation therefore explains the effect and offers a copyable terminal
-command. It must never submit a person access key through the browser. This
-scope needs a product decision before implementation.
+command. It must never submit a person access key through the browser. The agreed
+implementation uses these handoffs and omits the unavailable last-active column.
+Global agent counts and person activity need a separate contract decision.
 
 ## Visibility
 
