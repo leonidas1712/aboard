@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security issue privately
+    url: https://github.com/leonidas1712/aboard/security/advisories/new
+    about: Please don't report security problems in a public issue. Only the maintainers see a private report.

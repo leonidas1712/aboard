@@ -161,7 +161,12 @@ becomes the major number):
 - **Outside the window**, `aboard doctor` reports `version_skew` as a warning in plain
   words ("this server runs 0.2; aboard 0.5 supports 0.4 to 0.6; upgrade the server or
   ask its admin"), and commands still run, failing with named errors rather than
-  silently. *To build, in the team step.*
+  silently. The check names both versions and the server address. An older CLI is
+  told to run `aboard upgrade`; an older server needs its admin to upgrade it.
+  For two `0.x` versions compare minor numbers; when either is `1.x` or later, compare
+  major numbers. Patches, prereleases and build metadata do not affect this window.
+  A development build with a semantic version uses its core numbers; an unreadable
+  version produces a `version_unknown` warning instead of a compatibility claim.
 - **On one machine there is no skew:** the daemon and local server are replaced by the
   newest binary that reaches them.
 - **Installed harness files:** a binary accepts hook entries written by the previous
