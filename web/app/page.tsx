@@ -1,5 +1,6 @@
 "use client";
 
+import { lab } from "aboard-lab";
 import { useEffect, useState } from "react";
 import { type Session, type Started, signedOutEvent, start } from "./api";
 import People from "./people";
@@ -76,7 +77,9 @@ export default function Page() {
   };
   const peoplePage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "people";
   const inboxPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox");
-  const view = inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : started.board ? (
+  const view = lab?.Place && lab.place?.() ? (
+    <lab.Place onSignOut={onSignOut} />
+  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />
@@ -85,6 +88,7 @@ export default function Page() {
     <div className={started.board ? "flex min-h-dvh flex-col lg:h-dvh lg:overflow-clip" : undefined}>
       {notice && <SignedInNotice session={notice} note={started.note} onClose={() => setNotice(null)} />}
       {view}
+      {lab && <lab.Overlay />}
     </div>
   );
 }

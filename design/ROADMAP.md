@@ -233,6 +233,7 @@ engineering/release.md.
 | Dependabot pull requests for Go modules, npm and GitHub Actions | next | |
 | Every `--json` output in tests validated against its schema in `spec/cli.yaml` | next | D147 |
 | Accessibility checks (axe) in the Playwright test, in both themes | next | |
+| The UI lab (`make lab`, web/lab): the real board view against an in-memory fake of the API, with scenarios over time steps, to try features before their contract; never in the embedded UI (`make web-lab-check`). Mocks (round 3, after the designer mockup): the Inbox of asks across boards, the board with its brief and a Conversation | Tasks switch, one side panel for Work, a task or a file, task ids, asks with buttons, back-by times (web/lab/DIRECTION.md) | in review | |
 | A cleanup pass every few weeks: dead code, near-duplicate helpers, weak tests | next, repeating | D144 |
 
 ## After launch

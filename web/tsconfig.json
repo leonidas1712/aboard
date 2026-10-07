@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "aboard-lab": [
+        "./app/lab-off.ts"
       ]
     }
   },
@@ -34,7 +37,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "lab-out/types/**/*.ts",
+    "lab-out/dev/types/**/*.ts",
+    ".next-lab/types/**/*.ts",
+    ".next-lab/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
