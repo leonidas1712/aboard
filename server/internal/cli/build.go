@@ -14,7 +14,7 @@ import (
 // version is the release version of the CLI, the local server and the delivery daemon.
 // A release build sets it with
 // -ldflags "-X github.com/leonidas1712/aboard/server/internal/cli.version=0.2.0".
-var version = "0.1.1"
+var version = "0.1.2"
 
 // currentBuild returns this binary's build: its version and, when it was built from a
 // Git checkout, the commit and the commit's time.
