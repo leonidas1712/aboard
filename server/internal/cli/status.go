@@ -326,8 +326,9 @@ func presenceOf(members []api.Member, name string) *string {
 
 // person is one person on a board in aboard status, with what they may change there.
 type person struct {
-	Name   string `json:"name"`
-	Access string `json:"access"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Name        string  `json:"name"`
+	Access      string  `json:"access"`
 }
 
 // peopleOf returns the people among a board's members, or nil when there is only one:
@@ -336,7 +337,7 @@ func peopleOf(members []api.Member) []person {
 	var people []person
 	for _, m := range members {
 		if m.Kind == api.MemberKindHuman && m.Access != nil {
-			people = append(people, person{Name: m.Name, Access: string(*m.Access)})
+			people = append(people, person{Name: m.Name, Access: string(*m.Access), DisplayName: m.DisplayName})
 		}
 	}
 	if len(people) < 2 {
@@ -348,7 +349,11 @@ func peopleOf(members []api.Member) []person {
 func peopleText(people []person) string {
 	parts := make([]string, len(people))
 	for i, p := range people {
-		parts[i] = p.Name + " (" + p.Access + ")"
+		parts[i] = p.Name
+		if p.DisplayName != nil && *p.DisplayName != "" {
+			parts[i] = "@" + p.Name + " (" + *p.DisplayName + ")"
+		}
+		parts[i] += " (" + p.Access + ")"
 	}
 	return strings.Join(parts, ", ")
 }

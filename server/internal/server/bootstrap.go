@@ -86,6 +86,9 @@ func firstAdmin(ctx context.Context, svc *board.Service, dataDir, name string, l
 	if err := deliver(pendingPath, keyPath, dataDir); err != nil {
 		return err
 	}
+	if handle == "admin" {
+		log.Warn("first admin uses the default handle; set ABOARD_ADMIN to your handle before first start, or run aboard people rename @admin your-handle")
+	}
 	log.Info("first admin created", "handle", handle, "key_file", keyPath)
 	return nil
 }

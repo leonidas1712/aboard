@@ -114,6 +114,7 @@ export type Presence = "working" | "idle" | "waiting" | "no_session";
 export type DeliveryMode = "focused" | "all" | "humans" | "off" | "auto";
 
 export type Member = MemberRef & {
+  display_name?: string;
   id: string;
   harness: string | null;
   access: "admin" | "member" | null;

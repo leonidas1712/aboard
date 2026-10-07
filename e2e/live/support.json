@@ -63,6 +63,12 @@
           "version": "2.1.291 (Claude Code)",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/claude-code"
         },
+        "RenamedPersonKeepsAgentDelivery": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "2.1.291 (Claude Code)",
+          "test": "TestRenamedPersonKeepsAgentDelivery/claude-code"
+        },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-06",
@@ -125,10 +131,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2013,
-        "harness_ms": 2071,
-        "deliveries": 24,
-        "date": "2026-10-06"
+        "aboard_ms": 2010,
+        "harness_ms": 2716,
+        "deliveries": 1,
+        "date": "2026-10-07"
       }
     },
     "codex": {
@@ -199,6 +205,12 @@
           "version": "codex-cli 0.160.0",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/codex"
         },
+        "RenamedPersonKeepsAgentDelivery": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "codex-cli 0.160.0",
+          "test": "TestRenamedPersonKeepsAgentDelivery/codex"
+        },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-06",
@@ -267,10 +279,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2015,
-        "harness_ms": 117,
-        "deliveries": 25,
-        "date": "2026-10-06"
+        "aboard_ms": 2008,
+        "harness_ms": 32,
+        "deliveries": 1,
+        "date": "2026-10-07"
       }
     },
     "omp": {
@@ -336,6 +348,12 @@
           "version": "omp/18.5.1",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/omp"
         },
+        "RenamedPersonKeepsAgentDelivery": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "omp/18.5.1",
+          "test": "TestRenamedPersonKeepsAgentDelivery/omp"
+        },
         "RepliesReachPromptly": {
           "result": "pass",
           "date": "2026-10-06",
@@ -400,8 +418,8 @@
       "handover": {
         "aboard_ms": 2008,
         "harness_ms": 2,
-        "deliveries": 23,
-        "date": "2026-10-06"
+        "deliveries": 1,
+        "date": "2026-10-07"
       }
     }
   }

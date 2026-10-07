@@ -382,7 +382,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
           shared={people.length > 1}
           onTitle={s.board ? () => show("board-details") : undefined}
           onStarter={() => show("rules")}
-          account={<Account admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
+          account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
         />
         <div
           className="board-columns flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)]"
