@@ -185,6 +185,9 @@ func (p *pane) waitClaudeReady() {
 		case strings.Contains(s, "Yes, I trust this folder"):
 			if selectedLine(s, "No, exit") {
 				p.keys("Down")
+				p.l.waitFor(5*time.Second, p.name+": the trust selection to reach Yes", func() bool {
+					return selectedLine(p.screen(), "Yes, I trust this folder")
+				})
 			}
 			p.keys("Enter")
 			waitQuietly(5*time.Second, func() bool { return !strings.Contains(p.screen(), "Yes, I trust this folder") })

@@ -5,31 +5,31 @@
       "scenarios": {
         "JoinsAndTalks": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         },
         "KilledSessionRedelivers": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestKilledSessionRedelivers/claude-code"
         },
         "MentionWakesAnIdleAgent": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/claude-code"
         },
         "MultiSeatEqualSequences": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestMultiSeatEqualSequences/claude-code"
         },
         "OwnerReachesBusy": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestOwnerReachesBusy/claude-code"
         },
@@ -41,31 +41,31 @@
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestPeerWaitsButNoticeArrives/claude-code"
         },
         "PingPong": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestPingPong/claude-code"
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestProjectScopeSetup/claude-code"
         },
         "QuietArrivesWithTheNextPrompt": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/claude-code"
         },
@@ -77,69 +77,75 @@
         },
         "RepliesReachPromptly": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestRepliesReachPromptly/claude-code"
         },
         "ReplyWakesOnlyTheAsker": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestReplyWakesOnlyTheAsker/claude-code"
         },
         "RestartsLoseNothing": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestRestartsLoseNothing/claude-code"
         },
         "ResumeReconnects": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestResumeReconnects/claude-code"
         },
         "ServerHeldModeStopsAndRestartsNativeDelivery": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestServerHeldModeStopsAndRestartsNativeDelivery/claude-code"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestSubagentCannotActAsItsParent/claude-code"
         },
         "SwarmUpResumesTheLastSession": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestSwarmUpResumesTheLastSession/claude-code"
         },
         "SwarmUpStartsEveryHarness": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestSwarmUpStartsEveryHarness/herdr"
         },
         "SwarmUpStartsFreshAfterNoTurn": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestSwarmUpStartsFreshAfterNoTurn/claude-code"
         },
+        "TaskWorkflowFromSkill": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "2.1.291 (Claude Code)",
+          "test": "TestTaskWorkflowFromSkill/claude-code"
+        },
         "WakesAndReplies": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         }
       },
       "handover": {
         "aboard_ms": 2008,
-        "harness_ms": 2293,
-        "deliveries": 3,
+        "harness_ms": 1814,
+        "deliveries": 13,
         "date": "2026-10-07"
       }
     },
@@ -153,31 +159,31 @@
       "scenarios": {
         "JoinsAndTalks": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestWakesAndReplies/codex"
         },
         "KilledSessionRedelivers": {
           "result": "n/a",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestKilledSessionRedelivers/codex"
         },
         "MentionWakesAnIdleAgent": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/codex"
         },
         "MultiSeatEqualSequences": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestMultiSeatEqualSequences/codex"
         },
         "OwnerReachesBusy": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestOwnerReachesBusy/codex"
         },
@@ -189,31 +195,31 @@
         },
         "PeerWaitsButNoticeArrives": {
           "result": "n/a",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestPeerWaitsButNoticeArrives/codex"
         },
         "PingPong": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestPingPong/codex"
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestPingPongAcrossHarnesses/codex-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestProjectScopeSetup/codex"
         },
         "QuietArrivesWithTheNextPrompt": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/codex"
         },
@@ -225,75 +231,81 @@
         },
         "RepliesReachPromptly": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestRepliesReachPromptly/codex"
         },
         "ReplyWakesOnlyTheAsker": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestReplyWakesOnlyTheAsker/codex"
         },
         "RestartsLoseNothing": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestRestartsLoseNothing/codex"
         },
         "ResumeReconnects": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestResumeReconnects/codex"
         },
         "SandboxNeedsTheAllowRule": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestCodexSandboxNeedsTheAllowRule"
         },
         "ServerHeldModeStopsAndRestartsNativeDelivery": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestServerHeldModeStopsAndRestartsNativeDelivery/codex"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestSubagentCannotActAsItsParent/codex"
         },
         "SwarmUpResumesTheLastSession": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestSwarmUpResumesTheLastSession/codex"
         },
         "SwarmUpStartsEveryHarness": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestSwarmUpStartsEveryHarness/herdr"
         },
         "SwarmUpStartsFreshAfterNoTurn": {
           "result": "n/a",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestSwarmUpStartsFreshAfterNoTurn/codex"
         },
+        "TaskWorkflowFromSkill": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "codex-cli 0.160.0",
+          "test": "TestTaskWorkflowFromSkill/codex"
+        },
         "WakesAndReplies": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestWakesAndReplies/codex"
         }
       },
       "handover": {
         "aboard_ms": 2008,
-        "harness_ms": 38,
-        "deliveries": 3,
+        "harness_ms": 39,
+        "deliveries": 13,
         "date": "2026-10-07"
       }
     },
@@ -302,31 +314,31 @@
       "scenarios": {
         "JoinsAndTalks": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestWakesAndReplies/omp"
         },
         "KilledSessionRedelivers": {
           "result": "n/a",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestKilledSessionRedelivers/omp"
         },
         "MentionWakesAnIdleAgent": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/omp"
         },
         "MultiSeatEqualSequences": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestMultiSeatEqualSequences/omp"
         },
         "OwnerReachesBusy": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestOwnerReachesBusy/omp"
         },
@@ -338,31 +350,31 @@
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestPeerWaitsButNoticeArrives/omp"
         },
         "PingPong": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestPingPong/omp"
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestPingPongAcrossHarnesses/codex-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestProjectScopeSetup/omp"
         },
         "QuietArrivesWithTheNextPrompt": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/omp"
         },
@@ -374,69 +386,75 @@
         },
         "RepliesReachPromptly": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestRepliesReachPromptly/omp"
         },
         "ReplyWakesOnlyTheAsker": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestReplyWakesOnlyTheAsker/omp"
         },
         "RestartsLoseNothing": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestRestartsLoseNothing/omp"
         },
         "ResumeReconnects": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestResumeReconnects/omp"
         },
         "ServerHeldModeStopsAndRestartsNativeDelivery": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestServerHeldModeStopsAndRestartsNativeDelivery/omp"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestSubagentCannotActAsItsParent/omp"
         },
         "SwarmUpResumesTheLastSession": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestSwarmUpResumesTheLastSession/omp"
         },
         "SwarmUpStartsEveryHarness": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestSwarmUpStartsEveryHarness/herdr"
         },
         "SwarmUpStartsFreshAfterNoTurn": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestSwarmUpStartsFreshAfterNoTurn/omp"
         },
+        "TaskWorkflowFromSkill": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "omp/18.5.1",
+          "test": "TestTaskWorkflowFromSkill/omp"
+        },
         "WakesAndReplies": {
           "result": "pass",
-          "date": "2026-10-06",
+          "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestWakesAndReplies/omp"
         }
       },
       "handover": {
         "aboard_ms": 2010,
-        "harness_ms": 3,
-        "deliveries": 3,
+        "harness_ms": 2,
+        "deliveries": 6,
         "date": "2026-10-07"
       }
     }
