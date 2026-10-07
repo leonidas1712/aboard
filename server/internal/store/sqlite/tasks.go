@@ -12,6 +12,7 @@ import (
 const taskColumns = "id, board_id, number, ref, title, state, about_json, stands_json, owner_id, helpers_json, opened_by, opened_at, updated_at, closed_at, closed_note"
 
 type storedTaskText struct {
+	Seq     int64  `json:"seq"`
 	Text    string `json:"text"`
 	By      string `json:"by"`
 	At      string `json:"at"`
@@ -66,7 +67,7 @@ func (t *tx) scanTask(row interface{ Scan(...any) error }) (board.Task, error) {
 		if e != nil {
 			return nil, e
 		}
-		return &board.TaskText{Text: v.Text, By: m, At: v.At, Version: v.Version}, nil
+		return &board.TaskText{Text: v.Text, By: m, At: v.At, Version: v.Version, Seq: v.Seq}, nil
 	}
 	out.About, e = decode(about)
 	if e != nil {
@@ -158,7 +159,7 @@ func (t *tx) SaveTask(x board.Task) error {
 		if v == nil {
 			return nil, nil
 		}
-		raw, e := json.Marshal(storedTaskText{Text: v.Text, By: v.By.ID, At: v.At, Version: v.Version})
+		raw, e := json.Marshal(storedTaskText{Text: v.Text, By: v.By.ID, At: v.At, Version: v.Version, Seq: v.Seq})
 		return string(raw), e
 	}
 	about, e := encode(x.About)
