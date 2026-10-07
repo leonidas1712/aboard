@@ -45,6 +45,7 @@ func TestTaskWorkOnlyUsesTheExactSeatInbox(t *testing.T) {
 		})
 	}
 }
+
 func TestTaskMessageMappingPreservesRecordedReferences(t *testing.T) {
 	tags := []api.TaskTag{{Id: "tsk_one", Ref: "CHK-17", How: api.Current}, {Id: "tsk_two", Ref: "CHK-12", How: api.Named}}
 	got := TextMessage(api.Message{About: &tags, Body: "unchanged"})

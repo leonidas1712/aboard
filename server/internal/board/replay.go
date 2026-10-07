@@ -13,7 +13,7 @@ import (
 // Replay identifies the data held by an immutable cached response. The adapter
 // supplies identifiers, never authority; the read transaction checks the caller again.
 type Replay struct {
-	Tasks bool
+	Tasks      bool
 	AddPeople  bool
 	Handle     string
 	Name       string

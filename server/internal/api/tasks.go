@@ -15,8 +15,10 @@ func taskWorkOf(w *board.AgentWork) any {
 		t := w.CurrentTask
 		current = map[string]any{"id": t.ID, "ref": t.Ref, "title": t.Title, "owner": t.Owner, "stands": taskTextOf(t.Stands)}
 	}
-	return map[string]any{"current_task": current, "open_tasks": w.OpenTasks, "oldest_open": taskRefOf(w.OldestOpen), "posts_without_task": w.PostsWithoutTask,
-		"asks_waiting": 0, "line": nil, "brief": nil, "nudges": w.Nudges}
+	return map[string]any{
+		"current_task": current, "open_tasks": w.OpenTasks, "oldest_open": taskRefOf(w.OldestOpen), "posts_without_task": w.PostsWithoutTask,
+		"asks_waiting": 0, "line": nil, "brief": nil, "nudges": w.Nudges,
+	}
 }
 
 func taskRefOf(t *board.TaskRef) any {

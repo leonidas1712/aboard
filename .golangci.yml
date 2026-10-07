@@ -48,7 +48,7 @@ linters:
         - shadow
     misspell:
       locale: US
-      ignore-words:
+      ignore-rules:
         - cancelled
     revive:
       rules:
