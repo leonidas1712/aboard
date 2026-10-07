@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/leonidas1712/aboard/server/internal/clock"
@@ -20,7 +22,9 @@ import (
 
 // Config is everything the daemon needs from outside.
 type Config struct {
-	Journal Journal
+	// AllowBriefNudge limits already-rendered keeper advice using local private bookkeeping.
+	AllowBriefNudge func(AgentRef, deliverytext.BriefContext) bool
+	Journal         Journal
 	// ResolveAgent verifies a seat using its saved credential. Nil is used by
 	// adapters whose agent references are already trusted, such as contract fixtures.
 	ResolveAgent func(context.Context, AgentRef) (AgentRef, error)

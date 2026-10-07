@@ -18,6 +18,7 @@ import {
   type FileVersion,
   type MemberRef,
   fileText,
+  isBriefName,
   getFile,
   listFiles,
   putFile,
@@ -835,6 +836,33 @@ export function previewable(html: string): string {
   return `<!doctype html>${doc.documentElement.outerHTML}`;
 }
 
+/**
+ * HtmlFrame shows untrusted HTML, such as an agent's file or the board's brief, on its
+ * light page. Its preview must never make a request. Three layers, each enough for a
+ * different case:
+ * 1. previewable() removes every way the markup names a URL to go to or load from
+ *    (links, base, forms, meta refresh, frames, SVG hrefs, non-data images), since a
+ *    CSP inside the document constrains loads but not the frame's own navigation.
+ * 2. sandbox="" with no allow-* token: an opaque origin (no access to this page, its
+ *    cookies or the API), and no scripts, forms, popups or top navigation.
+ * 3. The board view's policy has frame-src 'none', so if a navigation slipped through,
+ *    the frame still couldn't load anything, the API included; the policy in the
+ *    preview's head blocks every subresource.
+ */
+export function HtmlFrame({ title, html, className }: { title: string; html: string; className?: string }) {
+  return (
+    <div className="file-page overflow-hidden rounded-box border border-rule">
+      <iframe
+        title={title}
+        sandbox=""
+        referrerPolicy="no-referrer"
+        srcDoc={previewable(html)}
+        className={cn("file-frame block h-[min(60vh,560px)] w-full border-0 bg-[var(--page)]", className)}
+      />
+    </div>
+  );
+}
+
 /** Preview shows a version on its light page: Markdown formatted, text as written, HTML in a sandbox, images drawn. */
 function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileVersion }) {
   const kind = kindOf(file.name, v.media_type);
@@ -870,29 +898,7 @@ function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileV
   if (!text || text.key !== key) {
     return <div className="file-page h-32 rounded-box border border-rule motion-safe:animate-pulse" role="status" aria-label="Loading the preview" />;
   }
-  if (kind === "html") {
-    // An agent's HTML is untrusted, and its preview must never make a request. Three
-    // layers, each enough for a different case:
-    // 1. previewable() removes every way the markup names a URL to go to or load from
-    //    (links, base, forms, meta refresh, frames, SVG hrefs, non-data images), since a
-    //    CSP inside the document constrains loads but not the frame's own navigation.
-    // 2. sandbox="" with no allow-* token: an opaque origin (no access to this page, its
-    //    cookies or the API), and no scripts, forms, popups or top navigation.
-    // 3. The board view's policy has frame-src 'none', so if a navigation slipped
-    //    through, the frame still couldn't load anything, the API included; the policy
-    //    in the preview's head blocks every subresource.
-    return (
-      <div className="file-page overflow-hidden rounded-box border border-rule">
-        <iframe
-          title={`Preview of ${file.name}, v${v.version}`}
-          sandbox=""
-          referrerPolicy="no-referrer"
-          srcDoc={previewable(text.body)}
-          className="file-frame block h-[min(60vh,560px)] w-full border-0 bg-[var(--page)]"
-        />
-      </div>
-    );
-  }
+  if (kind === "html") return <HtmlFrame title={`Preview of ${file.name}, v${v.version}`} html={text.body} />;
   return (
     <div className="file-page file-preview quiet-scroll max-h-[min(60vh,560px)] overflow-y-auto rounded-box border border-rule px-4 py-3" tabIndex={0} aria-label={`Preview of ${file.name}, v${v.version}`}>
       {kind === "markdown" ? <Markdown text={text.body} /> : <pre className="text-meta whitespace-pre-wrap break-words">{text.body}</pre>}
@@ -938,7 +944,7 @@ function NewVersion({
     setProblem(null);
     setDone(null);
     try {
-      const f = await putFile(board, file.name, over, picked, file.id);
+      const f = await putFile(board, file.name, over, picked, file.id, undefined, { brief: isBriefName(file.name) });
       setDone(f.latest.version);
       onUploaded(f);
     } catch (err) {

@@ -1,0 +1,37 @@
+---
+// The harness marks from the board view: simple original drawings that evoke each
+// harness, in currentColor. An asterisk for Claude Code, a hexagon with a prompt for
+// Codex, a pi for omp, and a prompt for anything else. They are not the vendors' logos.
+interface Props {
+  harness: "claude-code" | "codex" | "omp" | "other";
+}
+const { harness } = Astro.props;
+---
+<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  {harness === "claude-code" && (
+    <g stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+      <path d="M12 3.5v17" />
+      <path d="M3.5 12h17" />
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </g>
+  )}
+  {harness === "codex" && (
+    <g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z" />
+      <path d="M8.6 9.6l2.8 2.4-2.8 2.4M12.6 14.6h3" />
+    </g>
+  )}
+  {harness === "omp" && (
+    <g fill="currentColor">
+      <rect x="4" y="5.5" width="16" height="3.2" rx="1.2" />
+      <rect x="7.4" y="7" width="3.2" height="12" rx="1.2" />
+      <path d="M13.4 7h3.2v9.4c0 .9.4 1.3 1.3 1.3h1.1V20h-1.8c-2.5 0-3.8-1.2-3.8-3.6z" />
+    </g>
+  )}
+  {harness === "other" && (
+    <g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8l4 4-4 4M12 17h6" />
+    </g>
+  )}
+</svg>

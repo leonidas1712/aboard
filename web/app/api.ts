@@ -51,6 +51,8 @@ export type Board = {
   can_delete?: boolean;
   task_prefix?: string | null;
   tasks_open?: number;
+  /** brief is the board's brief (its file brief.md or brief.html) and what happened since; null when it has none, absent on a server without files. */
+  brief?: BriefSummary | null;
   /** added is set while someone else's add of this person to the board is new to them: no agent of theirs has joined since and they haven't read past it. */
   added?: BoardAdded;
 };
@@ -695,6 +697,8 @@ export type FileDetail = BoardFile & {
   posted_in: { message_id: string; seq: number; version: number; thread_root_seq: number | null }[];
 };
 export type FileList = { board: string; files: BoardFile[]; more: boolean };
+/** BriefSummary is the board's brief: which file and version it is, who wrote that version and when, and what happened on the board since. */
+export type BriefSummary = { name?: "brief.md" | "brief.html"; file_id: string; version: number; by: MemberRef; at: string; freshness: Freshness };
 /** FileChanged is what a 409 file_exists or file_changed names: the file's current version, who wrote it and when. */
 export type FileChanged = { version: number; by: Pick<MemberRef, "name" | "kind">; at: string };
 
@@ -723,6 +727,18 @@ export async function fileText(board: string, file: string, version: number): Pr
 }
 
 /**
+ * PutOptions marks a write to the board's brief: brief is required for top-level
+ * brief.md and brief.html, and replaceFormat switches the brief from one of them to the
+ * other in one write, with fileId and base naming the brief being replaced.
+ */
+export type PutOptions = { brief?: boolean; replaceFormat?: boolean };
+
+/** isBriefName is true for the two paths that are only ever the board's brief. */
+export function isBriefName(name: string): boolean {
+  return name === "brief.md" || name === "brief.html";
+}
+
+/**
  * putFile uploads bytes as a new version of the file at name, as the person. base is the
  * version it replaces, 0 for a new file. The server refuses a base that isn't the file's
  * latest version (409 file_changed, or file_exists for a name already taken) and stores
@@ -730,9 +746,11 @@ export async function fileText(board: string, file: string, version: number): Pr
  * is the file the person saw: if it was removed, or replaced by another file at the same
  * path, the write is refused as file_changed too.
  */
-export async function putFile(board: string, name: string, base: number, body: Blob, fileId?: string, key: string = crypto.randomUUID()): Promise<BoardFile> {
+export async function putFile(board: string, name: string, base: number, body: Blob, fileId?: string, key: string = crypto.randomUUID(), opts: PutOptions = {}): Promise<BoardFile> {
   const qs = new URLSearchParams({ name, base: String(base) });
   if (fileId) qs.set("file_id", fileId);
+  if (opts.brief) qs.set("brief", "true");
+  if (opts.replaceFormat) qs.set("replace_format", "true");
   const resp = await fetch(`/v1/boards/${encodeURIComponent(board)}/files?${qs}`, {
     method: "POST",
     credentials: "same-origin",

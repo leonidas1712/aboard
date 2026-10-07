@@ -177,6 +177,9 @@ func (s *Server) TaskWork(ctx context.Context, agent delivery.AgentRef) (*delive
 	}
 	w := in.Work
 	out := &deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges, AsksWaiting: w.AsksWaiting}
+	if b := w.Brief; b != nil && b.FileId != nil && b.Name != nil {
+		out.Brief = &deliverytext.BriefContext{FileID: *b.FileId, Name: string(*b.Name), Version: b.Version, At: b.At, MessagesSince: b.MessagesSince, TasksDoneSince: b.TasksDoneSince}
+	}
 	if w.AsksToIt != nil {
 		out.AsksToIt = *w.AsksToIt
 	}

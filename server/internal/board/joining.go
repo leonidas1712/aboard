@@ -433,6 +433,11 @@ func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinI
 	if err != nil {
 		return Joined{}, err
 	}
+	view.OnBoard = true
+	view.Brief, err = projectBrief(tx, *b, agent)
+	if err != nil {
+		return Joined{}, err
+	}
 	return Joined{Agent: agent, Token: token, View: view}, nil
 }
 

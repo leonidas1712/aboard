@@ -8,11 +8,13 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/ids"
+	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
 // Replay identifies the data held by an immutable cached response. The adapter
 // supplies identifiers, never authority; the read transaction checks the caller again.
 type Replay struct {
+	FileWrite  bool
 	Tasks      bool
 	AddPeople  bool
 	Handle     string
@@ -99,6 +101,19 @@ func (s *Service) CheckBoardReplay(ctx context.Context, p Principal, in Replay) 
 			return err
 		}
 		name := in.Name
+		if in.FileWrite {
+			b, me, err := s.access(tx, p, name)
+			if err != nil {
+				return err
+			}
+			if err := requireActive(b); err != nil {
+				return err
+			}
+			if me.Kind == "agent" && (me.Role == nil || !b.Roles[*me.Role].Has(rules.UploadFiles)) {
+				return fileError(403, "forbidden", "Your role cannot change files.")
+			}
+			return nil
+		}
 		if in.Tasks {
 			_, _, err := s.access(tx, p, name)
 			return err

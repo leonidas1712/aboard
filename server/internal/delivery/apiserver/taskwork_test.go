@@ -40,7 +40,7 @@ func TestTaskWorkOnlyUsesTheExactSeatInbox(t *testing.T) {
 					t.Error("wrong credential")
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_ = json.NewEncoder(w).Encode(map[string]any{"board": "docs", "agent": "writer", "member_id": id, "messages": []any{}, "cursor": 0, "more": false, "work": map[string]any{"current_task": nil, "open_tasks": 2, "oldest_open": map[string]any{"id": "tsk_one", "ref": "CHK-17", "title": "review"}, "posts_without_task": 3, "asks_waiting": 0, "line": nil, "brief": nil, "nudges": false}})
+				_ = json.NewEncoder(w).Encode(map[string]any{"board": "docs", "agent": "writer", "member_id": id, "messages": []any{}, "cursor": 0, "more": false, "work": map[string]any{"current_task": nil, "open_tasks": 2, "oldest_open": map[string]any{"id": "tsk_one", "ref": "CHK-17", "title": "review"}, "posts_without_task": 3, "asks_waiting": 0, "line": nil, "brief": map[string]any{"file_id": "fil_keeper", "name": "brief.md", "version": 2, "at": "2026-10-01T10:00:00Z", "messages_since": 30, "tasks_done_since": 0}, "nudges": false}})
 			}))
 			defer srv.Close()
 			ref := delivery.AgentRef{Server: srv.URL, Board: "docs", Name: "writer", MemberID: "mem_expected"}
@@ -50,7 +50,7 @@ func TestTaskWorkOnlyUsesTheExactSeatInbox(t *testing.T) {
 				if !errors.Is(e, delivery.ErrUnauthorized) || work != nil {
 					t.Fatalf("wrong seat accepted: %+v %v", work, e)
 				}
-			} else if e != nil || work.OpenTasks != 2 || work.OldestOpen.Ref != "CHK-17" || work.Nudges {
+			} else if e != nil || work.OpenTasks != 2 || work.OldestOpen.Ref != "CHK-17" || work.Nudges || work.Brief == nil || work.Brief.FileID != "fil_keeper" || work.Brief.Version != 2 || work.Brief.MessagesSince != 30 {
 				t.Fatalf("work=%+v err=%v", work, e)
 			}
 			if writes != 0 {

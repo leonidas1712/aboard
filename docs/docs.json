@@ -99,6 +99,7 @@
               "cli/ask",
               "cli/task",
               "cli/file",
+              "cli/brief",
               "cli/storage",
               "cli/say",
               "cli/inbox",
