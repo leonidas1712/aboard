@@ -67,7 +67,13 @@ case "$1" in
   send-keys)
     shift 3
     case "$1" in
-      Down) printf '%s' moving > "$TERMINAL_DRIVER_STATE/menu" ;;
+      Down)
+        if [ -f "$TERMINAL_DRIVER_STATE/first-down" ]; then
+          printf '%s' moving > "$TERMINAL_DRIVER_STATE/menu"
+        else
+          touch "$TERMINAL_DRIVER_STATE/first-down"
+        fi
+        ;;
       Enter)
         [ "$(cat "$TERMINAL_DRIVER_STATE/menu")" = observed ] || { printf '%s\n' 'Enter arrived before the Yes selection was observed'; exit 1; }
         printf '%s' ready > "$TERMINAL_DRIVER_STATE/menu"

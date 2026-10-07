@@ -55,7 +55,7 @@
           "result": "pass",
           "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -143,9 +143,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2008,
-        "harness_ms": 1814,
-        "deliveries": 13,
+        "aboard_ms": 2010,
+        "harness_ms": 2191,
+        "deliveries": 28,
         "date": "2026-10-07"
       }
     },
@@ -303,9 +303,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2008,
-        "harness_ms": 39,
-        "deliveries": 13,
+        "aboard_ms": 2010,
+        "harness_ms": 47,
+        "deliveries": 30,
         "date": "2026-10-07"
       }
     },
@@ -452,9 +452,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2010,
+        "aboard_ms": 2011,
         "harness_ms": 2,
-        "deliveries": 6,
+        "deliveries": 29,
         "date": "2026-10-07"
       }
     }
