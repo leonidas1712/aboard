@@ -6167,6 +6167,13 @@ components:
           description: The board's brief, when the agent wrote its latest version; null otherwise.
           required: [version, messages_since, tasks_done_since, at]
           properties:
+            file_id:
+              type: string
+              description: Immutable file identity for keeper-nudge bookkeeping; replacement starts a new identity.
+            name:
+              type: string
+              enum: [brief.md, brief.html]
+              description: The current brief format, for get and put hints.
             version: { type: integer, minimum: 1 }
             at: { $ref: "#/components/schemas/Timestamp" }
             messages_since: { type: integer, minimum: 0 }
