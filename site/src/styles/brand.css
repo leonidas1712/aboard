@@ -8,10 +8,16 @@
 
   Palette
   - Neutrals are near-white and near-black with a faint olive cast; never pure #fff/#000.
-  - One signature accent, --accent. It is a fill under ink text, never text on the page.
-    It marks what needs a person (an ask, a "needs you" count), the primary button, the
-    focus ring and text selection. Everything else stays neutral. Change the accent in
-    one line below; keep it light enough for 4.5:1 with --on-accent.
+  - One signature accent per theme: green #7cdf64 in light, teal #14b8a6 in dark. It is a
+    fill under ink text (--on-accent; 11.4:1 on the green, 7.6:1 on the teal; white on
+    the teal would be 2.5:1, so ink is used in both themes). It marks what needs a person
+    (an ask, a "needs you" count), the primary button, the focus ring and text selection.
+    Everything else stays neutral.
+  - --accent-strong is the accent for lines and small text on the page: a darker green
+    in light (#2b7f1c, 5.1:1 on white, so it also passes as text), the teal itself in dark
+    (7.8:1 on the dark background). Use it for outlines, check icons and the focus ring.
+  - To recolour the brand, change --accent and --accent-strong in the light block and
+    --accent in the two dark blocks below.
   - Identity colours id-1…8 tell senders apart and mean nothing else (unchanged from
     the board view).
 
@@ -22,7 +28,8 @@
 
   Logo
   - The mark is a rounded room holding two lines of conversation: the earlier line in
-    ink, the later one in the accent (--mark-reply). Files: /favicon.svg (adapts to
+    ink, the later one in the accent (--mark-reply: #4cc038 in light, a step darker than
+    the fill so it holds up on white; the teal in dark). Files: /favicon.svg (adapts to
     light and dark), /favicon-32.png, /icon-192.png, /icon-512.png, /apple-touch-icon.png,
     and the Mark component (src/components/Mark.astro). The wordmark is "aboard" in
     Geist 700, lowercase, tracking -0.03em.
@@ -44,14 +51,14 @@
 }
 
 :root {
-  /* The signature accent: change this line to recolour the brand. */
-  --accent: #ff5ca8;
+  /* The signature accent, light theme. Dark theme values are in the blocks below. */
+  --accent: #7cdf64;
+  --accent-strong: #2b7f1c;  /* new: accent lines, check icons, focus ring; 5.1:1 on white */
+  --mark-reply: #4cc038;     /* new: the logo's second line */
 
-  --on-accent: #0f100d;                                         /* new: text on an accent fill */
-  --accent-strong: color-mix(in oklab, var(--accent) 78%, #000); /* new: accent strokes on light grounds (3:1) */
-  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent); /* new: mentions, focus glow */
-  --attention: var(--accent);                                   /* what needs a person */
-  --mark-reply: var(--accent);                                  /* new: the logo's second line */
+  --on-accent: #0f100d;                                           /* new: text on an accent fill */
+  --accent-soft: color-mix(in srgb, var(--accent) 30%, transparent); /* new: mentions, focus glow */
+  --attention: var(--accent);                                     /* what needs a person */
 
   --font-sans: "Geist", ui-sans-serif, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -85,8 +92,10 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --accent: #14b8a6;
   --accent-strong: var(--accent);
-  --accent-soft: color-mix(in srgb, var(--accent) 30%, transparent);
+  --mark-reply: var(--accent);
+  --accent-soft: color-mix(in srgb, var(--accent) 28%, transparent);
   --background: #0c0d0a;
   --surface: #131410;
   --sidebar: #10110d;
@@ -111,8 +120,10 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
+    --accent: #14b8a6;
     --accent-strong: var(--accent);
-    --accent-soft: color-mix(in srgb, var(--accent) 30%, transparent);
+    --mark-reply: var(--accent);
+    --accent-soft: color-mix(in srgb, var(--accent) 28%, transparent);
     --background: #0c0d0a;
     --surface: #131410;
     --sidebar: #10110d;
