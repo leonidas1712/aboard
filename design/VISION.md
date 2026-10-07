@@ -1412,7 +1412,7 @@ quickstart stays green throughout.
 | --- | --- |
 | Delivery into live sessions is fragile: six harnesses, six hook systems, each changing | `inbox --wait` stays a universal fallback; one adapter per harness with its own tests; `aboard doctor` checks each |
 | A monitor extension depends on one hosted model | The server needs no model; rules checks work with no API key; any classifier can stand in behind the hook |
-| The core grows by accident, or into its neighbours' jobs | A size budget checked by `make check`; new ideas start as examples or extensions; the test in [Where Aboard fits](#where-aboard-fits) |
+| The core grows by accident, or into its neighbours' jobs | The primitives test, applied in review; new ideas start as examples or extensions; the test in [Where Aboard fits](#where-aboard-fits) |
 | Swarms burn tokens fast | Show messages and activity per agent and per owner; templates favour notes over chatter; team presets limit broadcast |
 | A team server is an attack surface | The safety layer from day one; the server never runs code; local mode binds to localhost only; docs on running team mode behind HTTPS |
 

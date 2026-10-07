@@ -19,7 +19,7 @@ next starts. `AGENTS.md` has the rules; this is the order they happen in.
 6. **Security review by a second agent**, at an exact commit: blockers versus nits, in a
    report file. Fix, then ask for a re-review of the new head, until it is cleared.
    Recheck credentials and access inside the transaction that reads or writes.
-7. **Checks:** run `make quick` (format, lint, vet, generated code, core size; about a
+7. **Checks:** run `make quick` (format, lint, vet, generated code; about a
    minute) before asking for review or landing, and the tests the slice touches while
    you work. CI's `check` workflow runs `make check`, the web UI and the docs on every
    push to the pull request, and it is the merge gate. A change to delivery or setup

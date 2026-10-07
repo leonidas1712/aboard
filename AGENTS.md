@@ -162,7 +162,7 @@ PRODUCT.md, DESIGN.md  design records used for UI work (with .impeccable/design.
   the domain declares ports and adapters implement them.
 - **New ideas start outside (D75):** as an example in `/examples` or an extension, and
   move into the core only once proven and only if they pass the primitives test. The
-  server never calls a model (D79). `make core-size` checks the core's size budget (D77).
+  server never calls a model (D79).
 
 ## Engineering guides
 
