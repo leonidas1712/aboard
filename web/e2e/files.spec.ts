@@ -181,7 +181,7 @@ test("files appear live, open in the panel with every version, preview, and down
   await expect(panel.getByLabel("Preview of notes/api.md, v1")).toContainText("twice");
   await expect(panel).toContainText("Showing v1, an older version.");
   const [older] = await Promise.all([page.waitForEvent("download"), panel.getByRole("link", { name: "Download v1" }).first().click()]);
-  expect(older.suggestedFilename()).toBe("api-v1.md");
+  expect(older.suggestedFilename()).toBe("api.md");
   expect(readFileSync((await older.path())!, "utf8")).toBe(v1);
   const [newest] = await Promise.all([page.waitForEvent("download"), versions.getByRole("link", { name: "Download v2" }).click()]);
   expect(newest.suggestedFilename()).toBe("api.md");
@@ -382,58 +382,114 @@ test("the panel links to the messages that posted a file, and a file removed and
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
-test("an HTML file previews in a sandbox that runs no script, loads nothing and can't move the page", async ({ page }) => {
-  refusalsExpected = true;
-  const board = "files-html";
-  await openBoard(page, board);
-  // A server that counts every request the preview might make.
+// watchPreviewRequests records every request the page makes from any frame but its own,
+// to this server's API or anywhere else. A preview must make none.
+function watchPreviewRequests(page: Page): string[] {
+  const seen: string[] = [];
+  page.on("request", (r) => {
+    if (r.frame() !== page.mainFrame()) seen.push(r.url());
+  });
+  return seen;
+}
+
+// counting starts a server that records every request that reaches it.
+async function counting(): Promise<{ url: string; hits: string[]; close: () => Promise<void> }> {
   const hits: string[] = [];
-  const tracker = httpServer((req, res) => {
+  const server = httpServer((req, res) => {
     hits.push(req.url ?? "");
     res.end("ok");
   });
-  await new Promise<void>((done) => tracker.listen(0, "127.0.0.1", done));
-  const out = `http://127.0.0.1:${(tracker.address() as { port: number }).port}`;
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  return {
+    url: `http://127.0.0.1:${(server.address() as { port: number }).port}`,
+    hits,
+    close: () => new Promise<void>((done) => server.close(() => done())),
+  };
+}
+
+// openPreview opens an HTML file's panel and returns its preview frame.
+async function openPreview(page: Page, name: string) {
+  await page.getByRole("tab", { name: /^Files/ }).click();
+  await page.locator(`[data-file="${name}"]`).getByRole("button", { name }).click();
+  const panel = page.getByRole("region", { name: `File ${name}` });
+  await expect(panel.locator("iframe")).toHaveAttribute("sandbox", "");
+  return { panel, frame: page.frameLocator(`iframe[title="Preview of ${name}, v1"]`) };
+}
+
+// previewFrame is the preview's frame object, to read where it is.
+function previewFrame(page: Page) {
+  const frame = page.frames().find((f) => f !== page.mainFrame());
+  if (!frame) throw new Error("no preview frame");
+  return frame;
+}
+
+test("an HTML file previews in a sandbox that runs no script, follows no link and makes no request", async ({ page }) => {
+  refusalsExpected = true;
+  const board = "files-html";
+  await openBoard(page, board);
+  const outside = await counting();
+  const requests = watchPreviewRequests(page);
+  const out = outside.url;
   const dot = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const html = `<html><head><link rel="stylesheet" href="${out}/style.css"><style>h1 { color: rgb(160, 40, 40); } body { background: url(${out}/bg.png); }</style></head>
+  const html = `<html><head><base href="${out}/based/"><link rel="stylesheet" href="${out}/style.css">
+<style>h1 { color: rgb(160, 40, 40); } body { background: url(${out}/bg.png); }</style></head>
 <body><h1>Report</h1><p id="state">static</p>
-<img id="inline" src="data:image/png;base64,${dot}"><img id="outside" src="${out}/pixel.png">
-<a id="top" href="${out}/top" target="_top">leave the board</a> <a id="inside" href="${out}/inside">go elsewhere</a>
-<form action="${out}/form" method="post"><button id="send">Send</button></form>
-<script>document.getElementById("state").textContent = "script ran"; fetch("${out}/fetch"); top.location = "${out}/script";</script>
+<img id="inline" src="data:image/png;base64,${dot}"><img id="outside" src="${out}/pixel.png" srcset="${out}/pixel-2x.png 2x">
+<p><a id="self" href="/v1/info?preview-probe=self" target="_self">same frame</a>
+<a id="named" href="/v1/info?preview-probe=named" target="attacker">named window</a>
+<a id="top" href="${out}/top" target="_top">leave the board</a>
+<a id="relative" href="relative-page">relative to the base</a>
+<a id="plain" href="${out}/plain" ping="${out}/ping">plain</a></p>
+<svg width="120" height="30"><a id="svg" xlink:href="/v1/info?preview-probe=svg"><text x="4" y="20">svg link</text></a></svg>
+<form action="/v1/info?preview-probe=form" method="get"><input name="q" value="x"><button id="send">Send</button></form>
+<button id="formaction" formaction="/v1/info?preview-probe=formaction">Lone button</button>
+<script>document.getElementById("state").textContent = "script ran"; fetch("/v1/info?preview-probe=fetch"); top.location = "${out}/script";</script>
 </body></html>`;
   await put(board, "report.html", 0, html);
-  await page.getByRole("tab", { name: "Files 1" }).click();
-  await page.locator('[data-file="report.html"]').getByRole("button", { name: "report.html" }).click();
-  const panel = page.getByRole("region", { name: "File report.html" });
-  const frame = page.frameLocator('iframe[title="Preview of report.html, v1"]');
+  await put(board, "refresh-now.html", 0, `<meta http-equiv="refresh" content="0; url=/v1/info?preview-probe=refresh-now"><p>Refresh now</p>`);
+  await put(board, "refresh-later.html", 0, `<meta http-equiv="refresh" content="1; url=${out}/refresh-later"><p>Refresh later</p>`);
 
-  // The file's markup and its own styles and data: images render.
+  const { panel, frame } = await openPreview(page, "report.html");
+  // The file's markup, its own styles and its data: images render; its script never ran.
   await expect(frame.getByRole("heading", { name: "Report" })).toBeVisible();
   await expect(frame.locator("h1")).toHaveCSS("color", "rgb(160, 40, 40)");
   await expect.poll(() => frame.locator("#inline").evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1);
-  // The frame has no permissions at all.
-  await expect(panel.locator("iframe")).toHaveAttribute("sandbox", "");
-  // Its script never ran: no text change, no fetch, no navigation.
   await expect(frame.locator("#state")).toHaveText("static");
-  expect(await frame.locator("#outside").evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(0);
+  // A link keeps its text and says where it pointed, but goes nowhere.
+  await expect(frame.locator("#self")).toHaveAttribute("title", "/v1/info?preview-probe=self");
+  await expect(frame.locator("#self")).not.toHaveAttribute("href", /./);
+  await expect(frame.locator("form, #send, base, link, script")).toHaveCount(0);
 
-  // Neither link nor the form moves the board view or reaches the outside server.
   const here = page.url();
-  await frame.locator("#top").click();
-  await frame.locator("#inside").click();
-  await frame.locator("#send").click();
-  await expect(page.getByRole("region", { name: "File report.html" })).toBeVisible();
+  for (const id of ["#self", "#named", "#top", "#relative", "#plain", "#formaction"]) {
+    await frame.locator(id).click();
+  }
+  await frame.locator("#svg text").click();
+  // Let anything that slipped through arrive, then check that nothing did.
+  await page.evaluate(() => new Promise((done) => setTimeout(done, 500)));
+  expect(previewFrame(page).url()).toBe("about:srcdoc");
+  await expect(frame.locator("#state")).toHaveText("static");
   expect(page.url()).toBe(here);
   expect(page.context().pages()).toHaveLength(1);
-  await expect(frame.locator("#state")).toHaveText("static");
-  // Give anything that slipped through time to arrive, then check nothing did.
-  await page.evaluate(() => new Promise((done) => setTimeout(done, 500)));
-  expect(hits).toEqual([]);
-  // The bytes are still offered as they are.
+
+  // A meta refresh, at once or after a delay, is taken out and never fires.
+  await page.getByRole("button", { name: "Work", exact: true }).click();
+  const now = await openPreview(page, "refresh-now.html");
+  await expect(now.frame.getByText("Refresh now")).toBeVisible();
+  await page.getByRole("button", { name: "Work", exact: true }).click();
+  const later = await openPreview(page, "refresh-later.html");
+  await expect(later.frame.getByText("Refresh later")).toBeVisible();
+  await page.evaluate(() => new Promise((done) => setTimeout(done, 1500)));
+  expect(previewFrame(page).url()).toBe("about:srcdoc");
+
+  expect(requests).toEqual([]);
+  expect(outside.hits).toEqual([]);
+  // The bytes are still offered exactly as uploaded.
+  await page.getByRole("button", { name: "Work", exact: true }).click();
+  await openPreview(page, "report.html");
   await expect(panel.getByRole("link", { name: "Download v1" }).first()).toBeVisible();
   expect((await bytes(board, "report.html", 1)).toString()).toBe(html);
-  await new Promise((done) => tracker.close(done));
+  await outside.close();
 });
 
 // Screenshots for review, only when FILES_SHOTS names a folder: the list and the panel,

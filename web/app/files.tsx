@@ -121,12 +121,9 @@ function FileIcon({ name, mediaType, className }: { name: string; mediaType: str
   return <Icon className={cn("size-[18px] shrink-0 text-muted", className)} strokeWidth={1.5} aria-hidden />;
 }
 
-/** downloadName is what a version saves as: the file's own name, with the version for an older one. */
-function downloadName(name: string, v: number, latest: number): string {
-  const base = name.split("/").pop() ?? name;
-  if (v === latest) return base;
-  const dot = base.lastIndexOf(".");
-  return dot > 0 ? `${base.slice(0, dot)}-v${v}${base.slice(dot)}` : `${base}-v${v}`;
+/** downloadName is what a version saves as: the file's own name, as the server's download names it. */
+function downloadName(name: string): string {
+  return name.split("/").pop() ?? name;
 }
 
 type Identity = (m: MemberRef) => number;
@@ -681,7 +678,7 @@ export function FilePanel({
           <Preview board={board} file={file} v={shown} />
           <a
             href={versionUrl(board, file.id, shown.version)}
-            download={downloadName(file.name, shown.version, file.latest.version)}
+            download={downloadName(file.name)}
             className="download inline-flex min-h-11 items-center gap-1.5 self-start text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
           >
             <Download className="size-4" strokeWidth={1.5} aria-hidden />
@@ -771,7 +768,7 @@ function Versions({
             </button>
             <a
               href={versionUrl(board, file.id, v.version)}
-              download={downloadName(file.name, v.version, file.latest.version)}
+              download={downloadName(file.name)}
               aria-label={`Download v${v.version}`}
               title={`Download v${v.version}, exactly as uploaded`}
               className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-link hover:bg-selected"
@@ -792,9 +789,40 @@ function Versions({
  */
 export const htmlPolicy = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
 
-/** sandboxed puts the preview policy ahead of the file's own markup; the file's bytes are never changed. */
-function sandboxed(html: string): string {
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${htmlPolicy}"><meta name="referrer" content="no-referrer"><base target="_blank">${html}`;
+// Elements a preview drops whole: anything that loads, frames, submits, redirects or
+// changes where a link goes. The file itself is never changed; only this copy is.
+const droppedElements = "script, noscript, base, meta, link, form, frame, frameset, iframe, object, embed, applet, portal, template, animate, set, animateMotion, animateTransform, discard";
+// Attributes a preview drops from every element: every way to name a URL to go to or
+// load from (src is kept only for data: images), and every event handler.
+const droppedAttributes = new Set(["href", "xlink:href", "action", "formaction", "formtarget", "target", "ping", "srcset", "src", "poster", "background", "data", "codebase", "cite", "longdesc", "lowsrc", "dynsrc", "manifest", "usemap", "http-equiv", "content"]);
+
+/**
+ * previewable is a copy of an HTML file that can name nothing to go to and nothing to
+ * load: the elements and attributes above are taken out, a link keeps its text and shows
+ * where it pointed as a tooltip, and the preview's policy goes first in its head. Styles
+ * written in the file and data: images stay.
+ */
+export function previewable(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll(droppedElements).forEach((el) => el.remove());
+  doc.querySelectorAll("*").forEach((el) => {
+    const link = el.getAttribute("href") ?? el.getAttribute("xlink:href");
+    const src = el.getAttribute("src");
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase();
+      if (droppedAttributes.has(name) || name.startsWith("on") || name.endsWith(":href")) el.removeAttribute(attr.name);
+    }
+    if (src && el.localName === "img" && /^data:image\//i.test(src.trim())) el.setAttribute("src", src);
+    if (link && el.localName === "a") el.setAttribute("title", link);
+  });
+  const policy = doc.createElement("meta");
+  policy.setAttribute("http-equiv", "Content-Security-Policy");
+  policy.setAttribute("content", htmlPolicy);
+  const referrer = doc.createElement("meta");
+  referrer.setAttribute("name", "referrer");
+  referrer.setAttribute("content", "no-referrer");
+  doc.head.prepend(policy, referrer);
+  return `<!doctype html>${doc.documentElement.outerHTML}`;
 }
 
 /** Preview shows a version on its light page: Markdown formatted, text as written, HTML in a sandbox, images drawn. */
@@ -833,19 +861,23 @@ function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileV
     return <div className="file-page h-32 rounded-box border border-rule motion-safe:animate-pulse" role="status" aria-label="Loading the preview" />;
   }
   if (kind === "html") {
-    // An agent's HTML is untrusted. sandbox="" with no allow-* token gives the frame an
-    // opaque origin (it can't read this page, its cookies or the API) and blocks scripts,
-    // forms, popups, plugins and navigating the top page. The policy in its document
-    // blocks every network load. Links open in a new window (<base target="_blank">),
-    // which the sandbox refuses as a popup, so a link goes nowhere; the board view's own
-    // policy, which a srcdoc frame inherits, still refuses any frame navigation off-site.
+    // An agent's HTML is untrusted, and its preview must never make a request. Three
+    // layers, each enough for a different case:
+    // 1. previewable() removes every way the markup names a URL to go to or load from
+    //    (links, base, forms, meta refresh, frames, SVG hrefs, non-data images), since a
+    //    CSP inside the document constrains loads but not the frame's own navigation.
+    // 2. sandbox="" with no allow-* token: an opaque origin (no access to this page, its
+    //    cookies or the API), and no scripts, forms, popups or top navigation.
+    // 3. The board view's policy has frame-src 'none', so if a navigation slipped
+    //    through, the frame still couldn't load anything, the API included; the policy
+    //    in the preview's head blocks every subresource.
     return (
       <div className="file-page overflow-hidden rounded-box border border-rule">
         <iframe
           title={`Preview of ${file.name}, v${v.version}`}
           sandbox=""
           referrerPolicy="no-referrer"
-          srcDoc={sandboxed(text.body)}
+          srcDoc={previewable(text.body)}
           className="file-frame block h-[min(60vh,560px)] w-full border-0 bg-[var(--page)]"
         />
       </div>
