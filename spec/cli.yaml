@@ -3637,6 +3637,7 @@ $defs:
       path. aboard file put PATH and aboard brief put PATH then write it back, to the board path it came from, against
       that version and immutable file id, so a changed, removed or replaced file fails with file_changed instead
       of being overwritten. What is remembered is kept in files.json in the state folder,
+      With --json and standard output (-), it returns this metadata instead of raw bytes.
       per seat or person, board, file and absolute path; --base N overrides it. get
       replaces an existing local file only when it holds what the CLI last wrote or put
       there; otherwise it refuses and names --force. Text output:
