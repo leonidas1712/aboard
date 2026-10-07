@@ -371,7 +371,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
 
   return (
-    <TaskContext tasks={tasks} open={openTask}>
+    <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
         <Header
@@ -497,7 +497,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             limits={rightPanel}
             className="order-2 lg:order-none"
           >
-            {taskPanel ? <TaskDetail board={name} reference={taskPanel} activity={s.activity} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} /> : <>
+            {taskPanel ? <TaskDetail board={name} reference={taskPanel} activity={s.activity} readOnly={readOnly} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} pick={(member) => { setFilter((f) => ({ ...f, from: member })); setView("conversation"); }} onPosted={() => { setStick((n) => n + 1); s.refresh(); }} /> : <>
             <WorkTasks tasks={tasks} open={openTask} />
             <BoardPanel
               board={s.board}

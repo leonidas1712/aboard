@@ -639,7 +639,7 @@ export type Task = {
   state: "open" | "in_progress" | "done" | "cancelled";
   owner: MemberRef | null; with: MemberRef[];
   blocked: boolean; blocked_count: number;
-  blocked_on: { ask_id: string; ask_seq: number; to: MemberRef; since: string }[];
+  blocked_on: { ask_id: string; ask_seq: number; to: MemberRef; from?: MemberRef; since: string }[];
   opened_by: MemberRef; opened_at: string; updated_at: string;
   closed_at?: string | null; closed_note?: string | null;
   message_count: number; thread_count: number;

@@ -473,12 +473,43 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 
 ### Task card
 
-- **Style:** title (500 weight) over a field grid (Assignee, Label, Blocked on, Done by,
-  Reviewed), 1px rule border, surface fill, 10px radius, 12px by 14px padding.
-- **Blocked on you:** the marigold fill with no border, and field labels in `ink`, not
-  `muted`.
+- **Style:** the reference in Meta over the title (bold; normal weight when closed), 1px
+  rule border, surface fill, 10px radius, 12px by 14px padding. The whole card opens
+  the task; its inner controls sit above it and keep their own action.
+- **Who is on it:** below a rule, one row per member on the task, owner first: the
+  agent mark, the name (the owner's with a dotted "owner" that explains itself in a
+  tooltip), and its presence as a dot and a word. An open task says "No owner · opened
+  by …" instead.
+- **Footer:** "N in conversation" (only when N is not zero) and when it last changed.
+- **Blocked on you:** the marigold fill with no border, all text in `ink`.
 - **Done:** no surface fill, only the rule border.
-- **Columns:** Open, In progress, Waiting, Done, each headed by a Label.
+- **Columns:** Needs you (marigold heading) and Blocked appear only while a task has an
+  open blocking ask; In progress and Not picked up always show, with the free agents
+  (idle or disconnected, on no task) under Not picked up. Done and cancelled fold
+  below. Columns are at most 320px wide on a wide screen and stack on a phone.
+
+### Agent mark (task views)
+
+- In the task views an agent's mark is its harness: an original single-colour icon
+  (an asterisk for Claude Code, a hexagon with a prompt for Codex, a pi for omp, a
+  prompt for anything else) on the agent's identity tint, drawn in the tint's initial
+  colour. Not the vendors' logos.
+- At 24px a small badge in the corner carries the agent's initials (surface fill, ink
+  text, a border in the identity initial colour); at 20px the tint and the name beside
+  it are enough. People keep their initials mark. Decorative (`aria-hidden`): the
+  name beside it says who.
+
+### Task panel
+
+- The reference, the title (Title), "opened by … · when", and the state with its owner.
+- **About** and **Where it stands**, each a Meta label with a tooltip, then the text and
+  a byline ("by claude · 17 min ago · 4 messages since"). Where it stands turns
+  `muted` with a clock once it is two hours old on a live task.
+- **Conversation · N** (only when N is not zero) with "Show only CHK-12 in the
+  conversation". **On it**: each member's mark, name, harness and presence.
+- **Tell the team:** a plain field and Send. Split, Reassign and Hold fill in an
+  ordinary message the person can edit, addressed to the right agents; Send posts it
+  about the task.
 
 ### Filter control and chips
 
