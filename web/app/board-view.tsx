@@ -211,6 +211,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const presented = useRef(new Set<number>());
   const onSeen = useCallback(
     (seq: number) => {
+      // A message permalink may show isolated history with unloaded messages between it and the newest page.
+      if (new URLSearchParams(window.location.search).has("message")) return;
       if ((view === "tasks" && tasks.length > 0) || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
       presented.current.add(seq);
       const from = s.readFrom;
@@ -256,7 +258,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     const id = new URLSearchParams(window.location.search).get("message");
     if (!id || linkedMessage.current === id) return;
     linkedMessage.current = id;
-    s.loadMessage(id).then(() => setPending(id), setPostError);
+    const seq = Number(new URLSearchParams(window.location.search).get("seq"));
+    if (!Number.isSafeInteger(seq) || seq < 1) return;
+    s.loadMessage(id, seq).then(() => setPending(id), setPostError);
   }, [s.messages, s.loadMessage]);
   useEffect(() => {
     if (!pending) return;

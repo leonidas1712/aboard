@@ -65,7 +65,7 @@ export type BoardState = {
   gone: boolean;
   error: unknown;
   loadEarlier: () => void;
-  loadMessage: (id: string) => Promise<void>;
+  loadMessage: (id: string, seq: number) => Promise<void>;
   refresh: () => void;
   /** replace puts a newer copy of a loaded message in place, as after reacting to it. */
   replace: (m: Message) => void;
@@ -176,12 +176,13 @@ export function useBoard(name: string, filter: Filter): BoardState {
     setExtra(swap);
   }, []);
 
-  const loadMessage = useCallback(async (id: string) => {
-    const r = await get<{ message: Message }>(`/v1/messages/${encodeURIComponent(id)}`);
-    if (r.message.board !== name) throw new ApiError(404, "message_not_found", "This message is not on the board.", "Open it from the Inbox again.");
+  const loadMessage = useCallback(async (id: string, seq: number) => {
+    const r = await get<MessagePage>(`${path}/messages`, { after: seq - 1, before: seq + 1, limit: 1 });
+    const message = r.messages.find((m) => m.id === id && m.seq === seq);
+    if (!message) throw new ApiError(404, "message_not_found", "This message is no longer available on the board.", "Open it from the Inbox again.");
     if (!live.current) return;
-    setBase((p) => p && !p.messages.some((m) => m.id === id) ? { ...p, messages: [...p.messages, r.message].sort((a, b) => a.seq - b.seq) } : p);
-  }, [name]);
+    setBase((p) => p && !p.messages.some((m) => m.id === id) ? { ...p, messages: [...p.messages, message].sort((a, b) => a.seq - b.seq) } : p);
+  }, [path]);
 
   // after reads every page of messages after seq that match query, and adds them.
   const readAfter = useCallback(

@@ -42,7 +42,7 @@ test("Inbox is reachable from the board without replacing Work or Tasks", async 
   await expect(page.getByRole("tab", { name: /^Tasks/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /^Inbox/ })).toBeVisible();
   await page.getByRole("link", { name: /^Inbox/ }).click();
-  await expect(page.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
 });
 
 function base(): string { return `http://${env.ABOARD_LOCAL_ADDR}`; }
@@ -63,8 +63,10 @@ async function makeAsk(board: string, body: string, extra: Record<string, unknow
   return await api(seatToken(board), "POST", `/v1/boards/${board}/messages`, { body, to: ["@alex"], ask: { options: ["Ship it", "Hold it"], ...extra } });
 }
 async function currentAsk(id: unknown) {
-  const r = await api(ownerToken(), "GET", `/v1/messages/${id}`);
-  return (r.message as { ask: { state: string; answer_option: number | null } }).ask;
+  const r = await api(ownerToken(), "GET", "/v1/asks?state=all&limit=200");
+  const found = (r.asks as { id: string; ask: { state: string; answer_option: number | null } }[]).find((m) => m.id === id);
+  if (!found) throw new Error("The fixture ask was not listed.");
+  return found.ask;
 }
 test("a numbered timeline option sends its words and option as a real reply", async ({ page }) => {
   const board = "asks-timeline";
@@ -85,7 +87,7 @@ test("Inbox puts blocking asks first and accepts a numbered keyboard answer", as
   const board = "asks-keyboard";
   await openBoard(page, board);
   const blocking = await makeAsk(board, "Which release do you want?");
-  await makeAsk(board, "I'll keep checking", { going_with: "keep checking", going_at: new Date(Date.now() + 3_600_000).toISOString() });
+  const going = await makeAsk(board, "I'll keep checking", { going_with: "keep checking", going_at: new Date(Date.now() + 3_600_000).toISOString() });
   await page.getByRole("link", { name: /^Inbox/ }).click();
   const choices = page.getByRole("list", { name: "Needs you asks" }).getByRole("button");
   await expect(choices.first()).toContainText("Which release do you want?");
@@ -93,6 +95,12 @@ test("Inbox puts blocking asks first and accepts a numbered keyboard answer", as
   await page.keyboard.press("2");
   await expect.poll(async () => (await currentAsk(blocking.id)).state).toBe("answered");
   expect((await currentAsk(blocking.id)).answer_option).toBe(2);
+  await expect(page.getByRole("heading", { name: "I'll keep checking", exact: true })).toBeVisible();
+  await Promise.all([
+    page.waitForResponse((r) => { const u = new URL(r.url()); return u.pathname === `/v1/boards/${board}/messages` && u.searchParams.get("before") === String(Number(going.seq) + 1); }),
+    page.getByRole("link", { name: /Open on the board/ }).click(),
+  ]);
+  await expect(page.getByRole("log", { name: "Timeline" })).toContainText("I'll keep checking");
 });
 test("a failed answer stays open, then a reply in words records no option", async ({ page }) => {
   const board = "asks-own-words";
@@ -135,13 +143,13 @@ test("Inbox keeps options readable in both themes and on a narrow screen", async
     await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
-    await page.screenshot({ path: `/private/tmp/aboard-asks-evidence/inbox-${theme.toLowerCase()}.png`, fullPage: true });
+    await page.screenshot({ path: `/private/tmp/aboard-asks-evidence/inbox-${theme.toLowerCase()}.png`, fullPage: true, animations: "disabled" });
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "/private/tmp/aboard-asks-evidence/inbox-mobile.png", fullPage: true });
+  await page.screenshot({ path: "/private/tmp/aboard-asks-evidence/inbox-mobile.png", fullPage: true, animations: "disabled" });
 });
 
 test("only the server-authorized reader gets answer controls", async ({ page }) => {
@@ -175,4 +183,39 @@ test("Worth a look derives an old blocker from the real task and ask", async ({ 
   await expect(notice).toBeVisible();
   await notice.click();
   await expect(page.getByRole("heading", { name: "A decision waiting on Jacob", exact: true })).toBeVisible();
+});
+
+test("historical ask links and failed lookups never advance a person's cursor", async ({ page }) => {
+  await openBoard(page, "asks-history-login");
+  const board = "asks-history";
+  aboard("pair", "general", "--board", board, "--name", "writer", "--new");
+  const ask = await makeAsk(board, "A decision from before the newest page");
+  for (let i = 0; i < 53; i++) await api(seatToken(board), "POST", `/v1/boards/${board}/messages`, { body: `Later discussion ${i}` });
+  const before = await api(ownerToken(), "GET", `/v1/boards/${board}`);
+  let acks = 0;
+  await page.route(`**/v1/boards/${board}/ack`, async (route) => { acks++; await route.continue(); });
+  await page.goto(`${base()}/?board=${board}&message=${ask.id}&seq=${ask.seq}`);
+  await expect(page.getByRole("log", { name: "Timeline" })).toContainText("A decision from before the newest page");
+  await page.getByText("A decision from before the newest page", { exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByText("A decision from before the newest page", { exact: true })).toBeVisible();
+  await page.getByText("Later discussion 52", { exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByText("Later discussion 52", { exact: true })).toBeVisible();
+  await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+  expect(acks).toBe(0);
+  expect((await api(ownerToken(), "GET", `/v1/boards/${board}`)).read_up_to).toBe(before.read_up_to);
+  await page.route(`**/v1/boards/${board}/messages?**`, async (route) => {
+    if (new URL(route.request().url()).searchParams.has("before")) await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "server_unreachable", message: "The historical read failed.", hint: "Try again." } }) });
+    else await route.continue();
+  });
+  await page.reload();
+  await expect(page.getByText("The historical read failed.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Later discussion 52", { exact: true })).toBeVisible();
+  expect(acks).toBe(0);
+  expect((await api(ownerToken(), "GET", `/v1/boards/${board}`)).read_up_to).toBe(before.read_up_to);
+  await page.unroute(`**/v1/boards/${board}/messages?**`);
+  await page.goto(`${base()}/?board=${board}`);
+  await page.getByRole("button", { name: "Show earlier messages", exact: true }).click();
+  await page.getByText("A decision from before the newest page", { exact: true }).scrollIntoViewIfNeeded();
+  await expect.poll(async () => (await api(ownerToken(), "GET", `/v1/boards/${board}`)).read_up_to as number).toBeGreaterThan(before.read_up_to as number);
+  expect(acks).toBeGreaterThan(0);
 });

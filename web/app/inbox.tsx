@@ -64,7 +64,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const current = asks?.find((a) => a.id === picked) ?? asks?.[0] ?? null;
   const index = current ? asks!.indexOf(current) : -1;
   const move = useCallback((n: number) => setPicked(asks?.[n]?.id ?? null), [asks]);
-  const boardHref = current ? `/?board=${encodeURIComponent(current.board!)}&message=${encodeURIComponent(current.id)}` : "/";
+  const boardHref = current ? `/?board=${encodeURIComponent(current.board!)}&message=${encodeURIComponent(current.id)}&seq=${current.seq}` : "/";
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (!current || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement)?.closest("input, textarea, select, [role=dialog], [role=menu]")) return;
