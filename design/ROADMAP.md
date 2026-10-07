@@ -17,6 +17,8 @@ listed at the end, with the pull request that merged it.
   mentions, delivery modes held by the server, receipts, and team mode's people, keys,
   machine approval, guests and open and private boards (#51–#98).
 - **Next:** the rest of [team mode](#2-team-mode).
+- **In review:** the design and contracts for the board features the UI lab settled on
+  (tasks, asks, agent lines, files, the brief): [board-features.md](board-features.md).
 
 ## Before launch (v0.1)
 
@@ -86,7 +88,8 @@ the board.
 | Recipe: run the server in Docker locally (a Compose file with a volume), with the CLI on the host pointing at it | later | D156 |
 | Deploying: a container image for the server and UI (the root `Dockerfile`: done, #118); recipes for a small hosted service with a persistent disk (Render, Railway or Fly) | later | D149, D156 |
 | Deploying to a Kubernetes cluster: one replica, SQLite on a persistent volume backed by a block disk (never a network file system such as NFS), `deploy/kubernetes/aboard.yaml` | done (#118) | D156, D199 |
-| Postgres for team deployments that need replicas or a managed database: a store adapter, a `Notifier` on `LISTEN/NOTIFY` so a write on one replica wakes waiters on the others, and a recipe (local through Docker, or remote) | needs its own decision first | |
+| Postgres for team deployments that need replicas or a managed database: a store adapter, a `Notifier` on `LISTEN/NOTIFY` so a write on one replica wakes waiters on the others, and a recipe (local through Docker, or remote) | needs its own decision first; `ABOARD_DB=postgres://…` is reserved (D212) | |
+| An S3-compatible file store adapter and `aboard storage copy`, passing the blob-store contract suite; recipes per setup (single box, hosted volume, Kubernetes with Postgres and S3) | later, after files (slice 4); needs approval (VISION's "Later") | D212 |
 | Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. The external proof reports conservative request-to-stream bounds; SQLite findings and tuning are separate PRs | in progress: external public-API/control load proof | D113 |
 | The release job: GoReleaser on a version tag, signed checksums, an SBOM, notarized macOS binaries, the UI embedded. Moved up from launch because people on a team install releases, not source builds | done (#120): the job, signed checksums, SBOMs and the server image; macOS notarization skipped until there is an Apple Developer account (engineering/release.md) | D149 |
 | The install script and Homebrew | done (#120): the install script; the Homebrew cask is configured but off until the tap exists | D86, D127 |
@@ -120,17 +123,23 @@ the board.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Tasks as a kanban: claim, release, wait with a reason, done, labels, order | later | D12, D32 |
-| Notes, verified when citing a board file by hash | later | D14 |
-| Files with versions, in-place editing of Markdown, pins | later | D15, D33 |
-| A brief for agents when they join; showing the charter after joining | later | D40 |
+| The board features, designed in [board-features.md](board-features.md) with their contracts; built in five slices below | review (design PR) | D206–D213 |
+| Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | next, once the design merges | D206, D207, D210 |
+| Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | later | D208, D210 |
+| Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
+| Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | later | D211, D212 |
+| Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | later | D213 |
+| Files, later: an automatic three-way merge for text files (a stale write whose changes don't overlap the newer version's is combined, using the version the writer read as the base, which each version already records; refused only on overlap), and edit claims with a lease ("editing status.html, ~10 min") shown in `file list` and the board view | later, after slice 4; needs approval | D211 |
+| Task ordering and dependencies, right after the slices: an order on tasks, and a task waiting on another (`task.linked`, `waits_on`), which shows it Blocked until that task is done; no scheduling | next after slice 5; needs its own design | D214 |
+| Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
+| A brief for agents when they join; showing the charter after joining | later; the brief (slice 5) is part of it | D40, D213 |
 | Template commands: `aboard template list`, `show`, `save`, `check`, `remove`; server-stored templates | later | D111 |
 
 **Enhancements**
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Board-view screens for each: Tasks and Files tabs, notes and pins panels | later | D123 |
+| Board-view screens for each, moved from the UI lab: the Work panel, task panel and chips (slice 1); the Inbox and ask cards (slice 2); state dots and Work by agent (slice 3); Files (slice 4); the brief (slice 5) | later | D123, D206–D213 |
 | Per-recipient message status (the endpoint is specified; replies are done) | later | D37 |
 | Presence `waiting` from hooks: Claude Code and Codex `PermissionRequest` (and Codex asking the user a question) mark the agent waiting until a matching tool event, the next prompt or a stop; ships with the next Claude Code hook change, since each change asks the person to trust hooks again | later | D120 |
 | Presence that says how sure it is: unconfirmed after a daemon restart until a live event arrives, stale after a long silence; a short settle time before idle, so a pause between steps doesn't flicker | later | D120 |
@@ -243,7 +252,7 @@ that is already approved.
 
 | Item | Notes |
 | --- | --- |
-| Asks with `options`, `default`, `blocking` and `cites`; "Blocking" and "Going ahead unless you say" in Needs you; answers record the file versions seen; overrides wake the agent; `aboard ask --open` | Scope before slice D starts, since it changes the approved asks design (D102) |
+| Asks with `options`, `default`, `blocking` and `cites`; "Blocking" and "Going ahead unless you say" in Needs you; answers record the file versions seen; overrides wake the agent; `aboard ask --open` | Scoped in [board-features.md](board-features.md) (D208): options, blocking by default, `--going-with`, overrides waking the agent and `ask --open` are in slice 2; citing file versions in an answer waits for files |
 | "Since you last looked": what changed since the person's read position, computed from the record | Small; after slice D; builds on D194 |
 | Board files as a versioned folder: paths, history per path, updates that name the version they replace | Changes the planned files (D15, D33); carries memory, board skills and handovers by convention |
 | The Artifacts panel: Artifacts and Content, preview and download, one-off and maintained artifacts | After files; a view over them |

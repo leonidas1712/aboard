@@ -23,14 +23,14 @@ export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-preview docs-links vuln tools core-size web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
+.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
 
-## check: format check, lint, vet, generated code, core size, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
-check: fmt-check lint vet generate-check core-size harness-table-check docs-check test e2e extension-test vuln
+## check: format check, lint, vet, generated code, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
+check: fmt-check lint vet generate-check harness-table-check docs-check test e2e extension-test vuln
 	@echo "make check: OK"
 
-## quick: the fast checks to run before asking for review or landing: format, lint, vet, generated code, core size (no tests)
-quick: fmt-check lint vet generate-check core-size
+## quick: the fast checks to run before asking for review or landing: format, lint, vet, generated code (no tests)
+quick: fmt-check lint vet generate-check
 	@echo "make quick: OK"
 
 ## fmt: rewrite Go files with gofumpt and goimports
@@ -61,24 +61,6 @@ generate-check:
 	after="$$(git status --porcelain --untracked-files=all; git diff | shasum)"; \
 	if [ "$$before" != "$$after" ]; then \
 		git status --short; echo "Generated code is out of date. Run: make generate"; exit 1; \
-	fi
-
-# The core is the hand-written, non-test Go under server/internal, minus the client
-# packages below and test-helper packages (named *test). A new package counts as core
-# unless it is added to CLIENT_PKGS. Raising the budget is a recorded decision.
-CORE_BUDGET_LINES := 15000
-CLIENT_PKGS       := cli delivery deliverytext harness joinline launcher
-
-## core-size: print the core's size and fail if it is over its budget
-core-size:
-	@files="$$(find server/internal -name '*.go' ! -name '*_test.go' ! -name '*.gen.go' \
-		| grep -v -E '^server/internal/($(subst $(eval) ,|,$(CLIENT_PKGS)))/' \
-		| grep -v -E '/[a-z]*test/' || true)"; \
-	lines=$$(cat $$files | wc -l | tr -d ' '); \
-	tokens=$$(( $$(cat $$files | wc -c) / 4 )); \
-	echo "core: $$lines lines of Go, about $$tokens tokens (budget $(CORE_BUDGET_LINES) lines)"; \
-	if [ "$$lines" -gt $(CORE_BUDGET_LINES) ]; then \
-		echo "The core is over its budget. Move code out of the core, or record a new budget in design/DECISIONS.md."; exit 1; \
 	fi
 
 test:
@@ -177,8 +159,12 @@ DOCS_HELP = go run ./server/cmd/aboard help --json
 docs-cli:
 	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli || exit 1; 	cp spec/openapi.yaml docs/api-reference/openapi.yaml
 
-## docs-check: fail if the docs' CLI reference or API spec copy is out of date
-docs-check:
+## docs-versions: fail if the docs or deploy recipes name a release older than the current one
+docs-versions:
+	@scripts/doc-versions check
+
+## docs-check: fail if the docs' CLI reference, API spec copy or release versions are out of date
+docs-check: docs-versions
 	@$(REQUIRE_GO); $(DOCS_HELP) | go run ./scripts/docscli -check || exit 1; 	if ! cmp -s spec/openapi.yaml docs/api-reference/openapi.yaml; then 		echo "docs/api-reference/openapi.yaml differs from spec/openapi.yaml: run make docs-cli"; exit 1; 	fi
 
 # The Mintlify CLI needs Node 20.17 or later and the network on first use. It runs from

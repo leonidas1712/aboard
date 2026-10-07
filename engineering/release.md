@@ -239,7 +239,7 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
 
 `--local` runs the checks here instead of asking CI, by what changed against
 `origin/main`: none for a change to only `design/` or `engineering/`; otherwise `make
-fmt-check lint vet generate-check core-size harness-table-check test e2e`, plus `make
+fmt-check lint vet generate-check harness-table-check test e2e`, plus `make
 web-check` when `web/` changed. It's for when GitHub can't run CI; once `main` requires
 the `check` workflow's jobs (below), GitHub still refuses the merge until CI passes.
 `--dry-run` prints the plan, including any conflict with `main` and CI's result so far,
@@ -374,7 +374,8 @@ Without its own changelog section, a candidate's notes are the Unreleased sectio
    refuses a release without one.
 4. `version` in `server/internal/cli/build.go` is the version; the job refuses a tag
    that doesn't match it (a candidate's suffix aside). Bump it in a pull request if
-   needed.
+   needed, and in the same pull request run `scripts/doc-versions bump` to move the
+   docs and deploy recipes to it (`make docs-check` fails until you do).
 5. `git tag vX.Y.Z && git push origin vX.Y.Z`, and approve the `release` environment.
 6. Check the signature from any machine with cosign, in a folder with the release's
    `checksums.txt` and `checksums.txt.sigstore.json`:

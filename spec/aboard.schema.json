@@ -226,6 +226,13 @@
         "show_harness": {
           "description": "true (both presets): agents see which harness other agents run. false: agents never see another member's harness, and new agents without a chosen name are called agent-1, agent-2 and so on. People always see harnesses.",
           "type": "boolean"
+        },
+        "nudges": {
+          "description": "on (both presets): Aboard's clients add short reminders to agents on this board, such as \"2 tasks not picked up: aboard task list\". off: none, except the note that tells a session which agent and task it holds when it starts or comes back. Nothing is enforced either way.",
+          "enum": [
+            "on",
+            "off"
+          ]
         }
       }
     }
