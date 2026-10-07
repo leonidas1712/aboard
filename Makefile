@@ -23,7 +23,7 @@ export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools core-size web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
+.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools core-size web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-clean
 
 ## check: format check, lint, vet, generated code, core size, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check core-size harness-table-check docs-check test e2e extension-test vuln
@@ -282,3 +282,7 @@ $(GOVULNCHECK):
 	@mkdir -p $(BIN)/tmp
 	GOBIN=$(BIN)/tmp go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 	@mv $(BIN)/tmp/govulncheck $@
+
+## load: isolated real-server and daemon load proof, with no model calls
+load:
+	go run ./lab/load $(LOAD_ARGS)
