@@ -512,19 +512,19 @@ func (s *Service) ListFiles(ctx context.Context, p Principal, name string, filte
 }
 
 // FileBytes resolves a version through its board record before opening the digest.
-func (s *Service) FileBytes(ctx context.Context, p Principal, name, selector, version string) (FileVersion, io.ReadCloser, error) {
+func (s *Service) FileBytes(ctx context.Context, p Principal, name, selector, version string) (FileVersion, string, io.ReadCloser, error) {
 	f, err := s.GetFile(ctx, p, name, selector)
 	if err != nil {
-		return FileVersion{}, nil, err
+		return FileVersion{}, "", nil, err
 	}
 	n := len(f.Versions)
 	if version != "latest" {
 		n, err = strconv.Atoi(version)
 		if err != nil || n < 1 || n > len(f.Versions) {
-			return FileVersion{}, nil, fileError(404, "version_not_found", "The file has no such version.")
+			return FileVersion{}, "", nil, fileError(404, "version_not_found", "The file has no such version.")
 		}
 	}
 	v := f.Versions[n-1]
 	r, err := s.cfg.Blobs.Open(ctx, v.Digest)
-	return v, r, err
+	return v, f.Name, r, err
 }

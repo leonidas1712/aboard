@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"path"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/board"
@@ -73,18 +75,18 @@ func (h *handlers) GetFile(ctx context.Context, req GetFileRequestObject) (GetFi
 }
 
 func (h *handlers) GetFileVersion(ctx context.Context, req GetFileVersionRequestObject) (GetFileVersionResponseObject, error) {
-	v, r, err := h.svc.FileBytes(ctx, principal(ctx), req.Board, req.File, req.Version)
+	v, name, r, err := h.svc.FileBytes(ctx, principal(ctx), req.Board, req.File, req.Version)
 	if err != nil {
 		return nil, err
 	}
 	etag := `"` + v.Digest + `"`
-	return fileDownload{body: r, size: v.Size, mediaType: v.MediaType, etag: etag}, nil
+	return fileDownload{body: r, size: v.Size, mediaType: v.MediaType, etag: etag, name: name}, nil
 }
 
 type fileDownload struct {
-	body            io.ReadCloser
-	size            int64
-	mediaType, etag string
+	body                  io.ReadCloser
+	size                  int64
+	mediaType, etag, name string
 }
 
 func (h *handlers) RemoveFile(ctx context.Context, req RemoveFileRequestObject) (RemoveFileResponseObject, error) {
@@ -111,7 +113,7 @@ func (d fileDownload) VisitGetFileVersionResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", d.mediaType)
 	w.Header().Set("Content-Length", fmt.Sprint(d.size))
 	w.Header().Set("ETag", d.etag)
-	w.Header().Set("Content-Disposition", "attachment")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(d.name)}))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
 	_, err := io.Copy(w, d.body)
