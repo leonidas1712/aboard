@@ -109,7 +109,7 @@ the board.
 | Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | done (#92) | D179, D183, D189 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
-| The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | in review | D148 |
+| The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
 
 ### 3. The rest of the board
