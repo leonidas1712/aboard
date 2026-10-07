@@ -19,6 +19,11 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	TaskBySelector(boardID, selector string) (Task, error)
+	Tasks(boardID string) ([]Task, error)
+	TasksByID(boardID string, ids []string) (map[string]Task, error)
+	TaskPrefixOwner(prefix string) (string, error)
+	NextTaskNumber(boardID string) (int64, error)
 	// AccessKeyByDigest finds an access key by the digest of its secret, whether or not
 	// it still works.
 	AccessKeyByDigest(digest string) (AccessKey, error)
@@ -159,6 +164,12 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SaveTask(Task) error
+	ReserveTaskPrefix(boardID, prefix string) error
+	SetTaskPrefix(boardID, prefix string) error
+	SetCurrentTask(memberID string, ref *TaskRef) error
+	ClearTaskCurrent(taskID string) error
+	ClearMemberTask(memberID, taskID string) error
 	ReadTx
 	// InsertHuman adds a human, whose handle no other human still on the server has.
 	InsertHuman(h Human) error

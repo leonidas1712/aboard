@@ -516,22 +516,26 @@ func cleanTitle(title string) (*string, error) {
 
 // Change is what a board owner changes. Nil fields stay as they are.
 type Change struct {
+	TaskPrefix      *string
 	AgentsAddPeople *bool
 	// Title is the new title; an empty string removes it.
 	Title  *string
 	Policy *rules.PolicyChange
 }
 
-// UpdateBoard changes a board's title, policy or teammate-add gate. Only its owners
+// UpdateBoard changes a board's title, task prefix, policy or teammate-add gate. Only its owners
 // change the gate; an archived board still permits disabling it.
 // Each change appends its own event; a title that doesn't change appends nothing.
 func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, change Change) (View, error) {
-	// An agent may change only the title, acting for its owner; the policy, like
+	// An agent may change the title or task prefix for its owner; the policy, like
 	// membership and roles, stays with people.
-	if change.Policy != nil || change.AgentsAddPeople != nil || change.Title == nil {
+	if change.Policy != nil || change.AgentsAddPeople != nil || change.Title == nil && change.TaskPrefix == nil {
 		if err := requireHuman(p); err != nil {
 			return View{}, err
 		}
+	}
+	if change.TaskPrefix != nil && !taskPrefixPattern.MatchString(*change.TaskPrefix) {
+		return View{}, invalid("A task prefix is 2 to 6 capital letters and digits, starting with a letter.", "Use a prefix such as CHK.")
 	}
 	var title *string
 	if change.Title != nil {
@@ -546,7 +550,7 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 		if err != nil {
 			return err
 		}
-		gateOnlyOff := change.AgentsAddPeople != nil && !*change.AgentsAddPeople && change.Title == nil && change.Policy == nil
+		gateOnlyOff := change.AgentsAddPeople != nil && !*change.AgentsAddPeople && change.Title == nil && change.Policy == nil && change.TaskPrefix == nil
 		if !gateOnlyOff {
 			if err := requireActive(b); err != nil {
 				return err
@@ -572,6 +576,11 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 			return err
 		}
 		now := s.clk.Now()
+		if change.TaskPrefix != nil {
+			if err := s.setTaskPrefix(tx, &b, me, *change.TaskPrefix, now); err != nil {
+				return err
+			}
+		}
 		if change.AgentsAddPeople != nil && b.AgentsAddPeople != *change.AgentsAddPeople {
 			if err := tx.SetBoardAgentsAddPeople(b.ID, *change.AgentsAddPeople); err != nil {
 				return err
@@ -626,10 +635,11 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 
 // Me is who a token acts as. Board is set for an agent.
 type Me struct {
-	Human   *Human
-	Agent   *Member
-	Board   string
-	Browser bool
+	CurrentTask *TaskRef
+	Human       *Human
+	Agent       *Member
+	Board       string
+	Browser     bool
 }
 
 // WhoAmI returns who the caller is: a person (through their login or a browser), or an
@@ -648,6 +658,14 @@ func (s *Service) WhoAmI(ctx context.Context, p Principal) (Me, error) {
 			return apierr.BoardNotFound(b.Name)
 		}
 		me.Board = b.Name
+		if err == nil {
+			fresh, e := tx.MemberByID(p.Agent.ID)
+			if e != nil {
+				return e
+			}
+			me.Agent = &fresh
+			me.CurrentTask = fresh.CurrentTask
+		}
 		return err
 	})
 	return me, err

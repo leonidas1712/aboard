@@ -140,8 +140,10 @@ type BrowserLogin struct {
 
 // Board is a board's current state.
 type Board struct {
-	ID   string
-	Name string
+	TaskPrefix *string
+	TasksOpen  int64
+	ID         string
+	Name       string
 	// Title is free text people read beside the name; nil when the board has none.
 	Title    *string
 	Template *string
@@ -185,6 +187,7 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
+	CurrentTask *TaskRef
 	ID          string
 	BoardID     string
 	Name        string

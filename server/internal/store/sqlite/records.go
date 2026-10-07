@@ -230,12 +230,13 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle, agents_add_people"
+const boardInsertColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle, agents_add_people, task_prefix"
+const boardColumns = boardInsertColumns + ", (SELECT count(*) FROM tasks WHERE tasks.board_id = boards.id AND tasks.state = 'open')"
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle, &b.AgentsAddPeople); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle, &b.AgentsAddPeople, &b.TaskPrefix, &b.TasksOpen); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -257,9 +258,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	return t.exec("INSERT INTO boards ("+boardInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
-		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle), b.AgentsAddPeople)
+		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle), b.AgentsAddPeople, b.TaskPrefix)
 }
 
 // SetBoardPolicy replaces a board's policy.
@@ -350,14 +351,18 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id)"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
+	var taskID, taskRef, taskTitle sql.NullString
 	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle)
+	if taskID.Valid {
+		m.CurrentTask = &board.TaskRef{ID: taskID.String, Ref: taskRef.String, Title: taskTitle.String}
+	}
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
 	m.Delivery.Mode = setting.String
