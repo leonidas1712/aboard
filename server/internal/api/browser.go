@@ -124,7 +124,9 @@ var inlineScript = regexp.MustCompile(`(?is)<script((?:\s[^>]*)?)>(.*?)</script>
 // a note, a file name) can't run as a script even if it got into the page as HTML.
 // Styles may be inline, because the UI's components position menus and tooltips with
 // style attributes and tags; a style can't run code. Nothing loads from another origin,
-// and no other site may frame the page.
+// and no other site may frame the page. The page's own frames (the sandboxed preview of
+// an HTML file, written in with srcdoc) may never navigate anywhere, this server's API
+// included.
 func uiPolicy(files fs.FS) (string, error) {
 	hashes := map[string]bool{}
 	if files != nil {
@@ -152,7 +154,7 @@ func uiPolicy(files fs.FS) (string, error) {
 	scripts := append([]string{"'self'"}, slices.Sorted(maps.Keys(hashes))...)
 	return "default-src 'self'; script-src " + strings.Join(scripts, " ") +
 		"; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'" +
-		"; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'", nil
+		"; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'", nil
 }
 
 // apiPolicy is the Content-Security-Policy for API responses, which are data, never
