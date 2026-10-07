@@ -129,6 +129,14 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 
 	t, err := a.selectBoard(*boardFlag)
+	if agentBoard == nil && !a.agentSelected(*as) {
+		srv, resolveErr := a.resolveServer("")
+		if resolveErr != nil {
+			return resolveErr
+		}
+		out.Server = srv
+		t, err = a.humanBoard(*boardFlag)
+	}
 	switch {
 	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):
 		t = *agentBoard

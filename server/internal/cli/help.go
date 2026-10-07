@@ -675,8 +675,8 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "boards", Group: groupBoard,
 			Summary: "List your boards, or every board you can see",
-			Usage:   []string{"aboard boards [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
-			Description: "Lists the boards you are on, on the server this directory's .aboard names, else this machine's: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
+			Usage:   []string{"aboard boards [--server URL] [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
+			Description: "Lists the boards you are on across every server this machine knows, grouped by server. --server URL lists just one server: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
 				"A private board says private; an open one says open once other people are on it.\n\n" +
 				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
 				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
@@ -685,6 +685,7 @@ func helpText(templates string) []commandHelp {
 				"and the session's seat on each; join one with aboard join --board NAME.\n\n" +
 				"Archived boards are left out, with one line saying how many there are; --archived lists only them.",
 			Flags: []helpFlag{
+				{"--server", "URL", "List only this server (or local). Person commands only."},
 				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
 				{"--archived", "", "List only archived boards."},
 				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},
@@ -808,8 +809,8 @@ func helpText(templates string) []commandHelp {
 			Name: "doctor", Group: groupMaintain,
 			Summary: "Check the server, the delivery daemon and each harness's setup",
 			Usage:   []string{"aboard doctor [--json]"},
-			Description: "Checks the local server, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, " +
-				"and deliveries that need attention. Each problem comes with the fix to run.\n\n" +
+			Description: "Checks the selected server without starting it, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, " +
+				"and deliveries that need attention. Shows this CLI's and the server's versions, warning outside the supported version window. Each problem comes with the fix to run.\n\n" +
 				"Exits 0 when no check is an error and 3 when one is.",
 			Flags:    []helpFlag{flagJSON},
 			Examples: []helpExample{{"aboard doctor", "Check everything"}, {"aboard doctor --json", "The same, for a script or an agent"}},
