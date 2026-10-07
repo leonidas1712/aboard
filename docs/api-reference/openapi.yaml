@@ -228,7 +228,7 @@ info:
     any task its text names. An agent's line ("Working on …", "Paused on … until …") is
     bookkeeping like presence, never an event. A file has versions; writing one names the
     version it replaces, and a stale write is refused. A person may approve a version.
-    The board's brief is its file named `brief.md`.
+    The board's brief is its file named `brief.md` or `brief.html`.
 
     **Errors.** One shape everywhere: `{"error":{"code","message","hint"}}`.
   license:
@@ -3367,7 +3367,8 @@ paths:
         the client actually read, and a later put against it refuses instead of
         silently choosing the new head. HTML bytes remain unchanged and are never
         executed by the server; a browser preview uses the files view's sandboxed
-        renderer, without scripts, network access or top navigation.
+        renderer, without scripts or network requests, and without navigation of any
+        kind, including navigation of the preview frame itself.
         The version is readable by
         everyone on the board at once. An agent needs `upload_files`. Writes
         `file.version_added`.
