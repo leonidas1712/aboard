@@ -25,6 +25,8 @@ type boardsRow struct {
 	// Seat is, when listing through the machine's delegation from a session, the
 	// session's seat on the board (its agent's name) or nil.
 	Seat *seatName `json:"seat,omitempty"`
+	// Added is set while someone else's add of the person is new to them.
+	Added *addedNotice `json:"added,omitempty"`
 }
 
 // seatName wraps a seat's name so a row can say "no seat" (null) apart from leaving
@@ -122,6 +124,7 @@ func (a *app) boardsGroup(ctx context.Context, srv serverRef, c *client, agent *
 	for _, b := range r.JSON200.Boards {
 		row := boardsRow{
 			Name: b.Name, Title: b.Title, Visibility: b.Visibility, Lifecycle: b.Lifecycle, OnBoard: b.OnBoard, Unread: b.Unread,
+			Added:   addedOf(b),
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 		}
 		p, err := c.api.ListPeopleWithResponse(ctx, b.Name)
@@ -228,6 +231,9 @@ func boardsText(srv serverRef, agent *string, all, archived bool, rows []boardsR
 		}
 		if r.Unread != nil && *r.Unread > 0 {
 			parts = append(parts, fmt.Sprintf("%d unread", *r.Unread))
+		}
+		if r.Added != nil {
+			parts = append(parts, "new, added by "+r.Added.by())
 		}
 		if r.Default {
 			parts = append(parts, "default")

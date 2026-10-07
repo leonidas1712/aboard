@@ -33,6 +33,9 @@ type View struct {
 	// are on the board, and, where its person is on it, how many working agents.
 	PeopleCount *int
 	AgentCount  *int
+	// Added is, for a person on the board, the person.added that someone else put them
+	// on it with, while it is still new to them (addedBy); nil otherwise.
+	Added *events.Event
 }
 
 // ShowsCounts reports whether p may see how many messages the board holds: people read
@@ -329,6 +332,13 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 					return err
 				}
 				v.NeedsReply = &needs
+				members, err := tx.Members(b.ID)
+				if err != nil {
+					return err
+				}
+				if v.Added, err = addedBy(tx, b, m, members); err != nil {
+					return err
+				}
 			}
 			out.Boards = append(out.Boards, v)
 		}
