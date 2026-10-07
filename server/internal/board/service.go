@@ -22,6 +22,7 @@ import (
 
 // Config describes the server a Service runs in.
 type Config struct {
+	Blobs    Blobs
 	ServerID string
 	Mode     string // "local" or "team"
 	JoinHost string // how join lines name this server: "localhost", "localhost:7411", a domain

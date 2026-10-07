@@ -300,6 +300,7 @@ const (
 
 // Message is a stored message with its sender.
 type Message struct {
+	Files      []FileRef
 	Ask        *Ask
 	Answer     *Answer
 	About      []TaskTag

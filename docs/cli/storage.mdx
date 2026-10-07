@@ -1,0 +1,34 @@
+---
+title: "aboard storage"
+description: "Check file bytes or copy a disk store."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard storage check [--data PATH] [--db URL] [--files URL] | copy --from URL --to URL [--json]
+```
+
+For the server operator, in a terminal. Check opens the database read-only without migrations and verifies every historical file version. Copy verifies all blobs and skips intact bytes already at the destination. Both refuse in agent sessions.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--data PATH` | The server data directory. |
+| `--db URL` | The SQLite database URL. |
+| `--files URL` | The disk blob store URL. |
+| `--from URL` | The source disk store. |
+| `--to URL` | The destination disk store. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Verify all stored versions
+aboard storage check
+```
+
+## See also
+
+[`aboard file`](/cli/file), `aboard serve`

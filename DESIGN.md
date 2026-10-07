@@ -338,7 +338,7 @@ resizing the page). Two 44px header buttons open the board list (left) and the b
 panel (right) as full-screen sheets on the sidebar tone, each headed by a frosted row
 with "Back" in the link colour; the browser's back gesture closes them too. The title
 keeps one line and the board's labels (Private, Starter policy) take a line under it.
-The Inbox shows its list, and a tap reads one ask on its own with a Back button. On a
+A file opens in the right sheet, whose Back says "Files". The Inbox shows its list, and a tap reads one ask on its own with a Back button. On a
 touch screen keyboard hints hide, fields read at 16px, and small controls answer a 44px
 touch around their centre (`.tap`).
 

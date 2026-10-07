@@ -205,6 +205,69 @@ test("an ask is answered on a phone in two taps", async ({ page }) => {
   await shot(page, "phone-inbox-dark");
 });
 
+test("Files and a file's panel fit a phone, and the file sheet opens and closes", async ({ page }) => {
+  const board = "mobile-files";
+  await openBoard(page, board);
+  const put = async (name: string, over: number, body: string) => {
+    const r = await fetch(`${base()}/v1/boards/${board}/files?${new URLSearchParams({ name, base: String(over) })}`, { method: "POST", headers: { Authorization: `Bearer ${seatToken(board, "writer")}`, "Content-Type": "application/octet-stream" }, body });
+    expect(r.status).toBe(201);
+  };
+  await put("notes/a-rather-long-folder-name/release-checklist-for-the-public-launch.md", 0, "# Release checklist\n\n- Tag the release\n- Publish the notes\n- `aboard pair` works from a fresh machine with a long line that has to wrap on a phone\n");
+  await put("notes/a-rather-long-folder-name/release-checklist-for-the-public-launch.md", 1, "# Release checklist\n\n- Tag the release\n- Publish the notes\n- Announce it\n");
+  await put("status.html", 0, `<!doctype html><html><body style="font-family:sans-serif"><h1>Status</h1><table style="width:900px"><tr><td>A table wider than a phone, which the preview scrolls inside its own frame.</td></tr></table></body></html>`);
+  const r = await fetch(`${base()}/v1/me/presence`, { method: "PUT", headers: { Authorization: `Bearer ${seatToken(board, "writer")}`, "Content-Type": "application/json" }, body: JSON.stringify({ presence: "working" }) });
+  expect(r.status).toBe(200);
+
+  await page.getByRole("tab", { name: /^Files/ }).click();
+  const list = page.getByRole("list", { name: "Files" });
+  await expect(list.locator("[data-file]")).toHaveCount(2);
+  // The writer's mark carries its status, named for assistive technology.
+  await expect(list.locator('[data-file="status.html"] [data-status="working"]')).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Upload a file" })).toBeVisible();
+  for (const width of [360, 430, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await noSideScroll(page);
+  }
+  await page.setViewportSize({ width: 390, height: 664 });
+  await shot(page, "phone-files-light");
+
+  // A file opens as a full-screen sheet; Back returns to Files.
+  await list.locator('[data-file="status.html"]').getByRole("button", { name: "status.html" }).click();
+  const sheet = page.getByRole("dialog", { name: "File" });
+  await expect(sheet).toBeVisible();
+  const frame = sheet.locator("iframe");
+  await expect(frame).toBeVisible();
+  const fits = await frame.evaluate((el) => el.getBoundingClientRect().right <= window.innerWidth);
+  expect(fits).toBe(true);
+  for (const width of [360, 430, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await noSideScroll(page);
+    expect(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+  await page.setViewportSize({ width: 390, height: 664 });
+  await shot(page, "phone-file-html-light");
+  await sheet.getByRole("button", { name: "Files", exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await expect(list).toBeVisible();
+
+  // The Markdown file, with its versions; the browser's back closes the sheet too.
+  await list.locator("[data-file]").filter({ hasText: "release-checklist" }).getByRole("button").first().click();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("region", { name: "Versions" })).toBeVisible();
+  await noSideScroll(page);
+  expect(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await shot(page, "phone-file-light");
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+  await theme(page, "Dark");
+  await shot(page, "phone-files-dark");
+  await list.locator('[data-file="status.html"]').getByRole("button", { name: "status.html" }).click();
+  await expect(sheet.locator("iframe")).toBeVisible();
+  await shot(page, "phone-file-html-dark");
+  await sheet.getByRole("button", { name: "Files", exact: true }).click();
+  await theme(page, "Light");
+});
+
 test.describe("on a wide screen", () => {
   const { defaultBrowserType: _d, ...desktop } = devices["Desktop Chrome"];
   test.use({ ...desktop, viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });

@@ -87,8 +87,8 @@ export function StatusDot({ tone, className }: { tone: Tone; className?: string 
   if (tone === "hold") {
     return (
       <span aria-hidden data-tone={tone} className={cn("status-dot inline-flex size-2 shrink-0 justify-between", className)}>
-        <span className="h-full w-[3px] rounded-[1px] bg-status-hold" />
-        <span className="h-full w-[3px] rounded-[1px] bg-status-hold" />
+        <span className="h-full w-[37%] rounded-[1px] bg-status-hold" />
+        <span className="h-full w-[37%] rounded-[1px] bg-status-hold" />
       </span>
     );
   }

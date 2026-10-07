@@ -15,6 +15,7 @@ import (
 
 // NewMessage is a message to post.
 type NewMessage struct {
+	Files        []FileSelector
 	Ask          *NewAsk
 	Answer       *NewAnswer
 	About        *[]string
@@ -98,6 +99,10 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		if err != nil {
 			return err
 		}
+		files, err := resolveFileRefs(tx, b, in.Files)
+		if err != nil {
+			return err
+		}
 		now := s.clk.Now()
 		ask, err := makeAsk(tx, b, to, in.Ask, about, now)
 		if err != nil {
@@ -112,6 +117,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		data := map[string]any{
+			"files":      files,
 			"about":      about,
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
 			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{}, "mentions": mentions,
@@ -130,7 +136,8 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		msg = Message{
-			Ask: ask, Answer: answer,
+			Files: files,
+			Ask:   ask, Answer: answer,
 			About: about,
 			ID:    id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
 			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},

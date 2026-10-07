@@ -170,6 +170,32 @@
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
   /* Hover is a weaker selected, so the row the keys act on always stands out. */
   --hover: color-mix(in oklab, var(--selected) 55%, transparent);
+  /* A place to drop a file, while one is dragged over it: a trace of the accent. */
+  --drop: color-mix(in oklab, var(--accent) 8%, transparent);
+}
+
+/* A file is shown on a light page in every theme, so it reads as the agent's work and
+   not as part of the board view. Its colours are fixed: the page is the same paper in
+   light, dark and every scheme. */
+:root {
+  --page: #f7f5f0;
+  --page-ink: #1d2328;
+}
+.file-page {
+  background: var(--page);
+  color: var(--page-ink);
+  color-scheme: light;
+}
+.file-page code,
+.file-page pre {
+  background: #e8e5dd;
+}
+.file-page a,
+.file-page .text-link {
+  color: #1f5a78;
+}
+.file-page li::marker {
+  color: #55606a;
 }
 
 

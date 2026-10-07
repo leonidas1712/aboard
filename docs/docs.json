@@ -70,7 +70,7 @@
           },
           {
             "group": "Extending",
-            "pages": ["extending"]
+            "pages": ["extending", "development"]
           },
           {
             "group": "Status",
@@ -98,6 +98,8 @@
               "cli/logout",
               "cli/ask",
               "cli/task",
+              "cli/file",
+              "cli/storage",
               "cli/say",
               "cli/inbox",
               "cli/read",

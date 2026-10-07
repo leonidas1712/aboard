@@ -96,6 +96,17 @@ export function useStatus() {
   );
 }
 
+/** useAgentStatus is a board agent's status by name, or null for a person or an agent no longer on the board. */
+export function useAgentStatus() {
+  const { members } = useContext(Tasks);
+  const status = useStatus();
+  return (m: MemberRef): Status | null => {
+    if (m.kind !== "agent") return null;
+    const found = members.find((x) => x.kind === "agent" && x.name === m.name);
+    return found ? status(found) : null;
+  };
+}
+
 /** Who is a member of the task with the details the board's member list adds: harness and status. */
 function useWho() {
   const { members, identity } = useContext(Tasks);

@@ -129,6 +129,8 @@ func commands() []command {
 		{"servers", runServers},
 		{"say", runSay},
 		{"task", runTask},
+		{"file", runFile},
+		{"storage", runStorage},
 		{"ask", runAsk},
 		{"inbox", runInbox},
 		{"read", runRead},

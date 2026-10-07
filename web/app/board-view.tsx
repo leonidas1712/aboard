@@ -13,6 +13,7 @@ import { ApiError, type Board, type MemberRef, type Message, type ReactionName, 
 import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
 import { TaskBoard, TaskContext, TaskDetail, WorkTasks, useTasks } from "./task-ui";
+import { FilePanel, FilesView, useFiles } from "./files";
 import { Composer } from "./composer";
 import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
@@ -31,16 +32,27 @@ import { type NowPart, boardLabel, eventLine, eventMatches, identitiesOf, identi
 // in whatever room the panels leave.
 const column = "mx-auto w-full max-w-[848px] px-4 sm:px-6";
 
+type View = "conversation" | "tasks" | "files";
+
 const leftPanel: Limits = { initial: 272, min: 240, max: 400 };
 const rightPanel: Limits = { initial: 300, min: 260, max: 440 };
 
 export default function BoardView({ name, onSignOut }: { name: string; onSignOut: () => void }) {
   const [filter, setFilter] = useState<Filter>({});
   const s = useBoard(name, filter);
-  const [view, setView] = useState<"conversation" | "tasks">("conversation");
+  const [view, setView] = useState<View>("conversation");
   const [taskPanel, setTaskPanel] = useState<string | null>(null);
   const taskState = useTasks(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
   const tasks = taskState.list?.tasks ?? [];
+  const fileState = useFiles(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
+  const files = fileState.list?.files ?? [];
+  const [filePanel, setFilePanel] = useState<string | null>(null);
+  // Tasks appears with the first task. Files is on every board whose server keeps files,
+  // so a person can always put a file on the board from here.
+  const views: View[] = ["conversation", ...(tasks.length > 0 ? (["tasks"] as const) : []), ...(fileState.list !== null ? (["files"] as const) : [])];
+  const shownView: View = views.includes(view) ? view : "conversation";
+  // A sheet's Back names the view under it.
+  const backTo = shownView === "files" ? "Files" : shownView === "tasks" ? "Tasks" : "Conversation";
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
   const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {
     width: leftPanel.initial,
@@ -56,7 +68,14 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const wide = useWide();
   const [sheet, setSheet] = useState<"left" | "right" | null>(null);
   const openTask = useCallback((ref: string) => {
+    setFilePanel(null);
     setTaskPanel(ref);
+    if (wide) setRight({ ...rightPref, collapsed: false });
+    else setSheet("right");
+  }, [rightPref, setRight, wide]);
+  const openFile = useCallback((id: string) => {
+    setTaskPanel(null);
+    setFilePanel(id);
     if (wide) setRight({ ...rightPref, collapsed: false });
     else setSheet("right");
   }, [rightPref, setRight, wide]);
@@ -222,7 +241,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     (seq: number) => {
       // A message permalink may show isolated history with unloaded messages between it and the newest page.
       if (new URLSearchParams(window.location.search).has("message")) return;
-      if ((view === "tasks" && tasks.length > 0) || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
+      if (shownView !== "conversation" || filterActive(filter) || document.visibilityState !== "visible" || s.readFrom === null || s.firstUnread === null) return;
       presented.current.add(seq);
       const from = s.readFrom;
       const unread = (s.messages ?? []).filter((m) => m.seq > from);
@@ -234,7 +253,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       }
       if (through > s.readFrom) ack(through);
     },
-    [view, tasks.length, filter, ack, s.messages, s.readFrom, s.firstUnread],
+    [shownView, filter, ack, s.messages, s.readFrom, s.firstUnread],
   );
   const receiptsAt = useMemo(() => ({ board: name, activity: s.activity }), [name, s.activity]);
 
@@ -322,6 +341,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const show = useCallback(
     (section: string) => {
       setTaskPanel(null);
+      setFilePanel(null);
       if (!wide) setSheet("right");
       else if (right.collapsed) setRight({ ...right, collapsed: false });
       setReveal((r) => ({ section, n: (r?.n ?? 0) + 1 }));
@@ -439,6 +459,23 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const boardPanel = lab?.RightPanel ? (
     // Only the UI lab draws the board panel its own way (lab-seam.ts).
     <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
+  ) : filePanel ? (
+    <FilePanel
+      board={name}
+      id={filePanel}
+      activity={s.activity}
+      back={() => setFilePanel(null)}
+      identity={identity}
+      me={me}
+      canUpload={s.me?.kind === "human" && !readOnly}
+      onShow={(id, seq) => {
+        setView("conversation");
+        toConversation();
+        // A message the timeline hasn't loaded is read first, as a permalink is.
+        if (byId.has(id)) onShow(id);
+        else s.loadMessage(id, seq).then(() => onShow(id), setPostError);
+      }}
+    />
   ) : taskPanel ? (
     <TaskDetail
       board={name}
@@ -507,7 +544,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               {boardsNav}
             </SidePanel>
           ) : (
-            <Sheet open={sheet === "left"} onClose={() => setSheet(null)} side="left" title="Boards" back="Conversation">
+            <Sheet open={sheet === "left"} onClose={() => setSheet(null)} side="left" title="Boards" back={backTo}>
               {boardsNav}
             </Sheet>
           )}
@@ -535,12 +572,13 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             </div>
             {centre(
               <>
-            {tasks.length > 0 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
-              {(["conversation", "tasks"] as const).map((v) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={view === v} tabIndex={view === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? "conversation" : e.key === "End" ? "tasks" : v === "conversation" ? "tasks" : "conversation"; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", view === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink")}>{v === "conversation" ? "Conversation" : `Tasks ${tasks.length}`}</button>)}
+            {views.length > 1 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
+              {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", shownView === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
             </div>}
-            {taskState.list?.more && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
+            {taskState.list?.more && shownView === "tasks" && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
             {taskState.error !== null && <div className={column}><Problem error={taskState.error} /></div>}
-            <div id="view-conversation" role={tasks.length > 0 ? "tabpanel" : undefined} aria-labelledby={tasks.length > 0 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", view === "conversation" || tasks.length === 0 ? "flex" : "hidden")}>
+            {fileState.error !== null && <div className={column}><Problem error={fileState.error} /></div>}
+            <div id="view-conversation" role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", shownView === "conversation" ? "flex" : "hidden")}>
             {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-accent hover:underline">Show everything</button></p>}
             {loading ? (
               <div className={cn(column, "min-h-0 flex-1")}>
@@ -597,7 +635,25 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               )}
             </div>
             </div>
-            {view === "tasks" && tasks.length > 0 && <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col"><TaskBoard tasks={tasks} open={openTask} /></div>}
+            {shownView === "tasks" && <div id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" className="flex min-h-0 flex-1 flex-col"><TaskBoard tasks={tasks} open={openTask} /></div>}
+            {shownView === "files" && (
+              <div id="view-files" role="tabpanel" aria-labelledby="tab-files" className="flex min-h-0 flex-1 flex-col">
+                <FilesView
+                  board={name}
+                  files={files}
+                  more={fileState.list?.more ?? false}
+                  selected={filePanel}
+                  open={openFile}
+                  identity={identity}
+                  me={me}
+                  canUpload={s.me?.kind === "human" && !readOnly}
+                  onUploaded={(f) => {
+                    fileState.reload();
+                    openFile(f.id);
+                  }}
+                />
+              </div>
+            )}
               </>,
             )}
           </main>
@@ -607,8 +663,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               {boardPanel}
             </SidePanel>
           ) : (
-            <Sheet open={sheet === "right"} onClose={() => setSheet(null)} side="right" title={rightTitle} back="Conversation">
-              <div className="flex flex-col gap-4">{boardPanel}</div>
+            <Sheet open={sheet === "right"} onClose={() => { setSheet(null); setFilePanel(null); setTaskPanel(null); }} side="right" title={filePanel ? "File" : taskPanel ? "Task" : rightTitle} back={backTo}>
+              {/* Opened from Files, the sheet's own Back is the way back; the panel's link to Work would be a second one. */}
+              <div className={cn("flex flex-col gap-4", shownView === "files" && filePanel && "[&_.panel-back]:hidden")}>{boardPanel}</div>
             </Sheet>
           )}
         </div>

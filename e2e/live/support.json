@@ -1,13 +1,19 @@
 {
   "harnesses": {
     "claude-code": {
-      "version": "2.1.291 (Claude Code)",
+      "version": "2.1.292 (Claude Code)",
       "scenarios": {
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-07",
           "version": "2.1.291 (Claude Code)",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/claude-code"
+        },
+        "AttachedFileReachesTheHarness": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "2.1.292 (Claude Code)",
+          "test": "TestAttachedFileReachesTheHarness/claude-code"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -149,8 +155,8 @@
         }
       },
       "handover": {
-        "aboard_ms": 2008,
-        "harness_ms": 2400,
+        "aboard_ms": 2005,
+        "harness_ms": 2885,
         "deliveries": 1,
         "date": "2026-10-07"
       }
@@ -168,6 +174,12 @@
           "date": "2026-10-07",
           "version": "codex-cli 0.160.0",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/codex"
+        },
+        "AttachedFileReachesTheHarness": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "codex-cli 0.160.0",
+          "test": "TestAttachedFileReachesTheHarness/codex"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -315,8 +327,8 @@
         }
       },
       "handover": {
-        "aboard_ms": 2024,
-        "harness_ms": 41,
+        "aboard_ms": 2005,
+        "harness_ms": 40,
         "deliveries": 1,
         "date": "2026-10-07"
       }
@@ -329,6 +341,12 @@
           "date": "2026-10-07",
           "version": "omp/18.5.1",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/omp"
+        },
+        "AttachedFileReachesTheHarness": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "omp/18.5.1",
+          "test": "TestAttachedFileReachesTheHarness/omp"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -470,8 +488,8 @@
         }
       },
       "handover": {
-        "aboard_ms": 2007,
-        "harness_ms": 2,
+        "aboard_ms": 2008,
+        "harness_ms": 3,
         "deliveries": 1,
         "date": "2026-10-07"
       }
