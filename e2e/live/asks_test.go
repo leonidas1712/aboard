@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -113,7 +114,16 @@ func (l *lab) answerAskInBrowser(board, option string) {
 	}
 	cmd := command(ctx, "node", filepath.Join("..", "e2e", "live", "answer-ask.cjs"))
 	cmd.Dir = filepath.Join(repoRoot, "web")
-	cmd.Env = l.vars
+	cache := os.Getenv("PLAYWRIGHT_BROWSERS_PATH")
+	if cache == "" {
+		base, err := os.UserCacheDir()
+		if err != nil {
+			l.t.Fatal("find the installed Chromium cache")
+		}
+		cache = filepath.Join(base, "ms-playwright")
+	}
+	// The installed browser is read-only; its profile and every process home remain isolated.
+	cmd.Env = append(append([]string{}, l.vars...), "PLAYWRIGHT_BROWSERS_PATH="+cache)
 	cmd.Stdin = strings.NewReader(string(input))
 	if err := cmd.Run(); err != nil {
 		l.t.Fatalf("answer the ask through the board view: %v", err)
