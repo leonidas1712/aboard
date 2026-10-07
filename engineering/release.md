@@ -374,7 +374,8 @@ Without its own changelog section, a candidate's notes are the Unreleased sectio
    refuses a release without one.
 4. `version` in `server/internal/cli/build.go` is the version; the job refuses a tag
    that doesn't match it (a candidate's suffix aside). Bump it in a pull request if
-   needed.
+   needed, and in the same pull request run `scripts/doc-versions bump` to move the
+   docs and deploy recipes to it (`make docs-check` fails until you do).
 5. `git tag vX.Y.Z && git push origin vX.Y.Z`, and approve the `release` environment.
 6. Check the signature from any machine with cosign, in a folder with the release's
    `checksums.txt` and `checksums.txt.sigstore.json`:

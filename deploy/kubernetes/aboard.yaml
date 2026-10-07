@@ -5,7 +5,8 @@
 # Before applying, replace:
 #   aboard.example.com  the host people reach the server at: in ABOARD_PUBLIC_URL,
 #                       the three probes and the ingress
-#   0.1.0               the release you run, in the image's tag
+#   0.1.1               the release you run, in the image's tag: the current one is
+#                       at https://github.com/leonidas1712/aboard/releases
 #   storageClassName    a class backed by block storage, never NFS or another network
 #                       file system: SQLite needs its locks to hold
 #   ingressClassName    your ingress controller, and the certificate's Secret
@@ -55,7 +56,7 @@ spec:
       # imagePullSecrets: [{ name: aboard-pull }]
       containers:
         - name: aboard
-          image: ghcr.io/leonidas1712/aboard:0.1.0
+          image: ghcr.io/leonidas1712/aboard:0.1.1
           env:
             - name: ABOARD_PUBLIC_URL
               value: https://aboard.example.com
