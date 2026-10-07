@@ -12,7 +12,7 @@ const { chromium } = createRequire(path.join(process.cwd(), "package.json"))("@p
     await page.goto(input.url);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     const response = page.waitForResponse((r) => r.request().method() === "POST" && /\/messages$/.test(new URL(r.url()).pathname));
-    await page.getByRole("button", { name: input.option }).click();
+    await page.getByRole("button", { name: `Answer with option 2: ${input.option}`, exact: true }).click();
     if ((await response).status() !== 201) throw new Error("answer refused");
   } finally {
     await browser.close();
