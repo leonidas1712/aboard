@@ -151,6 +151,7 @@ func (r Request) Key() SessionKey { return SessionKey{Harness: r.Harness, ID: r.
 
 // Response is one message from the daemon.
 type Response struct {
+	Nudge  string `json:"nudge,omitempty"`
 	V      int    `json:"v"`
 	Event  string `json:"event,omitempty"`
 	Bundle string `json:"bundle,omitempty"`
