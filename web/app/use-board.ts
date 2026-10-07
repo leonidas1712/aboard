@@ -65,6 +65,7 @@ export type BoardState = {
   gone: boolean;
   error: unknown;
   loadEarlier: () => void;
+  loadMessage: (id: string) => Promise<void>;
   refresh: () => void;
   /** replace puts a newer copy of a loaded message in place, as after reacting to it. */
   replace: (m: Message) => void;
@@ -175,6 +176,13 @@ export function useBoard(name: string, filter: Filter): BoardState {
     setExtra(swap);
   }, []);
 
+  const loadMessage = useCallback(async (id: string) => {
+    const r = await get<{ message: Message }>(`/v1/messages/${encodeURIComponent(id)}`);
+    if (r.message.board !== name) throw new ApiError(404, "message_not_found", "This message is not on the board.", "Open it from the Inbox again.");
+    if (!live.current) return;
+    setBase((p) => p && !p.messages.some((m) => m.id === id) ? { ...p, messages: [...p.messages, r.message].sort((a, b) => a.seq - b.seq) } : p);
+  }, [name]);
+
   // after reads every page of messages after seq that match query, and adds them.
   const readAfter = useCallback(
     async (from: { current: number }, query: Record<string, string | boolean | undefined>, add: (ms: Message[]) => void) => {
@@ -194,16 +202,18 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const catchUp = useCallback(async () => {
     const gen = progress.current.next();
-    const [b, m, mine] = await Promise.all([
+    const [b, m, mine, who] = await Promise.all([
       get<Board>(path),
       get<{ members: Member[] }>(`${path}/members`),
       get<MessagePage>(`${path}/messages`, { to_me: true, newest: true, limit: PAGE }),
+      get<Me>("/v1/me"),
     ]);
     if (!live.current) return;
     setBoard(progress.current.board(b, gen));
     boardId.current = b.id;
     seenIds.current.add(b.id);
     setMembers(m.members);
+    setMe(who);
     setToMe(new Set(mine.messages.map((x) => x.id)));
 
     const append = (set: typeof setBase) => (ms: Message[]) =>
@@ -216,6 +226,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     if (broken.current) return;
     const remembered = rememberedHead(b.id);
     const reacted = new Set<string>();
+    const renamed = new Set<string>();
     for (;;) {
       const page = await get<EventPage>(`${path}/events`, { after: chain.current.lastSeq, limit: EVENT_PAGE });
       if (!live.current) return;
@@ -232,15 +243,26 @@ export function useBoard(name: string, filter: Filter): BoardState {
       const shown = page.events.filter((e) => e.type !== "message.posted" && !e.type.startsWith("joincode.") && !isReaction(e));
       if (shown.length > 0) setEvents((es) => [...es, ...shown]);
       for (const e of page.events) {
+        if (e.type === "person.renamed") {
+          const before = (e.data as { before?: string } | undefined)?.before;
+          if (before) renamed.add(before);
+        }
         const id = (e.data as { message_id?: string } | undefined)?.message_id;
         if (isReaction(e) && e.seq > loadedHead.current && id) reacted.add(id);
+        const answered = (e.data as { answer?: { ask_id?: string } } | undefined)?.answer?.ask_id;
+        if (e.type === "message.posted" && answered) reacted.add(answered);
       }
       if (page.next_after === null || page.events.length === 0) break;
     }
     if (!remembered || chain.current.lastSeq >= remembered.seq) rememberHead(b.id, chain.current.lastSeq, chain.current.lastHash);
     setRecord({ state: "verified", count: chain.current.checked });
 
-    // A loaded message someone reacted to since is read again, so its reactions are current.
+    // Rename events refresh author projections of loaded messages from the API; bodies
+    // and hashed event actors remain exactly as recorded.
+    for (const m of knownRef.current) {
+      if ((m.from.kind === "human" && renamed.size > 0) || (m.from.owner && renamed.has(m.from.owner))) reacted.add(m.id);
+    }
+    // A changed loaded message is read again, keeping the API authoritative.
     for (const id of reacted) {
       const m = knownRef.current.find((x) => x.id === id);
       if (!m) continue;
@@ -477,6 +499,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     error,
     gone,
     loadEarlier,
+    loadMessage,
     refresh,
     replace: replaceMessage,
     ack,

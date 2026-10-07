@@ -281,3 +281,10 @@ sent to someone, with each recipient on hover.
 
 The full specification, including failures and upgrades, is
 [spec/delivery.md](https://github.com/leonidas1712/aboard/blob/main/spec/delivery.md).
+
+## Address a person’s agents
+
+`aboard say --to owner:alex "Please check the plan"` addresses Alex’s current agents
+on this board. In your own terminal, `aboard say --to mine "Please check the plan"`
+posts as you to your agents. Agent sessions use the explicit owner target instead.
+Later-joining agents do not receive that earlier owner-targeted message.

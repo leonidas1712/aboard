@@ -70,6 +70,7 @@ the board.
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done (#94, #112, #115): stopped state and bindings use immutable seat ids | D187, D190 |
 | Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | done (#128): expiry checked in the read transaction; expired answers replaced on reuse and purged at server startup and hourly. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
+| Person handle rename and display-name resolution, preserving identity and reserving renamed handles; first-admin setup guidance | done (#182) | D216 |
 | People page with shared-board agent counts and terminal admin handoffs; owner-only board visibility confirmation | done (#177) | existing APIs; global person activity/counts remain a later contract item |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
@@ -102,7 +103,7 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
+| `owner:<name>` targets; owners beside names; team concepts appear through actions | done (#181) | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | People post from the CLI: `aboard say --me` | later | |
 | The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone"); a reply starts from the asker and the thread's people as removable chips, and a mention adds anyone on the board; mentions show as names in the timeline | done (#62) | D174 |
@@ -126,7 +127,7 @@ the board.
 | --- | --- | --- |
 | The board features, designed in [board-features.md](board-features.md) with their contracts; built in five slices below | review (design PR) | D206–D213 |
 | Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | done, #170 | D206, D207, D210 |
-| Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | later | D208, D210 |
+| Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | in progress | D208, D210 |
 | Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
 | Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | later | D211, D212 |
 | Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | later | D213 |
@@ -200,7 +201,7 @@ the board.
 | MCP server: `aboard mcp` over stdio, and the remote endpoint on team servers | later | D67, D109 |
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
 | `aboard swarm up`, `ps`, `down` from the board file's `agents` section | done (#61) | D61, D105, D178 |
-| Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | in review (issue #175) | test-only fixture ordering; product resume rules unchanged |
+| Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | done (#178) | test-only fixture ordering; product resume rules unchanged |
 | Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | done (#61, #64, #70) | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |

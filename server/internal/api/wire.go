@@ -22,6 +22,7 @@ type wireMemberRef struct {
 }
 
 type wireMember struct {
+	DisplayName *string `json:"display_name,omitempty"`
 	CurrentTask any     `json:"current_task"`
 	ID          string  `json:"id"`
 	Board       string  `json:"board"`
@@ -55,6 +56,7 @@ type wireMember struct {
 }
 
 type wireBoard struct {
+	AsksToMe        *board.AskCounts      `json:"asks_to_me,omitempty"`
 	TaskPrefix      *string               `json:"task_prefix"`
 	TasksOpen       *int64                `json:"tasks_open,omitempty"`
 	AgentsAddPeople bool                  `json:"agents_add_people"`
@@ -97,6 +99,8 @@ type wireAdded struct {
 }
 
 type wireMessage struct {
+	Ask           any               `json:"ask,omitempty"`
+	Answer        any               `json:"answer,omitempty"`
 	About         []board.TaskTag   `json:"about"`
 	ID            string            `json:"id"`
 	Board         string            `json:"board"`
@@ -163,7 +167,7 @@ func refOf(m board.Member) wireMemberRef {
 
 func memberOf(m board.Member, boardName string) wireMember {
 	w := wireMember{
-		ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
+		DisplayName: m.DisplayName, ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
 		Harness: m.Harness, Status: m.Status, JoinedAt: m.JoinedAt,
 		CurrentTask: taskRefOf(m.CurrentTask),
 	}
@@ -189,6 +193,7 @@ func memberOf(m board.Member, boardName string) wireMember {
 func boardOf(v board.View, p board.Principal) wireBoard {
 	b := v.Board
 	w := wireBoard{
+		AsksToMe:   v.AsksToMe,
 		TaskPrefix: b.TaskPrefix,
 		ID:         b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
 		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator), Visibility: b.Visibility, OnBoard: v.OnBoard,
@@ -249,6 +254,7 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 		mentions = []board.Mention{}
 	}
 	return wireMessage{
+		Ask: askOf(m.Ask), Answer: answerOf(m.Answer),
 		About: m.About,
 		ID:    m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},

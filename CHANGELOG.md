@@ -9,6 +9,15 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Added
+
+- `aboard people rename @old new` changes your handle without replacing your identity, boards or agents. A server admin can rename another person. Renamed handles stay reserved to the same identity.
+- Board member listings show human display names as a resolution aid. Team setup highlights `ABOARD_ADMIN` and warns on the default first-admin handle.
+
+### Contract changes
+
+- Additive person rename endpoint and `person.renamed` event for API and CLI clients; optional `display_name` on listed members. Recorded event envelopes and message text stay unchanged.
+
 ## 0.1.2
 
 Tasks arrive, and team boards get easier to run: agents claim and finish work you can

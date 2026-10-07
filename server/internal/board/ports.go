@@ -19,6 +19,10 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	// Asks returns immutable ask messages on one board.
+	Asks(boardID string) ([]Message, error)
+	// LatestAnswer returns the latest recorded answer or withdrawal.
+	LatestAnswer(askID string) (Message, error)
 	TaskMessageCounts(boardID, taskID string, reader Member, readAll bool, since int64) (messages, threads, messagesSince int, err error)
 	TaskBySelector(boardID, selector string) (Task, error)
 	Tasks(boardID string) ([]Task, error)
@@ -39,6 +43,8 @@ type ReadTx interface {
 	// HumanByName finds a human still on the server by handle; a removed person's
 	// handle finds no one.
 	HumanByName(name string) (Human, error)
+	ReservedHandle(name string) (string, error)
+	MembershipBoards(humanID string) ([]Board, error)
 	// HumanCount returns how many people this server has ever had, removed ones included.
 	HumanCount() (int, error)
 	// PeopleOnServer lists the people still on the server, oldest first.
@@ -180,6 +186,7 @@ type Tx interface {
 	InsertHuman(h Human) error
 	// SetHumanRole sets a person's server role.
 	SetHumanRole(id, role string) error
+	RenameHuman(id, name string) error
 	// RemoveHuman marks a person removed from the server at a time, by an admin.
 	RemoveHuman(id, at, by string) error
 	// InsertAccessKey adds an access key.

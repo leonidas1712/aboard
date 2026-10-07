@@ -34,14 +34,16 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 }
 
 type Props = {
+  person?: Me | null;
   /** admin is true when the person is an admin of this board and another person is on it. */
   admin?: boolean;
   /** onSignOut runs once this browser has signed out. */
   onSignOut: () => void;
 };
 
-export function Account({ admin, onSignOut }: Props) {
-  const [me, setMe] = useState<Me | null>(null);
+export function Account({ admin, onSignOut, person }: Props) {
+  const [loadedMe, setMe] = useState<Me | null>(null);
+  const me = person ?? loadedMe;
   const [showPeople, setShowPeople] = useState(false);
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();

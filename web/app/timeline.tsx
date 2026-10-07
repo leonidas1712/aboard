@@ -5,6 +5,7 @@
 // Messages from one sender in a row are grouped under one header, the way chats do.
 
 import { TaskChips, TaskLinks } from "./task-ui";
+import { AskAnswers } from "./ask-ui";
 
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -488,7 +489,7 @@ function MessageEntry({
     m.from.kind === "agent"
       ? [m.from.role && `Role ${m.from.role}`, m.from.harness && `Harness ${m.from.harness}`].filter(Boolean).join(", ")
       : undefined;
-  const outlined = standsAlone(m) && !answer;
+  const outlined = standsAlone(m) && !answer && (!m.ask || m.ask.state === "open");
   const replyButton = !waiting && onReply && (
     <button
       type="button"
@@ -582,6 +583,7 @@ function MessageEntry({
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
           <Body m={m} mentions={mentions} />
         </p>
+        {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
         {grouped && actions && <div className="absolute top-0 right-2.5">{actions}</div>}

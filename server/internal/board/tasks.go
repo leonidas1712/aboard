@@ -31,6 +31,9 @@ type TaskText struct {
 
 // Task is the read model of the task's recorded changes.
 type Task struct {
+	Blocked                               bool
+	BlockedCount                          int
+	BlockedOn                             []BlockedOn
 	MessageCount, ThreadCount             int
 	ID, Ref, BoardID, Board, Title, State string
 	Number                                int64
@@ -209,7 +212,7 @@ func (s *Service) CreateTask(ctx context.Context, p Principal, name string, in N
 				return e
 			}
 		}
-		return projectTask(tx, b, me, &out)
+		return s.projectTask(tx, b, me, &out)
 	})
 	if e != nil {
 		return Task{}, e
@@ -338,7 +341,7 @@ func (s *Service) selectTask(ctx context.Context, p Principal, name, sel string,
 		if e := s.takeTask(tx, &b, me, &out, join, s.clk.Now()); e != nil {
 			return e
 		}
-		return projectTask(tx, b, me, &out)
+		return s.projectTask(tx, b, me, &out)
 	})
 	if e == nil {
 		s.notify.Changed(out.BoardID)
@@ -414,7 +417,7 @@ func (s *Service) UpdateTask(ctx context.Context, p Principal, name, sel string,
 			data["stands_version"] = version + 1
 		}
 		if len(data) == 2 {
-			return projectTask(tx, b, me, &out)
+			return s.projectTask(tx, b, me, &out)
 		}
 		event, e := s.append(tx, &b, events.TaskUpdated, actorOf(me), now, data)
 		if e != nil {
@@ -427,7 +430,7 @@ func (s *Service) UpdateTask(ctx context.Context, p Principal, name, sel string,
 		if e := tx.SaveTask(out); e != nil {
 			return e
 		}
-		return projectTask(tx, b, me, &out)
+		return s.projectTask(tx, b, me, &out)
 	})
 	if e == nil {
 		s.notify.Changed(out.BoardID)
@@ -476,7 +479,7 @@ func (s *Service) FinishTask(ctx context.Context, p Principal, name, sel string,
 		if e := tx.SaveTask(out); e != nil {
 			return e
 		}
-		return projectTask(tx, b, me, &out)
+		return s.projectTask(tx, b, me, &out)
 	})
 	if e == nil {
 		s.notify.Changed(out.BoardID)
@@ -525,7 +528,7 @@ func (s *Service) DropTask(ctx context.Context, p Principal, name, sel string, i
 		if e := s.dropTask(tx, &b, &out, target.ID, in.Reason, by, actorOf(me), s.clk.Now()); e != nil {
 			return e
 		}
-		return projectTask(tx, b, me, &out)
+		return s.projectTask(tx, b, me, &out)
 	})
 	if e == nil {
 		s.notify.Changed(out.BoardID)
@@ -581,7 +584,7 @@ func (s *Service) GetTask(ctx context.Context, p Principal, name, sel string) (T
 		if e != nil {
 			return e
 		}
-		return projectTask(tx, b, me, &out)
+		return s.projectTask(tx, b, me, &out)
 	})
 	return out, e
 }
@@ -618,7 +621,7 @@ func (s *Service) ListTasks(ctx context.Context, p Principal, name string, f Tas
 			if f.Mine && taskPart(t, me.ID) == "" {
 				continue
 			}
-			if e := projectTask(tx, b, me, &t); e != nil {
+			if e := s.projectTask(tx, b, me, &t); e != nil {
 				return e
 			}
 			out.Tasks = append(out.Tasks, t)

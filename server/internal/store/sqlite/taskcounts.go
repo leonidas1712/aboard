@@ -11,7 +11,7 @@ func (t *tx) TaskMessageCounts(boardID, taskID string, reader board.Member, read
 	if !readAll {
 		name, role := targetsOf(reader)
 		where += " AND (m.sender_id = ? OR " + addressedTo + ")"
-		args = append(args, reader.ID, name, role)
+		args = append(args, reader.ID, name, role, reader.ID)
 	}
 	rows, err := t.tx.QueryContext(t.ctx, "SELECT m.seq, COALESCE(m.thread_root, m.id) FROM messages m WHERE "+where, args...)
 	if err != nil {

@@ -187,6 +187,7 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
+	DisplayName *string
 	CurrentTask *TaskRef
 	ID          string
 	BoardID     string
@@ -299,6 +300,8 @@ const (
 
 // Message is a stored message with its sender.
 type Message struct {
+	Ask        *Ask
+	Answer     *Answer
 	About      []TaskTag
 	ID         string
 	BoardID    string

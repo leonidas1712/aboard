@@ -2223,4 +2223,57 @@ test("visibility ignores a preview for the previous access state", async ({ page
   await held.fulfill({ json: { board: b.name, before: "private", after: "open", changed: true, dry_run: true, reveals: { messages: 0, files: 0 }, join_codes_canceled: 0 } });
   await expect(page.getByRole("button", { name: "Make open", exact: true })).toBeEnabled();
 });
+
+test("My agents records an owner target and receipts for its current seats", async ({ page }) => {
+  const b = await newBoard("Owner target room");
+  const key = ownerKey();
+  const one = await api(key, "POST", "/v1/join", { board: b.name, role: "member", name: "owner-one" });
+  const two = await api(key, "POST", "/v1/join", { board: b.name, role: "member", name: "owner-two" });
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.goto(`${base()}/?board=${b.name}`);
+  await page.getByRole("button", { name: "Recipients: everyone. Change", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: "My agents", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.getByLabel("Message alex’s agents", { exact: true }).fill("To both my seats");
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.locator("main")).toContainText("alex’s agents");
+  const messages = await api(key, "GET", `/v1/boards/${b.name}/messages`);
+  const posted = (messages.messages as { to: string[]; seq: number; body: string }[]).find((m) => m.body === "To both my seats");
+  expect(posted?.to).toEqual(["owner:alex"]);
+  const receipt = await api(key, "GET", `/v1/boards/${b.name}/messages/${posted?.seq}/receipts`);
+  const recipients = receipt.recipients as { member: { name: string } }[];
+  expect(recipients.map((r) => r.member.name).sort()).toEqual([(one.agent as {name: string}).name, (two.agent as {name: string}).name].sort());
+});
+
+});
+
+test.describe("person rename", () => {
+  let oldEnv: typeof env;
+  let renameHome: string;
+  test.beforeAll(async () => {
+    oldEnv = env;
+    renameHome = mkdtempSync(join(tmpdir(), "aboard-web-rename-"));
+    env = { ...env, HOME: renameHome, XDG_CONFIG_HOME: join(renameHome, ".config"), XDG_DATA_HOME: join(renameHome, ".local", "share"), XDG_STATE_HOME: join(renameHome, ".local", "state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}` };
+  });
+  test.afterAll(() => {
+    try { aboard("down"); } finally { env = oldEnv; rmSync(renameHome, { recursive: true, force: true }); }
+  });
+  test("rename updates a loaded historical author and current account", async ({ page }) => {
+    const b = await newBoard("Rename history");
+    const key = ownerKey();
+    const peer = await person("rename-peer");
+    await api(key, "POST", `/v1/boards/${b.name}/people`, { handle: "rename-peer" });
+    await api(peer, "POST", `/v1/boards/${b.name}/messages`, { body: "Original @rename-peer mention stays", to: ["all"] });
+    await openLink(page, JSON.parse(aboard("open", "--board", b.name, "--json")).url);
+    await expect(page.getByText("Original @rename-peer mention stays", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "You are alex. Account and settings" })).toBeVisible();
+    await expect(page.locator(".timeline").getByText("rename-peer", { exact: true }).first()).toBeVisible();
+    await api(peer, "POST", "/v1/people/rename-peer/rename", { handle: "rename-sam" });
+    await expect(page.locator(".timeline").getByText("rename-sam", { exact: true }).first()).toBeVisible();
+    await api(key, "POST", "/v1/people/alex/rename", { handle: "leo" });
+    await expect(page.getByRole("button", { name: "You are leo. Account and settings" })).toBeVisible();
+    await expect(page.getByText("Original @rename-peer mention stays", { exact: true })).toBeVisible();
+    const timeline = page.locator(".timeline");
+    await expect(timeline.getByText("rename-sam", { exact: true }).first()).toBeVisible();
+  });
 });
