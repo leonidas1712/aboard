@@ -136,8 +136,9 @@ than your own machine, so a key never crosses a network unencrypted.
 ```
 $ aboard people
 People on https://team.example.com:
-  alex  admin
-  maya  member  Maya Chen
+  HANDLE  SERVER ROLE  NAME
+  @alex   admin
+  @maya   member       Maya Chen
   sam   guest
 ```
 
@@ -273,8 +274,9 @@ teams'. `aboard servers` lists them, and a `*` marks the default:
 ```
 $ aboard servers
 Servers this machine knows:
-* https://team.example.com  maya  (default)
-  http://127.0.0.1:7400     local
+  SERVER                    LOGIN                DEFAULT
+* https://team.example.com  logged in as @maya   default
+  http://127.0.0.1:7400     local server
 Change the default with: aboard servers use <url|local>
 ```
 
@@ -318,8 +320,9 @@ An access key signs you in as yourself. Each machine keeps one, made by
 
 ```
 $ aboard keys
-Keys of maya on https://team.example.com:
-  maya-laptop  working  last used just now  expires when unused for 2160 hours  agents: 2  (this machine)
+Keys of @maya on https://team.example.com:
+  KEY          STATE    LAST USED  EXPIRES                    USED BY
+  maya-laptop  working  just now   when unused for 90 days   agents: 2  (this machine)
 ```
 
 A machine's key expires after 90 days without use. `aboard keys revoke maya-laptop`

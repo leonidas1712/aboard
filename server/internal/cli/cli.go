@@ -67,6 +67,8 @@ func isTerminal(f *os.File) bool {
 type app struct {
 	env  Env
 	json bool
+	// noColor is set by --no-color, which every command accepts.
+	noColor bool
 	// boardServerFlag is the --server of a person's board command (policy, add, remove,
 	// leave, owner, visibility): the server of the board --board names, in place of the
 	// one this directory's .aboard names. Empty when not given.
@@ -162,6 +164,10 @@ func Run(ctx context.Context, args []string, env Env) int {
 	ctx, stop := exitWith(ctx, env.Getenv(exitWithVar))
 	defer stop()
 	a := &app{env: env, json: wantsJSON(args), started: time.Now()}
+	if slices.Contains(args, "--no-color") {
+		a.noColor = true
+		args = slices.DeleteFunc(slices.Clone(args), func(s string) bool { return s == "--no-color" })
+	}
 	if len(args) == 0 {
 		_, _ = io.WriteString(env.Stderr, overviewText(a.errStyles()))
 		return exitUsage

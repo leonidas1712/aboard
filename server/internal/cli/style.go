@@ -2,6 +2,7 @@ package cli
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
 )
@@ -89,11 +90,47 @@ func styleStatus(text string, st styles) string {
 	return strings.Join(lines, "")
 }
 
+// table lays out rows in aligned columns under a bold header row, indented two spaces.
+// Cells are padded before they are styled, so color never shifts a column. style may be
+// nil; it gets the column, the cell's text and the whole row, and returns the styled
+// text. Trailing spaces are dropped.
+func (s styles) table(header []string, rows [][]string, style func(col int, text string, row []string) string) string {
+	all := append([][]string{header}, rows...)
+	var widths []int
+	for _, r := range all {
+		for i, c := range r {
+			if i >= len(widths) {
+				widths = append(widths, 0)
+			}
+			widths[i] = max(widths[i], utf8.RuneCountInString(c))
+		}
+	}
+	var b strings.Builder
+	for n, r := range all {
+		line := ""
+		for i, c := range r {
+			pad := strings.Repeat(" ", widths[i]-utf8.RuneCountInString(c))
+			switch {
+			case n == 0:
+				c = s.heading(c)
+			case style != nil && c != "":
+				c = style(i, c, r)
+			}
+			if i < len(r)-1 {
+				c += pad + "  "
+			}
+			line += c
+		}
+		b.WriteString("  " + strings.TrimRight(line, " ") + "\n")
+	}
+	return b.String()
+}
+
 // colorOn reports whether output to a stream may be colored: the stream is a terminal,
 // NO_COLOR is unset, the terminal isn't dumb, --json wasn't given, and the command isn't
 // running inside a harness session, where an agent reads the output.
 func (a *app) colorOn(terminal bool) bool {
-	if !terminal || a.json || a.env.Getenv("NO_COLOR") != "" || a.env.Getenv("TERM") == "dumb" {
+	if !terminal || a.json || a.noColor || a.env.Getenv("NO_COLOR") != "" || a.env.Getenv("TERM") == "dumb" {
 		return false
 	}
 	_, in := a.inSession()

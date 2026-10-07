@@ -304,6 +304,38 @@ func TestColorOnlyForAPersonAtATerminal(t *testing.T) {
 	}
 }
 
+// Lists of people, keys and servers have a header row and color for a person at a terminal;
+// NO_COLOR and --no-color remove the color and leave the same words.
+func TestListsAreColoredAtATerminalAndPlainOtherwise(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.run("up")
+	for _, args := range [][]string{{"keys"}, {"servers"}, {"people"}} {
+		plain := e.run(args...).stdout
+		if strings.Contains(plain, "\x1b") || !strings.Contains(plain, "  "+strings.ToUpper(map[string]string{"keys": "key", "servers": "server", "people": "handle"}[args[0]])) {
+			t.Fatalf("aboard %v piped:\n%q", args, plain)
+		}
+		term := e.startTerminal(nil, args...)
+		term.exit()
+		if !strings.Contains(term.raw(), "\x1b[1m") {
+			t.Fatalf("aboard %v at a terminal has no bold header:\n%q", args, term.raw())
+		}
+		if got := strings.ReplaceAll(term.text(), "\r\n", "\n"); got != plain {
+			t.Fatalf("aboard %v: the words differ at a terminal:\n%s\n---\n%s", args, got, plain)
+		}
+		for _, off := range []struct {
+			env  []string
+			args []string
+		}{{[]string{"NO_COLOR=1"}, args}, {nil, append([]string{"--no-color"}, args...)}} {
+			term := e.startTerminal(off.env, off.args...)
+			term.exit()
+			if strings.Contains(term.raw(), "\x1b") {
+				t.Fatalf("%v %v: control sequences:\n%q", off.env, off.args, term.raw())
+			}
+		}
+	}
+}
+
 // aboard uninstall --data asks a person at a terminal before deleting data; the answer
 // starts on No.
 func TestUninstallAsksBeforeDeletingData(t *testing.T) {
