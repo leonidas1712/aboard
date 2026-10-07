@@ -386,6 +386,15 @@ func helpText(templates string) []commandHelp {
 			SeeAlso:     []string{"say", "storage"},
 		},
 		{
+			Name: "brief", Group: groupTalk,
+			Summary:     "Read and update the board's brief",
+			Usage:       []string{briefUsage},
+			Description: "The brief is the board's maintained Markdown or HTML file. Read it with aboard brief; HTML is printed as source. Get it to a local path, edit it, then put that path back. Put sends the exact file identity and version fetched to that path; --base alone cannot authorize a blind overwrite. Stale edits are refused and your local edits stay intact.\n\nThe local extension chooses the format: .md or .markdown stores brief.md; .html or .htm stores brief.html. To switch formats, get the old brief to a local path with the desired extension, edit it, then put it with --replace-format. The old file's history stays in the record. Reads never mark messages read.",
+			Flags:       []helpFlag{{"--base", "N", "Replace this version instead of the remembered version; the fetched file identity is still required."}, {"--replace-format", "", "Replace the other format, keeping its history."}, {"--force", "", "With get, replace a changed local file."}, flagAs, flagBoard, flagJSON},
+			Examples:    []helpExample{{"aboard brief", "Read the brief and its freshness"}, {"aboard brief get status.md", "Fetch the brief to edit"}, {"aboard brief put status.md", "Write the edited version back"}},
+			SeeAlso:     []string{"file", "task"},
+		},
+		{
 			Name: "storage", Group: groupMaintain,
 			Summary:     "Check file bytes or copy a disk store",
 			Usage:       []string{storageUsage},
