@@ -16,6 +16,10 @@
   --color-on-ink: var(--on-ink);
   --color-own: var(--own);
   --color-hover: var(--hover);
+  --color-status-working: var(--status-working);
+  --color-status-needs: var(--status-needs);
+  --color-status-hold: var(--status-hold);
+  --color-status-idle: var(--status-idle);
   --shadow-float: var(--float-shadow);
   --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif;
   --text-meta: 14px;

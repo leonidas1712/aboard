@@ -16,7 +16,7 @@ export function TooltipContent({ className, sideOffset = 6, ...props }: Componen
         sideOffset={sideOffset}
         collisionPadding={12}
         className={cn(
-          "z-50 max-w-[300px] rounded-control border border-rule bg-surface px-3 py-2 text-meta text-ink shadow-float animate-fade-in",
+          "z-50 max-w-[min(300px,calc(100vw-1.5rem))] rounded-control border border-rule bg-surface px-3 py-2 text-meta text-ink shadow-float animate-fade-in",
           className,
         )}
         {...props}

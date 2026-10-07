@@ -322,16 +322,19 @@ func (a *app) uploadLocalFile(ctx context.Context, t target, c *client, local st
 	}
 	if params.Base == nil {
 		base := 0
-		if previous != nil && previous.Name == params.Name {
+		if previous != nil && (previous.Name == params.Name || params.Brief != nil && *params.Brief && params.ReplaceFormat != nil && *params.ReplaceFormat) {
 			base = previous.Version
 		}
 		params.Base = &base
 	}
-	if previous != nil && previous.Name == params.Name {
+	if previous != nil && (previous.Name == params.Name || params.Brief != nil && *params.Brief && params.ReplaceFormat != nil && *params.ReplaceFormat) {
 		params.FileId = &previous.ID
 	}
 	file, err := os.Open(filepath.Clean(local))
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, newError("local_file_not_found", fmt.Sprintf("The local file %q does not exist.", local), "Check the path, or create the file before uploading it.")
+		}
 		return nil, err
 	}
 	defer func() { _ = file.Close() }()

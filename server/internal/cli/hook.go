@@ -255,13 +255,12 @@ func (h hookCall) turnStart(ctx context.Context, wake bool) error {
 	var e *Error
 	if errors.As(err, &e) && e.Code == "invalid_request" {
 		req.Op = delivery.OpPrompt
-		_, err = h.a.callDaemon(ctx, req)
-		return err
+		resp, err = h.a.callDaemon(ctx, req)
 	}
 	if err != nil {
 		return err
 	}
-	text := resp.Bundle
+	text := strings.TrimSpace(resp.Nudge + "\n\n" + resp.Bundle)
 	if !wake {
 		// Never with a wake: the line is quiet, for a turn the person started.
 		text += "\n\n" + h.addedNote(ctx, false)

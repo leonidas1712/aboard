@@ -323,7 +323,7 @@ describe("delivery", () => {
 		let request: Record<string, unknown> | undefined;
 		daemon.onRequest = (conn, req) => {
 			request = req;
-			conn.send({ v: 1, bundle: "Aboard: while you were away, 1 other message arrived on docs." });
+			conn.send({ v: 1, nudge: "Aboard: refresh your brief.", bundle: "Aboard: while you were away, 1 other message arrived on docs." });
 		};
 		const result = (await omp.emit("before_agent_start", { type: "before_agent_start", prompt: "go", systemPrompt: [] }, c)) as
 			| { message?: Record<string, unknown> }
@@ -332,7 +332,7 @@ describe("delivery", () => {
 		expect(request?.boot).toMatch(/^[0-9a-f]{16}$/);
 		expect(result?.message).toMatchObject({
 			customType: "aboard",
-			content: "Aboard: while you were away, 1 other message arrived on docs.",
+			content: "Aboard: refresh your brief.\n\nAboard: while you were away, 1 other message arrived on docs.",
 			display: true,
 		});
 		expect(omp.sent).toHaveLength(0);

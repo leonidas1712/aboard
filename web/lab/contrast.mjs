@@ -48,6 +48,12 @@ const pairs = [
   ["accent", "surface", 3],
   ["field-border", "surface", 3],
 ];
+// An agent's status dot sits on every surface a member list or a task card uses.
+for (const status of ["working", "needs", "hold", "idle"]) {
+  for (const bg of ["surface", "sidebar", "background", "selected"]) pairs.push([`status-${status}`, bg, 3]);
+}
+
+const statusMin = (t) => Math.min(...pairs.filter(([fg]) => fg.startsWith("status-")).map(([fg, bg]) => ratio(t[fg], t[bg])));
 
 let failed = 0;
 const rows = [];
@@ -70,10 +76,10 @@ for (const [name, t] of Object.entries(themes)) {
     }
   }
   rows.push(
-    `| ${name} | ${ratio(t.ink, t.surface).toFixed(1)} | ${ratio(t.muted, t.surface).toFixed(1)} | ${ratio(t.link, t.surface).toFixed(1)} | ${ratio(t.ink, t.attention).toFixed(1)} | ${ratio(t.accent, t.surface).toFixed(1)} | ${idMin.toFixed(1)} | ${worst.length ? worst.join("; ") : "all pass"} |`,
+    `| ${name} | ${ratio(t.ink, t.surface).toFixed(1)} | ${ratio(t.muted, t.surface).toFixed(1)} | ${ratio(t.link, t.surface).toFixed(1)} | ${ratio(t.ink, t.attention).toFixed(1)} | ${ratio(t.accent, t.surface).toFixed(1)} | ${idMin.toFixed(1)} | ${statusMin(t).toFixed(1)} | ${worst.length ? worst.join("; ") : "all pass"} |`,
   );
 }
-console.log("| Scheme | ink/surface | muted/surface | link/surface | ink/attention | accent/surface | identity (lowest) | AA |");
-console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
+console.log("| Scheme | ink/surface | muted/surface | link/surface | ink/attention | accent/surface | identity (lowest) | status (lowest) | AA |");
+console.log("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
 for (const r of rows) console.log(r);
 process.exit(failed ? 1 : 0);

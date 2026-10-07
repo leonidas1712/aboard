@@ -5,6 +5,12 @@ import "./globals.css";
 export const metadata: Metadata = { title: "aboard" };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // The page draws to the screen's edges and keeps its controls inside the safe areas;
+  // the on-screen keyboard shrinks the page, so the message box stays above it.
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbfcfc" },
     { media: "(prefers-color-scheme: dark)", color: "#14212a" },

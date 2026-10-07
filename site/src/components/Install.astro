@@ -1,0 +1,16 @@
+---
+import { INSTALL_COMMAND } from "../site";
+
+interface Props {
+  id: string;
+}
+const { id } = Astro.props;
+---
+<div class="install">
+  <code class="install-cmd" id={id} tabindex="0" aria-label="Install command"><span class="prompt" aria-hidden="true">$</span><span data-cmd>{INSTALL_COMMAND}</span></code>
+  <button class="install-copy" type="button" data-copy={INSTALL_COMMAND} aria-describedby={id}>
+    <svg class="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.2" /><path d="M15.5 8.5V6.7c0-1.2-1-2.2-2.2-2.2H6.7c-1.2 0-2.2 1-2.2 2.2v6.6c0 1.2 1 2.2 2.2 2.2h1.8" /></svg>
+    <svg class="i-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+    <span data-label>Copy</span>
+  </button>
+</div>
