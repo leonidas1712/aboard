@@ -1238,7 +1238,7 @@ func newConversation(t *testing.T, st board.Store) conversation {
 			seq := int64(i + 1)
 			m := board.Message{
 				ID: fmt.Sprintf("msg_%d", seq), BoardID: b.ID, Seq: seq, At: at, SenderID: p.from.ID, To: []string{p.to},
-				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{}, Mentions: []board.Mention{},
+				Body: fmt.Sprintf("message %d", seq), Redactions: []board.Redaction{}, Mentions: []board.Mention{}, About: []board.TaskTag{},
 				SenderName: p.from.Name, SenderKind: p.from.Kind, SenderRole: p.from.Role, SenderOwner: p.from.Owner, SenderHuman: p.from.HumanID,
 				SenderHarness: p.from.Harness, AgentOwners: 1, // every agent here is alex's
 			}
@@ -1424,7 +1424,7 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 	c := newConversation(t, st)
 	want := board.Message{
 		ID: "msg_6", BoardID: "brd_docs", Seq: 6, At: at, SenderID: c.writer.ID, To: []string{"@reviewer", "role:reviewer"},
-		Body: "Fixed, see notes.", ReplyTo: ptr("msg_2"), Urgent: true, ExpectsReply: true,
+		About: []board.TaskTag{}, Body: "Fixed, see notes.", ReplyTo: ptr("msg_2"), Urgent: true, ExpectsReply: true,
 		Redactions: []board.Redaction{{Kind: "github_token", Count: 2}}, Recipients: []string{c.reviewer.ID},
 		Mentions: []board.Mention{
 			{MemberID: c.reviewer.ID, Kind: "agent", Name: "reviewer", Text: "@reviewer", Wakes: true},
@@ -1455,6 +1455,9 @@ func messageByIDFillsSenderAndReply(t *testing.T, st board.Store) {
 		}
 		// A message stored without redactions reads back with an empty list, not nil, so
 		// it is shown as [] rather than null.
+		if got.About == nil || len(got.About) != 0 {
+			t.Errorf("task tags of a message stored without any = %#v, want an empty list", got.About)
+		}
 		if got.Mentions == nil || len(got.Mentions) != 0 {
 			t.Errorf("mentions of a message stored without any = %#v, want an empty list", got.Mentions)
 		}

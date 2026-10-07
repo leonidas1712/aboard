@@ -364,6 +364,9 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 	case extra["from_server"] == true:
 		by = RemovedByAdmin
 	}
+	if err := s.dropSeatTasks(tx, b, m.ID, actor, now); err != nil {
+		return nil, err
+	}
 	theirs := map[string]bool{}
 	agents := []string{}
 	for _, x := range members {
@@ -371,6 +374,11 @@ func (s *Service) takeOff(tx Tx, b *Board, m Member, status, typ string, actor e
 			continue
 		}
 		theirs[x.ID] = true
+		if x.Status == StatusActive {
+			if err := s.dropSeatTasks(tx, b, x.ID, actor, now); err != nil {
+				return nil, err
+			}
+		}
 		if x.Kind == "agent" && x.Status == StatusActive {
 			if err := tx.RemoveAgent(x.ID, stamp(now), by); err != nil {
 				return nil, err

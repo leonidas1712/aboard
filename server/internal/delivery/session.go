@@ -358,6 +358,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		// The session-start hook prints the note before the session's first turn, which
 		// is when the messages that waited arrive.
 		ok.Mode, ok.Note = s.startNote(reopened, true)
+		ok.Note = s.taskStartNote(ctx, ok.Note)
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt, OpTurnStart:

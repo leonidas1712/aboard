@@ -8,20 +8,23 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 // seatRow is one of a session's seats as aboard status lists them (cli.yaml, Seat):
 // keyed by member id, with its board and name for display, and what its server says of
 // it, read with its own token.
 type seatRow struct {
-	Server   string  `json:"server"`
-	Board    string  `json:"board"`
-	Name     string  `json:"name"`
-	MemberID string  `json:"member_id"`
-	Role     *string `json:"role"`
-	Delivery string  `json:"delivery"`
-	Unread   *int    `json:"unread"`
-	Presence *string `json:"presence,omitempty"`
+	Server   string               `json:"server"`
+	Board    string               `json:"board"`
+	Name     string               `json:"name"`
+	MemberID string               `json:"member_id"`
+	Role     *string              `json:"role"`
+	Delivery string               `json:"delivery"`
+	Unread   *int                 `json:"unread"`
+	Presence *string              `json:"presence,omitempty"`
+	Work     *api.AgentWork       `json:"work,omitempty"`
+	Nudges   []deliverytext.Nudge `json:"nudges,omitempty"`
 }
 
 // sessionSeats reads each of a session's seats from its server with the seat's own
@@ -70,6 +73,11 @@ func (a *app) readSeat(ctx context.Context, cred agentCredential, row *seatRow) 
 			}
 		}
 	}
+	in := c.taskInbox(ctx)
+	if in != nil {
+		row.Work = in.Work
+	}
+	row.Nudges = a.taskNudges(ctx, c, delivery.AgentRef{Server: cred.Server, Board: cred.Board, MemberID: cred.MemberID}, in, "status", true)
 	if b, err := c.api.ListBoardsWithResponse(ctx, &api.ListBoardsParams{}); err == nil && b.JSON200 != nil {
 		for _, x := range b.JSON200.Boards {
 			if x.Name == cred.Board {
@@ -101,6 +109,9 @@ func seatsText(server string, rows []seatRow) (text string, usage []string) {
 			cols = append(cols, fmt.Sprintf("%d unread", *r.Unread))
 		}
 		b.WriteString("          " + strings.TrimRight(strings.Join(cols, "  "), " ") + "\n")
+		for _, n := range r.Nudges {
+			b.WriteString("          " + n.Text + "\n")
+		}
 	}
 	usage = []string{
 		fmt.Sprintf("Commands that act on one board need --board, such as aboard say --board %s \"…\".", rows[0].Board),

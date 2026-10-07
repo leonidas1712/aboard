@@ -2034,3 +2034,55 @@ test("a board owner removes another person's agent from the panel, and Show remo
   await panel.getByRole("button", { name: "Show removed" }).click();
   await expect(panel.locator(`[data-removed-agent="${agent}"]`)).toContainText("removed by an owner");
 });
+
+test("tasks connect the Work panel, task view and conversation", async ({ page }) => {
+  const board = await newBoard("Task UI check");
+  const task = await api(ownerKey(), "POST", `/v1/boards/${board.name}/tasks`, { title: "Review the quickstart", about: "Check the fresh-machine path." });
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/messages`, { body: "The fresh setup needs a review.", to: ["all"], about: [task.ref] });
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/messages`, { body: "An unrelated note.", to: ["all"] });
+  await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
+  await expect(page.getByRole("button", { name: `Open task ${task.ref}`, exact: true }).first()).toBeVisible();
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await expect(page.getByRole("region", { name: "Not picked up", exact: true })).toContainText("Review the quickstart");
+  await page.getByRole("button", { name: `Open task ${task.ref}`, exact: true }).first().click();
+  const detail = page.getByRole("region", { name: `Task ${task.ref}`, exact: true });
+  await expect(detail).toContainText("Check the fresh-machine path.");
+  await expect(detail).toContainText("Where it stands");
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/tasks/${task.ref}/start`, {});
+  await api(ownerKey(), "PATCH", `/v1/boards/${board.name}/tasks/${task.ref}`, { stands: "Checking the clean setup next.", stands_base: 0 });
+  await expect(detail).toContainText("Checking the clean setup next.");
+  if (process.env.TASK_UI_QA) {
+    for (const theme of ["Light", "Dark"]) {
+      await page.getByRole("button", { name: /^You are alex/ }).click();
+      await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
+      for (const [device, size] of [["desktop", { width: 1440, height: 1000 }], ["mobile", { width: 390, height: 844 }]] as const) {
+        await page.setViewportSize(size);
+        await page.screenshot({ path: `${process.env.TASK_UI_QA}/tasks-${device}-${theme.toLowerCase()}.png`, fullPage: true, animations: "disabled" });
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  await detail.getByRole("button", { name: "Show conversation" }).click();
+  await expect(page.getByText(`Narrowed to ${task.ref}`, { exact: false })).toBeVisible();
+  await expect(page.getByText("The fresh setup needs a review.", { exact: true })).toBeVisible();
+  await expect(page.getByText("An unrelated note.", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show everything" }).click();
+  await expect(page.getByText("An unrelated note.", { exact: true })).toBeVisible();
+});
+
+
+test("messages in a hidden conversation stay unread while the person looks at tasks", async ({ page }) => {
+  const board = await newBoard("Hidden task conversation");
+  const pat = await person("pat");
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/people`, { handle: "pat" });
+  const task = await api(ownerKey(), "POST", `/v1/boards/${board.name}/tasks`, { title: "Check the record" });
+  await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "A new note while you look at tasks.", to: ["all"], about: [task.ref] });
+  await expect(page.getByRole("tabpanel").getByText("1 message · 1 thread", { exact: true })).toBeVisible();
+  expect(unreadOn(board.name)).toBe(1);
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeHidden();
+  await page.getByRole("tab", { name: "Conversation", exact: true }).click();
+  await expect(page.getByText("A new note while you look at tasks.", { exact: true })).toBeVisible();
+  await expect.poll(() => unreadOn(board.name)).toBe(0);
+});

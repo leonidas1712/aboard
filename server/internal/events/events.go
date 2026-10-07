@@ -16,6 +16,13 @@ var GenesisHash = "sha256:" + strings.Repeat("0", 64)
 
 // Event types written to the log.
 const (
+	BoardTaskPrefixSet          = "board.task_prefix_set"
+	TaskCreated                 = "task.created"
+	TaskStarted                 = "task.started"
+	TaskJoined                  = "task.joined"
+	TaskUpdated                 = "task.updated"
+	TaskDone                    = "task.done"
+	TaskDropped                 = "task.dropped"
 	BoardCreated                = "board.created"
 	BoardArchived               = "board.archived"
 	BoardRestored               = "board.restored"

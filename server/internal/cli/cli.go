@@ -128,6 +128,7 @@ func commands() []command {
 		{"people", runPeople},
 		{"servers", runServers},
 		{"say", runSay},
+		{"task", runTask},
 		{"inbox", runInbox},
 		{"read", runRead},
 		{"react", runReact},
@@ -193,6 +194,9 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return code
 	}
 	e := usageError(fmt.Sprintf("%q is not an aboard command.", args[0]), "")
+	if args[0] == "tasks" {
+		e.Hint = "Run aboard task list."
+	}
 	e.Hint = "Run aboard help to see the commands."
 	return a.report(e)
 }

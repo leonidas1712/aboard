@@ -67,11 +67,17 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	}
 	if *serverFlag != "" {
 		switch pos[0] {
-		case "policy", "add", "remove", "leave", "owner", "visibility", "agents-add-people":
+		case "policy", "add", "remove", "leave", "owner", "visibility", "agents-add-people", "prefix":
 			a.boardServerFlag = *serverFlag
 		default:
 			return usageError("--server works only with new, policy, add, remove, leave, owner and visibility.", boardUsage)
 		}
+	}
+	if pos[0] == "prefix" {
+		if len(pos) != 2 || *yes {
+			return usageError("Name the prefix: aboard board prefix CHK.", boardUsage)
+		}
+		return runBoardPrefix(ctx, a, *boardFlag, *as, pos[1])
 	}
 	onePerson := func() (string, error) {
 		if len(pos) != 2 || handleArg(pos[1]) == "" {

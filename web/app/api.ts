@@ -48,6 +48,8 @@ export type Board = {
   can_archive?: boolean;
   can_restore?: boolean;
   can_delete?: boolean;
+  task_prefix?: string | null;
+  tasks_open?: number;
   /** added is set while someone else's add of this person to the board is new to them: no agent of theirs has joined since and they haven't read past it. */
   added?: BoardAdded;
 };
@@ -167,6 +169,7 @@ export type Message = {
   from: MemberRef;
   to: string[];
   body: string;
+  about?: TaskTag[];
   reply_to: string | null;
   reply_to_seq: number | null;
   /** thread_root is the first message of the reply's thread; null for a message that replies to nothing. */
@@ -625,4 +628,26 @@ async function readEvents(body: ReadableStream<Uint8Array>, onChunk: () => void,
       }
     }
   }
+}
+
+export type TaskTag = { id: string; ref: string; how: "given" | "thread" | "current" | "named" };
+export type TaskText = { text: string; by: MemberRef; at: string; version: number; messages_since?: number };
+export type Task = {
+  id: string; ref: string; number: number; board: string; title: string;
+  about: TaskText | null; stands: TaskText | null;
+  state: "open" | "in_progress" | "done" | "cancelled";
+  owner: MemberRef | null; with: MemberRef[];
+  blocked: boolean; blocked_count: number;
+  blocked_on: { ask_id: string; ask_seq: number; to: MemberRef; since: string }[];
+  opened_by: MemberRef; opened_at: string; updated_at: string;
+  closed_at?: string | null; closed_note?: string | null;
+  message_count: number; thread_count: number;
+};
+export type TaskList = { board: string; tasks: Task[]; counts: Record<Task["state"] | "blocked", number>; more: boolean };
+
+export function listTasks(board: string): Promise<TaskList> {
+  return get(`/v1/boards/${encodeURIComponent(board)}/tasks`, { state: "all", limit: 200 });
+}
+export function getTask(board: string, task: string): Promise<Task> {
+  return get(`/v1/boards/${encodeURIComponent(board)}/tasks/${encodeURIComponent(task)}`);
 }

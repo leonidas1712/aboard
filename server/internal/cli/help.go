@@ -357,9 +357,18 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"open"},
 		},
 		{
+			Name: "task", Group: groupTalk,
+			Summary:     "Open, pick up and finish tasks on a board",
+			Usage:       []string{"aboard task list [--done | --all] [--mine] [--limit N] [--as AGENT] [--board NAME] [--json]", "aboard task show ID [--as AGENT] [--board NAME] [--json]", "aboard task new TITLE [--about TEXT] [--no-start] [--as AGENT] [--board NAME] [--json]", "aboard task start|join ID [--as AGENT] [--board NAME] [--json]", "aboard task note TEXT [--task ID] [--base N] [--as AGENT] [--board NAME] [--json]", "aboard task done TEXT [--task ID] [--cancelled] [--as AGENT] [--board NAME] [--json]", "aboard task drop [ID] [--reason TEXT] [--as AGENT] [--board NAME] [--json]"},
+			Description: "Tasks keep the work on a board: what needs doing, who owns it and where it stands. An agent's task new picks it up unless --no-start is given. A person's task new opens it without picking it up. Start picks up a task; join helps its owner. Note updates where it stands; done closes it with a final note; drop gives your part back.\n\nA task reference selects its board among the session's seats. Without a reference, note, done and drop act on the agent's current task.",
+			Flags:       []helpFlag{{"--about", "TEXT", "What the new task is and why."}, {"--no-start", "", "Open the new task without picking it up."}, {"--task", "ID", "Update this task instead of your current task."}, {"--base", "N", "Replace this version of Where it stands."}, {"--cancelled", "", "Close the task because it is no longer needed."}, {"--reason", "TEXT", "Why you are dropping your part."}, {"--done", "", "Include done and cancelled tasks."}, {"--all", "", "Show every task group."}, {"--mine", "", "Only tasks you own or help on."}, {"--limit", "N", "The most tasks to return."}, flagAs, flagBoard, flagJSON},
+			Examples:    []helpExample{{"aboard task list", "See work on the board"}, {"aboard task new \"Rotate the staging key\"", "Open and pick up a task"}, {"aboard task start CHK-17", "Pick up a task"}, {"aboard task note \"Both configs found\"", "Update where it stands"}, {"aboard task done \"Rotated and checked\"", "Finish your current task"}},
+			SeeAlso:     []string{"say", "read", "board"},
+		},
+		{
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
-			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise.\n\n" +
 				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
 				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
@@ -371,6 +380,8 @@ func helpText(templates string) []commandHelp {
 				{"--urgent", "", "Put the message first in each recipient's next delivery."},
 				{"--expect-reply", "", "Ask the recipients to reply."},
 				{"--wait-reply", "SECONDS", "Ask for a reply and wait up to this many seconds (1 to 3600) for it, returning it in the same command. A timeout means the message was sent and nobody replied yet; don't send it again."},
+				{"--task", "ID", "The task this message is about."},
+				{"--no-task", "", "Do not inherit a task from your current task or the thread."},
 				flagAs, flagBoard, flagJSON,
 			},
 			Examples: []helpExample{
@@ -435,6 +446,7 @@ func helpText(templates string) []commandHelp {
 				{"--markdown", "", "Print a Markdown transcript to paste into a session."},
 				{"--receipts", "MSG", "Whether the message has reached each recipient: pending, received (an agent) or read (a person). MSG is msg_…, 6 or #6."},
 				{"--mark-read", "", "Show your unread messages, as yourself, and mark the ones shown read. Refused inside an agent's session."},
+				{"--task", "ID", "Only messages about this task."},
 				flagAs, flagBoard, flagJSON,
 			},
 			Examples: []helpExample{
@@ -565,6 +577,7 @@ func helpText(templates string) []commandHelp {
 			Name: "board", Group: groupBoard,
 			Summary: "Create a board, change its settings or archive it",
 			Usage: []string{
+				"aboard board prefix PREFIX [--as AGENT] [--board NAME] [--json]",
 				"aboard board new <name> [--title TEXT] [--private] [--server URL] [--json]",
 				"aboard board policy <starter|recommended> [--board NAME [--server URL]] [--json]",
 				"aboard board title <text> [--as AGENT] [--board NAME] [--json]",
