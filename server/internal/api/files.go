@@ -26,7 +26,7 @@ func fileOf(f board.File) map[string]any {
 }
 
 func (h *handlers) PutFile(ctx context.Context, req PutFileRequestObject) (PutFileResponseObject, error) {
-	in := board.NewFile{FileID: req.Params.FileId, Name: req.Params.Name, Maintained: req.Params.Maintained, About: req.Params.About, Body: req.Body}
+	in := board.NewFile{Brief: req.Params.Brief != nil && *req.Params.Brief, ReplaceFormat: req.Params.ReplaceFormat != nil && *req.Params.ReplaceFormat, FileID: req.Params.FileId, Name: req.Params.Name, Maintained: req.Params.Maintained, About: req.Params.About, Body: req.Body}
 	if req.Params.Base != nil {
 		in.Base = *req.Params.Base
 	}

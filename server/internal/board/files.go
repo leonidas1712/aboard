@@ -122,13 +122,14 @@ func resolveFileRefs(tx ReadTx, b Board, selectors []FileSelector) ([]FileRef, e
 
 // NewFile carries upload bytes and the version the caller intends to replace.
 type NewFile struct {
-	FileID     *string
-	Name       string
-	Base       int
-	Maintained *bool
-	About      *[]string
-	MediaType  string
-	Body       io.Reader
+	Brief, ReplaceFormat bool
+	FileID               *string
+	Name                 string
+	Base                 int
+	Maintained           *bool
+	About                *[]string
+	MediaType            string
+	Body                 io.Reader
 }
 
 func fileError(status int, code, text string) error {
@@ -155,11 +156,14 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 	if !validFileName(in.Name) {
 		return out, fileError(400, "invalid_request", "Use a relative file path without traversal.")
 	}
-	if in.Name == "brief.md" || in.Name == "brief.html" {
+	if isBriefName(in.Name) && !in.Brief {
 		return out, fileError(409, "brief_path_reserved", "The brief path is reserved.")
 	}
 	if s.cfg.Blobs == nil {
 		return out, fileError(501, "not_implemented", "This server has no blob store.")
+	}
+	if (in.Brief && !isBriefName(in.Name)) || (in.ReplaceFormat && !in.Brief) {
+		return out, fileError(400, "invalid_request", "Brief writes need brief.md or brief.html.")
 	}
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, me, err := s.access(tx, p, name)
@@ -172,19 +176,46 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 		if me.Kind == "agent" && (me.Role == nil || !b.Roles[*me.Role].Has(rules.UploadFiles)) {
 			return fileError(403, "forbidden", "Your role cannot upload files.")
 		}
+		var replaced *File
+		if in.Brief {
+			active, err := activeBrief(tx, b)
+			if err != nil {
+				return err
+			}
+			if active != nil {
+				if active.Name != in.Name && !in.ReplaceFormat {
+					return apierr.New(409, "brief_exists", "The board already has a brief in another format.", "Get the brief, then put it with --replace-format.")
+				}
+				latest := active.Versions[len(active.Versions)-1]
+				if in.FileID == nil || *in.FileID != active.ID || in.Base != latest.Version {
+					e := apierr.New(409, "file_changed", "The brief changed since you fetched it.", "Get the latest brief before writing again.")
+					by, err := tx.MemberByID(latest.ByID)
+					if err != nil {
+						return err
+					}
+					e.Details = map[string]any{"version": latest.Version, "by": map[string]any{"name": by.Name, "kind": by.Kind, "owner": by.Owner, "role": by.Role}, "at": latest.At}
+					return e
+				}
+				if active.Name != in.Name {
+					replaced = active
+				}
+			} else if in.FileID != nil || in.Base != 0 {
+				return fileError(409, "file_changed", "The brief was removed or replaced since you fetched it.")
+			}
+		}
 		out, err = tx.FileByName(b.ID, in.Name)
 		fresh := errors.Is(err, ErrNotFound)
 		if err != nil && !fresh {
 			return err
 		}
-		if in.FileID != nil && (fresh || out.ID != *in.FileID) {
+		if replaced == nil && in.FileID != nil && (fresh || out.ID != *in.FileID) {
 			return fileError(409, "file_changed", "The file was removed or replaced since you fetched it.")
 		}
 		latest := 0
 		if !fresh {
 			latest = out.Versions[len(out.Versions)-1].Version
 		}
-		if latest != in.Base {
+		if replaced == nil && latest != in.Base {
 			code := "file_changed"
 			if in.Base == 0 {
 				code = "file_exists"
@@ -221,6 +252,9 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 				out.About = append(out.About, taskRef(t))
 			}
 		}
+		if in.Brief {
+			out.Maintained = true
+		}
 		media := in.MediaType
 		if media == "" {
 			media = mime.TypeByExtension(path.Ext(in.Name))
@@ -249,11 +283,22 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 		for _, t := range out.About {
 			ids = append(ids, t.ID)
 		}
-		e, err := s.append(tx, &b, "file.version_added", actorOf(me), now, map[string]any{"file_id": out.ID, "name": out.Name, "version": latest + 1, "digest": blob.Digest, "size": blob.Size, "media_type": media, "base_version": in.Base, "maintained": out.Maintained, "about": ids})
+		base := in.Base
+		if replaced != nil {
+			if _, err := s.append(tx, &b, "file.removed", actorOf(me), now, map[string]any{"file_id": replaced.ID, "name": replaced.Name}); err != nil {
+				return err
+			}
+			replaced.Removed = true
+			if err := tx.SaveFile(*replaced); err != nil {
+				return err
+			}
+			base = 0
+		}
+		e, err := s.append(tx, &b, "file.version_added", actorOf(me), now, map[string]any{"file_id": out.ID, "name": out.Name, "version": latest + 1, "digest": blob.Digest, "size": blob.Size, "media_type": media, "base_version": base, "maintained": out.Maintained, "about": ids})
 		if err != nil {
 			return err
 		}
-		out.Versions = append(out.Versions, FileVersion{Version: latest + 1, Base: in.Base, Digest: blob.Digest, Size: blob.Size, MediaType: media, ByID: me.ID, By: me, At: e.At, Seq: e.Seq})
+		out.Versions = append(out.Versions, FileVersion{Version: latest + 1, Base: base, Digest: blob.Digest, Size: blob.Size, MediaType: media, ByID: me.ID, By: me, At: e.At, Seq: e.Seq})
 		return tx.SaveFile(out)
 	})
 	if err == nil {
@@ -527,4 +572,31 @@ func (s *Service) FileBytes(ctx context.Context, p Principal, name, selector, ve
 	v := f.Versions[n-1]
 	r, err := s.cfg.Blobs.Open(ctx, v.Digest)
 	return v, f.Name, r, err
+}
+
+func isBriefName(name string) bool { return name == "brief.md" || name == "brief.html" }
+
+func activeBrief(tx ReadTx, b Board) (*File, error) {
+	for _, name := range []string{"brief.md", "brief.html"} {
+		f, err := tx.FileByName(b.ID, name)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &f, nil
+	}
+	return nil, nil
+}
+
+func projectBrief(tx ReadTx, b Board, me Member) (*File, error) {
+	f, err := activeBrief(tx, b)
+	if err != nil || f == nil {
+		return f, err
+	}
+	if err := projectFile(tx, b, me, f); err != nil {
+		return nil, err
+	}
+	return f, nil
 }

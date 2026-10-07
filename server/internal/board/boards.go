@@ -18,6 +18,7 @@ import (
 
 // View is a board with the member who created it, as one caller sees it.
 type View struct {
+	Brief                             *File
 	AsksToMe                          *AskCounts
 	CanArchive, CanRestore, CanDelete bool
 	Board                             Board
@@ -428,6 +429,10 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 		}
 		v.OnBoard = on
 		if on {
+			v.Brief, err = projectBrief(tx, b, me)
+			if err != nil {
+				return err
+			}
 			pos, err := positionOf(tx, me, readsAll(b, me))
 			if err != nil {
 				return err
