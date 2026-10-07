@@ -39,8 +39,15 @@ func (t *tx) InsertMessage(m board.Message) error {
 	if err != nil {
 		return fmt.Errorf("encode mentions: %w", err)
 	}
-	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json, recipients_json, mentions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red), recipients, string(men)); err != nil {
+	if m.About == nil {
+		m.About = []board.TaskTag{}
+	}
+	about, err := json.Marshal(m.About)
+	if err != nil {
+		return fmt.Errorf("encode task tags: %w", err)
+	}
+	if err := t.exec("INSERT INTO messages (id, board_id, seq, at, sender_id, to_json, body, reply_to, thread_root, urgent, expects_reply, redactions_json, recipients_json, mentions_json, about_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		m.ID, m.BoardID, m.Seq, m.At, m.SenderID, string(to), m.Body, m.ReplyTo, m.ThreadRoot, m.Urgent, m.ExpectsReply, string(red), recipients, string(men), string(about)); err != nil {
 		return err
 	}
 	return t.exec("UPDATE boards SET message_count = message_count + 1, last_message_at = ? WHERE id = ?", m.At, m.BoardID)
@@ -49,17 +56,18 @@ func (t *tx) InsertMessage(m board.Message) error {
 const messageSelect = `SELECT m.id, m.board_id, m.seq, m.at, m.sender_id, m.to_json, m.body, m.reply_to,
 	m.urgent, m.expects_reply, m.redactions_json, m.mentions_json, s.name, s.kind, s.role, s.owner, s.human_id, s.harness, r.seq,
 	m.thread_root, tr.seq, rs.name, m.recipients_json,
-	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent')
+	(SELECT COUNT(DISTINCT o.human_id) FROM members o WHERE o.board_id = m.board_id AND o.kind = 'agent'), m.about_json
 	FROM messages m JOIN members s ON s.id = m.sender_id LEFT JOIN messages r ON r.id = m.reply_to
 	LEFT JOIN members rs ON rs.id = r.sender_id LEFT JOIN messages tr ON tr.id = m.thread_root`
 
 // addressedTo is a SQL condition matching messages whose targets include all, @name or
-// role:R. It takes the @name and role:R strings as parameters.
+// role:R, or owner:handle with its recorded recipient ID. Parameters are @name,
+// role:R and the reader ID.
 var addressedTo = addressedToAs("m")
 
 // addressedToAs is addressedTo for the messages table under another alias.
 func addressedToAs(alias string) string {
-	return `EXISTS (SELECT 1 FROM json_each(` + alias + `.to_json) WHERE value IN ('all', ?, ?))`
+	return `(EXISTS (SELECT 1 FROM json_each(` + alias + `.to_json) WHERE value IN ('all', ?, ?)) OR (EXISTS (SELECT 1 FROM json_each(` + alias + `.to_json) WHERE value LIKE 'owner:%') AND EXISTS (SELECT 1 FROM json_each(` + alias + `.recipients_json) WHERE value = ?)))`
 }
 
 func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
@@ -71,15 +79,18 @@ func (t *tx) queryMessages(where string, args ...any) ([]board.Message, error) {
 	var out []board.Message
 	for rows.Next() {
 		var m board.Message
-		var to, red, men string
+		var to, red, men, about string
 		var recipients *string
 		if err := rows.Scan(&m.ID, &m.BoardID, &m.Seq, &m.At, &m.SenderID, &to, &m.Body, &m.ReplyTo,
 			&m.Urgent, &m.ExpectsReply, &red, &men, &m.SenderName, &m.SenderKind, &m.SenderRole, &m.SenderOwner, &m.SenderHuman, &m.SenderHarness, &m.ReplyToSeq,
-			&m.ThreadRoot, &m.ThreadRootSeq, &m.ReplyToFrom, &recipients, &m.AgentOwners); err != nil {
+			&m.ThreadRoot, &m.ThreadRootSeq, &m.ReplyToFrom, &recipients, &m.AgentOwners, &about); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(men), &m.Mentions); err != nil {
 			return nil, fmt.Errorf("decode mentions: %w", err)
+		}
+		if err := json.Unmarshal([]byte(about), &m.About); err != nil {
+			return nil, fmt.Errorf("decode task tags: %w", err)
 		}
 		if recipients != nil {
 			if err := json.Unmarshal([]byte(*recipients), &m.Recipients); err != nil {
@@ -117,11 +128,15 @@ func (t *tx) Timeline(boardID string, reader board.Member, readAll bool, q board
 	name, role := targetsOf(reader)
 	where := []string{"m.board_id = ?", "m.seq > ?"}
 	args := []any{boardID, q.After}
+	if q.TaskID != "" {
+		where = append(where, "EXISTS (SELECT 1 FROM json_each(m.about_json) WHERE json_extract(value, '$.id') = ?)")
+		args = append(args, q.TaskID)
+	}
 	if q.Before > 0 {
 		where, args = append(where, "m.seq < ?"), append(args, q.Before)
 	}
 	if !readAll {
-		where, args = append(where, "(m.sender_id = ? OR "+addressedTo+")"), append(args, reader.ID, name, role)
+		where, args = append(where, "(m.sender_id = ? OR "+addressedTo+")"), append(args, reader.ID, name, role, reader.ID)
 	}
 	if q.FromID != "" {
 		where, args = append(where, "m.sender_id = ?"), append(args, q.FromID)
@@ -130,7 +145,7 @@ func (t *tx) Timeline(boardID string, reader board.Member, readAll bool, q board
 		where, args = append(where, "s.role = ?"), append(args, q.SenderRole)
 	}
 	if q.ToMe {
-		where, args = append(where, "m.sender_id <> ? AND "+addressedTo), append(args, reader.ID, name, role)
+		where, args = append(where, "m.sender_id <> ? AND "+addressedTo), append(args, reader.ID, name, role, reader.ID)
 	}
 	order := "m.seq"
 	if q.Newest {
@@ -150,7 +165,7 @@ func (t *tx) Inbox(reader board.Member, mentions bool, limit int) ([]board.Messa
 	return t.queryMessages("m.board_id = ? AND m.seq > ? AND m.sender_id <> ? AND ("+addressedTo+
 		" OR (? AND EXISTS (SELECT 1 FROM json_each(m.mentions_json) WHERE json_extract(value, '$.id') = ? AND json_extract(value, '$.wakes'))))"+
 		" ORDER BY m.seq LIMIT ?",
-		reader.BoardID, reader.Cursor, reader.ID, name, role, mentions, reader.ID, limit)
+		reader.BoardID, reader.Cursor, reader.ID, name, role, reader.ID, mentions, reader.ID, limit)
 }
 
 // CountUnread counts the same unread messages as Inbox for an agent, or every message
@@ -160,7 +175,7 @@ func (t *tx) CountUnread(reader board.Member, addressedOnly, mentions bool) (int
 	if addressedOnly {
 		name, role := targetsOf(reader)
 		where += " AND (" + addressedTo + " OR (? AND EXISTS (SELECT 1 FROM json_each(m.mentions_json) WHERE json_extract(value, '$.id') = ? AND json_extract(value, '$.wakes'))))"
-		args = append(args, name, role, mentions, reader.ID)
+		args = append(args, name, role, reader.ID, mentions, reader.ID)
 	}
 	var n int64
 	err := t.tx.QueryRowContext(t.ctx, "SELECT COUNT(*) FROM messages m WHERE "+where, args...).Scan(&n)
@@ -189,7 +204,7 @@ func visibleAs(alias string, reader board.Member, readAll bool) (cond string, ar
 		return "1", nil
 	}
 	name, role := targetsOf(reader)
-	return "(" + alias + ".sender_id = ? OR " + addressedToAs(alias) + ")", []any{reader.ID, name, role}
+	return "(" + alias + ".sender_id = ? OR " + addressedToAs(alias) + ")", []any{reader.ID, name, role, reader.ID}
 }
 
 // in returns "(?, ?, …)" for n parameters, and the values as arguments.

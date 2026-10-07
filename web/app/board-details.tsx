@@ -2,15 +2,16 @@
 
 // The facts about a board and adding an agent to it, both in the board panel. Details
 // shows the board's name, id, server, policy and when it was made, copies them as plain
-// text, and says whether the record verifies. AddAgent creates a join code as the
-// person and shows the prompt to paste into the agent's session, the same one
-// `aboard invite` prints.
+// text, and says whether the record verifies. AddAgent shows the prompt to paste into
+// the agent's session: on the local server a join code it creates as the person, the
+// same prompt `aboard invite` prints; on a team server `aboard join --board`, which a
+// person's own agents use with no code.
 
 import { Check, Copy, ShieldAlert, ShieldCheck, UserPlus, X } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type Board, post } from "./api";
+import { type Board, get, post } from "./api";
 import { Problem } from "./chrome";
 import { problemText } from "./record";
 import type { RecordCheck } from "./use-board";
@@ -19,6 +20,18 @@ import { policyName } from "./words";
 /** invitePrompt is the sentence under the join line; `aboard invite` prints the same. */
 export const invitePrompt =
   "You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board.";
+
+/** joinPrompt is the sentence under the join command a team server's prompt gives. */
+export const joinPrompt =
+  "You have the Aboard skill. Run this command to join, read the charter in the join output, then say hello on the board.";
+
+/**
+ * joinCommand is the command a person's own agent runs to join a board on a team
+ * server: no code, since the agent joins through its person's machine.
+ */
+export function joinCommand(board: string, role: string, server: string): string {
+  return `aboard join --board ${board}${role === "member" ? "" : ` --role ${role}`} --server ${server}`;
+}
 
 type JoinCode = { join_line: string; role: string; expires_at: string };
 
@@ -112,15 +125,18 @@ function RecordLine({ record }: { record: RecordCheck }) {
 }
 
 /**
- * AddAgent is a button that creates a join code for the board's member role (or its
- * first role) and shows the prompt to paste. When the board has more than one role, a
- * picker beside the prompt changes the role, which makes a new code.
+ * AddAgent is a button that shows the prompt to paste into an agent's session, for the
+ * board's member role (or its first role). On the local server it creates a join code;
+ * on a team server the person's own agents need none, so the prompt is the
+ * `aboard join --board` command naming the server. When the board has more than one
+ * role, a picker beside the prompt changes the role, which makes a new code.
  */
 export function AddAgent({ board }: { board: Board }) {
   const roles = Object.keys(board.roles).sort((a, b) => (a === "member" ? -1 : b === "member" ? 1 : a.localeCompare(b)));
   const [role, setRole] = useState(roles.includes("member") ? "member" : (roles[0] ?? "member"));
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState<JoinCode | null>(null);
+  const [team, setTeam] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const pick = useId();
@@ -133,7 +149,11 @@ export function AddAgent({ board }: { board: Board }) {
     setError(null);
     setCode(null);
     try {
-      setCode(await post<JoinCode>(`/v1/boards/${encodeURIComponent(board.name)}/join-codes`, { role: r }));
+      // A team server's people add their own agents with no code; only the local
+      // server's prompt needs one.
+      const isTeam = team ?? (await get<{ mode: "local" | "team" }>("/v1/info")).mode === "team";
+      setTeam(isTeam);
+      if (!isTeam) setCode(await post<JoinCode>(`/v1/boards/${encodeURIComponent(board.name)}/join-codes`, { role: r }));
     } catch (e) {
       setError(e);
     } finally {
@@ -146,7 +166,12 @@ export function AddAgent({ board }: { board: Board }) {
     setError(null);
     requestAnimationFrame(() => opener.current?.focus());
   };
-  const prompt = code ? `${code.join_line}\n${invitePrompt}` : "";
+  const server = typeof window === "undefined" ? "" : window.location.origin;
+  const prompt = code
+    ? `${code.join_line}\n${invitePrompt}`
+    : team && !busy && error === null
+      ? `${joinCommand(board.name, role, server)}\n${joinPrompt}`
+      : "";
 
   if (!open) {
     return (
@@ -174,7 +199,9 @@ export function AddAgent({ board }: { board: Board }) {
         </button>
       </div>
       <p className="-mt-2 text-meta text-muted">
-        Paste the prompt into the agent&apos;s session. Any number of agents can join with it until it expires.
+        {team
+          ? "Paste the prompt into a session of your own agent. It joins as your agent, through this computer's login; no code needed."
+          : "Paste the prompt into the agent's session. Any number of agents can join with it until it expires."}
       </p>
 
       {roles.length > 1 && (
@@ -206,11 +233,11 @@ export function AddAgent({ board }: { board: Board }) {
 
       {busy && (
         <p className="text-meta text-muted" role="status">
-          Making a join code…
+          {team === false ? "Making a join code…" : "Checking the server…"}
         </p>
       )}
 
-      {code && (
+      {prompt && (
         <div className="flex flex-col gap-3 animate-fade-in">
           <div className="flex flex-col gap-1">
             <p id={promptId} className="text-meta font-bold text-muted">
@@ -225,7 +252,15 @@ export function AddAgent({ board }: { board: Board }) {
           </div>
           <CopyButton text={prompt} label="Copy prompt" variant="primary" />
           <p className="text-meta text-muted">
-            Joins as {code.role}. Works until {until(code.expires_at)}.
+            {code ? (
+              <>
+                Joins as {code.role}. Works until {until(code.expires_at)}.
+              </>
+            ) : (
+              <>
+                Joins as {role}, as your agent. A teammate on the board adds their own agents the same way.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -237,7 +272,7 @@ export function AddAgent({ board }: { board: Board }) {
  * CopyButton copies text and says so beside itself for a moment, then the word fades.
  * Screen readers hear it through a polite live region.
  */
-function CopyButton({ text, label, variant }: { text: string; label: string; variant: "primary" | "secondary" }) {
+export function CopyButton({ text, label, variant }: { text: string; label: string; variant: "primary" | "secondary" }) {
   const [copied, setCopied] = useState<"shown" | "fading" | null>(null);
   const [failed, setFailed] = useState(false);
   const timers = useRef<number[]>([]);

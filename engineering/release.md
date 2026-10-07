@@ -161,7 +161,12 @@ becomes the major number):
 - **Outside the window**, `aboard doctor` reports `version_skew` as a warning in plain
   words ("this server runs 0.2; aboard 0.5 supports 0.4 to 0.6; upgrade the server or
   ask its admin"), and commands still run, failing with named errors rather than
-  silently. *To build, in the team step.*
+  silently. The check names both versions and the server address. An older CLI is
+  told to run `aboard upgrade`; an older server needs its admin to upgrade it.
+  For two `0.x` versions compare minor numbers; when either is `1.x` or later, compare
+  major numbers. Patches, prereleases and build metadata do not affect this window.
+  A development build with a semantic version uses its core numbers; an unreadable
+  version produces a `version_unknown` warning instead of a compatibility claim.
 - **On one machine there is no skew:** the daemon and local server are replaced by the
   newest binary that reaches them.
 - **Installed harness files:** a binary accepts hook entries written by the previous
@@ -234,7 +239,7 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
 
 `--local` runs the checks here instead of asking CI, by what changed against
 `origin/main`: none for a change to only `design/` or `engineering/`; otherwise `make
-fmt-check lint vet generate-check core-size harness-table-check test e2e`, plus `make
+fmt-check lint vet generate-check harness-table-check test e2e`, plus `make
 web-check` when `web/` changed. It's for when GitHub can't run CI; once `main` requires
 the `check` workflow's jobs (below), GitHub still refuses the merge until CI passes.
 `--dry-run` prints the plan, including any conflict with `main` and CI's result so far,
@@ -369,7 +374,8 @@ Without its own changelog section, a candidate's notes are the Unreleased sectio
    refuses a release without one.
 4. `version` in `server/internal/cli/build.go` is the version; the job refuses a tag
    that doesn't match it (a candidate's suffix aside). Bump it in a pull request if
-   needed.
+   needed, and in the same pull request run `scripts/doc-versions bump` to move the
+   docs and deploy recipes to it (`make docs-check` fails until you do).
 5. `git tag vX.Y.Z && git push origin vX.Y.Z`, and approve the `release` environment.
 6. Check the signature from any machine with cosign, in a folder with the release's
    `checksums.txt` and `checksums.txt.sigstore.json`:

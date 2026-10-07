@@ -25,6 +25,7 @@ type Seats interface {
 	// Join asks server for the session's seat on a board. Errors are as for Boards; a
 	// lost answer is ErrServerUnreachable, never a seat.
 	Join(ctx context.Context, server string, req SeatRequest) (SeatGrant, error)
+	Create(ctx context.Context, server string, req SeatCreateRequest) (SeatGrant, error)
 	// Save writes a seat's token where the session's commands find it, whole or not at
 	// all, replacing the seat's earlier token.
 	Save(ctx context.Context, seat SeatRef, token string) error
@@ -49,6 +50,22 @@ type SeatBoards struct {
 // and Session (`<harness>:<id>`) are the session the daemon vouches for.
 type SeatRequest struct {
 	Board, Role, Name, Harness, Session string
+}
+
+// BoardCreateOptions are the public API's board creation options.
+type BoardCreateOptions struct {
+	Name       string `json:"name,omitempty"`
+	Title      string `json:"title,omitempty"`
+	Template   string `json:"template,omitempty"`
+	Charter    string `json:"charter,omitempty"`
+	Preset     string `json:"preset,omitempty"`
+	Visibility string `json:"visibility,omitempty"`
+}
+
+// SeatCreateRequest creates a board and the session's seat in one server transaction.
+type SeatCreateRequest struct {
+	BoardCreateOptions
+	Role, Name, Harness, Session, IdempotencyKey string
 }
 
 // SeatGrant is what the server gave the session: the seat, its new token, whether it is
@@ -224,6 +241,11 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		d.log.Warn("join through the delegation", "server", server, "board", board, "session", req.Key().String(), "error", err)
 		return seatsError(server, err)
 	}
+	return d.bindGrantedSeat(ctx, req, grant)
+}
+
+func (d *Daemon) bindGrantedSeat(ctx context.Context, req Request, grant SeatGrant) Response {
+	server, board := grant.Seat.Server, grant.Seat.Board
 	if r := d.bindingPreflight(ctx, req.Key(), grantAgent(grant)); r.Error != nil {
 		return r
 	}
@@ -255,7 +277,7 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		"agent", seat.Name, "member", seat.MemberID, "reused", grant.Reused)
 	return Response{
 		V: ProtocolVersion, Joined: &seat, Reused: grant.Reused, Board: grant.Board, Member: grant.Member,
-		Mode: mode, Previous: bound.Previous,
+		Mode: mode, Previous: bound.Previous, Agents: bound.Agents,
 	}
 }
 
@@ -297,4 +319,55 @@ func (d *Daemon) joinTurn(ctx context.Context, key string) (func(), error) {
 type joinHooks struct {
 	seatsRead func() // the join read the session's seats, before checking its server
 	waiting   func() // the join found the session's turn taken and is about to wait
+}
+
+func (d *Daemon) serveCreateBoard(ctx context.Context, req Request) Response {
+	if req.Harness == "" || req.Session == "" {
+		return errorResponse("agent_session_required", "Board creation needs a real harness session.", "Run aboard pair or board new inside the session that should join.")
+	}
+	if r, ok := d.seatsCheck(ctx, req); !ok {
+		return r
+	}
+	if req.Server == "" || req.IdempotencyKey == "" || len(req.IdempotencyKey) > 128 {
+		return errorResponse("invalid_request", "Creation needs a server and an idempotency key of 1 to 128 characters.", "Send server and idempotency_key.")
+	}
+	server := req.Server
+	options := BoardCreateOptions{}
+	if req.Create != nil {
+		options = *req.Create
+	}
+	// One join at a time for the session: choosing the server, the server's answer and
+	// the binding happen under this turn, so two first joins can't both pass the
+	// one-server rule, and a reused seat's earlier token, which stops the moment the
+	// server answers, is never rotated by two joins at once. The session's seats are
+	// read only once the turn is held.
+	release, err := d.joinTurn(ctx, req.Key().String())
+	if err != nil {
+		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again; it starts the daemon.")
+	}
+	defer release()
+	agents, werr := d.sessionAgents(ctx, req)
+	if werr != nil {
+		return Response{V: ProtocolVersion, Error: werr}
+	}
+	if h := d.cfg.joinHooks; h != nil && h.seatsRead != nil {
+		h.seatsRead()
+	}
+	for _, a := range agents {
+		if a.Server != server {
+			r := errorResponse("session_on_another_server",
+				"This session's seats are on "+a.Server+", and a session's seats are all on one server.",
+				"Use a session for "+server+": start one and run the join there.")
+			r.Error.Details = map[string]any{"server": server, "session_server": a.Server}
+			return r
+		}
+	}
+	if r := d.bindingPreflight(ctx, req.Key(), AgentRef{Server: server}); r.Error != nil {
+		return r
+	}
+	grant, err := d.cfg.Seats.Create(ctx, server, SeatCreateRequest{BoardCreateOptions: options, Role: req.Role, Name: req.AgentName, Harness: req.Harness, Session: req.Key().String(), IdempotencyKey: req.IdempotencyKey})
+	if err != nil {
+		return seatsError(server, err)
+	}
+	return d.bindGrantedSeat(ctx, req, grant)
 }

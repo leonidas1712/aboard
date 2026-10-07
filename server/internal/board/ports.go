@@ -19,6 +19,12 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	TaskMessageCounts(boardID, taskID string, reader Member, readAll bool, since int64) (messages, threads, messagesSince int, err error)
+	TaskBySelector(boardID, selector string) (Task, error)
+	Tasks(boardID string) ([]Task, error)
+	TasksByID(boardID string, ids []string) (map[string]Task, error)
+	TaskPrefixOwner(prefix string) (string, error)
+	NextTaskNumber(boardID string) (int64, error)
 	// AccessKeyByDigest finds an access key by the digest of its secret, whether or not
 	// it still works.
 	AccessKeyByDigest(digest string) (AccessKey, error)
@@ -33,6 +39,8 @@ type ReadTx interface {
 	// HumanByName finds a human still on the server by handle; a removed person's
 	// handle finds no one.
 	HumanByName(name string) (Human, error)
+	ReservedHandle(name string) (string, error)
+	MembershipBoards(humanID string) ([]Board, error)
 	// HumanCount returns how many people this server has ever had, removed ones included.
 	HumanCount() (int, error)
 	// PeopleOnServer lists the people still on the server, oldest first.
@@ -70,6 +78,10 @@ type ReadTx interface {
 	PrivateBoardsNotOn(humanID string) ([]Board, error)
 	// BoardCreation returns who may create boards: CreationMembers unless set.
 	BoardCreation() (string, error)
+	// AgentsAddPeople reports the server-wide gate, true unless disabled.
+	AgentsAddPeople() (bool, error)
+	// DelegatedCreation finds a committed creation receipt, including expired receipts.
+	DelegatedCreation(delegationID, key string) (CreationReceipt, error)
 	// WorkingJoinCodes lists a board's join codes that are neither revoked nor expired
 	// at now, oldest first.
 	WorkingJoinCodes(boardID, now string) ([]JoinCode, error)
@@ -96,6 +108,9 @@ type ReadTx interface {
 	JoinCodeByDigest(digest string) (JoinCode, error)
 	// JoinCodeByID finds a join code by id.
 	JoinCodeByID(id string) (JoinCode, error)
+	// PersonAdded finds the latest person.added event for a person's member on a board,
+	// with its seq, time and actor.
+	PersonAdded(boardID, memberID string) (events.Event, error)
 	// Events returns up to limit of a board's events after seq, oldest first.
 	Events(boardID string, after int64, limit int) ([]events.Event, error)
 	// Timeline returns up to q.Limit of the board's messages that reader may see and that
@@ -139,6 +154,7 @@ type ThreadCount struct {
 
 // TimelineQuery says which messages Timeline returns. Zero values don't filter.
 type TimelineQuery struct {
+	TaskID string
 	// After and Before bound the seq window, exclusive at both ends.
 	After, Before int64
 	// Newest fills the page from the newest matching messages instead of the oldest.
@@ -155,11 +171,18 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SaveTask(Task) error
+	ReserveTaskPrefix(boardID, prefix string) error
+	SetTaskPrefix(boardID, prefix string) error
+	SetCurrentTask(memberID string, ref *TaskRef) error
+	ClearTaskCurrent(taskID string) error
+	ClearMemberTask(memberID, taskID string) error
 	ReadTx
 	// InsertHuman adds a human, whose handle no other human still on the server has.
 	InsertHuman(h Human) error
 	// SetHumanRole sets a person's server role.
 	SetHumanRole(id, role string) error
+	RenameHuman(id, name string) error
 	// RemoveHuman marks a person removed from the server at a time, by an admin.
 	RemoveHuman(id, at, by string) error
 	// InsertAccessKey adds an access key.
@@ -206,6 +229,12 @@ type Tx interface {
 	InsertBoard(b Board) error
 	// SetBoardPolicy replaces a board's policy.
 	SetBoardPolicy(boardID string, p rules.Policy) error
+	// SetBoardAgentsAddPeople changes the board gate without altering its message policy.
+	SetBoardAgentsAddPeople(boardID string, allowed bool) error
+	// SetAgentsAddPeople changes the server-wide gate.
+	SetAgentsAddPeople(allowed bool) error
+	// SaveDelegatedCreation keeps the receipt in the resource's own transaction.
+	SaveDelegatedCreation(receipt CreationReceipt) error
 	// SetBoardTitle replaces a board's title; nil removes it.
 	SetBoardTitle(boardID string, title *string) error
 	// SetBoardVisibility makes a board BoardOpen or BoardPrivate.
@@ -218,8 +247,9 @@ type Tx interface {
 	InsertMember(m Member) error
 	// SetMemberStatus sets a member's status: StatusActive, StatusLeft or StatusRemoved.
 	SetMemberStatus(memberID, status string) error
-	// RemoveAgent marks an agent removed at a time, by RemovedByPerson, RemovedByOwner or
-	// RemovedByAdmin.
+	// RemoveAgent ends an agent's seat at a time, by RemovedByPerson, RemovedByOwner,
+	// RemovedByAdmin or RemovedBySelf. The seat reads back as StatusRemoved, or
+	// StatusLeft for RemovedBySelf, with RemovedAt and RemovedBy set.
 	RemoveAgent(memberID, at, by string) error
 	// SetAgentToken replaces an agent's token, so every earlier token stops working, and
 	// the access key the new one stops with.

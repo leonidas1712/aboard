@@ -28,14 +28,14 @@ const EVENT_PAGE = 200;
 export type RecordCheck = { state: "checking" } | { state: "verified"; count: number } | { state: "failed"; problem: Problem };
 
 /** Filter narrows the timeline with the API's own filters, so paging stays correct. */
-export type Filter = { from?: string; role?: string; toMe?: boolean };
+export type Filter = { from?: string; role?: string; toMe?: boolean; task?: string };
 
 export function filterActive(f: Filter): boolean {
-  return !!(f.from || f.role || f.toMe);
+  return !!(f.from || f.role || f.toMe || f.task);
 }
 
 function filterQuery(f: Filter) {
-  return { from: f.from, role: f.role, to_me: f.toMe };
+  return { from: f.from, role: f.role, to_me: f.toMe, task: f.task };
 }
 
 export type BoardState = {
@@ -70,6 +70,11 @@ export type BoardState = {
   replace: (m: Message) => void;
   /** ack marks the board read up to seq for the person: call it only for what they saw. */
   ack: (seq: number) => void;
+  /**
+   * markAllRead moves the person's read position on b to its newest message as the page
+   * knows it now, so whatever arrives after the click stays unread.
+   */
+  markAllRead: (b: Board) => Promise<void>;
   /** activity changes when the board moves or one of the person's agents reads it, so receipts can be read again. */
   activity: number;
   /** readFrom is the person's read position when the page opened, read before it could acknowledge anything. */
@@ -189,16 +194,18 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const catchUp = useCallback(async () => {
     const gen = progress.current.next();
-    const [b, m, mine] = await Promise.all([
+    const [b, m, mine, who] = await Promise.all([
       get<Board>(path),
       get<{ members: Member[] }>(`${path}/members`),
       get<MessagePage>(`${path}/messages`, { to_me: true, newest: true, limit: PAGE }),
+      get<Me>("/v1/me"),
     ]);
     if (!live.current) return;
     setBoard(progress.current.board(b, gen));
     boardId.current = b.id;
     seenIds.current.add(b.id);
     setMembers(m.members);
+    setMe(who);
     setToMe(new Set(mine.messages.map((x) => x.id)));
 
     const append = (set: typeof setBase) => (ms: Message[]) =>
@@ -211,6 +218,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     if (broken.current) return;
     const remembered = rememberedHead(b.id);
     const reacted = new Set<string>();
+    const renamed = new Set<string>();
     for (;;) {
       const page = await get<EventPage>(`${path}/events`, { after: chain.current.lastSeq, limit: EVENT_PAGE });
       if (!live.current) return;
@@ -227,6 +235,10 @@ export function useBoard(name: string, filter: Filter): BoardState {
       const shown = page.events.filter((e) => e.type !== "message.posted" && !e.type.startsWith("joincode.") && !isReaction(e));
       if (shown.length > 0) setEvents((es) => [...es, ...shown]);
       for (const e of page.events) {
+        if (e.type === "person.renamed") {
+          const before = (e.data as { before?: string } | undefined)?.before;
+          if (before) renamed.add(before);
+        }
         const id = (e.data as { message_id?: string } | undefined)?.message_id;
         if (isReaction(e) && e.seq > loadedHead.current && id) reacted.add(id);
       }
@@ -235,7 +247,12 @@ export function useBoard(name: string, filter: Filter): BoardState {
     if (!remembered || chain.current.lastSeq >= remembered.seq) rememberHead(b.id, chain.current.lastSeq, chain.current.lastHash);
     setRecord({ state: "verified", count: chain.current.checked });
 
-    // A loaded message someone reacted to since is read again, so its reactions are current.
+    // Rename events refresh author projections of loaded messages from the API; bodies
+    // and hashed event actors remain exactly as recorded.
+    for (const m of knownRef.current) {
+      if ((m.from.kind === "human" && renamed.size > 0) || (m.from.owner && renamed.has(m.from.owner))) reacted.add(m.id);
+    }
+    // A changed loaded message is read again, keeping the API authoritative.
     for (const id of reacted) {
       const m = knownRef.current.find((x) => x.id === id);
       if (!m) continue;
@@ -395,6 +412,27 @@ export function useBoard(name: string, filter: Filter): BoardState {
     [name, board?.read_up_to],
   );
 
+  const markAllRead = useCallback(async (b: Board) => {
+    const here = b.id === boardId.current;
+    // The board on screen may show a message its last read of the board didn't count yet.
+    const upTo = here ? Math.max(b.head_seq, newest.current) : b.head_seq;
+    if (upTo <= (b.read_up_to ?? 0)) return;
+    const gen = progress.current.next();
+    const r = await ackBoard(b.name, upTo);
+    if (!live.current) return;
+    progress.current.note(b.id, gen, r.read_up_to, r.unread);
+    const set = (x: Board) => (x.id === b.id ? progress.current.apply(x) : x);
+    setBoards((bs) => bs?.map(set) ?? bs);
+    setBoard((x) => (x ? set(x) : x));
+    if (!here) return;
+    // The page reads on from the new position: no divider above what was marked, and
+    // every message after it loads live, so none is held back as unloaded.
+    acked.current = Math.max(acked.current, r.read_up_to);
+    setReadFrom((f) => Math.max(f ?? 0, r.read_up_to));
+    setFirstUnread(0);
+    setActivity((n) => n + 1);
+  }, []);
+
   const known = useMemo(() => {
     const out = new Map<string, Message>();
     for (const m of [...extra, ...(base?.messages ?? []), ...(filtered?.messages ?? [])]) out.set(m.id, m);
@@ -454,6 +492,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
     refresh,
     replace: replaceMessage,
     ack,
+    markAllRead,
     activity,
     readFrom,
     firstUnread,

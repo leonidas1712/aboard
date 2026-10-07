@@ -43,7 +43,8 @@ func (tm *team) agentToken(e *env, board string) string {
 
 // People on a board are listed with their board role; a member adds people but only an
 // owner removes them; the last owner can't leave; a removed person and their agent lose
-// the private board at once; and an agent's session can't manage people.
+// the private board at once. An agent needs the board's permission to add people;
+// removing people and changing access still belong to the person.
 func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
@@ -59,7 +60,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 
 	people := maya.run("board", "people", "--json").json(t)
 	matchesCLISpec(t, "BoardPeopleOutput", people)
-	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam")
+	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam", "    @member · disconnected")
 
 	added := sam.run("board", "add", "kim", "--json").json(t)
 	matchesCLISpec(t, "BoardAddOutput", added)
@@ -76,9 +77,22 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 		t.Fatalf("a member turning the board open:\n%s", r)
 	}
 
-	// Inside an agent's session, managing people is handed to the person.
 	s := maya.claudeSession("s-people")
-	for _, args := range [][]string{{"board", "add", "@kim"}, {"board", "remove", "@sam"}, {"board", "visibility", "open"}, {"board", "leave"}} {
+	s.run("join", "--board", board, "--server", tm.url(), "--json")
+	status, before := tm.call("GET", "/v1/boards/"+board, tm.key(maya), nil)
+	if status != http.StatusOK {
+		t.Fatalf("board before refused addition: status %d, error %v", status, before["error"])
+	}
+	refused := s.runExit("board", "add", "@kim", "--board", board, "--json")
+	if refused.code != 1 || errorCode(t, refused.json(t)) != "add_people_not_allowed" {
+		t.Fatalf("agent adding people to a private board without opt-in: exit %d, error %v", refused.code, refused.json(t)["error"])
+	}
+	status, after := tm.call("GET", "/v1/boards/"+board, tm.key(maya), nil)
+	if status != http.StatusOK || after["head_seq"] != before["head_seq"] {
+		t.Fatal("refused agent addition changed the private board")
+	}
+	// Access changes inside the agent's session are still handed to the person.
+	for _, args := range [][]string{{"board", "remove", "@sam"}, {"board", "visibility", "open"}, {"board", "leave"}} {
 		r := s.e.exec(s.vars, "", append(args, "--json")...)
 		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
 			t.Fatalf("%v in an agent's session:\n%s", args, r)
@@ -91,7 +105,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	if r := sam.runExit("board", "people", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
 		t.Fatalf("sam after removal:\n%s", r)
 	}
-	if status, v := tm.call("GET", "/v1/me/inbox", samAgent, nil); status != http.StatusNotFound || errorCode(t, v) != "board_not_found" {
+	if status, v := tm.call("GET", "/v1/me/inbox", samAgent, nil); status != http.StatusForbidden || errorCode(t, v) != "agent_removed" {
 		t.Fatalf("sam's agent after sam's removal: %d %v", status, v)
 	}
 
@@ -101,7 +115,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	}
 	maya.run("board", "add", "@sam")
 	// Added back, sam returns, but his old agent stays removed; a new one works.
-	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", samAgent, map[string]any{"body": "back again"}); status != http.StatusNotFound || errorCode(t, v) != "board_not_found" {
+	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", samAgent, map[string]any{"body": "back again"}); status != http.StatusForbidden || errorCode(t, v) != "agent_removed" {
 		t.Fatalf("sam's old agent after sam was added back: %d %v", status, v)
 	}
 	if status, v := tm.call("POST", "/v1/boards/"+board+"/messages", tm.agentToken(sam, board), map[string]any{"body": "a new agent"}); status != http.StatusCreated {
@@ -114,7 +128,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	}
 	left := maya.run("board", "leave", "--json").json(t)
 	matchesCLISpec(t, "BoardLeaveOutput", left)
-	expectLines(t, sam.run("board", "people"), board+" · private · 1 person", "  sam (owner)")
+	expectLines(t, sam.run("board", "people"), board+" · private · 1 person", "  sam (owner)", "    @member-2 · disconnected")
 	sam.run("audit", "verify")
 }
 
@@ -177,7 +191,7 @@ func TestUpgradeMakesExistingBoardsOpenAndOwned(t *testing.T) {
 	if status != http.StatusOK || v["visibility"] != "open" || v["on_board"] != true {
 		t.Fatalf("the board after the upgrade: %d %v", status, v)
 	}
-	expectLines(t, e.run("board", "people"), "writer-reviewer · open · 1 person", "  alex (owner)")
+	expectLines(t, e.run("board", "people"), "writer-reviewer · open · 1 person", "  alex (owner)", "    @writer · disconnected", "    @reviewer · disconnected")
 	e.run("audit", "verify")
 }
 

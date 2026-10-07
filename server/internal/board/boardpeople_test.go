@@ -202,8 +202,8 @@ var reads = map[string]func(ctx context.Context, w *teamWorld, p board.Principal
 }
 
 // A person removed from a private board while their read waits for its transaction
-// reads nothing: the read checks access inside its own transaction. Their agent loses the
-// board with them.
+// reads nothing: the read checks access inside its own transaction. Their agent's seat
+// ends with them, so it is told it was removed.
 func TestRemovalWhileAReadWaitsEndsTheRead(t *testing.T) {
 	for name, read := range reads {
 		for _, who := range []string{"person", "agent"} {
@@ -222,13 +222,17 @@ func TestRemovalWhileAReadWaitsEndsTheRead(t *testing.T) {
 						t.Error(err)
 					}
 				})
-				wantCode(t, name, err, "board_not_found")
+				want := "board_not_found"
+				if who == "agent" {
+					want = "agent_removed" // its seat ended with its person's place on the board
+				}
+				wantCode(t, name, err, want)
 			})
 		}
 	}
 }
 
-// An agent's inbox long poll, waiting for a message, ends with board_not_found when its
+// An agent's inbox long poll, waiting for a message, ends with agent_removed when its
 // person is removed, rather than waiting on or reading on.
 func TestRemovalEndsAnAgentsWaitingInbox(t *testing.T) {
 	w := newTeamWorld(t)
@@ -249,7 +253,7 @@ func TestRemovalEndsAnAgentsWaitingInbox(t *testing.T) {
 	}
 	select {
 	case err := <-done:
-		wantCode(t, "the waiting inbox", err, "board_not_found")
+		wantCode(t, "the waiting inbox", err, "agent_removed")
 	case <-time.After(5 * time.Second):
 		t.Fatal("the inbox kept waiting after its person was removed")
 	}

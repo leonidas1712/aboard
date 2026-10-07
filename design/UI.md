@@ -191,6 +191,12 @@ How Aboard does it:
   only the replies that match ("1 of 6 replies match").
 - The "New since you last looked" divider marks the first new thread; new replies in
   older threads use the row's "N new".
+- **Mark all as read.** While the board has anything unread for the person, a quiet
+  "Mark all as read" sits beside Filter above the timeline, and each board in the list
+  offers it on hover or focus over its unread count. It moves the person's read
+  position (`POST /v1/boards/{board}/ack`) to the newest message the page has, so what
+  arrives after the click stays unread, and clears the count, the divider and their
+  receipts as reading does.
 
 ### Filters (D134)
 
@@ -448,3 +454,18 @@ For ideas. Code is copied only from MIT or Apache 2.0 sources, with their notice
   Next.js export.
 - **Small patterns:** herdr's agent status list (working, waiting, idle), Campfire's
   who's-here list, Zulip's unread counts.
+
+## Server people and board visibility
+
+The account menu links to People when there is more than one person on the server,
+or for a server admin. The page lists handles, display names and server roles.
+Agent counts and boards in common cover only boards the reader shares; a failed
+board read is shown as unavailable, not as zero. No last-active time is invented.
+
+Admins can open a confirmation explaining a role change or server removal and
+copy its terminal command. Inviting someone also hands over `aboard invite --server`.
+These actions require the admin's own access key; the browser never calls them.
+
+Board details always explain Open or Private. A board owner can change it after a
+confirmation explains history and file access, existing members and code revocation.
+An archived board can be made private but not open. The view adds no creation form.

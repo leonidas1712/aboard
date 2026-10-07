@@ -140,6 +140,11 @@ func (s *Service) CreateJoinCode(ctx context.Context, p Principal, boardName str
 func guestMayCome(tx ReadTx, b Board, handle string) error {
 	h, err := tx.HumanByName(handle)
 	if errors.Is(err, ErrNotFound) {
+		if _, reserved := tx.ReservedHandle(handle); reserved == nil {
+			return HandleTaken(handle)
+		} else if !errors.Is(reserved, ErrNotFound) {
+			return reserved
+		}
 		return nil
 	}
 	if err != nil {
@@ -220,6 +225,7 @@ func memberByID(tx ReadTx, boardID, id string) (Member, error) {
 // a human who is already a member. Session is the harness session the agent is for
 // (`<harness>:<id>`), when the caller names one; it is kept with the seat.
 type JoinInput struct {
+	seatID  string
 	Code    string
 	Board   string
 	Role    string
@@ -414,8 +420,11 @@ func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinI
 	if in.Session != "" {
 		agent.Session = ptr(in.Session)
 	}
-	if agent.ID, err = s.gen.ID("mem", now); err != nil {
-		return Joined{}, err
+	agent.ID = in.seatID
+	if agent.ID == "" {
+		if agent.ID, err = s.gen.ID("mem", now); err != nil {
+			return Joined{}, err
+		}
 	}
 	if err := s.addMember(tx, b, agent, actorOf(owner), codeID, now, extra); err != nil {
 		return Joined{}, err
@@ -526,6 +535,11 @@ func (s *Service) redeemGuestCode(tx Tx, jc JoinCode, guest Human, keyID *string
 // guestPerson creates a new guest. A code never proves an existing person's identity,
 // even if its handle was free when issued.
 func (s *Service) guestPerson(tx Tx, handle string, now time.Time) (Human, error) {
+	if _, err := tx.ReservedHandle(handle); err == nil {
+		return Human{}, joinCodeInvalid()
+	} else if !errors.Is(err, ErrNotFound) {
+		return Human{}, err
+	}
 	h, err := tx.HumanByName(handle)
 	switch {
 	case err == nil:

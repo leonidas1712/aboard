@@ -58,7 +58,7 @@ Status on 2026-10-06, checked against merged work.
 | 2. Access keys and identity | All: keys, `login`, `connect`, `approve`, browser sessions (#82, #86, #91, #92) | |
 | 3. Members, roles and guests | All: roles, removing a person, guest codes, pairing and guest codes split (#96) | |
 | 4. Boards for a team | Open and private boards, owners, people, the board-creation setting, `aboard boards` (#88); archive, restore and delete in the API, CLI and board view (#117) | |
-| 5. Agents within their owner's access | 5a: machine delegation, agent board discovery and `join --board`, separate seats on several boards, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115) | Agents creating boards and adding teammates (5b), removing agents, `leave`, `prune` (5c), bots, project labels |
+| 5. Agents within their owner's access | 5a: machine delegation, discovery, `join --board`, separate seats, combined delivery, independent acknowledgements, aggregate inbox and status, explicit board selection (#108, #112, #115); 5b: person-owned board creation and gated teammate additions (#143); 5c: removing agents, `leave`, `prune` and the board view's Remove (#131, #132) | Bots, project labels |
 | 6. Reading and attention | Read positions, unread counts, receipts, mentions, the server-held delivery mode, "Needs you" and unread in the board list (#95, #97, #98, #100) | Harness marks on avatars, your own board order, each owner's rule for other owners' agents (D99), the person's CLI inbox across boards |
 | 7. A server for a team | Team server, secure bootstrap and backup before the atomic migration batch (#118) | Load test, version-skew check |
 | After: deploying | Public HTTPS configuration, container and deployment recipes (#118); release pipeline and install script (#120) | Deployment proof and the two-machine test |
@@ -253,9 +253,13 @@ from `aboard boards` never authorizes a join: the join is checked again.
    older ones, and an omp batch mixing owner and other agents' messages never delivering
    the others as an owner aside. The smallest slice that removes codes for a
    team's own sessions.
-2. **5b. Agents start work for their person.** `aboard pair --new` through the
+2. **5b. Agents start work for their person.** Done (#143, D205). `aboard pair --new` through the
    delegation (the person is creator and owner); agents adding teammates on open boards,
    and on private ones only where the owner allowed it.
+   The final combined head passed Linux, macOS, browser and docs CI. Its affected
+   native suite passed 60 cases with four skips and no failures in 4m28s. Creation
+   retries stay inside the original daemon with the same delegation; an uncertain
+   control result never retries creation through a replacement daemon.
 3. **5c. Removing agents.** Seat ids in swarm records (the daemon's moved to 5a), then
    removal (final), `aboard leave`,
    `aboard agent prune`, and Remove in the board view. Removal revokes the seat and its
@@ -264,8 +268,8 @@ from `aboard boards` never authorizes a join: the join is checked again.
    removal racing reads and writes, and re-adding followed by the old token's refusal.
 4. **4b. Archive, restore, delete.** Done (#117), using the seat ids delivered by 5a.
    Deletion ends access and preserves the record; it does not erase stored bytes. The
-   general 24-hour idempotency lifetime remains a separate required follow-up before
-   team-ready: expired answers must be ignored and their rows purged. Row removal
+   general 24-hour idempotency lifetime is done (#128): expired answers are ignored,
+   and expired rows are purged at server startup and hourly. Row removal
    does not securely erase copies in the WAL, free pages or migration backups.
 5. **Team safety.** The CLI inbox across boards; secret redaction in messages if it
    stays small (not required for team-ready): deterministic patterns for known

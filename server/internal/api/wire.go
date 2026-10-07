@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
+	"github.com/leonidas1712/aboard/server/internal/events"
 	"github.com/leonidas1712/aboard/server/internal/rules"
 )
 
@@ -21,12 +22,14 @@ type wireMemberRef struct {
 }
 
 type wireMember struct {
-	ID    string  `json:"id"`
-	Board string  `json:"board"`
-	Name  string  `json:"name"`
-	Kind  string  `json:"kind"`
-	Role  *string `json:"role"`
-	Owner *string `json:"owner"`
+	DisplayName *string `json:"display_name,omitempty"`
+	CurrentTask any     `json:"current_task"`
+	ID          string  `json:"id"`
+	Board       string  `json:"board"`
+	Name        string  `json:"name"`
+	Kind        string  `json:"kind"`
+	Role        *string `json:"role"`
+	Owner       *string `json:"owner"`
 	// OwnerID is an agent's person's id; null for people.
 	OwnerID  *string `json:"owner_id"`
 	Harness  *string `json:"harness"`
@@ -45,17 +48,25 @@ type wireMember struct {
 	// it and the seq of the event that set it; null for people.
 	DeliveryMode     *string `json:"delivery_mode"`
 	DeliveryRevision *int64  `json:"delivery_revision"`
+	// RemovedAt and RemovedBy are set only for an agent whose seat ended.
+	RemovedAt *string `json:"removed_at,omitempty"`
+	RemovedBy *string `json:"removed_by,omitempty"`
+	// CanRemove is set only in a person's member list.
+	CanRemove *bool `json:"can_remove,omitempty"`
 }
 
 type wireBoard struct {
-	ID       string                `json:"id"`
-	Name     string                `json:"name"`
-	Title    *string               `json:"title"`
-	Template *string               `json:"template"`
-	Charter  string                `json:"charter"`
-	Roles    map[string]rules.Role `json:"roles"`
-	Policy   rules.Policy          `json:"policy"`
-	HeadSeq  int64                 `json:"head_seq"`
+	TaskPrefix      *string               `json:"task_prefix"`
+	TasksOpen       *int64                `json:"tasks_open,omitempty"`
+	AgentsAddPeople bool                  `json:"agents_add_people"`
+	ID              string                `json:"id"`
+	Name            string                `json:"name"`
+	Title           *string               `json:"title"`
+	Template        *string               `json:"template"`
+	Charter         string                `json:"charter"`
+	Roles           map[string]rules.Role `json:"roles"`
+	Policy          rules.Policy          `json:"policy"`
+	HeadSeq         int64                 `json:"head_seq"`
 	// MessageCount and LastMessageAt are null for a reader who may not see them.
 	MessageCount  *int64        `json:"message_count"`
 	LastMessageAt *string       `json:"last_message_at"`
@@ -75,9 +86,19 @@ type wireBoard struct {
 	// PeopleCount and AgentCount are given to a machine's delegation only.
 	PeopleCount *int `json:"people_count,omitempty"`
 	AgentCount  *int `json:"agent_count,omitempty"`
+	// Added is given to a person on the board while someone else's add is new to them.
+	Added *wireAdded `json:"added,omitempty"`
+}
+
+// wireAdded is the person.added that put the caller on a board.
+type wireAdded struct {
+	Seq int64        `json:"seq"`
+	At  string       `json:"at"`
+	By  events.Actor `json:"by"`
 }
 
 type wireMessage struct {
+	About         []board.TaskTag   `json:"about"`
 	ID            string            `json:"id"`
 	Board         string            `json:"board"`
 	Seq           int64             `json:"seq"`
@@ -143,8 +164,9 @@ func refOf(m board.Member) wireMemberRef {
 
 func memberOf(m board.Member, boardName string) wireMember {
 	w := wireMember{
-		ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
+		DisplayName: m.DisplayName, ID: m.ID, Board: boardName, Name: m.Name, Kind: m.Kind, Role: m.Role, Owner: m.Owner,
 		Harness: m.Harness, Status: m.Status, JoinedAt: m.JoinedAt,
+		CurrentTask: taskRefOf(m.CurrentTask),
 	}
 	if m.Access != "" {
 		w.Access = &m.Access
@@ -168,14 +190,21 @@ func memberOf(m board.Member, boardName string) wireMember {
 func boardOf(v board.View, p board.Principal) wireBoard {
 	b := v.Board
 	w := wireBoard{
-		ID: b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
+		TaskPrefix: b.TaskPrefix,
+		ID:         b.ID, Name: b.Name, Title: b.Title, Template: b.Template, Charter: b.Charter, Roles: b.Roles, Policy: b.Policy,
 		HeadSeq: b.HeadSeq, CreatedAt: b.CreatedAt, CreatedBy: refOf(v.Creator), Visibility: b.Visibility, OnBoard: v.OnBoard,
-		Lifecycle: b.Lifecycle, CanArchive: v.CanArchive, CanRestore: v.CanRestore, CanDelete: v.CanDelete,
+		AgentsAddPeople: b.AgentsAddPeople, Lifecycle: b.Lifecycle, CanArchive: v.CanArchive, CanRestore: v.CanRestore, CanDelete: v.CanDelete,
+	}
+	if v.OnBoard {
+		w.TasksOpen = &b.TasksOpen
 	}
 	if v.ShowsCounts(p) {
 		w.MessageCount, w.LastMessageAt = &b.MessageCount, b.LastMessageAt
 	}
 	w.PeopleCount, w.AgentCount = v.PeopleCount, v.AgentCount
+	if v.Added != nil {
+		w.Added = &wireAdded{Seq: v.Added.Seq, At: v.Added.At, By: v.Added.Actor}
+	}
 	return withPosition(w, v)
 }
 
@@ -221,7 +250,8 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 		mentions = []board.Mention{}
 	}
 	return wireMessage{
-		ID: m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
+		About: m.About,
+		ID:    m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
 		To:   m.To, Body: m.Body, ReplyTo: m.ReplyTo, ReplyToSeq: m.ReplyToSeq, ReplyToFrom: m.ReplyToFrom,
 		ThreadRoot: m.ThreadRoot, ThreadRootSeq: m.ThreadRootSeq, ReplyCount: m.ReplyCount, LastReplyAt: m.LastReplyAt,

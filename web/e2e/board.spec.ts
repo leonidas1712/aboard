@@ -16,7 +16,7 @@ const bin = join(home, "aboard");
 let env: Record<string, string | undefined> = {};
 
 function aboard(...args: string[]): string {
-  return execFileSync(bin, args, { cwd: home, env: env as NodeJS.ProcessEnv, encoding: "utf8" });
+  return execFileSync(bin, args, { cwd: env.HOME ?? home, env: env as NodeJS.ProcessEnv, encoding: "utf8" });
 }
 
 function freePort(): Promise<number> {
@@ -369,6 +369,59 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   expect(joined.board.name).toBe(board);
   expect(joined.agent.role).toBe("reviewer");
   await expect(panel.locator('[data-agent="invited"]')).toBeVisible();
+});
+
+// This machine's server is a local one, so the page is told it is on a team server
+// (GET /v1/info) to show what a team server's people see; the rest is the real server.
+test("on a team server, Add an agent gives the join command for the person's own agents, with no code", async ({ page, context }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Team invite", "--json"));
+  const board: string = pair.board.name;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(open.url).origin });
+  await page.route("**/v1/info", async (route) => {
+    const resp = await route.fetch();
+    await route.fulfill({ response: resp, json: { ...(await resp.json()), mode: "team" } });
+  });
+  const codes: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/join-codes")) codes.push(r.url());
+  });
+  await openLink(page, open.url);
+
+  await page.getByRole("button", { name: /Team invite.*board details/ }).click();
+  const panel = page.getByRole("complementary", { name: "Team invite" });
+  await panel.getByRole("button", { name: "Add an agent" }).click();
+  const add = panel.locator(".add-agent");
+  const server = new URL(open.url).origin;
+  await expect(add.locator(".invite-prompt")).toContainText(`aboard join --board ${board} --server ${server}`);
+  await expect(add).toContainText("no code needed");
+  await add.getByLabel("Joins as").selectOption("reviewer");
+  await expect(add.locator(".invite-prompt")).toContainText(`aboard join --board ${board} --role reviewer --server ${server}`);
+  await add.getByRole("button", { name: "Copy prompt" }).click();
+  const prompt = await page.evaluate(() => navigator.clipboard.readText());
+  expect(prompt.split("\n")).toEqual([
+    `aboard join --board ${board} --role reviewer --server ${server}`,
+    "You have the Aboard skill. Run this command to join, read the charter in the join output, then say hello on the board.",
+  ]);
+  expect(codes).toEqual([]);
+});
+
+// A guest's agents come only from guest codes, so the board view offers a guest no
+// Add an agent.
+test("a guest of a team server sees no Add an agent", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Guest view", "--json"));
+  const board: string = pair.board.name;
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await page.route("**/v1/me", async (route) => {
+    const resp = await route.fetch();
+    await route.fulfill({ response: resp, json: { ...(await resp.json()), server_role: "guest" } });
+  });
+  await openLink(page, open.url);
+  await page.getByRole("button", { name: /Guest view.*board details/ }).click();
+  const panel = page.getByRole("complementary", { name: "Guest view" });
+  await expect(panel.locator(".board-facts")).toBeVisible();
+  await expect(panel.locator('[data-agent="writer"]')).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Add an agent" })).toHaveCount(0);
 });
 
 test("replies form threads that open in place, remember how they were left and surface what is new", async ({ page }) => {
@@ -965,6 +1018,11 @@ for (const theme of ["light", "dark"] as const) {
     const newer = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Sidebar recent", "--json"));
     const a: string = older.board.name;
     const b: string = newer.board.name;
+    // Empty boards can share a creation timestamp; establish conversation activity.
+    aboard("say", "--as", "writer", "--board", b, "Start the recent conversation.");
+    const earlier = await api(ownerKey(), "GET", `/v1/boards/${a}`);
+    const recent = await api(ownerKey(), "GET", `/v1/boards/${b}`);
+    expect(Date.parse(String(recent.last_message_at))).toBeGreaterThan(Date.parse(String(earlier.created_at)));
     const open = JSON.parse(aboard("open", "--board", b, "--json"));
     await openLink(page, open.url);
     const nav = page.getByRole("navigation", { name: "Boards" });
@@ -1212,7 +1270,7 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
 // ownerKey is alex's key on the local server, started if it isn't running.
 function ownerKey(): string {
   aboard("up");
-  const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
+  const found = execFileSync("find", [env.HOME ?? home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
   return readFileSync(found, "utf8").trim();
 }
 
@@ -1863,4 +1921,359 @@ test("an agent's reply to the person opens its thread, so the person reads it an
   await expect(shown.locator(".receipt-mark")).toHaveText("Read");
   await expect.poll(() => unreadOn(board)).toBe(0);
   expect(aboard("read", "--receipts", String(reply.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
+});
+
+test("Mark all as read moves the person's read position to the newest message, and what arrives after stays unread", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Catch up", "--json"));
+  const board: string = pair.board.name;
+  const say = (...args: string[]) => JSON.parse(aboard("say", "--as", "writer", "--board", board, ...args, "--json")).message as { seq: number };
+  say("Before you left.");
+  aboard("read", "--mark-read", "--board", board);
+  const first = say("--to", "@alex", "First new one, for you.");
+  for (let i = 1; i <= 30; i++) say(`Catch-up step ${i}, written out so the timeline scrolls.`);
+  const last = say("--to", "@alex", "Last new one, also for you.");
+  expect(unreadOn(board)).toBe(32);
+
+  // Opening at the newest message reads nothing above it, so the board stays unread, with
+  // the divider above the first new message and the control in the header.
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const newest = page.locator(".message", { hasText: "Last new one, also for you." });
+  await expect(newest).toBeVisible();
+  await expect(page.locator(".new-divider + .message")).toContainText("First new one, for you.");
+  await expect(newest.locator(".receipt-mark")).toHaveText("Pending");
+  const nav = page.getByRole("navigation", { name: "Boards" });
+  const link = nav.locator(`a[href="/?board=${board}"]`);
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText(/\d+/);
+  expect(unreadOn(board)).toBeGreaterThan(0);
+
+  // Mark all as read clears the count, the divider and the control, and the person's
+  // receipts read "read", here and from the CLI.
+  await page.getByRole("button", { name: "Mark all as read", exact: true }).click();
+  await expect(link.locator(".unread-count")).toHaveCount(0);
+  await expect(page.locator(".new-divider")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Mark all as read", exact: true })).toHaveCount(0);
+  await expect(newest.locator(".receipt-mark")).toHaveText("Read");
+  expect(unreadOn(board)).toBe(0);
+  for (const m of [first, last]) {
+    expect(aboard("read", "--receipts", String(m.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
+  }
+
+  // Reading further back, a message that arrives afterwards stays unread.
+  await page.locator(".timeline").evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  await expect(page.getByRole("button", { name: /Jump to newest/ })).toBeVisible();
+  say("Arrived after you caught up.");
+  await expect(link.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await expect(page.getByRole("button", { name: "Mark all as read", exact: true })).toBeVisible();
+  expect(unreadOn(board)).toBe(1);
+
+  // Another board offers it in the board list, on hover. A message posted while the
+  // request is on its way is newer than the click, and stays unread.
+  const other = await newBoard("Other catch up");
+  const pat = await person("pat");
+  await api(ownerKey(), "POST", `/v1/boards/${other.name}/people`, { handle: "pat" });
+  const otherLink = nav.locator(`a[href="/?board=${other.name}"]`);
+  await expect(otherLink).toBeVisible();
+  for (const body of ["One on the other board.", "Two on the other board."]) {
+    await api(pat, "POST", `/v1/boards/${other.name}/messages`, { body, to: ["all"] });
+  }
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("2");
+
+  let release: () => void = () => {};
+  const held = new Promise<void>((done) => (release = done));
+  let sent: () => void = () => {};
+  const asked = new Promise<void>((done) => (sent = done));
+  await page.route(`**/v1/boards/${other.name}/ack`, async (route: Route) => {
+    sent();
+    await held;
+    await route.continue();
+  });
+  await otherLink.hover();
+  await nav.getByRole("button", { name: "Mark all as read on Other catch up" }).click();
+  await asked;
+  await api(pat, "POST", `/v1/boards/${other.name}/messages`, { body: "Three, after the click.", to: ["all"] });
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("3");
+  release();
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
+  await expect.poll(() => unreadOn(other.name)).toBe(1);
+});
+
+test("a board owner removes another person's agent from the panel, and Show removed lists it", async ({ page }) => {
+  const b = await newBoard("Removal check");
+  const rowan = await person("rowan");
+  await api(ownerKey(), "POST", `/v1/boards/${b.name}/people`, { handle: "rowan" });
+  const joined = await api(rowan, "POST", "/v1/join", { board: b.name, role: "member" });
+  const agent = (joined.agent as { name: string }).name;
+  const token = joined.token as string;
+
+  const open = JSON.parse(aboard("open", "--board", b.name, "--json"));
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Removal check" });
+  const item = panel.locator(`[data-agent="${agent}"]`);
+  await expect(item).toBeVisible();
+
+  // Cancel changes nothing; Remove asks first, then removes the agent for good.
+  await item.getByRole("button", { name: `Remove ${agent}` }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText(`Remove ${agent}?`);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(item).toBeVisible();
+  await item.getByRole("button", { name: `Remove ${agent}` }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(item).toHaveCount(0);
+
+  // The record says who removed whose agent, and the agent's token is refused.
+  await expect(page.locator(".board-event", { hasText: `alex removed rowan's agent ${agent}` })).toBeVisible();
+  const refused = await fetch(`${base()}/v1/me/inbox`, { headers: { Authorization: `Bearer ${token}` } });
+  expect(refused.status).toBe(403);
+  expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_removed");
+
+  await panel.getByRole("button", { name: "Show removed" }).click();
+  await expect(panel.locator(`[data-removed-agent="${agent}"]`)).toContainText("removed by an owner");
+});
+
+test("tasks connect the Work panel, task view and conversation", async ({ page }) => {
+  const board = await newBoard("Task UI check");
+  const task = await api(ownerKey(), "POST", `/v1/boards/${board.name}/tasks`, { title: "Review the quickstart", about: "Check the fresh-machine path." });
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/messages`, { body: "The fresh setup needs a review.", to: ["all"], about: [task.ref] });
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/messages`, { body: "An unrelated note.", to: ["all"] });
+  await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
+  await expect(page.getByRole("button", { name: `Open task ${task.ref}`, exact: true }).first()).toBeVisible();
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await expect(page.getByRole("region", { name: "Not picked up", exact: true })).toContainText("Review the quickstart");
+  await page.getByRole("button", { name: `Open task ${task.ref}`, exact: true }).first().click();
+  const detail = page.getByRole("region", { name: `Task ${task.ref}`, exact: true });
+  await expect(detail).toContainText("Check the fresh-machine path.");
+  await expect(detail).toContainText("Where it stands");
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/tasks/${task.ref}/start`, {});
+  await api(ownerKey(), "PATCH", `/v1/boards/${board.name}/tasks/${task.ref}`, { stands: "Checking the clean setup next.", stands_base: 0 });
+  await expect(detail).toContainText("Checking the clean setup next.");
+  if (process.env.TASK_UI_QA) {
+    for (const theme of ["Light", "Dark"]) {
+      await page.getByRole("button", { name: /^You are alex/ }).click();
+      await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
+      for (const [device, size] of [["desktop", { width: 1440, height: 1000 }], ["mobile", { width: 390, height: 844 }]] as const) {
+        await page.setViewportSize(size);
+        await page.screenshot({ path: `${process.env.TASK_UI_QA}/tasks-${device}-${theme.toLowerCase()}.png`, fullPage: true, animations: "disabled" });
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  await detail.getByRole("button", { name: "Show conversation" }).click();
+  await expect(page.getByText(`Narrowed to ${task.ref}`, { exact: false })).toBeVisible();
+  await expect(page.getByText("The fresh setup needs a review.", { exact: true })).toBeVisible();
+  await expect(page.getByText("An unrelated note.", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show everything" }).click();
+  await expect(page.getByText("An unrelated note.", { exact: true })).toBeVisible();
+});
+
+
+test("messages in a hidden conversation stay unread while the person looks at tasks", async ({ page }) => {
+  const board = await newBoard("Hidden task conversation");
+  const pat = await person("pat");
+  await api(ownerKey(), "POST", `/v1/boards/${board.name}/people`, { handle: "pat" });
+  const task = await api(ownerKey(), "POST", `/v1/boards/${board.name}/tasks`, { title: "Check the record" });
+  await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await api(pat, "POST", `/v1/boards/${board.name}/messages`, { body: "A new note while you look at tasks.", to: ["all"], about: [task.ref] });
+  await expect(page.getByRole("tabpanel").getByText("1 message · 1 thread", { exact: true })).toBeVisible();
+  expect(unreadOn(board.name)).toBe(1);
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeHidden();
+  await page.getByRole("tab", { name: "Conversation", exact: true }).click();
+  await expect(page.getByText("A new note while you look at tasks.", { exact: true })).toBeVisible();
+  await expect.poll(() => unreadOn(board.name)).toBe(0);
+});
+
+test.describe("team admin", () => {
+  let previousEnv: typeof env;
+  let adminHome: string;
+  test.beforeAll(async () => {
+    previousEnv = env;
+    adminHome = mkdtempSync(join(tmpdir(), "aboard-web-admin-"));
+    env = { ...env, HOME: adminHome, XDG_CONFIG_HOME: join(adminHome, ".config"), XDG_DATA_HOME: join(adminHome, ".local", "share"), XDG_STATE_HOME: join(adminHome, ".local", "state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}` };
+  });
+  test.afterAll(() => {
+    try { aboard("down"); } finally { env = previousEnv; rmSync(adminHome, { recursive: true, force: true }); }
+  });
+
+test("People shows shared boards and terminal-only server administration", async ({ page }) => {
+  const b = await newBoard("People shared room");
+  const key = await person("people-check");
+  await api(ownerKey(), "POST", `/v1/boards/${b.name}/people`, { handle: "people-check" });
+  await api(key, "POST", "/v1/join", { board: b.name, role: "member" });
+  const unshared = await api(key, "POST", "/v1/boards", { template: "general", title: "Not a shared room" });
+  await api(key, "POST", "/v1/join", { board: unshared.name, role: "member" });
+  const hidden = await api(key, "POST", "/v1/boards", { template: "general", title: "Private admin must not discover", visibility: "private" });
+  const hiddenSeat = await api(key, "POST", "/v1/join", { board: hidden.name, role: "member" });
+  const boardReads: string[] = [];
+  page.on("request", (r) => { if (r.url().includes("/v1/boards/")) boardReads.push(r.url()); });
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await page.getByRole("menuitem", { name: "People", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
+  const row = page.getByRole("row").filter({ hasText: "@people-check" });
+  await expect(row).toContainText("Member");
+  await expect(row).toContainText("People shared room");
+  await expect(row.getByRole("cell").nth(2)).toHaveText("Agents on shared boards: 1");
+  await expect(row).not.toContainText("Not a shared room");
+  await expect(page.locator("body")).not.toContainText(String(hidden.title));
+  await expect(page.locator("body")).not.toContainText(String(hidden.name));
+  await expect(page.locator("body")).not.toContainText((hiddenSeat.agent as { name: string }).name);
+  expect(boardReads.some((url) => url.includes(`/v1/boards/${hidden.name}/`))).toBe(false);
+  await expect(page.getByRole("columnheader", { name: "Agents on shared boards" })).toBeVisible();
+  await expect(page.getByText("Last active", { exact: true })).toHaveCount(0);
+  let writes = 0;
+  page.on("request", (r) => { if (/\/v1\/(people|invites)/.test(r.url()) && r.method() !== "GET") writes++; });
+  await row.getByRole("button", { name: "Role command" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Run this in your terminal");
+  await expect(dialog).toContainText(`aboard people role @people-check admin --server ${base()}`);
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Invite command" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText(`aboard invite --server ${base()}`);
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  expect(writes).toBe(0);
+  await captureAdmin(page, "people");
+  await page.route(`**/v1/boards/${b.name}/members`, (route) => route.fulfill({ status: 503, json: { error: { code: "server_unreachable", message: "Unavailable", hint: "Try again." } } }));
+  await page.reload();
+  await expect(page.getByRole("row").filter({ hasText: "@people-check" })).toContainText("Unavailable");
+});
+
+test("a server member sees People without admin commands or owner controls", async ({ page }) => {
+  const b = await newBoard("Member visibility room");
+  const key = await person("people-member");
+  await api(ownerKey(), "POST", `/v1/boards/${b.name}/people`, { handle: "people-member" });
+  await page.goto(base());
+  await page.getByLabel("Access key").fill(key);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^You are people-member/ })).toBeVisible();
+  await page.getByRole("button", { name: /^You are people-member/ }).click();
+  await page.getByRole("menuitem", { name: "People", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Invite command|Role command|Remove command/ })).toHaveCount(0);
+  await page.goto(`${base()}/?board=${b.name}`);
+  await page.getByRole("button", { name: /Member visibility room.*board details/ }).click();
+  await expect(page.getByText("Visibility: ", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Change visibility" })).toHaveCount(0);
+});
+
+test("board owners confirm visibility and cancel without changing access", async ({ page }) => {
+  const b = await newBoard("Visibility control room");
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.goto(`${base()}/?board=${b.name}`);
+  await page.getByRole("button", { name: /Visibility control room.*board details/ }).click();
+  await page.getByRole("button", { name: "Change visibility" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("People already on the board keep their access");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect((await api(ownerKey(), "GET", `/v1/boards/${b.name}`)).visibility).toBe("open");
+  await page.getByRole("button", { name: "Change visibility" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Make private", exact: true }).click();
+  await expect(page.locator(".visibility[data-visibility=private]").first()).toBeVisible();
+  expect((await api(ownerKey(), "GET", `/v1/boards/${b.name}`)).visibility).toBe("private");
+  await page.getByRole("button", { name: "Change visibility" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("whole history and files");
+  await captureAdmin(page, "visibility");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Make open", exact: true }).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  expect((await api(ownerKey(), "GET", `/v1/boards/${b.name}`)).visibility).toBe("open");
+});
+
+async function captureAdmin(page: Page, surface: string) {
+  const directory = process.env.ABOARD_ADMIN_SCREENSHOTS;
+  if (!directory) return;
+  mkdirSync(directory, { recursive: true });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+    for (const [device, width] of [["desktop", 1440], ["mobile", 390]] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: join(directory, `${surface}-${theme}-${device}.png`), fullPage: surface === "people", animations: "disabled" });
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+}
+
+test("visibility ignores a preview for the previous access state", async ({ page }) => {
+  const b = await newBoard("Held visibility room");
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.goto(`${base()}/?board=${b.name}`);
+  await page.getByRole("button", { name: /Held visibility room.*board details/ }).click();
+  let held!: Route;
+  let entered!: () => void;
+  const waiting = new Promise<void>((resolve) => { entered = resolve; });
+  await page.route(`**/v1/boards/${b.name}/visibility`, async (route) => { held = route; entered(); });
+  await page.getByRole("button", { name: "Change visibility" }).click();
+  await waiting;
+  await api(ownerKey(), "POST", `/v1/boards/${b.name}/visibility`, { visibility: "private" });
+  await expect(page.locator(".visibility[data-visibility=private]").first()).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  const oldPreview = held;
+  const second = new Promise<void>((resolve) => { entered = resolve; });
+  await page.getByRole("button", { name: "Change visibility" }).click();
+  await second;
+  const oldAnswer = page.waitForResponse((r) => r.url().endsWith(`/v1/boards/${b.name}/visibility`));
+  await oldPreview.fulfill({ json: { board: b.name, before: "open", after: "private", changed: true, dry_run: true, reveals: null, join_codes_canceled: 5 } });
+  await oldAnswer;
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(page.getByRole("button", { name: "Make open", exact: true })).toBeDisabled();
+  await held.fulfill({ json: { board: b.name, before: "private", after: "open", changed: true, dry_run: true, reveals: { messages: 0, files: 0 }, join_codes_canceled: 0 } });
+  await expect(page.getByRole("button", { name: "Make open", exact: true })).toBeEnabled();
+});
+
+test("My agents records an owner target and receipts for its current seats", async ({ page }) => {
+  const b = await newBoard("Owner target room");
+  const key = ownerKey();
+  const one = await api(key, "POST", "/v1/join", { board: b.name, role: "member", name: "owner-one" });
+  const two = await api(key, "POST", "/v1/join", { board: b.name, role: "member", name: "owner-two" });
+  await openLink(page, JSON.parse(aboard("open", "--json")).url);
+  await page.goto(`${base()}/?board=${b.name}`);
+  await page.getByRole("button", { name: "Recipients: everyone. Change", exact: true }).click();
+  await page.getByRole("menuitemcheckbox", { name: "My agents", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.getByLabel("Message alex’s agents", { exact: true }).fill("To both my seats");
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.locator("main")).toContainText("alex’s agents");
+  const messages = await api(key, "GET", `/v1/boards/${b.name}/messages`);
+  const posted = (messages.messages as { to: string[]; seq: number; body: string }[]).find((m) => m.body === "To both my seats");
+  expect(posted?.to).toEqual(["owner:alex"]);
+  const receipt = await api(key, "GET", `/v1/boards/${b.name}/messages/${posted?.seq}/receipts`);
+  const recipients = receipt.recipients as { member: { name: string } }[];
+  expect(recipients.map((r) => r.member.name).sort()).toEqual([(one.agent as {name: string}).name, (two.agent as {name: string}).name].sort());
+});
+
+});
+
+test.describe("person rename", () => {
+  let oldEnv: typeof env;
+  let renameHome: string;
+  test.beforeAll(async () => {
+    oldEnv = env;
+    renameHome = mkdtempSync(join(tmpdir(), "aboard-web-rename-"));
+    env = { ...env, HOME: renameHome, XDG_CONFIG_HOME: join(renameHome, ".config"), XDG_DATA_HOME: join(renameHome, ".local", "share"), XDG_STATE_HOME: join(renameHome, ".local", "state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}` };
+  });
+  test.afterAll(() => {
+    try { aboard("down"); } finally { env = oldEnv; rmSync(renameHome, { recursive: true, force: true }); }
+  });
+  test("rename updates a loaded historical author and current account", async ({ page }) => {
+    const b = await newBoard("Rename history");
+    const key = ownerKey();
+    const peer = await person("rename-peer");
+    await api(key, "POST", `/v1/boards/${b.name}/people`, { handle: "rename-peer" });
+    await api(peer, "POST", `/v1/boards/${b.name}/messages`, { body: "Original @rename-peer mention stays", to: ["all"] });
+    await openLink(page, JSON.parse(aboard("open", "--board", b.name, "--json")).url);
+    await expect(page.getByText("Original @rename-peer mention stays", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "You are alex. Account and settings" })).toBeVisible();
+    await expect(page.locator(".timeline").getByText("rename-peer", { exact: true }).first()).toBeVisible();
+    await api(peer, "POST", "/v1/people/rename-peer/rename", { handle: "rename-sam" });
+    await expect(page.locator(".timeline").getByText("rename-sam", { exact: true }).first()).toBeVisible();
+    await api(key, "POST", "/v1/people/alex/rename", { handle: "leo" });
+    await expect(page.getByRole("button", { name: "You are leo. Account and settings" })).toBeVisible();
+    await expect(page.getByText("Original @rename-peer mention stays", { exact: true })).toBeVisible();
+    const timeline = page.locator(".timeline");
+    await expect(timeline.getByText("rename-sam", { exact: true }).first()).toBeVisible();
+  });
 });

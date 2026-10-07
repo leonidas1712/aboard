@@ -77,7 +77,9 @@ type Daemon struct {
 	turned            map[SessionKey]bool
 	problems          map[AgentKey]string
 	extensionProblems map[SessionKey]bool
-	generations       map[AgentKey]uint64
+	// handoffProblems holds the sessions whose handoffs fail to prepare.
+	handoffProblems map[SessionKey]bool
+	generations     map[AgentKey]uint64
 	// modes holds each agent's delivery mode as the journal keeps it: one set on this
 	// machine, or the last one read from its server. An agent not in it has the default.
 	modes map[AgentKey]Mode
@@ -131,7 +133,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 // restore loads the sessions, bindings and deliveries the journal holds.
 func (d *Daemon) restore(ctx context.Context) error {
-	blocked, err := d.resolveJournal(ctx)
+	blocked, retry, err := d.resolveJournal(ctx)
 	if err != nil {
 		return err
 	}
@@ -207,17 +209,62 @@ func (d *Daemon) restore(ctx context.Context) error {
 		s.restored = true
 		d.startSession(s)
 	}
+	for _, b := range retry {
+		d.g.Go(func() error {
+			d.retryJournalSeat(d.ctx, b)
+			return nil
+		})
+	}
 	return nil
 }
 
-func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, error) {
+// retryJournalSeat keeps trying, with backoff, to prove a journal seat whose server
+// couldn't be reached as the daemon started, and gives it back to its session once the
+// server answers. A refusal (unauthorized, board gone) is final, as it is at start.
+func (d *Daemon) retryJournalSeat(ctx context.Context, b Binding) {
+	for failures := 1; ; failures++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-d.cfg.Clock.After(backoff(failures)):
+		}
+		resolved, err := d.resolveAgent(ctx, b.Agent)
+		if err == nil {
+			d.log.Info("journal seat verified after its server came back", "server", resolved.Server, "board", resolved.Board, "agent", resolved.Name)
+			d.mu.Lock()
+			s := d.sessions[b.Session]
+			d.mu.Unlock()
+			if s != nil {
+				s.mail.put(sessionMsg{restoreSeat: &resolved})
+			}
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if reason := problemOf(err); reason != "" {
+			d.setProblem(b.Agent, reason)
+			d.log.Warn("resolve journal seat", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name, "error", err)
+			return
+		}
+		d.log.Info("journal seat's server still unreachable", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name,
+			"retry_in", backoff(failures+1), "error", err)
+	}
+}
+
+// resolveJournal proves each journal seat with its saved credential before the daemon
+// restores it. It returns the seats that stay stopped, with why, and the unverified
+// seats whose server couldn't be reached: those wait, marked server_unreachable, until
+// retryJournalSeat proves them.
+func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, []Binding, error) {
 	blocked := map[AgentKey]string{}
+	var retry []Binding
 	if d.cfg.ResolveAgent == nil {
-		return blocked, nil
+		return blocked, nil, nil
 	}
 	bindings, err := d.cfg.Journal.Bindings(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("read bindings for identity resolution: %w", err)
+		return nil, nil, fmt.Errorf("read bindings for identity resolution: %w", err)
 	}
 	seen := map[AgentKey]bool{}
 	for _, b := range bindings {
@@ -233,18 +280,21 @@ func (d *Daemon) resolveJournal(ctx context.Context) (map[AgentKey]string, error
 			}
 			reason := problemOf(err)
 			if reason == "" {
-				reason = "identity_unresolved"
+				// The server couldn't be reached or failed. That passes, so the seat
+				// waits for it rather than stopping for good.
+				reason = ReasonServerUnreachable
+				retry = append(retry, b)
 			}
 			blocked[b.Agent.Key()] = reason
 			d.log.Warn("resolve journal seat", "server", b.Agent.Server, "board", b.Agent.Board, "agent", b.Agent.Name, "error", err)
 		} else if b.Agent.MemberID != "" && resolved != b.Agent {
 			b.Agent = resolved
 			if err := d.cfg.Journal.Bind(ctx, b); err != nil {
-				return nil, fmt.Errorf("refresh restored seat metadata: %w", err)
+				return nil, nil, fmt.Errorf("refresh restored seat metadata: %w", err)
 			}
 		}
 	}
-	return blocked, nil
+	return blocked, retry, nil
 }
 
 func (d *Daemon) resolveAgent(ctx context.Context, agent AgentRef) (AgentRef, error) {
@@ -510,10 +560,14 @@ func (d *Daemon) heldMode(agent AgentRef) bool {
 
 // modeLocked is mode, for a caller that holds d.mu.
 func (d *Daemon) modeLocked(agent AgentRef) Mode {
-	if h, ok := d.held[agent.Key()]; ok {
+	return d.keyModeLocked(agent.Key())
+}
+
+func (d *Daemon) keyModeLocked(key AgentKey) Mode {
+	if h, ok := d.held[key]; ok {
 		return h.Mode
 	}
-	if m, ok := d.modes[agent.Key()]; ok {
+	if m, ok := d.modes[key]; ok {
 		return m
 	}
 	if m, ok := d.modes[AgentKey{}]; ok {
@@ -528,8 +582,8 @@ func (d *Daemon) modeLocked(agent AgentRef) Mode {
 // person set is kept in the journal too, for the daemon's next start; one never set
 // (revision 0) leaves the journal as it is, so aboard doctor can still name a mode set
 // on this machine that the server doesn't have. It reports whether the mode in force
-// changed.
-func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool {
+// changed, and the mode in force before.
+func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) (changed bool, was Mode) {
 	if parsed, ok := ParseMode(string(h.Mode)); ok {
 		h.Mode = parsed
 	} else {
@@ -537,11 +591,11 @@ func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool
 	}
 	d.mu.Lock()
 	prev, known := d.held[agent.Key()]
+	before := d.modeLocked(agent)
 	if known && h.Revision < prev.Revision {
 		d.mu.Unlock()
-		return false
+		return false, before
 	}
-	before := d.modeLocked(agent)
 	cached, inJournal := d.modes[agent.Key()]
 	save := h.Revision > 0 && (!inJournal || cached != h.Mode)
 	if save {
@@ -556,11 +610,11 @@ func (d *Daemon) learnMode(ctx context.Context, agent AgentRef, h HeldMode) bool
 	d.held[agent.Key()] = h
 	d.mu.Unlock()
 	if before == h.Mode {
-		return false
+		return false, before
 	}
 	d.log.Info("delivery mode changed on the server", "agent", agent.Name, "board", agent.Board,
 		"from", before, "to", h.Mode, "revision", h.Revision)
-	return true
+	return true, before
 }
 
 // setMode answers OpMode: it shows the agent's delivery mode, or takes a new one and has
@@ -582,9 +636,9 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a delivery mode.", req.Mode), "Use focused, all, humans or off.")
 	}
 	if req.Revision > 0 && agent != (AgentRef{}) {
-		changed := d.learnMode(ctx, agent, HeldMode{Mode: mode, Revision: req.Revision})
+		changed, was := d.learnMode(ctx, agent, HeldMode{Mode: mode, Revision: req.Revision})
 		if s := d.owner(agent); s != nil && changed {
-			s.mail.put(sessionMsg{modeChanged: true})
+			s.mail.put(sessionMsg{modeChanged: true, modeWas: map[AgentKey]Mode{agent.Key(): was}})
 		}
 		return Response{V: ProtocolVersion, Mode: d.mode(agent), Changed: changed}
 	}
@@ -597,17 +651,21 @@ func (d *Daemon) setMode(ctx context.Context, req Request) Response {
 	}
 	d.mu.Lock()
 	d.rememberLocked(agent)
-	d.modes[agent.Key()] = req.Mode
-	var owners []*session
+	// Each session hears which of its agents changed and the mode each had before.
+	was := map[*session]map[AgentKey]Mode{}
 	for a, s := range d.owners {
 		if _, own := d.modes[a]; a == agent.Key() || (agent == AgentRef{} && !own) {
-			owners = append(owners, s)
+			if was[s] == nil {
+				was[s] = map[AgentKey]Mode{}
+			}
+			was[s][a] = d.keyModeLocked(a)
 		}
 	}
+	d.modes[agent.Key()] = req.Mode
 	now := d.modeLocked(agent)
 	d.mu.Unlock()
-	for _, s := range owners {
-		s.mail.put(sessionMsg{modeChanged: true})
+	for s, modes := range was {
+		s.mail.put(sessionMsg{modeChanged: true, modeWas: modes})
 	}
 	d.log.Info("delivery mode changed on this machine", "agent", agent.Name, "board", agent.Board, "mode", req.Mode)
 	// A server that holds the agent's mode decides it, so the answer is the mode in force.
@@ -733,6 +791,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveExtension(ctx, conn, r, req)
 	case OpBoards:
 		_ = WriteFrame(conn, d.serveBoards(ctx, req))
+	case OpCreateBoard:
+		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
 	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
@@ -1018,6 +1078,9 @@ func (d *Daemon) status(ctx context.Context) Response {
 	for a, s := range d.owners {
 		if d.extensionProblems[s.key] {
 			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonExtensionOutdated})
+		}
+		if d.handoffProblems[s.key] {
+			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonHandoffFailed})
 		}
 		st.Bindings = append(st.Bindings, BindingStatus{Agent: d.refs[a], Session: s.key.String(), Open: d.open[s.key], Turned: d.turned[s.key]})
 	}

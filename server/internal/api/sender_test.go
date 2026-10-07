@@ -158,7 +158,7 @@ func TestHidingHarnessesNamesAgentsNeutrally(t *testing.T) {
 		who, token string
 		visible    bool
 	}{{"an agent", codex, false}, {"a person", s.owner, true}} {
-		ms, err := s.client(c.token).ListMembersWithResponse(ctx, boardName)
+		ms, err := s.client(c.token).ListMembersWithResponse(ctx, boardName, nil)
 		mustStatus(t, ms, err, 200)
 		for _, m := range ms.JSON200.Members {
 			if m.Name == "agent-1" && (m.Harness != nil) != c.visible {

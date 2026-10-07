@@ -13,7 +13,7 @@ aboard keys sessions [<name|id>] [--server URL] [--json]
 aboard keys sessions end <session id> [--server URL] [--json]
 ```
 
-An access key signs you in as yourself: this machine keeps one, and you can make others for a phone, another browser or a script. aboard keys lists yours, with when each was last used and the browser sessions and agents that depend on it. The server is `--server`, else the one this directory's .aboard names, else the local server.
+An access key signs you in as yourself: this machine keeps one, and you can make others for a phone, another browser or a script. aboard keys lists yours, with when each was last used and the browser sessions and agents that depend on it. The server is `--server`, else the one this directory's .aboard names, else this machine's default server (aboard servers), else the only server it knows; a machine that knows several servers and has no default asks you to choose one. Every form names the server it acted on.
 
 keys create makes a key and shows it once: save it in a password manager. Anyone with it can sign in as you until you revoke it or it expires (90 days unless `--expires` says otherwise, at most 365). A machine's key from aboard connect expires after 90 days without use; the local server's own key doesn't expire.
 
@@ -30,7 +30,7 @@ Keys are up to a person: these commands refuse inside an agent's session.
 | `--person HANDLE` | Another person's keys. Admins only. |
 | `--expires DURATION` | How long a new key works, such as 90d, 12h or 1y. Default: 90d. |
 | `--yes` | Revoke this machine's own key without asking. |
-| `--server URL` | The server, when it isn't this directory's or the local one. |
+| `--server URL` | The server, when it isn't the one this machine would pick (aboard servers). |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples

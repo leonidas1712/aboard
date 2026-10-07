@@ -86,6 +86,7 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		var resp delivery.Response
 		if resp, hookErr = h.call(ctx, delivery.OpRegister); hookErr == nil {
 			h.startNote(resp)
+			h.printAdded(ctx)
 		}
 	case harness.OpPrompt:
 		hookErr = h.turnStart(ctx, call.Wake)
@@ -175,6 +176,7 @@ func (h hookCall) sessionStartWithEnvFile(ctx context.Context, envVar string, in
 		return err
 	}
 	h.startNote(resp)
+	h.printAdded(ctx)
 	envFile := h.a.env.Getenv(envVar)
 	if envFile == "" {
 		return nil
@@ -259,7 +261,12 @@ func (h hookCall) turnStart(ctx context.Context, wake bool) error {
 	if err != nil {
 		return err
 	}
-	return h.addContext(strings.TrimSpace(resp.Bundle), "UserPromptSubmit")
+	text := resp.Bundle
+	if !wake {
+		// Never with a wake: the line is quiet, for a turn the person started.
+		text += "\n\n" + h.addedNote(ctx, false)
+	}
+	return h.addContext(strings.TrimSpace(text), "UserPromptSubmit")
 }
 
 // tool adds to a busy turn, at a tool boundary, the owner's messages and a notice of the

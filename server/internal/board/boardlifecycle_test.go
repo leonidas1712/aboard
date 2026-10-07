@@ -148,7 +148,7 @@ func TestArchivedReadersAndAccessReductionsStillWork(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _, err = w.svc.Inbox(ctx, w.samAgent, 0, 0, 10)
-	wantCode(t, "restore cannot revive removed seat", err, "board_not_found")
+	wantCode(t, "restore cannot revive removed seat", err, "agent_removed")
 }
 
 func TestLifecycleAuthorityUsesCreatorAndCurrentPersonRatherThanBoardOwner(t *testing.T) {

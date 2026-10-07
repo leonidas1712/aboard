@@ -231,9 +231,9 @@ HARNESS=<name>`). The table below is generated from those results.
 
 Live evidence:
 
-- Claude Code: proven on 2.1.289, 2.1.290, 2026-10-06; a delivery typically began 2.0 s after its message was posted, and Claude Code confirmed it 2.3 s later (median of 25, 2026-10-06).
-- Codex: proven on 0.160.0, 2026-10-06; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.1 s later (median of 25, 2026-10-06).
-- omp: proven on 18.5.1, 2026-10-06; a delivery typically began 2.0 s after its message was posted, and omp confirmed it 0.0 s later (median of 24, 2026-10-06).
+- Claude Code: proven on 2.1.291, 2026-10-07; a delivery typically began 2.0 s after its message was posted, and Claude Code confirmed it 2.2 s later (median of 28, 2026-10-07).
+- Codex: proven on 0.160.0, 2026-10-07; a delivery typically began 2.0 s after its message was posted, and Codex confirmed it 0.0 s later (median of 30, 2026-10-07).
+- omp: proven on 18.5.1, 2026-10-07; a delivery typically began 2.0 s after its message was posted, and omp confirmed it 0.0 s later (median of 29, 2026-10-07).
 
 <!-- end of harness-table -->
 

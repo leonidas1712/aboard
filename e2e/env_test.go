@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,9 +32,27 @@ var oldBinary string
 // oldVersion is oldBinary's version, older than the source's.
 const oldVersion = "0.0.1"
 
+// sourceVersion is the version the source builds as: version in
+// server/internal/cli/build.go, which a release bumps.
+var sourceVersion = func() string {
+	raw, err := os.ReadFile(filepath.Join("..", "server", "internal", "cli", "build.go"))
+	if err != nil {
+		panic(err)
+	}
+	m := regexp.MustCompile(`(?m)^var version = "([^"]+)"$`).FindSubmatch(raw)
+	if m == nil {
+		panic("no version in server/internal/cli/build.go")
+	}
+	return string(m[1])
+}()
+
 // unstampedBinary is aboard at the source's version built without Git information,
 // playing a build from before servers reported their commit.
 var unstampedBinary string
+
+// plainBinary is aboard built without the race detector, as people run it: some races
+// between its processes only show at that speed.
+var plainBinary string
 
 // fakeBin holds the fake codex and claude binaries, first on every test's PATH.
 var fakeBin string
@@ -85,6 +104,7 @@ func TestMain(m *testing.M) {
 	// Named aboard too, as an installed binary is: aboard only stops processes by that name.
 	oldBinary = filepath.Join(dir, "old", "aboard")
 	unstampedBinary = filepath.Join(dir, "unstamped", "aboard")
+	plainBinary = filepath.Join(dir, "plain", "aboard")
 	// A test's machine has no omp unless the test puts one there (the conformance kit
 	// does, with a stand-in that only reports its version), so no test runs the person's
 	// own omp or finds it installed.
@@ -140,6 +160,13 @@ func buildPrograms(dir string) {
 	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
 	if err := unstamped.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
+		os.Exit(1)
+	}
+	plain := exec.Command("go", "build", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
+	plain.Dir = ".."
+	plain.Stdout, plain.Stderr = os.Stderr, os.Stderr
+	if err := plain.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "build aboard without the race detector:", err)
 		os.Exit(1)
 	}
 	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")
@@ -375,4 +402,17 @@ func freeAddr(t *testing.T) string {
 	}
 	defer l.Close()
 	return l.Addr().String()
+}
+
+// writeProgram writes an executable file that a test then runs. A child process writes
+// it: on Linux a file this process held open for writing is inherited by any command a
+// parallel test starts at that moment, and running the file before that command execs
+// fails with "text file busy" (golang.org/issue/22315).
+func writeProgram(t testing.TB, path string, content []byte) {
+	t.Helper()
+	cmd := exec.Command("/bin/sh", "-c", `cat >"$1" && chmod 755 "$1"`, "sh", path)
+	cmd.Stdin = bytes.NewReader(content)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("write %s: %v\n%s", path, err, out)
+	}
 }

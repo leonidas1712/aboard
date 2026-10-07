@@ -185,12 +185,3 @@ func resolveAgent(asFlag, envAgent string, creds credentials, t target) (agentCr
 	}
 	return cred, nil
 }
-
-// agentFor resolves the agent for a command on board t.
-func (a *app) agentFor(asFlag string, t target) (agentCredential, error) {
-	creds, err := a.readCredentials()
-	if err != nil {
-		return agentCredential{}, err
-	}
-	return resolveAgent(asFlag, a.env.Getenv("ABOARD_AGENT"), creds, t)
-}

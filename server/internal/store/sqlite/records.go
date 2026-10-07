@@ -13,6 +13,11 @@ import (
 
 // InsertHuman adds a human.
 func (t *tx) InsertHuman(h board.Human) error {
+	if _, err := t.ReservedHandle(h.Name); err == nil {
+		return board.HandleTaken(h.Name)
+	} else if !errors.Is(err, board.ErrNotFound) {
+		return err
+	}
 	return t.exec("INSERT INTO humans (id, name, display_name, role, created_at) VALUES (?, ?, ?, ?, ?)",
 		h.ID, h.Name, h.DisplayName, h.Role, h.CreatedAt)
 }
@@ -230,12 +235,15 @@ func (t *tx) HumanCount() (int, error) {
 	return n, err
 }
 
-const boardColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle"
+const (
+	boardInsertColumns = "id, name, title, template, charter, roles_json, policy_json, head_seq, head_hash, created_at, created_by, message_count, last_message_at, visibility, lifecycle, agents_add_people, task_prefix"
+	boardColumns       = boardInsertColumns + ", (SELECT count(*) FROM tasks WHERE tasks.board_id = boards.id AND tasks.state = 'open')"
+)
 
 func scanBoard(row interface{ Scan(...any) error }) (board.Board, error) {
 	var b board.Board
 	var roles, policy string
-	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle); err != nil {
+	if err := row.Scan(&b.ID, &b.Name, &b.Title, &b.Template, &b.Charter, &roles, &policy, &b.HeadSeq, &b.HeadHash, &b.CreatedAt, &b.CreatedBy, &b.MessageCount, &b.LastMessageAt, &b.Visibility, &b.Lifecycle, &b.AgentsAddPeople, &b.TaskPrefix, &b.TasksOpen); err != nil {
 		return board.Board{}, notFound(err)
 	}
 	if err := json.Unmarshal([]byte(roles), &b.Roles); err != nil {
@@ -257,9 +265,9 @@ func (t *tx) InsertBoard(b board.Board) error {
 	if err != nil {
 		return fmt.Errorf("encode policy: %w", err)
 	}
-	return t.exec("INSERT INTO boards ("+boardColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	return t.exec("INSERT INTO boards ("+boardInsertColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		b.ID, b.Name, b.Title, b.Template, b.Charter, string(roles), string(policy), b.HeadSeq, b.HeadHash, b.CreatedAt, b.CreatedBy,
-		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle))
+		b.MessageCount, b.LastMessageAt, b.Visibility, lifecycleDefault(b.Lifecycle), b.AgentsAddPeople, b.TaskPrefix)
 }
 
 // SetBoardPolicy replaces a board's policy.
@@ -350,19 +358,29 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human')"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
+	var taskID, taskRef, taskTitle sql.NullString
 	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName)
+	if taskID.Valid {
+		m.CurrentTask = &board.TaskRef{ID: taskID.String, Ref: taskRef.String, Title: taskTitle.String}
+	}
 	m.Access = access.String
 	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
 	m.Delivery.Mode = setting.String
+	if m.Kind == "agent" && m.Status == board.StatusLeft && m.RemovedAt != nil && m.RemovedBy == nil {
+		// An agent that left is stored without removed_by, whose column predates the value.
+		m.RemovedBy = ptrTo(board.RemovedBySelf)
+	}
 	return m, notFound(err)
 }
+
+func ptrTo(s string) *string { return &s }
 
 // SetDelivery records an agent's delivery mode as its person set it, and the seq of the
 // event that set it.
@@ -434,8 +452,12 @@ func (t *tx) SetMemberStatus(memberID, status string) error {
 	return t.exec("UPDATE members SET status = ? WHERE id = ?", status, memberID)
 }
 
-// RemoveAgent marks an agent removed, with when and by whom.
+// RemoveAgent marks an agent removed, with when and by whom. An agent that left by
+// itself is stored as left, with no removed_by.
 func (t *tx) RemoveAgent(memberID, at, by string) error {
+	if by == board.RemovedBySelf {
+		return t.exec("UPDATE members SET status = 'left', removed_at = ?, removed_by = NULL WHERE id = ? AND kind = 'agent'", at, memberID)
+	}
 	return t.exec("UPDATE members SET status = 'removed', removed_at = ?, removed_by = ? WHERE id = ? AND kind = 'agent'", at, by, memberID)
 }
 
@@ -589,6 +611,19 @@ func (t *tx) Events(boardID string, after int64, limit int) ([]events.Event, err
 	return out, rows.Err()
 }
 
+// PersonAdded finds the latest person.added event for a person's member on a board.
+func (t *tx) PersonAdded(boardID, memberID string) (events.Event, error) {
+	var e events.Event
+	var actor string
+	err := t.queryRow("SELECT seq, at, actor_json FROM events WHERE board_id = ? AND type = ? AND json_extract(data_json, '$.member_id') = ? ORDER BY seq DESC LIMIT 1",
+		boardID, events.PersonAdded, memberID).Scan(&e.Seq, &e.At, &actor)
+	if err != nil {
+		return events.Event{}, notFound(err)
+	}
+	e.BoardID, e.Type = boardID, events.PersonAdded
+	return e, json.Unmarshal([]byte(actor), &e.Actor)
+}
+
 func lifecycleDefault(v string) string {
 	if v == "" {
 		return board.LifecycleActive
@@ -599,4 +634,58 @@ func lifecycleDefault(v string) string {
 // SetBoardLifecycle changes only access state, retaining all rows and the name.
 func (t *tx) SetBoardLifecycle(id, lifecycle string) error {
 	return t.exec("UPDATE boards SET lifecycle = ? WHERE id = ?", lifecycle, id)
+}
+
+// ReservedHandle identifies the person to whom a renamed handle belongs forever.
+func (t *tx) ReservedHandle(name string) (string, error) {
+	var id string
+	err := t.queryRow("SELECT human_id FROM person_handles WHERE handle = ?", name).Scan(&id)
+	return id, notFound(err)
+}
+
+// MembershipBoards includes former memberships; deleted records cannot receive events.
+func (t *tx) MembershipBoards(id string) ([]board.Board, error) {
+	return t.boards("SELECT "+boardColumns+" FROM boards WHERE lifecycle != 'deleted' AND id IN (SELECT board_id FROM members WHERE human_id = ? AND kind = 'human') ORDER BY id", id)
+}
+
+// RenameHuman reserves both handles and changes all member projections atomically.
+func (t *tx) RenameHuman(id, name string) error {
+	h, err := t.HumanByID(id)
+	if err != nil {
+		return err
+	}
+	if owner, err := t.ReservedHandle(name); err == nil && owner != id {
+		return board.HandleTaken(name)
+	} else if err != nil && !errors.Is(err, board.ErrNotFound) {
+		return err
+	}
+	if other, err := t.HumanByName(name); err == nil && other.ID != id {
+		return board.HandleTaken(name)
+	} else if err != nil && !errors.Is(err, board.ErrNotFound) {
+		return err
+	}
+	var collisions int
+	if err := t.queryRow("SELECT count(*) FROM members x WHERE x.name = ? AND x.human_id != ? AND x.board_id IN (SELECT board_id FROM members WHERE human_id = ? AND kind = 'human')", name, id, id).Scan(&collisions); err != nil {
+		return err
+	}
+	// An agent of this person also occupies a distinct member name.
+	var ownAgents int
+	if err := t.queryRow("SELECT count(*) FROM members x WHERE x.name = ? AND x.kind != 'human' AND x.board_id IN (SELECT board_id FROM members WHERE human_id = ? AND kind = 'human')", name, id).Scan(&ownAgents); err != nil {
+		return err
+	}
+	if collisions+ownAgents > 0 {
+		return board.HandleTaken(name)
+	}
+	for _, handle := range []string{h.Name, name} {
+		if err := t.exec("INSERT INTO person_handles(handle, human_id) VALUES (?, ?) ON CONFLICT(handle) DO NOTHING", handle, id); err != nil {
+			return err
+		}
+	}
+	if err := t.exec("UPDATE humans SET name = ? WHERE id = ?", name, id); err != nil {
+		return err
+	}
+	if err := t.exec("UPDATE members SET name = ? WHERE human_id = ? AND kind = 'human'", name, id); err != nil {
+		return err
+	}
+	return t.exec("UPDATE members SET owner = ? WHERE human_id = ? AND kind = 'agent'", name, id)
 }

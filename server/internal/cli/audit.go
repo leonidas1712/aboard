@@ -74,28 +74,42 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 	if pos[0] != "verify" {
 		return usageError(fmt.Sprintf("%q is not an audit command.", pos[0]), use)
 	}
-	if *as != "" {
-		if err := a.oneSeat(ctx, *boardFlag); err != nil {
-			return err
-		}
-	}
-	t, err := a.selectBoard(*boardFlag)
-	if err != nil {
-		return err
-	}
+	var t target
 	var c *client
-	if *as != "" {
-		cred, err := a.agentFor(*as, t)
+	if a.agentSelected(*as) {
+		var cred agentCredential
+		if *as != "" || strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) != "" {
+			t, cred, err = a.agentTarget(ctx, *boardFlag, *as)
+		} else {
+			key, inSession := a.sessionKey()
+			if !inSession {
+				return newError("agent_not_selected", "This command has no bound agent session.", "Run aboard resume <agent> or aboard join to take a seat, then try again.")
+			}
+			creds, readErr := a.readCredentials()
+			if readErr != nil {
+				return readErr
+			}
+			var found bool
+			t, cred, found, err = a.sessionAgent(ctx, creds, key, *boardFlag)
+			if err == nil && !found {
+				return newError("agent_not_selected", "This session has no agent on the selected board.", "Run aboard resume <agent> or aboard join to take a seat, then try again.")
+			}
+		}
 		if err != nil {
 			return err
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
+	} else {
+		t, err = a.humanBoard(*boardFlag)
 		if err != nil {
 			return err
 		}
-	} else if c, err = a.humanClient(ctx, t); err != nil {
+		c, err = a.humanClient(ctx, t)
+	}
+	if err != nil {
 		return err
 	}
+
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	info, err := c.info(ctx)

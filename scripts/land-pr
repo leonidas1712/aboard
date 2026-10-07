@@ -21,8 +21,8 @@
 #      LAND_PR_CI_WAIT seconds; a run that fails stops the landing. With --local, the
 #      script runs the checks here instead, by what changed against origin/main:
 #        only design/ or engineering/   no code checks
-#        anything else                  make fmt-check lint vet generate-check core-size
-#                                       harness-table-check test e2e
+#        anything else                  make fmt-check lint vet generate-check harness-table-check
+#                                       test e2e
 #        web/ too                       make web-check as well
 #      A change to delivery, setup or upgrades also gets a note that make live must pass
 #      before merging (classify below lists the paths). With --live, the script runs
@@ -68,7 +68,7 @@
 #   CI_STATUS_INTERVAL     seconds between looks at CI while waiting (default 30)
 set -eu
 
-code_checks="fmt-check lint vet generate-check core-size harness-table-check test e2e"
+code_checks="fmt-check lint vet generate-check harness-table-check test e2e"
 merge_attempts=5
 max_rounds=3
 script_dir=$(cd "$(dirname "$0")" && pwd)

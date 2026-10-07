@@ -4,7 +4,7 @@
 // on. The right one is about the board on screen: its agents and people, its charter,
 // the rules Aboard enforces on it, and its details.
 
-import { ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -17,16 +17,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type Member, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type Member, addedBy, isArchived, setDelivery } from "./api";
+import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, presenceWords, rules } from "./words";
+import { VisibilityControl } from "./visibility";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
-export function BoardNav({ current, boards }: { current: string; boards: Board[] | null }) {
+export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const recent = [...boards].sort((a, b) => {
     const activity = (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at);
@@ -41,18 +43,18 @@ export function BoardNav({ current, boards }: { current: string; boards: Board[]
       {needs.length > 0 && (
         <section aria-label="Needs you">
           <h3 className="mb-1 text-meta font-bold text-ink">Needs you</h3>
-          <BoardLinks current={current} boards={needs} />
+          <BoardLinks current={current} boards={needs} onMarkRead={onMarkRead} />
         </section>
       )}
       {others.length > 0 && (
         <section aria-label={needs.length > 0 ? "Other boards" : "Your boards"}>
           {needs.length > 0 && <h3 className="mb-1 text-meta font-bold text-muted">Other boards</h3>}
-          <BoardLinks current={current} boards={others} />
+          <BoardLinks current={current} boards={others} onMarkRead={onMarkRead} />
         </section>
       )}
       {archived.length > 0 && (
         <ArchivedGroup count={archived.length} holdsCurrent={archived.some((b) => b.name === current)}>
-          <BoardLinks current={current} boards={archived} />
+          <BoardLinks current={current} boards={archived} onMarkRead={onMarkRead} />
         </ArchivedGroup>
       )}
       {boards.length === 0 && <p className="text-meta text-muted">No boards yet.</p>}
@@ -93,13 +95,15 @@ export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: num
   );
 }
 
-function BoardLinks({ current, boards }: { current: string; boards: Board[] }) {
+// A board with something unread offers "Mark all as read" on hover or focus, over its
+// unread count, which it stands for.
+function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: Board[]; onMarkRead: (b: Board) => void }) {
   return (
     <ul className="board-nav -mx-2.5 flex flex-col gap-0.5">
       {boards.map((b) => {
         const here = b.name === current;
         return (
-          <li key={b.id}>
+          <li key={b.id} className="group relative">
             <a
               href={`/?board=${encodeURIComponent(b.name)}`}
               aria-current={here ? "page" : undefined}
@@ -124,7 +128,23 @@ function BoardLinks({ current, boards }: { current: string; boards: Board[] }) {
                   <span className="sr-only">, {b.unread} unread</span>
                 </span>
               )}
+              {b.added && (b.unread ?? 0) === 0 && (
+                <span className="added-new shrink-0 text-meta text-muted" title={`Added by ${addedBy(b.added)}`}>
+                  new<span className="sr-only">, added by {addedBy(b.added)}</span>
+                </span>
+              )}
             </a>
+            {(b.unread ?? 0) > 0 && (
+              <button
+                type="button"
+                className="mark-read pointer-events-none absolute top-1/2 right-1.5 z-10 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-[6px] bg-selected text-muted opacity-0 transition-opacity duration-[140ms] ease-out group-hover:pointer-events-auto group-hover:opacity-100 hover:text-ink focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:none)]:hidden"
+                aria-label={`Mark all as read on ${boardLabel(b)}`}
+                title="Mark all as read"
+                onClick={() => onMarkRead(b)}
+              >
+                <CheckCheck className="size-4" strokeWidth={1.5} aria-hidden />
+              </button>
+            )}
           </li>
         );
       })}
@@ -143,7 +163,7 @@ type BoardPanelProps = {
   me: string | null;
   /** meId is the person's permanent id, which their agents name as owner_id. */
   meId: string | null;
-  /** canInvite shows "Add an agent": the browser acts as a person. */
+  /** canInvite shows "Add an agent": the browser acts as a person who isn't a guest, since a guest's agents come only from guest codes. */
   canInvite: boolean;
   /** from is the member the timeline is filtered to, if any. */
   from: string | undefined;
@@ -163,7 +183,8 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
       <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
         <div className="flex flex-col gap-4 pt-1">
           {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} />
+          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} />
+          {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
         </div>
       </Section>
 
@@ -203,6 +224,7 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
         <Section id="board-details" title="Details" reveal={reveal}>
           <div className="flex flex-col gap-3">
             <Details board={board} agents={agents.length} people={people.length} record={record} />
+            <VisibilityControl board={board} owner={people.some((p) => p.name === me && p.access === "admin")} onChanged={onLifecycle} />
             <LifecycleActions board={board} onChanged={onLifecycle} />
           </div>
         </Section>
@@ -300,9 +322,11 @@ type WhosHereProps = {
   meId: string | null;
   from: string | undefined;
   onPick: (name: string) => void;
+  /** onRemoved reloads the board after the person removes an agent. */
+  onRemoved: () => void;
 };
 
-function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
+function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHereProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
@@ -325,6 +349,7 @@ function WhosHere({ board, members, me, meId, from, onPick }: WhosHereProps) {
               showOwner={showOwner}
               picked={from === a.name}
               onPick={() => onPick(a.name)}
+              onRemoved={onRemoved}
             />
           ))}
         </ul>
@@ -383,8 +408,10 @@ function AgentItem({
   showOwner,
   picked,
   onPick,
+  onRemoved,
 }: {
   agent: Member;
+  onRemoved: () => void;
   /** board is the board's name, once it is loaded. */
   board?: string;
   /** mine is true for the person's own agent, whose delivery mode they may change. */
@@ -473,6 +500,7 @@ function AgentItem({
           </>
         )}
       </dl>
+      {agent.can_remove === true && board && <RemoveAgent board={board} agent={agent} onRemoved={onRemoved} />}
     </li>
   );
 }

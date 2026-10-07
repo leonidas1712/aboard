@@ -140,8 +140,10 @@ type BrowserLogin struct {
 
 // Board is a board's current state.
 type Board struct {
-	ID   string
-	Name string
+	TaskPrefix *string
+	TasksOpen  int64
+	ID         string
+	Name       string
 	// Title is free text people read beside the name; nil when the board has none.
 	Title    *string
 	Template *string
@@ -157,8 +159,9 @@ type Board struct {
 	CreatedAt     string
 	CreatedBy     string // member id of the creating human
 	// Visibility is BoardOpen or BoardPrivate: who can see the board at all.
-	Visibility string
-	Lifecycle  string
+	Visibility      string
+	Lifecycle       string
+	AgentsAddPeople bool
 }
 
 // Who can see a board. An open board is seen by every person on the server, who may
@@ -184,6 +187,8 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
+	DisplayName *string
+	CurrentTask *TaskRef
 	ID          string
 	BoardID     string
 	Name        string
@@ -217,12 +222,13 @@ type Member struct {
 	RemovedBy *string
 }
 
-// Who removed an agent: its own person (leaving the board), one of the board's owners,
-// or a server admin (removing its person from the server).
+// Who removed an agent: its own person (removing it, or leaving the board), one of the
+// board's owners, a server admin, or the agent itself, leaving.
 const (
 	RemovedByPerson = "person"
 	RemovedByOwner  = "board_owner"
 	RemovedByAdmin  = "admin"
+	RemovedBySelf   = "self"
 )
 
 // Rules returns what the rules package needs to know about the member.
@@ -294,6 +300,7 @@ const (
 
 // Message is a stored message with its sender.
 type Message struct {
+	About      []TaskTag
 	ID         string
 	BoardID    string
 	Seq        int64
@@ -336,6 +343,13 @@ type Message struct {
 	SenderHarness *string
 	// AgentOwners is how many people have agents on the board, when the message was read.
 	AgentOwners int
+}
+
+// TaskTag records why a message is linked to a task.
+type TaskTag struct {
+	ID  string `json:"id"`
+	Ref string `json:"ref"`
+	How string `json:"how"`
 }
 
 // Reaction is one member's reaction to a message: a read model kept from the

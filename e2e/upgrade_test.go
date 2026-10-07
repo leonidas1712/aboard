@@ -3,6 +3,8 @@
 package e2e
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -132,6 +135,50 @@ func TestUpgradeDuringAWakeDoesNotHandTheMessageAgain(t *testing.T) {
 	eventually(t, 5*time.Second, "the message to be acknowledged", func() bool {
 		return len(field(t, e.run("inbox", "--as", "reviewer", "--peek", "--json").json(t), "messages").([]any)) == 0
 	})
+}
+
+// A daemon from before combined handoffs kept its Codex sessions open with no boot in
+// the delivery journal. After the upgrade, the new daemon still delivers to them, and
+// doctor reports nothing wrong.
+func TestCodexSessionKeptWithoutABootIsDeliveredToAfterAnUpgrade(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	writer := e.claudeSession("s-writer")
+	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
+	codex := e.codexSession("019a0000-0000-7000-8000-0000000000b0")
+	codex.run("join", line, "--name", "reviewer")
+	pid := e.daemonPID()
+	killDaemon(t, e)
+	eventually(t, 5*time.Second, "the daemon to exit", func() bool { return syscall.Kill(pid, 0) != nil })
+
+	// The journal as the older daemon left it: the session open, its boot empty.
+	db, err := sql.Open("sqlite", filepath.Join(e.stateDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := db.ExecContext(context.Background(), `UPDATE sessions SET boot = '' WHERE harness = 'codex' AND session_id = ?`, codex.id)
+	_ = db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		t.Fatalf("the journal holds %d rows for the codex session, want 1", n)
+	}
+
+	e.run("daemon", "start")
+	writer.run("say", "--to", "@reviewer", "across the upgrade")
+	eventually(t, 10*time.Second, "codex queue to receive the message", func() bool {
+		for _, c := range e.fakeCodexCalls() {
+			if strings.Contains(c["message"], "across the upgrade") {
+				return true
+			}
+		}
+		return false
+	})
+	eventually(t, 5*time.Second, "acknowledgement after codex accepted", func() bool { return codex.unread() == 0 })
+	if c := doctorCheck(t, e, "handoff_failed"); c != nil {
+		t.Fatalf("doctor reports a failing handoff after delivery: %v", c)
+	}
 }
 
 // After installing a new aboard, the first command that uses the local server replaces
@@ -334,9 +381,7 @@ func installAt(t *testing.T, from, path string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path+".new", raw, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeProgram(t, path+".new", raw)
 	if err := os.Rename(path+".new", path); err != nil {
 		t.Fatal(err)
 	}

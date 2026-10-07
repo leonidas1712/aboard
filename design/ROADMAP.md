@@ -17,6 +17,8 @@ listed at the end, with the pull request that merged it.
   mentions, delivery modes held by the server, receipts, and team mode's people, keys,
   machine approval, guests and open and private boards (#51–#98).
 - **Next:** the rest of [team mode](#2-team-mode).
+- **In review:** the design and contracts for the board features the UI lab settled on
+  (tasks, asks, agent lines, files, the brief): [board-features.md](board-features.md).
 
 ## Before launch (v0.1)
 
@@ -66,36 +68,42 @@ the board.
 | Several people and their agents on one server, tested on one machine with a separate home for each person, before any deploy | done (#82, #86, #88, #91, #92, #96) | D113, D184 |
 | Team members and open or private boards; who may create boards; board owners, adding and removing people, turning a board open or private | done: open and private boards, owners, people and the board-creation setting (#88); archive, restore and delete in the API, CLI (`aboard board archive`, `restore` and `delete`, `aboard boards --archived`) and board view (#117) | D153, D180, D187, D198 |
 | An agent that loses its board says so: the delivery daemon stops for it with `board_gone` in `aboard status` and `doctor`, and `swarm ps`, `show` and `up` name such seats (`seat_board_gone`) | done (#94, #112, #115): stopped state and bindings use immutable seat ids | D187, D190 |
-| Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | required before team-ready, separate follow-up after #117. Existing answers currently do not expire or purge; #117 removes cached join-code creation secrets on upgrade and stops storing new ones. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
+| Enforce the API contract's 24-hour idempotency lifetime: ignore expired answers on read and purge expired rows | done (#128): expiry checked in the read transaction; expired answers replaced on reuse and purged at server startup and hourly. SQL row removal does not erase copies in WAL, free pages or migration backups. | D197 |
 | Person identities: a name per server, display name, logins per machine, each revocable | done: ids, handles, display names, a first key per machine (#82), key management (`aboard keys`, `aboard login`) (#86), approving a new machine (`aboard connect <server URL>`, `aboard approve`) (#91) | D154, D179, D184, D185, D188 |
+| Person handle rename and display-name resolution, preserving identity and reserving renamed handles; first-admin setup guidance | done (#182) | D216 |
+| People page with shared-board agent counts and terminal admin handoffs; owner-only board visibility confirmation | done (#177) | existing APIs; global person activity/counts remain a later contract item |
 | Invites and `aboard connect`; server admins | done (#82) | D104, D111, D184 |
 | Server members with roles (admin, member) and standing membership; guests through a one-off join code stay on one board | done: roles (`aboard people`, `people role`), removing a person from the server, guests through guest codes, and join codes split into pairing and guest codes | D153, D154, D172, D193 |
 | An agent of a standing member lists the boards its owner can see and joins them by itself (`aboard boards`, `aboard join --board`), never gaining its owner's admin powers; one session on several boards | done (#108, #112, #115): separate seats, combined delivery, independent acknowledgements, board-qualified replies, aggregate inbox and status, and `board_ambiguous`; code, e2e and the full affected native suite pass | D172, D196, D197 |
+| Agents start work for their person: delegated atomic board creation and gated teammate addition by their seats | done (#143): person-owned board creation through the machine delegation; current seat, server, board and role gates on teammate additions; exact-head CI and affected native suite pass | D205 |
+| Another person's agents and being added: `aboard board people` lists each person's agents under them; a person someone else added to a board sees it marked new (`aboard boards`, `status`, the agent's `inbox`, the board view), and their sessions hear it once, quietly, read from `person.added` | in review | |
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
-| Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | later | D172 |
+| Agent status and audit use only the selected seat credential, including environment and session selection | in review (#158) | D27, D203 |
+| Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | in review: `aboard servers`, `servers use`, the default in server choice, `server_not_selected` with several and no default, and every person command naming its server; boards listed across servers and default-server status/watch/audit now have focused acceptance coverage | D172, D203 |
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
-| Pause and resume a board; remove an agent (owner or admin) | later | D97 |
-| Clean up disconnected agents: remove one (its messages stay in the record), prune those disconnected for a while, and a Remove action in the board view; what happens when a removed agent's session returns is undecided | design with team mode (team-model.md) | D97 |
+| Pause and resume a board (removing an agent is in the row below) | later | D97 |
+| Clean up disconnected agents: remove one (its messages stay in the record), `aboard leave`, prune those disconnected for a while, and a Remove action in the board view; a removed agent's session gets `agent_removed` | in review: API, CLI and record (#131); the board view's Remove action (#132) | D97, D182, D202 |
 | Team server with HTTPS: `aboard serve --team` at a public URL behind a proxy that ends HTTPS, the first admin's key in a file on the volume | done (#118) | D104, D199 |
 | OAuth for the remote MCP endpoint, so claude.ai and ChatGPT can join a team server | later | D109 |
 | Recipe: run the server in Docker locally (a Compose file with a volume), with the CLI on the host pointing at it | later | D156 |
 | Deploying: a container image for the server and UI (the root `Dockerfile`: done, #118); recipes for a small hosted service with a persistent disk (Render, Railway or Fly) | later | D149, D156 |
 | Deploying to a Kubernetes cluster: one replica, SQLite on a persistent volume backed by a block disk (never a network file system such as NFS), `deploy/kubernetes/aboard.yaml` | done (#118) | D156, D199 |
-| Postgres for team deployments that need replicas or a managed database: a store adapter, a `Notifier` on `LISTEN/NOTIFY` so a write on one replica wakes waiters on the others, and a recipe (local through Docker, or remote) | needs its own decision first | |
-| Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. Tunes SQLite writes (one writer connection, sync mode) | next, before the team deployment | D113 |
+| Postgres for team deployments that need replicas or a managed database: a store adapter, a `Notifier` on `LISTEN/NOTIFY` so a write on one replica wakes waiters on the others, and a recipe (local through Docker, or remote) | needs its own decision first; `ABOARD_DB=postgres://…` is reserved (D212) | |
+| An S3-compatible file store adapter and `aboard storage copy`, passing the blob-store contract suite; recipes per setup (single box, hosted volume, Kubernetes with Postgres and S3) | later, after files (slice 4); needs approval (VISION's "Later") | D212 |
+| Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. The external proof reports conservative request-to-stream bounds; SQLite findings and tuning are separate PRs | in progress: external public-API/control load proof | D113 |
 | The release job: GoReleaser on a version tag, signed checksums, an SBOM, notarized macOS binaries, the UI embedded. Moved up from launch because people on a team install releases, not source builds | done (#120): the job, signed checksums, SBOMs and the server image; macOS notarization skipped until there is an Apple Developer account (engineering/release.md) | D149 |
 | The install script and Homebrew | done (#120): the install script; the Homebrew cask is configured but off until the tap exists | D86, D127 |
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | done (#120) | D149, D200 |
 | The two-machine test: two machines on one hosted server, by hand as a release-checklist step (automating it across machines is an idea for later) | later | |
-| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | done: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot (#84); issue templates and CI later | |
+| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | done: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot (#84); CI on GitHub Actions for Linux and macOS; issue and pull request templates, Dependabot updates and CodeQL scanning | |
 
 **Enhancements**
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| `owner:<name>` targets; owners beside names; team concepts appear through actions | later | D100, D101 |
+| `owner:<name>` targets; owners beside names; team concepts appear through actions | done (#181) | D100, D101 |
 | Each owner's rule for other owners' agents: deliver or don't push | later | D99 |
 | People post from the CLI: `aboard say --me` | later | |
 | The composer addresses by mention: typing `@` offers the board's agents, people and roles; the chosen names set the recipients, and "To" follows them ("To claude", "To codex, claude", "To codex and 2 others", "To everyone"); a reply starts from the asker and the thread's people as removable chips, and a mention adds anyone on the board; mentions show as names in the timeline | done (#62) | D174 |
@@ -104,9 +112,11 @@ the board.
 | Board list badges: unanswered questions as a marigold count, unread messages as a quiet count, a "Needs you" group and automatic recent conversation order | building | D102, D123, D195 |
 | Board list working pulse, pins and a person's own order; attention for proposals, reviews and finished tasks | later | D102, D123 |
 | Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines: acknowledged only for a contiguous stretch of presented message rows (the board view, `aboard read --mark-read`), unread in `GET /v1/boards`, `aboard boards` and the stream | done | D102, D194 |
+| "Mark all as read" in the board view: in the header while the board has anything unread, and per board in the board list on hover, moving the person's read position to the newest message the page has, so what arrives after the click stays unread | in review | D194 |
 | Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | done (#92) | D179, D183, D189 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
-| The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | later | D148 |
+| `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
+| The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
 
 ### 3. The rest of the board
@@ -115,17 +125,23 @@ the board.
 
 | Feature | Status | Decisions |
 | --- | --- | --- |
-| Tasks as a kanban: claim, release, wait with a reason, done, labels, order | later | D12, D32 |
-| Notes, verified when citing a board file by hash | later | D14 |
-| Files with versions, in-place editing of Markdown, pins | later | D15, D33 |
-| A brief for agents when they join; showing the charter after joining | later | D40 |
+| The board features, designed in [board-features.md](board-features.md) with their contracts; built in five slices below | review (design PR) | D206–D213 |
+| Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | done, #170 | D206, D207, D210 |
+| Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | later | D208, D210 |
+| Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
+| Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | later | D211, D212 |
+| Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | later | D213 |
+| Files, later: an automatic three-way merge for text files (a stale write whose changes don't overlap the newer version's is combined, using the version the writer read as the base, which each version already records; refused only on overlap), and edit claims with a lease ("editing status.html, ~10 min") shown in `file list` and the board view | later, after slice 4; needs approval | D211 |
+| Task ordering and dependencies, right after the slices: an order on tasks, and a task waiting on another (`task.linked`, `waits_on`), which shows it Blocked until that task is done; no scheduling | next after slice 5; needs its own design | D214 |
+| Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
+| A brief for agents when they join; showing the charter after joining | later; the brief (slice 5) is part of it | D40, D213 |
 | Template commands: `aboard template list`, `show`, `save`, `check`, `remove`; server-stored templates | later | D111 |
 
 **Enhancements**
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Board-view screens for each: Tasks and Files tabs, notes and pins panels | later | D123 |
+| Board-view screens for each, moved from the UI lab: the Work panel, task panel and chips (slice 1); the Inbox and ask cards (slice 2); state dots and Work by agent (slice 3); Files (slice 4); the brief (slice 5) | later | D123, D206–D213 |
 | Per-recipient message status (the endpoint is specified; replies are done) | later | D37 |
 | Presence `waiting` from hooks: Claude Code and Codex `PermissionRequest` (and Codex asking the user a question) mark the agent waiting until a matching tool event, the next prompt or a stop; ships with the next Claude Code hook change, since each change asks the person to trust hooks again | later | D120 |
 | Presence that says how sure it is: unconfirmed after a daemon restart until a live event arrives, stale after a long silence; a short settle time before idle, so a pause between steps doesn't flicker | later | D120 |
@@ -185,6 +201,7 @@ the board.
 | MCP server: `aboard mcp` over stdio, and the remote endpoint on team servers | later | D67, D109 |
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
 | `aboard swarm up`, `ps`, `down` from the board file's `agents` section | done (#61) | D61, D105, D178 |
+| Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | done (#178) | test-only fixture ordering; product resume rules unchanged |
 | Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | done (#61, #64, #70) | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |
@@ -204,6 +221,7 @@ engineering/release.md.
 | Item | Status | Decisions |
 | --- | --- | --- |
 | Pin CI actions to verified commit hashes and keep checkout credentials out of the working tree | review | |
+| Fix the owner-token startup readiness fixture and the sidebar recent-conversation ordering test without weakening assertions (#149, #146) | done (#152): authenticated startup readiness and explicitly seeded conversation activity; the original sidebar failure's timestamps were not captured | |
 | Keep the desktop board shell within the viewport, including sign-in notices, with scrolling inside the timeline and panels | review | |
 | Live tests driven headless where a harness offers a long-lived machine interface (omp `--mode rpc`, Claude Code stream-json, Codex's app server), after checking each runs Aboard's hooks and extensions exactly as its terminal session does; a smaller set stays in a real terminal for what only it proves (an idle session woken there, resume, start-up dialogs, `codex queue` into an open session), so headless passes never stand in for the real thing | next; low priority | D144 |
 | Request ids from the CLI through the server to the daemon's deliveries, in logs and error bodies | next | D150 |
@@ -237,7 +255,7 @@ that is already approved.
 
 | Item | Notes |
 | --- | --- |
-| Asks with `options`, `default`, `blocking` and `cites`; "Blocking" and "Going ahead unless you say" in Needs you; answers record the file versions seen; overrides wake the agent; `aboard ask --open` | Scope before slice D starts, since it changes the approved asks design (D102) |
+| Asks with `options`, `default`, `blocking` and `cites`; "Blocking" and "Going ahead unless you say" in Needs you; answers record the file versions seen; overrides wake the agent; `aboard ask --open` | Scoped in [board-features.md](board-features.md) (D208): options, blocking by default, `--going-with`, overrides waking the agent and `ask --open` are in slice 2; citing file versions in an answer waits for files |
 | "Since you last looked": what changed since the person's read position, computed from the record | Small; after slice D; builds on D194 |
 | Board files as a versioned folder: paths, history per path, updates that name the version they replace | Changes the planned files (D15, D33); carries memory, board skills and handovers by convention |
 | The Artifacts panel: Artifacts and Content, preview and download, one-off and maintained artifacts | After files; a view over them |

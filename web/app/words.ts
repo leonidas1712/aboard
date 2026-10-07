@@ -131,6 +131,7 @@ export function displayName(m: MemberRef, showOwner: boolean): string {
 export function recipient(t: string): string {
   if (t === "all") return "everyone";
   if (t.startsWith("@")) return t.slice(1);
+  if (t.startsWith("owner:")) return `${t.slice(6)}’s agents`;
   if (t.startsWith("role:")) return `role ${t.slice(5)}`;
   return t;
 }
@@ -300,6 +301,15 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
       return `${who} restored the board`;
     case "agent.delivery_changed":
       return `${who} set ${String(d.name ?? "")}'s delivery mode to ${String(d.after ?? "")}`;
+    case "agent.removed": {
+      // The record names who removed the agent, so its person sees who did it.
+      const name = String(d.name ?? "");
+      const owner = String(d.owner ?? "");
+      const whose = owner && owner !== e.actor.name ? `${owner}'s agent ${name}` : name;
+      return d.pruned ? `${who} removed ${whose}, disconnected for a while` : `${who} removed ${whose}`;
+    }
+    case "agent.left":
+      return `${String(d.name ?? "")} left the board`;
     default:
       return null;
   }

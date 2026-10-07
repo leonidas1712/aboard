@@ -72,8 +72,12 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Subagent            *subagentOf `json:"subagent"`
 		// Seats and SeatsUsage are set only in a session with several seats, with
 		// neither --board nor --as; one seat or none leaves them out.
-		Seats      []seatRow `json:"seats,omitempty"`
-		SeatsUsage []string  `json:"seats_usage,omitempty"`
+		Work       *api.AgentWork       `json:"work,omitempty"`
+		Nudges     []deliverytext.Nudge `json:"nudges,omitempty"`
+		Seats      []seatRow            `json:"seats,omitempty"`
+		SeatsUsage []string             `json:"seats_usage,omitempty"`
+		// Added are the boards the person was added to that are still new to them.
+		Added []addedNotice `json:"added,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -97,9 +101,11 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		if err := a.oneSeat(ctx, *boardFlag); err != nil {
 			return err
 		}
-		if t, cred, err := a.agentByName(creds, name, *boardFlag); err == nil {
-			agentBoard, selectedCred = &t, &cred
+		t, cred, err := a.agentByName(creds, name, *boardFlag)
+		if err != nil {
+			return err
 		}
+		agentBoard, selectedCred = &t, &cred
 	default:
 		if key, ok := a.sessionKey(); ok {
 			if agents, err := a.sessionAgents(ctx, key); err == nil && len(agents) > 1 && *boardFlag == "" {
@@ -116,7 +122,11 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 				a.emit(out, styleStatus(text.String(), a.out()))
 				return nil
 			}
-			if t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag); err == nil && found {
+			t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag)
+			if err != nil && asError(err).Code != "sandbox_blocks_network" {
+				return err
+			}
+			if found {
 				agentBoard, name, source = &t, cred.Name, agentFromSession
 				selectedCred = &cred
 			}
@@ -129,6 +139,14 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 
 	t, err := a.selectBoard(*boardFlag)
+	if agentBoard == nil && !a.agentSelected(*as) {
+		srv, resolveErr := a.resolveServer("")
+		if resolveErr != nil {
+			return resolveErr
+		}
+		out.Server = srv
+		t, err = a.humanBoard(*boardFlag)
+	}
 	switch {
 	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):
 		t = *agentBoard
@@ -141,6 +159,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		text.WriteString(setupLine)
 		text.WriteString("Board:  none; run aboard pair or aboard join here, or pass --board\n")
 		text.WriteString(subLine)
+		out.Added = a.addedAround(ctx, out.Server, *as)
+		text.WriteString(addedText(out.Added))
 		a.emit(out, styleStatus(text.String(), a.out()))
 		return nil
 	}
@@ -155,7 +175,13 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	// agent's presence.
 	var boardLines strings.Builder
 	var members []api.Member
-	if c, err := a.humanClient(ctx, t); err == nil {
+	var c *client
+	if selectedCred != nil {
+		c, _ = a.client(ctx, t.server, selectedCred.Token, requestTimeout)
+	} else if !a.agentSelected(*as) {
+		c, _ = a.humanClient(ctx, t)
+	}
+	if c != nil {
 		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
 		if b, err := c.board(ctx, t.board); err == nil {
@@ -166,7 +192,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			}
 			fmt.Fprintf(&boardLines, "Policy: %s\n", line)
 		}
-		if r, err := c.api.ListMembersWithResponse(ctx, t.board); err == nil && r.JSON200 != nil {
+		if r, err := c.api.ListMembersWithResponse(ctx, t.board, nil); err == nil && r.JSON200 != nil {
 			members = r.JSON200.Members
 			if out.People = peopleOf(members); out.People != nil {
 				fmt.Fprintf(&boardLines, "People: %s\n", peopleText(out.People))
@@ -229,6 +255,18 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 	text.WriteString(subLine)
 	text.WriteString(boardLines.String())
+	if known && out.Agent != nil {
+		if c, err := a.client(ctx, t.server, cred.Token, requestTimeout); err == nil {
+			in := c.taskInbox(ctx)
+			if in != nil {
+				out.Work = in.Work
+			}
+			out.Nudges = a.taskNudges(ctx, c, delivery.AgentRef{Server: t.server.URL, Board: t.board, MemberID: cred.MemberID}, in, "status", *boardFlag != "")
+			text.WriteString(nudgesText(out.Nudges))
+		}
+	}
+	out.Added = a.addedAround(ctx, out.Server, *as)
+	text.WriteString(addedText(out.Added))
 	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil
 }
@@ -288,8 +326,9 @@ func presenceOf(members []api.Member, name string) *string {
 
 // person is one person on a board in aboard status, with what they may change there.
 type person struct {
-	Name   string `json:"name"`
-	Access string `json:"access"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Name        string  `json:"name"`
+	Access      string  `json:"access"`
 }
 
 // peopleOf returns the people among a board's members, or nil when there is only one:
@@ -298,7 +337,7 @@ func peopleOf(members []api.Member) []person {
 	var people []person
 	for _, m := range members {
 		if m.Kind == api.MemberKindHuman && m.Access != nil {
-			people = append(people, person{Name: m.Name, Access: string(*m.Access)})
+			people = append(people, person{Name: m.Name, Access: string(*m.Access), DisplayName: m.DisplayName})
 		}
 	}
 	if len(people) < 2 {
@@ -310,7 +349,11 @@ func peopleOf(members []api.Member) []person {
 func peopleText(people []person) string {
 	parts := make([]string, len(people))
 	for i, p := range people {
-		parts[i] = p.Name + " (" + p.Access + ")"
+		parts[i] = p.Name
+		if p.DisplayName != nil && *p.DisplayName != "" {
+			parts[i] = "@" + p.Name + " (" + *p.DisplayName + ")"
+		}
+		parts[i] += " (" + p.Access + ")"
 	}
 	return strings.Join(parts, ", ")
 }
@@ -422,6 +465,14 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 		d.StoppedAgents = append(d.StoppedAgents, stoppedAgent{Server: p.Agent.Server, Board: p.Agent.Board, Name: p.Agent.Name, Reason: p.Reason})
 		if p.Reason == delivery.ReasonExtensionOutdated {
 			fmt.Fprintln(text, "        The harness extension cannot deliver to several boards. Run aboard init, then restart the harness.")
+			continue
+		}
+		if p.Reason == delivery.ReasonServerUnreachable {
+			fmt.Fprintf(text, "        deliveries for %s on %s wait for %s, which can't be reached; they resume once it answers\n", p.Agent.Name, p.Agent.Board, p.Agent.Server)
+			continue
+		}
+		if p.Reason == delivery.ReasonHandoffFailed {
+			fmt.Fprintf(text, "        deliveries for %s on %s can't be prepared for its session; run aboard resume in that session (see aboard doctor)\n", p.Agent.Name, p.Agent.Board)
 			continue
 		}
 		if p.Reason == delivery.ReasonBoardGone {

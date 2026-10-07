@@ -95,7 +95,7 @@ func TestAGuestSeesOnlyTheirBoard(t *testing.T) {
 				_, err = w.svc.People(ctx, kim, name)
 				wantCode(t, "the guest listing "+name+"'s people", err, "board_not_found")
 				_, err = w.svc.AddPerson(ctx, kim, name, "kim")
-				wantCode(t, "the guest joining "+name, err, map[string]string{"guest": "board_not_found", "agent": "human_token_required"}[who])
+				wantCode(t, "the guest joining "+name, err, "board_not_found")
 			}
 			list, err := w.svc.ListBoards(ctx, kim, true)
 			if err != nil || len(list.Boards) != 1 || list.Boards[0].Board.Name != w.board || len(list.Hidden) != 0 {

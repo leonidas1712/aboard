@@ -38,8 +38,14 @@ type sessionMsg struct {
 	checkAlive bool
 	// modeChanged says an agent's delivery mode changed, so what may be delivered did.
 	modeChanged bool
+	// modeWas is the mode each changed agent had before, which a session bound before
+	// the daemon first read the agent's mode takes as the one it was told.
+	modeWas map[AgentKey]Mode
 	// credentialChanged refreshes a reused seat after its saved token changed.
 	credentialChanged *AgentRef
+	// restoreSeat gives back a journal seat that was proved only after the daemon
+	// started, because its server couldn't be reached until then.
+	restoreSeat *AgentRef
 	// renewPresence asks the session to report its agents' presence again.
 	renewPresence bool
 	// hold starts keeping replies to a message out of bundles, answered on reply;
@@ -159,6 +165,8 @@ type session struct {
 	nextRefresh int64
 	// gatherUntil is when the next bundle may be handed to a queueing harness.
 	gatherUntil time.Time
+	// prepareFailures counts the handoffs in a row that failed to prepare.
+	prepareFailures int
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
 	forward map[AgentKey]*session
@@ -272,7 +280,14 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 			}
 			s.refresh(a, s.waiter != nil)
 		}
+	case m.restoreSeat != nil:
+		s.onRestoreSeat(ctx, *m.restoreSeat)
 	case m.modeChanged:
+		for key, was := range m.modeWas {
+			if a := s.agents[key]; a != nil && a.told == "" {
+				a.told = was
+			}
+		}
 		s.refreshAll(false)
 	case m.renewPresence:
 	case m.hold != nil:
@@ -343,6 +358,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		// The session-start hook prints the note before the session's first turn, which
 		// is when the messages that waited arrive.
 		ok.Mode, ok.Note = s.startNote(reopened, true)
+		ok.Note = s.taskStartNote(ctx, ok.Note)
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt, OpTurnStart:
@@ -681,6 +697,47 @@ func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
 	return previous, nil
 }
 
+// onRestoreSeat gives the session back a journal seat, as restore does at start, once
+// its token proved it after the daemon started. Nothing happens when the journal no
+// longer binds the seat here or another session took it meanwhile.
+func (s *session) onRestoreSeat(ctx context.Context, agent AgentRef) {
+	if _, ok := s.agents[agent.Key()]; ok || s.d.owner(agent) != nil {
+		return
+	}
+	bindings, err := s.d.cfg.Journal.Bindings(ctx)
+	if err != nil {
+		s.d.log.Error("restore journal seat: read bindings", "agent", agent.Name, "board", agent.Board, "error", err)
+		return
+	}
+	var binding *Binding
+	for i := range bindings {
+		if bindings[i].Agent.Key() == agent.Key() && bindings[i].Session == s.key {
+			binding = &bindings[i]
+		}
+	}
+	if binding == nil {
+		return
+	}
+	deliveries, err := s.d.cfg.Journal.Deliveries(ctx, openStates...)
+	if err != nil {
+		s.d.log.Error("restore journal seat: read deliveries", "agent", agent.Name, "board", agent.Board, "error", err)
+		return
+	}
+	a := newAgentState(agent, false)
+	a.generation = binding.Generation
+	for i := range deliveries {
+		if deliveries[i].Agent.Key() == agent.Key() {
+			dl := deliveries[i]
+			a.deliveries[dl.ID] = &dl
+		}
+	}
+	s.agents[agent.Key()] = a
+	s.d.setGeneration(agent, binding.Generation)
+	s.d.setProblem(agent, "")
+	s.d.setOwner(agent, s)
+	s.refresh(a, s.waiter != nil)
+}
+
 // unbind lets an agent go with no session to take it. Bundles handed here and never
 // confirmed go back to pending, and the agent's unread messages stay unread on its
 // server, so whichever session binds the agent next gets both. The journal's binding
@@ -801,7 +858,16 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 		s.d.learnMode(ctx, a.ref, *r.mode)
 	}
 	if a.told == "" {
+		// The first read shows the mode the binding command saw. The mode in force may
+		// already be newer: a change passed on while this read was on its way.
 		a.told = s.d.mode(a.ref)
+		if r.mode != nil {
+			if m, ok := ParseMode(string(r.mode.Mode)); ok {
+				a.told = m
+			} else {
+				a.told = ModeFocused
+			}
+		}
 	}
 	if r.cursor > a.ackedUpTo {
 		s.movedTo(ctx, a, r.cursor)
@@ -1275,11 +1341,10 @@ func (s *session) tryDeliver(ctx context.Context) {
 	c.text = withNotes(notes, c.text)
 	handoff, handed, prepareErr := s.prepare(ctx, c, notes, c.text)
 	if prepareErr != nil {
-		s.d.log.Error("prepare handoff", "error", prepareErr)
-		s.gatherUntil = s.now().Add(QueueGather)
-		s.scheduleRetry()
+		s.gatherUntil = s.now().Add(s.prepareFailed("prepare handoff", prepareErr))
 		return
 	}
+	s.prepared()
 	var first int64
 	if len(handed) > 0 {
 		first = handed[0].ID
@@ -1612,9 +1677,10 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 		}
 		_, deliveries, err := s.prepare(ctx, c, midTurnFrame, payload)
 		if err != nil {
-			s.d.log.Error("prepare boundary handoff", "error", err)
+			s.prepareFailed("prepare boundary handoff", err)
 			return "", ""
 		}
+		s.prepared()
 		now := s.now()
 		for _, dl := range deliveries {
 			dl.AcceptedAt, dl.TurnStartedAt = now, now
@@ -1662,9 +1728,10 @@ func (s *session) atTurnStart(ctx context.Context) string {
 	}
 	_, deliveries, err := s.prepare(ctx, c, notes, withNotes(notes, c.text))
 	if err != nil {
-		s.d.log.Error("prepare turn-start handoff", "error", err)
+		s.prepareFailed("prepare turn-start handoff", err)
 		return notes
 	}
+	s.prepared()
 	now := s.now()
 	for _, dl := range deliveries {
 		dl.AcceptedAt, dl.TurnStartedAt = now, now

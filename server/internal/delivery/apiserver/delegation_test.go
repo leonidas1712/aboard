@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -155,5 +157,84 @@ func TestADelegationListsByLifecycle(t *testing.T) {
 	}
 	if fmt.Sprint(queries) != "[lifecycle=archived ]" {
 		t.Errorf("queries: %q", queries)
+	}
+}
+
+func TestCreateBoardDoesNotReplaceARefusedDelegation(t *testing.T) {
+	var issued, creates int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/delegations" {
+			issued++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"token":"abd_test"}`))
+			return
+		}
+		creates++
+		if r.Header.Get("Idempotency-Key") != "operation-1" {
+			t.Error("missing creation key")
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"code":"delegation_revoked","message":"ended","hint":"login"}}`))
+	}))
+	defer srv.Close()
+	d := NewDelegated(srv.URL, "test", tokens{human: map[string]string{srv.URL: "test-key"}})
+	_, err := d.Create(context.Background(), delivery.SeatCreateRequest{IdempotencyKey: "operation-1", Harness: "codex", Session: "codex:s1"})
+	if err == nil || issued != 1 || creates != 1 {
+		t.Fatalf("creation retried: issued=%d creates=%d error=%v", issued, creates, err)
+	}
+}
+
+func TestCreationRetryKeepsItsCredentialAndBodyAfterDiscoveryRefresh(t *testing.T) {
+	var mu sync.Mutex
+	issued, created := 0, 0
+	var firstBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/delegations":
+			issued++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = fmt.Fprintf(w, `{"token":"abd_test%d"}`, issued)
+		case "/v1/boards":
+			if r.Header.Get("Authorization") == "Bearer abd_test1" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":{"code":"delegation_revoked"}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"boards":[]}`))
+		default:
+			created++
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Error(err)
+			}
+			if r.Header.Get("Authorization") != "Bearer abd_test1" || r.Header.Get("Idempotency-Key") != "same-operation" {
+				t.Error("creation changed replay scope")
+			}
+			if created == 1 {
+				firstBody = body
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			if !bytes.Equal(firstBody, body) {
+				t.Error("creation body changed")
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"board":{"name":"work"},"agent":{"id":"mem_test","board":"work","name":"codex"},"token":"test-seat"}`))
+		}
+	}))
+	defer srv.Close()
+	d := NewDelegated(srv.URL, "test", tokens{human: map[string]string{srv.URL: "test-key"}})
+	req := delivery.SeatCreateRequest{BoardCreateOptions: delivery.BoardCreateOptions{Name: "work"}, Session: "codex:s1", Harness: "codex", IdempotencyKey: "same-operation"}
+	if grant, err := d.Create(context.Background(), req); err != nil || grant.Seat.MemberID != "mem_test" {
+		t.Fatalf("captured-scope transport recovery: %+v %v", grant, err)
+	}
+	if _, err := d.Boards(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	if grant, err := d.Create(context.Background(), req); err != nil || grant.Seat.MemberID != "mem_test" {
+		t.Fatalf("recovery: %+v %v", grant, err)
 	}
 }

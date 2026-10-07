@@ -12,28 +12,30 @@ import (
 // openUsage is the usage line of aboard open.
 var openUsage = usageOf("open")
 
-// runOpen opens the web UI in the browser, logged in as the local owner, through a
-// one-time login link: the owner's token never appears in a URL, and the link's code
-// only in its fragment. Inside a harness session, or with ABOARD_AGENT set, an agent runs it for its person, so it
-// never shows the link there: with the code, the agent could log in before the browser
-// and read the board as the person.
+// runOpen opens the web UI in the browser, signed in as the person, through a one-time
+// login link: on the local server or a team server, the person's key never appears in
+// a URL, and the link's code only in its fragment. The server is the one a person
+// command picks: --server, this directory's, the one this machine is connected to, else
+// the local one. Inside a harness session, or with ABOARD_AGENT set, an agent runs it
+// for its person, so it never shows the link there: with the code, the agent could log
+// in before the browser and read the board as the person.
 func runOpen(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("open")
 	boardFlag := fs.String("board", "", "the board to show; without it, the board list")
+	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
 	if _, err := a.parse(fs, args, openUsage, 0, 0); err != nil {
 		return err
 	}
 	inSession := a.actsForAgent()
-	srv := a.localServer()
+	srv, started, err := a.personServer(ctx, *serverFlag)
+	if err != nil {
+		return err
+	}
 	board := *boardFlag
 	if p, ok, err := a.readProject(); err != nil {
 		return err
-	} else if board == "" && ok && (p.Server.URL == "" || p.Server.URL == srv.URL) {
+	} else if board == "" && ok && (p.Server.URL == srv.URL || p.Server.URL == "" && srv.URL == a.localServer().URL) {
 		board = p.Board
-	}
-	started, err := a.ensureLocal(ctx)
-	if err != nil {
-		return err
 	}
 	token, err := a.readOwnerToken(srv)
 	if err != nil {
@@ -66,8 +68,12 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 	}
 	opened := a.env.OpenBrowser(ctx, link) == nil
 	if !opened && inSession {
+		cmd := "aboard open" + boardArg(a.namedBoard(*boardFlag))
+		if *serverFlag != "" {
+			cmd += " --server " + shellWord(srv.URL)
+		}
 		return newError("browser_unavailable", "Couldn't open a browser from this session.",
-			"Give your human this command to run in their own terminal: aboard open"+boardArg(a.namedBoard(*boardFlag)))
+			"Give your human this command to run in their own terminal: "+cmd)
 	}
 
 	var text string

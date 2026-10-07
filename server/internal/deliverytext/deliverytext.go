@@ -13,6 +13,8 @@ import (
 
 // Message is what the delivery text shows of one board message.
 type Message struct {
+	// About lists permanent task references recorded on this message.
+	About []string
 	Board string
 	// FromName is the sender's member name, without the "@".
 	FromName string
@@ -115,6 +117,9 @@ func Format(m Message, contexts ...Context) string {
 		}
 	}
 	attrs = append(attrs, [2]string{"sender", m.Sender}, [2]string{"seq", strconv.Itoa(m.Seq)})
+	if len(m.About) > 0 {
+		attrs = append(attrs, [2]string{"about", strings.Join(m.About, " ")})
+	}
 	if m.Urgent {
 		attrs = append(attrs, [2]string{"urgent", "true"})
 	}

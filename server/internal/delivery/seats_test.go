@@ -393,3 +393,57 @@ func TestBoardsPassesTheLifecycleFilterAndTheArchivedCount(t *testing.T) {
 		t.Errorf("filters sent to the server: %s", got)
 	}
 }
+
+func (f *fakeSeats) Create(ctx context.Context, server string, req delivery.SeatCreateRequest) (delivery.SeatGrant, error) {
+	return f.Join(ctx, server, delivery.SeatRequest{Board: req.BoardCreateOptions.Name, Harness: req.Harness, Session: req.Session, Name: req.Name, Role: req.Role})
+}
+
+func TestCreationSavesBeforeBindingAndRetainsSiblingSeats(t *testing.T) {
+	r, f := seatsRig(t)
+	r.register("s1", "b1")
+	if first := r.join("s1", "docs"); first.Error != nil {
+		t.Fatal(first.Error)
+	}
+	f.beforeSave = func() {
+		if got := r.agentsOf(); len(got) != 1 || got[0].Board != "docs" {
+			t.Errorf("creation bound before save: %v", got)
+		}
+	}
+	response := r.call(delivery.Request{Op: delivery.OpCreateBoard, Harness: "claude-code", Session: "s1", Server: serverURL, Create: &delivery.BoardCreateOptions{Name: "new-work"}, IdempotencyKey: "operation-1"})
+	if response.Error != nil || response.Joined == nil {
+		t.Fatalf("create: %+v", response)
+	}
+	if got := r.agentsOf(); len(got) != 2 {
+		t.Fatalf("siblings were lost: %v", got)
+	}
+}
+
+func TestCreationRefusesUnsupportedExtensionBeforeServerOrCredentialWrites(t *testing.T) {
+	r, f := seatsRig(t)
+	_, welcome := r.connect(delivery.Request{Harness: "omp", Session: "o1", Boot: "b1"})
+	if welcome.Error != nil {
+		t.Fatal(welcome.Error)
+	}
+	if first := r.call(delivery.Request{Op: delivery.OpJoin, Harness: "omp", Session: "o1", Agent: &delivery.AgentRef{Server: serverURL, Board: "docs"}}); first.Error != nil {
+		t.Fatal(first.Error)
+	}
+	response := r.call(delivery.Request{Op: delivery.OpCreateBoard, Harness: "omp", Session: "o1", Server: serverURL, IdempotencyKey: "operation-1"})
+	if response.Error == nil || response.Error.Code != "extension_outdated" {
+		t.Fatalf("create: %+v", response)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.joins != 1 || len(f.saved) != 1 {
+		t.Fatalf("refusal wrote state: joins=%d saved=%d", f.joins, len(f.saved))
+	}
+}
+
+func TestCreationSaveFailureBindsNothing(t *testing.T) {
+	r, f := seatsRig(t)
+	r.register("s1", "b1")
+	f.saveErr = errors.New("read-only credentials")
+	response := r.call(delivery.Request{Op: delivery.OpCreateBoard, Harness: "claude-code", Session: "s1", Server: serverURL, Create: &delivery.BoardCreateOptions{Name: "new-work"}, IdempotencyKey: "operation-1"})
+	if response.Error == nil || response.Error.Code != "internal" || len(r.agentsOf()) != 0 {
+		t.Fatalf("save failure bound: %+v", response)
+	}
+}

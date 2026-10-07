@@ -15,6 +15,7 @@ import (
 
 // NewMessage is a message to post.
 type NewMessage struct {
+	About        *[]string
 	To           []string
 	Body         string
 	ReplyTo      *string
@@ -80,7 +81,11 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 
 		// Mentions are read from the body as stored, against the members on the board now,
 		// so later joins never change who a message mentioned.
-		mentions, err := resolveMentions(tx, b, me, to, in.Body)
+		mentions, err := resolveMentions(tx, b, me, to, in.Body, recipients)
+		if err != nil {
+			return err
+		}
+		about, err := resolveTaskTags(tx, b, me, in)
 		if err != nil {
 			return err
 		}
@@ -90,6 +95,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		data := map[string]any{
+			"about":      about,
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
 			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{}, "mentions": mentions,
 		}
@@ -101,7 +107,8 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		msg = Message{
-			ID: id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
+			About: about,
+			ID:    id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
 			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
 			Recipients: recipients, Mentions: mentions,
 			SenderName: me.Name, SenderKind: me.Kind, SenderRole: me.Role, SenderOwner: me.Owner, SenderHuman: me.HumanID,
@@ -133,7 +140,7 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 		switch {
 		case !ok:
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
-				fmt.Sprintf("%q is not a target.", t), "Use all, @name or role:R.")
+				fmt.Sprintf("%q is not a target.", t), "Use all, @name, role:R or owner:handle.")
 		case kind == rules.TargetAll && len(to) > 1:
 			return nil, apierr.New(http.StatusUnprocessableEntity, "invalid_target",
 				"all already includes everyone, so it can't be combined with other targets.", "Use --to all on its own.")
@@ -142,6 +149,14 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient",
 					fmt.Sprintf("No one on this board is called %q.", v), "Run aboard read to see who is posting here.")
 			} else if err != nil {
+				return nil, err
+			}
+		case kind == rules.TargetOwner:
+			owner, err := tx.MemberByName(b.ID, v)
+			if errors.Is(err, ErrNotFound) || (err == nil && (owner.Kind != "human" || owner.Status != StatusActive)) {
+				return nil, apierr.New(http.StatusUnprocessableEntity, "unknown_recipient", "No person on this board has that handle.", "Use a person shown by aboard board people.")
+			}
+			if err != nil {
 				return nil, err
 			}
 		case kind == rules.TargetRole:
@@ -158,6 +173,7 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 
 // Reading is a page of messages for one reader.
 type Reading struct {
+	Work     *AgentWork
 	Board    Board
 	Reader   Member
 	Messages []Message
@@ -169,6 +185,7 @@ type Reading struct {
 
 // TimelineFilter narrows a timeline read. Zero values don't filter.
 type TimelineFilter struct {
+	Task string
 	// After and Before bound the seq window, exclusive at both ends.
 	After, Before int64
 	// Newest fills the page from the newest matching messages instead of the oldest.
@@ -192,6 +209,13 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 			return err
 		}
 		q := TimelineQuery{After: f.After, Before: f.Before, Newest: f.Newest, Limit: f.Limit, SenderRole: f.Role, ToMe: f.ToMe}
+		if f.Task != "" {
+			task, err := findTask(tx, b, f.Task)
+			if err != nil {
+				return err
+			}
+			q.TaskID = task.ID
+		}
 		if f.From != "" {
 			sender, err := tx.MemberByName(b.ID, f.From)
 			if errors.Is(err, ErrNotFound) {
@@ -286,7 +310,11 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if err := annotate(tx, b, me, msgs); err != nil {
 				return err
 			}
-			r = Reading{Board: b, Reader: me, Messages: msgs}
+			work, err := s.taskWork(tx, b, me)
+			if err != nil {
+				return err
+			}
+			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work}
 			return nil
 		})
 		if err != nil || len(r.Messages) > 0 || wait <= 0 {
@@ -386,7 +414,7 @@ func (s *Service) Events(ctx context.Context, p Principal, boardName string, aft
 				}
 				ok = true
 			}
-			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules()) {
+			if ok && !rules.CanRead(b.Policy, m.To, m.SenderID, me.Rules(), m.Recipients) {
 				evs[i].Data, evs[i].DataWithheld = nil, true
 			}
 		}

@@ -156,7 +156,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 		t.Fatalf("the guest invite: %v", inv)
 	}
 	text := maya.run("invite", "--guest", "@lee")
-	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+": lee joins it as a guest from outside the server, once, within 24 hours. "+
+	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+" on "+tm.url()+": lee joins it as a guest from outside the server, once, within 24 hours. "+
 		"Anyone with the code can use it, so give it only to lee.\n\nGive this to lee, to paste into their agent's session:\n\nJoin Aboard board "+board) ||
 		!strings.HasSuffix(text.stdout, "\n"+invitePrompt+"\n") {
 		t.Fatalf("the guest invite's text:\n%s", text)
@@ -196,7 +196,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 	if woke.code != 2 || !strings.Contains(woke.stderr, `sender="other_person"`) || !strings.Contains(woke.stderr, "Welcome, sam.") {
 		t.Fatalf("the guest's session should wake with maya's message\n%s", woke)
 	}
-	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam (guest)")
+	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam (guest)", "    @claude · claude-code · working")
 	if got := field(t, maya.run("board", "people", "--json").json(t), "people.1.server_role"); got != "guest" {
 		t.Fatalf("the guest's server role: %v", got)
 	}

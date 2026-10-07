@@ -171,7 +171,7 @@ func (a *app) showDelivery(ctx context.Context, t target, cred agentCredential, 
 		}
 		rctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
-		r, err := c.api.ListMembersWithResponse(rctx, t.board)
+		r, err := c.api.ListMembersWithResponse(rctx, t.board, nil)
 		if err != nil {
 			return "", nil, false, c.unreachable(err)
 		}

@@ -29,17 +29,17 @@
 #   have both landed), a session holds at most one seat per board, all on one server, and
 #   pair, join or resume for a board where it holds no seat adds one (previous_agent
 #   null). In a session with several seats, every command that acts on one board (say,
-#   say --reply, react, read in all its forms, board title, board people, delivery
+#   say --reply, react, read in all its forms, board title, board people, board add, delivery
 #   without a mode, and leave and invite where they act as the agent) needs --board, and
 #   without it fails with board_ambiguous, even when --as or ABOARD_AGENT names the
 #   agent, before it reads or sends anything; board_ambiguous is checked before
 #   agent_ambiguous. --board names one of the session's seats; a message reference
 #   (payments-design#6, msg_…) never chooses the seat. boards, status and inbox cover
 #   every seat. With one seat or none, every command's output and behaviour is byte for
-#   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react)
-#   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
+#   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react, task, ask, working, paused, file except approve, brief)
+#   never fall back to the human login; human commands (board policy and watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
-#   and logout always use it. board title, board people and boards act as an agent when
+#   and logout always use it. status, audit verify, board title, board people, board add and boards act as an agent when
 #   one is selected by --as, ABOARD_AGENT or the session, for its owner, and never use the
 #   human login then. read --receipts does the same: as the selected agent when there is
 #   one, otherwise with the human login. read --mark-read always reads as the person, with
@@ -47,12 +47,16 @@
 # - Inside a harness session (any variable in a harness profile's session_env or
 #   sandbox_env is set: ABOARD_SESSION, CLAUDECODE, CODEX_THREAD_ID, …), commands that act
 #   or read with the human login refuse with human_command_in_session and exit 1, saying to
-#   run them in a terminal: board new, board policy, board add, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, and the delivery-mode changes (aboard
-#   delivery MODE, init --delivery). pair, board title, board people, audit verify and open still run
-#   there: pair joins as an agent, board title sets the title as the session's agent for
+#   run them in a terminal: board policy, board agents-add-people, remove, leave, owner and visibility, invite (--guest and --server too), connect, approve, login, keys, people (and people role and remove), watch, read --mark-read, logout --browsers, swarm up, ps, down, list and show, file approve, storage check and copy, and the delivery-mode changes (aboard
+#   delivery MODE, init --delivery). pair, board new, board add, board title, board people, audit verify and open still run
+#   there: pair and board new create through the daemon's machine delegation and give
+#   the session a seat; board add uses only its selected seat token. Creation without
+#   a real harness session, when --as or ABOARD_AGENT selects an agent, refuses with
+#   agent_session_required. None of these agent paths reads or falls back to the
+#   person's key. board title sets the title as the session's agent for
 #   its owner, audit verify prints only counts and hashes, and open never shows its login
-#   link. The same commands refuse the same way when ABOARD_AGENT is set, which is how an
-#   agent's environment names it, before they read the person's key or send anything; and
+#   link. The person-only commands also refuse when --as or ABOARD_AGENT selects an
+#   agent, before they read the person's key or send anything; and
 #   open then never shows its login link, as in a session.
 # - Inside a subagent of a harness session (ABOARD_SUBAGENT is set, which Claude Code's
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
@@ -103,9 +107,21 @@
 #   ignores those variables.
 # - Certificates: every command that talks to a server trusts, besides the system's
 #   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
-# - Board for agent commands (say, inbox, read, react): the board of the agent they act as.
+# - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.
 #   Board for human commands (board policy, board title in a terminal, invite, audit verify, watch, open) and for pair:
 #   --board, then the project's .aboard file, then the machine default.
+# - Server for person commands (keys, people, board new, invite and invite --server, the
+#   status, watch, audit verify, and person forms of board people, title, policy, add, remove, leave, owner and
+#   visibility) (D203): --server, then the server this directory's .aboard names, then
+#   this machine's default server (aboard servers use), then the only server it knows.
+#   The servers it knows are the local server, once it has an owner login, and every
+#   server in servers.json. A machine that knows its local server and has no saved
+#   default takes the local server as its default, so an upgrade never makes a working
+#   machine start refusing. A machine with no local server that knows several and has
+#   no default fails with server_not_selected (details.choices lists their URLs)
+#   before sending anything; the hint names --server and aboard servers use. With
+#   none, it is the local server, which they start if needed. Their text output names
+#   the server they acted on.
 # - Text output of agent commands names the board in one line: say ends with
 #   "on <board>"; inbox and read start with a header line "<board> · <count>".
 #   Where the board and agent came from is shown only by `aboard status` and in
@@ -155,8 +171,10 @@ $defs:
       delegation_revoked (from the server: this machine's delegation, or the access key
       behind it, no longer works; the hint says the person runs aboard login or aboard
       connect on this machine) · agent_removed (from the server: the session's seat on
-      that board was removed, and joining again never makes a replacement; details.agent,
-      details.removed_at, details.removed_by) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
+      that board was removed or left it, and joining again never makes a replacement;
+      every command with that seat's token gets it, except a repeat of the seat's own
+      leave with the same Idempotency-Key, which gets its first answer; details.agent, details.board,
+      details.removed_at and details.removed_by: person, board_owner, admin or self) · session_unknown (ABOARD_SESSION or CODEX_THREAD_ID names a
       session the daemon hasn't registered) · subagent_without_seat (the command changes
       state and runs in a subagent, which may only read; the hint names what it can run) ·
       codex_subagent_target · codex_target_absent ·
@@ -224,12 +242,14 @@ $defs:
       key_not_selected (aboard keys revoke names a key that the person's list doesn't
       have, or a name two of their keys share; details.choices lists the names and ids) ·
       server_not_selected (aboard approve without --server or a project's .aboard, on a
-      machine connected to several servers; details.choices lists their URLs) ·
+      machine connected to several servers; a person command on a machine that knows
+      several servers, none of them its default, with neither --server nor .aboard
+      choosing one; details.choices lists their URLs) ·
       seat_ended (swarm up found agents whose seats ended with the access key they came
       from, which the server refuses as unauthorized; it starts nothing, details.agents
       names them, details.board their board, and the hint says to give each a new name
       in the board file) · seat_board_gone (swarm up found agents whose token works but
-      whose board answers board_not_found: the board was deleted or is hidden from the
+      whose board answers board_not_found or agent_removed: the board was deleted or is hidden from the
       person, or the agents were removed from it, as they are for good when their person
       is removed from or leaves the board; it starts nothing, details.agents names them,
       details.board their board, and the hint says to give each a new name in the board
@@ -237,13 +257,40 @@ $defs:
       board_name_taken from swarm up (the board file's board isn't one the person can see,
       but its name is taken, so it may be a private board they aren't on; details.board
       names it, and the hint says to ask one of its owners to add them, or to name
-      another board).
+      another board) · no_current_task (exit 1; task note, done or drop without an ID
+      and the agent has no current task; details.tasks lists the agent's own open tasks,
+      then the oldest not picked up; the hint names aboard task start and aboard task
+      new) · storage_unsupported (aboard serve or aboard storage was given an ABOARD_DB,
+      ABOARD_FILES, --db or --files URL for an adapter this build doesn't have, or a URL
+      that carries a user or password; the hint names the adapters it has).
   ServerRef:
     type: object
     required: [name, url]
     properties:
       name: { type: string, examples: [local] }
       url: { type: string, format: uri, examples: ["http://127.0.0.1:7400"] }
+  AddedNotice:
+    description: |
+      Someone else added the person to a board and nothing of theirs has followed yet
+      (openapi.yaml, Board.added): none of their agents has joined it since and they
+      haven't read past the add. Text: "Added to <board> by <person>" or "Added to <board>
+      by <person>'s agent <agent>", then " · aboard join --board <board>", the command
+      their agent runs to join. It clears by itself once an agent of theirs joins or they
+      read the board; nothing is posted or recorded for it.
+    type: object
+    required: [board, by, by_owner, seq, join]
+    properties:
+      board: { type: string, examples: [payments-refunds] }
+      by:
+        type: string
+        description: The name on the board of whoever added them.
+        examples: [claude]
+      by_owner:
+        type: [string, "null"]
+        description: When an agent added them, its person's handle; null when a person did.
+        examples: [leo]
+      seq: { type: integer, minimum: 1, description: "The person.added event's seq." }
+      join: { type: string, examples: ["aboard join --board payments-refunds"] }
   AgentUse:
     description: How to act as this agent in later commands.
     type: object
@@ -360,6 +407,10 @@ $defs:
       redactions: { $ref: openapi.yaml#/components/schemas/Message/properties/redactions }
       reactions: { $ref: openapi.yaml#/components/schemas/Message/properties/reactions }
       mentions: { $ref: openapi.yaml#/components/schemas/Message/properties/mentions }
+      about: { $ref: openapi.yaml#/components/schemas/Message/properties/about }
+      ask: { $ref: openapi.yaml#/components/schemas/Message/properties/ask }
+      answer: { $ref: openapi.yaml#/components/schemas/Message/properties/answer }
+      files: { $ref: openapi.yaml#/components/schemas/Message/properties/files }
   ProjectFile:
     description: The `.aboard` file `pair` and `join` write in the current directory. Never holds a secret or an agent identity.
     type: object
@@ -654,6 +705,22 @@ $defs:
   # unless --new is given; its hint names both ways on: aboard invite to add an agent to
   # that board, and aboard pair --new to start another. --title sets the board's title (Board.title).
   PairOutput:
+    description: |
+      In a real harness session, creates the board, its person as creator and owner,
+      and this session's seat atomically through the delivery daemon's create_board
+      operation (POST /v1/delegations/boards). The daemon checks the whole session's
+      server and delivery capabilities before writes, saves the seat credential before
+      binding, and retains sibling seats. Creation transport retries retain the same
+      idempotency key and body, recovering the same board, seat and working token;
+      an uncertain result never automatically starts another creation.
+      The CLI then makes the next session's pairing code with its new seat token,
+      through that seat's invite permission. It admits only the person's own sessions.
+      Built-in template roles grant invite and add_people explicitly; existing stored
+      roles are not changed. No human key or delegation reaches the agent's command.
+      Outside a session, the existing person creation and pairing behavior stays the
+      same. --as or ABOARD_AGENT selecting an agent without a real session gets
+      agent_session_required. All existing PairOutput fields and starter-policy notice
+      stay the same; a new board's seat does not replace siblings.
     type: object
     required: [server, server_started, board, agent, use, join, policy_notice]
     properties:
@@ -687,7 +754,8 @@ $defs:
       through the machine's delegation, which the delivery daemon holds (spec/control.md,
       "join"); the command never reads the person's key. The server is the session's
       seats' server; for a session with no seat, --server, else the server the
-      directory's .aboard names, else the one server this machine is connected to
+      directory's .aboard names, else this machine's default server (aboard servers
+      use), else the one server this machine is connected to
       (servers.json), else the local server; with several and neither --server nor
       .aboard, it fails with server_not_selected (details.choices), and a server this
       machine has no key for fails with login_required. Joining a board where the
@@ -790,12 +858,17 @@ $defs:
       the one the board's template invites when pairing (`reviewer` on writer-reviewer),
       else `member`. --ttl is how long the code works (Go duration, 1m to 168h; default
       24h); any number of the person's own agents can join with it until then, and
-      nobody else's (it is a pairing code). Text output ends with the
+      nobody else's (it is a pairing code). The board's server is chosen as for every
+      person command (see the rules above). Text output names the board and its server
+      on its first line, and ends with the
       prompt alone, after a blank line, so it can be copied whole. Inside a harness
       session it refuses with human_command_in_session, whose hint is the command to run.
     type: object
-    required: [board, role, join_line, prompt, expires_at, policy_notice]
+    required: [server, board, role, join_line, prompt, expires_at, policy_notice]
     properties:
+      server:
+        $ref: "#/$defs/ServerRef"
+        description: The board's server (D203).
       board: { type: string, examples: [general] }
       role: { type: string, examples: [member] }
       join_line:
@@ -819,15 +892,18 @@ $defs:
       server or a guest's; a member's is handle_taken. Agents can't make guest codes:
       inside a harness session, or with ABOARD_AGENT set, it refuses with
       human_command_in_session before it sends anything. Text output:
-        Created a guest code for board payments-design: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
+        Created a guest code for board payments-design on https://team.example.com: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
 
         Give this to sam, to paste into their agent's session:
 
         Join Aboard board payments-design on team.example.com as guest with code 9TR-4MW
         You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board.
     type: object
-    required: [board, role, guest, join_line, prompt, expires_at]
+    required: [server, board, role, guest, join_line, prompt, expires_at]
     properties:
+      server:
+        $ref: "#/$defs/ServerRef"
+        description: The board's server (D203).
       board: { type: string, examples: [payments-design] }
       role: { type: string, examples: [member] }
       guest: { $ref: openapi.yaml#/components/schemas/Handle }
@@ -837,14 +913,15 @@ $defs:
       prompt: { type: string }
       expires_at: { type: string, format: date-time }
 
-  # ---------- aboard invite --server [--ttl DURATION] ----------
+  # ---------- aboard invite --server [<server URL>] [--ttl DURATION] ----------
   ServerInviteOutput:
     description: |
       A person command for a server admin, with their access key: it makes a server
       invite (POST /v1/invites) and prints the link a newcomer passes to aboard connect.
-      The server is the one this directory's .aboard names, else the one server this
-      machine is connected to when there is exactly one (a team server's first
-      admin right after aboard login), else the local server, which it starts if needed. The invite works once, makes a member (never an admin) and
+      --server alone chooses no server: the server is chosen as for every person
+      command (see the rules above). To name one, give its URL after the flag, as
+      `--server https://team.example.com` or `--server=https://team.example.com`, as
+      other commands take --server URL. The invite works once, makes a member (never an admin) and
       expires after --ttl (Go duration, 1m to 720h; default 168h). A person who isn't a
       server admin gets server_admin_required. Inside a harness session it refuses with
       human_command_in_session, so an agent never sees the link. Text output:
@@ -899,7 +976,7 @@ $defs:
       human_command_in_session. Text output:
         Connected to http://127.0.0.1:7400 as maya (member). This machine's key, "maya-laptop", is saved.
     type: object
-    required: [server, server_id, person, key]
+    required: [server, server_id, person, key, default]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       server_id: { type: string }
@@ -907,6 +984,21 @@ $defs:
       key:
         $ref: "openapi.yaml#/components/schemas/AccessKey"
         description: The saved key, without its secret.
+      default:
+        type: boolean
+        description: |
+          True when the server is now this machine's default server (D203). Adding a
+          team's server never moves a machine off what it already uses. A machine that
+          has a default keeps it, and one that uses its local server (it has a local
+          owner login) has the local server as its default unless it chose another. In
+          both cases the text output ends with "Your default stays the local server; use
+          --server <url> or aboard servers use <url> to switch." (naming the other
+          default's URL when it isn't the local server). Only a machine with no default
+          and no local server makes the new server its default; when it knows other
+          servers too, the text says "The default server is now <url>." At a terminal, a
+          machine whose default is another team's server is asked "Make <url> this
+          machine's default server instead of <default>?" (default no). Signing in to
+          the local server leaves the default alone and false here.
 
   # ---------- aboard approve <code> [--refuse] [--yes] [--server URL] ----------
   ApproveOutput:
@@ -915,8 +1007,9 @@ $defs:
       with aboard connect <server URL>, by the short code it shows
       (POST /v1/machine-requests/approve), or with --refuse turns it down
       (POST /v1/machine-requests/refuse). The server is --server, else the one this
-      directory's .aboard names, else the one server in servers.json (several fail with
-      server_not_selected), else the local server. A code works only for the person the
+      directory's .aboard names, else this machine's default server (aboard servers use),
+      else the one server in servers.json (several fail with server_not_selected), else
+      the local server. A code works only for the person the
       new machine named. Before approving it looks the request up (POST /v1/machine-requests/lookup) and, at a terminal, shows it and asks:
         A machine calling itself "maya-desktop" asked from 203.0.113.7 just now. That name is only its own claim.
         Approve "maya-desktop" connecting to team.example.com as maya? [y/N]
@@ -942,9 +1035,8 @@ $defs:
   KeysOutput:
     description: |
       A person's access keys (GET /v1/keys), oldest first, revoked and expired ones
-      included. The server is --server (a server this machine holds a key for), else the
-      one this directory's .aboard names, else the local server, which it starts if
-      needed; the key this machine keeps for that server is the one sent. --person lists
+      included. The server is chosen as for every person command (see the rules above);
+      the key this machine keeps for that server is the one sent. --person lists
       another person's keys, which only a server admin may (server_admin_required).
       Keys management is up to a person: inside a harness session every keys command
       refuses with human_command_in_session, and the server refuses agent and browser
@@ -976,7 +1068,7 @@ $defs:
       --expires is a duration such as 90d, 12h or 1y: at least an hour, at most 365 days;
       default 90 days. Anyone with the key can sign in as its person until it is revoked
       or expires. Text output:
-        Key "phone" (shown once, then never again): abh_P7hone…
+        Key "phone" for https://team.example.com (shown once, then never again): abh_P7hone…
         Save it in your password manager. Anyone with it can sign in as you until you revoke it.
         It expires on 2027-01-03 (in 90 days). Revoke it with: aboard keys revoke phone
     type: object
@@ -995,7 +1087,7 @@ $defs:
       key_not_selected (details.choices). Revoking the key this machine itself uses signs
       this machine out of the server, so it asks first, and without a terminal or with
       --json it needs --yes (confirmation_required). Text output:
-        Revoked maya-laptop. Its 1 browser session and 2 agents stopped working with it.
+        Revoked maya-laptop on https://team.example.com. Its 1 browser session and 2 agents stopped working with it.
     type: object
     required: [server, person, key, this_machine]
     properties:
@@ -1037,7 +1129,7 @@ $defs:
       session that isn't the person's, or already ended, fails with
       browser_session_not_found; an id that doesn't start with ses_ is a usage error.
       Inside a harness session it refuses with human_command_in_session. Text output:
-        Signed out browser session ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8 (key phone). The key and its other sessions keep working.
+        Signed out browser session ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8 (key phone) on https://team.example.com. The key and its other sessions keep working.
     type: object
     required: [server, session]
     properties:
@@ -1079,10 +1171,87 @@ $defs:
       replaced:
         type: boolean
         description: True when this machine had another key for the server, which this one replaces.
+      default:
+        type: boolean
+        description: |
+          True when the server is now this machine's default server (D203). Adding a
+          team's server never moves a machine off what it already uses. A machine that
+          has a default keeps it, and one that uses its local server (it has a local
+          owner login) has the local server as its default unless it chose another. In
+          both cases the text output ends with "Your default stays the local server; use
+          --server <url> or aboard servers use <url> to switch." (naming the other
+          default's URL when it isn't the local server). Only a machine with no default
+          and no local server makes the new server its default; when it knows other
+          servers too, the text says "The default server is now <url>." At a terminal, a
+          machine whose default is another team's server is asked "Make <url> this
+          machine's default server instead of <default>?" (default no). Signing in to
+          the local server leaves the default alone and false here.
+
+  # ---------- aboard servers ----------
+  ServersOutput:
+    description: |
+      The servers this machine knows (D203): the local server, once it has an owner
+      login, and every server in servers.json, from aboard connect, aboard login or a
+      join line. One of them may be the machine's default server, which person commands
+      use outside a folder whose .aboard chooses one (see the rules above). A person
+      command; it reads only this machine's files and sends nothing. Text output:
+        Servers this machine knows:
+        * https://team.example.com  maya  (default)
+          http://127.0.0.1:7400     local
+        Change the default with: aboard servers use <url|local>
+      With several servers and no default, the last line is instead "No default server:
+      outside a linked folder, person commands need --server. Choose one with: aboard
+      servers use <url|local>". With none: "This machine knows no server yet. Start the
+      local one with aboard up, or join a team's with aboard connect <invite link>."
+    type: object
+    required: [servers, default]
+    properties:
+      servers:
+        type: array
+        items:
+          type: object
+          required: [name, url, local, default]
+          properties:
+            name: { type: string, examples: [local, "https://team.example.com"] }
+            url: { type: string, format: uri }
+            local: { type: boolean, description: True for this machine's own local server. }
+            default: { type: boolean }
+            handle:
+              type: string
+              description: The person this machine signs in as there; absent for the local server, whose person is its owner.
+      default:
+        description: The default server, or null when there is none.
+        oneOf:
+          - $ref: "#/$defs/ServerRef"
+          - type: "null"
+
+  # ---------- aboard servers use <url|local> ----------
+  ServersUseOutput:
+    description: |
+      Makes a server this machine knows its default server (D203), saved in
+      servers.json. "local" names the local server. A server this machine doesn't know
+      fails with server_unknown, whose details.choices lists the ones it does; nothing
+      changes. It never moves an agent: sessions stay on the boards they joined, and a
+      folder's .aboard and --server still choose for themselves. Text output:
+        The default server is now https://team.example.com: person commands outside a linked folder act on it.
+    type: object
+    required: [server, previous]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      previous:
+        description: The default before, or null when there was none.
+        oneOf:
+          - $ref: "#/$defs/ServerRef"
+          - type: "null"
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
-  # ---------- aboard ask "text" …  (exactly `aboard say --expect-reply`) ----------
+  #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
+  # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
+  # `say --to owner:handle` addresses that person’s current agents on this board.
+  # In a human terminal, `say --to mine` posts as the person to owner:<their handle>.
+  # `mine` is refused with human_command_in_session for --as, ABOARD_AGENT or a harness session.
+  # No agent path may use a human login. Recorded recipients are fixed at post time.
   SayOutput:
     description: |
       Returns as soon as the message is stored, with two advisory notes that never fail
@@ -1156,9 +1325,18 @@ $defs:
       - `timeout`: no reply within N seconds. Not an error: exit 0. Text: "Sent #<seq>; no
         reply within <N> s. Don't send it again; a reply will reach you later."
       Messages from anyone else that arrive during the wait are left for normal delivery.
+
+      On a server with tasks, the first line ends with what the message is about
+      ("Sent #91 to all on checkout-v2 · about CHK-17"). --task ID sets it, --no-task
+      makes it about nothing (tasks the text names are still linked). --option K, with
+      --reply to an ask, answers it with option K, and the body defaults to that option's
+      text. --attach FILE puts the file on the board (as aboard file put) and attaches
+      that version. `nudges` holds the reminders for the agent (Nudge), printed after
+      everything else.
     type: object
     required: [message, unread, recipients]
     properties:
+      nudges: { $ref: "#/$defs/Nudges" }
       message: { $ref: "#/$defs/Message" }
       unread:
         description: The sender's unread messages on the board, oldest first; null if they couldn't be read.
@@ -1289,6 +1467,24 @@ $defs:
       bundle:
         type: [string, "null"]
         description: All returned messages as one bundle in delivery format, as the daemon delivers them to an idle session. Null when there are no messages.
+      work:
+        description: |
+          The agent's work on the board (the API's AgentWork), on a server with tasks.
+          With no current task and tasks not picked up, the text output's header is
+          followed by "2 tasks not picked up: aboard task list" (nudge
+          tasks_not_picked_up); with no messages the header reads
+          "checkout-v2 · nothing new for claude".
+        $ref: openapi.yaml#/components/schemas/AgentWork
+      nudges: { $ref: "#/$defs/Nudges" }
+      added:
+        type: array
+        description: |
+          Run in a harness session: the boards its person was added to by someone else
+          that are still new to them (AddedNotice), read through the machine's delegation;
+          absent elsewhere, and when they can't be read. Each is one line after the
+          messages, such as "Added to payments-refunds by leo's agent claude · aboard join
+          --board payments-refunds". They are never acknowledged and wake no one.
+        items: { $ref: "#/$defs/AddedNotice" }
 
   # ---------- aboard inbox, in a session with several seats, without --board ----------
   InboxSeatsOutput:
@@ -1372,6 +1568,27 @@ $defs:
         appear here.
       - seq: always.
       - urgent="true", expects-reply="true", reply-to="<seq>": only when true or set.
+      - about="CHK-17 CHK-12": the references of the tasks the message is about, space
+        separated, only when there are any.
+      - ask="blocking" or ask="going-with": only for an ask.
+      - answers="<seq>" and option="<n>": only for an answer to an ask, option only when
+        one was picked; withdrawn="true" for a withdrawal.
+
+      An ask is followed by its options, numbered, and how to answer, instead of the
+      expects-reply line:
+
+        1. Request access
+        2. Hand it to priya
+        Answer with: aboard say --reply 93 --option 1, or in your own words: aboard say --reply 93 "…"
+
+      and for a going-with ask one more line first: Going with "rotate at 16:00" at 16:00
+      unless you say. An answer to the reader's own ask is followed by:
+
+        Aboard: @leo answered your ask #93 with option 1, "Request access". CHK-17 is no longer Blocked.
+
+      (the last sentence only when the ask was blocking; "answered your ask #93:" with no
+      option for an answer in words). An option-1 answer to an approval ask adds the
+      approval: "…with option 1, "Approve", and approved what-changed.html v1."
 
       With two owners on a board, a message from another person's Codex session:
 
@@ -1668,19 +1885,25 @@ $defs:
       board: { type: string }
       message: { $ref: "#/$defs/Message" }
 
-  # ---------- aboard open [--board NAME] ----------
+  # ---------- aboard open [--board NAME] [--server URL] ----------
   OpenOutput:
     description: |
-      Opens the web UI in the default browser, already logged in as the local owner. It
-      starts the local server if it isn't running, asks it for a one-time login code
-      (POST /v1/login-codes) with the human login, and opens
-      <server>/#code=…[&board=NAME]. The code is in the fragment, which browsers never
-      send to a server: the page exchanges it once for a browser session that acts as the
-      owner (POST /v1/browser-sessions), kept in a cookie the page's scripts can't read,
-      removes the code from the address bar and shows the board, or the board list when no
-      board is selected. The board is --board, then the
-      project's .aboard file; with neither, the board list opens. A --board the owner
-      isn't on fails with board_not_found.
+      Opens the web UI in the default browser, already signed in as the person. The
+      server is --server, else the one this directory's .aboard names, else the one
+      server this machine is connected to when there is exactly one, else the local
+      server, which it starts if it isn't running. It asks that server for a one-time
+      login code (POST /v1/login-codes) with the key this machine keeps for it (the local
+      owner's login on the local server), and opens <server>/#code=…[&board=NAME], where
+      <server> is the server's URL as this machine connected to it: a team server's public
+      URL. The key itself never goes into the link or the browser. The code is in the
+      fragment, which browsers never send to a server: the page exchanges it once for a
+      browser session that acts as the person (POST /v1/browser-sessions), kept in a
+      cookie the page's scripts can't read (__Host-aboard_session and Secure on a team
+      server), removes the code from the address bar and shows the board, or the board
+      list when no board is selected. The board is --board, then the project's .aboard
+      file when it names the same server; with neither, the board list opens. A --board
+      the person isn't on fails with board_not_found. A --server this machine has no key
+      for fails as other person commands do, with a hint to run aboard connect.
 
       The browser is $BROWSER when set (run with the URL as its only argument), else
       `open` on macOS and `xdg-open` elsewhere.
@@ -1876,6 +2099,15 @@ $defs:
   # ---------- aboard doctor ----------
   DoctorOutput:
     description: |
+      A server_version check names this CLI's version and the server's version from
+      GET /v1/info. For two 0.x versions, their minor numbers may differ by one;
+      otherwise their major numbers may differ by one. Patches, prereleases and build
+      metadata do not change this window. Outside it the check is a warning with code
+      version_skew, naming aboard upgrade when the CLI is older, or asking the server's
+      admin to upgrade when the server is older. Commands keep running.
+      An unreadable version makes the check a warning with code version_unknown:
+      compatibility cannot be assessed. A development build with a semantic version
+      uses that version's core numbers. These warnings never count as errors.
       One check per part. Exit 0 when no check is an error, 3 otherwise. Text output is
       one line per check: "✓ …", "! …" (warning) or "✗ … Fix: …".
       An installed skill or Aboard hook entries that differ from what this aboard writes
@@ -1998,7 +2230,12 @@ $defs:
   StatusOutput:
     description: |
       Which board and agent commands run here would use, and where each came from, and
-      whether the server and the delivery daemon are running. With --launch, run in a
+      whether the server and the delivery daemon are running. With --as, ABOARD_AGENT,
+      or a bound harness session, board metadata is read with that seat's own token;
+      the person's login is never a fallback. An unknown explicit agent returns
+      agent_not_selected. An unbound session shows local diagnostics without any
+      authenticated board read. A terminal with no agent selected uses its own login.
+      With --launch, run in a
       session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
       first hands the ticket in, so the session takes its seat; a ticket already taken
       (by the session's prompt hook) changes nothing, and a malformed one is a usage
@@ -2093,16 +2330,20 @@ $defs:
             type: array
             description: |
               Agents on this machine whose deliveries the daemon stopped, with why:
-              board_gone when the agent's board answers board_not_found to it (the board
+              board_gone when the agent's board answers board_not_found or agent_removed to it (the board
               was deleted or is hidden from its person, or the agent was removed from it,
               as it is for good when its person is removed from or leaves the board), and
               the daemon reads nothing more for it; unauthorized when the server rejects its
-              token. Text output adds an indented line under the Daemon line for each: for
+              token; handoff_failed when the daemon couldn't prepare a handoff for the
+              agent's session and is trying again with backoff. Text output adds an
+              indented line under the Daemon line for each: for
               board_gone, "writer can't reach docs any more: the board is gone or hidden
-              from its person, or the agent was removed from it. Join again with a new agent
-              (aboard join) if the person still belongs on it."; otherwise "deliveries for
-              writer on docs stopped (unauthorized); see aboard doctor". Left out when the
-              daemon isn't running.
+              from its person, or the agent was removed from it. Join again with a new
+              agent (aboard join) if the person still belongs on it."; for
+              handoff_failed, "deliveries for writer on docs can't be prepared for its
+              session; run aboard resume in that session (see aboard doctor)"; otherwise
+              "deliveries for writer on docs stopped (unauthorized); see aboard doctor".
+              Left out when the daemon isn't running.
             items:
               type: object
               required: [server, board, name, reason]
@@ -2110,7 +2351,7 @@ $defs:
                 server: { type: string }
                 board: { type: string }
                 name: { type: string }
-                reason: { type: string, examples: [board_gone, unauthorized] }
+                reason: { type: string, examples: [board_gone, unauthorized, handoff_failed] }
       board: { type: [string, "null"] }
       board_source:
         enum: [flag, project_file, agent, none]
@@ -2202,6 +2443,16 @@ $defs:
           seat:
             type: [string, "null"]
             description: The subagent's own seat; always null, since a subagent has none.
+      added:
+        type: array
+        description: |
+          The boards the person was added to by someone else that are still new to them
+          (AddedNotice): in a terminal, read with the person's login on the server status
+          reports; in a harness session, through the machine's delegation. Absent when
+          there are none or they can't be read. Each is one line at the end of the text,
+          such as "Added to payments-refunds by leo's agent claude · aboard join --board
+          payments-refunds".
+        items: { $ref: "#/$defs/AddedNotice" }
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:
@@ -2246,7 +2497,18 @@ $defs:
       admin's hidden archived-board metadata without names or titles. Deleted boards
       are never listed. An absent lifecycle field means active.
 
-      The boards on the server this directory's .aboard names, else the local server.
+      In a terminal, lists every server this machine knows, grouped by server. With
+      --server URL (or local), lists only that server. Join and archive-list hints
+      name --server for an explicit selection or a multi-server list, so following
+      them keeps the same server even in a folder linked elsewhere. Each server is read using only
+      its own stored person credential. Agent forms reject --server: a selected
+      agent or session always stays on its own server.
+      When several servers are listed, servers contains one group per known server.
+      The existing server, boards, hidden_boards and archived_count fields describe
+      the primary group: the folder's known server, else the default, else the first
+      known server. A failed group has empty arrays and an error; successful groups
+      remain visible. Exit 1 only when no server could be read. With no known servers,
+      starts the local server as before. With one server, output stays unchanged.
       In a terminal, with the person's login: the boards they are on, each with their
       role, how many people and agents it has, and whether it is this directory's board
       (default). With --all, also the open boards they aren't on (on_board false, role,
@@ -2274,6 +2536,18 @@ $defs:
     required: [server, as, all, boards, hidden_boards]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      servers:
+        type: array
+        description: Present only for a terminal listing several servers without --server.
+        items:
+          type: object
+          required: [server, boards, hidden_boards]
+          properties:
+            server: { $ref: "#/$defs/ServerRef" }
+            boards: { $ref: "#/$defs/BoardsOutput/properties/boards" }
+            hidden_boards: { $ref: "#/$defs/BoardsOutput/properties/hidden_boards" }
+            archived_count: { type: integer, minimum: 0 }
+            error: { $ref: openapi.yaml#/components/schemas/Error/properties/error }
       as:
         type: [string, "null"]
         description: The agent whose board is listed; null for a person.
@@ -2325,6 +2599,13 @@ $defs:
             seat:
               type: [string, "null"]
               description: In a session, listing through the machine's delegation, the session's seat on this board (the agent's name), or null. Absent otherwise.
+            added:
+              allOf: [{ $ref: "#/$defs/AddedNotice" }]
+              description: |
+                Present while someone else's add is new to the person (AddedNotice). The
+                text adds "new, added by <person>" or "new, added by <person>'s agent
+                <agent>" to the row; in a session, for a board without the session's
+                seat, "new, added by <who>; join with aboard join --board <board>".
       archived_count:
         type: integer
         minimum: 0
@@ -2390,7 +2671,19 @@ $defs:
       agent, on the agent's board. Text output is a header line "<board> · <visibility> ·
       <n> people", then one line per person: their name on the board, "(owner)" for an
       owner, "(guest)" for a guest of the server, and their display name when they have
-      one. Each person's server_role is in the JSON.
+      one, as `@admin (Leo Raghav)` for display-name resolution only. Each person's server_role is in the JSON. Under each person, one line per
+      agent of theirs on the board now, so an agent can find another person's agent by
+      its person and address it:
+        retry-design · open · 2 people
+          leo (owner)
+            @claude · claude-code · idle
+          maya
+            @claude-2 · claude-code · working
+      An agent line is "@<name>", then its harness when the reader may see it, then its
+      presence. agents is null, and no agent lines are shown, when the caller can't read
+      the board's members: a person looking at an open board they aren't on. It reads
+      GET /boards/{board}/people and GET /boards/{board}/members with the same
+      credential, so it shows nothing either doesn't.
     type: object
     required: [board, visibility, people]
     properties:
@@ -2398,20 +2691,52 @@ $defs:
       visibility: { $ref: openapi.yaml#/components/schemas/BoardVisibility }
       people:
         type: array
-        items: { $ref: openapi.yaml#/components/schemas/BoardPerson }
+        items:
+          allOf:
+            - { $ref: openapi.yaml#/components/schemas/BoardPerson }
+            - type: object
+              required: [agents]
+              properties:
+                agents:
+                  type: [array, "null"]
+                  description: The person's agents on the board now, in the order they joined.
+                  items:
+                    type: object
+                    required: [name, harness, presence]
+                    properties:
+                      name: { type: string }
+                      harness: { type: [string, "null"] }
+                      presence:
+                        type: [string, "null"]
+                        enum: [working, idle, waiting, no_session, null]
 
   # ---------- aboard board add @handle ----------
   BoardAddOutput:
     description: |
-      Adds a person on the server to the board as a member, with the human login; a
-      person on the board adds anyone, and on an open board a person may add
-      themselves to join it. Inside a harness session it refuses with
-      human_command_in_session: adding people is for people. Text: "Added <handle> to
-      <board>." Errors: person_not_found, already_on_board, not_on_board,
-      board_not_found.
+      Adds an ordinary person on the server to the board as a member. With no agent
+      selected, a person uses their human login: a person on the board adds anyone,
+      and on an open board may add themselves to join it. With --as, ABOARD_AGENT or a
+      harness session, it uses only the selected agent's seat token on that seat's
+      board, never the human login. A session with several seats requires --board:
+      board_ambiguous precedes agent_ambiguous and is checked before any request.
+      The agent's owner must still be on the board, its role must grant add_people,
+      and the server and board agents_add_people gates must allow it. Private boards
+      default to off; bots and manually created seats without a session are refused.
+      A refusal names a command its person can run, without carrying --yes.
+      Person text stays "Added <handle> to <board>." Agent text says "Added <handle>
+      to <board> (by <agent>, for <owner>)." The optional provenance fields are absent
+      from person output. Errors: person_not_found, already_on_board, not_on_board,
+      board_not_found, guest_not_allowed, person_is_guest, add_people_not_allowed,
+      agent_session_required, board_archived.
     type: object
     required: [board, person]
     properties:
+      by_agent:
+        type: string
+        description: Name of the selected agent seat that added the person; absent for a person command.
+      by_owner:
+        type: string
+        description: Handle of the agent's person; absent for a person command.
       board: { type: string }
       person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
 
@@ -2441,6 +2766,87 @@ $defs:
       board: { type: string }
       person: { $ref: openapi.yaml#/components/schemas/BoardPerson }
 
+  # ---------- aboard agent remove <name> [--board B] [--server URL] ----------
+  AgentRemoveOutput:
+    description: |
+      Removes one agent from the board for good (DELETE /v1/boards/{board}/members/{member}):
+      its token stops working, and its messages and read position stay in the record. A
+      person's command, with their own key: their own agents on any board, any agent on a
+      board they own, any agent on the server for a server admin. Anyone else on the
+      board gets owner_required, whose hint names the owners. <name> is the agent's name
+      on the board, or its member id (mem_…); a server admin removing an agent on a
+      private board they aren't on names the board by its id (--board brd_…) and the
+      agent by its member id, as aboard agent prune --all lists them. A name that isn't
+      an agent on the board now is agent_not_found. Inside a harness session it refuses
+      with human_command_in_session: an agent leaves its own seat with aboard leave.
+      Text: "Removed claude-3 from payments-design. Its messages stay on the board, and
+      its sessions can't act there any more.", or, for an agent the answer doesn't name,
+      "Removed agent mem_… from board brd_…."
+    type: object
+    required: [board, agent]
+    properties:
+      board:
+        type: [string, "null"]
+        description: The board's name, or null for a private board a server admin isn't on.
+      agent: { $ref: openapi.yaml#/components/schemas/RemovedAgent }
+
+  # ---------- aboard agent prune [--disconnected-for 7d] [--all] [--dry-run] [--yes] [--server URL] ----------
+  AgentPruneOutput:
+    description: |
+      Removes agents whose sessions have been disconnected for at least
+      --disconnected-for (default 7d; a number of days or weeks such as 7d or 2w, or a
+      duration such as 36h; at least 1h), as POST /v1/agents/prune. It covers the
+      person's own agents; --all covers every agent on the server and is for server
+      admins (server_admin_required otherwise), naming a private board they aren't on
+      only by its id. Agents whose presence was never reported are left out, and nothing
+      is removed without the person's yes. It first lists them:
+        These agents of yours have been disconnected for at least 7 days:
+          claude-3   on qa-round        since 2026-09-26
+          codex-2    on writer-review   since 2026-09-20
+      then asks "Remove both? [y/N]" ("Remove it?", "Remove all 3?") in a terminal;
+      elsewhere, or with --json, it needs --yes and otherwise fails with
+      confirmation_required, whose message lists them. --dry-run lists them and removes
+      nothing (dry_run true). The server checks each agent again as it removes it, so
+      one that reconnected after the list stays, listed in kept. With none to remove:
+      "None of your agents has been disconnected for at least 7 days." Text after
+      removing: "Removed 2 agents: claude-3 on qa-round, codex-2 on writer-review.", then
+      "codex-2 reconnected or changed since the list, so it stays." for each kept one.
+      Inside a harness session it refuses with human_command_in_session.
+    type: object
+    required: [server, disconnected_for, all, dry_run, agents, kept]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      disconnected_for:
+        type: integer
+        description: Seconds.
+      all: { type: boolean }
+      dry_run: { type: boolean }
+      agents:
+        type: array
+        description: The agents removed, or with --dry-run the agents that would be.
+        items: { $ref: openapi.yaml#/components/schemas/PrunedAgent }
+      kept:
+        type: array
+        description: Member ids of listed agents that stayed when checked again.
+        items: { type: string }
+
+  # ---------- aboard leave [--board B] [--as A] ----------
+  LeaveOutput:
+    description: |
+      The acting agent (--as, ABOARD_AGENT or the session's seat) removes its own seat
+      from its board, for good (POST /v1/me/leave), recorded as agent.left: its token
+      stops working, and its messages and read position stay. It only ever removes the
+      agent's own seat. In a session with seats on several boards it needs --board
+      (board_ambiguous). Agents leave only when their person asks. Text: "claude-3 left
+      qa-round. Its messages stay on the board; a new agent there needs its person to
+      add one (aboard join --board qa-round)." A person's own board membership is aboard
+      board leave.
+    type: object
+    required: [board, agent]
+    properties:
+      board: { type: string }
+      agent: { $ref: openapi.yaml#/components/schemas/RemovedAgent }
+
   # ---------- aboard board owner @handle ----------
   BoardOwnerOutput:
     description: |
@@ -2464,6 +2870,8 @@ $defs:
       [y/N]" in a terminal; elsewhere, or with --json, it needs --yes and otherwise fails
       with confirmation_required, whose message carries the same counts. Turning a board
       private needs no confirmation and says how many join codes stopped working.
+      Turning private also resets agents_add_people to false atomically. Opening
+      preserves that gate; it never automatically enables agent teammate additions.
     type: object
     required: [board, before, after, changed, reveals, join_codes_canceled]
     properties:
@@ -2477,19 +2885,47 @@ $defs:
           - { type: "null" }
       join_codes_canceled: { type: integer, minimum: 0 }
 
+  # ---------- aboard board agents-add-people on|off [--board B] [--server URL] [--yes] ----------
+  BoardAgentsAddPeopleOutput:
+    description: |
+      Changes the board's agents_add_people gate through PATCH /v1/boards/{board}.
+      Only a person who owns the board may set it; an agent selection or harness
+      session refuses with human_command_in_session before reading a human key.
+      The handed-over command retains board and server flags, but never --yes.
+      Eligible agent seats still need the server's enabled gate and their role's
+      add_people permission. Turning it off removes no one already added.
+      Before enabling a private board, says "Allowing agents to add people to <board>
+      gives anyone they add its whole history and files. Continue? [y/N]" and asks
+      in a terminal. Elsewhere, or with --json, --yes is required; otherwise it fails
+      with confirmation_required and the same warning. Enabling an open board needs
+      no confirmation. Archived boards permit off only; on gets board_archived.
+      Text: "Agents may add people to <board>." for on, or "Agents may not add people
+      to <board>." for off. Output always names the board and effective boolean value.
+    type: object
+    required: [board, agents_add_people]
+    properties:
+      board: { type: string }
+      agents_add_people: { type: boolean }
+
   # ---------- aboard board new <name> [--title T] [--private] [--server URL] ----------
   BoardNewOutput:
     description: |
-      Creates a board as a person, with their own key (POST /v1/boards, template
+      In a terminal, creates a board as a person, with their own key (POST /v1/boards, template
       general), open unless --private; the person is its owner and its only member, and
-      no agent joins. The server is --server (one this machine holds a key for), else the
+      no agent joins in a terminal. The server is --server (one this machine holds a key for), else the
       one this directory's .aboard names, else the one server this machine is connected
       to when there is exactly one, else the local server, which it starts if needed. A
       directory with no .aboard is linked to the new board, as pair does, so board
       commands run there act on it (linked: true); a linked directory keeps its board. A
-      person command: inside a harness session, or with ABOARD_AGENT set, it refuses with
-      human_command_in_session before it sends anything, and the hint gives the command
-      for the person to run with every flag that was given (--title, --private, --server), quoted for a shell where needed; the person board commands with --server hand over --board and --server the same way. A confirmation flag (--yes) is never carried into a handed-over command, so the person sees and answers the confirmation themselves. A taken name is the server's board_name_taken. Text output:
+      terminal person command uses the existing output below. In a real harness
+      session it instead creates the person-owned board and session seat atomically
+      through the daemon's create_board operation, with a required idempotency key
+      retained across transport retries. The daemon checks the whole session's server
+      and delivery capabilities before resource writes, saves the token before binding
+      and preserves sibling seats. The command never reads the person's key. Agent
+      selection by --as or ABOARD_AGENT without a real session gets
+      agent_session_required. A taken name is the server's board_name_taken. Terminal
+      text output:
         Created board payments on https://team.example.com, open to everyone on the server.
         Linked this directory to payments, so board commands run here act on it.
         Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended
@@ -2502,12 +2938,28 @@ $defs:
       guidance names the new board's server:
         This directory stays linked to general on http://127.0.0.1:7400, so board commands for payments need --server https://team.example.com.
         Next: from an agent's session, run aboard join --board payments --server https://team.example.com; to bring a person onto it, aboard board add @handle --board payments --server https://team.example.com
+      In a session, the first line also names the joined agent and the person it acts
+      for; agent, use and delivery are added to JSON. The starter-policy notice remains.
+      A server other than the session's existing seats is refused with
+      session_on_another_server; capability preflight may return extension_outdated.
+      If a creation answer is uncertain, the caller retries the same key and body or
+      discovers the created board and deliberately joins it, never automatically
+      creates another board. Terminal JSON stays unchanged.
       board policy, add, remove, leave, owner and visibility take --server URL (one this
       machine holds a key for) with --board, acting on that board on that server instead
       of the one this directory's .aboard names.
     type: object
     required: [server, board, linked, stays_linked, policy_notice, join_command]
     properties:
+      agent:
+        $ref: openapi.yaml#/components/schemas/Member
+        description: The session seat created atomically for the person's new board; absent in a terminal.
+      use:
+        $ref: "#/$defs/AgentUse"
+        description: How the session acts as its new seat; absent in a terminal.
+      delivery:
+        enum: [focused, all, humans, off]
+        description: The new seat's delivery mode; absent in a terminal.
       server: { $ref: "#/$defs/ServerRef" }
       board: { $ref: openapi.yaml#/components/schemas/Board }
       linked: { type: boolean, description: Whether this directory was linked to the new board. }
@@ -2590,7 +3042,11 @@ $defs:
     description: |
       Exit 0 when ok, 3 when the chain fails, 1 if verification couldn't run.
       It runs inside a harness session too: its output is counts, sequence numbers and
-      hashes, never message content.
+      hashes, never message content. --as, then ABOARD_AGENT, then the harness session
+      select the acting seat and its board, using only its token. An unknown named
+      agent or an unbound session returns agent_not_selected, never the person's
+      login. A session with several seats needs --board (board_ambiguous otherwise).
+      A terminal with no agent selected uses its own login and usual human board choice.
     type: object
     required: [board, ok, events_checked, data_withheld, head, first_bad, pinned_head]
     properties:
@@ -2688,7 +3144,7 @@ $defs:
           (all agents at once, which counts as a use of the key behind each): ended when
           the server refuses the token as unauthorized, because the access key the seat
           came from was revoked or has expired; board_gone when the token works but the
-          board answers board_not_found, because the board was deleted or is hidden from
+          board answers board_not_found or agent_removed, because the board was deleted or is hidden from
           the person, or the agent was removed from it (as an agent is for good when its
           person is removed from or leaves the board, even if they come back). Either way
           its session can no longer act on the board, and text output says so. null when
@@ -2920,3 +3376,398 @@ $defs:
               ps: { type: string, examples: ["aboard swarm ps --swarm aboard-trio-3f9a0c"] }
               up: { type: string, examples: ["aboard swarm up --swarm aboard-trio-3f9a0c"] }
               down: { type: string, examples: ["aboard swarm down --swarm aboard-trio-3f9a0c"] }
+
+  # ---------- tasks, asks, lines, files (design/board-features.md) ----------
+  # Against a server whose GET /v1/info doesn't list the feature (tasks, asks, lines,
+  # files), each of these commands fails with server_outdated naming it.
+
+  Nudge:
+    description: |
+      A short reminder from Aboard to the agent: one line, at most 200 bytes, with the
+      fact and the command to run. Text output prints each on its own line after the
+      command's own output; --json carries them in `nudges`. A nudge never changes the
+      exit code. Every nudge but `reorient` is left out on a board whose policy sets
+      `nudges: off`, and each is shown at most once per its window per seat (the CLI keeps
+      when it last showed each in nudges.json in the state folder, keyed by seat id).
+      Codes, triggers and wording are in design/board-features.md, "Nudges".
+    type: object
+    required: [code, text]
+    properties:
+      code:
+        enum: [tasks_not_picked_up, no_task_posts, next_task, pause_late, line_stale, ask_instead, stands_stale, ask_options, brief_stale, first_task, reorient]
+      text:
+        type: string
+        maxLength: 200
+        examples: ["2 tasks not picked up: aboard task list"]
+  Nudges:
+    type: array
+    description: Reminders for the agent, possibly empty.
+    items: { $ref: "#/$defs/Nudge" }
+
+  # ---------- aboard task new|start|join|note|done|drop ----------
+  TaskOutput:
+    description: |
+      The task after the command, the acting agent's line after it, and, for done, the
+      next task not picked up. The first line of text output names the task and the board.
+        aboard task start CHK-17
+          CHK-17 is yours on checkout-v2: Rotate the staging Stripe key
+          Working on: Rotate the staging Stripe key
+        aboard task new "Run the payments migration" --about "…"
+          CHK-23 is yours on checkout-v2: Run the payments migration
+          Working on: Run the payments migration
+        (a person's task new, or --no-start: "Opened CHK-23 on checkout-v2: Run the payments migration")
+        aboard task join CHK-12
+          Helping on CHK-12 on checkout-v2 (claude-2's): Move payment intents to the v2 API
+        aboard task note "…"
+          CHK-17 · Where it stands updated (v2)
+        aboard task done "…"
+          CHK-17 done on checkout-v2. Working on: cleared.
+          Next not picked up: CHK-20 Document the v2 webhooks (aboard task start CHK-20)
+        aboard task drop
+          Gave CHK-17 back on checkout-v2; it's not picked up. Working on: cleared.
+      note, done and drop act on the agent's current task without an ID; with none they
+      fail with no_current_task (exit 1), whose details.tasks lists the agent's own open
+      tasks, then the oldest not picked up. A person's commands (in a terminal, without
+      --as) act as the person. A task reference names its board among the session's
+      seats, so a session with several seats needs no --board for task commands that
+      take an ID.
+    type: object
+    required: [board, task, line, next, nudges]
+    properties:
+      board: { type: string }
+      task: { $ref: openapi.yaml#/components/schemas/Task }
+      line:
+        description: The acting agent's line after the command; null when it has none or a person acted.
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/AgentLine
+          - type: "null"
+      next:
+        description: With done, the oldest task not picked up; null otherwise or when there is none.
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/TaskRef
+          - type: "null"
+      nudges: { $ref: "#/$defs/Nudges" }
+
+  # ---------- aboard task list [--done] [--mine] [--all] [--limit N] ----------
+  TaskListOutput:
+    description: |
+      Text output: a header, then groups, each task on one line with its reference and
+      title, then its owner and helpers, and for a Blocked task who it waits on.
+        checkout-v2 · 4 open, 3 done (aboard task list --done)
+        Not picked up
+          CHK-17  Rotate the staging Stripe key
+          CHK-20  Document the v2 webhooks
+        In progress
+          CHK-12  Move payment intents to the v2 API · claude-2, with codex
+          CHK-19  Ramp to 10% · codex · Blocked: waiting on @reviewer for 5 min (#88)
+      With --done the done and cancelled tasks follow under "Done"; with --all every
+      group. --mine keeps the caller's own tasks. With none: "checkout-v2 · no tasks.
+      Open one with aboard task new "…"". `aboard tasks` isn't a command: it is a usage
+      error (exit 2) whose hint is aboard task list.
+    type: object
+    required: [board, tasks, counts, more]
+    properties:
+      board: { type: string }
+      tasks:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/Task }
+      counts: { $ref: openapi.yaml#/components/schemas/TaskList/properties/counts }
+      more: { type: boolean }
+
+  # ---------- aboard task show ID ----------
+  TaskShowOutput:
+    description: |
+      The task, then its conversation: the threads with a message about it and its lone
+      messages, newest activity first, as aboard read --threads shows threads. Text:
+        CHK-17  Rotate the staging Stripe key · in progress · claude
+        About (opened by leo · 2 h ago):
+            The staging key leaked in a CI log; rotate it in both configs.
+        Where it stands (by claude · 17 min ago · 4 messages since):
+            Both configs found; vault access is the last step.
+        Blocked: waiting on @leo for 12 min (#93)
+        Files: what-changed.html v1 (you approved v1)
+        Conversation · 4: aboard read --task CHK-17
+          #91  @claude · no replies · "Found the key in two CI configs; rotating…"
+          #93  @claude · 1 reply · last 3 min ago · "Request vault access for me, or hand…"
+    type: object
+    required: [board, task, files, threads]
+    properties:
+      board: { type: string }
+      task: { $ref: openapi.yaml#/components/schemas/Task }
+      files:
+        type: array
+        description: The files linked to the task, maintained first.
+        items: { $ref: openapi.yaml#/components/schemas/BoardFile }
+      threads:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/ThreadSummary }
+
+  # ---------- aboard ask [@name] "question" ["option" …] [--going-with X [--at T]] [--task ID | --no-task] [--file NAME[@V] …] ----------
+  # ---------- aboard ask --withdraw MSG ["why"] ----------
+  AskOutput:
+    description: |
+      The ask as posted (a Message with `ask`), with SayOutput's notes about recipients.
+      Text output:
+        Asked @leo #93 on checkout-v2 · about CHK-17
+        CHK-17 is Blocked until @leo answers. The answer wakes you: end your turn, or work on something else.
+      For a going-with ask:
+        Asked @leo #98 on checkout-v2 · about CHK-17
+        Going with "rotate at 16:00" at 16:00 unless @leo says otherwise. Nothing is blocked.
+      With no task: "Asked @leo #95 on checkout-v2", then "The answer wakes you: …".
+      For --withdraw: "Withdrew ask #93 on checkout-v2. CHK-17 is no longer Blocked."
+      --file NAME (or NAME@3 for one version; the latest otherwise, repeatable) cites the
+      file and makes it an approval ask: it must go to a person, it needs options, and
+      option 1 approves. The first line adds "· cites what-changed.html v1", and a last
+      line says "Option 1 records @leo's approval of what-changed.html v1."
+      With no @name an agent's ask goes to its person; a person must name someone
+      (ask_invalid). --at takes 16:00 (today, local time) or a duration (20m, 2h); left
+      out, now. Extra arguments are the options (at most 4, each at most 80 characters).
+    type: object
+    required: [message, recipients, nudges]
+    properties:
+      message: { $ref: "#/$defs/Message" }
+      recipients: { $ref: "#/$defs/SayOutput/properties/recipients" }
+      nudges: { $ref: "#/$defs/Nudges" }
+
+  # ---------- aboard ask --open ----------
+  AskListOutput:
+    description: |
+      For an agent: its own open asks, then open asks to it, newest first. For a person in
+      a terminal: their open asks across their boards (the Inbox's Needs you), blocking
+      first. Text output:
+        checkout-v2 · 1 ask from you, 1 to you
+        You asked @leo #93 · blocking CHK-17 · 12 min ago: "Request vault access for me, or hand CHK-17 to priya?" (1. Request access 2. Hand it to priya)
+        @codex asked you #101 · going with "keep v1 webhooks" at 16:00: "Drop the v1 webhooks now?"
+    type: object
+    required: [asks, more]
+    properties:
+      asks:
+        type: array
+        items: { $ref: "#/$defs/Message" }
+      more: { type: boolean }
+
+  # ---------- aboard working "…" | aboard working --clear | aboard paused "…" --until T ----------
+  LineOutput:
+    description: |
+      The agent's line after the command, and its state word. Text output names the
+      board and agent:
+        checkout-v2 · claude · Working on: Rotating the key in the second config · CHK-17
+        checkout-v2 · claude · Paused on: CI run #4812 · until 14:20 · CHK-17
+        checkout-v2 · claude · line cleared
+      With --as from a terminal, a person sets their own agent's line with their own key
+      (the member path), and the text adds "(set by leo)". --until takes 14:20 (today,
+      local time) or a duration (20m, 2h); it is required for paused (exit 2 without it);
+      a time already past is line_until_past (exit 1). Without an agent, the usual
+      agent_not_selected: people have no line.
+    type: object
+    required: [board, agent, line, state]
+    properties:
+      board: { type: string }
+      agent: { type: string }
+      line:
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/AgentLine
+          - type: "null"
+      state: { $ref: openapi.yaml#/components/schemas/AgentState }
+
+  # ---------- aboard file list | show NAME | get NAME [PATH] | put PATH | approve NAME | rm NAME | mv NAME NEW ----------
+  FileListOutput:
+    description: |
+      aboard file list [--task ID] [--mine]. Maintained files first, then the rest, newest
+      change first; each row shows the name, version, last writer, age, task ids, and the
+      reader's approval state ("you approved v2 · 1 change since"), or "from a person"
+      for a file whose latest version a person wrote. --task keeps the files linked to a
+      task; --mine those the caller wrote a version of. Text output:
+        checkout-v2 · 3 files
+          brief.md      maintained · v6 by claude-2 · 2 h ago · 41 messages since
+          rollout.html  v3 by claude · 20 min ago · CHK-19 · you approved v2 · 1 change since
+          keys.md       v1 by leo · yesterday · from a person
+    type: object
+    required: [board, files, more]
+    properties:
+      board: { type: string }
+      files:
+        type: array
+        items: { $ref: openapi.yaml#/components/schemas/BoardFile }
+      more: { type: boolean }
+  FileOutput:
+    description: |
+      One file, after show, put, approve, rm or mv. put's text output:
+        Put rollout.html v3 on checkout-v2 (replaces v2) · CHK-19
+      A version is readable by everyone on the board at once; approval is optional.
+      rm: "Took what-changed.html off checkout-v2; its 3 versions stay in the record."
+      mv: "Renamed notes/old.md to notes/api.md on checkout-v2." file put and file mv to
+      top-level brief.md or brief.html fail with brief_path_reserved: the brief is
+      written with aboard brief put (BriefPutOutput), which takes --replace-format.
+      aboard file show NAME prints every version with its writer and age, every
+      approval, the tasks it's linked to, and the messages or threads it was posted in:
+        rollout.html on checkout-v2 · v3 · CHK-19
+          v3  claude · 20 min ago
+          v2  claude · 2 h ago     approved by leo
+          v1  claude · 3 h ago
+        Posted in: #88 (thread, 4 replies), #97
+      (--json: file is a FileDetail).
+      put stores the local file at the board path --name gives (folders allowed:
+      --name notes/api.md), else at the board path aboard file get fetched it from, else at the local file's name. It writes against the version
+      aboard file get wrote to that local path (or --base N). Errors, each exit 1 with
+      details {version, by, at}:
+      - file_exists: the board path holds a file and this put names no version (a blind
+        write by someone who never fetched it). Nothing is written. Hint: "To update it:
+        aboard file get notes/api.md, edit it, then aboard file put notes/api.md. To
+        upload yours as another file: aboard file put api.md --name notes/api-codex.md".
+      - file_changed: the version it names isn't the latest. Hint: get it again, re-apply
+        your change, put.
+      - brief_path_reserved: the board path is top-level brief.md or brief.html, which
+        only aboard brief put writes. Hint: "Update the brief with aboard brief get
+        brief.md, then aboard brief put brief.md, or put your file elsewhere, such as
+        --name notes/status.md". The same for aboard file mv to either path.
+    type: object
+    required: [board, file]
+    properties:
+      board: { type: string }
+      file:
+        oneOf:
+          - $ref: openapi.yaml#/components/schemas/FileDetail
+          - $ref: openapi.yaml#/components/schemas/BoardFile
+  FileGetOutput:
+    description: |
+      aboard file get NAME [PATH] and aboard brief get PATH write a version's bytes
+      (the latest, or --version N) to PATH, by default the file's name in the current
+      folder, or to standard output with -, and remember the version written to that
+      path. aboard file put PATH and aboard brief put PATH then write it back, to the board path it came from, against
+      that version, so a file someone changed meanwhile fails with file_changed instead
+      of being overwritten. What is remembered is kept in files.json in the state folder,
+      per seat or person, board, file and absolute path; --base N overrides it. get
+      replaces an existing local file only when it holds what the CLI last wrote or put
+      there; otherwise it refuses and names --force. Text output:
+        Wrote notes/api.md v5 (2.1 kB) from checkout-v2 to ./api.md. Put it back with: aboard file put api.md
+      For the brief: "Wrote the brief of checkout-v2 (brief.md v6, by claude-2 · 2 h ago ·
+      since then 31 messages, 3 tasks done, 1 answer) to /tmp/status.md." and "Put it back
+      with: aboard brief put /tmp/status.md".
+    type: object
+    required: [board, name, version, digest, size, path]
+    properties:
+      board: { type: string }
+      name: { type: string }
+      version: { type: integer }
+      digest: { type: string }
+      size: { type: integer }
+      path:
+        type: [string, "null"]
+        description: Where the bytes were written; null for standard output.
+  FileApprovalOutput:
+    description: |
+      A person's approval, made or taken back (--remove). Any person on the board may
+      approve; agents ask for approval instead (aboard ask --file). A person's command:
+      inside a harness session it refuses with human_command_in_session and hands over
+      the command. Text output:
+        You approved rollout.html v3 on checkout-v2.
+    type: object
+    required: [board, file]
+    properties:
+      board: { type: string }
+      file: { $ref: openapi.yaml#/components/schemas/BoardFile }
+
+  # ---------- aboard brief ----------
+  BriefOutput:
+    description: |
+      The board's brief (its file brief.md or brief.html; a board has one) with its
+      freshness, then its text (HTML is printed as its source). With no brief,
+      file_not_found, whose hint says how to write one
+      (aboard brief put <a .md or .html file>). Text output starts:
+        checkout-v2 · brief.md v6 by claude-2 · 2 h ago · since then 41 messages, 3 tasks done, 1 answer
+    type: object
+    required: [board, brief, text]
+    properties:
+      board: { type: string }
+      brief: { $ref: openapi.yaml#/components/schemas/BriefSummary }
+      text: { type: string }
+
+  # ---------- aboard brief get PATH (FileGetOutput) | aboard brief put PATH [--base N] [--replace-format] ----------
+  BriefPutOutput:
+    description: |
+      Writes the board's brief. The local path's name never matters: put stores the file
+      by its extension, .md or .markdown as brief.md and .html or .htm as brief.html;
+      any other extension is a usage error (exit 2) with the hint "The brief is Markdown
+      or HTML; pass a .md or .html file." It names the version aboard brief get wrote to
+      that path as the one it replaces (or --base N); with no brief yet it creates one,
+      and with a brief but no version remembered for the path it fails with file_changed
+      naming the latest version and aboard brief get. People and agents use the same
+      commands; there is no editor command (people can also use the board view's Edit).
+      aboard file put to brief.md or brief.html is refused (brief_path_reserved). Writing the
+      other format while one exists fails with brief_exists (exit 1), whose hint names
+      --replace-format, aboard file rm and aboard file mv; with --replace-format the old
+      file is taken off the board and the new one added in one transaction, its history
+      staying in the record. Text output:
+        Put the brief of checkout-v2 as brief.md v7 (replaces v6).
+        Put the brief of checkout-v2 as brief.html v1, replacing brief.md (its 7 versions stay in the record).
+    type: object
+    required: [board, name, version, replaced]
+    properties:
+      board: { type: string }
+      name: { enum: [brief.md, brief.html] }
+      version: { type: integer, minimum: 1 }
+      replaced:
+        description: With --replace-format, the brief file taken off the board; null otherwise.
+        type: [string, "null"]
+
+  # ---------- aboard board prefix PREFIX ----------
+  BoardPrefixOutput:
+    description: |
+      Text output: "Tasks on checkout-v2 are now CHK-<n>; earlier tasks keep their ids."
+    type: object
+    required: [board, before, after]
+    properties:
+      board: { type: string }
+      before: { type: [string, "null"] }
+      after: { type: string }
+
+  # ---------- aboard storage check [--db URL] [--files URL] ----------
+  StorageCheckOutput:
+    description: |
+      For whoever runs the server: reads every file version the database names and
+      checks its bytes are in the file store and match their digest. Exit 3
+      (check_failed) when any is missing or doesn't match. --db and --files default to
+      the server's own settings (ABOARD_DB, ABOARD_FILES, else under --data). It never
+      prints a credential. It refuses inside a harness session. Text output:
+        Checked 214 file versions in disk:///data/aboard/files: all present and intact.
+    type: object
+    required: [db, files, checked, missing, corrupt]
+    properties:
+      db: { type: string, description: The database adapter's kind. }
+      files: { type: string, description: The file store's kind and place, never a credential. }
+      checked: { type: integer, minimum: 0 }
+      missing:
+        type: array
+        description: Digests the database names that the store doesn't have.
+        items: { type: string }
+      corrupt:
+        type: array
+        description: Digests whose bytes don't match.
+        items: { type: string }
+
+  # ---------- aboard storage copy --from URL --to URL ----------
+  StorageCopyOutput:
+    description: |
+      Copies every blob from one file store to another, checking each against its
+      digest and skipping those the target has; safe to run again, and while the server
+      runs. Built with the second file store adapter. Text output:
+        Copied 37 of 214 blobs (177 already there) to s3://aboard-files/prod; all verified.
+    type: object
+    required: [copied, skipped, failed]
+    properties:
+      copied: { type: integer, minimum: 0 }
+      skipped: { type: integer, minimum: 0 }
+      failed:
+        type: array
+        items: { type: string }
+
+  # ---------- aboard people rename @old new [--server URL] ----------
+  PeopleRenameOutput:
+    description: A person renames themselves, or an admin renames a person, with their own key. Agent contexts refuse before reading any human key. Retired handles stay reserved to the same permanent person id.
+    type: object
+    required: [server, person, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      person: { $ref: openapi.yaml#/components/schemas/Person }
+      changed: { type: boolean }
