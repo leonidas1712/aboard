@@ -302,3 +302,100 @@ func TestBriefListAndJoinExposeTheSameVersion(t *testing.T) {
 		t.Fatal("join summary omitted current brief")
 	}
 }
+
+func TestBriefJSONDistinguishesMemberNoneFromOffBoard(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	name, _, _ := s.pair("starter")
+	ctx := context.Background()
+	c := s.client(s.owner)
+	assertField := func(t *testing.T, body []byte, want bool) {
+		t.Helper()
+		var row map[string]json.RawMessage
+		if err := json.Unmarshal(body, &row); err != nil {
+			t.Fatal(err)
+		}
+		raw, present := row["brief"]
+		if present != want || (want && string(raw) != "null") {
+			t.Fatalf("brief present=%v value=%s, want member-null=%v", present, raw, want)
+		}
+	}
+	t.Run("member detail", func(t *testing.T) {
+		got, err := c.GetBoardWithResponse(ctx, name)
+		mustStatus(t, got, err, 200)
+		assertField(t, got.Body, true)
+	})
+	t.Run("member list", func(t *testing.T) {
+		got, err := c.ListBoardsWithResponse(ctx, nil)
+		mustStatus(t, got, err, 200)
+		var page struct {
+			Boards []json.RawMessage `json:"boards"`
+		}
+		if err := json.Unmarshal(got.Body, &page); err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Boards) != 1 {
+			t.Fatal("expected one board")
+		}
+		assertField(t, page.Boards[0], true)
+	})
+	t.Run("join", func(t *testing.T) {
+		role := "writer"
+		got, err := c.JoinWithResponse(ctx, nil, api.JoinRequest{Board: &name, Role: &role})
+		mustStatus(t, got, err, 201)
+		var out struct {
+			Board json.RawMessage `json:"board"`
+		}
+		if err := json.Unmarshal(got.Body, &out); err != nil {
+			t.Fatal(err)
+		}
+		assertField(t, out.Board, true)
+	})
+	outsider := s.client(s.addHuman("pat"))
+	t.Run("offboard detail", func(t *testing.T) {
+		got, err := outsider.GetBoardWithResponse(ctx, name)
+		mustStatus(t, got, err, 200)
+		if got.JSON200.OnBoard {
+			t.Fatal("outsider unexpectedly joined")
+		}
+		assertField(t, got.Body, false)
+	})
+	t.Run("offboard list", func(t *testing.T) {
+		got, err := outsider.ListBoardsWithResponse(ctx, &api.ListBoardsParams{All: ptr(true)})
+		mustStatus(t, got, err, 200)
+		var page struct {
+			Boards []json.RawMessage `json:"boards"`
+		}
+		if err := json.Unmarshal(got.Body, &page); err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Boards) != 1 {
+			t.Fatal("expected one accessible open board")
+		}
+		assertField(t, page.Boards[0], false)
+	})
+}
+
+func TestBriefUpdateResponseKeepsTheCurrentProjection(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	name, _, _ := s.pair("starter")
+	c := s.client(s.owner)
+	title := "Updated title"
+	before, err := c.UpdateBoardWithResponse(context.Background(), name, nil, api.UpdateBoardRequest{Title: &title})
+	mustStatus(t, before, err, 200)
+	var row map[string]json.RawMessage
+	if err := json.Unmarshal(before.Body, &row); err != nil {
+		t.Fatal(err)
+	}
+	if raw, present := row["brief"]; !present || string(raw) != "null" {
+		t.Fatal("update without a brief must emit null")
+	}
+	f := briefUpload(t, c, name, briefParams("brief.md"), "current context", 201).JSON201
+	title = "Another title"
+	after, err := c.UpdateBoardWithResponse(context.Background(), name, nil, api.UpdateBoardRequest{Title: &title})
+	mustStatus(t, after, err, 200)
+	if after.JSON200.Brief == nil || after.JSON200.Brief.FileId != f.Id || after.JSON200.Brief.Version != 1 {
+		t.Fatal("title update lost existing brief projection")
+	}
+}

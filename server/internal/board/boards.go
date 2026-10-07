@@ -642,9 +642,14 @@ func (s *Service) UpdateBoard(ctx context.Context, p Principal, name string, cha
 			b.Policy = after
 		}
 		v, err = viewOf(tx, b)
-		if err == nil {
-			v.CanArchive, v.CanRestore, v.CanDelete, err = s.capabilities(tx, p, b)
+		if err != nil {
+			return err
 		}
+		v.Brief, err = projectBrief(tx, b, me)
+		if err != nil {
+			return err
+		}
+		v.CanArchive, v.CanRestore, v.CanDelete, err = s.capabilities(tx, p, b)
 		return err
 	})
 	if err != nil {
