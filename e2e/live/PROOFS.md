@@ -408,6 +408,16 @@ A test about one harness starts with `only(t, "<harness>")`.
 
 ## Last run
 
+2026-10-08, delivery notice follow-up (#210): the affected suite ran 82 cases,
+with four existing skips. Three browser-answer cases failed because the worktree
+lacked its locked browser dependencies; Claude Code's ping-pong failed at startup,
+before any delivery. After installing the dependencies, all three browser-answer
+cases passed. A fresh isolated run passed Claude Code's ping-pong and both
+cross-harness exchanges. Together these runs cover the affected scenarios; the
+first full run was not all green. Its failed artifacts remain private. Protected
+configuration stayed unchanged in all runs, and no Codex auth refresh occurred.
+The generated timing samples include the bounded reruns.
+
 Before the scenarios were written once, so under the earlier names.
 
 2026-10-02, Claude Code 2.1.287 (default model), no Codex installed. `make live`: 1 minute
@@ -433,4 +443,3 @@ passed the same checks for Codex: idle wake through the queue, the exchange with
 Code, urgent at the next tool call once the hooks were trusted (after a fix: urgent
 messages wait for the next tool call while a turn runs, instead of going to the queue),
 restarts and doctor.
-
