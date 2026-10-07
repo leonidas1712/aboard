@@ -1,14 +1,15 @@
 "use client";
 
 import { ArrowLeft, Clock, MessagesSquare } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { type AskList, type Member, type MemberRef, type Message, type Presence as PresenceState, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
+import { type AskList, type Member, type MemberRef, type Message, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
 import { AgentMark } from "./agent-mark";
 import { AskAnswers } from "./ask-ui";
 import { Problem } from "./chrome";
-import { count, harnessName, presenceWords, relativeTime } from "./words";
+import { type Status, StatusWord, agentStatus, blocksOf } from "./status";
+import { count, harnessName, relativeTime } from "./words";
 
 type TaskRoom = {
   tasks: Task[];
@@ -60,7 +61,7 @@ export function TaskChips({ tags }: { tags: TaskTag[] | undefined }) {
     {unique.map((tag) => {
       const task = tasks.find((t) => t.id === tag.id);
       return <Tooltip key={tag.id}><TooltipTrigger asChild>
-        <button type="button" aria-label={`Open task ${tag.ref}`} data-task-chip={tag.ref} onClick={() => open(tag.ref)} className="task-chip inline-flex max-w-[240px] items-baseline gap-1 rounded-[6px] border border-rule px-1.5 text-meta font-normal text-muted transition-colors duration-[140ms] ease-out hover:border-field-border hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
+        <button type="button" aria-label={`Open task ${tag.ref}`} data-task-chip={tag.ref} onClick={() => open(tag.ref)} className="task-chip tap inline-flex max-w-[240px] items-baseline gap-1 rounded-[6px] border border-rule px-1.5 text-meta font-normal text-muted transition-colors duration-[140ms] ease-out hover:border-field-border hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
           <span className="shrink-0 tabular-nums">{tag.ref}</span>{task && unique.length === 1 && <span className="truncate">· {task.title}</span>}
         </button>
       </TooltipTrigger><TooltipContent><strong className="block">{tag.ref}{task && ` ${task.title}`}</strong>{task && <span className="block">{taskState(task)}{task.owner && ` · owner ${task.owner.name}`}</span>}<span className="block">Click to open the task</span></TooltipContent></Tooltip>;
@@ -82,25 +83,43 @@ function onTask(t: Task): MemberRef[] {
   return [...(t.owner ? [t.owner] : []), ...t.with.filter((m) => !(t.owner && m.name === t.owner.name && m.kind === t.owner.kind))];
 }
 
-/** Who is a member of the task with the details the board's member list adds: harness and presence. */
-function useWho() {
-  const { members, identity } = useContext(Tasks);
-  return (m: MemberRef) => {
-    const found = members.find((x) => x.name === m.name && x.kind === m.kind);
-    return { ref: m, harness: found?.harness ?? m.harness ?? null, presence: m.kind === "agent" ? (found?.presence ?? "no_session") : null, identity: identity(m) };
+/**
+ * useStatus is an agent's status on this board: its presence and state from the member
+ * list, and the open blocking asks it waits on from the board's tasks.
+ */
+export function useStatus() {
+  const { tasks, me } = useContext(Tasks);
+  const blocks = useMemo(() => blocksOf(tasks), [tasks]);
+  return useCallback(
+    (agent: Pick<Member, "name" | "owner" | "presence"> & Partial<Pick<Member, "state" | "line">>): Status => agentStatus(agent, blocks.get(agent.name), me),
+    [blocks, me],
+  );
+}
+
+/** useAgentStatus is a board agent's status by name, or null for a person or an agent no longer on the board. */
+export function useAgentStatus() {
+  const { members } = useContext(Tasks);
+  const status = useStatus();
+  return (m: MemberRef): Status | null => {
+    if (m.kind !== "agent") return null;
+    const found = members.find((x) => x.kind === "agent" && x.name === m.name);
+    return found ? status(found) : null;
   };
 }
 
-function Presence({ presence }: { presence: PresenceState }) {
-  return (
-    <span className={cn("presence inline-flex items-center gap-1.5 text-meta", presence === "working" || presence === "waiting" ? "text-ink" : "text-muted")}>
-      <span
-        aria-hidden
-        className={cn("size-2 shrink-0 rounded-full", presence === "working" ? "bg-accent" : presence === "no_session" ? "border border-muted" : presence === "waiting" ? "bg-ink" : "bg-muted")}
-      />
-      {presenceWords[presence]}
-    </span>
-  );
+/** Who is a member of the task with the details the board's member list adds: harness and status. */
+function useWho() {
+  const { members, identity } = useContext(Tasks);
+  const status = useStatus();
+  return (m: MemberRef) => {
+    const found = members.find((x) => x.name === m.name && x.kind === m.kind);
+    return {
+      ref: m,
+      harness: found?.harness ?? m.harness ?? null,
+      status: m.kind === "agent" ? status(found ?? { name: m.name, owner: m.owner, presence: "no_session" }) : null,
+      identity: identity(m),
+    };
+  };
 }
 
 /** OwnerLabel is the word "owner" beside a task's owner; its tooltip says what it means. */
@@ -131,9 +150,9 @@ export function WorkTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) 
         {onTask(t).map((m, i) => {
           const w = who(m);
           return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 items-center gap-2 text-meta">
-            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" />
+            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" status={w.status?.tone} />
             <span className="truncate">{m.name}{i === 0 && t.owner && <span className="text-muted"> · owner</span>}</span>
-            {w.presence && <span className="ml-auto shrink-0"><Presence presence={w.presence} /></span>}
+            {w.status && <StatusWord status={w.status} className="ml-auto shrink-0" />}
           </li>;
         })}
       </ul> : <p className="text-meta text-muted">Not picked up</p>}
@@ -191,10 +210,11 @@ export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) 
 
 function FreeAgent({ agent }: { agent: Member }) {
   const { identity } = useContext(Tasks);
+  const status = useStatus()(agent);
   return <li className="flex min-w-0 items-center gap-2" data-free-agent={agent.name}>
-    <AgentMark member={agent} identity={identity(agent)} />
+    <AgentMark member={agent} identity={identity(agent)} status={status.tone} />
     <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-    <Presence presence={agent.presence ?? "no_session"} />
+    <StatusWord status={status} className="shrink-0" />
   </li>;
 }
 
@@ -218,7 +238,7 @@ function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) =>
       data-needs-you={needs || undefined}
       className={cn(
         "task-card relative flex flex-col gap-2.5 rounded-box px-3.5 py-3 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent",
-        needs ? "bg-attention text-ink" : cn("border border-rule hover:border-field-border hover:bg-hover", done ? "bg-transparent" : "bg-surface"),
+        needs ? "bg-attention text-ink [--mark-ring:var(--attention)]" : cn("border border-rule hover:border-field-border hover:bg-hover", done ? "bg-transparent" : "bg-surface"),
       )}
     >
       <button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="card-open flex flex-col gap-0.5 text-left outline-none after:absolute after:inset-0 after:rounded-box after:content-['']">
@@ -229,15 +249,15 @@ function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) =>
       {people.length > 0 && <ul className={cn("flex flex-col gap-2 border-t pt-2.5", needs ? "border-ink/20" : "border-rule")}>
         {people.map((m, i) => {
           const w = who(m);
-          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 items-center gap-2" data-on-task={m.name}>
-            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} />
-            <span className="min-w-0 flex-1 truncate">{m.name}{i === 0 && t.owner && <span className={needs ? "" : "text-muted"}> · <OwnerLabel task={t} /></span>}</span>
-            {!done && w.presence && <Presence presence={w.presence} />}
+          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" data-on-task={m.name}>
+            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} status={done ? undefined : w.status?.tone} />
+            <span className="max-w-[calc(100%-2rem)] min-w-0 truncate">{m.name}{i === 0 && t.owner && <span className={needs ? "" : "text-muted"}> · <OwnerLabel task={t} /></span>}</span>
+            {!done && w.status && <StatusWord status={w.status} className={cn("ml-auto", needs && "text-ink")} />}
           </li>;
         })}
       </ul>}
       <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 text-meta", needs ? "border-ink/20 text-ink" : "border-rule text-muted")}>
-        {t.message_count > 0 && <button type="button" onClick={() => open(t.ref)} className="task-threads relative z-10 inline-flex min-h-7 items-center gap-1 underline decoration-1 underline-offset-[3px] hover:text-ink">
+        {t.message_count > 0 && <button type="button" onClick={() => open(t.ref)} className="task-threads tap relative z-10 inline-flex min-h-7 items-center gap-1 underline decoration-1 underline-offset-[3px] hover:text-ink">
           <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />{t.message_count} in conversation
         </button>}
         <span className="ml-auto">{done && t.closed_at ? `closed ${relativeTime(t.closed_at, Date.now())}` : relativeTime(t.updated_at, Date.now())}</span>
@@ -316,7 +336,7 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
             <p className={cn("whitespace-pre-wrap break-words", stale && "text-muted")}><TaskLinks text={t.stands.text} /></p>
             <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-muted" data-stale={stale || undefined}>
               {stale && <Clock className="size-3" strokeWidth={2} aria-label="Not updated in a while" />}
-              by {t.stands.by.name} · {relativeTime(t.stands.at, now)}{t.stands.messages_since !== undefined && ` · ${count(t.stands.messages_since, "message", "messages")} since`}
+              Updated by {t.stands.by.name} · {relativeTime(t.stands.at, now)}{t.stands.messages_since !== undefined && ` · ${count(t.stands.messages_since, "message", "messages")} since`}
             </p>
           </> : <p className="text-meta text-muted">Nothing yet.</p>}
         </section>
@@ -350,13 +370,13 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
           {people.map((m) => {
             const w = who(m);
             return <li key={`${m.kind}:${m.name}`} className="flex min-h-11 min-w-0 items-center gap-2.5" data-on-task={m.name}>
-              <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} />
+              <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} status={w.status?.tone} />
               <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5">
                 <button type="button" onClick={() => pick(m.name)} title={`Show only ${m.name}'s messages`} className="truncate hover:underline">{m.name === me ? "you" : m.name}</button>
                 {t.owner && m.name === t.owner.name && m.kind === t.owner.kind && <span className="text-muted"><OwnerLabel task={t} /></span>}
                 {m.kind === "agent" && harnessName(w.harness) && <span className="text-meta text-muted">{harnessName(w.harness)}</span>}
               </span>
-              {w.presence ? <Presence presence={w.presence} /> : <span className="text-meta text-muted">person</span>}
+              {w.status ? <StatusWord status={w.status} className="shrink-0" /> : <span className="text-meta text-muted">person</span>}
             </li>;
           })}
         </ul>

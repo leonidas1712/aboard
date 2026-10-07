@@ -71,7 +71,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         aria-label={`You are ${me.name}. Account and settings`}
       >
         <SenderMark name={me.name} kind="human" identity={personIdentity(me.name, me)} className="size-7" />
-        <span className="max-w-[12rem] truncate">{me.name}</span>
+        <span className="max-w-[12rem] truncate max-sm:hidden">{me.name}</span>
         <ChevronDown className="size-3.5 text-muted" strokeWidth={1.5} aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="account-menu min-w-[16rem]">

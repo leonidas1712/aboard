@@ -497,7 +497,7 @@ function MessageEntry({
     <button
       type="button"
       onClick={onReply}
-      className="reply-button h-7 shrink-0 rounded-[6px] px-2 text-meta text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+      className="reply-button tap h-7 shrink-0 rounded-[6px] px-2 text-meta text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
       aria-label={`Reply to ${self ? "your message" : m.from.name}`}
     >
       Reply
@@ -585,14 +585,14 @@ function MessageEntry({
           </p>
         )}
         {grouped && lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped />}
-        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
+        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24 pointer-coarse:pr-0")}>
           <Body m={m} mentions={mentions} />
         </p>
         {lab?.MessageFooter && receipts && <lab.MessageFooter board={receipts.board} message={m} />}
         {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
-        {grouped && actions && <div className="absolute top-0 right-2.5">{actions}</div>}
+        {grouped && actions && <div className="absolute top-0 right-2.5 pointer-coarse:static pointer-coarse:mt-1 pointer-coarse:flex pointer-coarse:justify-end">{actions}</div>}
         {waiting && (
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
             <p>{m.from.name} is waiting for your reply.</p>
@@ -666,7 +666,7 @@ function ThreadBlock({
     </>
   );
   const toggle = thread.filtered ? (
-    <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
+    <p className="thread-toggle flex min-h-9 pointer-coarse:min-h-11 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
   ) : (
     <button
       type="button"
@@ -736,7 +736,7 @@ function ThreadBlock({
           {!thread.filtered && onReply && (
             <button
               type="button"
-              className="thread-reply -ml-1.5 min-h-9 rounded-control px-1.5 text-meta text-link hover:underline"
+              className="thread-reply -ml-1.5 min-h-9 pointer-coarse:min-h-11 rounded-control px-1.5 text-meta text-link hover:underline"
               onClick={() => onReply(root)}
             >
               Reply in thread
