@@ -468,8 +468,10 @@ function AgentItem({
       if (item.current?.contains(target) || layer(target)) return;
       setOpen(false);
     };
+    // A menu that closed on this Escape has already handled it (and marked it), so one
+    // Escape closes one layer.
     const esc = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || layer(document.activeElement)) return;
+      if (e.key !== "Escape" || e.defaultPrevented || layer(document.activeElement)) return;
       setOpen(false);
       trigger.current?.focus();
     };

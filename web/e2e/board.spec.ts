@@ -1255,7 +1255,10 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
       await expect(menu.getByRole("menuitemradio", { name: new RegExp(`^${mode}`) })).toContainText(modeRules[mode]);
     }
     await expect(menu.getByRole("menuitemradio", { name: /^focused/ })).toHaveAttribute("aria-checked", "true");
+    // Escape closes the menu and leaves the details open.
     await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(writer.locator(".agent-row")).toHaveAttribute("aria-expanded", "true");
   }
 
   await writer.getByRole("button", { name: /^Delivery mode of writer/ }).click();
