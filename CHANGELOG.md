@@ -16,6 +16,8 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Additive CLI error `local_file_not_found` for a missing local upload path, affecting
+  scripts and agents using `file put`, `brief put` or `say --attach`. Exit code remains 1.
 - Additive person rename endpoint and `person.renamed` event for API and CLI clients; optional `display_name` on listed members. Recorded event envelopes and message text stay unchanged.
 
 ## 0.1.2
