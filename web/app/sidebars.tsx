@@ -178,21 +178,25 @@ type BoardPanelProps = {
   reveal: Reveal;
   /** onLifecycle reloads the board after it is archived or restored. */
   onLifecycle: () => void;
+  /** agents is false to leave out the agents and people, which the UI lab shows its own way. */
+  agents?: boolean;
 };
 
 /** BoardPanel is everything about the board on screen, in sections that open and close. */
-export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle }: BoardPanelProps) {
+export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, agents: showAgents = true }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
     <div className="flex flex-col gap-4">
-      <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
-        <div className="flex flex-col gap-4 pt-1">
-          {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
-          <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} />
-          {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
-        </div>
-      </Section>
+      {showAgents && (
+        <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
+          <div className="flex flex-col gap-4 pt-1">
+            {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
+            <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} />
+            {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
+          </div>
+        </Section>
+      )}
 
       {board?.charter && (
         <Section
@@ -337,6 +341,19 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHer
   const people = (members ?? []).filter((m) => m.kind === "human");
   const owners = new Set(agents.map((a) => a.owner));
   const showOwner = owners.size > 1;
+  const item = (a: Member) => (
+    <AgentItem
+      key={a.id}
+      agent={a}
+      board={board?.name}
+      mine={meId !== null && a.owner_id === meId}
+      roleCharter={board?.roles[a.role ?? ""]?.charter}
+      showOwner={showOwner}
+      picked={from === a.name}
+      onPick={() => onPick(a.name)}
+      onRemoved={onRemoved}
+    />
+  );
   return (
     <div className="flex flex-col gap-6">
       {members === null ? (
@@ -345,19 +362,7 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved }: WhosHer
         <p>No agents yet.</p>
       ) : (
         <ul className="flex flex-col gap-5" aria-label="Agents">
-          {agents.map((a) => (
-            <AgentItem
-              key={a.id}
-              agent={a}
-              board={board?.name}
-              mine={meId !== null && a.owner_id === meId}
-              roleCharter={board?.roles[a.role ?? ""]?.charter}
-              showOwner={showOwner}
-              picked={from === a.name}
-              onPick={() => onPick(a.name)}
-              onRemoved={onRemoved}
-            />
-          ))}
+          {agents.map(item)}
         </ul>
       )}
       {people.length > 1 && (
@@ -429,12 +434,6 @@ function AgentItem({
 }) {
   const presence = agent.presence ?? "no_session";
   const waiting = presence === "waiting";
-  const label = cn("text-meta", waiting ? "text-ink" : "text-muted");
-  // The mode its person set, held by the server; a server that holds none shows what
-  // the agent's delivery daemon reports applying.
-  const held = agent.delivery_mode ?? null;
-  const applied = agent.delivery ? appliedMode(agent.delivery) : null;
-  const mode = held ?? applied;
   return (
     <li className={cn("agent transition-colors duration-200 ease-out", waiting && "-mx-3 rounded-box bg-attention px-3 py-2.5")} data-agent={agent.name}>
       <div className="flex items-center justify-between gap-3">
@@ -453,61 +452,87 @@ function AgentItem({
         </span>
       </div>
       {waiting && <p className="text-meta">Its session is waiting for you, such as a permission prompt.</p>}
-      <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
-        {showOwner && (
-          <>
-            <dt className={label}>Owner</dt>
-            <dd>{agent.owner}</dd>
-          </>
-        )}
-        <dt className={label}>Role</dt>
-        <dd>
-          <Collapsible>
-            <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px]">
-              {agent.role}
-              <ChevronDown
-                className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              <span className="sr-only">: what this role does</span>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="animate-fade-in">
-              <p className="mt-1 text-meta">{roleCharter?.trim() || "This role has no description."}</p>
-            </CollapsibleContent>
-          </Collapsible>
-        </dd>
-        {agent.harness && (
-          <>
-            <dt className={label}>Harness</dt>
-            <dd>{harnessName(agent.harness)}</dd>
-          </>
-        )}
-        {mode && (
-          <>
-            <dt className={label}>Delivery</dt>
-            <dd className="delivery">
-              {mine && held && board ? (
-                <DeliveryMenu board={board} agent={agent.name} mode={held} />
-              ) : (
-                <span className="delivery-mode" title={modeRules[mode]}>
-                  {mode}
-                </span>
-              )}
-              {held && applied && applied !== held && presence !== "no_session" && (
-                <p
-                  className="delivery-applied mt-1 text-meta text-muted"
-                  title="A delivery daemon from an older aboard keeps the mode on its own machine."
-                >
-                  Its delivery daemon still applies {applied}.
-                </p>
-              )}
-            </dd>
-          </>
-        )}
-      </dl>
+      <AgentDetails agent={agent} board={board} mine={mine} roleCharter={roleCharter} showOwner={showOwner} />
       {agent.can_remove === true && board && <RemoveAgent board={board} agent={agent} onRemoved={onRemoved} />}
     </li>
+  );
+}
+
+/** AgentDetails is an agent's fields: its owner (with a second person), role, harness and delivery mode. */
+export function AgentDetails({
+  agent,
+  board,
+  mine,
+  roleCharter,
+  showOwner,
+}: {
+  agent: Member;
+  board?: string;
+  mine: boolean;
+  roleCharter?: string;
+  showOwner: boolean;
+}) {
+  const presence = agent.presence ?? "no_session";
+  const label = cn("text-meta", presence === "waiting" ? "text-ink" : "text-muted");
+  // The mode its person set, held by the server; a server that holds none shows what
+  // the agent's delivery daemon reports applying.
+  const held = agent.delivery_mode ?? null;
+  const applied = agent.delivery ? appliedMode(agent.delivery) : null;
+  const mode = held ?? applied;
+  return (
+    <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
+      {showOwner && (
+        <>
+          <dt className={label}>Owner</dt>
+          <dd>{agent.owner}</dd>
+        </>
+      )}
+      <dt className={label}>Role</dt>
+      <dd>
+        <Collapsible>
+          <CollapsibleTrigger className="group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px]">
+            {agent.role}
+            <ChevronDown
+              className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
+              strokeWidth={1.5}
+              aria-hidden
+            />
+            <span className="sr-only">: what this role does</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="animate-fade-in">
+            <p className="mt-1 text-meta">{roleCharter?.trim() || "This role has no description."}</p>
+          </CollapsibleContent>
+        </Collapsible>
+      </dd>
+      {agent.harness && (
+        <>
+          <dt className={label}>Harness</dt>
+          <dd>{harnessName(agent.harness)}</dd>
+        </>
+      )}
+      {mode && (
+        <>
+          <dt className={label}>Delivery</dt>
+          <dd className="delivery">
+            {mine && held && board ? (
+              <DeliveryMenu board={board} agent={agent.name} mode={held} />
+            ) : (
+              <span className="delivery-mode" title={modeRules[mode]}>
+                {mode}
+              </span>
+            )}
+            {held && applied && applied !== held && presence !== "no_session" && (
+              <p
+                className="delivery-applied mt-1 text-meta text-muted"
+                title="A delivery daemon from an older aboard keeps the mode on its own machine."
+              >
+                Its delivery daemon still applies {applied}.
+              </p>
+            )}
+          </dd>
+        </>
+      )}
+    </dl>
   );
 }
 
