@@ -19,6 +19,7 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	TaskMessageCounts(boardID, taskID string, reader Member, readAll bool, since int64) (messages, threads, messagesSince int, err error)
 	TaskBySelector(boardID, selector string) (Task, error)
 	Tasks(boardID string) ([]Task, error)
 	TasksByID(boardID string, ids []string) (map[string]Task, error)
@@ -148,6 +149,7 @@ type ThreadCount struct {
 
 // TimelineQuery says which messages Timeline returns. Zero values don't filter.
 type TimelineQuery struct {
+	TaskID string
 	// After and Before bound the seq window, exclusive at both ends.
 	After, Before int64
 	// Newest fills the page from the newest matching messages instead of the oldest.

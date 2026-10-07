@@ -10,3 +10,4 @@ CREATE TABLE tasks (
  UNIQUE(board_id, number)
 );
 ALTER TABLE members ADD COLUMN current_task_id TEXT REFERENCES tasks(id);
+ALTER TABLE messages ADD COLUMN about_json TEXT NOT NULL DEFAULT '[]';

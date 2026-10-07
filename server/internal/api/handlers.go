@@ -47,6 +47,8 @@ func afterOr(a *int) int64 {
 func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoResponseObject, error) {
 	cfg := h.svc.Config()
 	info := GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}
+	features := []string{"tasks"}
+	info.Features = &features
 	if h.commit != "" {
 		info.Commit = &h.commit
 	}
@@ -128,11 +130,12 @@ func (h *handlers) UpdateBoard(ctx context.Context, req UpdateBoardRequestObject
 		AgentsAddPeople *bool               `json:"agents_add_people"`
 		Title           *string             `json:"title"`
 		Policy          *rules.PolicyChange `json:"policy"`
+		TaskPrefix      *string             `json:"task_prefix"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
-	v, err := h.svc.UpdateBoard(ctx, principal(ctx), req.Board, board.Change{Title: in.Title, Policy: in.Policy, AgentsAddPeople: in.AgentsAddPeople})
+	v, err := h.svc.UpdateBoard(ctx, principal(ctx), req.Board, board.Change{Title: in.Title, Policy: in.Policy, AgentsAddPeople: in.AgentsAddPeople, TaskPrefix: in.TaskPrefix})
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +148,7 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 		return nil, err
 	}
 	out := struct {
+		CurrentTask any     `json:"current_task"`
 		ID          string  `json:"id"`
 		Kind        string  `json:"kind"`
 		Name        string  `json:"name"`
@@ -158,6 +162,7 @@ func (h *handlers) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeRespon
 		DeliveryRevision *int64  `json:"delivery_revision"`
 	}{Browser: me.Browser}
 	if me.Agent != nil {
+		out.CurrentTask = taskRefOf(me.Agent.CurrentTask)
 		out.ID, out.Kind, out.Name, out.Board, out.Owner = me.Agent.ID, "agent", me.Agent.Name, &me.Board, me.Agent.Owner
 		mode, rev := me.Agent.Delivery.Current(), me.Agent.Delivery.Seq
 		out.DeliveryMode, out.DeliveryRevision = &mode, &rev
@@ -291,17 +296,18 @@ func (h *handlers) GuestJoin(ctx context.Context, req GuestJoinRequestObject) (G
 
 func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject) (PostMessageResponseObject, error) {
 	in, err := convert[struct {
-		To           []string `json:"to"`
-		Body         string   `json:"body"`
-		ReplyTo      *string  `json:"reply_to"`
-		Urgent       bool     `json:"urgent"`
-		ExpectsReply bool     `json:"expects_reply"`
+		About        *[]string `json:"about"`
+		To           []string  `json:"to"`
+		Body         string    `json:"body"`
+		ReplyTo      *string   `json:"reply_to"`
+		Urgent       bool      `json:"urgent"`
+		ExpectsReply bool      `json:"expects_reply"`
 	}](req.Body)
 	if err != nil {
 		return nil, err
 	}
 	p := principal(ctx)
-	m, err := h.svc.PostMessage(ctx, p, req.Board, board.NewMessage{To: in.To, Body: in.Body, ReplyTo: in.ReplyTo, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply})
+	m, err := h.svc.PostMessage(ctx, p, req.Board, board.NewMessage{About: in.About, To: in.To, Body: in.Body, ReplyTo: in.ReplyTo, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply})
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +319,9 @@ func (h *handlers) PostMessage(ctx context.Context, req PostMessageRequestObject
 func (h *handlers) ListMessages(ctx context.Context, req ListMessagesRequestObject) (ListMessagesResponseObject, error) {
 	q := req.Params
 	f := board.TimelineFilter{After: afterOr(q.After), Limit: limitOr(q.Limit)}
+	if q.Task != nil {
+		f.Task = *q.Task
+	}
 	if q.Before != nil {
 		f.Before = int64(*q.Before)
 	}

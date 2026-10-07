@@ -15,6 +15,7 @@ import (
 
 // NewMessage is a message to post.
 type NewMessage struct {
+	About        *[]string
 	To           []string
 	Body         string
 	ReplyTo      *string
@@ -84,12 +85,17 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		if err != nil {
 			return err
 		}
+		about, err := resolveTaskTags(tx, b, me, in)
+		if err != nil {
+			return err
+		}
 		now := s.clk.Now()
 		id, err := s.gen.ID("msg", now)
 		if err != nil {
 			return err
 		}
 		data := map[string]any{
+			"about":      about,
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
 			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{}, "mentions": mentions,
 		}
@@ -101,7 +107,8 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		msg = Message{
-			ID: id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
+			About: about,
+			ID:    id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
 			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
 			Recipients: recipients, Mentions: mentions,
 			SenderName: me.Name, SenderKind: me.Kind, SenderRole: me.Role, SenderOwner: me.Owner, SenderHuman: me.HumanID,
@@ -169,6 +176,7 @@ type Reading struct {
 
 // TimelineFilter narrows a timeline read. Zero values don't filter.
 type TimelineFilter struct {
+	Task string
 	// After and Before bound the seq window, exclusive at both ends.
 	After, Before int64
 	// Newest fills the page from the newest matching messages instead of the oldest.
@@ -192,6 +200,13 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 			return err
 		}
 		q := TimelineQuery{After: f.After, Before: f.Before, Newest: f.Newest, Limit: f.Limit, SenderRole: f.Role, ToMe: f.ToMe}
+		if f.Task != "" {
+			task, err := findTask(tx, b, f.Task)
+			if err != nil {
+				return err
+			}
+			q.TaskID = task.ID
+		}
 		if f.From != "" {
 			sender, err := tx.MemberByName(b.ID, f.From)
 			if errors.Is(err, ErrNotFound) {

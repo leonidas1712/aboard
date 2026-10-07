@@ -56,4 +56,18 @@ func TestTaskClaimHasOneOwnerAndSelectsTheirCurrentTask(t *testing.T) {
 	if wins != 1 || taken != 1 {
 		t.Fatalf("wins=%d taken=%d", wins, taken)
 	}
+	selected := 0
+	for _, token := range []string{writer, reviewer} {
+		me, err := s.client(token).GetMeWithResponse(ctx)
+		mustStatus(t, me, err, 200)
+		if current := me.JSON200.CurrentTask; current != nil {
+			if current.Id != task.Id || current.Ref != task.Ref {
+				t.Fatalf("current task differs from the claimed task: %+v", current)
+			}
+			selected++
+		}
+	}
+	if selected != 1 {
+		t.Fatalf("agents with the claimed task selected: %d, want 1", selected)
+	}
 }
