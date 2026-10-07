@@ -201,6 +201,9 @@ func (s *Service) delegatedBoards(ctx context.Context, p Principal, filter strin
 				case m.HumanID == person.ID:
 					people++
 					v.OnBoard = true
+					if v.Added, err = addedBy(tx, b, m, members); err != nil {
+						return err
+					}
 				default:
 					people++
 				}

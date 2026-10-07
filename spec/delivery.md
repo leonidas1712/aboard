@@ -913,6 +913,27 @@ daemon follows it.
 With no daemon running, or one that doesn't hold the agent, `inbox` and `say` show the
 server's answer as it is: nothing is waiting to be handed on this machine.
 
+### When the person is added to a board
+
+When someone else adds a person to a board, their sessions hear it once, quietly. The
+session-start and prompt hooks, after the daemon's answer, list the boards the session's
+person can see through the machine's delegation (`OpBoards`) and, for each board whose
+`added` is set (openapi.yaml, `Board.added`), add one line to the session's context:
+
+```text
+Your person was added to payments-refunds by leo's agent claude; join with aboard join --board payments-refunds if they ask.
+```
+
+- It is never a message and never a wake: only the session-start hook and the prompt hook
+  of a turn the person started carry it, never the stop hook, the tool hook or a wake.
+- Each add (server, board and the `person.added` seq) is told once on this machine, in
+  the first session start or prompt after it, and kept in `added-notices.json` in the
+  state folder. The prompt hook looks at most once every five minutes; a session start
+  always looks.
+- A board the person's agents have joined since, or that the person has read past the
+  add, has no `added`, so nothing is said about it.
+- Nothing is said when the delegation can't be read, and the hook still exits 0.
+
 ### Anything else
 
 The skill tells the agent to run `aboard inbox --wait`. The inbox output uses the same

@@ -228,15 +228,22 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		bundle = &b
 		text = fmt.Sprintf("%s · %d new\n", in.Board, len(msgs)) + strings.Join(wrapped, "\n\n") + "\n"
 	}
+	// In a session, the boards its person was added to that are still new to them.
+	var added []addedNotice
+	if key, ok := a.sessionKey(); ok {
+		_, added = a.sessionAdded(ctx, key)
+		text += addedText(added)
+	}
 	a.emit(struct {
-		Board     string       `json:"board"`
-		Agent     string       `json:"agent"`
-		Messages  []cliMessage `json:"messages"`
-		AckedUpTo *int         `json:"acked_up_to"`
-		More      bool         `json:"more"`
-		Wrapped   []string     `json:"wrapped"`
-		Bundle    *string      `json:"bundle"`
-	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle}, text)
+		Board     string        `json:"board"`
+		Agent     string        `json:"agent"`
+		Messages  []cliMessage  `json:"messages"`
+		AckedUpTo *int          `json:"acked_up_to"`
+		More      bool          `json:"more"`
+		Wrapped   []string      `json:"wrapped"`
+		Bundle    *string       `json:"bundle"`
+		Added     []addedNotice `json:"added,omitempty"`
+	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle, added}, text)
 	return nil
 }
 

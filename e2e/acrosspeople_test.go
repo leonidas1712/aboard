@@ -56,23 +56,35 @@ func TestGuideAgentsAcrossPeople(t *testing.T) {
 		t.Fatalf("leo's agent posting the plan:\n%s", plan)
 	}
 
-	// Nothing tells maya, but the board is on her list in the terminal and in the
-	// board view.
+	// maya learns it: the board is marked new on her list in the terminal and in the
+	// board view, and her status says how her agent joins.
 	expectLines(t, maya.run("boards"),
 		"Your boards on "+tm.url()+":",
-		`  retry-design "Retry design" · open · member · 2 people · 1 agent · 1 unread`)
+		`  retry-design "Retry design" · open · member · 2 people · 1 agent · 1 unread · new, added by leo's agent claude`)
 	status, list := tm.call("GET", "/v1/boards", tm.key(maya), nil)
-	if status != http.StatusOK || field(t, list, "boards.0.name") != "retry-design" {
+	if status != http.StatusOK || field(t, list, "boards.0.name") != "retry-design" || field(t, list, "boards.0.added.by.name") != "claude" {
 		t.Fatalf("maya's board list in the board view: %d %v", status, list)
 	}
-	expectLines(t, ls.run("board", "people"), "retry-design · open · 2 people", "  leo (owner)", "  maya")
+	if st := maya.run("status"); !strings.HasSuffix(st.stdout, "Added to retry-design by leo's agent claude · aboard join --board retry-design\n") {
+		t.Fatalf("maya's status:\n%s", st)
+	}
 
-	// 4. maya tells her agent to join. It gets a name of its own, claude-2, since
-	// leo's agent already has claude, and reads who is posting.
+	// 4. maya's next session hears it once, quietly. She tells her agent to join. It
+	// gets a name of its own, claude-2, since leo's agent already has claude, and
+	// finds leo's agent under leo in board people.
 	ms := maya.claudeSession("s-maya")
+	if !strings.Contains(ms.started.stdout, "Your person was added to retry-design by leo's agent claude; join with aboard join --board retry-design if they ask.") {
+		t.Fatalf("maya's session start should carry the quiet line\n%s", ms.started)
+	}
 	joined := ms.run("join", "--board", "retry-design")
 	if !strings.HasPrefix(joined.stdout, "Joined board retry-design as claude-2 (member, owner maya)\n") {
 		t.Fatalf("join --board:\n%s", joined)
+	}
+	people := ms.run("board", "people").lines()
+	if len(people) != 5 || people[0] != "retry-design · open · 2 people" || people[1] != "  leo (owner)" ||
+		!strings.HasPrefix(people[2], "    @claude · claude-code · ") || people[3] != "  maya" ||
+		!strings.HasPrefix(people[4], "    @claude-2 · claude-code · ") {
+		t.Fatalf("board people from maya's agent:\n%s", strings.Join(people, "\n"))
 	}
 	expectLines(t, ms.run("read"),
 		"retry-design · 1 message",
