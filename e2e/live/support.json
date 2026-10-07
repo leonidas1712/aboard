@@ -3,6 +3,12 @@
     "claude-code": {
       "version": "2.1.291 (Claude Code)",
       "scenarios": {
+        "AskAnsweredInTheBoardViewWakesTheAsker": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "2.1.291 (Claude Code)",
+          "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/claude-code"
+        },
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-07",
@@ -143,9 +149,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2010,
-        "harness_ms": 2191,
-        "deliveries": 28,
+        "aboard_ms": 2008,
+        "harness_ms": 2400,
+        "deliveries": 1,
         "date": "2026-10-07"
       }
     },
@@ -157,6 +163,12 @@
         "reconnect": "quitting Codex leaves its session open in Codex's app server, which still takes messages"
       },
       "scenarios": {
+        "AskAnsweredInTheBoardViewWakesTheAsker": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "codex-cli 0.160.0",
+          "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/codex"
+        },
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-07",
@@ -303,15 +315,21 @@
         }
       },
       "handover": {
-        "aboard_ms": 2010,
-        "harness_ms": 47,
-        "deliveries": 30,
+        "aboard_ms": 2024,
+        "harness_ms": 41,
+        "deliveries": 1,
         "date": "2026-10-07"
       }
     },
     "omp": {
       "version": "omp/18.5.1",
       "scenarios": {
+        "AskAnsweredInTheBoardViewWakesTheAsker": {
+          "result": "pass",
+          "date": "2026-10-07",
+          "version": "omp/18.5.1",
+          "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/omp"
+        },
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-07",
@@ -452,9 +470,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2011,
+        "aboard_ms": 2007,
         "harness_ms": 2,
-        "deliveries": 29,
+        "deliveries": 1,
         "date": "2026-10-07"
       }
     }
