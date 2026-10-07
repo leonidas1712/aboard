@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"slices"
@@ -47,15 +48,31 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	waitFor := fs.Int("wait-reply", 0, "ask for a reply and wait up to this many seconds for it")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board to post on")
-	pos, err := a.parse(fs, args, use, 1, -1)
+	option := fs.Int("option", 0, "answer the ask with this numbered option")
+	pos, err := a.parse(fs, args, use, 0, -1)
 	if err != nil {
 		return err
+	}
+	optionGiven := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "option" {
+			optionGiven = true
+		}
+	})
+	if *waitFor < 0 || *waitFor > 3600 {
+		return usageError("--wait-reply takes from 1 to 3600 seconds.", use)
 	}
 	if *task != "" && *noTask {
 		return usageError("Use only one of --task and --no-task.", use)
 	}
+	if optionGiven && (*reply == "" || *option < 1 || *option > 4) {
+		return usageError("--option takes 1 to 4 and needs --reply.", use)
+	}
+	if *option != 0 && !a.agentSelected(*as) {
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor)
+	}
 	body := strings.Join(pos, " ")
-	if strings.TrimSpace(body) == "" {
+	if strings.TrimSpace(body) == "" && *option == 0 {
 		return usageError("The message text is empty.", use)
 	}
 	if *waitFor < 0 || *waitFor > 3600 {
@@ -140,6 +157,18 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
+	}
+	if *option != 0 {
+		if err := c.requireAsks(ctx); err != nil {
+			return err
+		}
+		req.Answer = &api.AnswerRequest{Option: option}
+		if strings.TrimSpace(req.Body) == "" {
+			req.Body, err = askOptionBody(ctx, c, t.board, *req.ReplyTo, *option)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	r, err := c.api.PostMessageWithResponse(ctx, t.board, &api.PostMessageParams{}, req)
 	if err != nil {

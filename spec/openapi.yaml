@@ -5966,6 +5966,12 @@ components:
       type: object
       required: [to, options, blocking, going_with, going_at, task, state, answer_seq, answer_option]
       properties:
+        can_answer:
+          type: boolean
+          description: Whether the caller may answer this ask now. Writes recheck current authority; absent on older servers.
+        can_withdraw:
+          type: boolean
+          description: Whether the caller may withdraw this ask now. Only its asker may withdraw it; writes recheck current authority.
         approval:
           type: boolean
           description: True for an approval ask, whose option 1 approves the message's `files`. Absent otherwise.

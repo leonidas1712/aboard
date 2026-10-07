@@ -18,6 +18,7 @@ import (
 
 // View is a board with the member who created it, as one caller sees it.
 type View struct {
+	AsksToMe                          *AskCounts
 	CanArchive, CanRestore, CanDelete bool
 	Board                             Board
 	Creator                           Member
@@ -327,11 +328,9 @@ func (s *Service) ListBoards(ctx context.Context, p Principal, all bool, lifecyc
 					return err
 				}
 				v.Position = &pos
-				needs, err := tx.CountNeedsReply(m)
-				if err != nil {
+				if err := s.attentionOf(tx, b, m, &v); err != nil {
 					return err
 				}
-				v.NeedsReply = &needs
 				members, err := tx.Members(b.ID)
 				if err != nil {
 					return err
@@ -435,11 +434,9 @@ func (s *Service) GetBoard(ctx context.Context, p Principal, name string) (View,
 			}
 			v.Position = &pos
 			if me.Kind == "human" {
-				needs, err := tx.CountNeedsReply(me)
-				if err != nil {
+				if err := s.attentionOf(tx, b, me, &v); err != nil {
 					return err
 				}
-				v.NeedsReply = &needs
 			}
 		}
 		return nil

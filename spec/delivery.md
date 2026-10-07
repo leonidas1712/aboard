@@ -957,7 +957,8 @@ How Aboard does it (design/board-features.md has the reasons):
 - **Answers.** An answer is a reply to the asker's own message, so it concerns the asker
   and wakes it in every mode but `off`. It carries `answers` and `option`, and is
   followed by one line of Aboard's: "Aboard: @leo answered your ask #93 with option 1,
-  "Request access". CHK-17 is no longer Blocked." A later answer (an override) wakes the
+  "Request access"." It clears that ask's block; other open asks may still block the
+  task. A later answer (an override) wakes the
   agent the same way.
 - **Coming back.** The note a session gets when it takes a seat or comes back
   (`register`'s `note`, `aboard resume`'s output, and Claude Code's session start after

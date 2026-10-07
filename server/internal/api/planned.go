@@ -15,10 +15,6 @@ func notProvided(what string) error {
 		"Use a server whose GET /v1/info lists the feature.")
 }
 
-func (h *handlers) ListAsks(context.Context, ListAsksRequestObject) (ListAsksResponseObject, error) {
-	return nil, notProvided("asks")
-}
-
 func (h *handlers) SetLine(context.Context, SetLineRequestObject) (SetLineResponseObject, error) {
 	return nil, notProvided("agent lines")
 }
