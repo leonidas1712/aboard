@@ -3512,7 +3512,7 @@ $defs:
         CHK-17 is Blocked until @leo answers. The answer wakes you: end your turn, or work on something else.
       For a going-with ask:
         Asked @leo #98 on checkout-v2 · about CHK-17
-        Going with "rotate at 16:00" at 16:00 unless @leo says otherwise. Nothing is blocked.
+        Going with "rotate at 16:00" at 16:00 unless @leo says otherwise. This ask blocks nothing.
       With no task: "Asked @leo #95 on checkout-v2", then "The answer wakes you: …".
       For --withdraw: "Withdrew ask #93 on checkout-v2." This clears that ask's block; other open asks may still block the task.
       --file NAME (or NAME@3 for one version; the latest otherwise, repeatable) cites the
