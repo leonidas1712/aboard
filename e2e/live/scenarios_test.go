@@ -277,7 +277,7 @@ func TestRepliesReachPromptly(t *testing.T) {
 		reviewer.bind("reviewer")
 
 		start := time.Now()
-		reviewer.submit("Run the Aboard wiring check with @writer now.")
+		reviewer.submit("Run the Aboard skill's two-round PING/PONG wiring check with @writer now: send PING 1, wait for PONG 1, then send PING 2 and finish after PONG 2.")
 		for n := 1; n <= 2; n++ {
 			ping := l.waitMessage("reviewer", start, fmt.Sprintf("PING %d", n), 4*time.Minute)
 			pong := l.say("writer", "--reply", strconv.Itoa(ping.Seq), fmt.Sprintf("PONG %d", n))
