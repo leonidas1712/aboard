@@ -239,7 +239,7 @@ hook that runs it on every push, if you want that (opt-in; `scripts/install-hook
 
 `--local` runs the checks here instead of asking CI, by what changed against
 `origin/main`: none for a change to only `design/` or `engineering/`; otherwise `make
-fmt-check lint vet generate-check core-size harness-table-check test e2e`, plus `make
+fmt-check lint vet generate-check harness-table-check test e2e`, plus `make
 web-check` when `web/` changed. It's for when GitHub can't run CI; once `main` requires
 the `check` workflow's jobs (below), GitHub still refuses the merge until CI passes.
 `--dry-run` prints the plan, including any conflict with `main` and CI's result so far,
