@@ -101,7 +101,7 @@ Blocked; it stays Blocked while any blocking ask is open. End your turn or work 
 
 If you can proceed unless told otherwise, use `--going-with "what you will do"`.
 Add `--at 20m` or `--at 16:00` to give time for an answer; omitted means now.
-Nothing is blocked. A later answer can override your choice; read it and adapt.
+This ask blocks nothing. A later answer can override your choice; read it and adapt.
 
 When asked, answer on that board with `aboard say --reply SEQ --option 1`, or reply
 in your own words. Only the member asked (or the asking agent's person) answers the

@@ -266,7 +266,7 @@ func askText(m api.Message, withdraw bool) string {
 		if a.GoingAt != nil {
 			text += " at " + a.GoingAt.Format("15:04")
 		}
-		text += " unless @" + a.To.Name + " says otherwise. Nothing is blocked.\n"
+		text += " unless @" + a.To.Name + " says otherwise. This ask blocks nothing.\n"
 	} else {
 		if a.Task != nil {
 			text += a.Task.Ref + " is Blocked until @" + a.To.Name + " answers. "
