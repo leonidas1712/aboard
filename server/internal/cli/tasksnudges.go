@@ -25,7 +25,10 @@ func taskWork(w *api.AgentWork) deliverytext.TaskWork {
 	if w == nil {
 		return deliverytext.TaskWork{}
 	}
-	out := deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges}
+	out := deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges, AsksWaiting: w.AsksWaiting}
+	if w.AsksToIt != nil {
+		out.AsksToIt = *w.AsksToIt
+	}
 	if w.OldestOpen != nil {
 		out.OldestOpen = &deliverytext.TaskRef{ID: w.OldestOpen.Id, Ref: w.OldestOpen.Ref, Title: w.OldestOpen.Title}
 	}
@@ -79,7 +82,21 @@ func (a *app) taskNudges(ctx context.Context, c *client, ref delivery.AgentRef, 
 	switch trigger {
 	case "inbox", "status":
 		candidates = append(candidates, deliverytext.TasksNotPickedUp(work, ref.Board, dc))
+	case "ask":
+		if len(posted) > 0 {
+			candidates = append(candidates, deliverytext.AskOptions(work, textMessage(*posted[0])))
+		}
 	case "say":
+		if len(posted) > 0 {
+			askWork := work
+			if work.CurrentTask != nil && work.AsksWaiting > 0 {
+				asks, e := c.api.ListAsksWithResponse(ctx, &api.ListAsksParams{Board: &ref.Board, FromMe: ptrTo(true), State: ptrTo(api.ListAsksParamsStateOpen), Task: &work.CurrentTask.ID})
+				if e == nil && asks.JSON200 != nil {
+					askWork.AsksWaiting = len(asks.JSON200.Asks)
+				}
+			}
+			candidates = append(candidates, deliverytext.AskInstead(askWork, textMessage(*posted[0]), ref.Board, dc))
+		}
 		candidates = append(candidates, deliverytext.NoTaskPosts(work, ref.Board, dc))
 		if aboutCurrent {
 			candidates = append(candidates, deliverytext.StandsStale(work, time.Now(), ref.Board, dc))
@@ -158,7 +175,7 @@ func (a *app) taskNudges(ctx context.Context, c *client, ref delivery.AgentRef, 
 				}
 				seat.Stands[k] = count
 			default:
-				if at := seat.At[n.Code]; !at.IsZero() && now.Sub(at) < 30*time.Minute {
+				if at := seat.At[n.Code]; !at.IsZero() && now.Sub(at) < nudgeInterval(n.Code) {
 					continue
 				}
 				seat.At[n.Code] = now
@@ -181,4 +198,15 @@ func nudgesText(ns []deliverytext.Nudge) string {
 		text.WriteByte('\n')
 	}
 	return text.String()
+}
+
+func nudgeInterval(code string) time.Duration {
+	switch code {
+	case "ask_options":
+		return 24 * time.Hour
+	case "ask_instead":
+		return time.Hour
+	default:
+		return 30 * time.Minute
+	}
 }

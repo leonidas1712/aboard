@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type Member, addedBy, isArchived, setDelivery } from "./api";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
+import { attentionCount } from "./asks";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
@@ -36,10 +37,14 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   });
   const archived = recent.filter((b) => isArchived(b));
   const active = recent.filter((b) => !isArchived(b));
-  const needs = active.filter((b) => (b.needs_reply ?? 0) > 0);
-  const others = active.filter((b) => (b.needs_reply ?? 0) === 0);
+  const needs = active.filter((b) => attentionCount(b) > 0);
+  const others = active.filter((b) => attentionCount(b) === 0);
   return (
     <div className="flex flex-col gap-5">
+      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-selected", current === "" && "bg-selected")}>
+        Inbox
+        {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
+      </a>
       {needs.length > 0 && (
         <section aria-label="Needs you">
           <h3 className="mb-1 text-meta font-bold text-ink">Needs you</h3>
@@ -116,12 +121,13 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
                 <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
                 {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
-              {(b.needs_reply ?? 0) > 0 && (
-                <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-ink tabular-nums" title={count(b.needs_reply ?? 0, "question needs your reply", "questions need your reply")}>
-                  <span aria-hidden>{b.needs_reply}</span>
-                  <span className="sr-only">, {count(b.needs_reply ?? 0, "question needs your reply", "questions need your reply")}</span>
+              {attentionCount(b) > 0 && (
+                <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-ink tabular-nums" title={count(attentionCount(b), "question needs your reply", "questions need your reply")}>
+                  <span aria-hidden>{attentionCount(b)}</span>
+                  <span className="sr-only">, {count(attentionCount(b), "question needs your reply", "questions need your reply")}</span>
                 </span>
               )}
+              {(b.asks_to_me?.going_with ?? 0) > 0 && <span className="shrink-0 text-meta text-muted tabular-nums" title="Going-with asks">{b.asks_to_me!.going_with}<span className="sr-only"> going-with asks</span></span>}
               {(b.unread ?? 0) > 0 && (
                 <span className="unread-count shrink-0 text-meta text-muted tabular-nums" title={`${b.unread} unread`}>
                   <span aria-hidden>{b.unread}</span>

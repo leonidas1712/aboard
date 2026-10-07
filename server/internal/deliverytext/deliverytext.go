@@ -14,8 +14,10 @@ import (
 // Message is what the delivery text shows of one board message.
 type Message struct {
 	// About lists permanent task references recorded on this message.
-	About []string
-	Board string
+	About  []string
+	Ask    *Ask
+	Answer *Answer
+	Board  string
 	// FromName is the sender's member name, without the "@".
 	FromName string
 	// FromHuman is true when a person sent the message; owner, role and harness are
@@ -120,6 +122,19 @@ func Format(m Message, contexts ...Context) string {
 	if len(m.About) > 0 {
 		attrs = append(attrs, [2]string{"about", strings.Join(m.About, " ")})
 	}
+	if m.Ask != nil {
+		kind := "blocking"
+		if !m.Ask.Blocking {
+			kind = "going-with"
+		}
+		attrs = append(attrs, [2]string{"ask", kind})
+	}
+	if m.Answer != nil {
+		attrs = append(attrs, [2]string{"answers", strconv.Itoa(m.Answer.Seq)})
+		if m.Answer.Option > 0 {
+			attrs = append(attrs, [2]string{"option", strconv.Itoa(m.Answer.Option)})
+		}
+	}
 	if m.Urgent {
 		attrs = append(attrs, [2]string{"urgent", "true"})
 	}
@@ -144,9 +159,10 @@ func Format(m Message, contexts ...Context) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("</aboard-message>")
-	if m.ExpectsReply {
+	if m.Ask == nil && m.Answer == nil && m.ExpectsReply {
 		fmt.Fprintf(&b, "\nReply requested. Reply with: %s --reply %d \"…\"", boardCommand("aboard say", m.Board, contexts), m.Seq)
 	}
+	b.WriteString(askFooter(m, contexts))
 	return b.String()
 }
 
@@ -236,7 +252,12 @@ func DigestLine(m Message) string {
 	if m.Urgent {
 		line += " · urgent"
 	}
-	if m.ExpectsReply {
+	switch {
+	case m.Ask != nil:
+		line += " · ask"
+	case m.Answer != nil:
+		line += fmt.Sprintf(" · answers #%d", m.Answer.Seq)
+	case m.ExpectsReply:
 		line += " · asks for a reply"
 	}
 	for _, r := range m.Reactions {

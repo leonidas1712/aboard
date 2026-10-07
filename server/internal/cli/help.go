@@ -360,6 +360,14 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"open"},
 		},
 		{
+			Name: "ask", Group: groupTalk,
+			Summary:     "Ask for a recorded decision, with optional choices",
+			Usage:       []string{askUsage, `aboard ask --withdraw MSG [WHY] [--as AGENT] [--board NAME] [--json]`, `aboard ask --open [--as AGENT] [--board NAME] [--json]`},
+			Description: "With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With --going-with, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; --open shows asks waiting for answers.",
+			Flags:       []helpFlag{{"--going-with", "TEXT", "What you will do unless told otherwise."}, {"--at", "TIME", "When to go ahead: local HH:MM or a duration such as 20m."}, {"--task", "ID", "The task this ask is about."}, {"--no-task", "", "Do not inherit your current task."}, {"--withdraw", "MSG", "Withdraw this ask, optionally giving a reason."}, {"--open", "", "Show open asks."}, flagAs, flagBoard, flagJSON},
+			Examples:    []helpExample{{`aboard ask "Proceed with the change?" "Proceed" "Wait"`, "Ask your person with two options"}, {`aboard say --reply 93 --option 1`, "Answer with a numbered option"}},
+		},
+		{
 			Name: "task", Group: groupTalk,
 			Summary:     "Open, pick up and finish tasks on a board",
 			Usage:       []string{"aboard task list [--done | --all] [--mine] [--limit N] [--as AGENT] [--board NAME] [--json]", "aboard task show ID [--as AGENT] [--board NAME] [--json]", "aboard task new TITLE [--about TEXT] [--no-start] [--as AGENT] [--board NAME] [--json]", "aboard task start|join ID [--as AGENT] [--board NAME] [--json]", "aboard task note TEXT [--task ID] [--base N] [--as AGENT] [--board NAME] [--json]", "aboard task done TEXT [--task ID] [--cancelled] [--as AGENT] [--board NAME] [--json]", "aboard task drop [ID] [--reason TEXT] [--as AGENT] [--board NAME] [--json]"},
@@ -371,7 +379,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
-			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise. owner:<handle> addresses that person’s current agents on the board. In a person’s terminal, --to mine posts as that person to their own agents; agent sessions must use owner:<handle>.\n\n" +
 				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
 				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
@@ -385,6 +393,7 @@ func helpText(templates string) []commandHelp {
 				{"--wait-reply", "SECONDS", "Ask for a reply and wait up to this many seconds (1 to 3600) for it, returning it in the same command. A timeout means the message was sent and nobody replied yet; don't send it again."},
 				{"--task", "ID", "The task this message is about."},
 				{"--no-task", "", "Do not inherit a task from your current task or the thread."},
+				{"--option", "K", "Answer the ask named by --reply with option K; omitted text uses that option. A person may answer from a terminal, without --wait-reply."},
 				flagAs, flagBoard, flagJSON,
 			},
 			Examples: []helpExample{

@@ -15,6 +15,8 @@ import (
 
 // NewMessage is a message to post.
 type NewMessage struct {
+	Ask          *NewAsk
+	Answer       *NewAnswer
 	About        *[]string
 	To           []string
 	Body         string
@@ -27,7 +29,7 @@ type NewMessage struct {
 // as soon as the message is stored.
 func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string, in NewMessage) (Message, error) {
 	to := in.To
-	if len(to) == 0 && in.ReplyTo == nil {
+	if len(to) == 0 && in.ReplyTo == nil && in.Ask == nil {
 		to = []string{rules.TargetAll}
 	}
 	var msg Message
@@ -38,6 +40,13 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		}
 		if err := requireActive(b); err != nil {
 			return err
+		}
+		if in.Ask != nil {
+			to, err = askRecipient(tx, b, me, in)
+			if err != nil {
+				return err
+			}
+			in.ExpectsReply = true
 		}
 		var replyToSeq *int64
 		var threadRoot *string
@@ -90,6 +99,14 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		now := s.clk.Now()
+		ask, err := makeAsk(tx, b, to, in.Ask, about, now)
+		if err != nil {
+			return err
+		}
+		answer, err := resolveAnswer(tx, b, me, in)
+		if err != nil {
+			return err
+		}
 		id, err := s.gen.ID("msg", now)
 		if err != nil {
 			return err
@@ -99,6 +116,12 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			"message_id": id, "to": to, "body": in.Body, "reply_to": in.ReplyTo,
 			"urgent": in.Urgent, "expects_reply": in.ExpectsReply, "redactions": []Redaction{}, "mentions": mentions,
 		}
+		if ask != nil {
+			data["ask"] = ask
+		}
+		if answer != nil {
+			data["answer"] = answer
+		}
 		if recipients != nil {
 			data["recipients"] = recipients
 		}
@@ -107,6 +130,7 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			return err
 		}
 		msg = Message{
+			Ask: ask, Answer: answer,
 			About: about,
 			ID:    id, BoardID: b.ID, Seq: e.Seq, At: e.At, SenderID: me.ID, To: to, Body: in.Body, ReplyTo: in.ReplyTo,
 			ReplyToSeq: replyToSeq, ThreadRoot: threadRoot, Urgent: in.Urgent, ExpectsReply: in.ExpectsReply, Redactions: []Redaction{},
@@ -118,6 +142,9 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 		}
 		// Read it back for what the store adds, such as how many people have agents here.
 		if msg, err = tx.MessageByID(id); err != nil {
+			return err
+		}
+		if err := projectAsk(tx, me, &msg, now); err != nil {
 			return err
 		}
 		if !b.Policy.ShowHarness && me.Kind == "agent" {
@@ -239,7 +266,7 @@ func (s *Service) Timeline(ctx context.Context, p Principal, boardName string, f
 		if err != nil {
 			return err
 		}
-		if err := annotate(tx, b, me, msgs); err != nil {
+		if err := s.annotate(tx, b, me, msgs); err != nil {
 			return err
 		}
 		r = Reading{Board: b, Reader: me, Messages: msgs}
@@ -307,7 +334,7 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if len(msgs) > limit {
 				msgs, more = msgs[:limit], true
 			}
-			if err := annotate(tx, b, me, msgs); err != nil {
+			if err := s.annotate(tx, b, me, msgs); err != nil {
 				return err
 			}
 			work, err := s.taskWork(tx, b, me)
