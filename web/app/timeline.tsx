@@ -4,6 +4,7 @@
 // the newest entry, holds still while you read further up, and offers a way back down.
 // Messages from one sender in a row are grouped under one header, the way chats do.
 
+import { lab } from "aboard-lab";
 import { TaskChips, TaskLinks } from "./task-ui";
 import { AskAnswers } from "./ask-ui";
 
@@ -382,6 +383,8 @@ export function SenderMark({
   className?: string;
 }) {
   const mark = markOf(name, kind);
+  // Only the UI lab draws an agent's mark another way (lab-seam.ts).
+  if (lab?.AgentMark && kind === "agent") return <lab.AgentMark name={name} identity={identity} className={className} />;
   return (
     <span
       aria-hidden
@@ -568,6 +571,7 @@ function MessageEntry({
                 ) : (
                   <span className="ml-2 text-meta text-muted">Asks for a reply</span>
                 ))}
+              {lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped={false} />}
             </p>
             {actions}
             <Time at={m.at} now={now} />
@@ -580,9 +584,11 @@ function MessageEntry({
             <span className="truncate">{quote ?? "Replying to an earlier message"}</span>
           </p>
         )}
+        {grouped && lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped />}
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
           <Body m={m} mentions={mentions} />
         </p>
+        {lab?.MessageFooter && receipts && <lab.MessageFooter board={receipts.board} message={m} />}
         {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
@@ -659,27 +665,36 @@ function ThreadBlock({
       )}
     </>
   );
+  const toggle = thread.filtered ? (
+    <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
+  ) : (
+    <button
+      type="button"
+      className="thread-toggle -ml-1.5 flex min-h-11 max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-control px-1.5 text-left text-meta transition-colors duration-[140ms] ease-out hover:bg-selected"
+      aria-expanded={open}
+      aria-controls={open ? id : undefined}
+      aria-label={`${open ? "Hide" : "Show"} ${replies}${thread.fresh > 0 && !open ? `, ${thread.fresh} new` : ""}`}
+      onClick={() => onToggle(root.id, !open)}
+    >
+      {summary}
+      <ChevronRight
+        className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")}
+        strokeWidth={1.75}
+        aria-hidden
+      />
+    </button>
+  );
   return (
     <li className="thread pr-2.5 pb-2 pl-[54px] max-sm:pl-[42px]" data-thread={root.id}>
       <TaskChips tags={[...(root.about ?? []), ...thread.replies.flatMap((m) => m.about ?? [])]} />
-      {thread.filtered ? (
-        <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
+      {lab?.ThreadMeta && receipts ? (
+        // Only the UI lab adds to this row (lab-seam.ts).
+        <div className="flex flex-wrap items-center gap-x-2">
+          {toggle}
+          <lab.ThreadMeta board={receipts.board} root={root} />
+        </div>
       ) : (
-        <button
-          type="button"
-          className="thread-toggle -ml-1.5 flex min-h-11 max-w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-control px-1.5 text-left text-meta transition-colors duration-[140ms] ease-out hover:bg-selected"
-          aria-expanded={open}
-          aria-controls={open ? id : undefined}
-          aria-label={`${open ? "Hide" : "Show"} ${replies}${thread.fresh > 0 && !open ? `, ${thread.fresh} new` : ""}`}
-          onClick={() => onToggle(root.id, !open)}
-        >
-          {summary}
-          <ChevronRight
-            className={cn("size-3.5 shrink-0 text-muted transition-transform duration-200 ease-out", open && "rotate-90")}
-            strokeWidth={1.75}
-            aria-hidden
-          />
-        </button>
+        toggle
       )}
       {!open && thread.waiting && (
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
@@ -754,6 +769,8 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
       >
         {s.text}
       </button>
+    ) : lab?.Text ? (
+      <lab.Text key={i} text={s.text} />
     ) : (
       <Fragment key={i}><TaskLinks text={s.text} tags={m.about} /></Fragment>
     ),

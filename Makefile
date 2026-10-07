@@ -23,7 +23,7 @@ export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean
+.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e web-lab-check lab lab-export lab-shots install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean
 
 ## check: format check, lint, vet, generated code, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check harness-table-check docs-check test e2e extension-test vuln
@@ -228,10 +228,35 @@ sandbox-update: web/out/.built dev
 sandbox-clean:
 	@scripts/sandbox clean "$(NAME)"
 
-## web-check: build and typecheck the web UI, then run its browser smoke test
+## web-check: build and typecheck the web UI, check it holds no lab code, then run its browser smoke test
 web-check: web
 	cd web && npm run typecheck
+	@$(MAKE) --no-print-directory web-lab-check
 	@$(MAKE) --no-print-directory web-e2e
+
+# The UI lab (web/lab) must never reach the build the binary embeds: its marker, and its
+# scenarios' and the fake API's words, must be absent from web/out (after make web).
+web-lab-check:
+	@test -d web/out || { echo "web/out is missing: run make web first"; exit 1; }
+	@if grep -rlE 'aboard-ui-lab|UI lab|fake-api|single-file\.mjs|Checkout v2' web/out; then \
+		echo "web/out holds UI lab code (above); the lab must only enter through the aboard-lab alias"; exit 1; fi
+	@echo "web/out holds no UI lab code"
+
+## lab: run the UI lab, the board view against a fake API with experimental views, at http://localhost:3100
+lab:
+	@test -d web/node_modules || (cd web && npm ci)
+	@echo "UI lab: http://localhost:$${LAB_PORT:-3100}/?lab=team&board=checkout-v2"
+	cd web && $(WEB_ENV) npm run lab
+
+## lab-export: build the UI lab as static files in web/lab-out, and as one page, web/lab-out/aboard-ui-lab.html
+lab-export:
+	@test -d web/node_modules || (cd web && npm ci)
+	cd web && $(WEB_ENV) npm run lab:export
+
+## lab-shots: screenshot every lab scenario at desktop and phone widths into web/lab/screenshots
+lab-shots:
+	@test -d web/node_modules || (cd web && npm ci)
+	cd web && $(WEB_ENV) npm run lab:shots
 
 # Builds aboard with the UI (after make web) and drives a board in Chromium.
 web-e2e:

@@ -1,5 +1,7 @@
-# Runs make check on Linux and macOS: the same checks as on a developer's machine, and
-# the socket peer check on both systems it is implemented for. The web job builds and
+# Runs make check on Linux, and on macOS for pushes to main: the same checks as on a
+# developer's machine, and the socket peer check on both systems it is implemented for.
+# Pull requests run Linux only, because macOS runners can queue for an hour; a macOS-only
+# failure then shows on main's run, which the release gate reads. The web job builds and
 # checks the web UI, which make check leaves out so it needs only Go and Bun.
 #
 # A pull request is checked at its exact head commit, not at GitHub's merge of it with
@@ -22,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:

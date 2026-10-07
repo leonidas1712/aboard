@@ -10,7 +10,10 @@
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "lab": "ABOARD_LAB=1 next dev --port ${LAB_PORT:-3100}",
+    "lab:export": "ABOARD_LAB=1 next build && node lab/single-file.mjs",
+    "lab:shots": "playwright test --config lab/playwright.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.24",

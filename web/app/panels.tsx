@@ -30,7 +30,7 @@ export const headerRow = "flex min-h-14 items-center";
 type Props = {
   side: "left" | "right";
   /** title heads the panel; label names it for assistive technology and its buttons. */
-  title: string;
+  title: ReactNode;
   label: string;
   size: PanelSize;
   setSize: (s: PanelSize) => void;
