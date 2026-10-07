@@ -179,5 +179,9 @@ func BriefStale(w TaskWork, now time.Time, board string, contexts ...Context) *N
 	if !w.Nudges || b == nil || b.FileID == "" || b.Version < 1 || b.At.IsZero() || now.Sub(b.At) < time.Hour || (b.MessagesSince < 30 && b.TasksDoneSince < 3) {
 		return nil
 	}
-	return taskNudge("brief_stale", fmt.Sprintf("Aboard: your brief is %d messages and %d completed tasks old. Refresh it: %s", b.MessagesSince, b.TasksDoneSince, boardCommand("aboard brief get <path>", board, contexts)))
+	name := "<path>"
+	if b.Name == "brief.md" || b.Name == "brief.html" {
+		name = b.Name
+	}
+	return taskNudge("brief_stale", fmt.Sprintf("Aboard: your brief is %d messages and %d completed tasks old. Refresh it: %s", b.MessagesSince, b.TasksDoneSince, boardCommand("aboard brief get "+name, board, contexts)))
 }
