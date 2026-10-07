@@ -31,6 +31,7 @@ type TaskContext struct {
 type TaskWork struct {
 	CurrentTask                 *TaskContext
 	OpenTasks, PostsWithoutTask int
+	AsksWaiting, AsksToIt       int
 	OldestOpen                  *TaskRef
 	Nudges                      bool
 }
@@ -129,9 +130,9 @@ func StandsStale(w TaskWork, now time.Time, board string, contexts ...Context) *
 func ReorientTask(w TaskWork, now time.Time, board string, contexts ...Context) string {
 	if w.CurrentTask == nil {
 		if w.OpenTasks == 0 {
-			return ""
+			return reorientAsks(w, board, contexts)
 		}
-		return boundedText(fmt.Sprintf("%d tasks not picked up: %s", w.OpenTasks, boardCommand("aboard task list", board, contexts)), 600)
+		return boundedText(fmt.Sprintf("%d tasks not picked up: %s", w.OpenTasks, boardCommand("aboard task list", board, contexts))+reorientAsks(w, board, contexts), 600)
 	}
 	t := w.CurrentTask
 	part := "helper"
@@ -150,8 +151,16 @@ func ReorientTask(w TaskWork, now time.Time, board string, contexts ...Context) 
 		}
 		prefix := fmt.Sprintf(" Where it stands%s, %d min ago: ", author, minutes)
 		// Quoting can double the bytes; bound the body first to keep its closing quote.
-		note := boundedText(plainLine(t.Stands.Text), max(0, (600-len(text)-len(prefix)-2)/2))
+		note := boundedText(plainLine(t.Stands.Text), max(0, (600-len(text)-len(prefix)-2-len(reorientAsks(w, board, contexts)))/2))
 		text += prefix + fmt.Sprintf("%q", note)
 	}
+	text += reorientAsks(w, board, contexts)
 	return boundedText(text, 600)
+}
+
+func reorientAsks(w TaskWork, board string, contexts []Context) string {
+	if w.AsksWaiting == 0 && w.AsksToIt == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" %d asks waiting for answers, %d to you: %s", w.AsksWaiting, w.AsksToIt, boardCommand("aboard ask --open", board, contexts))
 }

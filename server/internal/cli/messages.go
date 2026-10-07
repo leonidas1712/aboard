@@ -46,12 +46,19 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	waitFor := fs.Int("wait-reply", 0, "ask for a reply and wait up to this many seconds for it")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board to post on")
-	pos, err := a.parse(fs, args, use, 1, -1)
+	option := fs.Int("option", 0, "answer the ask with this numbered option")
+	pos, err := a.parse(fs, args, use, 0, -1)
 	if err != nil {
 		return err
 	}
 	if *task != "" && *noTask {
 		return usageError("Use only one of --task and --no-task.", use)
+	}
+	if *option != 0 {
+		if len(to) > 0 || *urgent || *expectReply || *waitFor != 0 {
+			return usageError("Use --option with --reply, text and task selection only.", use)
+		}
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "))
 	}
 	body := strings.Join(pos, " ")
 	if strings.TrimSpace(body) == "" {
