@@ -15,8 +15,10 @@ func taskWorkOf(w *board.AgentWork) any {
 	if w.Brief != nil {
 		f := w.Brief
 		v := f.Versions[len(f.Versions)-1]
-		brief = map[string]any{"file_id": f.ID, "name": f.Name, "version": v.Version, "at": v.At,
-			"messages_since": f.MessagesSince, "tasks_done_since": f.TasksDoneSince}
+		brief = map[string]any{
+			"file_id": f.ID, "name": f.Name, "version": v.Version, "at": v.At,
+			"messages_since": f.MessagesSince, "tasks_done_since": f.TasksDoneSince,
+		}
 	}
 	if w.CurrentTask != nil {
 		t := w.CurrentTask
