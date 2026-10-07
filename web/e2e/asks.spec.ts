@@ -89,7 +89,7 @@ test("Inbox puts blocking asks first and accepts a numbered keyboard answer", as
   const blocking = await makeAsk(board, "Which release do you want?");
   const going = await makeAsk(board, "I'll keep checking", { going_with: "keep checking", going_at: new Date(Date.now() + 3_600_000).toISOString() });
   await page.getByRole("link", { name: /^Inbox/ }).click();
-  const choices = page.getByRole("list", { name: "Needs you asks" }).getByRole("button");
+  const choices = page.getByRole("group", { name: "Needs you asks" }).getByRole("button");
   await expect(choices.first()).toContainText("Which release do you want?");
   await expect(page.getByRole("button", { name: "Answer with option 2: Hold it", exact: true })).toBeVisible();
   await page.keyboard.press("2");
@@ -136,7 +136,7 @@ test("Inbox keeps options readable in both themes and on a narrow screen", async
   await openBoard(page, board);
   await makeAsk(board, "A decision with enough words to wrap comfortably on a small screen");
   await page.getByRole("link", { name: /^Inbox/ }).click();
-  await page.getByRole("list", { name: "Needs you asks" }).getByRole("button", { name: /A decision with enough words/ }).click();
+  await page.getByRole("group", { name: "Needs you asks" }).getByRole("button", { name: /A decision with enough words/ }).click();
   for (const theme of ["Light", "Dark"]) {
     await page.getByRole("button", { name: /^You are alex/ }).click();
     await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
@@ -217,4 +217,93 @@ test("historical ask links and failed lookups never advance a person's cursor", 
   await page.getByText("A decision from before the newest page", { exact: true }).scrollIntoViewIfNeeded();
   await expect.poll(async () => (await api(ownerToken(), "GET", `/v1/boards/${board}`)).read_up_to as number).toBeGreaterThan(before.read_up_to as number);
   expect(acks).toBeGreaterThan(0);
+});
+
+const selectedAsk = (page: Page) => page.getByRole("group", { name: "Needs you asks" }).locator("button[aria-current=true]");
+async function replies(board: string, ask: unknown) {
+  const r = await api(ownerToken(), "GET", `/v1/boards/${board}/messages`);
+  return (r.messages as { body: string; answer?: { ask_id: string } }[]).filter((m) => m.answer?.ask_id === ask);
+}
+test("answering in the Inbox opens the ask now in the answered one's place", async ({ page }) => {
+  const board = "inbox-advance";
+  await openBoard(page, board);
+  const first = await makeAsk(board, "Advance first");
+  const second = await makeAsk(board, "Advance second");
+  await makeAsk(board, "Advance third");
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  await expect(selectedAsk(page)).toContainText("Advance third");
+  await page.keyboard.press("j");
+  await expect(selectedAsk(page)).toContainText("Advance second");
+  await page.keyboard.press("1");
+  await expect.poll(async () => (await currentAsk(second.id)).state).toBe("answered");
+  await expect(page.getByRole("status").filter({ hasText: "Sent to @writer:" })).toContainText("Ship it");
+  await expect(selectedAsk(page)).toContainText("Advance first");
+  await expect(page.getByRole("heading", { name: "Advance first", exact: true })).toBeVisible();
+  expect((await currentAsk(first.id)).state).toBe("open");
+});
+test("Inbox keys move, accept the proposal, and write an answer", async ({ page }) => {
+  const board = "inbox-keys";
+  await openBoard(page, board);
+  const later = new Date(Date.now() + 3_600_000).toISOString();
+  const words = await makeAsk(board, "Keys need words");
+  const matching = await makeAsk(board, "Keys proposal matches an option", { going_with: "Hold it", going_at: later });
+  const own = await makeAsk(board, "Ran the checks on staging.\nKeys proposal in its own words?", { going_with: "keep checking", going_at: later });
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  const list = page.getByRole("group", { name: "Needs you asks" });
+  await expect(list.getByRole("heading", { name: "Blocking", exact: true })).toBeVisible();
+  await expect(list.getByRole("heading", { name: "Going ahead unless you say", exact: true })).toBeVisible();
+  await expect(list.getByRole("button", { name: /Ran the checks on staging\./ })).toContainText(/going with keep checking at \d/);
+
+  await list.getByRole("button", { name: /Keys need words/ }).click();
+  await page.keyboard.press("ArrowDown");
+  await expect(selectedAsk(page)).not.toContainText("Keys need words");
+  await page.keyboard.press("k");
+  await expect(selectedAsk(page)).toContainText("Keys need words");
+
+  await page.keyboard.press("r");
+  const box = page.getByLabel("Your answer, sent to writer");
+  await expect(box).toBeFocused();
+  await box.fill("After the docs land.");
+  await page.keyboard.press("Escape");
+  await expect(box).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Reply with something else/ })).toBeFocused();
+  await page.keyboard.press("r");
+  await expect(box).toHaveValue("After the docs land.");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect.poll(async () => (await currentAsk(words.id)).state).toBe("answered");
+  expect((await currentAsk(words.id)).answer_option).toBeNull();
+
+  await list.getByRole("button", { name: /Ran the checks on staging\./ }).click();
+  await expect(page.getByRole("heading", { name: "Ran the checks on staging.", exact: true })).toBeVisible();
+  await expect(page.getByText("Keys proposal in its own words?", { exact: true })).toBeVisible();
+  await page.keyboard.press("e");
+  await expect.poll(async () => (await currentAsk(own.id)).state).toBe("answered");
+  expect((await replies(board, own.id)).map((m) => m.body)).toEqual(["keep checking"]);
+
+  await list.getByRole("button", { name: /Keys proposal matches an option/ }).click();
+  await expect(page.getByRole("button", { name: "Answer with option 2: Hold it", exact: true })).toContainText("proposed");
+  await page.keyboard.press("e");
+  await expect.poll(async () => (await currentAsk(matching.id)).state).toBe("answered");
+  expect((await currentAsk(matching.id)).answer_option).toBe(2);
+});
+test("L snoozes an ask on this browser and ? lists the keys", async ({ page }) => {
+  const board = "inbox-sheet";
+  await openBoard(page, board);
+  await makeAsk(board, "Snooze me for later");
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  const list = page.getByRole("group", { name: "Needs you asks" });
+  await list.getByRole("button", { name: /Snooze me for later/ }).click();
+  await page.keyboard.press("l");
+  await expect(list.getByRole("button", { name: /Snooze me for later/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show it now", exact: true }).click();
+  await expect(list.getByRole("button", { name: /Snooze me for later/ })).toBeVisible();
+
+  await page.keyboard.press("?");
+  const sheet = page.getByRole("dialog", { name: "Keys in the Inbox" });
+  await expect(sheet).toBeVisible();
+  for (const sentence of ["Move to the next ask. The down arrow does the same.", "Answer with that option.", "Let the agent go ahead with what it proposed.", "Write your own answer.", "Send the answer you wrote.", "Leave the answer box without sending.", "Snooze the ask for an hour, on this browser only."]) await expect(sheet.getByText(sentence, { exact: true })).toBeVisible();
+  await page.keyboard.press("j");
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
 });

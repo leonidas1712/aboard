@@ -40,6 +40,11 @@
   --link: #1f5a78;
   --attention: #f3dfa8;
   --on-ink: #fbfcfc;
+  /* Depth (D217): shadows and scrims are drawn in a shade of the ink. */
+  --shade: #14212b;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 7%, transparent),
+    0 12px 32px -10px color-mix(in oklab, var(--shade) 22%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 28%, transparent);
   /* Identity colours: a fill and an initial for each sender mark. They only tell
      senders apart and carry no other meaning (DESIGN.md, "Identity colours"). */
   --id-1-bg: #fbd5d4;
@@ -76,6 +81,14 @@
     --link: #8ccbe6;
     --attention: #3a3016;
     --on-ink: #0e171d;
+  --shade: #03080b;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
+    0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
+    --shade: #03080b;
+    --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 40%, transparent),
+      0 14px 36px -10px color-mix(in oklab, var(--shade) 70%, transparent);
+    --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
     --id-1-bg: #523333;
     --id-1-fg: #fdcdcc;
     --id-2-bg: #503627;
@@ -143,6 +156,8 @@
   --mention: color-mix(in oklab, var(--accent) 16%, transparent);
   /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
   --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
+  /* Hover is a weaker selected, so the row the keys act on always stands out. */
+  --hover: color-mix(in oklab, var(--selected) 55%, transparent);
 }
 
 
@@ -230,5 +245,47 @@
   }
   .jump-newest {
     transform: none !important;
+  }
+}
+
+/* Frosted glass (D217), only where content scrolls under a layer that stays put: a
+   translucent tone of the surface it stands for, blurred. Without backdrop-filter, or
+   when the person asks for less transparency, it is the solid tone. */
+.glass {
+  --glass-tone: var(--surface);
+  background-color: var(--glass-tone);
+}
+.glass-sidebar {
+  --glass-tone: var(--sidebar);
+}
+.glass-page {
+  --glass-tone: var(--background);
+}
+.scrim,
+dialog.keys-sheet::backdrop {
+  background-color: var(--scrim);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background-color: color-mix(in oklab, var(--glass-tone) 78%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+  }
+  .scrim,
+  dialog.keys-sheet::backdrop {
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background-color: var(--glass-tone);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .scrim,
+  dialog.keys-sheet::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

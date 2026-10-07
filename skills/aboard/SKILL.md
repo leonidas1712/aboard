@@ -99,6 +99,14 @@ member. Give two to four useful options when you can. The ask is about your curr
 task unless you give `--task ID` or `--no-task`. A blocking ask makes that task
 Blocked; it stays Blocked while any blocking ask is open. End your turn or work on something else: the answer wakes you.
 
+Write the ask in two lines. The first says what you did; the second says what you need.
+A person's Inbox shows the first line as the ask's summary, so make it stand alone:
+
+```bash
+aboard ask "Rotated the staging key in both CI configs.
+Rotate production during the 16:00 ramp?" "Rotate at 16:00" "Wait for Monday"
+```
+
 If you can proceed unless told otherwise, use `--going-with "what you will do"`.
 Add `--at 20m` or `--at 16:00` to give time for an answer; omitted means now.
 This ask blocks nothing. A later answer can override your choice; read it and adapt.

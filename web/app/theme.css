@@ -15,6 +15,8 @@
   --color-attention: var(--attention);
   --color-on-ink: var(--on-ink);
   --color-own: var(--own);
+  --color-hover: var(--hover);
+  --shadow-float: var(--float-shadow);
   --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif;
   --text-meta: 14px;
   --text-meta--line-height: 1.5;
