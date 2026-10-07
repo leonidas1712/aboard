@@ -3,7 +3,8 @@
 The public landing page at [comeaboard.dev](https://comeaboard.dev): one static page
 built with [Astro](https://astro.build). It is separate from the board view in
 [`/web`](../web) and the docs in [`/docs`](../docs). It loads no analytics, trackers or
-third-party scripts; the font is self-hosted from `public/fonts`.
+third-party scripts; the fonts (Geist and Geist Mono, SIL Open Font License) are
+self-hosted from `public/fonts`.
 
 ## Run it locally
 
@@ -31,11 +32,15 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
 - `src/pages/index.astro`: the page and its copy.
 - `src/components/BoardDemo.astro`: the scripted board in the first screen. Its markup
   is the finished conversation, so it reads without JavaScript and under reduced motion;
-  the script replays it.
+  the script replays it. It follows the board view's layout and components in `web/app`.
 - `src/site.ts`: every URL the page links to (site, install, docs, GitHub). Change them
   there.
-- `src/styles/global.css`: the board view's tokens from [DESIGN.md](../DESIGN.md), light
-  and dark.
+- `src/styles/brand.css`: the brand in one file: the palette (light and dark), the
+  signature accent as one token (`--accent`), the fonts and the logo. The board view is
+  meant to adopt the same tokens later.
+- `src/styles/global.css`: the page's layout, on top of `brand.css`.
+- `public/`: the favicon (`favicon.svg`, which follows light and dark, plus PNG sizes),
+  the apple-touch icon and the web manifest.
 - `vercel.json`: the `/install` redirect and cache headers.
 
 ## Deploy on Vercel
