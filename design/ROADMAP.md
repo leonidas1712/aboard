@@ -90,7 +90,7 @@ the board.
 | The install script and Homebrew | done (#120): the install script; the Homebrew cask is configured but off until the tap exists | D86, D127 |
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | done (#120) | D149, D200 |
 | The two-machine test: two machines on one hosted server, by hand as a release-checklist step (automating it across machines is an idea for later) | later | |
-| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | done: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot (#84); issue templates and CI later | |
+| Making the repository public: `SECURITY.md`, `CONTRIBUTING.md`, issue templates, and CI on public runners (GitHub Actions) | done: `SECURITY.md`, `CONTRIBUTING.md`, the README and a board-view screenshot (#84); CI on GitHub Actions for Linux and macOS; issue and pull request templates, Dependabot updates and CodeQL scanning | |
 
 **Enhancements**
 
