@@ -167,9 +167,14 @@ func Run(ctx context.Context, args []string, env Env) int {
 	ctx, stop := exitWith(ctx, env.Getenv(exitWithVar))
 	defer stop()
 	a := &app{env: env, json: wantsJSON(args), started: time.Now()}
-	if slices.Contains(args, "--no-color") {
+	flagEnd := len(args)
+	if separator := slices.Index(args, "--"); separator >= 0 {
+		flagEnd = separator
+	}
+	if slices.Contains(args[:flagEnd], "--no-color") {
 		a.noColor = true
-		args = slices.DeleteFunc(slices.Clone(args), func(s string) bool { return s == "--no-color" })
+		prefix := slices.DeleteFunc(slices.Clone(args[:flagEnd]), func(s string) bool { return s == "--no-color" })
+		args = append(prefix, args[flagEnd:]...)
 	}
 	if len(args) == 0 {
 		_, _ = io.WriteString(env.Stderr, overviewText(a.errStyles()))
