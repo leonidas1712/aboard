@@ -314,6 +314,20 @@ func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bo
 		}
 	}
 	req := api.PostMessageRequest{Body: body, ReplyTo: &id, Answer: &api.AnswerRequest{Option: &option}}
+	if slices.Contains(to, "mine") {
+		me, e := c.api.GetMeWithResponse(ctx)
+		if e != nil {
+			return c.unreachable(e)
+		}
+		if me.JSON200 == nil {
+			return apiError(me.StatusCode(), me.Body)
+		}
+		for i, target := range to {
+			if target == "mine" {
+				to[i] = "owner:" + me.JSON200.Name
+			}
+		}
+	}
 	if len(to) > 0 {
 		req.To = &to
 	}
