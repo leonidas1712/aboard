@@ -88,7 +88,7 @@ export function Header({ board, title, starter, visibility, shared = false, acco
                   <button
                     type="button"
                     onClick={onTitle}
-                    className="board-title -mx-2 flex min-h-11 min-w-0 flex-wrap items-baseline gap-x-2.5 rounded-control px-2 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-selected"
+                    className="board-title -mx-2 flex min-h-11 min-w-0 flex-wrap items-baseline gap-x-2.5 rounded-control px-2 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover"
                   >
                     {words}
                     <span className="sr-only">, board details</span>

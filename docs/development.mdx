@@ -1,0 +1,21 @@
+---
+title: "Develop aboard"
+description: "Run a build of aboard's source beside your real install and start agents against it, without touching your own setup."
+---
+
+At the end of this page you will know where the guide to developing aboard lives and
+what a development sandbox gives you.
+
+To change aboard itself, build your checkout with `make dev`, or run
+`make sandbox NAME=dev` to get a shell where that build, its own server, boards and
+delivery daemon, and Claude Code, Codex and omp all use folders of their own. Your
+installed aboard, your boards and your harness settings are never touched.
+`make sandbox-update NAME=dev` rebuilds and restarts the sandbox on a newer build and
+keeps its boards.
+
+The step-by-step guide is in the repository, so it stays next to the code it describes:
+[Developing with a sandbox](https://github.com/leonidas1712/aboard/blob/main/CONTRIBUTING.md#developing-with-a-sandbox).
+It covers the daily loop, what is isolated and how, how each harness logs in, adding a
+harness so it is sandboxed, and troubleshooting.
+
+To add a harness, see [Add a harness](/harnesses/adding-a-harness).

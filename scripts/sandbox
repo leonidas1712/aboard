@@ -1,33 +1,42 @@
 #!/bin/sh
 # Opens a shell for testing this checkout's aboard by hand, without touching the
-# person's own Aboard, Claude Code or Codex setup, and removes it again.
+# person's own Aboard or harness setup, and updates or removes it again.
 #
-#   scripts/sandbox open <name>    (make sandbox NAME=<name>)
-#   scripts/sandbox clean <name>   (make sandbox-clean NAME=<name>)
+#   scripts/sandbox open <name>     (make sandbox NAME=<name>)
+#   scripts/sandbox update <name>   (make sandbox-update NAME=<name>)
+#   scripts/sandbox clean <name>    (make sandbox-clean NAME=<name>)
 #
 # A sandbox is a folder, $HOME/.aboard-sandboxes/<name> unless ABOARD_SANDBOXES names
 # another parent, holding:
 #
 #   bin/aboard      a link to the dev build (.bin/aboard), first on the shell's PATH
 #   aboard-home/    the sandbox's ABOARD_HOME: its config, data, delivery daemon and port
-#   claude-config/  Claude Code's CLAUDE_CONFIG_DIR
-#   codex-home/     Codex's CODEX_HOME, with the person's auth.json linked, not copied
+#   <harness>/      one folder per harness profile in adapters/ (claude-code/, codex/,
+#                   omp/, ...): the profile's config_dir.env points at it, and the files
+#                   its login_files name are linked from the person's own folder
 #   project/        a git project set up with aboard init --yes --scope project,
 #                   where the shell starts
 #   shell/          the shell start-up files that put the sandbox's name in the prompt
 #
-# The shell drops the variables a harness or another Aboard sets (CLAUDE*, CODEX*,
-# ABOARD*), keeps CLAUDE_CODE_OAUTH_TOKEN and ABOARD_EXIT_WITH_PID (set by a test that
-# opens a sandbox, so the sandbox's server and daemon stop with the test), and turns
-# harness auto-updates off. Programs started from it, a terminal manager and its panes
-# included, inherit all of this.
+# Everything about a harness comes from its profile, so a new harness needs only
+# adapters/<harness>/profile.yaml (config_dir, session_env, login_files). The shell
+# drops ABOARD*, the variables a profile lists as the harness's session, identity or
+# sandbox markers, and every variable named like the harness's command in capitals
+# (CLAUDE*, CODEX*, OMP*). It keeps CLAUDE_CODE_OAUTH_TOKEN, which also logs omp in, and
+# ABOARD_EXIT_WITH_PID (set by a test that opens a sandbox, so the sandbox's server and
+# daemon stop with the test), and turns harness auto-updates off. Programs started from
+# it, a terminal manager and its panes included, inherit all of this.
+#
+# Opening a sandbox that exists opens another shell in it and keeps its boards and
+# data. update stops the sandbox's server and daemon and starts them again on the
+# current build (make sandbox-update has just built it), keeping the same data.
 #
 # SANDBOX_ABOARD names another aboard binary to link. SANDBOX_CMD runs that one command
 # in the sandbox instead of an interactive shell (the tests use it).
 set -eu
 
 usage() {
-	echo "usage: scripts/sandbox open|clean <name>" >&2
+	echo "usage: scripts/sandbox open|update|clean <name>" >&2
 	exit 2
 }
 [ $# -eq 2 ] || usage
@@ -48,16 +57,129 @@ repo=$(cd "$(dirname "$0")/.." && pwd)
 root=${ABOARD_SANDBOXES:-$HOME/.aboard-sandboxes}
 dir=$root/$name
 prefix="(aboard:$name)"
+tab=$(printf '\t')
+
+# harness_table prints one line per harness profile in adapters/, fields separated by
+# tabs: name, command, config folder variable, its default under HOME, the variables to
+# drop (space separated) and the login files (space separated). The profiles are the
+# ones the dev build embeds. The contract keeps config_dir optional, but a sandbox can't
+# isolate a harness without it, so a profile without config_dir.env is an error.
+harness_table() {
+	for f in "$repo"/adapters/*/profile.yaml; do
+		[ -f "$f" ] || continue
+		awk -v file="$f" '
+		function list(s) {
+			sub(/^[^[]*\[/, "", s); sub(/\].*$/, "", s)
+			gsub(/[ "]/, "", s); gsub(/,/, " ", s)
+			return s
+		}
+		function scalar(s) {
+			sub(/^[^:]*:[ ]*/, "", s); sub(/[ ]*#.*$/, "", s); gsub(/"/, "", s)
+			return s
+		}
+		/^[A-Za-z_]+:/ { sec = $1; sub(/:$/, "", sec) }
+		/^harness:/ { name = scalar($0) }
+		/^command:/ { cmd = scalar($0) }
+		/^session_env:/ { drop = drop " " list($0) }
+		/^sandbox_env:/ { drop = drop " " list($0) }
+		/^sandbox_network_env:/ { drop = drop " " list($0) }
+		/^login_files:/ { login = list($0) }
+		sec == "config_dir" && /^  env:/ { cenv = scalar($0) }
+		sec == "config_dir" && /^  default:/ { cdef = scalar($0) }
+		sec == "identity" && /^  (env|root_env|env_file):/ { drop = drop " " scalar($0) }
+		END {
+			if (name == "" || cmd == "" || cenv == "") {
+				print "The profile " file " has no harness, command or config_dir.env, so a sandbox cannot isolate it. Add config_dir with env (the variable the harness reads its config folder from) and default (the folder under the home directory); see engineering/adding-a-harness.md." > "/dev/stderr"
+				exit 1
+			}
+			gsub(/^ +/, "", drop)
+			printf "%s\t%s\t%s\t%s\t%s\t%s\n", name, cmd, cenv, cdef, drop, login
+		}' "$f" || exit 1
+	done
+}
+
+table=$(harness_table)
+if [ -z "$table" ]; then
+	echo "No harness profiles found in $repo/adapters." >&2
+	exit 1
+fi
+
+# each_harness runs a command with the fields of every harness: name, command, config
+# variable, default, drop list, login files.
+each_harness() {
+	printf '%s\n' "$table" | while IFS=$tab read -r h_name h_cmd h_env h_def h_drop h_login; do
+		"$@"
+	done
+}
+
+# real_config_dir prints where the person's own harness keeps its config, before the
+# harness variables are dropped: the variable when it names a folder, else the default.
+real_config_dir() {
+	eval "v=\${$h_env:-}"
+	case $v in
+	/*) printf '%s' "$v" ;;
+	*) printf '%s' "$HOME/$h_def" ;;
+	esac
+}
+
+# marker_lists sets drops (variable names, space separated, with spaces around) and
+# prefixes (every variable starting with one is a marker) from the profiles.
+marker_lists() {
+	drops=" $(printf '%s\n' "$table" | while IFS=$tab read -r _ _ e _ d _; do printf '%s %s ' "$e" "$d"; done)"
+	prefixes="ABOARD $(printf '%s\n' "$table" | while IFS=$tab read -r _ c _; do printf '%s ' "$c" | tr 'a-z-' 'A-Z_'; done)"
+}
 
 # drop_markers unsets what a harness, or Aboard run from one, sets for the commands it
 # runs: aboard would otherwise take this shell for that session, or use another home.
 drop_markers() {
-	for v in $(env | sed -E -n 's/^((CLAUDE|CODEX|ABOARD)[A-Za-z0-9_]*)=.*/\1/p'); do
+	marker_lists
+	for v in $(env | sed -E -n 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p'); do
 		case $v in
-		CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) ;;
-		*) unset "$v" ;;
+		CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) continue ;;
 		esac
+		case $drops in *" $v "*)
+			unset "$v"
+			continue
+			;;
+		esac
+		for p in $prefixes; do
+			case $v in "$p"*)
+				unset "$v"
+				break
+				;;
+			esac
+		done
 	done
+}
+
+# export_harness_dirs points every harness's config folder at the sandbox's own.
+export_harness_dirs() {
+	for h in $(printf '%s\n' "$table" | cut -f1); do
+		e=$(printf '%s\n' "$table" | awk -F"$tab" -v h="$h" '$1 == h { print $3 }')
+		export "$e=$dir/$h"
+	done
+}
+
+sandbox_exists() {
+	if [ ! -d "$dir" ]; then
+		echo "There is no sandbox named $name in $root. Open one with: make sandbox NAME=$name" >&2
+		exit 1
+	fi
+}
+
+# stop_aboard stops the sandbox's server and daemon, keeping its data. It returns
+# aboard down's status: clean ignores a failure (the sandbox is being removed anyway),
+# update stops on it.
+stop_aboard() {
+	aboard=$dir/bin/aboard
+	[ -x "$aboard" ] || aboard=${SANDBOX_ABOARD:-$repo/.bin/aboard}
+	if [ -x "$aboard" ] && [ -d "$dir/aboard-home" ]; then
+		(
+			export ABOARD_HOME=$dir/aboard-home
+			export_harness_dirs
+			"$aboard" down
+		)
+	fi
 }
 
 clean() {
@@ -66,14 +188,108 @@ clean() {
 		return 0
 	fi
 	drop_markers
-	aboard=$dir/bin/aboard
-	[ -x "$aboard" ] || aboard=${SANDBOX_ABOARD:-$repo/.bin/aboard}
-	if [ -x "$aboard" ] && [ -d "$dir/aboard-home" ]; then
-		ABOARD_HOME=$dir/aboard-home CODEX_HOME=$dir/codex-home "$aboard" down || true
-	fi
+	# Best effort on purpose: whatever is still running goes away with its folder.
+	stop_aboard || true
 	rm -rf "$dir"
 	rmdir "$root" 2>/dev/null || true
 	echo "Removed sandbox $name ($dir)."
+}
+
+# start_aboard starts the sandbox's server and delivery daemon if they aren't running
+# and prints the board view's address. Run in the sandbox's environment. The daemon
+# starts here so it has the sandbox's harness folders: Codex doesn't pass its
+# environment to its hooks, so a daemon one of them starts would use the person's own.
+start_aboard() {
+	ui_url=$(aboard up --json | sed -n 's/.*"ui_url": *"\([^"]*\)".*/\1/p')
+	aboard daemon start >/dev/null
+}
+
+update() {
+	sandbox_exists
+	bin=${SANDBOX_ABOARD:-$repo/.bin/aboard}
+	if [ ! -x "$bin" ]; then
+		echo "There is no dev build at $bin. Run make sandbox-update, which builds it." >&2
+		exit 1
+	fi
+	drop_markers
+	if ! stop_aboard; then
+		echo "Could not stop the server and daemon of sandbox $name, so it was not updated. Run aboard down in the sandbox (make sandbox NAME=$name) and see what it says, then run make sandbox-update NAME=$name again." >&2
+		exit 1
+	fi
+	ln -sf "$bin" "$dir/bin/aboard"
+	export ABOARD_HOME="$dir/aboard-home"
+	export_harness_dirs
+	export PATH="$dir/bin:$PATH"
+	start_aboard
+	echo "Sandbox $name now runs $(aboard version 2>/dev/null | head -n 1), with its boards and data kept."
+	echo "  Board view: $ui_url"
+	echo "Agents already running in it keep their old hooks until you restart them."
+}
+
+# link_logins links each harness's login files from the person's own config folder, once,
+# and sets notes to one line per harness saying how it logs in.
+link_logins() {
+	notes=""
+	for h in $(printf '%s\n' "$table" | cut -f1); do
+		line=$(printf '%s\n' "$table" | awk -F"$tab" -v h="$h" '$1 == h')
+		IFS=$tab read -r h_name h_cmd h_env h_def h_drop h_login <<EOF
+$line
+EOF
+		src=$(printf '%s\n' "$real_dirs" | awk -F"$tab" -v h="$h" '$1 == h { print $2 }')
+		note=""
+		for f in $h_login; do
+			if [ -L "$dir/$h/$f" ] || [ -e "$dir/$h/$f" ]; then
+				note="$h: logged in with $(readlink "$dir/$h/$f" 2>/dev/null || echo "its own $f")."
+			elif [ -f "$src/$f" ]; then
+				ln -s "$src/$f" "$dir/$h/$f"
+				note="$h: logged in with $src/$f (linked)."
+			else
+				note="$h: no login found at $src/$f; log in inside this shell."
+			fi
+		done
+		if [ -n "$note" ]; then
+			notes="$notes  $note
+"
+		fi
+	done
+}
+
+# quote prints its argument single-quoted for a shell.
+quote() {
+	printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# write_isolate writes shell/isolate.sh, which the shells open_sandbox starts run after
+# the person's own rc files: a .bashrc or .zshrc that exports ABOARD_HOME, CODEX_HOME or
+# the like must not point the sandbox back at the real folders. It drops the markers
+# again, then sets every isolation variable once more.
+write_isolate() {
+	marker_lists
+	{
+		echo "# Written by scripts/sandbox; run after the person's own rc files."
+		printf "%s\n" 'for v in $(env | sed -E -n '"'"'s/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p'"'"'); do'
+		echo '	case $v in CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) continue ;; esac'
+		echo "	case '$drops' in *\" \$v \"*) unset \"\$v\"; continue ;; esac"
+		echo "	for p in $prefixes; do"
+		echo '		case $v in "$p"*) unset "$v"; break ;; esac'
+		echo "	done"
+		echo "done"
+		echo "export ABOARD_HOME=$(quote "$dir/aboard-home")"
+		for h in $(printf '%s\n' "$table" | cut -f1); do
+			e=$(printf '%s\n' "$table" | awk -F"$tab" -v h="$h" '$1 == h { print $3 }')
+			echo "export $e=$(quote "$dir/$h")"
+		done
+		echo "export DISABLE_AUTOUPDATER=1"
+		if [ -n "${ANTHROPIC_OAUTH_TOKEN:-}" ]; then
+			echo "export ANTHROPIC_OAUTH_TOKEN=$(quote "$ANTHROPIC_OAUTH_TOKEN")"
+		fi
+		if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+			echo "export CLAUDE_CODE_OAUTH_TOKEN=$(quote "$CLAUDE_CODE_OAUTH_TOKEN")"
+		fi
+		echo "export ABOARD_SANDBOX_NAME=$(quote "$name")"
+		echo "export PATH=$(quote "$dir/bin"):\"\$PATH\""
+	} >"$dir/shell/isolate.sh"
+	chmod 600 "$dir/shell/isolate.sh"
 }
 
 open_sandbox() {
@@ -82,37 +298,41 @@ open_sandbox() {
 		echo "There is no dev build at $bin. Run make dev first, or use make sandbox, which runs it." >&2
 		exit 1
 	fi
-	# Read before the harness variables are dropped: the person's own Codex login.
-	codex_auth=${CODEX_HOME:-$HOME/.codex}/auth.json
+	existed=no
+	[ -d "$dir/aboard-home" ] && existed=yes
+	# Read before the harness variables are dropped: where the person's own logins are.
+	real_dirs=$(printf '%s\n' "$table" | while IFS=$tab read -r h_name h_cmd h_env h_def h_drop h_login; do
+		printf '%s\t%s\n' "$h_name" "$(real_config_dir)"
+	done)
 	drop_markers
 
 	mkdir -p "$root"
 	mkdir -p -m 700 "$dir"
-	for d in bin aboard-home claude-config codex-home project shell; do
+	for d in bin aboard-home project shell $(printf '%s\n' "$table" | cut -f1); do
 		mkdir -p -m 700 "$dir/$d"
 	done
 	ln -sf "$bin" "$dir/bin/aboard"
-	codex_note="Codex: no login found at $codex_auth; run codex login in this shell."
-	if [ -L "$dir/codex-home/auth.json" ] || [ -e "$dir/codex-home/auth.json" ]; then
-		codex_note="Codex: logged in with $(readlink "$dir/codex-home/auth.json" 2>/dev/null || echo "its own auth.json")."
-	elif [ -f "$codex_auth" ]; then
-		ln -s "$codex_auth" "$dir/codex-home/auth.json"
-		codex_note="Codex: logged in with $codex_auth (linked)."
-	fi
+	link_logins
 	# Claude Code would otherwise start with its first-run questions in a new config folder.
-	[ -f "$dir/claude-config/.claude.json" ] ||
-		printf '{"hasCompletedOnboarding":true,"theme":"dark"}\n' >"$dir/claude-config/.claude.json"
+	if [ -d "$dir/claude-code" ] && [ ! -f "$dir/claude-code/.claude.json" ]; then
+		printf '{"hasCompletedOnboarding":true,"theme":"dark"}\n' >"$dir/claude-code/.claude.json"
+	fi
 	if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-		claude_note="Claude Code: logged in with CLAUDE_CODE_OAUTH_TOKEN."
+		notes="$notes  claude-code: logged in with CLAUDE_CODE_OAUTH_TOKEN.
+  omp: logged in to Anthropic with the same token (ANTHROPIC_OAUTH_TOKEN).
+"
+		# omp has no login file to link: it reads this variable, as the live suite does.
+		: "${ANTHROPIC_OAUTH_TOKEN:=$CLAUDE_CODE_OAUTH_TOKEN}"
+		export ANTHROPIC_OAUTH_TOKEN
 	else
-		claude_note="Claude Code: not logged in here. Its keychain login doesn't carry over to a new
-  config folder: run claude setup-token, export CLAUDE_CODE_OAUTH_TOKEN, then
-  make sandbox NAME=$name again (or run /login inside Claude Code)."
+		notes="$notes  claude-code, omp: not logged in here. Claude Code's keychain login doesn't carry
+    over to a new config folder: run claude setup-token, export CLAUDE_CODE_OAUTH_TOKEN,
+    then make sandbox NAME=$name again (or log in inside the harness).
+"
 	fi
 
 	export ABOARD_HOME="$dir/aboard-home"
-	export CLAUDE_CONFIG_DIR="$dir/claude-config"
-	export CODEX_HOME="$dir/codex-home"
+	export_harness_dirs
 	export DISABLE_AUTOUPDATER=1
 	export PATH="$dir/bin:$PATH"
 	export ABOARD_SANDBOX_NAME="$name"
@@ -122,26 +342,30 @@ open_sandbox() {
 		git init -q .
 	fi
 	aboard init --yes --scope project
-	# Started here so it has the sandbox's CODEX_HOME: Codex doesn't pass its environment
-	# to its hooks, so a daemon a Codex hook starts would use the person's own.
-	aboard daemon start
+	start_aboard
 
+	if [ "$existed" = yes ]; then
+		state="Reopened sandbox $name (its boards and data are kept)"
+	else
+		state="Aboard sandbox $name"
+	fi
 	cat <<EOF
 
-Aboard sandbox $name: $dir
+$state: $dir
   aboard:      $(command -v aboard) -> $bin ($(aboard version 2>/dev/null | head -n 1))
   ABOARD_HOME: $ABOARD_HOME
-  $claude_note
-  $codex_note
-Start claude, codex or a terminal manager here; they use this sandbox.
-After make dev on the same commit, run aboard down so the server and daemon restart on
-the new build. Remove everything with make sandbox-clean NAME=$name.
+  Board view:  $ui_url
+$notes
+Start claude, codex or omp here; each uses this sandbox's folder for it.
+To run a newer build in it: make sandbox-update NAME=$name. Remove everything with
+make sandbox-clean NAME=$name.
 
 EOF
 
 	if [ -n "${SANDBOX_CMD:-}" ]; then
 		exec sh -c "$SANDBOX_CMD"
 	fi
+	write_isolate
 	sh_name=$(basename "${SHELL:-/bin/sh}")
 	case $sh_name in
 	zsh)
@@ -150,7 +374,7 @@ EOF
 		done
 		cat >"$dir/shell/.zshrc" <<EOF
 [ -f "\$HOME/.zshrc" ] && . "\$HOME/.zshrc"
-export PATH="$dir/bin:\$PATH"
+. "$dir/shell/isolate.sh"
 _aboard_sandbox_prompt() {
 	case \$PROMPT in "$prefix "*) ;; *) PROMPT="$prefix \$PROMPT" ;; esac
 }
@@ -162,12 +386,21 @@ EOF
 	bash)
 		cat >"$dir/shell/bashrc" <<EOF
 [ -f "\$HOME/.bashrc" ] && . "\$HOME/.bashrc"
-export PATH="$dir/bin:\$PATH"
+. "$dir/shell/isolate.sh"
 PS1="$prefix \$PS1"
 EOF
 		exec "$SHELL" --rcfile "$dir/shell/bashrc" -i
 		;;
 	*)
+		# Other shells read the file ENV names: run the person's, then ours.
+		cat >"$dir/shell/env" <<EOF
+[ -n "\${ABOARD_SANDBOX_USER_ENV:-}" ] && [ -f "\$ABOARD_SANDBOX_USER_ENV" ] && . "\$ABOARD_SANDBOX_USER_ENV"
+. "$dir/shell/isolate.sh"
+EOF
+		ABOARD_SANDBOX_USER_ENV=${ENV:-}
+		export ABOARD_SANDBOX_USER_ENV
+		ENV="$dir/shell/env"
+		export ENV
 		PS1="$prefix ${PS1:-\$ }"
 		export PS1
 		exec "${SHELL:-/bin/sh}" -i
@@ -177,6 +410,7 @@ EOF
 
 case $action in
 open) open_sandbox ;;
+update) update ;;
 clean) clean ;;
 *) usage ;;
 esac

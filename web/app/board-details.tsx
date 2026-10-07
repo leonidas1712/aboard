@@ -110,7 +110,7 @@ function RecordLine({ record }: { record: RecordCheck }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
         >
           <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
           Record verified · {n} {n === 1 ? "event" : "events"}
@@ -193,7 +193,7 @@ export function AddAgent({ board }: { board: Board }) {
           onClick={close}
           aria-label="Close Add an agent"
           title="Close"
-          className="-mr-2 inline-flex size-9 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-selected hover:text-ink"
+          className="-mr-2 inline-flex size-9 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
         >
           <X className="size-4" strokeWidth={1.5} aria-hidden />
         </button>

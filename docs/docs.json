@@ -70,7 +70,7 @@
           },
           {
             "group": "Extending",
-            "pages": ["extending"]
+            "pages": ["extending", "development"]
           },
           {
             "group": "Status",

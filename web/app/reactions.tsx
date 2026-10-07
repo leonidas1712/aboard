@@ -73,7 +73,7 @@ function ReactionToggle({ m, r, me, onReact }: { m: Message; r: Reaction; me: st
           onClick={() => onReact(m, r.name, !r.mine)}
           className={cn(
             "reaction inline-flex h-8 items-center gap-1.5 rounded-control border px-2 text-meta tabular-nums transition-colors duration-[140ms] ease-out",
-            r.mine ? "mine border-accent bg-selected text-ink hover:bg-surface" : "border-rule bg-surface text-ink hover:border-field-border hover:bg-selected",
+            r.mine ? "mine border-accent bg-selected text-ink hover:bg-surface" : "border-rule bg-surface text-ink hover:border-field-border hover:bg-hover",
           )}
         >
           <span aria-hidden className="text-[15px] leading-none">
@@ -100,7 +100,7 @@ export function ReactButton({ m, onReact, label }: { m: Message; onReact: OnReac
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        className="react-button flex h-7 shrink-0 items-center rounded-[6px] px-1.5 text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-selected focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+        className="react-button flex h-7 shrink-0 items-center rounded-[6px] px-1.5 text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-hover focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
         aria-label={`React to ${label}`}
         title="React"
       >
