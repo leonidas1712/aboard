@@ -11,6 +11,9 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Added
 
+- The board view's People page lists server roles and agents on shared boards, with
+  terminal commands for admins. Board owners can change visibility after reviewing
+  who will be able to read the board.
 - `aboard doctor` names client and server versions and warns outside the supported
   version window, with the next step to upgrade the CLI or the server.
 

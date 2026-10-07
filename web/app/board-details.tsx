@@ -272,7 +272,7 @@ export function AddAgent({ board }: { board: Board }) {
  * CopyButton copies text and says so beside itself for a moment, then the word fades.
  * Screen readers hear it through a polite live region.
  */
-function CopyButton({ text, label, variant }: { text: string; label: string; variant: "primary" | "secondary" }) {
+export function CopyButton({ text, label, variant }: { text: string; label: string; variant: "primary" | "secondary" }) {
   const [copied, setCopied] = useState<"shown" | "fading" | null>(null);
   const [failed, setFailed] = useState(false);
   const timers = useRef<number[]>([]);
