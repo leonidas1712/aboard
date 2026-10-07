@@ -267,7 +267,7 @@ write_isolate() {
 	marker_lists
 	{
 		echo "# Written by scripts/sandbox; run after the person's own rc files."
-		echo 'for v in $(env | sed -E -n '"'"'s/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p'"'"'); do'
+		printf "%s\n" 'for v in $(env | sed -E -n '"'"'s/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p'"'"'); do'
 		echo '	case $v in CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) continue ;; esac'
 		echo "	case '$drops' in *\" \$v \"*) unset \"\$v\"; continue ;; esac"
 		echo "	for p in $prefixes; do"
