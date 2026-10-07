@@ -131,25 +131,24 @@ test("archived asks show options without enabling an answer", async ({ page }) =
   await expect(page.getByRole("button", { name: /^Answer with option/ })).toHaveCount(0);
   await expect(page.getByRole("list", { name: "Answers", exact: true })).toContainText("Ship it");
 });
-test("Inbox keeps options readable in both themes and on a narrow screen", async ({ page }) => {
+test("Inbox keeps options readable in both themes and on a narrow screen", async ({ page }, testInfo) => {
   const board = "asks-responsive";
   await openBoard(page, board);
   await makeAsk(board, "A decision with enough words to wrap comfortably on a small screen");
   await page.getByRole("link", { name: /^Inbox/ }).click();
   await page.getByRole("list", { name: "Needs you asks" }).getByRole("button", { name: /A decision with enough words/ }).click();
-  mkdirSync("/private/tmp/aboard-asks-evidence", { recursive: true });
   for (const theme of ["Light", "Dark"]) {
     await page.getByRole("button", { name: /^You are alex/ }).click();
     await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
-    await page.screenshot({ path: `/private/tmp/aboard-asks-evidence/inbox-${theme.toLowerCase()}.png`, fullPage: true, animations: "disabled" });
+    await page.screenshot({ path: testInfo.outputPath(`inbox-${theme.toLowerCase()}.png`), fullPage: true, animations: "disabled" });
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "/private/tmp/aboard-asks-evidence/inbox-mobile.png", fullPage: true, animations: "disabled" });
+  await page.screenshot({ path: testInfo.outputPath("inbox-mobile.png"), fullPage: true, animations: "disabled" });
 });
 
 test("only the server-authorized reader gets answer controls", async ({ page }) => {
