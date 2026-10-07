@@ -9,6 +9,17 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Fixed
+
+- Agent-selected `status` and `audit verify` use only the selected seat's token
+  and board. Unknown agents refuse; an unbound session's status shows local
+  diagnostics without authenticated board reads.
+
+### Contract changes
+
+- `spec/cli.yaml`: clarify agent credential selection for status and audit,
+  including `ABOARD_AGENT` and bound sessions. Output shapes and the API are unchanged.
+
 ### Changed
 
 - `aboard boards` lists boards across this machine's servers, grouped by server.

@@ -37,9 +37,9 @@
 #   (payments-design#6, msg_…) never chooses the seat. boards, status and inbox cover
 #   every seat. With one seat or none, every command's output and behaviour is byte for
 #   byte what it was, --json included: the fields added for several seats are left out. Agent commands (say, inbox, read, react)
-#   never fall back to the human login; human commands (board policy, board title, audit verify, watch)
+#   never fall back to the human login; human commands (board policy and watch)
 #   use the human login unless --as is given (board policy takes no --as), and open, invite
-#   and logout always use it. board title, board people, board add and boards act as an agent when
+#   and logout always use it. status, audit verify, board title, board people, board add and boards act as an agent when
 #   one is selected by --as, ABOARD_AGENT or the session, for its owner, and never use the
 #   human login then. read --receipts does the same: as the selected agent when there is
 #   one, otherwise with the human login. read --mark-read always reads as the person, with

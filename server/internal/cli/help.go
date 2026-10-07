@@ -494,7 +494,8 @@ func helpText(templates string) []commandHelp {
 			Description: "Shows whether the local server and the delivery daemon run, which agents' deliveries the daemon stopped and why " +
 				"(such as an agent that can't reach its board any more), where aboard init installed hooks, " +
 				"which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, " +
-				"and the board's policy.\n\n" +
+				"and the board's policy. With --as, ABOARD_AGENT or a bound session, it reads metadata with that seat's token, never your login. " +
+				"An unknown named agent refuses; a session with no seat shows local diagnostics without reading board metadata.\n\n" +
 				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.\n\n" +
 				"A session aboard swarm up starts with its launch ticket in its first prompt (Codex) is asked to run it with --launch, " +
 				"which seats the session as its agent if its hooks haven't already.",
@@ -705,6 +706,8 @@ func helpText(templates string) []commandHelp {
 			Usage:   []string{"aboard audit verify [--as AGENT] [--board NAME] [--json]"},
 			Description: "Reads the board's event log and checks that each event's hash chains to the one before it, so nobody edited the history. " +
 				"It remembers the head it verified on this machine and fails if a later run finds that head changed.\n\n" +
+				"--as, then ABOARD_AGENT, then the bound session choose the agent and its own board. Agent reads use only that seat's token. " +
+				"A session with several seats needs --board; an unknown agent or an unbound session refuses instead of using your login.\n\n" +
 				"Exits 0 when the record verifies and 3 when it doesn't.",
 			Flags: []helpFlag{
 				{"--as", "AGENT", "Verify as this agent instead of with your own login."},

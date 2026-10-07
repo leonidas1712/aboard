@@ -11,6 +11,8 @@ aboard audit verify [--as AGENT] [--board NAME] [--json]
 
 Reads the board's event log and checks that each event's hash chains to the one before it, so nobody edited the history. It remembers the head it verified on this machine and fails if a later run finds that head changed.
 
+`--as`, then ABOARD_AGENT, then the bound session choose the agent and its own board. Agent reads use only that seat's token. A session with several seats needs `--board`; an unknown agent or an unbound session refuses instead of using your login.
+
 Exits 0 when the record verifies and 3 when it doesn't.
 
 ## Flags

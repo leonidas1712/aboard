@@ -97,9 +97,11 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		if err := a.oneSeat(ctx, *boardFlag); err != nil {
 			return err
 		}
-		if t, cred, err := a.agentByName(creds, name, *boardFlag); err == nil {
-			agentBoard, selectedCred = &t, &cred
+		t, cred, err := a.agentByName(creds, name, *boardFlag)
+		if err != nil {
+			return err
 		}
+		agentBoard, selectedCred = &t, &cred
 	default:
 		if key, ok := a.sessionKey(); ok {
 			if agents, err := a.sessionAgents(ctx, key); err == nil && len(agents) > 1 && *boardFlag == "" {
@@ -116,7 +118,11 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 				a.emit(out, styleStatus(text.String(), a.out()))
 				return nil
 			}
-			if t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag); err == nil && found {
+			t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag)
+			if err != nil {
+				return err
+			}
+			if found {
 				agentBoard, name, source = &t, cred.Name, agentFromSession
 				selectedCred = &cred
 			}
@@ -163,7 +169,13 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	// agent's presence.
 	var boardLines strings.Builder
 	var members []api.Member
-	if c, err := a.humanClient(ctx, t); err == nil {
+	var c *client
+	if selectedCred != nil {
+		c, _ = a.client(ctx, t.server, selectedCred.Token, requestTimeout)
+	} else if !a.agentSelected(*as) {
+		c, _ = a.humanClient(ctx, t)
+	}
+	if c != nil {
 		ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 		defer cancel()
 		if b, err := c.board(ctx, t.board); err == nil {
