@@ -577,7 +577,7 @@ func TestPagesAndResponsesCarryAStrictPolicy(t *testing.T) {
 			scripts = d
 		}
 	}
-	if scripts != "script-src 'self' "+hash || !strings.Contains(csp, "frame-ancestors 'none'") || !strings.Contains(csp, "object-src 'none'") ||
+	if scripts != "script-src 'self' "+hash || !strings.Contains(csp, "frame-ancestors 'none'") || !strings.Contains(csp, "object-src 'none'") || !strings.Contains(csp, "frame-src 'none'") ||
 		!strings.Contains(csp, "base-uri 'none'") {
 		t.Fatalf("the page's policy: %q", csp)
 	}
