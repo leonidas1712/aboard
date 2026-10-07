@@ -2072,12 +2072,17 @@ test("tasks connect the Work panel, task view and conversation", async ({ page }
 
 
 test("task cards and the task panel show who is on each task, and Tell the team sends a task message", async ({ page }) => {
-  // Three agents: codex and claude with their harnesses, and writer with none.
-  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Task board", "--json"));
-  const board: string = pair.board.name;
-  aboard("join", pair.join.line, "--name", "codex", "--harness", "codex");
-  const invite = JSON.parse(aboard("invite", "--board", board, "--json"));
-  aboard("join", invite.join_line, "--name", "claude", "--harness", "claude-code");
+  // Three agents: claude and codex with their harnesses, and writer with none. The
+  // server limits joins per address and the whole spec shares one, so a join that is
+  // turned away for that is tried again once the minute has passed.
+  const { name: board } = await newBoard("Task board");
+  const join = async (...args: string[]) => {
+    const line = JSON.parse(aboard("invite", "--board", board, "--json")).join_line;
+    await expect(() => aboard("join", line, ...args)).toPass({ timeout: 90_000, intervals: [5_000] });
+  };
+  await join("--name", "claude", "--harness", "claude-code");
+  await join("--name", "codex", "--harness", "codex");
+  await join("--name", "writer");
   const tasks = `/v1/boards/${board}/tasks`;
   const doing = await api(ownerKey(), "POST", tasks, { title: "Move payment intents to the v2 API", about: "The v1 endpoints close next month." });
   const waiting = await api(ownerKey(), "POST", tasks, { title: "Document the v2 webhooks" });
