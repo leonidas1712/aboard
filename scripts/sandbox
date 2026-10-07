@@ -62,7 +62,8 @@ tab=$(printf '\t')
 # harness_table prints one line per harness profile in adapters/, fields separated by
 # tabs: name, command, config folder variable, its default under HOME, the variables to
 # drop (space separated) and the login files (space separated). The profiles are the
-# ones the dev build embeds. A profile without config_dir.env is an error.
+# ones the dev build embeds. The contract keeps config_dir optional, but a sandbox can't
+# isolate a harness without it, so a profile without config_dir.env is an error.
 harness_table() {
 	for f in "$repo"/adapters/*/profile.yaml; do
 		[ -f "$f" ] || continue
@@ -88,7 +89,7 @@ harness_table() {
 		sec == "identity" && /^  (env|root_env|env_file):/ { drop = drop " " scalar($0) }
 		END {
 			if (name == "" || cmd == "" || cenv == "") {
-				print "The profile " file " has no harness, command or config_dir.env, so a sandbox cannot isolate it." > "/dev/stderr"
+				print "The profile " file " has no harness, command or config_dir.env, so a sandbox cannot isolate it. Add config_dir with env (the variable the harness reads its config folder from) and default (the folder under the home directory); see engineering/adding-a-harness.md." > "/dev/stderr"
 				exit 1
 			}
 			gsub(/^ +/, "", drop)
@@ -121,11 +122,17 @@ real_config_dir() {
 	esac
 }
 
+# marker_lists sets drops (variable names, space separated, with spaces around) and
+# prefixes (every variable starting with one is a marker) from the profiles.
+marker_lists() {
+	drops=" $(printf '%s\n' "$table" | while IFS=$tab read -r _ _ e _ d _; do printf '%s %s ' "$e" "$d"; done)"
+	prefixes="ABOARD $(printf '%s\n' "$table" | while IFS=$tab read -r _ c _; do printf '%s ' "$c" | tr 'a-z-' 'A-Z_'; done)"
+}
+
 # drop_markers unsets what a harness, or Aboard run from one, sets for the commands it
 # runs: aboard would otherwise take this shell for that session, or use another home.
 drop_markers() {
-	drops=" $(printf '%s\n' "$table" | while IFS=$tab read -r _ _ e _ d _; do printf '%s %s ' "$e" "$d"; done)"
-	prefixes="ABOARD $(printf '%s\n' "$table" | while IFS=$tab read -r _ c _; do printf '%s ' "$c" | tr 'a-z-' 'A-Z_'; done)"
+	marker_lists
 	for v in $(env | sed -E -n 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p'); do
 		case $v in
 		CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) continue ;;
@@ -160,7 +167,9 @@ sandbox_exists() {
 	fi
 }
 
-# stop_aboard stops the sandbox's server and daemon, keeping its data.
+# stop_aboard stops the sandbox's server and daemon, keeping its data. It returns
+# aboard down's status: clean ignores a failure (the sandbox is being removed anyway),
+# update stops on it.
 stop_aboard() {
 	aboard=$dir/bin/aboard
 	[ -x "$aboard" ] || aboard=${SANDBOX_ABOARD:-$repo/.bin/aboard}
@@ -169,7 +178,7 @@ stop_aboard() {
 			export ABOARD_HOME=$dir/aboard-home
 			export_harness_dirs
 			"$aboard" down
-		) || true
+		)
 	fi
 }
 
@@ -179,7 +188,8 @@ clean() {
 		return 0
 	fi
 	drop_markers
-	stop_aboard
+	# Best effort on purpose: whatever is still running goes away with its folder.
+	stop_aboard || true
 	rm -rf "$dir"
 	rmdir "$root" 2>/dev/null || true
 	echo "Removed sandbox $name ($dir)."
@@ -202,7 +212,10 @@ update() {
 		exit 1
 	fi
 	drop_markers
-	stop_aboard
+	if ! stop_aboard; then
+		echo "Could not stop the server and daemon of sandbox $name, so it was not updated. Run aboard down in the sandbox (make sandbox NAME=$name) and see what it says, then run make sandbox-update NAME=$name again." >&2
+		exit 1
+	fi
 	ln -sf "$bin" "$dir/bin/aboard"
 	export ABOARD_HOME="$dir/aboard-home"
 	export_harness_dirs
@@ -239,6 +252,44 @@ EOF
 "
 		fi
 	done
+}
+
+# quote prints its argument single-quoted for a shell.
+quote() {
+	printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# write_isolate writes shell/isolate.sh, which the shells open_sandbox starts run after
+# the person's own rc files: a .bashrc or .zshrc that exports ABOARD_HOME, CODEX_HOME or
+# the like must not point the sandbox back at the real folders. It drops the markers
+# again, then sets every isolation variable once more.
+write_isolate() {
+	marker_lists
+	{
+		echo "# Written by scripts/sandbox; run after the person's own rc files."
+		echo 'for v in $(env | sed -E -n '"'"'s/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p'"'"'); do'
+		echo '	case $v in CLAUDE_CODE_OAUTH_TOKEN | ABOARD_EXIT_WITH_PID) continue ;; esac'
+		echo "	case '$drops' in *\" \$v \"*) unset \"\$v\"; continue ;; esac"
+		echo "	for p in $prefixes; do"
+		echo '		case $v in "$p"*) unset "$v"; break ;; esac'
+		echo "	done"
+		echo "done"
+		echo "export ABOARD_HOME=$(quote "$dir/aboard-home")"
+		for h in $(printf '%s\n' "$table" | cut -f1); do
+			e=$(printf '%s\n' "$table" | awk -F"$tab" -v h="$h" '$1 == h { print $3 }')
+			echo "export $e=$(quote "$dir/$h")"
+		done
+		echo "export DISABLE_AUTOUPDATER=1"
+		if [ -n "${ANTHROPIC_OAUTH_TOKEN:-}" ]; then
+			echo "export ANTHROPIC_OAUTH_TOKEN=$(quote "$ANTHROPIC_OAUTH_TOKEN")"
+		fi
+		if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+			echo "export CLAUDE_CODE_OAUTH_TOKEN=$(quote "$CLAUDE_CODE_OAUTH_TOKEN")"
+		fi
+		echo "export ABOARD_SANDBOX_NAME=$(quote "$name")"
+		echo "export PATH=$(quote "$dir/bin"):\"\$PATH\""
+	} >"$dir/shell/isolate.sh"
+	chmod 600 "$dir/shell/isolate.sh"
 }
 
 open_sandbox() {
@@ -314,6 +365,7 @@ EOF
 	if [ -n "${SANDBOX_CMD:-}" ]; then
 		exec sh -c "$SANDBOX_CMD"
 	fi
+	write_isolate
 	sh_name=$(basename "${SHELL:-/bin/sh}")
 	case $sh_name in
 	zsh)
@@ -322,7 +374,7 @@ EOF
 		done
 		cat >"$dir/shell/.zshrc" <<EOF
 [ -f "\$HOME/.zshrc" ] && . "\$HOME/.zshrc"
-export PATH="$dir/bin:\$PATH"
+. "$dir/shell/isolate.sh"
 _aboard_sandbox_prompt() {
 	case \$PROMPT in "$prefix "*) ;; *) PROMPT="$prefix \$PROMPT" ;; esac
 }
@@ -334,12 +386,21 @@ EOF
 	bash)
 		cat >"$dir/shell/bashrc" <<EOF
 [ -f "\$HOME/.bashrc" ] && . "\$HOME/.bashrc"
-export PATH="$dir/bin:\$PATH"
+. "$dir/shell/isolate.sh"
 PS1="$prefix \$PS1"
 EOF
 		exec "$SHELL" --rcfile "$dir/shell/bashrc" -i
 		;;
 	*)
+		# Other shells read the file ENV names: run the person's, then ours.
+		cat >"$dir/shell/env" <<EOF
+[ -n "\${ABOARD_SANDBOX_USER_ENV:-}" ] && [ -f "\$ABOARD_SANDBOX_USER_ENV" ] && . "\$ABOARD_SANDBOX_USER_ENV"
+. "$dir/shell/isolate.sh"
+EOF
+		ABOARD_SANDBOX_USER_ENV=${ENV:-}
+		export ABOARD_SANDBOX_USER_ENV
+		ENV="$dir/shell/env"
+		export ENV
 		PS1="$prefix ${PS1:-\$ }"
 		export PS1
 		exec "${SHELL:-/bin/sh}" -i

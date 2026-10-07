@@ -5,7 +5,7 @@
   "description": "How Aboard works with one harness: how to check it, start it, run it headless, resume it, give it an identity, install into it and deliver messages into its sessions. One file per harness, at adapters/<harness>/profile.yaml. aboard init, doctor, status and uninstall, the hooks, the delivery daemon and the launchers read it through one generic implementation; a harness's own Go package overrides only what the profile can't say. Command lines are argument vectors, never shell strings; {prompt}, {session}, {dir} and {bundle} are filled in when they run.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["harness", "name", "drives", "command", "checks", "config_dir", "interactive", "headless", "identity", "delivery"],
+  "required": ["harness", "name", "drives", "command", "checks", "interactive", "headless", "identity", "delivery"],
   "properties": {
     "harness": {
       "description": "The harness's name in Aboard: in ABOARD_SESSION, hook commands and the board file.",
@@ -63,7 +63,7 @@
       "items": { "type": "string" }
     },
     "config_dir": {
-      "description": "The folder the harness reads its global config from (required, so a development sandbox can point the harness at a folder of its own): the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in the install paths stands for it, so aboard init, doctor and status follow the variable.",
+      "description": "The folder the harness reads its global config from (optional in the contract; every bundled profile declares it so a development sandbox can point the harness at a folder of its own): the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in the install paths stands for it, so aboard init, doctor and status follow the variable.",
       "type": "object",
       "additionalProperties": false,
       "required": ["env", "default"],

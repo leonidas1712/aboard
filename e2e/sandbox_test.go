@@ -182,3 +182,109 @@ func TestSandboxUpdateNeedsASandbox(t *testing.T) {
 		t.Fatalf("update of a missing sandbox: %v\n%s", err, out)
 	}
 }
+
+// The person's own rc files run in the sandbox's shell, and may export ABOARD_HOME or a
+// harness's config folder to the real paths: the sandbox's values must win, and the
+// session markers an rc file sets must be dropped again.
+func TestSandboxShellKeepsIsolationAgainstRcFiles(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ shell, rc string }{{"bash", ".bashrc"}, {"zsh", ".zshrc"}} {
+		t.Run(tc.shell, func(t *testing.T) {
+			t.Parallel()
+			path, err := exec.LookPath(tc.shell)
+			if err != nil {
+				t.Skipf("no %s on this machine", tc.shell)
+			}
+			home, err := filepath.EvalSymlinks(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			outside := filepath.Join(home, "real")
+			rc := "export ABOARD_HOME=" + outside + "/aboard-home\n" +
+				"export CLAUDE_CONFIG_DIR=" + outside + "/claude\n" +
+				"export CODEX_HOME=" + outside + "/codex\n" +
+				"export PI_CODING_AGENT_DIR=" + outside + "/omp\n" +
+				"export ABOARD_SANDBOX_NAME=elsewhere\n" +
+				"export CODEX_THREAD_ID=thread-from-rc\n" +
+				"export ABOARD_AGENT=agent-from-rc\n" +
+				"export PATH=/usr/bin:/bin\n"
+			if err := os.WriteFile(filepath.Join(home, tc.rc), []byte(rc), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			sb := filepath.Join(home, ".aboard-sandboxes", "rc")
+			t.Cleanup(func() { _ = sandboxCmd(home, nil, "clean", "rc").Run() })
+
+			envFile := filepath.Join(home, "env.txt")
+			cmd := sandboxCmd(home, []string{"SHELL=" + path}, "open", "rc")
+			cmd.Stdin = strings.NewReader("env > " + envFile + "\nexit\n")
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("scripts/sandbox open rc: %v\n%s", err, out)
+			}
+			raw, err := os.ReadFile(envFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			vars := map[string]string{}
+			for _, line := range strings.Split(string(raw), "\n") {
+				if k, v, ok := strings.Cut(line, "="); ok {
+					vars[k] = v
+				}
+			}
+			for k, want := range map[string]string{
+				"ABOARD_HOME":         filepath.Join(sb, "aboard-home"),
+				"CLAUDE_CONFIG_DIR":   filepath.Join(sb, "claude-code"),
+				"CODEX_HOME":          filepath.Join(sb, "codex"),
+				"PI_CODING_AGENT_DIR": filepath.Join(sb, "omp"),
+				"ABOARD_SANDBOX_NAME": "rc",
+			} {
+				if vars[k] != want {
+					t.Errorf("%s=%q, want %q", k, vars[k], want)
+				}
+			}
+			if !strings.HasPrefix(vars["PATH"], filepath.Join(sb, "bin")+":") {
+				t.Errorf("the dev build is not first on the PATH: %s", vars["PATH"])
+			}
+			for _, k := range []string{"CODEX_THREAD_ID", "ABOARD_AGENT"} {
+				if v, ok := vars[k]; ok {
+					t.Errorf("%s=%q set by an rc file survived in the sandbox", k, v)
+				}
+			}
+		})
+	}
+}
+
+// Updating stops the sandbox's server and daemon first. When aboard down fails the
+// update fails too, saying so, instead of starting a second server beside the old one.
+func TestSandboxUpdateFailsWhenStoppingFails(t *testing.T) {
+	t.Parallel()
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sb := filepath.Join(home, ".aboard-sandboxes", "stuck")
+	for _, d := range []string{"bin", "aboard-home"} {
+		if err := os.MkdirAll(filepath.Join(sb, d), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fake := filepath.Join(sb, "bin", "aboard")
+	script := "#!/bin/sh\nif [ \"$1\" = down ]; then echo 'down: cannot stop' >&2; exit 1; fi\nexit 0\n"
+	if err := os.WriteFile(fake, []byte(script), 0o700); err != nil { //nolint:gosec // an executable stand-in for aboard
+		t.Fatal(err)
+	}
+	out, err := sandboxCmd(home, nil, "update", "stuck").CombinedOutput()
+	if err == nil {
+		t.Fatalf("update succeeded although aboard down failed:\n%s", out)
+	}
+	for _, want := range []string{"Could not stop the server and daemon of sandbox stuck", "make sandbox-update NAME=stuck"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("update output lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(string(out), "now runs") {
+		t.Errorf("update printed success:\n%s", out)
+	}
+	if info, err := os.Lstat(fake); err != nil || info.Mode()&os.ModeSymlink != 0 {
+		t.Errorf("update relinked the build although it could not stop the old one: %v", err)
+	}
+}

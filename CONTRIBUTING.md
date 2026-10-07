@@ -92,7 +92,7 @@ harness reads its config folder from, and its default under your home folder),
 `session_env` (the variables it sets for its sessions) and, if a file in the config
 folder holds the login, `login_files`. `scripts/sandbox` reads the profiles, so the next
 `make sandbox` gives the harness its own folder and drops its markers. A profile without
-`config_dir` fails the harness conformance kit. [engineering/adding-a-harness.md](engineering/adding-a-harness.md)
+`config_dir` fails the harness conformance kit, and `scripts/sandbox` refuses it. [engineering/adding-a-harness.md](engineering/adding-a-harness.md)
 has the rest of the checklist.
 
 ### Troubleshooting

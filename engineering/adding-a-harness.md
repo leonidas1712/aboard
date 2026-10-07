@@ -47,7 +47,7 @@ shows each one per harness, with a note where it is partial:
 | Project setup | A `project` path on each install item | Fast kit: init in the project scope. Live: `TestProjectScopeSetup` |
 | Started by a launcher | `interactive.start`, `interactive.resume` and `interactive.model`; `headless` (`via: native` with `run`, `resume` and `session_field` for the headless launcher) | e2e: `TestSwarmUp*` with `e2e/fakeagent`, which needs a mode for the harness. Live: `TestSwarmUpStartsEveryHarness`, `TestSwarmUpResumesTheLastSession`. See [adding-a-launcher.md](adding-a-launcher.md) |
 | Sandbox check | `sandbox_env`, `sandbox_network_env` | Fast kit (e2e sandbox tests); live where the sandbox blocks the network |
-| Development sandbox | `config_dir` (required), `session_env`, `login_files` | Fast kit: the profile schema; e2e sandbox tests |
+| Development sandbox | `config_dir`, `session_env`, `login_files` | Fast kit: the profile schema; e2e sandbox tests |
 
 ## 1. The profile
 
@@ -69,7 +69,7 @@ checks:
 ```
 
 **Where its config lives.** `config_dir` is the variable that moves it and the default
-under the home directory. `{config_dir}` in install paths stands for it. It is required: `make sandbox` (see
+under the home directory. `{config_dir}` in install paths stands for it. The contract keeps it optional, but every bundled profile declares it (the conformance kit checks): `make sandbox` (see
 [CONTRIBUTING.md](../CONTRIBUTING.md#developing-with-a-sandbox)) points that variable at a folder of its own, so
 the harness never uses your real one. If a file in it holds the login (Codex's `auth.json`), list it in
 `login_files` and the sandbox links it from your own folder.
