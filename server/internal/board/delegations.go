@@ -301,6 +301,11 @@ func (s *Service) joinDelegated(ctx context.Context, p Principal, in JoinInput) 
 			if err != nil {
 				return err
 			}
+			view.OnBoard = true
+			view.Brief, err = projectBrief(tx, b, seat)
+			if err != nil {
+				return err
+			}
 			out = Joined{Agent: seat, Token: token, View: view, Reused: true}
 			return nil
 		case err != nil && !errors.Is(err, ErrNotFound):

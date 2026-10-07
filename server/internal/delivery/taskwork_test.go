@@ -3,7 +3,9 @@ package delivery_test
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
@@ -29,5 +31,30 @@ func TestRegisterTaskContextDoesNotWakeOrAcknowledge(t *testing.T) {
 	}
 	if len(r.claude.Handed("s1")) != 0 || r.server.Cursor(reviewer) != 0 {
 		t.Fatal("task context changed delivery or acknowledged")
+	}
+}
+
+func TestBriefTurnReminderDoesNotWakeAckOrRepeat(t *testing.T) {
+	work := &deliverytext.TaskWork{Nudges: true, Brief: &deliverytext.BriefContext{FileID: "fil_keeper", Name: "brief.md", Version: 2, At: time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC), MessagesSince: 30}}
+	r := newRigWithServer(t, func(server delivery.Server) delivery.Server { return taskWorkServer{Server: server, work: work} })
+	r.register("ready", "ready-boot")
+	r.stop()
+	var calls atomic.Int32
+	r.configure = func(cfg *delivery.Config) {
+		cfg.AllowBriefNudge = func(_ delivery.AgentRef, _ deliverytext.BriefContext) bool { return calls.Add(1) == 1 }
+	}
+	r.start()
+	r.register("s1", "b1")
+	r.bind("claude-code", "s1", reviewer)
+	first := r.ok(delivery.Request{Op: delivery.OpTurnStart, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	if !strings.HasPrefix(first.Nudge, "Aboard: your brief") || first.Bundle != "" {
+		t.Fatalf("turn output=%+v", first)
+	}
+	second := r.ok(delivery.Request{Op: delivery.OpTurnStart, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	if second.Nudge != "" {
+		t.Fatal("second turn repeated keeper advice")
+	}
+	if len(r.claude.Handed("s1")) != 0 || r.server.Cursor(reviewer) != 0 {
+		t.Fatal("keeper advice woke or acknowledged")
 	}
 }
