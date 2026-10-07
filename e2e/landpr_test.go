@@ -17,7 +17,7 @@ import (
 // for delivery, setup and upgrades.
 func TestLandPRClassify(t *testing.T) {
 	t.Parallel()
-	code := "make fmt-check lint vet generate-check core-size harness-table-check test e2e"
+	code := "make fmt-check lint vet generate-check harness-table-check test e2e"
 	for _, tc := range []struct {
 		name, paths, want string
 	}{
@@ -296,7 +296,7 @@ func TestLandPRMergesAndCleansUp(t *testing.T) {
 	if r.read("run-lists") != "" {
 		t.Errorf("--local asked GitHub for CI runs: %q", r.read("run-lists"))
 	}
-	if got := strings.TrimSpace(r.read("make")); got != "fmt-check lint vet generate-check core-size harness-table-check test e2e" {
+	if got := strings.TrimSpace(r.read("make")); got != "fmt-check lint vet generate-check harness-table-check test e2e" {
 		t.Errorf("make ran %q", got)
 	}
 	if got := strings.Count(r.read("merges"), "\n"); got != 2 {
