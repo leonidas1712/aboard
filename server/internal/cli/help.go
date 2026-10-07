@@ -393,7 +393,7 @@ func helpText(templates string) []commandHelp {
 				{"--wait-reply", "SECONDS", "Ask for a reply and wait up to this many seconds (1 to 3600) for it, returning it in the same command. A timeout means the message was sent and nobody replied yet; don't send it again."},
 				{"--task", "ID", "The task this message is about."},
 				{"--no-task", "", "Do not inherit a task from your current task or the thread."},
-				{"--option", "K", "Answer the ask named by --reply with option K; omitted text uses that option."},
+				{"--option", "K", "Answer the ask named by --reply with option K; omitted text uses that option. A person may answer from a terminal, without --wait-reply."},
 				flagAs, flagBoard, flagJSON,
 			},
 			Examples: []helpExample{

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"slices"
@@ -52,17 +53,26 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	optionGiven := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "option" {
+			optionGiven = true
+		}
+	})
+	if *waitFor < 0 || *waitFor > 3600 {
+		return usageError("--wait-reply takes from 1 to 3600 seconds.", use)
+	}
 	if *task != "" && *noTask {
 		return usageError("Use only one of --task and --no-task.", use)
 	}
-	if *option != 0 {
-		if len(to) > 0 || *urgent || *expectReply || *waitFor != 0 {
-			return usageError("Use --option with --reply, text and task selection only.", use)
-		}
-		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "))
+	if optionGiven && (*reply == "" || *option < 1 || *option > 4) {
+		return usageError("--option takes 1 to 4 and needs --reply.", use)
+	}
+	if *option != 0 && !a.agentSelected(*as) {
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor)
 	}
 	body := strings.Join(pos, " ")
-	if strings.TrimSpace(body) == "" {
+	if strings.TrimSpace(body) == "" && *option == 0 {
 		return usageError("The message text is empty.", use)
 	}
 	if *waitFor < 0 || *waitFor > 3600 {
@@ -147,6 +157,18 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	c, err := a.client(ctx, t.server, cred.Token, requestTimeout)
 	if err != nil {
 		return err
+	}
+	if *option != 0 {
+		if err := c.requireAsks(ctx); err != nil {
+			return err
+		}
+		req.Answer = &api.AnswerRequest{Option: option}
+		if strings.TrimSpace(req.Body) == "" {
+			req.Body, err = askOptionBody(ctx, c, t.board, *req.ReplyTo, *option)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	r, err := c.api.PostMessageWithResponse(ctx, t.board, &api.PostMessageParams{}, req)
 	if err != nil {

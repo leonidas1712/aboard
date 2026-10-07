@@ -136,7 +136,10 @@ func runAsk(ctx context.Context, a *app, args []string) error {
 		for _, m := range out.Asks {
 			text += deliveryText(m) + "\n"
 		}
-		a.emit(out, text)
+		a.emit(struct {
+			Asks []cliMessage `json:"asks"`
+			More bool         `json:"more"`
+		}{Asks: cliMessages(out.Asks), More: out.More}, text)
 		return nil
 	}
 	req := api.PostMessageRequest{}
@@ -151,6 +154,14 @@ func runAsk(ctx context.Context, a *app, args []string) error {
 		}
 		req.ReplyTo = &id
 		req.Answer = &api.AnswerRequest{Withdrawn: ptrTo(true)}
+		me, e := c.api.GetMeWithResponse(ctx)
+		if e != nil {
+			return c.unreachable(e)
+		}
+		if me.JSON200 == nil {
+			return apiError(me.StatusCode(), me.Body)
+		}
+		req.To = ptrTo([]string{"@" + me.JSON200.Name})
 		req.Body = strings.Join(pos, " ")
 		if req.Body == "" {
 			req.Body = "Withdrawing this ask."
@@ -272,7 +283,10 @@ func derefSeq(p *int) int {
 	return *p
 }
 
-func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bool, reply string, option int, body string) error {
+func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bool, reply string, option int, body string, to []string, urgent, expect bool, wait int) error {
+	if wait != 0 {
+		return newError("agent_not_selected", "Waiting for a reply needs an agent seat; a person can answer an option without waiting.", "Omit --wait-reply, or run the command from the selected agent session.")
+	}
 	if reply == "" || option < 1 || option > 4 {
 		return usageError("--option takes 1 to 4 and needs --reply.", usageOf("say"))
 	}
@@ -294,20 +308,35 @@ func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bo
 		return err
 	}
 	if strings.TrimSpace(body) == "" {
-		source, err := c.api.GetMessageWithResponse(ctx, id)
+		body, err = askOptionBody(ctx, c, t.board, id, option)
 		if err != nil {
-			return c.unreachable(err)
+			return err
 		}
-		if source.JSON200 == nil {
-			return apiError(source.StatusCode(), source.Body)
-		}
-		m := source.JSON200.Message
-		if m.Board != t.board || m.Ask == nil || option > len(m.Ask.Options) {
-			return newError("ask_invalid", "That option is not available on this ask.", "Read the ask and choose one of its numbered options.")
-		}
-		body = m.Ask.Options[option-1]
 	}
 	req := api.PostMessageRequest{Body: body, ReplyTo: &id, Answer: &api.AnswerRequest{Option: &option}}
+	if slices.Contains(to, "mine") {
+		me, e := c.api.GetMeWithResponse(ctx)
+		if e != nil {
+			return c.unreachable(e)
+		}
+		if me.JSON200 == nil {
+			return apiError(me.StatusCode(), me.Body)
+		}
+		for i, target := range to {
+			if target == "mine" {
+				to[i] = "owner:" + me.JSON200.Name
+			}
+		}
+	}
+	if len(to) > 0 {
+		req.To = &to
+	}
+	if urgent {
+		req.Urgent = &urgent
+	}
+	if expect {
+		req.ExpectsReply = &expect
+	}
 	if task != "" {
 		req.About = ptrTo([]string{task})
 	} else if noTask {
@@ -323,4 +352,36 @@ func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bo
 	out := sayOutput{Message: cliMessage{Message: *r.JSON201}, Recipients: recipientsOf(ctx, c, r.JSON201), Nudges: []deliverytext.Nudge{}}
 	a.emit(out, fmt.Sprintf("Sent #%d to %s on %s\n", r.JSON201.Seq, targetsText(r.JSON201.To), t.board)+recipientsText(out.Recipients))
 	return nil
+}
+
+func askOptionBody(ctx context.Context, c *client, board, id string, option int) (string, error) {
+	before := 0
+	for {
+		params := api.ListMessagesParams{Newest: ptrTo(true), Limit: ptrTo(200)}
+		if before > 0 {
+			params.Before = &before
+		}
+		page, err := c.messages(ctx, board, params)
+		if err != nil {
+			return "", err
+		}
+		for _, m := range page.Messages {
+			if m.Id != id {
+				continue
+			}
+			if m.Board != board || m.Ask == nil || option > len(m.Ask.Options) {
+				return "", newError("ask_invalid", "That option is not available on this ask.", "Read the ask and choose one of its numbered options.")
+			}
+			return m.Ask.Options[option-1], nil
+		}
+		if page.PrevBefore == nil {
+			break
+		}
+		next := *page.PrevBefore
+		if next <= 0 || (before > 0 && next >= before) {
+			return "", newError("internal", "The server returned an invalid message page.", "Ask the server's admin to check the message list.")
+		}
+		before = next
+	}
+	return "", newError("message_ref_invalid", "That ask is not available on this board.", "Run aboard ask --open on this board.")
 }
