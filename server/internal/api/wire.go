@@ -56,6 +56,7 @@ type wireMember struct {
 }
 
 type wireBoard struct {
+	Brief           any                   `json:"brief,omitempty"`
 	AsksToMe        *board.AskCounts      `json:"asks_to_me,omitempty"`
 	TaskPrefix      *string               `json:"task_prefix"`
 	TasksOpen       *int64                `json:"tasks_open,omitempty"`
@@ -201,6 +202,7 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 		AgentsAddPeople: b.AgentsAddPeople, Lifecycle: b.Lifecycle, CanArchive: v.CanArchive, CanRestore: v.CanRestore, CanDelete: v.CanDelete,
 	}
 	if v.OnBoard {
+		w.Brief = briefOf(v.Brief)
 		w.TasksOpen = &b.TasksOpen
 	}
 	if v.ShowsCounts(p) {
@@ -280,4 +282,12 @@ func messagesOf(r board.Reading) []wireMessage {
 		out = append(out, messageOf(m, r.Board.Name, r.Reader))
 	}
 	return out
+}
+
+func briefOf(f *board.File) any {
+	if f == nil {
+		return nil
+	}
+	v := f.Versions[len(f.Versions)-1]
+	return map[string]any{"file_id": f.ID, "name": f.Name, "version": v.Version, "by": refOf(v.By), "at": v.At, "freshness": map[string]any{"messages_since": f.MessagesSince, "tasks_done_since": f.TasksDoneSince, "answers_since": f.AnswersSince}}
 }

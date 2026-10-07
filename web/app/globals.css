@@ -358,6 +358,29 @@ dialog.keys-sheet::backdrop {
   }
 }
 
+/* On a phone, reading the whole brief or writing it takes the board's column (D219):
+   the conversation and the message box step aside, so the brief has the room (and, while
+   writing, the room the on-screen keyboard leaves) and scrolls inside it, instead of a
+   box squeezed between the Now line and the timeline. Show less, Save and Cancel bring
+   the conversation back. */
+@media (max-width: 1023.98px) {
+  .board-main:has(.brief:is([data-editing], [data-open])) > :not(:first-child) {
+    display: none;
+  }
+  .board-main:has(.brief:is([data-editing], [data-open])) > :first-child {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+  .board-main .brief:is([data-editing], [data-open]) {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
+
 /* A sheet slides in from the side it stands for; under reduced motion it fades. */
 @keyframes sheet-from-left {
   from {
@@ -381,4 +404,17 @@ dialog.keys-sheet::backdrop {
   .sheet[data-side] {
     animation: fade-in 200ms var(--ease-out) both;
   }
+}
+
+/* The brief's Markdown, on the board view's own surface: code reads as code in every theme. */
+.brief code,
+.brief pre {
+  background: var(--selected);
+}
+.brief :not(pre) > code {
+  border-radius: 4px;
+  padding: 0 0.3em;
+}
+.brief kbd {
+  font-family: inherit;
 }

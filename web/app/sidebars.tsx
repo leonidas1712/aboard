@@ -709,7 +709,7 @@ function CrossFade({ value, className }: { value: string; className?: string }) 
   return (
     <span className={cn("presence grid text-right", className)} aria-live="polite">
       {leaving !== null && (
-        <span aria-hidden className="animate-fade-out [grid-area:1/1]" onAnimationEnd={() => setLeaving(null)}>
+        <span key={leaving} aria-hidden className="animate-fade-out [grid-area:1/1]" onAnimationEnd={() => setLeaving(null)}>
           {leaving}
         </span>
       )}

@@ -309,6 +309,15 @@ nothing in the record is erased. A message's `files` names versions by `file_id`
 `digest`. An approval names the digest it approved, so it can be checked against the
 bytes forever.
 
+The brief uses these same file events. A same-format edit writes one
+`file.version_added` after comparing the active brief's immutable file id and latest
+version. Switching format writes `file.removed` for that observed old file, then
+`file.version_added` for a new file at version 1 with `base_version: 0`, in one board
+transaction. A mismatch appends neither event. Removing or renaming the active brief
+clears the board's brief projection; retained versions and pinned attachments remain
+readable under the ordinary board-access rules. A replacement never inherits an
+approval. Brief reads and freshness facts are bookkeeping, not new event types.
+
 **Visibility.** Task and file events are board content every member reads, as a
 title is. A message's `about`, `ask`, `answer` and `files` are part of its payload, so
 they are withheld with it from a reader who may not see the message.

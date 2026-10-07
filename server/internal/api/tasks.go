@@ -11,13 +11,22 @@ func taskWorkOf(w *board.AgentWork) any {
 		return nil
 	}
 	var current any
+	var brief any
+	if w.Brief != nil {
+		f := w.Brief
+		v := f.Versions[len(f.Versions)-1]
+		brief = map[string]any{
+			"file_id": f.ID, "name": f.Name, "version": v.Version, "at": v.At,
+			"messages_since": f.MessagesSince, "tasks_done_since": f.TasksDoneSince,
+		}
+	}
 	if w.CurrentTask != nil {
 		t := w.CurrentTask
 		current = map[string]any{"id": t.ID, "ref": t.Ref, "title": t.Title, "owner": t.Owner, "stands": taskTextOf(t.Stands)}
 	}
 	return map[string]any{
 		"current_task": current, "open_tasks": w.OpenTasks, "oldest_open": taskRefOf(w.OldestOpen), "posts_without_task": w.PostsWithoutTask,
-		"asks_waiting": w.AsksWaiting, "asks_to_it": w.AsksToIt, "line": nil, "brief": nil, "nudges": w.Nudges,
+		"asks_waiting": w.AsksWaiting, "asks_to_it": w.AsksToIt, "line": nil, "brief": brief, "nudges": w.Nudges,
 	}
 }
 

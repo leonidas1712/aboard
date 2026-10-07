@@ -362,6 +362,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt, OpTurnStart:
+		if req.Op == OpTurnStart || req.Harness != "omp" {
+			ok.Nudge = s.briefStartNudge(ctx)
+		}
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true

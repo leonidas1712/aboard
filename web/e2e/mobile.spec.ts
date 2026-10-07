@@ -237,8 +237,8 @@ test("Files and a file's panel fit a phone, and the file sheet opens and closes"
   await expect(sheet).toBeVisible();
   const frame = sheet.locator("iframe");
   await expect(frame).toBeVisible();
-  const fits = await frame.evaluate((el) => el.getBoundingClientRect().right <= window.innerWidth);
-  expect(fits).toBe(true);
+  // Once the sheet has slid in, the preview's frame sits inside the screen.
+  await expect.poll(() => frame.evaluate((el) => el.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
   for (const width of [360, 430, 390]) {
     await page.setViewportSize({ width, height: 800 });
     await noSideScroll(page);
@@ -266,6 +266,78 @@ test("Files and a file's panel fit a phone, and the file sheet opens and closes"
   await shot(page, "phone-file-html-dark");
   await sheet.getByRole("button", { name: "Files", exact: true }).click();
   await theme(page, "Light");
+});
+
+test("the brief reads, edits and shows a newer version on a phone", async ({ page }) => {
+  const board = "mobile-brief";
+  await openBoard(page, board);
+  const putBrief = async (body: string, over?: { id: string; version: number }) => {
+    const qs = new URLSearchParams({ name: "brief.md", brief: "true", base: String(over?.version ?? 0) });
+    if (over) qs.set("file_id", over.id);
+    const r = await fetch(`${base()}/v1/boards/${board}/files?${qs}`, { method: "POST", headers: { Authorization: `Bearer ${seatToken(board, "writer")}`, "Content-Type": "application/octet-stream" }, body });
+    expect(r.status).toBe(201);
+    return (await r.json()) as { id: string };
+  };
+  const first = await putBrief("# Launch week\n\nShipping the public release on Friday, **behind the docs review**.\n\n## Who's doing what\n\n- writer keeps this brief and the release notes\n- reviewer checks `aboard pair` from a fresh machine with a very long command line that must wrap\n");
+  const brief = page.getByRole("region", { name: "Brief" });
+  await expect(brief.locator(".brief-summary")).toContainText("Shipping the public release");
+  for (const width of [360, 430, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await noSideScroll(page);
+  }
+  await page.setViewportSize({ width: 390, height: 664 });
+  await brief.getByRole("button", { name: "Show full brief" }).click();
+  await noSideScroll(page);
+  // The whole brief reads in the column; Show less brings the conversation back.
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeHidden();
+  await shot(page, "phone-brief-light");
+  await brief.getByRole("button", { name: "Show less" }).click();
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Message everyone" })).toBeVisible();
+  await brief.getByRole("button", { name: "Show full brief" }).click();
+
+  // Editing takes the column: the timeline and the message box step aside, and come back after.
+  await brief.getByRole("button", { name: "Edit" }).click();
+  const text = page.getByLabel("The brief, in Markdown");
+  await expect(text).toBeVisible();
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeHidden();
+  await expect(page.getByRole("combobox", { name: "Message everyone" })).toBeHidden();
+  // The field reads at 16px, so focusing it doesn't zoom the page.
+  expect(await text.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+  await text.tap();
+  await text.press("ControlOrMeta+End");
+  await text.pressSequentially("- alex: the docs review is done");
+  // A short screen, as with the keyboard up: the editor scrolls inside what is left.
+  await page.setViewportSize({ width: 390, height: 380 });
+  await noSideScroll(page);
+  await expect(brief.getByRole("button", { name: "Save version 2" })).toBeAttached();
+  await page.setViewportSize({ width: 390, height: 664 });
+  await shot(page, "phone-brief-edit-light");
+
+  // An agent writes v2 meanwhile: the editor says so, and the person's text stays.
+  await putBrief("# Launch week\n\nShipping on Friday. Docs review moved to Thursday.\n", { id: first.id, version: 1 });
+  const changed = brief.locator(".brief-conflict");
+  await expect(changed).toContainText("writer wrote brief.md v2");
+  for (const width of [360, 430, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await noSideScroll(page);
+  }
+  await page.setViewportSize({ width: 390, height: 664 });
+  await changed.scrollIntoViewIfNeeded();
+  await shot(page, "phone-brief-conflict-light");
+  await theme(page, "Dark");
+  await shot(page, "phone-brief-conflict-dark");
+  await theme(page, "Light");
+  await brief.getByRole("button", { name: "Cancel" }).click();
+  await brief.getByRole("button", { name: "Discard" }).click();
+  // Back to reading the brief, then Show less returns the conversation.
+  await expect(brief.getByRole("button", { name: "Edit" })).toBeVisible();
+  await theme(page, "Dark");
+  await shot(page, "phone-brief-dark");
+  await theme(page, "Light");
+  await brief.getByRole("button", { name: "Show less" }).click();
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Message everyone" })).toBeVisible();
 });
 
 test.describe("on a wide screen", () => {

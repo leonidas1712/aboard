@@ -14,6 +14,7 @@ import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
 import { TaskBoard, TaskContext, TaskDetail, WorkTasks, useTasks } from "./task-ui";
 import { FilePanel, FilesView, useFiles } from "./files";
+import { Brief } from "./brief";
 import { Composer } from "./composer";
 import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
@@ -549,7 +550,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             </Sheet>
           )}
 
-          <main className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none">
+          <main className="board-main flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none">
             <div className={column}>
               <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
                 <NowLine parts={loading ? null : now} onShow={onShow} />
@@ -568,6 +569,10 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 <div className="pb-3">
                   <Problem error={error} />
                 </div>
+              )}
+              {/* The server leaves brief out when the board has none, so a server that keeps files and sends no brief means "no brief yet". */}
+              {!loading && s.board && !lab?.Centre && (
+                <Brief board={name} brief={s.board.brief ?? (fileState.list !== null ? null : undefined)} me={me} canEdit={s.me?.kind === "human" && !readOnly} onChanged={s.refresh} openHistory={openFile} />
               )}
             </div>
             {centre(
