@@ -377,15 +377,34 @@ func helpText(templates string) []commandHelp {
 			SeeAlso:     []string{"say", "read", "board"},
 		},
 		{
+			Name: "file", Group: groupTalk,
+			Summary:     "Keep versioned files on a board",
+			Usage:       []string{fileUsage},
+			Description: "Files keep exact bytes and every version. Get a file before editing it; put uses the fetched version and identity. A blind overwrite or stale edit is refused. Removal frees the path but keeps historical bytes readable by file id. The top-level brief paths are reserved.",
+			Flags:       []helpFlag{{"--name", "PATH", "The board path to write; folders are allowed."}, {"--base", "N", "The version to replace, overriding the remembered version."}, {"--version", "N", "Download this historical version."}, {"--force", "", "Replace a changed local file."}, {"--task", "ID", "Link the upload to tasks, or filter the list."}, {"--mine", "", "List files you wrote."}, {"--maintained", "", "Mark the upload as kept current."}, {"--media-type", "TYPE", "The bytes' media type; inferred from the name otherwise."}, flagAs, flagBoard, flagJSON},
+			Examples:    []helpExample{{"aboard file list", "List files"}, {"aboard file get notes/api.md api.md", "Fetch a version to edit"}, {"aboard file put api.md", "Put the edited version back"}},
+			SeeAlso:     []string{"say", "storage"},
+		},
+		{
+			Name: "storage", Group: groupMaintain,
+			Summary:     "Check file bytes or copy a disk store",
+			Usage:       []string{storageUsage},
+			Description: "For the server operator, in a terminal. Check opens the database read-only without migrations and verifies every historical file version. Copy verifies all blobs and skips intact bytes already at the destination. Both refuse in agent sessions.",
+			Flags:       []helpFlag{{"--data", "PATH", "The server data directory."}, {"--db", "URL", "The SQLite database URL."}, {"--files", "URL", "The disk blob store URL."}, {"--from", "URL", "The source disk store."}, {"--to", "URL", "The destination disk store."}, flagJSON},
+			Examples:    []helpExample{{"aboard storage check", "Verify all stored versions"}},
+			SeeAlso:     []string{"file", "serve"},
+		},
+		{
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
-			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--attach PATH] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise. owner:<handle> addresses that person’s current agents on the board. In a person’s terminal, --to mine posts as that person to their own agents; agent sessions must use owner:<handle>.\n\n" +
 				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
 				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
 				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
 				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{
+				{"--attach", "FILE", "Put a local file on the board and attach that version; repeat for several files."},
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},
 				{"--urgent", "", "Put the message first in each recipient's next delivery."},
@@ -907,13 +926,14 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "serve", Group: groupInternal,
 			Summary: "Run the local server, or a team server, in the foreground",
-			Usage:   []string{"aboard serve", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE]"},
+			Usage:   []string{"aboard serve [--files disk:///PATH]", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE] [--files disk:///PATH]"},
 			Description: "Runs the local server in the foreground until it is stopped. " +
 				"aboard up and other commands start it in the background this way; use aboard up instead. " +
 				"With --team it runs a team server behind a proxy that ends HTTPS, such as a container behind an ingress. " +
 				"Each of its flags can come from a variable instead: ABOARD_PUBLIC_URL, ABOARD_DATA, ABOARD_LISTEN and ABOARD_ADMIN. " +
 				"Its first start makes the first admin and writes their key to admin-key in the data folder; pipe that file into aboard login on your own machine, then delete it.",
 			Flags: []helpFlag{
+				{"--files", "URL", "Disk blob storage: disk:///absolute/path, or ABOARD_FILES. Default: files under the data folder."},
 				{"--team", "", "Run a team server instead of the local one."},
 				{"--public-url", "URL", "With --team: the https address people use, such as https://aboard.example.com. Only requests for its host are answered."},
 				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own, never a network file system. It must be this user's alone (mode 700, no links); the server makes it so when it is new."},

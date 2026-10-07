@@ -36,6 +36,21 @@ type Store struct {
 	path string
 }
 
+// OpenReadOnly opens an existing operator-selected database without creating or migrating it.
+func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
+	u := url.URL{Scheme: "file", Path: path}
+	u.RawQuery = "mode=ro"
+	db, err := sql.Open("sqlite", u.String())
+	if err != nil {
+		return nil, err
+	}
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return &Store{db: db, clk: clock.Real{}, path: path}, nil
+}
+
 // keptBackups is how many copies of the database, each made before a migration, are
 // kept in the backups folder beside it.
 const keptBackups = 3
