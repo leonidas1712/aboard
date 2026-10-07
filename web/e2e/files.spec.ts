@@ -333,6 +333,51 @@ test("a file dropped on the Files view starts an upload, and one dropped on a fi
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
+// agent calls the public API as the board's agent.
+async function agent(board: string, method: string, path: string, body?: unknown): Promise<Record<string, unknown>> {
+  const r = await fetch(`${base()}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${seatToken(board)}`, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as Record<string, unknown>;
+}
+
+test("the panel links to the messages that posted a file, and a file removed and made again at its path refuses a stale upload", async ({ page }) => {
+  const board = "files-identity";
+  await openBoard(page, board);
+  const first = await put(board, "plan.md", 0, "# Plan\n\nThe first file.\n");
+  const posted = await agent(board, "POST", `/v1/boards/${board}/messages`, { body: "The plan is up.", to: ["all"], files: [{ file: "plan.md", version: 1 }] });
+  await page.getByRole("tab", { name: "Files 1" }).click();
+  await page.locator('[data-file="plan.md"]').getByRole("button", { name: "plan.md" }).click();
+  const panel = page.getByRole("region", { name: "File plan.md" });
+
+  // Posted in leads to the message in the conversation.
+  const link = panel.getByRole("region", { name: "Posted in" }).getByRole("button", { name: "A message, with v1" });
+  await link.click();
+  await expect(page.getByRole("tab", { name: "Conversation" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(`[data-id="${posted.id}"]`)).toBeInViewport();
+  await page.getByRole("tab", { name: /^Files/ }).click();
+
+  // The writer takes the file off the board and puts a different one at the same path,
+  // also at v1, while the panel still shows the first. An upload against what the panel
+  // shows names that file, so it is refused, and the new file keeps its bytes.
+  await page.route(`**/v1/boards/${board}/files/*`, () => {});
+  await agent(board, "DELETE", `/v1/boards/${board}/files/${first.id}`);
+  const second = await put(board, "plan.md", 0, "# Plan\n\nA different file.\n");
+  expect(second.id).not.toBe(first.id);
+  expect(second.latest.version).toBe(1);
+  const chooser = page.waitForEvent("filechooser");
+  await panel.getByRole("button", { name: "Upload a new version (after v1)" }).click();
+  await (await chooser).setFiles({ name: "plan.md", mimeType: "text/markdown", buffer: Buffer.from("# Plan\n\nAlex's edit of the first.\n") });
+  await expect(panel.getByRole("alert")).toContainText("plan.md was removed or replaced on the board since you opened it.");
+  await expect(panel.getByRole("alert")).toContainText("Nothing was uploaded.");
+  expect(await latest(board, second.id)).toMatchObject({ version: 1, by: { name: "writer" } });
+  expect((await bytes(board, second.id, 1)).toString()).toBe("# Plan\n\nA different file.\n");
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Screenshots for review, only when FILES_SHOTS names a folder: the list and the panel,
 // light and dark, wide and narrow.
 test("screenshots of the Files view and the file panel", async ({ page }) => {

@@ -726,10 +726,13 @@ export async function fileText(board: string, file: string, version: number): Pr
  * putFile uploads bytes as a new version of the file at name, as the person. base is the
  * version it replaces, 0 for a new file. The server refuses a base that isn't the file's
  * latest version (409 file_changed, or file_exists for a name already taken) and stores
- * nothing, so no one's version is overwritten unseen.
+ * nothing, so no one's version is overwritten unseen. fileId, sent with a new version,
+ * is the file the person saw: if it was removed, or replaced by another file at the same
+ * path, the write is refused as file_changed too.
  */
-export async function putFile(board: string, name: string, base: number, body: Blob, key: string = crypto.randomUUID()): Promise<BoardFile> {
+export async function putFile(board: string, name: string, base: number, body: Blob, fileId?: string, key: string = crypto.randomUUID()): Promise<BoardFile> {
   const qs = new URLSearchParams({ name, base: String(base) });
+  if (fileId) qs.set("file_id", fileId);
   const resp = await fetch(`/v1/boards/${encodeURIComponent(board)}/files?${qs}`, {
     method: "POST",
     credentials: "same-origin",

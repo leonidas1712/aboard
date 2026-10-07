@@ -430,9 +430,17 @@ function conflictText(e: ApiError, name: string, me: string | null, now: number)
       </>
     );
   }
+  if (!d?.version) {
+    return (
+      <>
+        <strong>{name}</strong> was removed or replaced on the board since you opened it. Nothing was uploaded. Open the file at that
+        path now, if there is one, and upload yours there if it still applies.
+      </>
+    );
+  }
   return (
     <>
-      {who} wrote {d?.version ? `v${d.version}` : "a newer version"}
+      {who} wrote v{d.version}
       {when}, after the version you were looking at. Nothing was uploaded. Read the new version, then upload yours again if it still
       applies.
     </>
@@ -577,7 +585,7 @@ export function FilePanel({
   identity: Identity;
   me: string | null;
   canUpload: boolean;
-  onShow: (messageId: string) => void;
+  onShow: (messageId: string, seq: number) => void;
 }) {
   const [file, setFile] = useState<FileDetail | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -686,7 +694,7 @@ export function FilePanel({
               <ul className="flex flex-col">
                 {file.posted_in.map((p) => (
                   <li key={p.message_id}>
-                    <button type="button" onClick={() => onShow(p.message_id)} className="min-h-11 text-left text-link underline decoration-1 underline-offset-[3px] hover:no-underline">
+                    <button type="button" onClick={() => onShow(p.message_id, p.seq)} className="min-h-11 text-left text-link underline decoration-1 underline-offset-[3px] hover:no-underline">
                       {p.thread_root_seq !== null ? "A reply in a thread" : "A message"}, with v{p.version}
                     </button>
                   </li>
@@ -858,7 +866,7 @@ function NewVersion({
     setProblem(null);
     setDone(null);
     try {
-      const f = await putFile(board, file.name, over, picked);
+      const f = await putFile(board, file.name, over, picked, file.id);
       setDone(f.latest.version);
       onUploaded(f);
     } catch (err) {

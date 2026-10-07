@@ -603,9 +603,11 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 identity={identity}
                 me={me}
                 canUpload={s.me?.kind === "human" && !readOnly}
-                onShow={(id) => {
+                onShow={(id, seq) => {
                   setView("conversation");
-                  onShow(id);
+                  // A message the timeline hasn't loaded is read first, as a permalink is.
+                  if (byId.has(id)) onShow(id);
+                  else s.loadMessage(id, seq).then(() => onShow(id), setPostError);
                 }}
               />
             ) : taskPanel ? (
