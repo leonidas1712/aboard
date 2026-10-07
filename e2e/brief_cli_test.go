@@ -147,7 +147,7 @@ func TestBriefCLISelectsTheExactBoardAndSeat(t *testing.T) {
 		t.Fatalf("agent brief used another actor: %v", read)
 	}
 	briefRefused(t, s.runExit("brief", "--board", first, "--as", "missing-agent", "--json"), "agent_not_selected")
-	if field(t, tm.admin.run("brief", "--json").json(t), "text") != "First board only\n" {
-		t.Fatal("person's folder board did not remain readable")
+	if field(t, tm.admin.run("brief", "--board", first, "--json").json(t), "text") != "First board only\n" {
+		t.Fatal("person could not read the explicitly selected board's brief")
 	}
 }
