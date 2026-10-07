@@ -40,7 +40,7 @@ export function FilterControl({ filter, setFilter, showEvents, setShowEvents, me
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="filter-control ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-ink transition-colors duration-[140ms] ease-out hover:bg-selected data-[state=open]:bg-selected"
+        className="filter-control ml-auto inline-flex min-h-11 shrink-0 items-center gap-2 rounded-control px-3 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected"
         aria-label={set > 0 ? `Filter, ${set} set` : "Filter"}
       >
         <ListFilter className="size-4" strokeWidth={1.5} aria-hidden />
@@ -132,7 +132,7 @@ export function FilterChips({ filter, setFilter, showEvents, setShowEvents, me }
         <li key={c.key}>
           <button
             type="button"
-            className="chip inline-flex min-h-9 items-center gap-1.5 rounded-control border border-rule bg-surface py-1 pr-2 pl-3 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-selected"
+            className="chip inline-flex min-h-9 items-center gap-1.5 rounded-control border border-rule bg-surface py-1 pr-2 pl-3 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
             aria-label={`Remove filter: ${c.label}`}
             title="Remove this filter"
             onClick={() => {

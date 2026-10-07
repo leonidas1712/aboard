@@ -63,7 +63,7 @@
       "items": { "type": "string" }
     },
     "config_dir": {
-      "description": "The folder the harness reads its global config from: the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in the install paths stands for it, so aboard init, doctor and status follow the variable.",
+      "description": "The folder the harness reads its global config from (optional in the contract; every bundled profile declares it so a development sandbox can point the harness at a folder of its own): the folder the variable env names when it is set to an absolute path, else default under the home directory. {config_dir} in the install paths stands for it, so aboard init, doctor and status follow the variable.",
       "type": "object",
       "additionalProperties": false,
       "required": ["env", "default"],
@@ -71,6 +71,11 @@
         "env": { "type": "string" },
         "default": { "type": "string" }
       }
+    },
+    "login_files": {
+      "description": "Files in the config folder that hold the person's login for the harness, such as Codex's auth.json. A development sandbox (scripts/sandbox) links them from the person's own config folder into the sandbox's, so the harness there starts logged in; Aboard never reads them. Paths are relative to the config folder.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
     },
     "skills_dir": {
       "description": "Deprecated: use install, with an item of kind skill. Where aboard init puts the Aboard skill for every project: under the home directory, or under the config folder when it starts with {config_dir}.",

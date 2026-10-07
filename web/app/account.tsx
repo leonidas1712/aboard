@@ -67,7 +67,7 @@ export function Account({ admin, onSignOut, person }: Props) {
     <>
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-selected data-[state=open]:bg-selected"
+        className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected"
         aria-label={`You are ${me.name}. Account and settings`}
       >
         <SenderMark name={me.name} kind="human" identity={personIdentity(me.name, me)} className="size-7" />
