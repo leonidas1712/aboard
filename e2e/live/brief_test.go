@@ -96,7 +96,7 @@ func TestBriefGetEditPutFromTheHarness(t *testing.T) {
 		l.multiSeatOwnerRequest(http.MethodGet, "/v1/boards/"+board+"/files/"+before.Brief.FileID, nil, &detail)
 		originalDigest := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(original)))
 		editedDigest := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(edited)))
-		if detail.ID != before.Brief.FileID || !detail.Maintained || len(detail.Versions) != 2 || detail.Versions[0].Version != 1 || detail.Versions[0].Digest != originalDigest || detail.Versions[1].Version != 2 || detail.Versions[1].Base != 1 || detail.Versions[1].Digest != editedDigest {
+		if detail.ID != before.Brief.FileID || !detail.Maintained || len(detail.Versions) != 2 || detail.Versions[0].Version != 2 || detail.Versions[0].Base != 1 || detail.Versions[0].Digest != editedDigest || detail.Versions[1].Version != 1 || detail.Versions[1].Base != 0 || detail.Versions[1].Digest != originalDigest {
 			t.Fatalf("brief history did not retain the exact original and edited bytes: %+v", detail)
 		}
 		var fetched []struct {
