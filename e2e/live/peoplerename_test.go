@@ -22,7 +22,8 @@ func TestRenamedPersonKeepsAgentDelivery(t *testing.T) {
 			Name string `json:"name"`
 		}
 		l.multiSeatOwnerRequest(http.MethodGet, "/v1/me", nil, &before)
-		l.multiSeatOwnerRequest(http.MethodPost, "/v1/people/"+before.Name+"/rename", map[string]string{"handle": "renamed-owner"}, nil)
+		var renamed map[string]any
+		l.multiSeatOwnerRequest(http.MethodPost, "/v1/people/"+before.Name+"/rename", map[string]string{"handle": "renamed-owner"}, &renamed)
 		var state struct {
 			HeadSeq int `json:"head_seq"`
 		}
