@@ -175,6 +175,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	text.WriteString(relinkedText(board, previous))
 	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: board, Name: joined.Agent.Name, MemberID: joined.Agent.Id}, heldModeOf(joined.Agent))
 	text.WriteString(mode.line())
+	text.WriteString(briefJoinHint(joined.Board))
 	if inSession {
 		text.WriteString(a.seatBoardReminder(ctx, session, board))
 	}
@@ -349,7 +350,7 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 		text += fmt.Sprintf("You're a guest on %s: you and your agents reach only the boards you're invited to. This machine's key, %q, is saved.\n",
 			srv.URL, keyName)
 	}
-	text += how + movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous) + mode.line()
+	text += how + movedText(moved, agent.Name, board.Name) + relinkedText(board.Name, previous) + mode.line() + briefJoinHint(board)
 	if inSession {
 		text += a.seatBoardReminder(ctx, session, board.Name)
 	}

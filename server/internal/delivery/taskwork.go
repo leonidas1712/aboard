@@ -53,3 +53,44 @@ func (s *session) taskStartNote(ctx context.Context, note string) string {
 	}
 	return strings.TrimSpace(note)
 }
+
+func (s *session) briefStartNudge(ctx context.Context) string {
+	if s.d.cfg.AllowBriefNudge == nil {
+		return ""
+	}
+	readCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	text := ""
+	refs := s.agentRefs()
+	for _, ref := range refs {
+		a := s.agents[ref.Key()]
+		if a == nil || a.gone() {
+			continue
+		}
+		provider, ok := s.d.server(ref.Server).srv.(TaskWorkServer)
+		if !ok {
+			continue
+		}
+		work, err := provider.TaskWork(readCtx, ref)
+		if err != nil || work == nil {
+			continue
+		}
+		dc := s.textContext(ref)
+		dc.BoardQualified = len(refs) > 1
+		n := deliverytext.BriefStale(*work, s.now(), ref.Board, dc)
+		if n == nil {
+			continue
+		}
+		if len(text)+len(n.Text)+1 > 600 {
+			break
+		}
+		if !s.d.cfg.AllowBriefNudge(ref, *work.Brief) {
+			continue
+		}
+		if text != "" {
+			text += "\n"
+		}
+		text += n.Text
+	}
+	return text
+}

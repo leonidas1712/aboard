@@ -13,6 +13,7 @@ import (
 )
 
 type taskNudgeSeat struct {
+	Brief  map[string]int       `json:"brief,omitempty"`
 	At     map[string]time.Time `json:"at"`
 	Starts int                  `json:"starts"`
 	Stands map[string]int       `json:"stands"`
@@ -209,4 +210,35 @@ func nudgeInterval(code string) time.Duration {
 	default:
 		return 30 * time.Minute
 	}
+}
+
+func (a *app) allowBriefNudge(ref delivery.AgentRef, b deliverytext.BriefContext) bool {
+	if ref.MemberID == "" || b.FileID == "" {
+		return false
+	}
+	p, err := a.paths()
+	if err != nil {
+		return false
+	}
+	allowed := false
+	var history taskNudgeHistory
+	err = updateJSONFile(filepath.Join(p.state, "nudges.json"), &history, func() error {
+		if history.Seats == nil {
+			history.Seats = map[string]taskNudgeSeat{}
+		}
+		key := ref.Server + "\n" + ref.MemberID
+		seat := history.Seats[key]
+		if seat.Brief == nil {
+			seat.Brief = map[string]int{}
+		}
+		version := b.FileID + "\n" + strconv.Itoa(b.Version)
+		progress := max(b.MessagesSince/30, b.TasksDoneSince/3)
+		if progress > seat.Brief[version] {
+			seat.Brief[version] = progress
+			allowed = true
+		}
+		history.Seats[key] = seat
+		return nil
+	})
+	return err == nil && allowed
 }

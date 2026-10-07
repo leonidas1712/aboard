@@ -131,6 +131,7 @@ interface Frame {
 	delivery_class?: string;
 	capabilities?: string[];
 	bundle?: string;
+	nudge?: string;
 	notice?: string;
 	boot?: string;
 	agents?: { server: string; board: string; name: string }[];
@@ -250,7 +251,7 @@ class Link {
 			log("turn start refused", { code: answer.error.code });
 			return undefined;
 		}
-		const text = (answer.bundle ?? "").trim();
+		const text = [answer.nudge, answer.bundle].filter(Boolean).join("\n\n").trim();
 		if (text === "") return undefined;
 		log("turn start", { session: this.#session, bytes: text.length });
 		return { customType: "aboard", content: text, display: true, attribution: "agent" };
