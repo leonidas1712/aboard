@@ -3751,8 +3751,8 @@ $defs:
     description: |
       Copies every blob from one file store to another, checking each against its
       digest and skipping those the target has; safe to run again, and while the server
-      runs. Built with the second file store adapter. Text output:
-        Copied 37 of 214 blobs (177 already there) to s3://aboard-files/prod; all verified.
+      runs. This build supports disk-to-disk copies. Text output:
+        Copied 37 of 214 blobs (177 already there); all verified.
     type: object
     required: [copied, skipped, failed]
     properties:
