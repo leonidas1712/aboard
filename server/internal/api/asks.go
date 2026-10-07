@@ -10,7 +10,7 @@ func askOf(a *board.Ask) any {
 	if a == nil {
 		return nil
 	}
-	return map[string]any{"to": refOf(a.Target), "options": a.Options, "blocking": a.Blocking, "going_with": a.GoingWith, "going_at": a.GoingAt, "task": taskRefOf(a.Task), "state": a.State, "answer_seq": a.AnswerSeq, "answer_option": a.AnswerOption}
+	return map[string]any{"to": refOf(a.Target), "options": a.Options, "blocking": a.Blocking, "going_with": a.GoingWith, "going_at": a.GoingAt, "task": taskRefOf(a.Task), "state": a.State, "answer_seq": a.AnswerSeq, "answer_option": a.AnswerOption, "can_answer": a.CanAnswer, "can_withdraw": a.CanWithdraw}
 }
 
 func answerOf(a *board.Answer) any {

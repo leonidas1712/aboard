@@ -261,3 +261,36 @@ func TestVisibleAnswerDoesNotDiscloseHiddenAskOptions(t *testing.T) {
 		t.Fatalf("hidden option text leaked: %+v", page.JSON200.Messages)
 	}
 }
+
+func TestAskActionsFollowCallerAuthorityAndArchive(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, writer, reviewer := s.pair("starter")
+	outsider := s.addHuman("pat")
+	added, err := s.client(s.owner).AddPersonWithResponse(ctx, name, nil, api.AddPersonRequest{Handle: "pat"})
+	mustStatus(t, added, err, 201)
+	posted, err := s.client(writer).PostMessageWithResponse(ctx, name, nil, api.PostMessageRequest{Body: "Pick one", To: &[]string{"@reviewer"}, Ask: &api.AskRequest{Options: &[]string{"yes"}}})
+	mustStatus(t, posted, err, 201)
+	assertActions := func(token string, wantAnswer, wantWithdraw bool) {
+		t.Helper()
+		list, err := s.client(token).ListAsksWithResponse(ctx, nil)
+		mustStatus(t, list, err, 200)
+		if len(list.JSON200.Asks) != 1 {
+			t.Fatalf("ask not returned: %+v", list.JSON200)
+		}
+		a := list.JSON200.Asks[0].Ask
+		if a.CanAnswer == nil || *a.CanAnswer != wantAnswer || a.CanWithdraw == nil || *a.CanWithdraw != wantWithdraw {
+			t.Fatalf("ask actions answer=%v withdraw=%v", a.CanAnswer, a.CanWithdraw)
+		}
+	}
+	assertActions(reviewer, true, false)
+	assertActions(s.owner, true, false)
+	assertActions(writer, false, true)
+	assertActions(outsider, false, false)
+	archived, err := s.client(s.owner).ArchiveBoardWithResponse(ctx, name, nil)
+	mustStatus(t, archived, err, 200)
+	assertActions(reviewer, false, false)
+	assertActions(writer, false, false)
+	assertActions(s.owner, false, false)
+}
