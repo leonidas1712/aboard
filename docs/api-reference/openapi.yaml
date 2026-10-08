@@ -4030,6 +4030,7 @@ components:
                 - message_too_large
                 - ack_out_of_range
                 - idempotency_conflict
+            - queue_report_conflict
                 - rate_limited
                 - login_code_invalid
                 - host_not_allowed
