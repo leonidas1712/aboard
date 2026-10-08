@@ -38,3 +38,11 @@ func (h *handlers) ApproveFile(context.Context, ApproveFileRequestObject) (Appro
 func (h *handlers) RemoveFileApproval(context.Context, RemoveFileApprovalRequestObject) (RemoveFileApprovalResponseObject, error) {
 	return nil, notProvided("file approvals")
 }
+
+func (h *handlers) GetDeliveryQueue(context.Context, GetDeliveryQueueRequestObject) (GetDeliveryQueueResponseObject, error) {
+	return nil, notProvided("queued receipt observations")
+}
+
+func (h *handlers) ReportDeliveryQueue(context.Context, ReportDeliveryQueueRequestObject) (ReportDeliveryQueueResponseObject, error) {
+	return nil, notProvided("queued receipt observations")
+}
