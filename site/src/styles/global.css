@@ -39,11 +39,14 @@
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --frame: 1280px;
+  /* The frame's rules sit wide; the content keeps a comfortable measure inside them. */
+  --frame: 1400px;
   --pad: 20px;
+  --top: 65px; /* the top bar's height, so the page grid lines up with the hero's */
 }
 @media (min-width: 720px) { :root { --pad: 32px; } }
 @media (min-width: 1100px) { :root { --pad: 48px; } }
+@media (min-width: 1300px) { :root { --pad: 80px; } }
 
 :root[data-theme="dark"] {
   --grid: #171914;
@@ -78,7 +81,13 @@ html {
 }
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  /* The page's grid runs edge to edge; the frame covers it in the middle. */
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--grid) 75%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--grid) 75%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: 0 var(--top);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 16px;
@@ -104,7 +113,15 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 
 .mono { font-family: var(--mono); }
 .muted { color: var(--muted); }
-.hl { background: var(--accent); color: var(--accent-ink); padding: 0 0.1em; border-radius: 0.1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.hl { background-color: transparent; background-image: linear-gradient(var(--accent), var(--accent)); background-repeat: no-repeat; background-size: 100% 100%; color: var(--accent-ink); padding: 0 0.1em; border-radius: 0.1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+/* On first load the headline's highlight sweeps in, left to right, like a marker. */
+.display .hl { animation: sweep 900ms var(--ease-expo) 450ms both; }
+@keyframes sweep {
+  0% { background-size: 0% 100%; color: var(--ink); }
+  45% { color: var(--ink); }
+  70%, 100% { background-size: 100% 100%; color: var(--accent-ink); }
+}
+@media (prefers-reduced-motion: reduce) { .display .hl { animation: none; } }
 
 /* ---------- The frame: two rules down the page, crosshairs where rules meet ---------- */
 
@@ -112,9 +129,10 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
   position: relative;
   max-width: var(--frame);
   margin-inline: auto;
-  border-inline: 1px solid var(--line);
+  background: var(--bg);
+  border-inline: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
 }
-@media (max-width: 1311px) { .frame { border-inline-color: transparent; } }
+@media (max-width: 1431px) { .frame { border-inline-color: transparent; } }
 
 .seam { position: relative; border-top: 1px solid var(--line); }
 .seam::before, .seam::after {
@@ -127,7 +145,7 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 }
 .seam::before { left: -7px; }
 .seam::after { right: -7px; }
-@media (max-width: 1311px) { .seam::before { left: 6px; } .seam::after { right: 6px; } }
+@media (max-width: 1431px) { .seam::before { left: 6px; } .seam::after { right: 6px; } }
 
 .pad { padding-inline: var(--pad); }
 
@@ -543,7 +561,7 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 
 .intro { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 @media (min-width: 960px) { .intro { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 64px; align-items: end; } }
-.h2 { font-size: clamp(2.1rem, 1.2rem + 3.3vw, 3.65rem); line-height: 1.02; letter-spacing: -0.048em; font-weight: 600; max-width: 15ch; }
+.h2 { font-size: clamp(2.1rem, 1.2rem + 3.3vw, 3.65rem); line-height: 1.02; letter-spacing: -0.048em; font-weight: 600; max-width: 16ch; }
 .intro p { font-size: clamp(1.03rem, 0.98rem + 0.25vw, 1.15rem); color: var(--muted); max-width: 34em; }
 .intro p + p { margin-top: 12px; }
 .intro p b { color: var(--ink); font-weight: 600; }
@@ -708,7 +726,7 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 
 .hero { position: relative; isolation: isolate; }
 .hero > :not(.hero-field) { position: relative; z-index: 1; }
-.hero-field { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.hero-field { position: absolute; top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw; z-index: 0; pointer-events: none; }
 .hero-field canvas { display: block; width: 100%; height: 100%; }
 
 /* ---------- Reveal on scroll ---------- */
@@ -922,3 +940,37 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
   .btn:active, .install-copy:active { transform: none; }
 }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- Hero category line ---------- */
+
+.category { max-width: 34em; margin: 22px auto 0; font-size: clamp(1.1rem, 1rem + 0.45vw, 1.32rem); font-weight: 500; letter-spacing: -0.015em; line-height: 1.4; color: var(--ink); }
+.category + .lede { margin-top: 12px; }
+
+/* ---------- Built for agents: the comparison ---------- */
+
+.cmp-wrap { margin-top: 48px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 15px; }
+.cmp th, .cmp td { text-align: left; vertical-align: top; padding: 15px 22px; border-top: 1px solid var(--line); }
+.cmp thead th { border-top: 0; padding-block: 16px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.cmp thead th:last-child { color: var(--ink); }
+.cmp tbody th { width: 22%; font-weight: 600; font-size: 14.5px; }
+.cmp td { color: var(--muted); width: 36%; }
+.cmp td:last-child { color: var(--ink); width: 42%; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.cmp thead th:last-child { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.cmp-us { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+.cmp-mark { width: 18px; height: 18px; }
+.cmp code { font-size: 12.5px; }
+.cmp tbody tr { transition: background-color 160ms var(--ease); }
+.cmp tbody tr:hover { background: color-mix(in srgb, var(--selected) 50%, transparent); }
+@media (max-width: 759px) {
+  .cmp thead { display: none; }
+  .cmp, .cmp tbody, .cmp tr, .cmp th, .cmp td { display: block; width: auto !important; }
+  .cmp tr { padding: 16px 18px; border-top: 1px solid var(--line); }
+  .cmp tbody tr:first-child { border-top: 0; }
+  .cmp th, .cmp td { border: 0; padding: 0; }
+  .cmp tbody th { margin-bottom: 8px; }
+  .cmp td { font-size: 14px; padding: 6px 10px; border-radius: 8px; }
+  .cmp td:nth-child(2)::before { content: "With a bot: "; font-weight: 600; }
+  .cmp td:last-child { margin-top: 6px; }
+  .cmp td:last-child::before { content: "aboard: "; font-weight: 700; }
+}
