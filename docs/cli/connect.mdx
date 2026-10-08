@@ -6,8 +6,8 @@ description: "Join a server with an invite link, or connect another machine of y
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--json]
-aboard connect <server URL> [--handle NAME] [--name MACHINE] [--json]
+aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--server-name NAME] [--json]
+aboard connect <server URL> [--handle NAME] [--name MACHINE] [--server-name NAME] [--json]
 ```
 
 With an invite link from an admin of a server (aboard invite `--server`): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. An invite works once.
@@ -22,6 +22,7 @@ Either way, the key is saved in servers.json, readable only by you, and sent onl
 | --- | --- |
 | `--handle NAME` | Your name on the server, lowercase letters, digits and dashes. With an invite, the name you take (default: asked, starting from your system user name; without a terminal, your system user name). With the server's address, who you are there: asked at a terminal, and needed without one. |
 | `--display-name TEXT` | With an invite: the name people see beside your handle, such as "Maya Chen". |
+| `--server-name NAME` | A local label for the server; otherwise its host label. Never sent to the server. |
 | `--name MACHINE` | This machine's name, which names its key. Default: its host name. |
 | `--json` | Print one JSON object instead of text, errors included. |
 

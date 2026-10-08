@@ -287,7 +287,12 @@ func (a *app) humanBoards(ctx context.Context, project projectFile, linked bool,
 		flag = a.localServer().URL
 	}
 	if flag != "" {
-		known = []knownServer{{Name: a.serverRefFor(flag).Name, URL: a.serverRefFor(flag).URL}}
+		srv, err := a.namedServer(flag)
+		if err != nil {
+			return err
+		}
+		srv = a.selectedServer(srv, "flag")
+		known = []knownServer{{Name: srv.Name, URL: srv.URL}}
 	} else if len(known) == 0 {
 		known = []knownServer{{Name: a.localServer().Name, URL: a.localServer().URL}}
 	}

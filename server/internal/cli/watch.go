@@ -70,6 +70,9 @@ func runWatch(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	w.print(page)
+	if selection := a.serverSelection; selection != nil {
+		_, _ = fmt.Fprintf(a.env.Stderr, "Server: %s (%s), from %s.\n", selection.Server.Name, hostOf(selection.Server), selection.Source)
+	}
 	_, _ = fmt.Fprintf(a.env.Stderr, "Watching %s. Stop with Ctrl-C.\n", t.board)
 
 	wake := make(chan struct{}, 1)
@@ -142,9 +145,10 @@ func (w *watchRun) print(page *api.MessagePage) {
 			enc := json.NewEncoder(w.a.env.Stdout)
 			enc.SetEscapeHTML(false)
 			_ = enc.Encode(struct {
-				Board   string     `json:"board"`
-				Message cliMessage `json:"message"`
-			}{page.Board, cliMessage{Message: m}})
+				Board     string           `json:"board"`
+				Message   cliMessage       `json:"message"`
+				Selection *serverSelection `json:"server_selection,omitempty"`
+			}{page.Board, cliMessage{Message: m}, w.a.serverSelection})
 		} else {
 			_, _ = io.WriteString(w.a.env.Stdout, timelineText([]api.Message{m}))
 		}

@@ -80,6 +80,7 @@ the board.
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
 | Agent status and audit use only the selected seat credential, including environment and session selection | in review (#158) | D27, D203 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | in review: `aboard servers`, `servers use`, the default in server choice, `server_not_selected` with several and no default, and every person command naming its server; boards listed across servers and default-server status/watch/audit now have focused acceptance coverage | D172, D203 |
+| Named per-machine servers: connect labels, servers name/rename, names accepted as server targets and output explaining selection | building, #232 | D203 |
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
@@ -407,5 +408,3 @@ that is already approved.
 | The skill says only Aboard writes delivered message blocks, so agents don't invent messages; live tests run cheap models by default, with `make live-smoke` checking each model answers first (#40) | |
 | Every process a test starts stops when the test process dies, including on SIGKILL (`ABOARD_EXIT_WITH_PID`, a watchdog per live lab) (#41) | D170 |
 | Each live lab gets a home folder of its own; omp's live start-up keeps its title from tmux (#45) | |
-
-- Named per-machine servers and selection explanations (#232): building.

@@ -1244,6 +1244,10 @@ $defs:
       previous_name: { type: string }
   ServersOutput:
     description: |
+      Names are labels stored per machine, never sent to a server. Legacy connections
+      derive names from their host until named explicitly. local remains an alias for
+      this machine even if its display label changes.
+
       The servers this machine knows (D203): the local server, once it has an owner
       login, and every server in servers.json, from aboard connect, aboard login or a
       join line. One of them may be the machine's default server, which person commands

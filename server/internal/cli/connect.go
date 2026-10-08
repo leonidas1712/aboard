@@ -27,7 +27,8 @@ type serverLogin struct {
 
 // serverLogins is the content of servers.json: one login per server.
 type serverLogins struct {
-	Servers []serverLogin `json:"servers"`
+	Servers []serverLogin     `json:"servers"`
+	Names   map[string]string `json:"names,omitempty"`
 	// Default is this machine's default server (aboard servers use): a server's URL, or
 	// "local" for the local server. Empty when none is set.
 	Default string `json:"default,omitempty"`
@@ -61,6 +62,7 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("connect")
 	handleFlag := fs.String("handle", "", "your name on the server; default: your system user name")
 	display := fs.String("display-name", "", "the name people see beside your handle, such as \"Maya Chen\"")
+	serverName := fs.String("server-name", "", "a name for this server on this machine")
 	nameFlag := fs.String("name", "", "this machine's name, which names its key; default: its host name")
 	connectUsage := usageOf("connect")
 	pos, err := a.parse(fs, args, connectUsage, 1, 1)
@@ -78,10 +80,14 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 		if *display != "" {
 			return usageError("--display-name goes with an invite link: a machine you approve joins as the person you already are.", connectUsage)
 		}
-		srv, err := parseServerURL(pos[0])
+		srv, err := a.namedServer(pos[0])
 		if err != nil {
 			return err
 		}
+		if err := a.prepareServerName(&srv, *serverName); err != nil {
+			return err
+		}
+		a.selectedServer(srv, "flag")
 		if err := a.checkNotConnected(srv); err != nil {
 			return err
 		}
@@ -101,6 +107,10 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := a.prepareServerName(&srv, *serverName); err != nil {
+		return err
+	}
+	a.selectedServer(srv, "flag")
 	if err := a.checkNotConnected(srv); err != nil {
 		return err
 	}
@@ -181,12 +191,16 @@ func (a *app) saveConnection(srv serverRef, got *api.Connected) error {
 		if _, ok := saved.find(srv.URL); ok {
 			return newError("already_connected", "This machine connected to "+srv.URL+" meanwhile.", "Use that connection.")
 		}
+		if err := a.saveServerName(&saved, srv); err != nil {
+			return err
+		}
 		saved.Servers = append(saved.Servers, login)
 		return nil
 	})
 	if err != nil {
 		return err
 	}
+	a.selectedServer(srv, "flag")
 	key := got.Key
 	isDefault, extra, err := a.offerDefault(srv)
 	if err != nil {
