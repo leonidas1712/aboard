@@ -1,12 +1,12 @@
 {
   "harnesses": {
     "claude-code": {
-      "version": "2.1.292 (Claude Code)",
+      "version": "2.1.294 (Claude Code)",
       "scenarios": {
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
-          "date": "2026-10-08",
-          "version": "2.1.292 (Claude Code)",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/claude-code"
         },
         "AttachedFileReachesTheHarness": {
@@ -161,10 +161,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2010,
-        "harness_ms": 2055,
-        "deliveries": 12,
-        "date": "2026-10-08"
+        "aboard_ms": 2013,
+        "harness_ms": 2806,
+        "deliveries": 1,
+        "date": "2026-10-09"
       }
     },
     "codex": {
@@ -177,7 +177,7 @@
       "scenarios": {
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
-          "date": "2026-10-08",
+          "date": "2026-10-09",
           "version": "codex-cli 0.160.0",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/codex"
         },
@@ -339,10 +339,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2011,
-        "harness_ms": 41,
-        "deliveries": 3,
-        "date": "2026-10-08"
+        "aboard_ms": 2009,
+        "harness_ms": 34,
+        "deliveries": 1,
+        "date": "2026-10-09"
       }
     },
     "omp": {
@@ -350,7 +350,7 @@
       "scenarios": {
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
-          "date": "2026-10-08",
+          "date": "2026-10-09",
           "version": "omp/18.5.1",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/omp"
         },
@@ -506,10 +506,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2012,
-        "harness_ms": 1,
-        "deliveries": 3,
-        "date": "2026-10-08"
+        "aboard_ms": 2007,
+        "harness_ms": 3,
+        "deliveries": 1,
+        "date": "2026-10-09"
       }
     }
   }
