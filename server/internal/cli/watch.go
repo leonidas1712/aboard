@@ -70,9 +70,6 @@ func runWatch(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	w.print(page)
-	if selection := a.serverSelection; selection != nil {
-		_, _ = fmt.Fprintf(a.env.Stderr, "Server: %s (%s), from %s.\n", selection.Server.Name, hostOf(selection.Server), selection.Source)
-	}
 	_, _ = fmt.Fprintf(a.env.Stderr, "Watching %s. Stop with Ctrl-C.\n", t.board)
 
 	wake := make(chan struct{}, 1)

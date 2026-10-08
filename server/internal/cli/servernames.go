@@ -203,3 +203,24 @@ func (a *app) saveServerName(saved *serverLogins, srv serverRef) error {
 	saved.Names[srv.URL] = srv.Name
 	return nil
 }
+
+// explainServer keeps single-server commands quiet unless the folder changes their target.
+func (a *app) explainServer(selection *serverSelection) bool {
+	known, def, err := a.knownServers()
+	if err != nil {
+		return false
+	}
+	if len(known) > 1 {
+		return true
+	}
+	if selection.Source != "project" {
+		return false
+	}
+	normal := a.localServer().URL
+	if def != nil {
+		normal = def.URL
+	} else if len(known) == 1 {
+		normal = known[0].URL
+	}
+	return selection.Server.URL != normal
+}
