@@ -89,7 +89,10 @@ file's versions and the messages it was posted in. With several seats, add `--bo
 To share a local file, run `aboard file put report.md --name notes/report.md`. The
 local file must exist. Board paths can include folders. Attach it to a message with
 `aboard say "Please read the report" --attach report.md`; this uploads the file and
-records its exact version on the message.
+records its exact version on the message. To attach a file already on the board,
+use `aboard say "Please read the report" --file notes/report.md`. It pins the latest
+version; `--file notes/report.md@v2` pins version 2. An immutable file id also works.
+Repeat `--file` for several files, or combine it with `--attach` for local files.
 
 To update a file, run `aboard file get notes/api.md api.md`, edit `api.md`, then
 `aboard file put api.md`. The CLI remembers the board path, file identity and version
