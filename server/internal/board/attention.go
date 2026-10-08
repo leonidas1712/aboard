@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -148,8 +149,10 @@ const (
 
 // Receipt is whether a message has reached one recipient.
 type Receipt struct {
-	Member Member
-	State  string
+	MidturnHint *string
+	QueuedUntil string
+	Member      Member
+	State       string
 	// Presence is an agent's presence when the receipt was read, never stored with it;
 	// nil for a person.
 	Presence *Presence
@@ -202,9 +205,34 @@ func (s *Service) Receipts(ctx context.Context, p Principal, boardName string, s
 				continue
 			}
 			rc := Receipt{Member: r, State: ReceiptPending}
+			if me.ID == m.SenderID && m.Urgent && r.Kind == "agent" && slices.Contains(m.To, "@"+r.Name) {
+				sender, exists := on[m.SenderID]
+				if exists && sender.Kind == "agent" && sender.HumanID == r.HumanID && sender.ID != r.ID {
+					owner, ownerErr := tx.HumanMember(b.ID, r.HumanID)
+					if ownerErr != nil && !errors.Is(ownerErr, ErrNotFound) {
+						return ownerErr
+					}
+					if ownerErr == nil && owner.Status == StatusActive {
+						person, personErr := tx.HumanByID(r.HumanID)
+						if personErr != nil {
+							return personErr
+						}
+						policy, _ := effectiveMidturn(person, r)
+						hint := "peer_if_supported"
+						if policy == MidturnOwnerOnly {
+							hint = "owner_only"
+						}
+						rc.MidturnHint = &hint
+					}
+				}
+			}
 			if r.Kind == "agent" {
 				pr := r.CurrentPresence(now)
 				rc.Presence = &pr
+				rc.QueuedUntil, err = queuedReceiptExpiry(tx, r, m, now)
+				if err != nil {
+					return err
+				}
 				if r.Cursor >= m.Seq {
 					rc.State = ReceiptReceived
 				}

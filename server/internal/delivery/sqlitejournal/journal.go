@@ -168,13 +168,13 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 	}
 	return j.write(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, in_turn, seen_turns, peer_turn_active, peer_turn, busy_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (harness, session_id) DO UPDATE SET boot = excluded.boot, open = excluded.open,
 				pid = excluded.pid, pid_start = excluded.pid_start, lost_server = excluded.lost_server,
-				lost_board = excluded.lost_board, lost_agent = excluded.lost_agent, lost_member_id = excluded.lost_member_id, turned = excluded.turned,
-				updated_at = excluded.updated_at`,
-			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, lost.Server, lost.Board, lost.Name, lost.MemberID, s.Turned, formatTime(s.UpdatedAt))
+				lost_board = excluded.lost_board, lost_agent = excluded.lost_agent, lost_member_id = excluded.lost_member_id, turned = excluded.turned, in_turn = excluded.in_turn, seen_turns = excluded.seen_turns,
+				peer_turn_active = excluded.peer_turn_active, peer_turn = excluded.peer_turn, busy_at = excluded.busy_at, updated_at = excluded.updated_at`,
+			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, lost.Server, lost.Board, lost.Name, lost.MemberID, s.Turned, s.InTurn, s.SeenTurns, s.PeerTurnActive, s.PeerTurn, formatTime(s.BusyAt), formatTime(s.UpdatedAt))
 		if err != nil {
 			return fmt.Errorf("save session %s: %w", s.Key, err)
 		}
@@ -185,7 +185,7 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 // Sessions returns every recorded session.
 func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error) {
 	rows, err := j.db.QueryContext(ctx, `
-		SELECT harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, updated_at
+		SELECT harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, in_turn, seen_turns, peer_turn_active, peer_turn, busy_at, updated_at
 		FROM sessions ORDER BY harness, session_id`)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -196,9 +196,9 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 		var s delivery.SessionRecord
 		var p delivery.Process
 		var lost delivery.AgentRef
-		var updated string
+		var updated, busy string
 		if err := rows.Scan(&s.Key.Harness, &s.Key.ID, &s.Boot, &s.Open, &p.PID, &p.Start,
-			&lost.Server, &lost.Board, &lost.Name, &lost.MemberID, &s.Turned, &updated); err != nil {
+			&lost.Server, &lost.Board, &lost.Name, &lost.MemberID, &s.Turned, &s.InTurn, &s.SeenTurns, &s.PeerTurnActive, &s.PeerTurn, &busy, &updated); err != nil {
 			return nil, fmt.Errorf("read session: %w", err)
 		}
 		if p.PID != 0 {
@@ -208,6 +208,9 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 			s.Lost = &lost
 		}
 		if s.UpdatedAt, err = parseTime(updated); err != nil {
+			return nil, err
+		}
+		if s.BusyAt, err = parseTime(busy); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -453,12 +456,29 @@ func (j *Journal) Deliveries(ctx context.Context, states ...delivery.State) ([]d
 }
 
 func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]delivery.Delivery, error) {
+	return j.deliveriesWhere(ctx, state, false)
+}
+
+// UnstartedDeliveries includes acknowledged queue admissions until a turn consumes them.
+func (j *Journal) UnstartedDeliveries(ctx context.Context) ([]delivery.Delivery, error) {
+	var out []delivery.Delivery
+	for _, state := range []delivery.State{delivery.StateHanded, delivery.StateConfirmed, delivery.StateDone} {
+		rows, err := j.deliveriesWhere(ctx, state, true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rows...)
+	}
+	return out, nil
+}
+
+func (j *Journal) deliveriesWhere(ctx context.Context, state delivery.State, unstarted bool) ([]delivery.Delivery, error) {
 	rows, err := j.db.QueryContext(ctx, `
 		SELECT d.id, d.server, d.board, d.agent, d.member_id, d.harness, d.session_id, d.boot, d.attempts, d.reason,
 		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, d.handoff_id, m.seq
 		FROM deliveries d JOIN delivery_messages m ON m.delivery_id = d.id
-		WHERE d.state = ?
-		ORDER BY d.id, m.seq`, string(state))
+		WHERE d.state = ? AND (? = 0 OR (d.accepted_at != '' AND d.turn_started_at = ''))
+		ORDER BY d.id, m.seq`, string(state), unstarted)
 	if err != nil {
 		return nil, fmt.Errorf("list %s deliveries: %w", state, err)
 	}

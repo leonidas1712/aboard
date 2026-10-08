@@ -351,6 +351,12 @@ func (s *FakeServer) Inbox(_ context.Context, agent delivery.AgentRef) (msgs []d
 		if !ok {
 			h = delivery.HeldMode{Mode: delivery.ModeFocused}
 		}
+		for _, m := range s.inboxes[agent] {
+			if m.BoardID != "" {
+				h.BoardID = m.BoardID
+				break
+			}
+		}
 		mode = &h
 	}
 	return msgs, s.cursors[agent], mode, nil
@@ -506,4 +512,22 @@ func (f *FakeProcesses) Kill(p delivery.Process) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.dead[p] = true
+}
+
+// QueuedMessage verifies an exact message independently of the read cursor.
+func (s *FakeServer) QueuedMessage(_ context.Context, agent delivery.AgentRef, id string, seq int) (delivery.Message, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.revoked[agent] {
+		return delivery.Message{}, delivery.ErrUnauthorized
+	}
+	if s.gone[agent] {
+		return delivery.Message{}, delivery.ErrBoardGone
+	}
+	for _, m := range s.inboxes[agent] {
+		if m.ID == id && m.Seq == seq {
+			return m, nil
+		}
+	}
+	return delivery.Message{}, errors.New("queued message is not readable")
 }

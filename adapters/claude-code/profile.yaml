@@ -83,7 +83,7 @@ lifecycle:
 
 delivery:
   method: stop-hook
-  capabilities: [idle-hook, tool-boundary, turn-start]
+  capabilities: [idle-hook, tool-boundary, turn-start, midturn-peer]
   # Claude Code 1.0.23 to 2.1.100 ignore the whole settings file, the person's own
   # settings included, when it names one hook event they don't know; 2.1.101 and later
   # skip just that entry. So each hook carries the first version that runs it as

@@ -410,6 +410,7 @@ func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (Get
 	}
 	return convert[GetInbox200JSONResponse](struct {
 		Work             any           `json:"work"`
+		BoardID          string        `json:"board_id"`
 		Board            string        `json:"board"`
 		Agent            string        `json:"agent"`
 		MemberID         string        `json:"member_id"`
@@ -418,7 +419,8 @@ func (h *handlers) GetInbox(ctx context.Context, req GetInboxRequestObject) (Get
 		More             bool          `json:"more"`
 		DeliveryMode     string        `json:"delivery_mode"`
 		DeliveryRevision int64         `json:"delivery_revision"`
-	}{taskWorkOf(r.Work), r.Board.Name, r.Reader.Name, r.Reader.ID, messagesOf(r), r.Reader.Cursor, more, r.Reader.Delivery.Current(), r.Reader.Delivery.Seq})
+		MidturnPolicy    string        `json:"midturn_policy"`
+	}{taskWorkOf(r.Work), r.Board.ID, r.Board.Name, r.Reader.Name, r.Reader.ID, messagesOf(r), r.Reader.Cursor, more, r.Reader.Delivery.Current(), r.Reader.Delivery.Seq, r.MidturnPolicy})
 }
 
 func (h *handlers) SetDeliveryMode(ctx context.Context, req SetDeliveryModeRequestObject) (SetDeliveryModeResponseObject, error) {

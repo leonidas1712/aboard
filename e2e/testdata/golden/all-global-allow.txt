@@ -17,6 +17,7 @@ codex, everywhere:
             Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
             PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+            (Codex 0.159.3 doesn't run Stop and PostToolUse; aboard doctor says what that leaves out)
   create    ~/.codex/rules/aboard.rules (permissions)
             prefix_rule(pattern=["aboard"], decision="allow")
             (Codex runs the commands it allows outside its sandbox.)
@@ -366,6 +367,13 @@ Setup:  claude-code everywhere, codex everywhere, omp everywhere
     "level": "ok",
     "message": "codex: hooks installed everywhere ({HOME}/.codex/hooks.json)",
     "name": "codex_hooks"
+  },
+  {
+    "code": "codex_hooks_unsupported",
+    "fix": "update Codex to 0.160.0 or later, then run aboard init",
+    "level": "warning",
+    "message": "codex: Codex 0.159.3 doesn't run Aboard's Stop and PostToolUse hooks, so turn-end delivery uses the harness queue and older versions use the pre-tool hook",
+    "name": "codex_version"
   },
   {
     "code": null,

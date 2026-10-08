@@ -140,7 +140,14 @@ type SessionRecord struct {
 	// Turned is true once the session has run a turn, which a harness needs before it
 	// can resume the session (Claude Code saves a conversation only from its first turn).
 	Turned    bool
-	UpdatedAt time.Time
+	InTurn    bool
+	SeenTurns bool
+	// PeerTurnActive is a logical turn, not presence. Reconnects and Stop
+	// continuations keep it; only explicit turn completion closes it.
+	PeerTurnActive bool
+	PeerTurn       uint64
+	BusyAt         time.Time
+	UpdatedAt      time.Time
 }
 
 // Process is one running process. Start is when it started, in the system's own units,
@@ -183,8 +190,11 @@ const (
 // set (the mode is then focused); it only grows, so of two reads the one with the higher
 // revision is the newer.
 type HeldMode struct {
+	BoardID  string
 	Mode     Mode
 	Revision int64
+	// MidturnPolicy is authoritative only for the fresh inbox read that carried it.
+	MidturnPolicy string
 }
 
 // ParseMode reads a mode's name. auto, the earlier name of all, is read as all.
@@ -319,17 +329,25 @@ func backoff(attempts int) time.Duration {
 // HandoffManifest freezes the payload and admitted seat allocation before handoff.
 // It contains delivery metadata only, never bodies or credentials.
 type HandoffManifest struct {
-	ID          string
-	Session     SessionKey
-	Boot        string
-	Class       Class
-	PayloadHash string
-	Parts       []HandoffPart
-	CreatedAt   time.Time
+	RenderVersion int
+	PrefixHash    string
+	MultiSeat     bool
+	ID            string
+	Session       SessionKey
+	Boot          string
+	Class         Class
+	PayloadHash   string
+	Parts         []HandoffPart
+	CreatedAt     time.Time
+	PeerTurn      uint64
+	PeerSenders   []AgentKey
 }
 
 // HandoffPart identifies one seat's exact contribution to an immutable payload.
 type HandoffPart struct {
+	RenderMode Mode
+	Digest     bool
+	Messages   []QueuedMessage
 	Agent      AgentRef
 	Generation uint64
 	Seqs       []int

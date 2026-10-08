@@ -51,7 +51,7 @@ func (s *session) preflightBinding(agent AgentRef) Response {
 }
 
 func (s *session) compositionOptions(limit int) composeOptions {
-	return composeOptions{MultiSeat: len(s.agents) > 1, First: s.firstSeat, WholeLimit: limit}
+	return composeOptions{Now: s.now(), MultiSeat: len(s.agents) > 1, First: s.firstSeat, WholeLimit: limit}
 }
 
 func handoffClass(parts []offer) Class {
@@ -88,6 +88,9 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	for _, p := range c.parts {
 		a := s.agents[p.agent.Key()]
 		if a == nil || a.ref.MemberID == "" || a.generation == 0 {
+			if c.peerBoundary {
+				return nil, nil, fmt.Errorf("peer handoff needs verified seat identities")
+			}
 			if len(s.agents) > 1 {
 				return nil, nil, fmt.Errorf("a combined handoff needs verified seat identities")
 			}
@@ -106,7 +109,27 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	if err := s.ensureBoot(ctx); err != nil {
 		return nil, nil, err
 	}
-	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: s.now()}
+	renderedAt := c.renderedAt
+	if renderedAt.IsZero() {
+		renderedAt = s.now()
+	}
+	prefixHash := sha256.Sum256([]byte(prefix))
+	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt, RenderVersion: 1, PrefixHash: hex.EncodeToString(prefixHash[:]), MultiSeat: len(s.agents) > 1}
+	if c.peerBoundary {
+		manifest.Class, manifest.PeerTurn = ClassMidturnPeer, s.peerTurn
+		seen := map[AgentKey]bool{}
+		for _, part := range c.parts {
+			for _, msg := range part.msgs {
+				if msg.PeerBoundary {
+					key := AgentKey{Server: part.agent.Server, MemberID: msg.MidturnPeerSenderID}
+					if !seen[key] {
+						seen[key] = true
+						manifest.PeerSenders = append(manifest.PeerSenders, key)
+					}
+				}
+			}
+		}
+	}
 	hash := sha256.Sum256([]byte(text))
 	manifest.PayloadHash = hex.EncodeToString(hash[:])
 	for _, p := range c.parts {
@@ -114,7 +137,13 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 		if a == nil || a.problem != "" || a.adopting {
 			return nil, nil, fmt.Errorf("seat no longer available")
 		}
-		manifest.Parts = append(manifest.Parts, HandoffPart{Agent: p.agent, Generation: a.generation, Seqs: orderedSeqs(p.msgs), DeliveryID: p.redeliver})
+		part := HandoffPart{Agent: p.agent, Generation: a.generation, Seqs: orderedSeqs(p.msgs), DeliveryID: p.redeliver, RenderMode: p.mode, Digest: c.digests[p.agent.Key()]}
+		for _, msg := range p.msgs {
+			if msg.ID != "" && msg.BoardID != "" {
+				part.Messages = append(part.Messages, queuedIdentity(p.agent, msg))
+			}
+		}
+		manifest.Parts = append(manifest.Parts, part)
 	}
 	if s.handoffs == nil {
 		s.handoffs = map[string]*sessionHandoff{}
@@ -229,7 +258,7 @@ func (s *session) confirmManifests(ctx context.Context, before time.Time) map[in
 				}
 			}
 		}
-		if !ready {
+		if !ready || h.manifest.Class == ClassMidturnPeer {
 			continue
 		}
 		confirmed, err := s.confirmHandoff(ctx, h)
@@ -265,6 +294,9 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 		return strings.Compare(a.manifest.ID, b.manifest.ID)
 	})
 	for _, h := range frozen {
+		if h.parts == nil {
+			s.restoreRenderParts(h, offers, opts, prefix)
+		}
 		if h.parts == nil || h.prefix != prefix || h.multi != opts.MultiSeat || h.manifest.Boot != s.boot {
 			continue
 		}
@@ -297,13 +329,50 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 				}
 			}
 		}
-		text := renderComposition(parts, opts.MultiSeat, h.digests)
+		text := renderComposition(parts, opts.MultiSeat, h.digests, h.manifest.CreatedAt)
 		if len(text) > limit {
 			continue
 		}
-		return composed{parts: parts, text: text, digests: h.digests, nextFirst: s.firstSeat}
+		return composed{renderedAt: h.manifest.CreatedAt, parts: parts, text: text, digests: h.digests, nextFirst: s.firstSeat}
 	}
 	return compose(offers, limit, opts)
+}
+
+// restoreRenderParts uses current authorized offers, never journaled message text.
+func (s *session) restoreRenderParts(h *sessionHandoff, offers []offer, opts composeOptions, prefix string) {
+	m := h.manifest
+	hash := sha256.Sum256([]byte(prefix))
+	if m.RenderVersion != 1 || m.Boot != s.boot || m.MultiSeat != opts.MultiSeat || m.PrefixHash != hex.EncodeToString(hash[:]) {
+		return
+	}
+	parts := make([]offer, 0, len(m.Parts))
+	digests := map[AgentKey]bool{}
+	for _, p := range m.Parts {
+		var part offer
+		found := false
+		for _, o := range offers {
+			if o.agent != p.Agent || o.mode != p.RenderMode {
+				continue
+			}
+			part = offer{agent: o.agent, mode: o.mode, redeliver: p.DeliveryID}
+			for _, identity := range p.Messages {
+				for _, msg := range o.msgs {
+					if msg.ID == identity.MessageID && msg.BoardID == identity.BoardID && msg.Seq == identity.Seq {
+						part.msgs = append(part.msgs, msg)
+						break
+					}
+				}
+			}
+			found = slices.Equal(orderedSeqs(part.msgs), p.Seqs)
+			break
+		}
+		if !found {
+			return
+		}
+		parts = append(parts, part)
+		digests[p.Agent.Key()] = p.Digest
+	}
+	h.parts, h.digests, h.prefix, h.multi = parts, digests, prefix, opts.MultiSeat
 }
 
 func (s *session) textContext(agent AgentRef) deliverytext.Context {
@@ -326,7 +395,7 @@ func (s *session) ensureBoot(ctx context.Context) error {
 		return err
 	}
 	boot := "boot_" + hex.EncodeToString(random[:])
-	record := SessionRecord{Key: s.key, Boot: boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, UpdatedAt: s.now()}
+	record := SessionRecord{Key: s.key, Boot: boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, record); err != nil {
 		return err
 	}

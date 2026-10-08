@@ -12,11 +12,12 @@ var ErrNotFound = errors.New("not found")
 // Human is a person on this server. ID is permanent; Name is their handle, unique among
 // the people still on the server and their member name on boards.
 type Human struct {
-	ID          string
-	Name        string
-	DisplayName *string
-	Role        string // ServerAdmin, ServerMember or ServerGuest
-	CreatedAt   string
+	MidturnPolicy string
+	ID            string
+	Name          string
+	DisplayName   *string
+	Role          string // ServerAdmin, ServerMember or ServerGuest
+	CreatedAt     string
 	// RemovedAt is when an admin removed the person from the server, and RemovedBy that
 	// admin's id; nil while they are on it. A removed person's handle is free again.
 	RemovedAt *string
@@ -187,17 +188,18 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
-	DisplayName *string
-	CurrentTask *TaskRef
-	ID          string
-	BoardID     string
-	Name        string
-	Kind        string
-	Role        *string
-	HumanID     string // the human, or the agent's owner
-	Owner       *string
-	Harness     *string
-	TokenDigest *string
+	MidturnOverride *string
+	DisplayName     *string
+	CurrentTask     *TaskRef
+	ID              string
+	BoardID         string
+	Name            string
+	Kind            string
+	Role            *string
+	HumanID         string // the human, or the agent's owner
+	Owner           *string
+	Harness         *string
+	TokenDigest     *string
 	// KeyID is the access key the agent's token came from, which it never outlives; nil
 	// for a person, and for a guest's agent, which has no key behind it.
 	KeyID    *string
@@ -300,19 +302,20 @@ const (
 
 // Message is a stored message with its sender.
 type Message struct {
-	Files      []FileRef
-	Ask        *Ask
-	Answer     *Answer
-	About      []TaskTag
-	ID         string
-	BoardID    string
-	Seq        int64
-	At         string
-	SenderID   string
-	To         []string
-	Body       string
-	ReplyTo    *string
-	ReplyToSeq *int64
+	MidturnPeerSenderID *string
+	Files               []FileRef
+	Ask                 *Ask
+	Answer              *Answer
+	About               []TaskTag
+	ID                  string
+	BoardID             string
+	Seq                 int64
+	At                  string
+	SenderID            string
+	To                  []string
+	Body                string
+	ReplyTo             *string
+	ReplyToSeq          *int64
 	// ReplyToFrom is the name of the member who sent the message this one replies to;
 	// the store fills it when it reads a message.
 	ReplyToFrom *string

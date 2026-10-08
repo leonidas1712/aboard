@@ -15,7 +15,8 @@ import (
 // inboxSeatsOutput is aboard inbox in a session with several seats and no --board
 // (cli.yaml, InboxSeatsOutput): every seat's inbox, each read with its own token.
 type inboxSeatsOutput struct {
-	Seats []inboxSeat `json:"seats"`
+	Queued *delivery.QueuedMessages `json:"queued,omitempty"`
+	Seats  []inboxSeat              `json:"seats"`
 	// Unavailable counts the seats whose inbox couldn't be read; they acknowledged
 	// nothing and aren't named, since a refusal may come from a board they can't see.
 	Unavailable int `json:"unavailable"`

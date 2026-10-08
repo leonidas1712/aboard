@@ -50,8 +50,13 @@ func kitDeliveredIsRead(t *testing.T, p support.Profile) {
 		t.Fatalf("aboard inbox in the woken turn showed %v again", got)
 	}
 
-	w = s.idle()
-	writerSays(t, e, "second")
+	if kitStopContinues(p) {
+		writerSays(t, e, "second")
+		w = s.startOp("wait")
+	} else {
+		w = s.idle()
+		writerSays(t, e, "second")
+	}
 	if b := s.nextBundle(w, 10*time.Second); strings.Contains(b, "first, delivered") || !strings.Contains(b, "second") {
 		t.Fatalf("the next bundle should hold only the new message:\n%s", b)
 	}

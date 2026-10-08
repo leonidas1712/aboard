@@ -215,6 +215,9 @@ func checkVersions(t *testing.T, h harness.Harness) {
 	versions := []string{"0.0.1", p.Checks.MinVersion, below(p.Checks.MinVersion)}
 	for _, s := range p.Delivery.Hooks {
 		versions = append(versions, s.Since, below(s.Since))
+		if s.Until != "" {
+			versions = append(versions, s.Until, below(s.Until))
+		}
 		for _, f := range s.Fallback {
 			versions = append(versions, f.Since, below(f.Since))
 		}
@@ -235,7 +238,7 @@ func checkVersions(t *testing.T, h harness.Harness) {
 			}
 		}
 		for _, s := range p.Delivery.Hooks {
-			if harness.VersionAtLeast(v, s.Since) && !slices.ContainsFunc(hooks, func(hk harness.Hook) bool { return hk.Event == s.Event && hk.Arg == s.Run }) {
+			if harness.VersionAtLeast(v, s.Since) && (s.Until == "" || !harness.VersionAtLeast(v, s.Until)) && !slices.ContainsFunc(hooks, func(hk harness.Hook) bool { return hk.Event == s.Event && hk.Arg == s.Run }) {
 				t.Errorf("at %s, aboard init leaves out %s, which that version runs", v, s.Event)
 			}
 		}
@@ -249,12 +252,14 @@ func checkVersions(t *testing.T, h harness.Harness) {
 			t.Errorf("a version that can't be read (%q) gets %v; want what %s gets, %v", unknown, events(got), p.Checks.MinVersion, events(oldest))
 		}
 	}
+	current := slices.Clone(p.Delivery.Hooks)
+	current = slices.DeleteFunc(current, func(s harness.HookSpec) bool { return s.Until != "" })
 	newest := h.Hooks("aboard", harness.Newest)
-	if len(newest) != len(p.Delivery.Hooks) || len(h.Unsupported(harness.Newest)) != 0 {
+	if len(newest) != len(current) || len(h.Unsupported(harness.Newest)) != 0 {
 		t.Errorf("the newest version gets %v; want every hook the profile lists", events(newest))
 	}
 	for i, hk := range newest {
-		if s := p.Delivery.Hooks[i]; hk.Event != s.Event || hk.Arg != s.Run {
+		if s := current[i]; hk.Event != s.Event || hk.Arg != s.Run {
 			t.Errorf("the newest version gets %s for %s; the profile lists %s", hk.Event, hk.Arg, s.Event)
 		}
 	}
@@ -372,11 +377,15 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 				t.Errorf("capability queue: delivery.queue names no command")
 			}
 		case "tool-boundary":
-			if !hasOp(p, harness.OpTool) {
+			if !hasOp(p, harness.OpTool) && !slices.Contains(caps, "extension") {
 				t.Errorf("capability tool-boundary: no hook of op tool")
 			}
 			if p.Delivery.MidTurn != "tool-hook" {
 				t.Errorf("capability tool-boundary: delivery.mid_turn is %q, want tool-hook", p.Delivery.MidTurn)
+			}
+		case "midturn-peer":
+			if !slices.Contains(caps, "tool-boundary") {
+				t.Errorf("capability midturn-peer needs tool-boundary")
 			}
 		case "turn-start":
 			if !hasOp(p, harness.OpPrompt) && !slices.Contains(caps, "extension") {
