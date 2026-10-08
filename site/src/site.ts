@@ -14,6 +14,7 @@ export const QUICKSTART_URL = "https://docs.comeaboard.dev/quickstart";
 
 export const GITHUB_URL = "https://github.com/leonidas1712/aboard";
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`;
+export const ROADMAP_URL = `${GITHUB_URL}/blob/main/design/ROADMAP.md`;
 
 // The independent investigation of the Hugging Face incident, published 26 August 2026.
 export const INCIDENT_URL = "https://www.redwoodresearch.org/research/hugging-face-incident";
