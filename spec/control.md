@@ -906,6 +906,8 @@ row, even when the combined payload contains only one board's messages.
 The additive `queued` operation reads `harness`, `session` and `boot`; its response
 has optional `queued` with the shape `QueuedMessages` in cli.yaml. It observes only
 that session's current seats, rechecks each own-token inbox and acknowledges nothing.
+Entries may include the current readable `board` name for display. With several
+boards, text summaries qualify message numbers with that name (or immutable id).
 A stale boot or seat is refused rather than substituted with another session. An old
 daemon's `invalid_request` leaves queue state unknown; it is never treated as no queue.
 `inbox --queued` uses this observation to preview messages by exact id with the current

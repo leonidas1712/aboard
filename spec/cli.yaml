@@ -3892,6 +3892,7 @@ $defs:
           required: [board_id, member_id, message_id, seq, from, boundary]
           properties:
             board_id: { type: string }
+            board: { type: string, description: Current readable board name; immutable board_id remains the identity. }
             member_id: { type: string }
             message_id: { type: string }
             seq: { type: integer, minimum: 1 }
