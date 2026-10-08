@@ -222,7 +222,7 @@ export function WorkTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) 
           </span>
           <span className="font-bold leading-snug text-ink group-hover:underline">{t.title}</span>
         </button></h3>
-        {people.length > 0 ? <ul className={cn("flex flex-col gap-2.5 border-t pt-3", needs ? "border-accent-strong/40" : "border-rule")}>
+        {people.length > 0 ? <ul className="flex flex-col gap-2.5 pt-1">
           {people.map((m, i) => {
             const w = who(m);
             return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 flex-col gap-1 text-meta">

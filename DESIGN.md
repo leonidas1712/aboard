@@ -513,7 +513,7 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   fill, rule border, 12px radius, 12px by 14px padding, 12px apart; on `attention-soft`
   with an accent-strong edge while it waits on you): the reference on its own line with
   "needs you" or "blocked" beside it, the title under it so a wrapped title stays
-  aligned, then below a rule who is on it, or "Not picked up yet". Tasks that wait on
+  aligned, then who is on it (no rule: the block groups them), or "Not picked up yet". Tasks that wait on
   you come first, then work under way, the blocked, and what nobody has taken. A rule
   and 24px separate the Work list from the agents and the rest of the panel. By agent, the Work list gives way and each agent
   row carries chips for the live tasks it is on (a task's reference, and its title when
