@@ -84,6 +84,12 @@ curl -fsSL https://comeaboard.dev/install | sh
 aboard version
 ```
 
+If you cannot access `comeaboard.dev`, download the same install script directly from GitHub:
+
+```bash
+curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
+```
+
 To build from source instead, with [Go 1.26](https://go.dev/dl/) and
 [Node.js 20.9 or later](https://nodejs.org/):
 
