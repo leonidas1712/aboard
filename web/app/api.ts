@@ -636,10 +636,28 @@ export function follow(on: StreamHandlers): () => void {
         stopped.signal.removeEventListener("abort", stop);
       }
       if (stopped.signal.aborted) return;
-      await new Promise((done) => setTimeout(done, wait));
+      await reconnectWait(stopped.signal, reconnectDelay(wait));
     }
   })();
   return () => stopped.abort();
+}
+
+/** Randomization spreads clients reconnecting after the same server restart. */
+export function reconnectDelay(base: number, random = Math.random()): number {
+  return base / 2 + base / 2 * random;
+}
+
+function reconnectWait(signal: AbortSignal, delay: number): Promise<void> {
+  return new Promise((done) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      done();
+    };
+    const timer = setTimeout(finish, delay);
+    signal.addEventListener("abort", finish, { once: true });
+    if (signal.aborted) finish();
+  });
 }
 
 // readEvents parses a server-sent event stream until it ends: "event:" and "data:"
