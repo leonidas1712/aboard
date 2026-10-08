@@ -31,10 +31,11 @@ var migrations embed.FS
 
 // Store is an open Aboard database.
 type Store struct {
-	db     *sql.DB
-	writer *sql.DB
-	clk    clock.Clock // stamps saved responses and backups
-	path   string
+	db          *sql.DB
+	writer      *sql.DB
+	clk         clock.Clock // stamps saved responses and backups
+	path        string
+	bookkeeping bookkeepingWrites
 }
 
 // Readers reuse a small pool rather than opening a SQLite connection per waking
@@ -125,6 +126,7 @@ func migrationNumber(name string) int {
 
 // Close closes the database.
 func (s *Store) Close() error {
+	s.closeBookkeeping()
 	var writerErr error
 	if s.writer != nil {
 		writerErr = s.writer.Close()

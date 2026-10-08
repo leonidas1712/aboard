@@ -16,6 +16,13 @@ type Store interface {
 	Write(ctx context.Context, fn func(Tx) error) error
 }
 
+// BookkeepingStore may group acknowledgement and presence callbacks into a commit.
+// Each callback has its own rollback boundary. Success waits for the durable commit.
+// Event writes use Store.Write. Stores without this port keep separate transactions.
+type BookkeepingStore interface {
+	WriteBookkeeping(ctx context.Context, fn func(Tx) error) error
+}
+
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
@@ -113,6 +120,12 @@ type ReadTx interface {
 	MemberByName(boardID, name string) (Member, error)
 	// Members lists a board's members in the order they joined.
 	Members(boardID string) ([]Member, error)
+	// StreamMembers returns identity, owner, status, cursor and presence only. It
+	// includes human seats so streams can exclude agents whose owner left.
+	StreamMembers(boardID string) ([]Member, error)
+	// StreamBoard returns only ID, name, head sequence and lifecycle. Callers must
+	// separately validate membership in the same snapshot before exposing it.
+	StreamBoard(boardID string) (Board, error)
 	// JoinCodeByDigest finds a join code by the digest of the code.
 	JoinCodeByDigest(digest string) (JoinCode, error)
 	// JoinCodeByID finds a join code by id.
